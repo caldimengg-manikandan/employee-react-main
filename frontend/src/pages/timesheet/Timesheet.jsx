@@ -12,6 +12,7 @@ const Timesheet = () => {
   const [loading, setLoading] = useState(false);
   const [permissionCounts, setPermissionCounts] = useState({});
   const [monthlyPermissionCount, setMonthlyPermissionCount] = useState(0);
+  const [monthlyBasePermissionCount, setMonthlyBasePermissionCount] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   // Project names organized by category
@@ -122,7 +123,7 @@ const Timesheet = () => {
     if (hasSomeData() && !isSubmitted) {
       saveDraftToSession();
     }
-  }, [timesheetRows, currentWeek, isSubmitted]);
+  }, [timesheetRows, isSubmitted]);
 
   // Update monthly permission count when timesheet rows change
   useEffect(() => {
@@ -202,15 +203,7 @@ const Timesheet = () => {
             if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
               const dateKey = date.toDateString();
               newPermissionCounts[dateKey] = (newPermissionCounts[dateKey] || 0) + 1;
-              
-              // Calculate permission count based on hours
-              if (hours > 0 && hours <= 1) {
-                count += 1;
-              } else if (hours > 1 && hours <= 2) {
-                count += 2;
-              } else if (hours > 2 && hours <= 3) {
-                count += 3;
-              }
+              count += 1;
             }
           }
         });
@@ -218,8 +211,42 @@ const Timesheet = () => {
     });
     
     setPermissionCounts(newPermissionCounts);
-    setMonthlyPermissionCount(count);
+    setMonthlyPermissionCount(monthlyBasePermissionCount + count);
   };
+
+  useEffect(() => {
+    const loadMonthlyBasePermissionCount = async () => {
+      try {
+        const res = await timesheetAPI.getMyTimesheets();
+        const sheets = Array.isArray(res.data) ? res.data : [];
+        const currentMonth = currentWeek.getMonth();
+        const currentYear = currentWeek.getFullYear();
+        let baseCount = 0;
+        sheets.forEach((sheet) => {
+          const weekStart = new Date(sheet.weekStartDate);
+          (sheet.entries || []).forEach((entry) => {
+            if (entry.task === "Permission" && Array.isArray(entry.hours)) {
+              entry.hours.forEach((h, idx) => {
+                if (h > 0) {
+                  const d = new Date(weekStart);
+                  d.setDate(d.getDate() + idx);
+                  if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
+                    baseCount += 1;
+                  }
+                }
+              });
+            }
+          });
+        });
+        setMonthlyBasePermissionCount(baseCount);
+      } catch (e) {
+        setMonthlyBasePermissionCount(0);
+      } finally {
+        updateMonthlyPermissionCount();
+      }
+    };
+    loadMonthlyBasePermissionCount();
+  }, [currentWeek]);
 
   const addProjectRow = () => {
     const newRow = {
@@ -270,72 +297,134 @@ const Timesheet = () => {
   };
 
   const updateHours = (id, dayIndex, value) => {
-    const row = timesheetRows.find(r => r.id === id);
-    if (!row) return;
+  const row = timesheetRows.find(r => r.id === id);
+  if (!row) return;
 
-    // Handle empty string for proper deletion
-    if (value === "" || value === null || value === undefined) {
-      setTimesheetRows((prev) =>
-        prev.map((r) => {
-          if (r.id === id) {
-            const newHours = [...r.hours];
-            newHours[dayIndex] = 0;
-            return { ...r, hours: newHours };
-          }
-          return r;
-        })
-      );
-      return;
-    }
+  // Block editing other entries on a day with Full Day Leave/Office Holiday
+  const isFullDayMarked = timesheetRows.some(
+    (r) =>
+      (r.task === "Full Day Leave" || r.task === "Office Holiday") &&
+      ((r.hours?.[dayIndex] || 0) > 0)
+  );
+  if (
+    isFullDayMarked &&
+    row.task !== "Full Day Leave" &&
+    row.task !== "Office Holiday"
+  ) {
+    alert("Full Day Leave applied on this day; other entries are blocked.");
+    return;
+  }
 
-    let numValue = parseFloat(value) || 0;
-
-    // Handle leave types
-    if (row.task === "Office Holiday" || row.task === "Full Day Leave") {
-      // For Full Day Leave and Office Holiday - only allow 0 or 9.5
-      if (numValue > 0) {
-        numValue = 9.5;
-      } else {
-        numValue = 0;
-      }
-    } else if (row.task === "Half Day Leave") {
-      // For Half Day Leave - only allow 0 or 4.75
-      if (numValue > 0) {
-        numValue = 4.75;
-      } else {
-        numValue = 0;
-      }
-    } else if (row.task === "Permission") {
-      numValue = Math.max(0, Math.min(3, numValue));
-      const date = new Date(currentWeek);
-      date.setDate(date.getDate() + (dayIndex - date.getDay() + 1));
-      const dateKey = date.toDateString();
-      const currentPermissionCount = permissionCounts[dateKey] || 0;
-      const remainingMonthlyPermissions = 3 - monthlyPermissionCount;
-      if (numValue > 0 && remainingMonthlyPermissions <= 0) {
-        alert("Monthly permission limit (3 counts) exceeded!");
-        numValue = 0;
-      }
-    } else {
-      // Regular project hours
-      if (hasFullDayLeave(dayIndex)) {
-        numValue = 0;
-      } else {
-        numValue = Math.max(0, Math.min(9, numValue));
-      }
-    }
-
+  // Handle empty string for proper deletion
+  if (value === "" || value === null || value === undefined) {
     setTimesheetRows((prev) =>
       prev.map((r) => {
         if (r.id === id) {
           const newHours = [...r.hours];
-          newHours[dayIndex] = numValue;
+          newHours[dayIndex] = 0;
           return { ...r, hours: newHours };
         }
         return r;
       })
     );
-  };
+    return;
+  }
+
+  let numValue = parseFloat(value) || 0;
+
+  // Calculate current daily total without this row's current value
+  const currentDailyTotal = timesheetRows.reduce((total, r) => {
+    if (r.id === id) return total; // Skip current row
+    return total + (r.hours[dayIndex] || 0);
+  }, 0);
+
+  // Calculate break hours for the day
+  const currentBreakHours = computeBreakForDay(dayIndex);
+  
+  // Check if adding new value would exceed 24 hours (including break hours)
+  const newWorkTotal = currentDailyTotal + numValue;
+  const newTotalWithBreak = newWorkTotal + currentBreakHours;
+  
+  if (newTotalWithBreak > 24) {
+    const currentTotalWithBreak = (currentDailyTotal + currentBreakHours).toFixed(1);
+    alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyTotal.toFixed(1)}h + Break: ${currentBreakHours.toFixed(1)}h)\nAfter update: ${newTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+    return; // Don't update if it would exceed 24 hours
+  }
+
+  // Warning when approaching 24 hours (within 2 hours)
+  if (newTotalWithBreak >= 22 && newTotalWithBreak <= 24) {
+    const remainingHours = (24 - newTotalWithBreak).toFixed(1);
+    // Only show warning once per session for this day to avoid spam
+    const warningKey = `timesheet_warning_${dayIndex}_${currentWeek.toDateString()}`;
+    if (!sessionStorage.getItem(warningKey)) {
+      alert(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newTotalWithBreak.toFixed(1)}h (only ${remainingHours}h remaining)\n\nThis includes Work (${newWorkTotal.toFixed(1)}h) + Break (${currentBreakHours.toFixed(1)}h)`);
+      sessionStorage.setItem(warningKey, 'true');
+    }
+  }
+
+  // Handle leave types
+  if (row.task === "Office Holiday" || row.task === "Full Day Leave") {
+    // For Full Day Leave and Office Holiday
+    if (numValue > 0 && numValue < 9.5) {
+      numValue = 9.5; // Jump to 9.5 when increasing from 0
+    } else if (numValue === 0) {
+      numValue = 0; // Allow setting to 0
+    }
+    // If user enters any value manually, validate it
+    if (numValue > 0 && numValue !== 9.5) {
+      numValue = 9.5; // Force to 9.5 for positive values
+    }
+  } else if (row.task === "Half Day Leave") {
+    // For Half Day Leave
+    if (numValue > 0 && numValue < 4.75) {
+      numValue = 4.75; // Jump to 4.75 when increasing from 0
+    } else if (numValue === 0) {
+      numValue = 0; // Allow setting to 0
+    }
+    // If user enters any value manually, validate it
+    if (numValue > 0 && numValue !== 4.75) {
+      numValue = 4.75; // Force to 4.75 for positive values
+    }
+  } else if (row.task === "Permission") {
+    const date = new Date(currentWeek);
+    date.setDate(date.getDate() + (dayIndex - date.getDay() + 1));
+    const dateKey = date.toDateString();
+    const currentPermissionCount = permissionCounts[dateKey] || 0;
+    const remainingMonthlyPermissions = 3 - monthlyPermissionCount;
+    if (numValue > 0 && remainingMonthlyPermissions <= 0) {
+      alert("Monthly permission limit (3 counts) exceeded!");
+      numValue = 0;
+    } else if (numValue > 0) {
+      numValue = 1;
+    } else {
+      numValue = 0;
+    }
+  } else {
+    // Regular project hours
+    numValue = Math.max(0, Math.min(8.25, numValue));
+  }
+
+  // Double-check after task-specific validation (including break hours)
+  const finalWorkTotal = currentDailyTotal + numValue;
+  const finalTotalWithBreak = finalWorkTotal + currentBreakHours;
+  
+  if (finalTotalWithBreak > 24) {
+    const currentTotalWithBreak = (currentDailyTotal + currentBreakHours).toFixed(1);
+    alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyTotal.toFixed(1)}h + Break: ${currentBreakHours.toFixed(1)}h)\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+    return;
+  }
+
+  setTimesheetRows((prev) =>
+    prev.map((r) => {
+      if (r.id === id) {
+        const newHours = [...r.hours];
+        newHours[dayIndex] = numValue;
+        return { ...r, hours: newHours };
+      }
+      return r;
+    })
+  );
+};
 
   // Check if permission is allowed for a specific day
   const isPermissionAllowed = (dayIndex) => {
@@ -412,62 +501,68 @@ const Timesheet = () => {
     return (totals.weekly + computeWeeklyBreak()).toFixed(1);
   };
 
-  // ✅ Week calculation helpers
+  const getCurrentDailyTotalWithBreak = (dayIndex) => {
+    const workTotal = totals.daily[dayIndex] || 0;
+    const breakTotal = computeBreakForDay(dayIndex);
+    return (workTotal + breakTotal).toFixed(1);
+  };
+
+  const getDailyTotalWarningClass = (dayIndex) => {
+    const totalWithBreak = parseFloat(getCurrentDailyTotalWithBreak(dayIndex));
+    if (totalWithBreak >= 24) return "bg-red-100 text-red-800 font-bold";
+    if (totalWithBreak >= 20) return "bg-yellow-100 text-yellow-800 font-bold";
+    return "text-blue-700 font-bold";
+  };
+
+  // ✅ Week calculation helpers (anchor to local Monday of currentWeek)
   const getWeekDates = () => {
-    const weekNum = getWeekNumber(currentWeek);
-    const year = currentWeek.getFullYear();
-    return getWeekDatesArray(year, weekNum);
-  };
-
-  const getWeekNumber = (date) => {
-    const d = new Date(
-      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate())
-    );
-    const dayNum = d.getUTCDay() || 7;
-    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
-  };
-
-  const getWeekDatesArray = (year, week) => {
-    const jan1 = new Date(year, 0, 1);
-    const dayOfWeek = jan1.getDay();
-    let firstMonday;
-
-    if (dayOfWeek <= 4) {
-      firstMonday = new Date(jan1);
-      firstMonday.setDate(jan1.getDate() - (dayOfWeek - 1));
-    } else {
-      firstMonday = new Date(jan1);
-      firstMonday.setDate(jan1.getDate() + (8 - dayOfWeek));
-    }
-
-    const weekStart = new Date(firstMonday);
-    weekStart.setDate(firstMonday.getDate() + (week - 1) * 7);
+    const base = new Date(currentWeek);
+    const day = base.getDay(); // 0 (Sun) .. 6 (Sat)
+    const diffToMonday = (day + 6) % 7; // days to go back to Monday
+    const monday = new Date(base);
+    monday.setDate(base.getDate() - diffToMonday);
 
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(weekStart);
-      d.setDate(weekStart.getDate() + i);
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
       return d;
     });
   };
 
   const previousWeek = () => {
+    // Clear warning session keys when changing weeks
+    for (let i = 0; i < 7; i++) {
+      sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
+    }
+    
     const newWeek = new Date(currentWeek);
     newWeek.setDate(newWeek.getDate() - 7);
     setCurrentWeek(newWeek);
+    setTimesheetRows([]);
     setIsSubmitted(false); // Reset submission status when changing weeks
   };
 
   const nextWeek = () => {
+    // Clear warning session keys when changing weeks
+    for (let i = 0; i < 7; i++) {
+      sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
+    }
+    
     const newWeek = new Date(currentWeek);
     newWeek.setDate(newWeek.getDate() + 7);
     setCurrentWeek(newWeek);
+    setTimesheetRows([]);
     setIsSubmitted(false); // Reset submission status when changing weeks
   };
 
   const goToCurrentWeek = () => {
+    // Clear warning session keys when changing weeks
+    for (let i = 0; i < 7; i++) {
+      sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
+    }
+    
     setCurrentWeek(new Date());
+    setTimesheetRows([]);
     setIsSubmitted(false); // Reset submission status when changing weeks
   };
 
@@ -536,7 +631,6 @@ const Timesheet = () => {
       return;
     }
 
-    // Check permission limits
     if (monthlyPermissionCount > 3) {
       alert(`Monthly permission limit exceeded! Current count: ${monthlyPermissionCount}/3`);
       return;
@@ -603,6 +697,8 @@ const Timesheet = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
+     
+
       {/* Week Navigation */}
       <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
         <div className="flex justify-between items-center">
@@ -640,7 +736,7 @@ const Timesheet = () => {
 
           <button
             onClick={goToCurrentWeek}
-            className="px-4 py-2 bg-blue-500 text-white rounded text-sm font-medium hover:bg-blue-600 transition-colors flex items-center gap-2"
+            className="px-4 py-2 bg-blue-700 text-white rounded text-sm font-medium hover:bg-blue-800 transition-colors flex items-center gap-2"
           >
             <Calendar className="w-4 h-4" />
             CURRENT WEEK
@@ -659,7 +755,7 @@ const Timesheet = () => {
           <div className="flex gap-3">
             <button
               onClick={addProjectRow}
-              className="px-4 py-2 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-blue-700 text-white rounded text-sm font-medium hover:bg-blue-800 transition-colors flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
               ADD PROJECT
@@ -667,7 +763,7 @@ const Timesheet = () => {
             
             <button
               onClick={addLeaveRow}
-              className="px-4 py-2 bg-orange-500 text-white rounded text-sm font-medium hover:bg-orange-600 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-blue-700 text-white rounded text-sm font-medium hover:bg-blue-800 transition-colors flex items-center gap-2"
             >
               <Plus className="w-4 h-4" />
               ADD LEAVE
@@ -679,7 +775,7 @@ const Timesheet = () => {
               className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${
                 loading || !hasSomeData() || isSubmitted
                   ? "bg-gray-400 cursor-not-allowed" 
-                  : "bg-purple-500 hover:bg-purple-600 text-white"
+                  : "bg-blue-700 hover:bg-blue-800 text-white"
               }`}
             >
               <Save className="w-4 h-4" />
@@ -772,65 +868,62 @@ const Timesheet = () => {
                   {row.hours.map((hours, dayIndex) => (
                     <td key={dayIndex} className="p-2 border border-gray-200">
                       <div className="flex flex-col items-center">
-                        <input
-                          type="number"
-                          value={hours === 0 ? "" : hours}
-                          onChange={(e) =>
-                            updateHours(row.id, dayIndex, e.target.value)
-                          }
-                          onKeyDown={(e) => {
-                            // Allow normal keyboard behavior for deletion
-                            if (e.key === 'Backspace' || e.key === 'Delete') {
-                              // Let the browser handle it naturally
-                            }
-                          }}
-                          onInput={(e) => {
-                            // Allow empty input for better user experience
-                            if (e.target.value === '') {
-                              // Keep it empty for better UX, will be handled in onChange
-                            }
-                          }}
-                          min="0"
-                          max={
-                            row.task === "Office Holiday" || row.task === "Full Day Leave" ? 9.5 :
-                            row.task === "Half Day Leave" ? 4.75 :
-                            row.task === "Permission" ? 3 : 9
-                          }
-                          step="0.5"
-                          className={`w-20 p-2 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            row.task === "Permission" && !isPermissionAllowed(dayIndex) 
-                              ? "bg-gray-100 cursor-not-allowed" 
-                              : isSubmitted
-                              ? "bg-gray-100 cursor-not-allowed"
-                              : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
-                              ? "bg-gray-100 cursor-not-allowed"
-                              : ""
-                          }`}
-                          disabled={
-                            isSubmitted ||
-                            (row.task === "Permission" && !isPermissionAllowed(dayIndex)) ||
-                            monthlyPermissionCount >= 3 ||
-                            (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday")
-                          }
-                          title={
-                            isSubmitted 
-                              ? "Timesheet already submitted" 
-                              : row.task === "Permission" && !isPermissionAllowed(dayIndex) 
-                              ? "Permission not allowed for this day" 
-                              : monthlyPermissionCount >= 3 
-                              ? "Monthly permission limit reached" 
-                              : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
-                              ? "Full Day Leave applied on this day" 
-                              : ""
-                          }
-                        />
+                       <input
+  type="number"
+  value={hours}
+  onChange={(e) => updateHours(row.id, dayIndex, e.target.value)}
+  onKeyDown={(e) => {
+    // Allow backspace and delete to work properly
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      // Let the change happen naturally, the onChange will handle it
+    }
+  }}
+  onInput={(e) => {
+    // Allow empty input for better user experience
+    if (e.target.value === '') {
+      e.target.value = '';
+    }
+  }}
+  min="0"
+  max={
+    row.task === "Office Holiday" || row.task === "Full Day Leave" ? 9.5 :
+    row.task === "Half Day Leave" ? 4.75 :
+    row.task === "Permission" ? 1 : 9
+  }
+  step={
+    row.task === "Half Day Leave" ? 4.75 :
+    row.task === "Office Holiday" || row.task === "Full Day Leave" ? 9.5 :
+    row.task === "Permission" ? 1 : 0.25
+  }
+  className={`w-20 p-2 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+    row.task === "Permission" && !isPermissionAllowed(dayIndex) 
+      ? "bg-gray-100 cursor-not-allowed" 
+      : isSubmitted
+      ? "bg-gray-100 cursor-not-allowed"
+      : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
+      ? "bg-gray-100 cursor-not-allowed"
+      : ""
+  }`}
+  disabled={
+    isSubmitted ||
+    (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
+    (row.task === "Permission" && (!isPermissionAllowed(dayIndex) || monthlyPermissionCount >= 3))
+  }
+  title={
+    isSubmitted 
+      ? "Timesheet already submitted" 
+      : row.task === "Permission" && !isPermissionAllowed(dayIndex) 
+      ? "Permission not allowed for this day" 
+      : monthlyPermissionCount >= 3 
+      ? "Monthly permission limit reached" 
+      : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
+      ? "Full Day Leave applied on this day" 
+      : ""
+  }
+/>
                         {row.task === "Permission" && hours > 0 && (
                           <div className="text-xs text-gray-500 mt-1">
-                            Count: {
-                              hours > 0 && hours <= 1 ? 1 :
-                              hours > 1 && hours <= 2 ? 2 :
-                              hours > 2 && hours <= 3 ? 3 : 0
-                            }
+                            Count: 1
                           </div>
                         )}
                       </div>
@@ -896,7 +989,7 @@ const Timesheet = () => {
                   Total Hours (Work + Break)
                 </td>
                 {totals.daily.map((total, index) => (
-                  <td key={index} className="p-3 border border-gray-200 text-blue-700 font-bold text-center">
+                  <td key={index} className={`p-3 border border-gray-200 text-center ${getDailyTotalWarningClass(index)}`}>
                     {getDailyTotalWithBreak(index)}h
                   </td>
                 ))}
@@ -925,11 +1018,11 @@ const Timesheet = () => {
           </div>
           <button
             onClick={submitTimesheet}
-            disabled={loading || monthlyPermissionCount > 3 || isSubmitted}
+            disabled={loading || isSubmitted}
             className={`px-6 py-3 rounded font-medium transition-colors flex items-center gap-2 ${
-              loading || monthlyPermissionCount > 3 || isSubmitted
+              loading || isSubmitted
                 ? "bg-gray-400 cursor-not-allowed" 
-                : "bg-green-500 hover:bg-green-600 text-white"
+                : "bg-blue-700 hover:bg-blue-800 text-white"
             }`}
           >
             {loading ? (
