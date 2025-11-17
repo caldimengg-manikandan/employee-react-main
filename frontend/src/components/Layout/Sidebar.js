@@ -58,35 +58,35 @@ const Sidebar = ({ isOpen, onClose }) => {
         { name: "My Attendance", path: "/timesheet/attendance" },
       ],
     },
-    {
-      name: "Leave Management",
-      hasDropdown: true,
-      icon: getIconForMenu("Leave Management"),
-      permission: "leave_access",
-      allowEmployeeRole: true,
-      children: [
-        { name: "My Leaves", path: "/leave-management" },
-        { name: "Leave Applications", path: "/leave-management/applications", permission: "leave_approval" },
-      ],
-    },
+    // {
+    //   name: "Leave Management",
+    //   hasDropdown: true,
+    //   icon: getIconForMenu("Leave Management"),
+    //   permission: "leave_access",
+    //   allowEmployeeRole: true,
+    //   children: [
+    //     { name: "My Leaves", path: "/leave-management" },
+    //     { name: "Leave Applications", path: "/leave-management/applications", permission: "leave_approval" },
+    //   ],
+    // },
     {
       name: "Project Allocation",
       path: "/project-allocation",
       icon: getIconForMenu("Project Allocation"),
       permission: "project_access",
     },
-    {
-      name: "Salary Slips",
-      hasDropdown: true,
-      icon: getIconForMenu("Salary Slips"),
-      permission: "payroll_access",
-      allowEmployeeRole: true,
-      children: [
-        { name: "Payslip Viewer", path: "/payslip-viewer" },
-        { name: "Salary History", path: "/salary-history" },
-        { name: "Tax Documents", path: "/tax-documents" },
-      ],
-    },
+    // {
+    //   name: "Salary Slips",
+    //   hasDropdown: true,
+    //   icon: getIconForMenu("Salary Slips"),
+    //   permission: "payroll_access",
+    //   allowEmployeeRole: true,
+    //   children: [
+    //     { name: "Payslip Viewer", path: "/payslip-viewer" },
+    //     { name: "Salary History", path: "/salary-history" },
+    //     { name: "Tax Documents", path: "/tax-documents" },
+    //   ],
+    // },
     {
       name: "Employee Management",
       path: "/employee-management",

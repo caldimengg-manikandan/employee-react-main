@@ -273,12 +273,38 @@ const Timesheet = () => {
     const row = timesheetRows.find(r => r.id === id);
     if (!row) return;
 
+    // Handle empty string for proper deletion
+    if (value === "" || value === null || value === undefined) {
+      setTimesheetRows((prev) =>
+        prev.map((r) => {
+          if (r.id === id) {
+            const newHours = [...r.hours];
+            newHours[dayIndex] = 0;
+            return { ...r, hours: newHours };
+          }
+          return r;
+        })
+      );
+      return;
+    }
+
     let numValue = parseFloat(value) || 0;
 
+    // Handle leave types
     if (row.task === "Office Holiday" || row.task === "Full Day Leave") {
-      numValue = numValue > 0 ? 9.5 : 0;
+      // For Full Day Leave and Office Holiday - only allow 0 or 9.5
+      if (numValue > 0) {
+        numValue = 9.5;
+      } else {
+        numValue = 0;
+      }
     } else if (row.task === "Half Day Leave") {
-      numValue = numValue > 0 ? 4.75 : 0;
+      // For Half Day Leave - only allow 0 or 4.75
+      if (numValue > 0) {
+        numValue = 4.75;
+      } else {
+        numValue = 0;
+      }
     } else if (row.task === "Permission") {
       numValue = Math.max(0, Math.min(3, numValue));
       const date = new Date(currentWeek);
@@ -291,6 +317,7 @@ const Timesheet = () => {
         numValue = 0;
       }
     } else {
+      // Regular project hours
       if (hasFullDayLeave(dayIndex)) {
         numValue = 0;
       } else {
@@ -303,14 +330,6 @@ const Timesheet = () => {
         if (r.id === id) {
           const newHours = [...r.hours];
           newHours[dayIndex] = numValue;
-          return { ...r, hours: newHours };
-        }
-        if (
-          (row.task === "Office Holiday" || row.task === "Full Day Leave") &&
-          numValue === 9.5
-        ) {
-          const newHours = [...r.hours];
-          newHours[dayIndex] = 0;
           return { ...r, hours: newHours };
         }
         return r;
@@ -584,24 +603,6 @@ const Timesheet = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">Employee Timesheet</h1>
-        <p className="text-gray-600 text-lg">Fill and submit your weekly timesheet</p>
-        <div className="text-sm text-blue-600 mt-2">
-          ⏰ Note: 1 hour 15 minutes break time is automatically included in daily totals
-        </div>
-        {monthlyPermissionCount > 0 && (
-          <div className="text-sm text-orange-600 mt-1">
-            Monthly Permission Count: {monthlyPermissionCount}/3
-          </div>
-        )}
-        {isSubmitted && (
-          <div className="text-sm text-green-600 mt-1 font-semibold">
-            ✅ This week's timesheet has been submitted successfully!
-          </div>
-        )}
-      </div>
-
       {/* Week Navigation */}
       <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
         <div className="flex justify-between items-center">
@@ -773,10 +774,22 @@ const Timesheet = () => {
                       <div className="flex flex-col items-center">
                         <input
                           type="number"
-                          value={hours}
+                          value={hours === 0 ? "" : hours}
                           onChange={(e) =>
                             updateHours(row.id, dayIndex, e.target.value)
                           }
+                          onKeyDown={(e) => {
+                            // Allow normal keyboard behavior for deletion
+                            if (e.key === 'Backspace' || e.key === 'Delete') {
+                              // Let the browser handle it naturally
+                            }
+                          }}
+                          onInput={(e) => {
+                            // Allow empty input for better user experience
+                            if (e.target.value === '') {
+                              // Keep it empty for better UX, will be handled in onChange
+                            }
+                          }}
                           min="0"
                           max={
                             row.task === "Office Holiday" || row.task === "Full Day Leave" ? 9.5 :
