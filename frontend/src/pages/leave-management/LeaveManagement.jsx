@@ -1,3 +1,16 @@
+import React from 'react';
+
+const LeaveManagement = () => {
+  return (
+    <div className="p-6">
+      <h1 className="text-2xl font-bold text-gray-900">Leave Management</h1>
+      <p className="text-gray-600">This module is under construction.</p>
+    </div>
+  );
+};
+
+export default LeaveManagement;
+//
 // // src/pages/leave-management/LeaveManagement.jsx
 // import React, { useState, useEffect } from 'react';
 // import { Calendar, Plus, Download, Filter, RefreshCw } from 'lucide-react';

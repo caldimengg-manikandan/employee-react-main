@@ -449,6 +449,28 @@ const Timesheet = () => {
     );
   };
 
+  useEffect(() => {
+    const daysCount = 7;
+    let updated = false;
+    const nextRows = timesheetRows.map(r => ({ ...r, hours: [...r.hours] }));
+    for (let d = 0; d < daysCount; d++) {
+      const hasFull = nextRows.some(
+        (r) => (r.task === 'Full Day Leave' || r.task === 'Office Holiday') && ((r.hours?.[d] || 0) > 0)
+      );
+      if (!hasFull) continue;
+      nextRows.forEach((r) => {
+        if (r.task === 'Full Day Leave' || r.task === 'Office Holiday') return;
+        if ((r.hours?.[d] || 0) > 0) {
+          r.hours[d] = 0;
+          updated = true;
+        }
+      });
+    }
+    if (updated) {
+      setTimesheetRows(nextRows);
+    }
+  }, [timesheetRows]);
+
   // ✅ Check if there's at least some data entered
   const hasSomeData = () => {
     return timesheetRows.some(row => 

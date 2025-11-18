@@ -70,4 +70,19 @@ export const timesheetAPI = {
     api.put(`/timesheet-history/${id}/status`, { status }),
 };
 
+// 🏗️ PROJECT API
+export const projectAPI = {
+  getAllProjects: () => api.get('/projects'),
+  createProject: (data) => api.post('/projects', data),
+  updateProject: (id, data) => api.put(`/projects/${id}`, data),
+  deleteProject: (id) => api.delete(`/projects/${id}`),
+};
+
+// 👥 ALLOCATION API
+export const allocationAPI = {
+  getAllAllocations: () => api.get('/allocations'),
+  createAllocation: (data) => api.post('/allocations', data),
+  deleteAllocation: (id) => api.delete(`/allocations/${id}`),
+};
+
 export default api;

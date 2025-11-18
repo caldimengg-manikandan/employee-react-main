@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { timesheetAPI } from '../../services/api';
-import { Eye, Filter, Calendar, FileText, X } from 'lucide-react';
+import { Eye, Filter, Calendar, FileText, X, Download, Edit, Trash2 } from 'lucide-react';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const TimesheetHistory = () => {
   const [timesheets, setTimesheets] = useState([]);
   const [filteredTimesheets, setFilteredTimesheets] = useState([]);
   const [selectedTimesheet, setSelectedTimesheet] = useState(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showDownloadModal, setShowDownloadModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState({
@@ -14,6 +18,8 @@ const TimesheetHistory = () => {
     month: '',
     status: ''
   });
+  const [downloadOption, setDownloadOption] = useState('weekly'); // 'weekly' or 'monthly'
+  const [downloadFormat, setDownloadFormat] = useState('excel'); // 'excel' or 'pdf'
 
   // Fetch real timesheet history from backend including drafts
   useEffect(() => {
@@ -77,7 +83,8 @@ const TimesheetHistory = () => {
               })(),
               status: 'Draft',
               updatedAt: draftData.savedAt,
-              isSessionDraft: true // Flag to identify session storage drafts
+              isSessionDraft: true, // Flag to identify session storage drafts
+              sessionStorageKey: key // Store the key for deletion
             });
           }
         }
@@ -146,9 +153,67 @@ const TimesheetHistory = () => {
     setShowDetailsModal(true);
   };
 
+  const handleEdit = (timesheet) => {
+    if (timesheet.isSessionDraft) {
+      // For session drafts, redirect to timesheet page with draft data
+      const draftData = JSON.parse(sessionStorage.getItem(timesheet.sessionStorageKey));
+      if (draftData) {
+        // Store the current draft key to load in timesheet component
+        sessionStorage.setItem('load_draft_key', timesheet.sessionStorageKey);
+        // Redirect to timesheet page - adjust the path as needed
+        window.location.href = '/timesheet';
+      }
+    } else {
+      // For backend drafts, you might need to implement an API to load the draft
+      console.log('Edit backend draft:', timesheet._id);
+      // Implement backend draft editing logic here
+      alert('Editing backend drafts will be implemented soon');
+    }
+  };
+
+  const handleDelete = (timesheet) => {
+    if (window.confirm('Are you sure you want to delete this draft? This action cannot be undone.')) {
+      if (timesheet.isSessionDraft) {
+        // Remove from sessionStorage
+        sessionStorage.removeItem(timesheet.sessionStorageKey);
+        
+        // Update state to remove the deleted timesheet
+        const updatedTimesheets = timesheets.filter(t => t._id !== timesheet._id);
+        setTimesheets(updatedTimesheets);
+        setFilteredTimesheets(updatedTimesheets);
+        
+        alert('Draft deleted successfully');
+      } else {
+        // For backend drafts, call delete API
+        const deleteBackendDraft = async () => {
+          try {
+            await timesheetAPI.deleteTimesheet(timesheet._id);
+            
+            // Update state to remove the deleted timesheet
+            const updatedTimesheets = timesheets.filter(t => t._id !== timesheet._id);
+            setTimesheets(updatedTimesheets);
+            setFilteredTimesheets(updatedTimesheets);
+            
+            alert('Draft deleted successfully');
+          } catch (err) {
+            console.error('Failed to delete draft:', err);
+            alert('Failed to delete draft. Please try again.');
+          }
+        };
+        deleteBackendDraft();
+      }
+    }
+  };
+
   const handleCloseModal = () => {
     setShowDetailsModal(false);
     setSelectedTimesheet(null);
+  };
+
+  const handleCloseDownloadModal = () => {
+    setShowDownloadModal(false);
+    setDownloadOption('weekly');
+    setDownloadFormat('excel');
   };
 
   const clearFilters = () => {
@@ -157,6 +222,237 @@ const TimesheetHistory = () => {
       month: '',
       status: ''
     });
+  };
+
+  // Check if timesheet is a draft
+  const isDraft = (timesheet) => {
+    return (timesheet.status || '').toLowerCase() === 'draft';
+  };
+
+  // Download Functions (keep the same as your original code)
+  const generateWeeklyExcel = () => {
+    const workbook = XLSX.utils.book_new();
+    
+    filteredTimesheets.forEach((timesheet, index) => {
+      const weekStart = new Date(timesheet.weekStartDate);
+      const weekEnd = new Date(timesheet.weekEndDate);
+      const sheetName = `Week_${index + 1}`;
+      
+      // Prepare data for the sheet
+      const headers = ['Project', 'Task', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total'];
+      const data = [headers];
+      
+      // Add each entry as a row
+      timesheet.entries.forEach(entry => {
+        const row = [
+          entry.project,
+          entry.task,
+          entry.hours[0] || 0,
+          entry.hours[1] || 0,
+          entry.hours[2] || 0,
+          entry.hours[3] || 0,
+          entry.hours[4] || 0,
+          entry.hours[5] || 0,
+          entry.hours[6] || 0,
+          entry.hours.reduce((sum, hour) => sum + (Number(hour) || 0), 0)
+        ];
+        data.push(row);
+      });
+      
+      // Add summary row
+      data.push([]);
+      data.push(['', 'TOTAL HOURS', '', '', '', '', '', '', '', timesheet.totalHours]);
+      data.push(['', 'STATUS', '', '', '', '', '', '', '', timesheet.status]);
+      data.push(['', 'WEEK', '', '', '', '', '', '', '', `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`]);
+      
+      const worksheet = XLSX.utils.aoa_to_sheet(data);
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    });
+    
+    // Generate and download the file
+    const fileName = `Timesheet_Weekly_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
+  const generateMonthlyExcel = () => {
+    const workbook = XLSX.utils.book_new();
+    
+    // Group timesheets by month
+    const monthlyData = {};
+    filteredTimesheets.forEach(timesheet => {
+      const monthYear = new Date(timesheet.weekStartDate).toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long' 
+      });
+      
+      if (!monthlyData[monthYear]) {
+        monthlyData[monthYear] = [];
+      }
+      monthlyData[monthYear].push(timesheet);
+    });
+    
+    // Create a sheet for each month
+    Object.keys(monthlyData).forEach(monthYear => {
+      const monthTimesheets = monthlyData[monthYear];
+      const worksheetData = [['Timesheet Monthly Summary - ' + monthYear]];
+      worksheetData.push([]);
+      
+      // Header row
+      worksheetData.push(['Week', 'Projects', 'Total Hours', 'Status', 'Submitted Date']);
+      
+      // Data rows
+      monthTimesheets.forEach(timesheet => {
+        const projects = Array.from(new Set(timesheet.entries.map(e => e.project))).join(', ');
+        const weekRange = formatWeekRange(timesheet.weekStartDate, timesheet.weekEndDate);
+        const submittedDate = timesheet.submittedAt 
+          ? new Date(timesheet.submittedAt).toLocaleDateString()
+          : 'Draft';
+        
+        worksheetData.push([
+          weekRange,
+          projects,
+          timesheet.totalHours,
+          timesheet.status,
+          submittedDate
+        ]);
+      });
+      
+      // Add monthly total
+      const monthlyTotal = monthTimesheets.reduce((sum, t) => sum + t.totalHours, 0);
+      worksheetData.push([]);
+      worksheetData.push(['Monthly Total Hours:', '', monthlyTotal, '', '']);
+      
+      const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
+      XLSX.utils.book_append_sheet(workbook, worksheet, monthYear.substring(0, 31)); // Sheet name limit
+    });
+    
+    const fileName = `Timesheet_Monthly_${new Date().toISOString().split('T')[0]}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
+  const generateWeeklyPDF = () => {
+    const pdf = new jsPDF();
+    
+    filteredTimesheets.forEach((timesheet, index) => {
+      if (index > 0) {
+        pdf.addPage();
+      }
+      
+      const weekStart = new Date(timesheet.weekStartDate);
+      const weekEnd = new Date(timesheet.weekEndDate);
+      
+      // Title
+      pdf.setFontSize(16);
+      pdf.text(`Timesheet - ${formatWeekRange(timesheet.weekStartDate, timesheet.weekEndDate)}`, 14, 15);
+      
+      // Header info
+      pdf.setFontSize(10);
+      pdf.text(`Status: ${timesheet.status}`, 14, 25);
+      pdf.text(`Total Hours: ${timesheet.totalHours}`, 14, 32);
+      
+      // Table data
+      const tableData = timesheet.entries.map(entry => [
+        entry.project,
+        entry.task,
+        entry.hours[0] || 0,
+        entry.hours[1] || 0,
+        entry.hours[2] || 0,
+        entry.hours[3] || 0,
+        entry.hours[4] || 0,
+        entry.hours[5] || 0,
+        entry.hours[6] || 0,
+        entry.hours.reduce((sum, hour) => sum + (Number(hour) || 0), 0)
+      ]);
+      
+      // Add table
+      pdf.autoTable({
+        startY: 40,
+        head: [['Project', 'Task', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total']],
+        body: tableData,
+        theme: 'grid',
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [59, 130, 246] }
+      });
+    });
+    
+    pdf.save(`Timesheet_Weekly_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const generateMonthlyPDF = () => {
+    const pdf = new jsPDF();
+    
+    // Group by month
+    const monthlyData = {};
+    filteredTimesheets.forEach(timesheet => {
+      const monthYear = new Date(timesheet.weekStartDate).toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long' 
+      });
+      
+      if (!monthlyData[monthYear]) {
+        monthlyData[monthYear] = [];
+      }
+      monthlyData[monthYear].push(timesheet);
+    });
+    
+    Object.keys(monthlyData).forEach((monthYear, monthIndex) => {
+      if (monthIndex > 0) {
+        pdf.addPage();
+      }
+      
+      const monthTimesheets = monthlyData[monthYear];
+      
+      // Title
+      pdf.setFontSize(16);
+      pdf.text(`Timesheet Monthly Summary - ${monthYear}`, 14, 15);
+      
+      // Table data
+      const tableData = monthTimesheets.map(timesheet => [
+        formatWeekRange(timesheet.weekStartDate, timesheet.weekEndDate),
+        Array.from(new Set(timesheet.entries.map(e => e.project))).join(', '),
+        timesheet.totalHours,
+        timesheet.status,
+        timesheet.submittedAt ? new Date(timesheet.submittedAt).toLocaleDateString() : 'Draft'
+      ]);
+      
+      // Monthly total
+      const monthlyTotal = monthTimesheets.reduce((sum, t) => sum + t.totalHours, 0);
+      
+      pdf.autoTable({
+        startY: 25,
+        head: [['Week', 'Projects', 'Total Hours', 'Status', 'Submitted Date']],
+        body: tableData,
+        theme: 'grid',
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [59, 130, 246] }
+      });
+      
+      // Add monthly total
+      const finalY = pdf.lastAutoTable.finalY + 10;
+      pdf.setFontSize(10);
+      pdf.text(`Monthly Total Hours: ${monthlyTotal}`, 14, finalY);
+    });
+    
+    pdf.save(`Timesheet_Monthly_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const handleDownload = () => {
+    if (filteredTimesheets.length === 0) {
+      alert('No data available to download.');
+      return;
+    }
+
+    if (downloadOption === 'weekly' && downloadFormat === 'excel') {
+      generateWeeklyExcel();
+    } else if (downloadOption === 'weekly' && downloadFormat === 'pdf') {
+      generateWeeklyPDF();
+    } else if (downloadOption === 'monthly' && downloadFormat === 'excel') {
+      generateMonthlyExcel();
+    } else if (downloadOption === 'monthly' && downloadFormat === 'pdf') {
+      generateMonthlyPDF();
+    }
+    
+    handleCloseDownloadModal();
   };
 
   return (
@@ -173,12 +469,21 @@ const TimesheetHistory = () => {
             <Filter className="w-5 h-5 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-800">Filter Timesheets</h3>
           </div>
-          <button
-            onClick={clearFilters}
-            className="text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-1"
-          >
-            Clear Filters
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={clearFilters}
+              className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors duration-200 font-medium flex items-center gap-2"
+            >
+              Clear Filters
+            </button>
+            <button
+              onClick={() => setShowDownloadModal(true)}
+              className="px-4 py-2 bg-blue-700 text-white rounded text-sm font-medium hover:bg-blue-800 transition-colors flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Download Report
+            </button>
+          </div>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -278,7 +583,7 @@ const TimesheetHistory = () => {
               <tbody>
                 {filteredTimesheets.map((t) => {
                   const projectList = Array.from(new Set((t.entries || []).map((e) => e.project))).filter(Boolean);
-                  const isDraft = (t.status || '').toLowerCase() === 'draft';
+                  const isDraftTimesheet = isDraft(t);
                   const isSessionDraft = t.isSessionDraft;
                   
                   return (
@@ -314,7 +619,7 @@ const TimesheetHistory = () => {
                         </span>
                       </td>
                       <td className="p-4 text-sm text-gray-600">
-                        {isDraft 
+                        {isDraftTimesheet 
                           ? (t.updatedAt 
                               ? new Date(t.updatedAt).toLocaleDateString('en-US', {
                                   year: 'numeric',
@@ -334,13 +639,35 @@ const TimesheetHistory = () => {
                         }
                       </td>
                       <td className="p-4">
-                        <button 
-                          onClick={() => handleViewDetails(t)}
-                          className="text-blue-600 hover:text-blue-800 transition-colors duration-200 flex items-center gap-1"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleViewDetails(t)}
+                            className="text-blue-600 hover:text-blue-800 transition-colors duration-200 flex items-center gap-1"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          
+                          {/* Show Edit and Delete only for drafts */}
+                          {isDraftTimesheet && (
+                            <>
+                              <button 
+                                onClick={() => handleEdit(t)}
+                                className="text-green-600 hover:text-green-800 transition-colors duration-200 flex items-center gap-1"
+                                title="Edit Draft"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => handleDelete(t)}
+                                className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center gap-1"
+                                title="Delete Draft"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -361,6 +688,119 @@ const TimesheetHistory = () => {
           </div>
         )}
       </div>
+
+      {/* Download Options Modal */}
+      {showDownloadModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6 border-b border-gray-200">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-gray-800">Download Report</h2>
+                <button
+                  onClick={handleCloseDownloadModal}
+                  className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                  title="Close"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Download Option Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Select Report Type:
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setDownloadOption('weekly')}
+                    className={`p-4 border-2 rounded-lg text-center transition-colors duration-200 ${
+                      downloadOption === 'weekly'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-medium">Weekly Report</div>
+                    <div className="text-sm text-gray-500 mt-1">Detailed weekly breakdown</div>
+                  </button>
+                  
+                  <button
+                    onClick={() => setDownloadOption('monthly')}
+                    className={`p-4 border-2 rounded-lg text-center transition-colors duration-200 ${
+                      downloadOption === 'monthly'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-medium">Monthly Summary</div>
+                    <div className="text-sm text-gray-500 mt-1">Monthly overview</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Format Selection */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  Select Format:
+                </label>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    onClick={() => setDownloadFormat('excel')}
+                    className={`p-4 border-2 rounded-lg text-center transition-colors duration-200 ${
+                      downloadFormat === 'excel'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-medium">Excel (.xlsx)</div>
+                    <div className="text-sm text-gray-500 mt-1">Editable format</div>
+                  </button>
+                  
+                  <button
+                    onClick={() => setDownloadFormat('pdf')}
+                    className={`p-4 border-2 rounded-lg text-center transition-colors duration-200 ${
+                      downloadFormat === 'pdf'
+                        ? 'border-red-500 bg-red-50 text-red-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    <div className="font-medium">PDF (.pdf)</div>
+                    <div className="text-sm text-gray-500 mt-1">Printable format</div>
+                  </button>
+                </div>
+              </div>
+
+              {/* Summary */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium text-gray-800 mb-2">Download Summary:</h4>
+                <p className="text-sm text-gray-600">
+                  You are about to download a <span className="font-semibold">{downloadOption}</span> report in <span className="font-semibold">{downloadFormat.toUpperCase()}</span> format.
+                  {filteredTimesheets.length > 0 && (
+                    <span> This will include {filteredTimesheets.length} timesheet(s).</span>
+                  )}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+              <button
+                onClick={handleCloseDownloadModal}
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 transition-colors duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDownload}
+                className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 transition-colors duration-200 flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Timesheet Details Modal */}
       {showDetailsModal && selectedTimesheet && (

@@ -24,6 +24,8 @@ const upload = multer();
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/timesheets', require('./routes/timesheets'));
+app.use("/api/projects", require("./routes/projectRoutes"));
+app.use("/api/allocations", require("./routes/allocationRoutes"));
 
 // ✅ Timesheet History Route
 app.use('/api/timesheet-history', require('./routes/timesheetHistory'));
