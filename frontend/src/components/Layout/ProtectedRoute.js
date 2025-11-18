@@ -8,11 +8,9 @@ const ProtectedRoute = ({
 }) => {
   // Get token and user
   const token =
-    sessionStorage.getItem("token") || localStorage.getItem("token");
+    sessionStorage.getItem("token") ;
   const user = JSON.parse(
-    sessionStorage.getItem("user") ||
-      localStorage.getItem("user") ||
-      "{}"
+    sessionStorage.getItem("user") 
   );
 
   // If not logged in, redirect

@@ -1,9 +1,9 @@
-const express = require('express');
-const cors = require('cors');
-const multer = require('multer');
-const dotenv = require('dotenv');
-const path = require('path');
-const connectDB = require('./config/database');
+// server.js
+const express = require("express");
+const cors = require("cors");
+const multer = require("multer");
+const dotenv = require("dotenv");
+const connectDB = require("./config/database");
 
 // Load environment variables
 dotenv.config();
@@ -16,32 +16,35 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+const upload = multer(); // optional
 
-// File upload (optional if you use multer)
-const upload = multer();
-
-// --- ROUTES --- //
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/employees', require('./routes/employees'));
-app.use('/api/timesheets', require('./routes/timesheets'));
+// ----------- ROUTES ----------- //
+app.use("/api/auth", require("./routes/auth"));
+app.use("/api/employees", require("./routes/employees"));
+app.use("/api/timesheets", require("./routes/timesheets"));
 app.use("/api/projects", require("./routes/projectRoutes"));
 app.use("/api/allocations", require("./routes/allocationRoutes"));
 
-// ✅ Timesheet History Route
-app.use('/api/timesheet-history', require('./routes/timesheetHistory'));
+// 🔹 NEW: Hikvision Access Routes
+app.use("/api/access", require("./routes/accessRoutes"));
+app.use("/api/hik", require("./routes/hikEvents"));      // Manual Pull API
+app.use("/api/hik-callback", require("./routes/hikCallback"));  // Webhook Push API
 
-// --- BASE ROUTE --- //
-app.get('/', (req, res) => {
-  res.json({ message: 'Caldim Employees API is running successfully 🚀' });
+// Timesheet History Route
+app.use("/api/timesheet-history", require("./routes/timesheetHistory"));
+
+// Base Route
+app.get("/", (req, res) => {
+  res.json({ message: "Caldim Employees API is running successfully 🚀" });
 });
 
-// --- ERROR HANDLER --- //
+// Error Handler
 app.use((err, req, res, next) => {
-  console.error('Server Error:', err.stack);
-  res.status(500).json({ success: false, message: 'Internal Server Error' });
+  console.error("Server Error:", err.stack);
+  res.status(500).json({ success: false, message: "Internal Server Error" });
 });
 
-// --- SERVER LISTEN --- //
+// Server Listen
 const PORT = process.env.PORT || 5003;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);

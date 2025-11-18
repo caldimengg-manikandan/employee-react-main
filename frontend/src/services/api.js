@@ -6,6 +6,7 @@ const API_BASE_URL = 'http://localhost:5003/api';
 // Axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 20000 // 20 second timeout for all requests
 });
 
 // Attach token
@@ -83,6 +84,15 @@ export const allocationAPI = {
   getAllAllocations: () => api.get('/allocations'),
   createAllocation: (data) => api.post('/allocations', data),
   deleteAllocation: (id) => api.delete(`/allocations/${id}`),
+};
+
+// 🔑 ACCESS/ATTENDANCE API
+export const accessAPI = {
+  getMyLogs: (params) => api.get('/access/my-logs', { params }),
+  punch: (data) => api.post('/access/punch', data),
+  getStats: (params) => api.get('/access/stats', { params }),
+  pullHikvisionEvents: () => api.get('/hik/pull-events'),
+  testHikvisionConnection: () => api.get('/hik/test-connection'),
 };
 
 export default api;
