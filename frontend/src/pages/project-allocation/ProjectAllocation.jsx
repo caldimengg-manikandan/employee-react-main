@@ -14,151 +14,16 @@ const ProjectAllocation = () => {
   const [branches] = useState(['Hosur', 'Chennai', 'Outside Det.']);
   const [divisions] = useState(['SDS (Steel Detailing)', 'Tekla Projects', 'DAS (Software)', 'Mechanical Projects']);
 
-  // Session Storage Keys
-  const STORAGE_KEYS = {
-    projects: 'projectAllocation_projects',
-    employees: 'projectAllocation_employees', 
-    allocations: 'projectAllocation_allocations',
-  };
-
-  // Initialize data from sessionStorage or set defaults
-  const [projects, setProjects] = useState(() => {
-    const saved = sessionStorage.getItem(STORAGE_KEYS.projects);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-    // Default projects
-    return [
-      {
-        id: 1,
-        name: "1250 Maryland Avenue",
-        code: "SDS-001",
-        division: "SDS (Steel Detailing)",
-        branch: "Hosur",
-        startDate: "2025-01-01",
-        endDate: "2025-06-30",
-        status: "Active",
-        description: "Commercial building construction project"
-      },
-      {
-        id: 2,
-        name: "NJTP CDL Training Course",
-        code: "SDS-002",
-        division: "SDS (Steel Detailing)",
-        branch: "Chennai",
-        startDate: "2025-01-15",
-        endDate: "2025-07-15",
-        status: "Active",
-        description: "Training center development"
-      },
-      {
-        id: 3,
-        name: "CALDIM Employee Portal",
-        code: "DAS-001",
-        division: "DAS (Software)",
-        branch: "Hosur",
-        startDate: "2025-02-01",
-        endDate: "2025-08-31",
-        status: "Active",
-        description: "Internal employee management system"
-      }
-    ];
-  });
-
-  const [employees, setEmployees] = useState(() => {
-    const saved = sessionStorage.getItem(STORAGE_KEYS.employees);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-    // Default employees
-    return [
-      {
-        id: 1,
-        employeeId: "EMP001",
-        name: "Raj Kumar",
-        branch: "Hosur",
-        department: "Engineering",
-        position: "Senior Structural Engineer",
-        email: "raj.kumar@caldim.com",
-        currentAllocation: 80,
-        status: "Active"
-      },
-      {
-        id: 2,
-        employeeId: "EMP002",
-        name: "Priya Sharma",
-        branch: "Chennai",
-        department: "Engineering",
-        position: "Structural Engineer",
-        email: "priya.sharma@caldim.com",
-        currentAllocation: 100,
-        status: "Active"
-      },
-      {
-        id: 3,
-        employeeId: "EMP003",
-        name: "Amit Patel",
-        branch: "Hosur",
-        department: "IT",
-        position: "Software Developer",
-        email: "amit.patel@caldim.com",
-        currentAllocation: 60,
-        status: "Active"
-      }
-    ];
-  });
-
-  const [allocations, setAllocations] = useState(() => {
-    const saved = sessionStorage.getItem(STORAGE_KEYS.allocations);
-    if (saved) {
-      return JSON.parse(saved);
-    }
-    // Default allocations
-    return [
-      {
-        id: 1,
-        projectId: 1,
-        projectName: "1250 Maryland Avenue",
-        projectCode: "SDS-001",
-        projectDivision: "SDS (Steel Detailing)",
-        branch: "Hosur",
-        employeeId: 1,
-        employeeName: "Raj Kumar",
-        employeeCode: "EMP001",
-        allocationPercentage: 80,
-        startDate: "2025-01-01",
-        endDate: "2025-06-30",
-        status: "Active",
-        allocatedHours: 32,
-        role: "Lead Structural Engineer",
-        assignedBy: "Project Manager",
-        assignedDate: "2024-12-15"
-      },
-      {
-        id: 2,
-        projectId: 3,
-        projectName: "CALDIM Employee Portal",
-        projectCode: "DAS-001",
-        projectDivision: "DAS (Software)",
-        branch: "Hosur",
-        employeeId: 3,
-        employeeName: "Amit Patel",
-        employeeCode: "EMP003",
-        allocationPercentage: 60,
-        startDate: "2025-02-01",
-        endDate: "2025-08-31",
-        status: "Active",
-        allocatedHours: 24,
-        role: "Full Stack Developer",
-        assignedBy: "Project Manager",
-        assignedDate: "2024-12-20"
-      }
-    ];
-  });
+  // Initialize data from MongoDB via API calls
+  const [projects, setProjects] = useState([]);
+  const [employees, setEmployees] = useState([]);
+  const [allocations, setAllocations] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadData = async () => {
       try {
+        setLoading(true);
         const [projRes, allocRes, empRes] = await Promise.all([
           projectAPI.getAllProjects(),
           allocationAPI.getAllAllocations(),
@@ -168,6 +33,10 @@ const ProjectAllocation = () => {
         setAllocations(Array.isArray(allocRes.data) ? allocRes.data : []);
         setEmployees(Array.isArray(empRes.data) ? empRes.data : []);
       } catch (e) {
+        console.error('Failed to load data from MongoDB:', e);
+        alert('Failed to load data from database. Please refresh the page or contact support.');
+      } finally {
+        setLoading(false);
       }
     };
     loadData();
@@ -198,18 +67,24 @@ const ProjectAllocation = () => {
     role: ''
   });
 
-  // Save to sessionStorage whenever data changes
-  useEffect(() => {
-    sessionStorage.setItem(STORAGE_KEYS.projects, JSON.stringify(projects));
-  }, [projects]);
+  // Data is now persisted in MongoDB, no need for sessionStorage
 
-  useEffect(() => {
-    sessionStorage.setItem(STORAGE_KEYS.employees, JSON.stringify(employees));
-  }, [employees]);
-
-  useEffect(() => {
-    sessionStorage.setItem(STORAGE_KEYS.allocations, JSON.stringify(allocations));
-  }, [allocations]);
+  // Function to refresh data from MongoDB
+  const refreshData = async () => {
+    try {
+      const [projRes, allocRes, empRes] = await Promise.all([
+        projectAPI.getAllProjects(),
+        allocationAPI.getAllAllocations(),
+        employeeAPI.getAllEmployees(),
+      ]);
+      setProjects(Array.isArray(projRes.data) ? projRes.data : []);
+      setAllocations(Array.isArray(allocRes.data) ? allocRes.data : []);
+      setEmployees(Array.isArray(empRes.data) ? empRes.data : []);
+    } catch (e) {
+      console.error('Failed to refresh data from MongoDB:', e);
+      alert('Failed to refresh data from database.');
+    }
+  };
 
   // Calculate current user's allocations
   const myAllocations = allocations.filter(alloc => {
@@ -349,12 +224,11 @@ const ProjectAllocation = () => {
 
     try {
       if (editingProject && editingProject._id) {
-        const res = await projectAPI.updateProject(editingProject._id, payload);
-        setProjects(prev => prev.map(p => p._id === editingProject._id ? res.data : p));
+        await projectAPI.updateProject(editingProject._id, payload);
       } else {
-        const res = await projectAPI.createProject(payload);
-        setProjects(prev => [...prev, res.data]);
+        await projectAPI.createProject(payload);
       }
+      await refreshData(); // Refresh from MongoDB
       closeProjectModal();
     } catch (e) {
       alert(e?.response?.data?.error || 'Failed to save project');
@@ -496,8 +370,19 @@ const ProjectAllocation = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Project Allocation</h1>
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading data from database...</p>
+          </div>
+        </div>
+      )}
+      
+      {!loading && (
+        <>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold text-gray-900">Project Allocation</h1>
         <p className="text-gray-600">
           {canEdit
             ? "Manage projects and team allocations"
@@ -1050,6 +935,8 @@ const ProjectAllocation = () => {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );
