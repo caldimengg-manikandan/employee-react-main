@@ -86,7 +86,7 @@ const ProjectDashboard = () => {
 
 
     // --- CONSTANTS ---
-    const API_BASE_URL = 'http://192.168.1.15:5003/api/dashboard';
+    const API_BASE_URL = 'http://localhost:5003/api/dashboard';
     const COLORS = [
     '#93c5fd', '#fdba74', '#86efac', '#fca5a5', '#d8b4fe', '#f9a8d4', '#67e8f9', '#fde047',
     '#a5b4fc', '#fb923c', '#6ee7b7', '#f87171', '#c4b5fd', '#f0abfc', '#67e8f9', '#fcd34d'

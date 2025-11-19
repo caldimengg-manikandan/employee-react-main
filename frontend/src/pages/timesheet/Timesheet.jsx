@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { timesheetAPI } from "../../services/api";
+import { timesheetAPI, projectAPI } from "../../services/api";
 import { ChevronLeft, ChevronRight, Calendar, Plus, Trash2, Save, Send } from "lucide-react";
 
 const Timesheet = () => {
@@ -14,53 +14,9 @@ const Timesheet = () => {
   const [monthlyPermissionCount, setMonthlyPermissionCount] = useState(0);
   const [monthlyBasePermissionCount, setMonthlyBasePermissionCount] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
-
-  // Project names organized by category
-  const projects = [
-    "1250 Maryland Avenue",
-    "NJTP CDL Training Course",
-    "Templeton Elementary School (Main Steel)",
-    "Maryland Ave Main Steel",
-    "New Century Bridge",
-    "Templeton Elementary School (Misc Steel)",
-    "KIPP Academy Charter School",
-    "Ocean C College - New Admin Building",
-    "Grove Street-Building 2",
-    "Metro YMCA of Oranges",
-    "Kirkwood - Sunroom Addition",
-    "Great Oaks Legacy Charter School",
-    "Paper Mill play House",
-    "Miami Freedom Park",
-    "URBA - BLDG II_624 N Glebe",
-    "Cleveland Brothers",
-    "Tenant Communicating 102 Stair Option A",
-    "Susquehanna Trail Apartments",
-    "Elwyn New School",
-    "East End United Methodist Church",
-    "Bulverde Marketplace D9",
-    "USVI Elevator Slab",
-    "NISD John Jay High School",
-    "Jia terminal B expansion Deck rig",
-    "Congress Heights Recreation Center",
-    "Brandywine K-8 School",
-    "DGS KING ES (MLK ES)",
-    "Broderick MV GIS Substation",
-    "Coatesville Train Station",
-    "ACADEMY-KERRVILLE",
-    "25-018 - MES Racks",
-    "25-014 – Alamo Hall",
-    "CALDIM Employee Portal",
-    "CALDIM Management Portal",
-    "Shangrila Enterprises Portal",
-    "ServoTech Automation System",
-    "Voomet Dashboard",
-    "Steel Fabrication ERP",
-    "HVAC System Installation",
-    "Mechanical Piping Project",
-    "Industrial Equipment Setup",
-    "Mechanical Assembly Line",
-    "Pump and Valve Systems"
-  ];
+  const [projects, setProjects] = useState([]);
+  const [showNavigationDialog, setShowNavigationDialog] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState(null);
 
   const tasks = [
     "Modeling",
@@ -100,7 +56,7 @@ const Timesheet = () => {
           project: e.project || "",
           task: e.task || "",
           hours: Array.isArray(e.hours) ? e.hours : [0,0,0,0,0,0,0],
-          type: e.type || "project",
+          type: e.type || (e.project === "Leave" ? "leave" : "project"),
         }));
         setTimesheetRows(rows.length ? rows : []);
         setIsSubmitted(
@@ -109,7 +65,7 @@ const Timesheet = () => {
         );
         clearDraftFromSession();
       } catch (err) {
-        loadDraftFromSession();
+        // Don't load draft from session automatically - start fresh
         if (timesheetRows.length === 0) addProjectRow();
       } finally {
         updateMonthlyPermissionCount();
@@ -118,17 +74,46 @@ const Timesheet = () => {
     loadWeekData();
   }, [currentWeek]);
 
-  // Save draft to sessionStorage whenever timesheetRows change, but only if not submitted
+  // Track if data has been modified for navigation warning
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [originalData, setOriginalData] = useState(null);
+
+  // Set original data when loading from backend
   useEffect(() => {
-    if (hasSomeData() && !isSubmitted) {
-      saveDraftToSession();
+    if (timesheetRows.length > 0 && !originalData) {
+      setOriginalData(JSON.stringify(timesheetRows));
     }
-  }, [timesheetRows, isSubmitted]);
+  }, [timesheetRows, originalData]);
+
+  // Check for unsaved changes
+  useEffect(() => {
+    if (originalData && timesheetRows.length > 0) {
+      const currentData = JSON.stringify(timesheetRows);
+      setHasUnsavedChanges(currentData !== originalData);
+    }
+  }, [timesheetRows, originalData]);
 
   // Update monthly permission count when timesheet rows change
   useEffect(() => {
     updateMonthlyPermissionCount();
   }, [timesheetRows, currentWeek]);
+
+  // Load projects from Project Allocation
+  useEffect(() => {
+    const loadProjects = async () => {
+      try {
+        const res = await projectAPI.getAllProjects();
+        const projectData = Array.isArray(res.data) ? res.data : [];
+        const projectNames = projectData.map(project => project.name);
+        setProjects(projectNames);
+      } catch (error) {
+        console.error("❌ Error loading projects:", error);
+        // Fallback to empty array if API fails
+        setProjects([]);
+      }
+    };
+    loadProjects();
+  }, []);
 
   // ✅ Save draft to sessionStorage
   const saveDraftToSession = () => {
@@ -141,7 +126,10 @@ const Timesheet = () => {
         savedAt: new Date().toISOString()
       };
       sessionStorage.setItem(weekKey, JSON.stringify(draftData));
-      console.log("💾 Draft auto-saved to sessionStorage");
+      console.log("💾 Draft saved to sessionStorage");
+      // Update original data after saving
+      setOriginalData(JSON.stringify(timesheetRows));
+      setHasUnsavedChanges(false);
     } catch (error) {
       console.error("❌ Error saving draft to sessionStorage:", error);
     }
@@ -552,40 +540,49 @@ const Timesheet = () => {
   };
 
   const previousWeek = () => {
-    // Clear warning session keys when changing weeks
-    for (let i = 0; i < 7; i++) {
-      sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
-    }
-    
-    const newWeek = new Date(currentWeek);
-    newWeek.setDate(newWeek.getDate() - 7);
-    setCurrentWeek(newWeek);
-    setTimesheetRows([]);
-    setIsSubmitted(false); // Reset submission status when changing weeks
+    handleNavigation(() => {
+      // Clear warning session keys when changing weeks
+      for (let i = 0; i < 7; i++) {
+        sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
+      }
+      
+      const newWeek = new Date(currentWeek);
+      newWeek.setDate(newWeek.getDate() - 7);
+      setCurrentWeek(newWeek);
+      setTimesheetRows([]);
+      setIsSubmitted(false); // Reset submission status when changing weeks
+      setOriginalData(null); // Reset original data for new week
+    });
   };
 
   const nextWeek = () => {
-    // Clear warning session keys when changing weeks
-    for (let i = 0; i < 7; i++) {
-      sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
-    }
-    
-    const newWeek = new Date(currentWeek);
-    newWeek.setDate(newWeek.getDate() + 7);
-    setCurrentWeek(newWeek);
-    setTimesheetRows([]);
-    setIsSubmitted(false); // Reset submission status when changing weeks
+    handleNavigation(() => {
+      // Clear warning session keys when changing weeks
+      for (let i = 0; i < 7; i++) {
+        sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
+      }
+      
+      const newWeek = new Date(currentWeek);
+      newWeek.setDate(newWeek.getDate() + 7);
+      setCurrentWeek(newWeek);
+      setTimesheetRows([]);
+      setIsSubmitted(false); // Reset submission status when changing weeks
+      setOriginalData(null); // Reset original data for new week
+    });
   };
 
   const goToCurrentWeek = () => {
-    // Clear warning session keys when changing weeks
-    for (let i = 0; i < 7; i++) {
-      sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
-    }
-    
-    setCurrentWeek(new Date());
-    setTimesheetRows([]);
-    setIsSubmitted(false); // Reset submission status when changing weeks
+    handleNavigation(() => {
+      // Clear warning session keys when changing weeks
+      for (let i = 0; i < 7; i++) {
+        sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
+      }
+      
+      setCurrentWeek(new Date());
+      setTimesheetRows([]);
+      setIsSubmitted(false); // Reset submission status when changing weeks
+      setOriginalData(null); // Reset original data for new week
+    });
   };
 
   // ✅ Save as draft - Allow saving with partial data
@@ -625,6 +622,10 @@ const Timesheet = () => {
       
       // Clear sessionStorage draft after successful backend save
       clearDraftFromSession();
+      
+      // Update original data to mark as saved
+      setOriginalData(JSON.stringify(timesheetRows));
+      setHasUnsavedChanges(false);
       
       alert("✅ Timesheet saved as draft successfully!");
     } catch (error) {
@@ -706,6 +707,38 @@ const Timesheet = () => {
 
   const weekDates = getWeekDates();
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  // Navigation confirmation functions
+  const handleNavigation = (navigationFunction) => {
+    if (hasUnsavedChanges && !isSubmitted) {
+      setPendingNavigation(() => navigationFunction);
+      setShowNavigationDialog(true);
+    } else {
+      navigationFunction();
+    }
+  };
+
+  const confirmSaveAndNavigate = () => {
+    saveDraftToSession();
+    setShowNavigationDialog(false);
+    if (pendingNavigation) {
+      pendingNavigation();
+      setPendingNavigation(null);
+    }
+  };
+
+  const cancelNavigation = () => {
+    setShowNavigationDialog(false);
+    setPendingNavigation(null);
+  };
+
+  const discardAndNavigate = () => {
+    setShowNavigationDialog(false);
+    if (pendingNavigation) {
+      pendingNavigation();
+      setPendingNavigation(null);
+    }
+  };
 
   // Format week range with month names
   const formatWeekRange = () => {
@@ -1032,6 +1065,11 @@ const Timesheet = () => {
                 • Permissions used: {monthlyPermissionCount}/3
               </span>
             )}
+            {hasUnsavedChanges && !isSubmitted && (
+              <span className="ml-2 text-yellow-600 font-semibold">
+                • Unsaved changes
+              </span>
+            )}
             {isSubmitted && (
               <span className="ml-2 text-green-600 font-semibold">
                 • This week's timesheet has been submitted
@@ -1063,6 +1101,40 @@ const Timesheet = () => {
           </button>
         </div>
       </div>
+
+      {/* Navigation Confirmation Dialog */}
+      {showNavigationDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">
+              Unsaved Changes
+            </h3>
+            <p className="text-gray-600 mb-6">
+              You have unsaved changes. What would you like to do?
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={cancelNavigation}
+                className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={discardAndNavigate}
+                className="px-4 py-2 text-red-600 border border-red-300 rounded hover:bg-red-50 transition-colors"
+              >
+                Discard Changes
+              </button>
+              <button
+                onClick={confirmSaveAndNavigate}
+                className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 transition-colors"
+              >
+                Save Draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

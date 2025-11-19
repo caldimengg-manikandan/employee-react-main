@@ -13,6 +13,7 @@ const ProjectAllocation = () => {
   const [selectedLocation, setSelectedLocation] = useState('All');
   const [branches] = useState(['Hosur', 'Chennai', 'Outside Det.']);
   const [divisions] = useState(['SDS (Steel Detailing)', 'Tekla Projects', 'DAS (Software)', 'Mechanical Projects']);
+  const [roles] = useState(['Modeler', 'Editor', 'Backdrafting', 'Checker', 'Estimator', 'Documentation', 'Project Lead']);
 
   // Initialize data from MongoDB via API calls
   const [projects, setProjects] = useState([]);
@@ -56,18 +57,21 @@ const ProjectAllocation = () => {
     branch: '',
     startDate: '',
     endDate: '',
-    status: 'Planning'
+    status: 'Active'
   });
 
   const [allocationForm, setAllocationForm] = useState({
     division: '',
     projectName: '',
     employeeName: '',
-    allocationPercentage: 100,
-    role: ''
+    employeeId: ''
   });
 
-  // Data is now persisted in MongoDB, no need for sessionStorage
+  // Filtered projects based on selected division
+  const getFilteredProjectsByDivision = () => {
+    if (!allocationForm.division) return [];
+    return projects.filter(project => project.division === allocationForm.division);
+  };
 
   // Function to refresh data from MongoDB
   const refreshData = async () => {
@@ -107,7 +111,6 @@ const ProjectAllocation = () => {
     const baseClasses = "px-3 py-1 rounded-full text-xs font-semibold";
     switch ((status || '').toLowerCase()) {
       case 'active': return `${baseClasses} bg-green-100 text-green-800`;
-      case 'planning': return `${baseClasses} bg-blue-100 text-blue-800`;
       case 'completed': return `${baseClasses} bg-gray-100 text-gray-800`;
       default: return `${baseClasses} bg-gray-100 text-gray-800`;
     }
@@ -116,10 +119,10 @@ const ProjectAllocation = () => {
   // Generate project code based on division
   const generateProjectCode = (division) => {
     const prefixMap = {
-      'SDS (Steel Detailing)': 'SDS',
-      'Tekla Projects': 'TKP',
-      'DAS (Software)': 'DAS',
-      'Mechanical Projects': 'MEC'
+      'SDS (Steel Detailing)': 'CDE-SD',
+      'Tekla Projects': 'CDE-TK',
+      'DAS (Software)': 'CDE-DAS',
+      'Mechanical Projects': 'CDE-MEC'
     };
     
     const prefix = prefixMap[division] || 'PROJ';
@@ -182,7 +185,7 @@ const ProjectAllocation = () => {
         branch: project.branch,
         startDate: project.startDate || '',
         endDate: project.endDate || '',
-        status: project.status || 'Planning'
+        status: project.status || 'Active'
       });
     } else {
       setEditingProject(null);
@@ -192,7 +195,7 @@ const ProjectAllocation = () => {
         branch: '',
         startDate: '',
         endDate: '',
-        status: 'Planning'
+        status: 'Active'
       });
     }
     setShowProjectModal(true);
@@ -269,10 +272,10 @@ const ProjectAllocation = () => {
     if (allocation) {
       setEditingAllocation(allocation);
       setAllocationForm({
-        division: allocation.projectDivision,
+        division: allocation.projectDivision || allocation.division || '',
         projectName: allocation.projectName,
         employeeName: allocation.employeeName,
-        allocationPercentage: Number(allocation.allocationPercentage),
+        employeeId: allocation.employeeCode || allocation.employeeId || '',
         role: allocation.role || ''
       });
     } else {
@@ -281,7 +284,7 @@ const ProjectAllocation = () => {
         division: '',
         projectName: '',
         employeeName: '',
-        allocationPercentage: 100,
+        employeeId: '',
         role: ''
       });
     }
@@ -293,8 +296,20 @@ const ProjectAllocation = () => {
     setEditingAllocation(null);
   };
 
+  // Handle employee selection
+  const handleEmployeeSelect = (employeeName) => {
+    const selectedEmployee = employees.find(emp => emp.name === employeeName);
+    if (selectedEmployee) {
+      setAllocationForm(prev => ({
+        ...prev,
+        employeeName: selectedEmployee.name,
+        employeeId: selectedEmployee.employeeId || selectedEmployee.id || ''
+      }));
+    }
+  };
+
   const handleAllocate = async () => {
-    if (!allocationForm.division || !allocationForm.projectName || !allocationForm.employeeName) {
+    if (!allocationForm.division || !allocationForm.projectName || !allocationForm.employeeName || !allocationForm.role) {
       alert("Please fill all required fields.");
       return;
     }
@@ -307,7 +322,7 @@ const ProjectAllocation = () => {
 
     // Find employee by name
     const employee = employees.find(e => 
-      String(e.name).toLowerCase() === String(allocationForm.employeeName).toLowerCase()
+      e.name === allocationForm.employeeName
     );
 
     if (!project) {
@@ -322,28 +337,27 @@ const ProjectAllocation = () => {
 
     const payload = {
       projectName: project.name,
+      projectCode: project.code,
       employeeName: employee.name,
-      allocationPercentage: 100,
+      employeeCode: allocationForm.employeeId || employee.employeeId || employee.id,
       startDate: project.startDate,
       endDate: project.endDate,
       branch: project.branch,
+      projectDivision: project.division,
       status: 'Active',
       allocatedHours: 40,
-      role: employee.position || allocationForm.role || '',
       assignedBy: user.name || 'System',
       assignedDate: new Date().toISOString().split('T')[0],
+      role: allocationForm.role,
     };
 
     try {
       if (editingAllocation && editingAllocation._id) {
-        await allocationAPI.deleteAllocation(editingAllocation._id);
-      }
-      const res = await allocationAPI.createAllocation(payload);
-      if (editingAllocation && editingAllocation._id) {
-        setAllocations(prev => prev.map(a => a._id === editingAllocation._id ? res.data : a));
+        await allocationAPI.updateAllocation(editingAllocation._id, payload);
       } else {
-        setAllocations(prev => [...prev, res.data]);
+        await allocationAPI.createAllocation(payload);
       }
+      await refreshData();
       closeAllocationModal();
     } catch (e) {
       alert(e?.response?.data?.error || 'Failed to save allocation');
@@ -383,559 +397,592 @@ const ProjectAllocation = () => {
         <>
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Project Allocation</h1>
-        <p className="text-gray-600">
-          {canEdit
-            ? "Manage projects and team allocations"
-            : "View your project allocations and team information"
-          }
-          {!canEdit && (
-            <span className="block text-sm text-blue-600 mt-1">
-              🔒 Read-only access - Contact Project Manager for changes
-            </span>
-          )}
-        </p>
-      </div>
-
-      {/* Controls */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
-        <div className="flex justify-between items-center">
-          <div className="flex space-x-2">
-            <button
-              onClick={() => setActiveTab('projects')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'projects' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
-            >
-              <Building2 size={16} />
-              Projects
-            </button>
-            <button
-              onClick={() => setActiveTab('allocations')}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'allocations' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
-            >
-              <Users size={16} />
-              Allocations
-            </button>
-            {!canEdit && (
-              <button
-                onClick={() => setActiveTab('myAllocations')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'myAllocations' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
-              >
-                <Target size={16} />
-                My Allocations
-              </button>
-            )}
+            <p className="text-gray-600">
+              {canEdit
+                ? "Manage projects and team allocations"
+                : "View your project allocations and team information"
+              }
+              {!canEdit && (
+                <span className="block text-sm text-blue-600 mt-1">
+                  🔒 Read-only access - Contact Project Manager for changes
+                </span>
+              )}
+            </p>
           </div>
 
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
-              <button onClick={() => setSelectedLocation('All')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'All' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>All Locations</button>
-              <button onClick={() => setSelectedLocation('Hosur')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'Hosur' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Hosur</button>
-              <button onClick={() => setSelectedLocation('Chennai')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'Chennai' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Chennai</button>
-            </div>
-
-            {canEdit && (
-              <button
-                onClick={() => activeTab === 'projects' ? openProjectModal() : openAllocationModal()}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                {activeTab === 'projects' ? (
-                  <>
-                    <Building2 size={16} />
-                    Add Project
-                  </>
-                ) : (
-                  <>
-                    <Users size={16} />
-                    Allocate
-                  </>
+          {/* Controls */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+            <div className="flex justify-between items-center">
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setActiveTab('projects')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'projects' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                >
+                  <Building2 size={16} />
+                  Projects
+                </button>
+                <button
+                  onClick={() => setActiveTab('allocations')}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'allocations' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                >
+                  <Users size={16} />
+                  Allocations
+                </button>
+                {!canEdit && (
+                  <button
+                    onClick={() => setActiveTab('myAllocations')}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'myAllocations' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                  >
+                    <Target size={16} />
+                    My Allocations
+                  </button>
                 )}
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {selectedLocation !== 'All' && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-blue-700 text-sm">📍 Showing data for <strong>{selectedLocation}</strong> location
-            <button onClick={() => setSelectedLocation('All')} className="ml-2 text-blue-500 hover:text-blue-700 underline text-xs">Show all locations</button>
-          </p>
-        </div>
-      )}
-
-      {/* Projects Tab */}
-      {activeTab === 'projects' && (
-        <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 border-b border-gray-200">
-              <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'All Projects' : `${selectedLocation} Projects`}</h3>
-              <p className="text-gray-600 text-sm">{getFilteredProjects().length} project(s){selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}</p>
-            </div>
-
-            {getFilteredProjects().length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="text-gray-400 text-6xl mb-4">🏗️</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Projects Found</h3>
-                <p className="text-gray-500">{selectedLocation === 'All' ? "No projects available." : `No projects found for ${selectedLocation} location.`}</p>
-                {selectedLocation !== 'All' && <button onClick={() => setSelectedLocation('All')} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">View All Projects</button>}
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Start Date</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">End Date</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Status</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredProjects().map(project => (
-                      <tr key={project._id || project.id} className="hover:bg-gray-50 border-b">
-                        <td className="p-3">
-                          <div className="font-mono text-sm font-semibold text-blue-600">{project.code}</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="font-medium text-gray-900">{project.name}</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="text-sm text-gray-600">{project.division}</div>
-                        </td>
-                        <td className="p-3"><div className="text-sm text-gray-600">{formatDate(project.startDate)}</div></td>
-                        <td className="p-3"><div className="text-sm text-gray-600">{formatDate(project.endDate)}</div></td>
-                        <td className="p-3"><span className={getStatusBadge(project.status)}>{project.status}</span></td>
-                        <td className="p-3">
-                          <div className="flex space-x-2">
-                            <button 
-                              onClick={() => openViewModal(project, 'project')} 
-                              className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors" 
-                              title="View"
-                            >
-                              <Eye size={14} />
-                            </button>
-                            {canEdit && (
-                              <>
+
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
+                  <button onClick={() => setSelectedLocation('All')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'All' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>All Locations</button>
+                  <button onClick={() => setSelectedLocation('Hosur')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'Hosur' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Hosur</button>
+                  <button onClick={() => setSelectedLocation('Chennai')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'Chennai' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Chennai</button>
+                </div>
+
+                {canEdit && (
+                  <button
+                    onClick={() => activeTab === 'projects' ? openProjectModal() : openAllocationModal()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  >
+                    {activeTab === 'projects' ? (
+                      <>
+                        <Building2 size={16} />
+                        Add Project
+                      </>
+                    ) : (
+                      <>
+                        <Users size={16} />
+                        Allocate
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {selectedLocation !== 'All' && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-blue-700 text-sm">📍 Showing data for <strong>{selectedLocation}</strong> location
+                <button onClick={() => setSelectedLocation('All')} className="ml-2 text-blue-500 hover:text-blue-700 underline text-xs">Show all locations</button>
+              </p>
+            </div>
+          )}
+
+          {/* Projects Tab */}
+          {activeTab === 'projects' && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 border-b border-gray-200">
+                  <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'All Projects' : `${selectedLocation} Projects`}</h3>
+                  <p className="text-gray-600 text-sm">{getFilteredProjects().length} project(s){selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}</p>
+                </div>
+
+                {getFilteredProjects().length === 0 ? (
+                  <div className="p-8 text-center">
+                    <div className="text-gray-400 text-6xl mb-4">🏗️</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Projects Found</h3>
+                    <p className="text-gray-500">{selectedLocation === 'All' ? "No projects available." : `No projects found for ${selectedLocation} location.`}</p>
+                    {selectedLocation !== 'All' && <button onClick={() => setSelectedLocation('All')} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">View All Projects</button>}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Start Date</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">End Date</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Status</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {getFilteredProjects().map(project => (
+                          <tr key={project._id || project.id} className="hover:bg-gray-50 border-b">
+                            <td className="p-3">
+                              <div className="font-mono text-sm font-semibold text-blue-600">{project.code}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-medium text-gray-900">{project.name}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="text-sm text-gray-600">{project.division}</div>
+                            </td>
+                            <td className="p-3"><div className="text-sm text-gray-600">{formatDate(project.startDate)}</div></td>
+                            <td className="p-3"><div className="text-sm text-gray-600">{formatDate(project.endDate)}</div></td>
+                            <td className="p-3"><span className={getStatusBadge(project.status)}>{project.status}</span></td>
+                            <td className="p-3">
+                              <div className="flex space-x-2">
                                 <button 
-                                  onClick={() => openProjectModal(project)} 
-                                  className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors" 
-                                  title="Edit"
+                                  onClick={() => openViewModal(project, 'project')} 
+                                  className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors" 
+                                  title="View"
                                 >
-                                  <Edit size={14} />
+                                  <Eye size={14} />
                                 </button>
+                                {canEdit && (
+                                  <>
+                                    <button 
+                                      onClick={() => openProjectModal(project)} 
+                                      className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors" 
+                                      title="Edit"
+                                    >
+                                      <Edit size={14} />
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeleteProject(project._id || project.id)} 
+                                      className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors" 
+                                      title="Delete"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Allocations Tab */}
+          {activeTab === 'allocations' && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-gradient-to-r from-green-50 to-teal-50 p-3 border-b border-gray-200">
+                  <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'All Allocations' : `${selectedLocation} Allocations`}</h3>
+                  <p className="text-gray-600 text-sm">{getFilteredAllocations().length} allocation(s){selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}</p>
+                </div>
+
+                {getFilteredAllocations().length === 0 ? (
+                  <div className="p-8 text-center">
+                    <div className="text-gray-400 text-6xl mb-4">👥</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Allocations Found</h3>
+                    <p className="text-gray-500">{selectedLocation === 'All' ? "No allocations available." : `No allocations found for ${selectedLocation} location.`}</p>
+                    {selectedLocation !== 'All' && <button onClick={() => setSelectedLocation('All')} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">View All Allocations</button>}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Employee Name</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Employee ID</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {getFilteredAllocations().map(allocation => (
+                          <tr key={allocation._id || allocation.id} className="hover:bg-gray-50 border-b">
+                            <td className="p-3">
+                              <div className="font-mono text-sm font-semibold text-blue-600">{allocation.projectCode}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-medium text-gray-900">{allocation.projectName}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="text-sm text-gray-600">{allocation.projectDivision || allocation.division}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-medium text-gray-900">{allocation.employeeName}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="text-sm font-mono text-gray-500">{allocation.employeeCode}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex space-x-2">
                                 <button 
-                                  onClick={() => handleDeleteProject(project._id || project.id)} 
-                                  className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors" 
-                                  title="Delete"
+                                  onClick={() => openViewModal(allocation, 'allocation')} 
+                                  className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors" 
+                                  title="View"
                                 >
-                                  <Trash2 size={14} />
+                                  <Eye size={14} />
                                 </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                                {canEdit && (
+                                  <>
+                                    <button 
+                                      onClick={() => openAllocationModal(allocation)} 
+                                      className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors" 
+                                      title="Edit"
+                                    >
+                                      <Edit size={14} />
+                                    </button>
+                                    <button 
+                                      onClick={() => handleDeleteAllocation(allocation._id || allocation.id)} 
+                                      className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors" 
+                                      title="Delete"
+                                    >
+                                      <Trash2 size={14} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Allocations Tab */}
-      {activeTab === 'allocations' && (
-        <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-green-50 to-teal-50 p-3 border-b border-gray-200">
-              <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'All Allocations' : `${selectedLocation} Allocations`}</h3>
-              <p className="text-gray-600 text-sm">{getFilteredAllocations().length} allocation(s){selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}</p>
             </div>
+          )}
 
-            {getFilteredAllocations().length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="text-gray-400 text-6xl mb-4">👥</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Allocations Found</h3>
-                <p className="text-gray-500">{selectedLocation === 'All' ? "No allocations available." : `No allocations found for ${selectedLocation} location.`}</p>
-                {selectedLocation !== 'All' && <button onClick={() => setSelectedLocation('All')} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">View All Allocations</button>}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Employee Name</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Employee ID</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Allocation %</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getFilteredAllocations().map(allocation => (
-                      <tr key={allocation._id || allocation.id} className="hover:bg-gray-50 border-b">
-                        <td className="p-3">
-                          <div className="font-mono text-sm font-semibold text-blue-600">{allocation.projectCode}</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="font-medium text-gray-900">{allocation.projectName}</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="font-medium text-gray-900">{allocation.employeeName}</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="text-sm font-mono text-gray-500">{allocation.employeeCode}</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="text-sm font-semibold text-green-600">{allocation.allocationPercentage}%</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="flex space-x-2">
-                            <button 
-                              onClick={() => openViewModal(allocation, 'allocation')} 
-                              className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors" 
-                              title="View"
-                            >
-                              <Eye size={14} />
-                            </button>
-                            {canEdit && (
-                              <>
-                                <button 
-                                  onClick={() => openAllocationModal(allocation)} 
-                                  className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors" 
-                                  title="Edit"
-                                >
-                                  <Edit size={14} />
-                                </button>
-                                <button 
-                                  onClick={() => handleDeleteAllocation(allocation._id || allocation.id)} 
-                                  className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors" 
-                                  title="Delete"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* My Allocations Tab */}
-      {activeTab === 'myAllocations' && !canEdit && (
-        <div className="space-y-4">
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-3 border-b border-gray-200">
-              <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'My Project Allocations' : `My ${selectedLocation} Allocations`}</h3>
-              <p className="text-gray-600 text-sm">{getMyFilteredAllocations().length} project allocation(s){selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}</p>
-            </div>
-
-            {getMyFilteredAllocations().length === 0 ? (
-              <div className="p-8 text-center">
-                <div className="text-gray-400 text-6xl mb-4">📋</div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No Allocations Found</h3>
-                <p className="text-gray-500">{selectedLocation === 'All' ? "You are not currently allocated to any projects." : `You have no allocations in ${selectedLocation} location.`}</p>
-                <p className="text-sm text-gray-400 mt-2">Contact your Project Manager for project assignments.</p>
-                {selectedLocation !== 'All' && <button onClick={() => setSelectedLocation('All')} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">View All My Allocations</button>}
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-gray-50">
-                      <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Duration</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Allocation %</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Assigned By</th>
-                      <th className="p-3 text-left text-sm font-semibold border-b">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {getMyFilteredAllocations().map(allocation => (
-                      <tr key={allocation._id || allocation.id} className="hover:bg-gray-50 border-b">
-                        <td className="p-3">
-                          <div className="text-sm text-blue-600 font-mono font-semibold">{allocation.projectCode}</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="font-medium text-gray-900">{allocation.projectName}</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="text-sm text-gray-600">{formatDate(allocation.startDate)} to {formatDate(allocation.endDate)}</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="text-sm font-semibold text-green-600">{allocation.allocationPercentage}%</div>
-                        </td>
-                        <td className="p-3">
-                          <div className="text-sm text-gray-600">{allocation.assignedBy}</div>
-                          <div className="text-xs text-gray-400">{formatDate(allocation.assignedDate)}</div>
-                        </td>
-                        <td className="p-3">
-                          <button 
-                            onClick={() => openViewModal(allocation, 'allocation')} 
-                            className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors" 
-                            title="View Details"
-                          >
-                            <Eye size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* View Details Modal */}
-      {showViewModal && viewingItem && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">
-                {viewingItem.type === 'project' ? 'Project Details' : 'Allocation Details'}
-              </h3>
-            </div>
-
-            <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
-              {viewingItem.type === 'project' ? (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Code</label>
-                    <p className="text-lg font-mono font-semibold text-blue-600">{viewingItem.code}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
-                    <p className="text-lg font-semibold text-gray-900">{viewingItem.name}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-                    <p className="text-gray-900">{viewingItem.division}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                    <p className="text-gray-900">{viewingItem.branch}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <p className="text-gray-900">{formatDate(viewingItem.startDate)}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                    <p className="text-gray-900">{formatDate(viewingItem.endDate)}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <span className={getStatusBadge(viewingItem.status)}>{viewingItem.status}</span>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
-                    <p className="text-gray-900">{viewingItem.description}</p>
-                  </div>
+          {/* My Allocations Tab */}
+          {activeTab === 'myAllocations' && !canEdit && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+                <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-3 border-b border-gray-200">
+                  <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'My Project Allocations' : `My ${selectedLocation} Allocations`}</h3>
+                  <p className="text-gray-600 text-sm">{getMyFilteredAllocations().length} project allocation(s){selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}</p>
                 </div>
-              ) : (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Code</label>
-                    <p className="text-lg font-mono font-semibold text-blue-600">{viewingItem.projectCode}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
-                    <p className="text-lg font-semibold text-gray-900">{viewingItem.projectName}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
-                    <p className="text-gray-900">{viewingItem.employeeName}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
-                    <p className="font-mono text-gray-900">{viewingItem.employeeCode}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Allocation Percentage</label>
-                    <p className="text-lg font-semibold text-green-600">{viewingItem.allocationPercentage}%</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                    <p className="text-gray-900">{viewingItem.role}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
-                    <p className="text-gray-900">{formatDate(viewingItem.startDate)}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
-                    <p className="text-gray-900">{formatDate(viewingItem.endDate)}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Assigned By</label>
-                    <p className="text-gray-900">{viewingItem.assignedBy}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Date</label>
-                    <p className="text-gray-900">{formatDate(viewingItem.assignedDate)}</p>
-                  </div>
-                </div>
-              )}
-            </div>
 
-            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-              <button 
-                onClick={closeViewModal} 
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Project Modal */}
-      {showProjectModal && canEdit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">{editingProject ? 'Edit Project' : 'Add New Project'}</h3>
-            </div>
-
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Division *</label>
-                <select 
-                  value={projectForm.division} 
-                  onChange={(e) => setProjectForm(prev => ({ ...prev, division: e.target.value }))} 
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select Division</option>
-                  {divisions.map(division => (
-                    <option key={division} value={division}>{division}</option>
-                  ))}
-                </select>
+                {getMyFilteredAllocations().length === 0 ? (
+                  <div className="p-8 text-center">
+                    <div className="text-gray-400 text-6xl mb-4">📋</div>
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Allocations Found</h3>
+                    <p className="text-gray-500">{selectedLocation === 'All' ? "You are not currently allocated to any projects." : `You have no allocations in ${selectedLocation} location.`}</p>
+                    <p className="text-sm text-gray-400 mt-2">Contact your Project Manager for project assignments.</p>
+                    {selectedLocation !== 'All' && <button onClick={() => setSelectedLocation('All')} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">View All My Allocations</button>}
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-gray-50">
+                          <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Duration</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Assigned By</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {getMyFilteredAllocations().map(allocation => (
+                          <tr key={allocation._id || allocation.id} className="hover:bg-gray-50 border-b">
+                            <td className="p-3">
+                              <div className="text-sm text-blue-600 font-mono font-semibold">{allocation.projectCode}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-medium text-gray-900">{allocation.projectName}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="text-sm text-gray-600">{allocation.projectDivision || allocation.division}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="text-sm text-gray-600">{formatDate(allocation.startDate)} to {formatDate(allocation.endDate)}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="text-sm text-gray-600">{allocation.assignedBy}</div>
+                              <div className="text-xs text-gray-400">{formatDate(allocation.assignedDate)}</div>
+                            </td>
+                            <td className="p-3">
+                              <button 
+                                onClick={() => openViewModal(allocation, 'allocation')} 
+                                className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors" 
+                                title="View Details"
+                              >
+                                <Eye size={14} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
+            </div>
+          )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Project Name *</label>
-                <input 
-                  type="text" 
-                  value={projectForm.name} 
-                  onChange={(e) => setProjectForm(prev => ({ ...prev, name: e.target.value }))} 
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                  placeholder="Enter project name"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Start Date *</label>
-                  <input type="date" value={projectForm.startDate} onChange={(e) => setProjectForm(prev => ({ ...prev, startDate: e.target.value }))} className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+          {/* View Details Modal */}
+          {showViewModal && viewingItem && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900">
+                    {viewingItem.type === 'project' ? 'Project Details' : 'Allocation Details'}
+                  </h3>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">End Date *</label>
-                  <input type="date" value={projectForm.endDate} onChange={(e) => setProjectForm(prev => ({ ...prev, endDate: e.target.value }))} className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+
+                <div className="p-6 space-y-4 max-h-96 overflow-y-auto">
+                  {viewingItem.type === 'project' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Project Code</label>
+                        <p className="text-lg font-mono font-semibold text-blue-600">{viewingItem.code}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+                        <p className="text-lg font-semibold text-gray-900">{viewingItem.name}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                        <p className="text-gray-900">{viewingItem.division}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                        <p className="text-gray-900">{viewingItem.branch}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                        <p className="text-gray-900">{formatDate(viewingItem.startDate)}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                        <p className="text-gray-900">{formatDate(viewingItem.endDate)}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                        <span className={getStatusBadge(viewingItem.status)}>{viewingItem.status}</span>
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                        <p className="text-gray-900">{viewingItem.description}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Project Code</label>
+                        <p className="text-lg font-mono font-semibold text-blue-600">{viewingItem.projectCode}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+                        <p className="text-lg font-semibold text-gray-900">{viewingItem.projectName}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                        <p className="text-gray-900">{viewingItem.projectDivision || viewingItem.division}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                        <p className="text-gray-900">{viewingItem.employeeName}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+                        <p className="font-mono text-gray-900">{viewingItem.employeeCode}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                        <p className="text-gray-900">{formatDate(viewingItem.startDate)}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                        <p className="text-gray-900">{formatDate(viewingItem.endDate)}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Assigned By</label>
+                        <p className="text-gray-900">{viewingItem.assignedBy}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Assigned Date</label>
+                        <p className="text-gray-900">{formatDate(viewingItem.assignedDate)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+                  <button 
+                    onClick={closeViewModal} 
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    Close
+                  </button>
                 </div>
               </div>
+                       </div>
+          )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
-                  <select value={projectForm.branch} onChange={(e) => setProjectForm(prev => ({ ...prev, branch: e.target.value }))} className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="">Select Location</option>
-                    <option value="Hosur">Hosur</option>
-                    <option value="Chennai">Chennai</option>
-                  </select>
+          {/* Project Modal */}
+          {showProjectModal && canEdit && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900">{editingProject ? 'Edit Project' : 'Add New Project'}</h3>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                  <select value={projectForm.status} onChange={(e) => setProjectForm(prev => ({ ...prev, status: e.target.value }))} className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
-                    <option value="Planning">Planning</option>
-                    <option value="Active">Active</option>
-                    <option value="Completed">Completed</option>
-                  </select>
+
+                <div className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Division *</label>
+                    <select 
+                      value={projectForm.division} 
+                      onChange={(e) => setProjectForm(prev => ({ ...prev, division: e.target.value }))} 
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select Division</option>
+                      {divisions.map(division => (
+                        <option key={division} value={division}>{division}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Project Name *</label>
+                    <input 
+                      type="text" 
+                      value={projectForm.name} 
+                      onChange={(e) => setProjectForm(prev => ({ ...prev, name: e.target.value }))} 
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                      placeholder="Enter project name"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Start Date *</label>
+                      <input type="date" value={projectForm.startDate} onChange={(e) => setProjectForm(prev => ({ ...prev, startDate: e.target.value }))} className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">End Date *</label>
+                      <input type="date" value={projectForm.endDate} onChange={(e) => setProjectForm(prev => ({ ...prev, endDate: e.target.value }))} className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Location *</label>
+                      <select value={projectForm.branch} onChange={(e) => setProjectForm(prev => ({ ...prev, branch: e.target.value }))} className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">Select Location</option>
+                        <option value="Hosur">Hosur</option>
+                        <option value="Chennai">Chennai</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                      <select value={projectForm.status} onChange={(e) => setProjectForm(prev => ({ ...prev, status: e.target.value }))} className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="Active">Active</option>
+                        <option value="Completed">Completed</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {!editingProject && projectForm.division && projectForm.name && (
+                    <div className="bg-blue-50 p-3 rounded-lg">
+                      <p className="text-sm text-blue-700"><strong>Project Code:</strong> {generateProjectCode(projectForm.division)}</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+                  <button onClick={closeProjectModal} className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
+                  <button onClick={handleProjectSave} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">{editingProject ? 'Update' : 'Create'}</button>
                 </div>
               </div>
+            </div>
+          )}
 
-              {!editingProject && projectForm.division && projectForm.name && (
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <p className="text-sm text-blue-700"><strong>Project Code:</strong> {generateProjectCode(projectForm.division)}</p>
+          {/* Allocation Modal */}
+          {showAllocationModal && canEdit && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
+                <div className="p-6 border-b border-gray-200">
+                  <h3 className="text-xl font-semibold text-gray-900">{editingAllocation ? 'Edit Allocation' : 'Allocate Resource'}</h3>
                 </div>
-              )}
-            </div>
 
-            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-              <button onClick={closeProjectModal} className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
-              <button onClick={handleProjectSave} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">{editingProject ? 'Update' : 'Create'}</button>
-            </div>
-          </div>
-        </div>
-      )}
+                <div className="p-6 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Division *</label>
+                    <select 
+                      value={allocationForm.division} 
+                      onChange={(e) => setAllocationForm(prev => ({ ...prev, division: e.target.value, projectName: '' }))} 
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select Division</option>
+                      {divisions.map(division => (
+                        <option key={division} value={division}>{division}</option>
+                      ))}
+                    </select>
+                  </div>
 
-      {/* Allocation Modal */}
-      {showAllocationModal && canEdit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-            <div className="p-6 border-b border-gray-200">
-              <h3 className="text-xl font-semibold text-gray-900">{editingAllocation ? 'Edit Allocation' : 'Allocate Resource'}</h3>
-            </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Project Name *</label>
+                    <select 
+                      value={allocationForm.projectName} 
+                      onChange={(e) => setAllocationForm(prev => ({ ...prev, projectName: e.target.value }))} 
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={!allocationForm.division}
+                    >
+                      <option value="">Select Project</option>
+                      {getFilteredProjectsByDivision().map(project => (
+                        <option key={project._id} value={project.name}>
+                          {project.name} ({project.code})
+                        </option>
+                      ))}
+                    </select>
+                    {!allocationForm.division && (
+                      <p className="text-sm text-gray-500 mt-1">Please select a division first</p>
+                    )}
+                  </div>
 
-            <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Division *</label>
-                <select 
-                  value={allocationForm.division} 
-                  onChange={(e) => setAllocationForm(prev => ({ ...prev, division: e.target.value }))} 
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Select Division</option>
-                  {divisions.map(division => (
-                    <option key={division} value={division}>{division}</option>
-                  ))}
-                </select>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Employee Name *</label>
+                    <select 
+                      value={allocationForm.employeeName} 
+                      onChange={(e) => handleEmployeeSelect(e.target.value)} 
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select Employee</option>
+                      {employees.map(employee => (
+                        <option key={employee._id} value={employee.name}>
+                          {employee.name} {employee.employeeId ? `(${employee.employeeId})` : ''}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID</label>
+                    <input 
+                      type="text" 
+                      value={allocationForm.employeeId} 
+                      readOnly
+                      className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                      placeholder="Employee ID will be auto-filled"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
+                    <select 
+                      value={allocationForm.role}
+                      onChange={(e) => setAllocationForm(prev => ({ ...prev, role: e.target.value }))}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="">Select Role</option>
+                      {roles.map(r => (
+                        <option key={r} value={r}>{r}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+                  <button onClick={closeAllocationModal} className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
+                  <button onClick={handleAllocate} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">{editingAllocation ? 'Update' : 'Allocate'}</button>
+                </div>
               </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Project Name *</label>
-                <input 
-                  type="text" 
-                  value={allocationForm.projectName} 
-                  onChange={(e) => setAllocationForm(prev => ({ ...prev, projectName: e.target.value }))} 
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                  placeholder="Enter project name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Employee Name *</label>
-                <input 
-                  type="text" 
-                  value={allocationForm.employeeName} 
-                  onChange={(e) => setAllocationForm(prev => ({ ...prev, employeeName: e.target.value }))} 
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
-                  placeholder="Enter employee name"
-                />
-              </div>
             </div>
-
-            <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-              <button onClick={closeAllocationModal} className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
-              <button onClick={handleAllocate} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">{editingAllocation ? 'Update' : 'Allocate'}</button>
-            </div>
-          </div>
-        </div>
-      )}
+          )}
         </>
       )}
     </div>

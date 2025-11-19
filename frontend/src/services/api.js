@@ -69,6 +69,9 @@ export const timesheetAPI = {
   // ✅ Update timesheet status (for manager)
   updateTimesheetStatus: (id, status) =>
     api.put(`/timesheet-history/${id}/status`, { status }),
+
+  // 🗑️ Delete timesheet
+  deleteTimesheet: (id) => api.delete(`/timesheets/${id}`),
 };
 
 // 🏗️ PROJECT API

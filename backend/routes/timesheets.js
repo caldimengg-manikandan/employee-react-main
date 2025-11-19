@@ -91,7 +91,15 @@ router.get("/", auth, async (req, res) => {
     });
 
     if (!sheet) {
-      return res.status(404).json({ message: "Timesheet not found" });
+      return res.json({
+        userId: req.user._id,
+        weekStartDate: new Date(weekStart),
+        weekEndDate: new Date(weekEnd),
+        entries: [],
+        totalHours: 0,
+        status: "Draft",
+        submittedAt: null,
+      });
     }
 
     res.json(sheet);
@@ -116,6 +124,47 @@ router.get("/all", auth, async (req, res) => {
     res.json(all);
   } catch (error) {
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+/**
+ * DELETE Timesheet by ID
+ */
+router.delete("/:id", auth, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user._id;
+
+    // Find the timesheet and ensure it belongs to the user
+    const timesheet = await Timesheet.findOne({ _id: id, userId });
+    
+    if (!timesheet) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Timesheet not found or access denied" 
+      });
+    }
+
+    // Only allow deletion of draft timesheets
+    if (timesheet.status !== "Draft") {
+      return res.status(400).json({ 
+        success: false, 
+        message: "Only draft timesheets can be deleted" 
+      });
+    }
+
+    await Timesheet.findByIdAndDelete(id);
+    
+    res.json({ 
+      success: true, 
+      message: "Timesheet deleted successfully" 
+    });
+  } catch (error) {
+    console.error("❌ Delete timesheet error:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Server error while deleting timesheet" 
+    });
   }
 });
 
