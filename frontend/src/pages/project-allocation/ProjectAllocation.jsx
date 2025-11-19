@@ -119,8 +119,8 @@ const ProjectAllocation = () => {
   // Generate project code based on division
   const generateProjectCode = (division) => {
     const prefixMap = {
-      'SDS (Steel Detailing)': 'CDE-SD',
-      'Tekla Projects': 'CDE-TK',
+      'SDS (Steel Detailing)': 'CDE-SDS',
+      'Tekla Projects': 'CDE-TEK',
       'DAS (Software)': 'CDE-DAS',
       'Mechanical Projects': 'CDE-MEC'
     };

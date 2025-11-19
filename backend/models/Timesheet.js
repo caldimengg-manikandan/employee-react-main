@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 
 const TimesheetEntrySchema = new mongoose.Schema({
   project: { type: String, required: true },
+  projectCode: { type: String, default: "" },
   task: { type: String, required: true },
   type: { type: String, enum: ["project", "leave"], default: "project" },
   hours: { type: [Number], default: [0, 0, 0, 0, 0, 0, 0] },
