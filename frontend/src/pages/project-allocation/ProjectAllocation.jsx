@@ -23,7 +23,7 @@ const ProjectAllocation = () => {
   const [loading, setLoading] = useState(true);
 
   // Filter states
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(true);
   const [projectFilters, setProjectFilters] = useState({
     projectCode: [],
     projectName: [],
@@ -688,20 +688,7 @@ const ProjectAllocation = () => {
       
       {!loading && (
         <>
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-gray-900">Project Allocation</h1>
-            <p className="text-gray-600">
-              {canEdit
-                ? "Manage projects and team allocations"
-                : "View your project allocations and team information"
-              }
-              {!canEdit && (
-                <span className="block text-sm text-blue-600 mt-1">
-                  🔒 Read-only access - Contact Project Manager for changes
-                </span>
-              )}
-            </p>
-          </div>
+          
 
           {/* Controls */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -733,12 +720,7 @@ const ProjectAllocation = () => {
               </div>
 
               <div className="flex items-center space-x-4">
-                {/* Location Filter */}
-                <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
-                  <button onClick={() => setSelectedLocation('All')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'All' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>All Locations</button>
-                  <button onClick={() => setSelectedLocation('Hosur')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'Hosur' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Hosur</button>
-                  <button onClick={() => setSelectedLocation('Chennai')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'Chennai' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Chennai</button>
-                </div>
+               
 
                 {/* Filter Button */}
                 <button
