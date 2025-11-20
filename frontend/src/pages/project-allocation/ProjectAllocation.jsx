@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Edit, Trash2, Eye, Building2, Users, Target } from 'lucide-react';
+import { Edit, Trash2, Eye, Building2, Users, Target, Filter, X, ChevronDown } from 'lucide-react';
 import { employeeAPI, projectAPI, allocationAPI } from '../../services/api';
 
 const ProjectAllocation = () => {
@@ -14,12 +14,48 @@ const ProjectAllocation = () => {
   const [branches] = useState(['Hosur', 'Chennai', 'Outside Det.']);
   const [divisions] = useState(['SDS (Steel Detailing)', 'Tekla Projects', 'DAS (Software)', 'Mechanical Projects']);
   const [roles] = useState(['Modeler', 'Editor', 'Backdrafting', 'Checker', 'Estimator', 'Documentation', 'Project Lead']);
+  const [statuses] = useState(['Active', 'Completed']);
 
   // Initialize data from MongoDB via API calls
   const [projects, setProjects] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [allocations, setAllocations] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [projectFilters, setProjectFilters] = useState({
+    projectCode: [],
+    projectName: [],
+    division: [],
+    location: [],
+    status: []
+  });
+  const [allocationFilters, setAllocationFilters] = useState({
+    projectCode: [],
+    projectName: [],
+    employeeId: [],
+    division: [],
+    location: [],
+    status: []
+  });
+
+  // Dropdown open states
+  const [projectDropdowns, setProjectDropdowns] = useState({
+    projectCode: false,
+    projectName: false,
+    division: false,
+    location: false,
+    status: false
+  });
+  const [allocationDropdowns, setAllocationDropdowns] = useState({
+    projectCode: false,
+    projectName: false,
+    employeeId: false,
+    division: false,
+    location: false,
+    status: false
+  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -66,6 +102,163 @@ const ProjectAllocation = () => {
     employeeName: '',
     employeeId: ''
   });
+
+  // Filter handlers
+  const handleProjectFilterChange = (field, value) => {
+    setProjectFilters(prev => ({
+      ...prev,
+      [field]: prev[field].includes(value) 
+        ? prev[field].filter(item => item !== value)
+        : [...prev[field], value]
+    }));
+  };
+
+  const handleAllocationFilterChange = (field, value) => {
+    setAllocationFilters(prev => ({
+      ...prev,
+      [field]: prev[field].includes(value) 
+        ? prev[field].filter(item => item !== value)
+        : [...prev[field], value]
+    }));
+  };
+
+  const selectAllProjectFilters = (field, options) => {
+    setProjectFilters(prev => ({
+      ...prev,
+      [field]: options
+    }));
+  };
+
+  const selectAllAllocationFilters = (field, options) => {
+    setAllocationFilters(prev => ({
+      ...prev,
+      [field]: options
+    }));
+  };
+
+  const clearProjectFilter = (field) => {
+    setProjectFilters(prev => ({
+      ...prev,
+      [field]: []
+    }));
+  };
+
+  const clearAllocationFilter = (field) => {
+    setAllocationFilters(prev => ({
+      ...prev,
+      [field]: []
+    }));
+  };
+
+  const clearProjectFilters = () => {
+    setProjectFilters({
+      projectCode: [],
+      projectName: [],
+      division: [],
+      location: [],
+      status: []
+    });
+  };
+
+  const clearAllocationFilters = () => {
+    setAllocationFilters({
+      projectCode: [],
+      projectName: [],
+      employeeId: [],
+      division: [],
+      location: [],
+      status: []
+    });
+  };
+
+  const clearAllFilters = () => {
+    clearProjectFilters();
+    clearAllocationFilters();
+  };
+
+  // Dropdown handlers
+  const toggleProjectDropdown = (field) => {
+    setProjectDropdowns(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+  };
+
+  const toggleAllocationDropdown = (field) => {
+    setAllocationDropdowns(prev => ({
+      ...prev,
+      [field]: !prev[field]
+    }));
+  };
+
+  // Close all dropdowns
+  const closeAllDropdowns = () => {
+    setProjectDropdowns({
+      projectCode: false,
+      projectName: false,
+      division: false,
+      location: false,
+      status: false
+    });
+    setAllocationDropdowns({
+      projectCode: false,
+      projectName: false,
+      employeeId: false,
+      division: false,
+      location: false,
+      status: false
+    });
+  };
+
+  // Get unique values for filter options
+  const getUniqueProjectCodes = () => {
+    return [...new Set(projects.map(p => p.code))].filter(Boolean);
+  };
+
+  const getUniqueProjectNames = () => {
+    return [...new Set(projects.map(p => p.name))].filter(Boolean);
+  };
+
+  const getUniqueEmployeeIds = () => {
+    return [...new Set(allocations.map(a => a.employeeCode))].filter(Boolean);
+  };
+
+  // Filter functions
+  const filterProjects = (projects) => {
+    return projects.filter(project => {
+      const matchesCode = projectFilters.projectCode.length === 0 || 
+        projectFilters.projectCode.includes(project.code);
+      const matchesName = projectFilters.projectName.length === 0 || 
+        projectFilters.projectName.includes(project.name);
+      const matchesDivision = projectFilters.division.length === 0 || 
+        projectFilters.division.includes(project.division);
+      const matchesLocation = projectFilters.location.length === 0 || 
+        projectFilters.location.includes(project.branch);
+      const matchesStatus = projectFilters.status.length === 0 || 
+        projectFilters.status.includes(project.status);
+
+      return matchesCode && matchesName && matchesDivision && matchesLocation && matchesStatus;
+    });
+  };
+
+  const filterAllocations = (allocations) => {
+    return allocations.filter(allocation => {
+      const matchesCode = allocationFilters.projectCode.length === 0 || 
+        allocationFilters.projectCode.includes(allocation.projectCode);
+      const matchesName = allocationFilters.projectName.length === 0 || 
+        allocationFilters.projectName.includes(allocation.projectName);
+      const matchesEmployeeId = allocationFilters.employeeId.length === 0 || 
+        allocationFilters.employeeId.includes(allocation.employeeCode);
+      const matchesDivision = allocationFilters.division.length === 0 || 
+        allocationFilters.division.includes(allocation.projectDivision || allocation.division);
+      const matchesLocation = allocationFilters.location.length === 0 || 
+        allocationFilters.location.includes(allocation.branch);
+      const matchesStatus = allocationFilters.status.length === 0 || 
+        allocationFilters.status.includes(allocation.status);
+
+      return matchesCode && matchesName && matchesEmployeeId && matchesDivision && matchesLocation && matchesStatus;
+    });
+  };
 
   // Filtered projects based on selected division
   const getFilteredProjectsByDivision = () => {
@@ -138,20 +331,121 @@ const ProjectAllocation = () => {
     return `${prefix}-${nextNumber.toString().padStart(3, '0')}`;
   };
 
-  // Filter helpers
+  // Filter helpers with location filter
   const getFilteredProjects = () => {
-    if (selectedLocation === 'All') return projects;
-    return projects.filter(p => p.branch === selectedLocation);
+    let filtered = projects;
+    
+    // Apply location filter
+    if (selectedLocation !== 'All') {
+      filtered = filtered.filter(p => p.branch === selectedLocation);
+    }
+    
+    // Apply other filters
+    return filterProjects(filtered);
   };
 
   const getFilteredAllocations = () => {
-    if (selectedLocation === 'All') return allocations;
-    return allocations.filter(a => a.branch === selectedLocation);
+    let filtered = allocations;
+    
+    // Apply location filter
+    if (selectedLocation !== 'All') {
+      filtered = filtered.filter(a => a.branch === selectedLocation);
+    }
+    
+    // Apply other filters
+    return filterAllocations(filtered);
   };
 
   const getMyFilteredAllocations = () => {
-    if (selectedLocation === 'All') return myAllocations;
-    return myAllocations.filter(a => a.branch === selectedLocation);
+    let filtered = myAllocations;
+    
+    // Apply location filter
+    if (selectedLocation !== 'All') {
+      filtered = filtered.filter(a => a.branch === selectedLocation);
+    }
+    
+    // Apply other filters
+    return filterAllocations(filtered);
+  };
+
+  // Check if any filters are active
+  const hasActiveProjectFilters = Object.values(projectFilters).some(filter => filter.length > 0);
+  const hasActiveAllocationFilters = Object.values(allocationFilters).some(filter => filter.length > 0);
+
+  // MultiSelect Dropdown Component
+  const MultiSelectDropdown = ({ 
+    label, 
+    options, 
+    selectedValues, 
+    onChange, 
+    onSelectAll, 
+    onClear,
+    isOpen,
+    onToggle,
+    type = 'text'
+  }) => {
+    const allSelected = selectedValues.length === options.length;
+
+    return (
+      <div className="relative">
+        <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+        <div className="relative">
+          <button
+            type="button"
+            onClick={onToggle}
+            className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white flex justify-between items-center"
+          >
+            <span className="truncate">
+              {selectedValues.length === 0 
+                ? `All ${label}` 
+                : selectedValues.length === 1 
+                  ? selectedValues[0]
+                  : `${selectedValues.length} selected`
+              }
+            </span>
+            <ChevronDown size={16} className={`transform ${isOpen ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {isOpen && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
+              <div className="p-2 border-b border-gray-200">
+                <div className="flex justify-between items-center">
+                  <button
+                    type="button"
+                    onClick={() => onSelectAll(allSelected ? [] : options)}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    {allSelected ? 'Deselect All' : 'Select All'}
+                  </button>
+                  {selectedValues.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={onClear}
+                      className="text-sm text-red-600 hover:text-red-800"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {options.map(option => (
+                  <label key={option} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedValues.includes(option)}
+                      onChange={() => onChange(option)}
+                      className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <span className={`text-sm ${type === 'code' ? 'font-mono' : ''}`}>{option}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
   };
 
   // View modal handlers
@@ -231,7 +525,7 @@ const ProjectAllocation = () => {
       } else {
         await projectAPI.createProject(payload);
       }
-      await refreshData(); // Refresh from MongoDB
+      await refreshData();
       closeProjectModal();
     } catch (e) {
       alert(e?.response?.data?.error || 'Failed to save project');
@@ -275,8 +569,7 @@ const ProjectAllocation = () => {
         division: allocation.projectDivision || allocation.division || '',
         projectName: allocation.projectName,
         employeeName: allocation.employeeName,
-        employeeId: allocation.employeeCode || allocation.employeeId || '',
-        role: allocation.role || ''
+        employeeId: allocation.employeeCode || allocation.employeeId || ''
       });
     } else {
       setEditingAllocation(null);
@@ -284,8 +577,7 @@ const ProjectAllocation = () => {
         division: '',
         projectName: '',
         employeeName: '',
-        employeeId: '',
-        role: ''
+        employeeId: ''
       });
     }
     setShowAllocationModal(true);
@@ -309,7 +601,7 @@ const ProjectAllocation = () => {
   };
 
   const handleAllocate = async () => {
-    if (!allocationForm.division || !allocationForm.projectName || !allocationForm.employeeName || !allocationForm.role) {
+    if (!allocationForm.division || !allocationForm.projectName || !allocationForm.employeeName) {
       alert("Please fill all required fields.");
       return;
     }
@@ -348,7 +640,8 @@ const ProjectAllocation = () => {
       allocatedHours: 40,
       assignedBy: user.name || 'System',
       assignedDate: new Date().toISOString().split('T')[0],
-      role: allocationForm.role,
+      // Preserve existing role when editing, or set empty for new allocations
+      role: editingAllocation ? (editingAllocation.role || '') : ''
     };
 
     try {
@@ -383,7 +676,7 @@ const ProjectAllocation = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6" onClick={closeAllDropdowns}>
       {loading && (
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
@@ -440,11 +733,31 @@ const ProjectAllocation = () => {
               </div>
 
               <div className="flex items-center space-x-4">
+                {/* Location Filter */}
                 <div className="flex items-center space-x-2 bg-gray-100 rounded-lg p-1">
                   <button onClick={() => setSelectedLocation('All')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'All' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>All Locations</button>
                   <button onClick={() => setSelectedLocation('Hosur')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'Hosur' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Hosur</button>
                   <button onClick={() => setSelectedLocation('Chennai')} className={`px-3 py-1 rounded-md text-sm font-medium ${selectedLocation === 'Chennai' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-600 hover:text-gray-800'}`}>Chennai</button>
                 </div>
+
+                {/* Filter Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowFilters(!showFilters);
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                    showFilters ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  <Filter size={16} />
+                  Filters
+                  {(hasActiveProjectFilters || hasActiveAllocationFilters) && (
+                    <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      !
+                    </span>
+                  )}
+                </button>
 
                 {canEdit && (
                   <button
@@ -466,6 +779,189 @@ const ProjectAllocation = () => {
                 )}
               </div>
             </div>
+
+            {/* Filters Panel */}
+            {showFilters && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200" onClick={(e) => e.stopPropagation()}>
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="font-semibold text-gray-800">Filters</h3>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={clearAllFilters}
+                      className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors flex items-center gap-1"
+                    >
+                      <X size={14} />
+                      Clear All
+                    </button>
+                  </div>
+                </div>
+
+                {activeTab === 'projects' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                    <MultiSelectDropdown
+                      label="Project Code"
+                      options={getUniqueProjectCodes()}
+                      selectedValues={projectFilters.projectCode}
+                      onChange={(value) => handleProjectFilterChange('projectCode', value)}
+                      onSelectAll={(options) => selectAllProjectFilters('projectCode', options)}
+                      onClear={() => clearProjectFilter('projectCode')}
+                      isOpen={projectDropdowns.projectCode}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleProjectDropdown('projectCode');
+                      }}
+                      type="code"
+                    />
+
+                    <MultiSelectDropdown
+                      label="Project Name"
+                      options={getUniqueProjectNames()}
+                      selectedValues={projectFilters.projectName}
+                      onChange={(value) => handleProjectFilterChange('projectName', value)}
+                      onSelectAll={(options) => selectAllProjectFilters('projectName', options)}
+                      onClear={() => clearProjectFilter('projectName')}
+                      isOpen={projectDropdowns.projectName}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleProjectDropdown('projectName');
+                      }}
+                    />
+
+                    <MultiSelectDropdown
+                      label="Division"
+                      options={divisions}
+                      selectedValues={projectFilters.division}
+                      onChange={(value) => handleProjectFilterChange('division', value)}
+                      onSelectAll={(options) => selectAllProjectFilters('division', options)}
+                      onClear={() => clearProjectFilter('division')}
+                      isOpen={projectDropdowns.division}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleProjectDropdown('division');
+                      }}
+                    />
+
+                    <MultiSelectDropdown
+                      label="Location"
+                      options={branches}
+                      selectedValues={projectFilters.location}
+                      onChange={(value) => handleProjectFilterChange('location', value)}
+                      onSelectAll={(options) => selectAllProjectFilters('location', options)}
+                      onClear={() => clearProjectFilter('location')}
+                      isOpen={projectDropdowns.location}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleProjectDropdown('location');
+                      }}
+                    />
+
+                    <MultiSelectDropdown
+                      label="Status"
+                      options={statuses}
+                      selectedValues={projectFilters.status}
+                      onChange={(value) => handleProjectFilterChange('status', value)}
+                      onSelectAll={(options) => selectAllProjectFilters('status', options)}
+                      onClear={() => clearProjectFilter('status')}
+                      isOpen={projectDropdowns.status}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleProjectDropdown('status');
+                      }}
+                    />
+                  </div>
+                )}
+
+                {(activeTab === 'allocations' || activeTab === 'myAllocations') && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                    <MultiSelectDropdown
+                      label="Project Code"
+                      options={getUniqueProjectCodes()}
+                      selectedValues={allocationFilters.projectCode}
+                      onChange={(value) => handleAllocationFilterChange('projectCode', value)}
+                      onSelectAll={(options) => selectAllAllocationFilters('projectCode', options)}
+                      onClear={() => clearAllocationFilter('projectCode')}
+                      isOpen={allocationDropdowns.projectCode}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleAllocationDropdown('projectCode');
+                      }}
+                      type="code"
+                    />
+
+                    <MultiSelectDropdown
+                      label="Project Name"
+                      options={getUniqueProjectNames()}
+                      selectedValues={allocationFilters.projectName}
+                      onChange={(value) => handleAllocationFilterChange('projectName', value)}
+                      onSelectAll={(options) => selectAllAllocationFilters('projectName', options)}
+                      onClear={() => clearAllocationFilter('projectName')}
+                      isOpen={allocationDropdowns.projectName}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleAllocationDropdown('projectName');
+                      }}
+                    />
+
+                    <MultiSelectDropdown
+                      label="Employee ID"
+                      options={getUniqueEmployeeIds()}
+                      selectedValues={allocationFilters.employeeId}
+                      onChange={(value) => handleAllocationFilterChange('employeeId', value)}
+                      onSelectAll={(options) => selectAllAllocationFilters('employeeId', options)}
+                      onClear={() => clearAllocationFilter('employeeId')}
+                      isOpen={allocationDropdowns.employeeId}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleAllocationDropdown('employeeId');
+                      }}
+                      type="code"
+                    />
+
+                    <MultiSelectDropdown
+                      label="Division"
+                      options={divisions}
+                      selectedValues={allocationFilters.division}
+                      onChange={(value) => handleAllocationFilterChange('division', value)}
+                      onSelectAll={(options) => selectAllAllocationFilters('division', options)}
+                      onClear={() => clearAllocationFilter('division')}
+                      isOpen={allocationDropdowns.division}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleAllocationDropdown('division');
+                      }}
+                    />
+
+                    <MultiSelectDropdown
+                      label="Location"
+                      options={branches}
+                      selectedValues={allocationFilters.location}
+                      onChange={(value) => handleAllocationFilterChange('location', value)}
+                      onSelectAll={(options) => selectAllAllocationFilters('location', options)}
+                      onClear={() => clearAllocationFilter('location')}
+                      isOpen={allocationDropdowns.location}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleAllocationDropdown('location');
+                      }}
+                    />
+
+                    <MultiSelectDropdown
+                      label="Status"
+                      options={statuses}
+                      selectedValues={allocationFilters.status}
+                      onChange={(value) => handleAllocationFilterChange('status', value)}
+                      onSelectAll={(options) => selectAllAllocationFilters('status', options)}
+                      onClear={() => clearAllocationFilter('status')}
+                      isOpen={allocationDropdowns.status}
+                      onToggle={(e) => {
+                        e.stopPropagation();
+                        toggleAllocationDropdown('status');
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {selectedLocation !== 'All' && (
@@ -481,16 +977,42 @@ const ProjectAllocation = () => {
             <div className="space-y-4">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-3 border-b border-gray-200">
-                  <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'All Projects' : `${selectedLocation} Projects`}</h3>
-                  <p className="text-gray-600 text-sm">{getFilteredProjects().length} project(s){selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}</p>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'All Projects' : `${selectedLocation} Projects`}</h3>
+                      <p className="text-gray-600 text-sm">
+                        {getFilteredProjects().length} project(s)
+                        {selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}
+                        {hasActiveProjectFilters && <span className="ml-2 text-green-600">• With active filters</span>}
+                      </p>
+                    </div>
+                    {hasActiveProjectFilters && (
+                      <button
+                        onClick={clearProjectFilters}
+                        className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors flex items-center gap-1"
+                      >
+                        <X size={14} />
+                        Clear Filters
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {getFilteredProjects().length === 0 ? (
                   <div className="p-8 text-center">
                     <div className="text-gray-400 text-6xl mb-4">🏗️</div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No Projects Found</h3>
-                    <p className="text-gray-500">{selectedLocation === 'All' ? "No projects available." : `No projects found for ${selectedLocation} location.`}</p>
-                    {selectedLocation !== 'All' && <button onClick={() => setSelectedLocation('All')} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">View All Projects</button>}
+                    <p className="text-gray-500">
+                      {hasActiveProjectFilters || selectedLocation !== 'All'
+                        ? "No projects match your current filters." 
+                        : "No projects available."
+                      }
+                    </p>
+                    {(hasActiveProjectFilters || selectedLocation !== 'All') && (
+                      <button onClick={() => { clearProjectFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                        Clear All Filters
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -500,6 +1022,7 @@ const ProjectAllocation = () => {
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Location</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Start Date</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">End Date</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Status</th>
@@ -517,6 +1040,9 @@ const ProjectAllocation = () => {
                             </td>
                             <td className="p-3">
                               <div className="text-sm text-gray-600">{project.division}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="text-sm text-gray-600">{project.branch}</div>
                             </td>
                             <td className="p-3"><div className="text-sm text-gray-600">{formatDate(project.startDate)}</div></td>
                             <td className="p-3"><div className="text-sm text-gray-600">{formatDate(project.endDate)}</div></td>
@@ -565,16 +1091,42 @@ const ProjectAllocation = () => {
             <div className="space-y-4">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="bg-gradient-to-r from-green-50 to-teal-50 p-3 border-b border-gray-200">
-                  <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'All Allocations' : `${selectedLocation} Allocations`}</h3>
-                  <p className="text-gray-600 text-sm">{getFilteredAllocations().length} allocation(s){selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}</p>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'All Allocations' : `${selectedLocation} Allocations`}</h3>
+                      <p className="text-gray-600 text-sm">
+                        {getFilteredAllocations().length} allocation(s)
+                        {selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}
+                        {hasActiveAllocationFilters && <span className="ml-2 text-green-600">• With active filters</span>}
+                      </p>
+                    </div>
+                    {hasActiveAllocationFilters && (
+                      <button
+                        onClick={clearAllocationFilters}
+                        className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors flex items-center gap-1"
+                      >
+                        <X size={14} />
+                        Clear Filters
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {getFilteredAllocations().length === 0 ? (
                   <div className="p-8 text-center">
                     <div className="text-gray-400 text-6xl mb-4">👥</div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No Allocations Found</h3>
-                    <p className="text-gray-500">{selectedLocation === 'All' ? "No allocations available." : `No allocations found for ${selectedLocation} location.`}</p>
-                    {selectedLocation !== 'All' && <button onClick={() => setSelectedLocation('All')} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">View All Allocations</button>}
+                    <p className="text-gray-500">
+                      {hasActiveAllocationFilters || selectedLocation !== 'All'
+                        ? "No allocations match your current filters."
+                        : "No allocations available."
+                      }
+                    </p>
+                    {(hasActiveAllocationFilters || selectedLocation !== 'All') && (
+                      <button onClick={() => { clearAllocationFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                        Clear All Filters
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -586,6 +1138,8 @@ const ProjectAllocation = () => {
                           <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Employee Name</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Employee ID</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Location</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Status</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Actions</th>
                         </tr>
                       </thead>
@@ -606,6 +1160,12 @@ const ProjectAllocation = () => {
                             </td>
                             <td className="p-3">
                               <div className="text-sm font-mono text-gray-500">{allocation.employeeCode}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="text-sm text-gray-600">{allocation.branch}</div>
+                            </td>
+                            <td className="p-3">
+                              <span className={getStatusBadge(allocation.status)}>{allocation.status}</span>
                             </td>
                             <td className="p-3">
                               <div className="flex space-x-2">
@@ -651,17 +1211,43 @@ const ProjectAllocation = () => {
             <div className="space-y-4">
               <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
                 <div className="bg-gradient-to-r from-purple-50 to-pink-50 p-3 border-b border-gray-200">
-                  <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'My Project Allocations' : `My ${selectedLocation} Allocations`}</h3>
-                  <p className="text-gray-600 text-sm">{getMyFilteredAllocations().length} project allocation(s){selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}</p>
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h3 className="font-semibold text-gray-800">{selectedLocation === 'All' ? 'My Project Allocations' : `My ${selectedLocation} Allocations`}</h3>
+                      <p className="text-gray-600 text-sm">
+                        {getMyFilteredAllocations().length} project allocation(s)
+                        {selectedLocation !== 'All' && <span className="ml-2 text-blue-600">• Filtered by {selectedLocation}</span>}
+                        {hasActiveAllocationFilters && <span className="ml-2 text-green-600">• With active filters</span>}
+                      </p>
+                    </div>
+                    {hasActiveAllocationFilters && (
+                      <button
+                        onClick={clearAllocationFilters}
+                        className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors flex items-center gap-1"
+                      >
+                        <X size={14} />
+                        Clear Filters
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {getMyFilteredAllocations().length === 0 ? (
                   <div className="p-8 text-center">
                     <div className="text-gray-400 text-6xl mb-4">📋</div>
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No Allocations Found</h3>
-                    <p className="text-gray-500">{selectedLocation === 'All' ? "You are not currently allocated to any projects." : `You have no allocations in ${selectedLocation} location.`}</p>
+                    <p className="text-gray-500">
+                      {hasActiveAllocationFilters || selectedLocation !== 'All'
+                        ? "No allocations match your current filters."
+                        : "You are not currently allocated to any projects."
+                      }
+                    </p>
                     <p className="text-sm text-gray-400 mt-2">Contact your Project Manager for project assignments.</p>
-                    {selectedLocation !== 'All' && <button onClick={() => setSelectedLocation('All')} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">View All My Allocations</button>}
+                    {(hasActiveAllocationFilters || selectedLocation !== 'All') && (
+                      <button onClick={() => { clearAllocationFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                        Clear All Filters
+                      </button>
+                    )}
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -671,6 +1257,8 @@ const ProjectAllocation = () => {
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Location</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Status</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Duration</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Assigned By</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Actions</th>
@@ -687,6 +1275,12 @@ const ProjectAllocation = () => {
                             </td>
                             <td className="p-3">
                               <div className="text-sm text-gray-600">{allocation.projectDivision || allocation.division}</div>
+                            </td>
+                            <td className="p-3">
+                              <div className="text-sm text-gray-600">{allocation.branch}</div>
+                            </td>
+                            <td className="p-3">
+                              <span className={getStatusBadge(allocation.status)}>{allocation.status}</span>
                             </td>
                             <td className="p-3">
                               <div className="text-sm text-gray-600">{formatDate(allocation.startDate)} to {formatDate(allocation.endDate)}</div>
@@ -811,7 +1405,7 @@ const ProjectAllocation = () => {
                   </button>
                 </div>
               </div>
-                       </div>
+            </div>
           )}
 
           {/* Project Modal */}
@@ -960,19 +1554,6 @@ const ProjectAllocation = () => {
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
                       placeholder="Employee ID will be auto-filled"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
-                    <select 
-                      value={allocationForm.role}
-                      onChange={(e) => setAllocationForm(prev => ({ ...prev, role: e.target.value }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">Select Role</option>
-                      {roles.map(r => (
-                        <option key={r} value={r}>{r}</option>
-                      ))}
-                    </select>
                   </div>
                 </div>
 

@@ -21,6 +21,28 @@ const TimesheetHistory = () => {
   const [downloadOption, setDownloadOption] = useState('weekly'); // 'weekly' or 'monthly'
   const [downloadFormat, setDownloadFormat] = useState('excel'); // 'excel' or 'pdf'
 
+  // Function to get project code - use projectCode field if available, otherwise extract from name
+  const getProjectCode = (entry) => {
+    if (!entry) return '-';
+    
+    // If entry has projectCode field, use it directly
+    if (entry.projectCode) return entry.projectCode;
+    
+    // Otherwise, try to extract from project name (fallback for old data)
+    if (entry.project) {
+      const codeMatch = entry.project.match(/^([A-Z0-9]+)/);
+      return codeMatch ? codeMatch[1] : entry.project.substring(0, 8).toUpperCase();
+    }
+    
+    return '-';
+  };
+
+  // Function to get unique project codes from entries
+  const getProjectCodes = (entries) => {
+    const projectCodes = Array.from(new Set((entries || []).map((e) => getProjectCode(e)))).filter(Boolean);
+    return projectCodes.length > 0 ? projectCodes.join(', ') : '-';
+  };
+
   // Fetch real timesheet history from backend including drafts
   useEffect(() => {
     const fetchTimesheets = async () => {
@@ -63,6 +85,7 @@ const TimesheetHistory = () => {
               weekEndDate: draftData.weekEnd,
               entries: draftData.rows.map(row => ({
                 project: row.project,
+                projectCode: row.projectCode || '',
                 task: row.task,
                 type: row.type,
                 hours: row.hours
@@ -239,13 +262,14 @@ const TimesheetHistory = () => {
       const sheetName = `Week_${index + 1}`;
       
       // Prepare data for the sheet
-      const headers = ['Project', 'Task', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total'];
+      const headers = ['Project', 'Project Code', 'Task', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total'];
       const data = [headers];
       
       // Add each entry as a row
       timesheet.entries.forEach(entry => {
         const row = [
           entry.project,
+          getProjectCode(entry.project),
           entry.task,
           entry.hours[0] || 0,
           entry.hours[1] || 0,
@@ -261,9 +285,9 @@ const TimesheetHistory = () => {
       
       // Add summary row
       data.push([]);
-      data.push(['', 'TOTAL HOURS', '', '', '', '', '', '', '', timesheet.totalHours]);
-      data.push(['', 'STATUS', '', '', '', '', '', '', '', timesheet.status]);
-      data.push(['', 'WEEK', '', '', '', '', '', '', '', `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`]);
+      data.push(['', '', 'TOTAL HOURS', '', '', '', '', '', '', '', timesheet.totalHours]);
+      data.push(['', '', 'STATUS', '', '', '', '', '', '', '', timesheet.status]);
+      data.push(['', '', 'WEEK', '', '', '', '', '', '', '', `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`]);
       
       const worksheet = XLSX.utils.aoa_to_sheet(data);
       XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
@@ -298,11 +322,12 @@ const TimesheetHistory = () => {
       worksheetData.push([]);
       
       // Header row
-      worksheetData.push(['Week', 'Projects', 'Total Hours', 'Status', 'Submitted Date']);
+      worksheetData.push(['Week', 'Projects', 'Project Codes', 'Total Hours', 'Status', 'Submitted Date']);
       
       // Data rows
       monthTimesheets.forEach(timesheet => {
         const projects = Array.from(new Set(timesheet.entries.map(e => e.project))).join(', ');
+        const projectCodes = getProjectCodes(timesheet.entries);
         const weekRange = formatWeekRange(timesheet.weekStartDate, timesheet.weekEndDate);
         const submittedDate = timesheet.submittedAt 
           ? new Date(timesheet.submittedAt).toLocaleDateString()
@@ -311,6 +336,7 @@ const TimesheetHistory = () => {
         worksheetData.push([
           weekRange,
           projects,
+          projectCodes,
           timesheet.totalHours,
           timesheet.status,
           submittedDate
@@ -320,7 +346,7 @@ const TimesheetHistory = () => {
       // Add monthly total
       const monthlyTotal = monthTimesheets.reduce((sum, t) => sum + t.totalHours, 0);
       worksheetData.push([]);
-      worksheetData.push(['Monthly Total Hours:', '', monthlyTotal, '', '']);
+      worksheetData.push(['Monthly Total Hours:', '', '', monthlyTotal, '', '']);
       
       const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
       XLSX.utils.book_append_sheet(workbook, worksheet, monthYear.substring(0, 31)); // Sheet name limit
@@ -353,6 +379,7 @@ const TimesheetHistory = () => {
       // Table data
       const tableData = timesheet.entries.map(entry => [
         entry.project,
+        getProjectCode(entry.project),
         entry.task,
         entry.hours[0] || 0,
         entry.hours[1] || 0,
@@ -367,7 +394,7 @@ const TimesheetHistory = () => {
       // Add table
       pdf.autoTable({
         startY: 40,
-        head: [['Project', 'Task', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total']],
+        head: [['Project', 'Project Code', 'Task', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total']],
         body: tableData,
         theme: 'grid',
         styles: { fontSize: 8 },
@@ -410,6 +437,7 @@ const TimesheetHistory = () => {
       const tableData = monthTimesheets.map(timesheet => [
         formatWeekRange(timesheet.weekStartDate, timesheet.weekEndDate),
         Array.from(new Set(timesheet.entries.map(e => e.project))).join(', '),
+        getProjectCodes(timesheet.entries),
         timesheet.totalHours,
         timesheet.status,
         timesheet.submittedAt ? new Date(timesheet.submittedAt).toLocaleDateString() : 'Draft'
@@ -420,7 +448,7 @@ const TimesheetHistory = () => {
       
       pdf.autoTable({
         startY: 25,
-        head: [['Week', 'Projects', 'Total Hours', 'Status', 'Submitted Date']],
+        head: [['Week', 'Projects', 'Project Codes', 'Total Hours', 'Status', 'Submitted Date']],
         body: tableData,
         theme: 'grid',
         styles: { fontSize: 8 },
@@ -574,6 +602,7 @@ const TimesheetHistory = () => {
                 <tr>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Week</th>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Projects</th>
+                  <th className="p-4 text-left text-sm font-semibold text-gray-700">Project Code</th>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Total Hours</th>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Status</th>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Last Updated</th>
@@ -583,6 +612,7 @@ const TimesheetHistory = () => {
               <tbody>
                 {filteredTimesheets.map((t) => {
                   const projectList = Array.from(new Set((t.entries || []).map((e) => e.project))).filter(Boolean);
+                  const projectCodes = getProjectCodes(t.entries);
                   const isDraftTimesheet = isDraft(t);
                   const isSessionDraft = t.isSessionDraft;
                   
@@ -608,6 +638,22 @@ const TimesheetHistory = () => {
                               {project}
                             </div>
                           ))}
+                        </div>
+                      </td>
+                      <td className="p-4 text-sm text-gray-600">
+                        <div className="space-y-1">
+                          {projectCodes === '-' ? (
+                            <span className="text-gray-500">—</span>
+                          ) : (
+                            projectCodes.split(', ').map((code, index) => (
+                              <div key={index} className="flex items-center">
+                                <span className="w-2 h-2 bg-green-500 rounded-full mr-2"></span>
+                                <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                                  {code}
+                                </span>
+                              </div>
+                            ))
+                          )}
                         </div>
                       </td>
                       <td className="p-4 text-sm font-semibold text-gray-900">
@@ -862,6 +908,7 @@ const TimesheetHistory = () => {
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="p-3 text-left text-sm font-semibold text-gray-700">Project</th>
+                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Project Code</th>
                       <th className="p-3 text-left text-sm font-semibold text-gray-700">Task</th>
                       <th className="p-3 text-left text-sm font-semibold text-gray-700">Mon</th>
                       <th className="p-3 text-left text-sm font-semibold text-gray-700">Tue</th>
@@ -880,6 +927,11 @@ const TimesheetHistory = () => {
                       return (
                         <tr key={index} className="border-b hover:bg-gray-50">
                           <td className="p-3 text-sm font-medium text-gray-900">{entry.project}</td>
+                          <td className="p-3 text-sm text-gray-700">
+                            <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
+                              {getProjectCode(entry)}
+                            </span>
+                          </td>
                           <td className="p-3 text-sm text-gray-700">{entry.task}</td>
                           {hours.map((h, i) => (
                             <td key={i} className="p-3 text-sm text-gray-700">{Number(h) || 0}</td>

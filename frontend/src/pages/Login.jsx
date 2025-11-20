@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
-import FloatingInput from '../components/Forms/FloatingInput'; 
+import FloatingInput from '../components/Forms/FloatingInput';
+
+const bgUrl = "https://hitechcon.in/wp-content/uploads/2021/09/Civil.jpg";
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -41,11 +43,10 @@ const Login = () => {
     setError('');
 
     try {
-      const response = await authAPI.login(formData);
+      const payload = { ...formData };
+      const response = await authAPI.login(payload);
       sessionStorage.setItem('token', response.data.token);
       sessionStorage.setItem('user', JSON.stringify(response.data.user));
-      
-      // Clear browser history to prevent back navigation to login
       window.history.replaceState(null, '', '/dashboard');
       navigate('/dashboard', { replace: true });
     } catch (error) {
@@ -84,13 +85,19 @@ const Login = () => {
 
   if (showForgotPassword) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#262760] via-[#3c3b8a] to-[#5a59b0]">
-        <div className="bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md mx-6">
+      <div
+        className="min-h-screen flex items-center justify-center bg-cover bg-center"
+        style={{ backgroundImage: `url('${bgUrl}')` }}
+      >
+        {/* translucent overlay */}
+        <div className="absolute inset-0 bg-black/50"></div>
+
+        <div className="relative z-10 bg-white rounded-3xl shadow-2xl p-10 w-full max-w-md mx-6">
           <div className="text-center mb-8">
             <h1 className="text-3xl font-bold text-gray-800 mb-2">Forgot Password</h1>
             <p className="text-gray-600">Reset your account password</p>
           </div>
-          
+
           <form className="space-y-6" onSubmit={forgotPasswordStep === 1 ? handleSendOtp : handleResetPassword}>
             {forgotPasswordStep === 1 && (
               <FloatingInput
@@ -102,7 +109,7 @@ const Login = () => {
                 onChange={handleForgotPasswordChange}
               />
             )}
-            
+
             {forgotPasswordStep === 2 && (
               <>
                 <FloatingInput
@@ -123,13 +130,13 @@ const Login = () => {
                 />
               </>
             )}
-            
+
             {forgotPasswordMessage && (
               <div className={`text-sm p-3 rounded-xl ${forgotPasswordMessage.includes('successfully') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
                 {forgotPasswordMessage}
               </div>
             )}
-            
+
             <div className="flex space-x-4">
               <button
                 type="submit"
@@ -157,144 +164,80 @@ const Login = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col lg:flex-row">
-      {/* Left Side - Geometric Design */}
-      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-br from-[#262760] via-[#3c3b8a] to-[#5a59b0]">
-          {/* Geometric Grid Pattern */}
-          <div className="absolute inset-0 opacity-30">
-            <svg width="100%" height="100%" viewBox="0 0 400 600">
-              <defs>
-                <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="1"/>
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#grid)" />
-            </svg>
-          </div>
-          
-          {/* Curved Shape */}
-          <div className="absolute right-0 top-0 w-2/3 h-full">
-            <svg width="100%" height="100%" viewBox="0 0 300 600" className="absolute right-0">
-              <path
-                d="M0,0 Q150,150 100,300 Q50,450 150,600 L300,600 L300,0 Z"
-                fill="rgba(255,255,255,0.1)"
-              />
-            </svg>
-          </div>
-          
-          {/* Additional curved elements */}
-          <div className="absolute bottom-0 right-0 w-1/2 h-1/2">
-            <svg width="100%" height="100%" viewBox="0 0 200 300">
-              <path
-                d="M0,100 Q100,50 200,150 L200,300 L0,300 Z"
-                fill="rgba(255,255,255,0.05)"
-              />
-            </svg>
+    <div
+      className="min-h-screen flex items-center justify-center bg-cover bg-center"
+      style={{ backgroundImage: `url('${bgUrl}')` }}
+    >
+      {/* overlay to keep text readable */}
+      <div className="absolute inset-0 bg-gradient-to-br from-black/40 via-black/30 to-black/40"></div>
+
+      <div className="relative z-10 w-full max-w-md p-6">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-10 border border-gray-100">
+          <div className="text-center mb-6 sm:mb-8">
+            <h2 className="text-xl sm:text-xl font-bold text-blue-800 mb-2">CALDIM Engineering Pvt.Ltd</h2>
+            <p className="text-sm sm:text-base text-gray-600">Welcome to your portal. Sign in to your account</p>
           </div>
 
-          {/* Floating elements */}
-          <div className="absolute top-20 left-10 w-20 h-20 bg-[#ff6b6b] rounded-full opacity-20 animate-pulse"></div>
-          <div className="absolute bottom-40 left-20 w-16 h-16 bg-[#4ecdc4] rounded-full opacity-20 animate-bounce"></div>
-          <div className="absolute top-40 right-20 w-12 h-12 bg-[#45b7d1] rounded-full opacity-20 animate-ping"></div>
-        </div>
-        
-        {/* Brand Section */}
-        <div className="relative z-10 p-12 flex flex-col justify-between text-white">
-          <div>
-            <h1 className="text-4xl font-bold mb-2">caldim</h1>
-            <p className="text-xl opacity-90">Empowering precision and strength — log in to shape the future of steel.</p>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <h3 className="font-semibold mb-2">Secure Access</h3>
-              <p className="text-sm opacity-90">
-                Advanced security measures to protect your data and ensure safe access to your account.
-              </p>
-            </div>
+          <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
             
-            <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <h3 className="font-semibold mb-2">Enterprise Grade</h3>
-              <p className="text-sm opacity-90">
-                Professional tools and features designed for caldimfabrication industry needs.
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      {/* Right Side - Login Form */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-4 sm:p-8 bg-gradient-to-br from-gray-50 via-white to-blue-50">
-        <div className="w-full max-w-md">
-          <div className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl p-6 sm:p-10 border border-gray-100">
-            {/* Header */}
-            <div className="text-center mb-6 sm:mb-8">
-              
-              <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">Caldim employees Portal</h2>
-              <p className="text-sm sm:text-base text-gray-600">Welcome to your portal. Sign in to your account</p>
-            </div>
+            <FloatingInput
+              type="email"
+              name="email"
+              label="Email"
+              required
+              value={formData.email}
+              onChange={handleChange}
+            />
 
-            {/* Login Form */}
-            <form className="space-y-4 sm:space-y-6" onSubmit={handleSubmit}>
-              <FloatingInput
-                type="email"
-                name="email"
-                label="Email"
-                required
-                value={formData.email}
-                onChange={handleChange}
-              />
+            <FloatingInput
+              type="password"
+              name="password"
+              label="Password"
+              required
+              value={formData.password}
+              onChange={handleChange}
+            />
 
-              <FloatingInput
-                type="password"
-                name="password"
-                label="Password"
-                required
-                value={formData.password}
-                onChange={handleChange}
-              />
-
-              {error && (
-                <div className="bg-red-50 text-red-700 p-3 rounded-xl text-sm border border-red-200">
-                  {error}
-                </div>
-              )}
-
-              <div className="flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setShowForgotPassword(true)}
-                  className="text-sm text-[#262760] hover:text-[#1e2050] font-medium transition-colors duration-300"
-                >
-                  Forgot Password?
-                </button>
+            {error && (
+              <div className="bg-red-50 text-red-700 p-3 rounded-xl text-sm border border-red-200">
+                {error}
               </div>
+            )}
 
+            <div className="flex justify-end">
               <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full bg-gradient-to-r from-[#262760] to-[#5a59b0] text-white py-3 px-6 rounded-xl font-medium hover:from-[#1e2050] hover:to-[#4a4990] transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:transform-none"
+                type="button"
+                onClick={() => setShowForgotPassword(true)}
+                className="text-sm text-[#262760] hover:text-[#1e2050] font-medium transition-colors duration-300"
               >
-                {isLoading ? (
-                  <span className="flex items-center justify-center">
-                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Signing in...
-                  </span>
-                ) : (
-                  <span className="flex items-center justify-center">
-                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                    </svg>
-                    LOGIN
-                  </span>
-                )}
+                Forgot Password?
               </button>
-            </form>
-          </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="w-full bg-gradient-to-r from-[#262760] to-[#5a59b0] text-white py-3 px-6 rounded-xl font-medium hover:from-[#1e2050] hover:to-[#4a4990] transform hover:scale-105 transition-all duration-200 shadow-lg disabled:opacity-50 disabled:transform-none"
+            >
+              {isLoading ? (
+                <span className="flex items-center justify-center">
+                  <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Signing in...
+                </span>
+              ) : (
+                <span className="flex items-center justify-center">
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
+                  </svg>
+                  LOGIN
+                </span>
+              )}
+            </button>
+          </form>
         </div>
       </div>
     </div>

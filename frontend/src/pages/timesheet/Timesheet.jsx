@@ -79,6 +79,11 @@ const Timesheet = () => {
           (sheet.status || "").toLowerCase() === "approved"
         );
         clearDraftFromSession();
+        // Set original data after loading from backend to prevent false unsaved changes
+        setTimeout(() => {
+          setOriginalData(JSON.stringify(rows.length ? rows : []));
+          setHasUnsavedChanges(false);
+        }, 100);
       } catch (err) {
         // Don't load draft from session automatically - start fresh
         if (timesheetRows.length === 0) addProjectRow();
@@ -153,10 +158,10 @@ const Timesheet = () => {
 
   // Set original data when loading from backend
   useEffect(() => {
-    if (timesheetRows.length > 0 && !originalData) {
+    if (timesheetRows.length > 0 && !originalData && !isSubmitted) {
       setOriginalData(JSON.stringify(timesheetRows));
     }
-  }, [timesheetRows, originalData]);
+  }, [timesheetRows, originalData, isSubmitted]);
 
   // Check for unsaved changes
   useEffect(() => {
@@ -1127,11 +1132,11 @@ const Timesheet = () => {
                 </td>
                 {totals.daily.map((total, index) => (
                   <td key={index} className="p-3 border border-gray-200 text-gray-900 text-center">
-                    {total.toFixed(1)}h
+                    {total.toFixed(1)}
                   </td>
                 ))}
                 <td className="p-3 border border-gray-200 text-green-600 font-bold text-center">
-                  {totals.weekly.toFixed(1)}h
+                  {totals.weekly.toFixed(1)}
                 </td>
                 <td className="p-3 border border-gray-200"></td>
               </tr>
@@ -1143,11 +1148,11 @@ const Timesheet = () => {
                 </td>
                 {days.map((_, index) => (
                   <td key={index} className="p-3 border border-gray-200 text-blue-600 text-center">
-                    {computeBreakForDay(index)}h
+                    {computeBreakForDay(index)}
                   </td>
                 ))}
                 <td className="p-3 border border-gray-200 text-blue-600 font-bold text-center">
-                  {computeWeeklyBreak()}h
+                  {computeWeeklyBreak()}
                 </td>
                 <td className="p-3 border border-gray-200"></td>
               </tr>

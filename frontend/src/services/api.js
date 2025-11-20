@@ -86,6 +86,7 @@ export const projectAPI = {
 export const allocationAPI = {
   getAllAllocations: () => api.get('/allocations'),
   createAllocation: (data) => api.post('/allocations', data),
+  updateAllocation: (id, data) => api.put(`/allocations/${id}`, data),
   deleteAllocation: (id) => api.delete(`/allocations/${id}`),
   getProjectCode: (projectName) => api.get(`/allocations/project-code/${encodeURIComponent(projectName)}`),
 };

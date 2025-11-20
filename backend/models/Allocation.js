@@ -17,7 +17,7 @@ const AllocationSchema = new mongoose.Schema({
   startDate: { type: String, required: true },
   endDate: { type: String, required: true },
 
-  role: { type: String, required: true },
+  role: { type: String, required: false },
   assignedBy: { type: String },
   assignedDate: { type: String },
   status: { type: String, default: "Active" }
