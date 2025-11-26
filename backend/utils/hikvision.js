@@ -1,5 +1,6 @@
 const crypto = require("crypto");
 const axios = require("axios");
+const https = require("https");
 
 const HIK_HOST = process.env.HIK_HOST;
 const APP_KEY = process.env.HIK_KEY;
@@ -32,7 +33,12 @@ async function hikPost(apiPath, body = {}) {
 
   console.log("Calling Hik API:", url);
 
-  const res = await axios.post(url, body, { headers });
+  const res = await axios.post(url, body, { 
+    headers,
+    httpsAgent: new https.Agent({
+      rejectUnauthorized: false // Accept self-signed certificates
+    })
+  });
 
   return res.data;
 }

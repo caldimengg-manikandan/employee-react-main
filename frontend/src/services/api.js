@@ -107,6 +107,17 @@ export const accessAPI = {
   testHikvisionConnection: () => api.get('/hik/test-connection'),
   getEmployeeLogs: (params) => api.get('/access/logs', { params }),
   getEmployees: () => api.get('/access/employees'),
+  
+  // 🎯 HIKVISION ATTENDANCE SPECIFIC METHODS
+  getHikvisionAttendance: (params) => api.get('/hik-employees/hik-attendance', { params }),
+  syncHikvisionAttendance: () => api.post('/hik-employees/sync-attendance'),
+  getHikvisionConnectionStatus: () => api.get('/hik/test-connection'),
+  
+  // 📊 LOCAL ATTENDANCE API (NEW)
+  getLocalAttendance: (params) => api.get('/attendance/attendance', { params }),
+  createAttendanceRecord: (data) => api.post('/attendance/attendance', data),
+  getAttendanceSummary: () => api.get('/attendance/attendance/summary'),
+  
 };
 
 export default api;

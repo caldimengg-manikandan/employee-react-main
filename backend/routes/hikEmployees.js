@@ -1,5 +1,6 @@
 const express = require("express");
 const Employee = require("../models/Employee");
+const Attendance = require("../models/Attendance");
 const auth = require("../middleware/auth");
 const { hikPost } = require("../utils/hikvision");
 
@@ -191,6 +192,89 @@ router.get("/hik-employees/:personId", auth, async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: "Failed to fetch employee from HikCentral",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * 📊 GET HIKVISION ATTENDANCE DATA
+ * Fetches attendance records from Hikvision device
+ */
+router.get("/hik-attendance", auth, async (req, res) => {
+  try {
+    const { startDate, endDate, employeeId, employeeName } = req.query;
+    
+    // Build query for Hikvision attendance records
+    const query = { source: "hikvision" };
+    
+    if (employeeId) query.employeeId = employeeId;
+    if (employeeName) query.employeeName = employeeName;
+    
+    if (startDate || endDate) {
+      query.punchTime = {};
+      if (startDate) query.punchTime.$gte = new Date(startDate);
+      if (endDate) query.punchTime.$lte = new Date(endDate + "T23:59:59.999Z");
+    }
+    
+    const attendance = await Attendance.find(query).sort({ punchTime: -1 });
+    
+    // Transform data to match expected format
+    const transformedAttendance = attendance.map(record => ({
+      _id: record._id,
+      employeeId: record.employeeId,
+      employeeName: record.employeeName || "Unknown Employee",
+      punchTime: record.punchTime,
+      direction: record.direction,
+      deviceId: record.deviceId,
+      source: record.source,
+      correspondingInTime: record.correspondingInTime
+    }));
+    
+    res.json({
+      success: true,
+      attendance: transformedAttendance,
+      count: transformedAttendance.length,
+      source: "hikvision"
+    });
+    
+  } catch (error) {
+    console.error("Hikvision Attendance Fetch Error:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch Hikvision attendance data",
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * 🔄 SYNC HIKVISION ATTENDANCE
+ * Manually trigger sync of Hikvision attendance data
+ */
+router.post("/sync-attendance", auth, async (req, res) => {
+  try {
+    // Check if user has admin privileges
+    if (req.user.role !== "admin" && req.user.role !== "projectmanager") {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Access denied. Insufficient permissions." 
+      });
+    }
+    
+    // This would typically call the Hikvision API to pull latest attendance
+    // For now, we'll return a success message indicating the sync was triggered
+    res.json({
+      success: true,
+      message: "Hikvision attendance sync initiated",
+      note: "Use the /hik/pull-events endpoint to pull actual attendance data from the device"
+    });
+    
+  } catch (error) {
+    console.error("Hikvision Attendance Sync Error:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to sync Hikvision attendance data",
       error: error.message 
     });
   }

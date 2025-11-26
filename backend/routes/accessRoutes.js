@@ -52,7 +52,8 @@ router.post("/punch", auth, async (req, res) => {
       employeeId: req.user._id.toString(),
       direction,
       punchTime: new Date(),
-      deviceId: deviceId || "web"
+      deviceId: deviceId || "web",
+      source: "manual"
     });
     
     await attendance.save();
