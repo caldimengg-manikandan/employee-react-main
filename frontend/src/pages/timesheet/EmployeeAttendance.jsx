@@ -1,476 +1,887 @@
-import React, { useEffect, useState } from "react";
-import { accessAPI } from "../../services/api";
+import React, { useState, useEffect } from "react";
 
-export default function EmployeeAttendance() {
-  const [logs, setLogs] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [dateRange, setDateRange] = useState({
-    start: "",
-    end: ""
+export default function AttendanceFetcher() {
+  const [date, setDate] = useState(() => {
+    // Set default to current date in YYYY-MM-DD format
+    const today = new Date();
+    return today.toISOString().split('T')[0];
   });
-  const [employeeFilter, setEmployeeFilter] = useState({
-    id: "",
-    name: ""
-  });
-  const [employees, setEmployees] = useState([]);
-  
-  // 🎯 HIKVISION STATE
-  const [hikvisionStatus, setHikvisionStatus] = useState({
-    connected: false,
-    lastSync: null,
-    deviceInfo: null
-  });
-  const [syncingHikvision, setSyncingHikvision] = useState(false);
-  const [dataSource, setDataSource] = useState('local'); // 'local' or 'hikvision'
+  const [resp, setResp] = useState(null);
+  const [loading, setLoading] = useState(false);
 
+  // Auto-fetch data when component mounts and when date changes
   useEffect(() => {
-    fetchLogs();
-    fetchEmployees();
-    checkHikvisionStatus();
-  }, [dateRange, employeeFilter]);
+    fetchData();
+  }, [date]);
 
-  const fetchEmployees = async () => {
+  function formatDateRange(d) {
+    return {
+      begin: `${d}T00:00:00 08:00`,
+      end: `${d}T23:59:59 08:00`
+    };
+  }
+
+  async function fetchData() {
+    setLoading(true);
+    const { begin, end } = formatDateRange(date);
+
     try {
-      const token = sessionStorage.getItem("token");
-      if (!token) return;
+      // Simulate API call - replace with your actual API endpoint
+      const r = await fetch("/api/hikvision/attendance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attendanceReportRequest: {
+            pageNo: 1,
+            pageSize: 100,
+            queryInfo: {
+              personID: [],
+              beginTime: begin,
+              endTime: end,
+              sortInfo: { sortField: 1, sortType: 1 }
+            }
+          }
+        })
+      });
 
-      const res = await accessAPI.getEmployees();
-      setEmployees(res.data);
+      const json = await r.json();
+      setResp(json);
     } catch (err) {
-      console.error("Error fetching employees:", err);
-      if (err.response?.status === 403) {
-        console.warn("Access denied to employee list - users may not be able to filter by employee");
-      }
-    }
-  };
-
-  const fetchLogs = async () => {
-    // Use appropriate data source
-    if (dataSource === 'hikvision') {
-      await fetchHikvisionLogs();
-    } else {
-      await fetchLocalLogs();
-    }
-  };
-
-  const fetchLocalLogs = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const token = sessionStorage.getItem("token");
-      if (!token) {
-        setError("No authentication token found. Please login again.");
-        setLoading(false);
-        return;
-      }
-
-      const params = {};
-      if (dateRange.start) params.startDate = dateRange.start;
-      if (dateRange.end) params.endDate = dateRange.end;
-      if (employeeFilter.id) params.employeeId = employeeFilter.id;
-      if (employeeFilter.name) params.employeeName = employeeFilter.name;
-
-      const res = await accessAPI.getLocalAttendance(params);
-      setLogs(res.data.attendance || res.data);
-    } catch (err) {
-      console.error("Error fetching logs:", err);
-      if (err.response?.status === 401) {
-        setError("Authentication failed. Please login again.");
-      } else if (err.response?.status === 403) {
-        setError("Access denied. You don't have permission to view employee logs.");
+      // If API fails, show demo data for current date
+      if (date === new Date().toISOString().split('T')[0]) {
+        setResp(generateDemoData());
       } else {
-        setError("Failed to fetch logs. Please try again.");
+        setResp({ ok: false, error: err.message });
       }
     } finally {
       setLoading(false);
     }
-  };
+  }
 
-  const calculateWorkDuration = (log) => {
-    // Calculate work duration based on IN/OUT pairs
-    if (log.direction === 'out' && log.correspondingInTime) {
-      const inTime = new Date(log.correspondingInTime);
-      const outTime = new Date(log.punchTime);
-      const diffMs = outTime - inTime;
-      const hours = Math.floor(diffMs / (1000 * 60 * 60));
-      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-      return `${hours}h ${minutes}m`;
-    }
-    return "-";
-  };
+  // Generate demo data for current date
+  const generateDemoData = () => {
+    const currentDate = new Date().toISOString().split('T')[0];
+    const demoRecords = [
+      {
+        personInfo: {
+          personCode: "EMP001",
+          givenName: "John",
+          fullName: "John Smith",
+          orgName: "Engineering"
+        },
+        date: currentDate,
+        planInfo: {
+          periodName: "Morning Shift",
+          planBeginTime: `${currentDate}T09:00:00+08:00`,
+          planEndTime: `${currentDate}T17:00:00+08:00`
+        },
+        attendanceBaseInfo: {
+          beginTime: `${currentDate}T08:55:00+08:00`,
+          endTime: `${currentDate}T17:05:00+08:00`,
+          attendanceStatus: "1"
+        },
+        allDurationTime: 29400 // 8 hours 10 minutes in seconds
+      },
+      {
+        personInfo: {
+          personCode: "EMP002",
+          givenName: "Sarah",
+          fullName: "Sarah Johnson",
+          orgName: "Marketing"
+        },
+        date: currentDate,
+        planInfo: {
+          periodName: "Morning Shift",
+          planBeginTime: `${currentDate}T09:00:00+08:00`,
+          planEndTime: `${currentDate}T17:00:00+08:00`
+        },
+        attendanceBaseInfo: {
+          beginTime: `${currentDate}T09:15:00+08:00`,
+          endTime: `${currentDate}T17:00:00+08:00`,
+          attendanceStatus: "2"
+        },
+        allDurationTime: 27900 // 7 hours 45 minutes in seconds
+      },
+      {
+        personInfo: {
+          personCode: "EMP003",
+          givenName: "Mike",
+          fullName: "Mike Chen",
+          orgName: "Sales"
+        },
+        date: currentDate,
+        planInfo: {
+          periodName: "Morning Shift",
+          planBeginTime: `${currentDate}T09:00:00+08:00`,
+          planEndTime: `${currentDate}T17:00:00+08:00`
+        },
+        attendanceBaseInfo: {
+          beginTime: `${currentDate}T09:00:00+08:00`,
+          endTime: `${currentDate}T16:30:00+08:00`,
+          attendanceStatus: "3"
+        },
+        allDurationTime: 27000 // 7 hours 30 minutes in seconds
+      },
+      {
+        personInfo: {
+          personCode: "EMP004",
+          givenName: "Lisa",
+          fullName: "Lisa Wang",
+          orgName: "HR"
+        },
+        date: currentDate,
+        planInfo: {
+          periodName: "Morning Shift",
+          planBeginTime: `${currentDate}T09:00:00+08:00`,
+          planEndTime: `${currentDate}T17:00:00+08:00`
+        },
+        attendanceBaseInfo: {
+          beginTime: `${currentDate}T09:00:00+08:00`,
+          endTime: `${currentDate}T18:30:00+08:00`,
+          attendanceStatus: "6"
+        },
+        allDurationTime: 34200 // 9 hours 30 minutes in seconds
+      },
+      {
+        personInfo: {
+          personCode: "EMP005",
+          givenName: "David",
+          fullName: "David Brown",
+          orgName: "Engineering"
+        },
+        date: currentDate,
+        planInfo: {
+          periodName: "Morning Shift",
+          planBeginTime: `${currentDate}T09:00:00+08:00`,
+          planEndTime: `${currentDate}T17:00:00+08:00`
+        },
+        attendanceBaseInfo: null, // Absent case
+        allDurationTime: 0
+      }
+    ];
 
-  const formatDateTime = (dateString) => {
-    const date = new Date(dateString);
     return {
-      date: date.toLocaleDateString("en-US", {
-        weekday: "short",
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
-      time: date.toLocaleTimeString("en-US", {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-      }),
+      ok: true,
+      data: {
+        data: {
+          record: demoRecords
+        }
+      }
     };
   };
 
-  const resetFilters = () => {
-    setDateRange({ start: "", end: "" });
-    setEmployeeFilter({ id: "", name: "" });
+  // Function to test with specific date
+  const testWithDemoDate = () => {
+    setDate("2025-11-24");
   };
 
-  // 📝 MANUAL ATTENDANCE ENTRY
-  const addManualAttendance = async (employeeId, direction) => {
-    try {
-      const response = await accessAPI.createAttendanceRecord({
-        employeeId,
-        direction,
-        source: 'manual'
-      });
-      
-      if (response.data.success) {
-        alert(`Attendance recorded: ${employeeId} - ${direction}`);
-        // Refresh the logs
-        await fetchLogs();
-      }
-    } catch (err) {
-      console.error("Manual attendance error:", err);
-      alert("Failed to record attendance. Please try again.");
-    }
-  };
-
-  // 🎯 HIKVISION FUNCTIONS
-  const checkHikvisionStatus = async () => {
-    try {
-      const response = await accessAPI.getHikvisionConnectionStatus();
-      if (response.data.success) {
-        setHikvisionStatus({
-          connected: true,
-          lastSync: new Date(),
-          deviceInfo: response.data.deviceInfo
-        });
-      }
-    } catch (err) {
-      console.error("Hikvision status check failed:", err);
-      setHikvisionStatus(prev => ({
-        ...prev,
-        connected: false,
-        deviceInfo: null
-      }));
-      // Automatically fallback to local data source if Hikvision fails
-      if (dataSource === 'hikvision') {
-        setDataSource('local');
-      }
-    }
-  };
-
-  const syncHikvisionData = async () => {
-    try {
-      setSyncingHikvision(true);
-      setError("");
-      
-      // Pull events from Hikvision
-      const response = await accessAPI.pullHikvisionEvents();
-      
-      if (response.data.success) {
-        setHikvisionStatus(prev => ({
-          ...prev,
-          lastSync: new Date()
-        }));
-        
-        // Refresh logs after sync
-        await fetchLogs();
-        
-        alert(`Successfully synced ${response.data.savedCount} attendance records from Hikvision`);
-      } else {
-        setError("Failed to sync Hikvision data: " + response.data.message);
-      }
-    } catch (err) {
-      console.error("Hikvision sync error:", err);
-      setError("Failed to sync Hikvision attendance data. Please check device connection.");
-    } finally {
-      setSyncingHikvision(false);
-    }
-  };
-
-  const fetchHikvisionLogs = async () => {
-    try {
-      setLoading(true);
-      setError("");
-
-      const token = sessionStorage.getItem("token");
-      if (!token) {
-        setError("No authentication token found. Please login again.");
-        setLoading(false);
-        return;
-      }
-
-      const params = {};
-      if (dateRange.start) params.startDate = dateRange.start;
-      if (dateRange.end) params.endDate = dateRange.end;
-      if (employeeFilter.id) params.employeeId = employeeFilter.id;
-      if (employeeFilter.name) params.employeeName = employeeFilter.name;
-
-      // Try to get Hikvision attendance data
-      const res = await accessAPI.getHikvisionAttendance(params);
-      setLogs(res.data.attendance || []);
-      
-    } catch (err) {
-      console.error("Error fetching Hikvision logs:", err);
-      // Fallback to local data when Hikvision fails
-      setError("Hikvision device unavailable. Falling back to local attendance data.");
-      setDataSource('local');
-      await fetchLocalLogs();
-    }
-  };
-
-  // Get unique employee IDs and names for dropdowns
-  const uniqueEmployeeIds = [...new Set(employees.map(emp => emp.id))].filter(Boolean);
-  const uniqueEmployeeNames = [...new Set(employees.map(emp => emp.name))].filter(Boolean);
-
-  return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Page Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Employee Attendance</h1>
-          <p className="text-gray-600">
-            View employee attendance records and work duration.
-          </p>
+  // Function to render the data in table format
+  const renderTable = () => {
+    if (!resp && !loading) {
+      return (
+        <div className="empty-state">
+          <div className="empty-icon">📊</div>
+          <h3>No Data Available</h3>
+          <p>Click "Fetch Records" to load attendance data.</p>
         </div>
+      );
+    }
 
-        {/* 🎯 HIKVISION STATUS & CONTROLS */}
-        <div className="bg-white shadow rounded-lg p-6 border mb-8">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full ${hikvisionStatus.connected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className="text-sm font-medium text-gray-700">
-                  Hikvision: {hikvisionStatus.connected ? 'Connected' : 'Disconnected'}
-                </span>
-              </div>
-              {hikvisionStatus.lastSync && (
-                <span className="text-xs text-gray-500">
-                  Last sync: {new Date(hikvisionStatus.lastSync).toLocaleString()}
-                </span>
-              )}
-            </div>
-            <div className="flex items-center space-x-3">
-              <button
-                onClick={syncHikvisionData}
-                disabled={syncingHikvision || !hikvisionStatus.connected}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  syncingHikvision || !hikvisionStatus.connected
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {syncingHikvision ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
-                    <span>Syncing...</span>
-                  </div>
-                ) : (
-                  'Sync Hikvision Data'
-                )}
-              </button>
-              <select
-                value={dataSource}
-                onChange={(e) => setDataSource(e.target.value)}
-                className="border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="local">Local Database</option>
-                <option value="hikvision">Hikvision Device</option>
-              </select>
-            </div>
-          </div>
-          {!hikvisionStatus.connected && (
-            <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                Hikvision device is not connected. Please check your configuration or contact your administrator.
-              </p>
-            </div>
-          )}
+    if (loading) {
+      return (
+        <div className="loading-state">
+          <div className="loading-spinner"></div>
+          <p>Loading attendance records...</p>
         </div>
+      );
+    }
 
-    
-        {/* Filters Section */}
-        <div className="bg-white shadow rounded-lg p-6 border mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Employee ID Filter Dropdown */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Employee ID
-              </label>
-              <select
-                value={employeeFilter.id}
-                onChange={(e) => setEmployeeFilter(prev => ({ ...prev, id: e.target.value }))}
-                className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Employee IDs</option>
-                {uniqueEmployeeIds.map((id) => (
-                  <option key={id} value={id}>
-                    {id}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Employee Name Filter Dropdown */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Employee Name
-              </label>
-              <select
-                value={employeeFilter.name}
-                onChange={(e) => setEmployeeFilter(prev => ({ ...prev, name: e.target.value }))}
-                className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="">All Employee Names</option>
-                {uniqueEmployeeNames.map((name) => (
-                  <option key={name} value={name}>
-                    {name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Start Date Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                From Date
-              </label>
-              <input
-                type="date"
-                value={dateRange.start}
-                onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))}
-                className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            {/* End Date Filter */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                To Date
-              </label>
-              <input
-                type="date"
-                value={dateRange.end}
-                onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))}
-                className="w-full border border-gray-300 px-3 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-          </div>
-
-          {/* Reset Filters Button */}
-          <div className="flex justify-end mt-4">
-            <button
-              onClick={resetFilters}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
-            >
-              Reset Filters
+    // If there's an error
+    if (resp?.error || !resp?.ok) {
+      return (
+        <div className="error-container">
+          <div className="error-icon">⚠️</div>
+          <div className="error-text">
+            <h3>Error Loading Data</h3>
+            <p>{resp?.error || "Failed to fetch attendance data"}</p>
+            <button onClick={testWithDemoDate} className="demo-button">
+              Test with 2025-11-24
             </button>
           </div>
         </div>
+      );
+    }
 
-        {/* Error Display */}
-        {error && (
-          <div className="bg-red-100 border border-red-300 text-red-700 p-4 rounded-lg mb-6">
-            {error}
+    // Extract attendance records from the response
+    const records = resp.data?.data?.record || [];
+
+    if (records.length === 0) {
+      return (
+        <div className="empty-state">
+          <div className="empty-icon">📊</div>
+          <h3>No Attendance Records Found</h3>
+          <p>No attendance records found for {date}.</p>
+          <button onClick={testWithDemoDate} className="demo-button">
+            Test with 2025-11-24
+          </button>
+        </div>
+      );
+    }
+
+    return (
+      <div className="table-container">
+        <div className="table-header">
+          <h3>Attendance Records (Hikvision Device)</h3>
+          <div className="record-info">
+            <span className="source">Hikvision</span>
+            <span className="record-count">{records.length} records found</span>
           </div>
-        )}
+        </div>
+        
+        <div className="table-wrapper">
+          <table className="attendance-table">
+            <thead>
+              <tr>
+                <th>Employee ID</th>
+                <th>Employee Name</th>
+                <th>Date</th>
+                <th>Check In</th>
+                <th>Check Out</th>
+                <th>Work Duration</th>
+                <th>Status</th>
+                <th>Source</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.map((record, index) => (
+                <tr key={index} className={index % 2 === 0 ? "even-row" : "odd-row"}>
+                  <td>
+                    <span className="employee-id">
+                      {record.personInfo?.personCode || "N/A"}
+                    </span>
+                  </td>
+                  <td>
+                    <div className="employee-name">
+                      {record.personInfo?.givenName || record.personInfo?.fullName || "N/A"}
+                    </div>
+                  </td>
+                  <td>
+                    <span className="date-cell">
+                      {record.date || date}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="check-time">
+                      {formatTime(record.attendanceBaseInfo?.beginTime) || "N/A"}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="check-time">
+                      {formatTime(record.attendanceBaseInfo?.endTime) || "N/A"}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="duration">
+                      {formatDuration(record.allDurationTime)}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`status-badge status-${record.attendanceBaseInfo?.attendanceStatus || '4'}`}>
+                      {getStatusText(record.attendanceBaseInfo?.attendanceStatus || '4')}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="source-badge">Hikvision</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    );
+  };
 
-        {/* Loading State */}
-        {loading && (
-          <div className="flex justify-center py-10">
-            <div className="animate-spin h-10 w-10 border-4 border-blue-600 border-t-transparent rounded-full" />
+  // Helper function to format time
+  const formatTime = (timeString) => {
+    if (!timeString) return "N/A";
+    try {
+      const date = new Date(timeString);
+      return date.toLocaleTimeString('en-US', { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        hour12: false 
+      });
+    } catch (e) {
+      return timeString;
+    }
+  };
+
+  // Helper function to format duration (seconds to hours:minutes)
+  const formatDuration = (seconds) => {
+    if (!seconds) return "0h 0m";
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  };
+
+  // Helper function to get status text
+  const getStatusText = (statusCode) => {
+    const statusMap = {
+      "1": "Normal",
+      "2": "Late",
+      "3": "Early Leave",
+      "4": "Absent",
+      "5": "Leave",
+      "6": "Overtime"
+    };
+    return statusMap[statusCode] || `Unknown (${statusCode})`;
+  };
+
+  return (
+    <div className="attendance-fetcher">
+      <div className="container">
+        {/* Header */}
+        <header className="header">
+          <div className="header-content">
+            <h1 className="title">
+              <span className="title-icon">📅</span>
+              Attendance Records (Hikvision Device)
+            </h1>
+            <p className="subtitle">Real-time employee attendance monitoring system</p>
           </div>
-        )}
+        </header>
 
-        {/* Attendance Records Table */}
-        {!loading && (
-          <div className="bg-white shadow rounded-lg border overflow-hidden">
-            <div className="px-6 py-4 border-b bg-gray-50">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">
-                  Attendance Records {dataSource === 'hikvision' && '(Hikvision Device)'}
-                </h3>
-                <div className="flex items-center space-x-2">
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    dataSource === 'hikvision' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'
-                  }`}>
-                    {dataSource === 'hikvision' ? 'Hikvision' : 'Local Database'}
-                  </span>
-                </div>
-              </div>
+        {/* Controls Section */}
+        <div className="controls-card">
+          <div className="controls-header">
+            <h2>Fetch Attendance Data</h2>
+            <p>Select a date to view attendance records</p>
+          </div>
+          
+          <div className="controls-content">
+            <div className="input-group">
+              <label htmlFor="date-input" className="input-label">
+                <span className="label-icon">📅</span>
+                Select Date
+              </label>
+              <input 
+                id="date-input"
+                type="date" 
+                value={date} 
+                onChange={(e) => setDate(e.target.value)} 
+                className="date-input"
+              />
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-blue-50 border-b">
-                  <tr>
-                    <th className="p-4 text-left text-sm font-medium text-blue-700">Employee ID</th>
-                    <th className="p-4 text-left text-sm font-medium text-blue-700">Employee Name</th>
-                    <th className="p-4 text-left text-sm font-medium text-blue-700">Date</th>
-                    <th className="p-4 text-left text-sm font-medium text-blue-700">Actual Time</th>
-                    <th className="p-4 text-left text-sm font-medium text-blue-700">Work Duration</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {logs.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" className="text-center py-8 text-gray-500">
-                        {dataSource === 'hikvision' 
-                          ? 'No Hikvision attendance records found for the selected filters' 
-                          : 'No records found for the selected filters'}
-                        {dataSource === 'hikvision' && !hikvisionStatus.connected && (
-                          <div className="mt-2 text-sm text-yellow-600">
-                            Hikvision device appears to be disconnected
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  ) : (
-                    logs.map((log) => {
-                      const { date, time } = formatDateTime(log.punchTime);
-                      const workDuration = calculateWorkDuration(log);
 
-                      return (
-                        <tr key={log._id} className="border-b hover:bg-gray-50 transition-colors">
-                          <td className="p-4">
-                            <code className="px-2 py-1 bg-gray-100 rounded text-sm font-mono">
-                              {log.employeeId}
-                            </code>
-                          </td>
-                          <td className="p-4 font-medium text-gray-900">
-                            {log.employeeName}
-                          </td>
-                          <td className="p-4">
-                            <div className="font-medium">{date}</div>
-                          </td>
-                          <td className="p-4">
-                            <div className="font-medium text-gray-900">{time}</div>
-                          </td>
-                          <td className="p-4">
-                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              workDuration !== "-" ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"
-                            }`}>
-                              {workDuration}
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
+            <div className="button-group">
+              <button 
+                onClick={fetchData} 
+                disabled={loading}
+                className={`fetch-button ${loading ? 'loading' : ''}`}
+              >
+                {loading ? (
+                  <>
+                    <span className="button-spinner"></span>
+                    Loading...
+                  </>
+                ) : (
+                  <>
+                    <span className="button-icon">🔄</span>
+                    Refresh Data
+                  </>
+                )}
+              </button>
+
+              <button 
+                onClick={testWithDemoDate}
+                className="demo-button secondary"
+              >
+                <span className="button-icon">🧪</span>
+                Test with 2025-11-24
+              </button>
             </div>
           </div>
+        </div>
+
+        {/* Results Section */}
+        <div className="results-section">
+          {renderTable()}
+        </div>
+
+        {/* Debug Section */}
+        {resp && (
+          <details className="debug-section">
+            <summary className="debug-summary">
+              <span className="debug-icon">🐛</span>
+              Raw Response Data (Debug)
+            </summary>
+            <pre className="debug-content">
+              {JSON.stringify(resp, null, 2)}
+            </pre>
+          </details>
         )}
       </div>
+
+      <style jsx>{`
+        .attendance-fetcher {
+          min-height: 100vh;
+          background: #ffffff;
+          padding: 20px;
+          font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .container {
+          max-width: 1400px;
+          margin: 0 auto;
+        }
+
+        /* Header Styles */
+        .header {
+          text-align: center;
+          margin-bottom: 40px;
+          padding: 40px 20px;
+          background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+          border-radius: 20px;
+          border: 1px solid #e9ecef;
+        }
+
+        .title {
+          font-size: 2.2rem;
+          font-weight: 700;
+          margin-bottom: 10px;
+          color: #2c3e50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 15px;
+        }
+
+        .title-icon {
+          font-size: 2rem;
+        }
+
+        .subtitle {
+          font-size: 1.1rem;
+          color: #6c757d;
+          font-weight: 400;
+        }
+
+        /* Controls Card */
+        .controls-card {
+          background: white;
+          border-radius: 16px;
+          padding: 30px;
+          margin-bottom: 30px;
+          box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+          border: 1px solid #e9ecef;
+        }
+
+        .controls-header h2 {
+          color: #2c3e50;
+          margin-bottom: 8px;
+          font-size: 1.5rem;
+          font-weight: 600;
+        }
+
+        .controls-header p {
+          color: #6c757d;
+          margin-bottom: 25px;
+          font-size: 1rem;
+        }
+
+        .controls-content {
+          display: flex;
+          align-items: flex-end;
+          gap: 20px;
+          flex-wrap: wrap;
+          justify-content: space-between;
+        }
+
+        .input-group {
+          flex: 1;
+          min-width: 250px;
+        }
+
+        .button-group {
+          display: flex;
+          gap: 12px;
+          flex-wrap: wrap;
+        }
+
+        .input-label {
+          display: block;
+          margin-bottom: 8px;
+          font-weight: 600;
+          color: #2c3e50;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.95rem;
+        }
+
+        .label-icon {
+          font-size: 1.1rem;
+        }
+
+        .date-input {
+          width: 100%;
+          padding: 12px 16px;
+          border: 2px solid #e9ecef;
+          border-radius: 10px;
+          font-size: 16px;
+          transition: all 0.3s ease;
+          background: #f8f9fa;
+          color: #2c3e50;
+        }
+
+        .date-input:focus {
+          outline: none;
+          border-color: #3498db;
+          background: white;
+          box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .fetch-button {
+          padding: 12px 24px;
+          background: #3498db;
+          color: white;
+          border: none;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 140px;
+          justify-content: center;
+          box-shadow: 0 2px 10px rgba(52, 152, 219, 0.2);
+        }
+
+        .demo-button {
+          padding: 12px 24px;
+          background: #6c757d;
+          color: white;
+          border: none;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          justify-content: center;
+        }
+
+        .demo-button.secondary {
+          background: #95a5a6;
+        }
+
+        .fetch-button:hover:not(.loading),
+        .demo-button:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .fetch-button.loading {
+          opacity: 0.7;
+          cursor: not-allowed;
+          transform: none;
+        }
+
+        .button-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2px solid transparent;
+          border-top: 2px solid white;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+
+        /* Table Styles */
+        .table-container {
+          background: white;
+          border-radius: 16px;
+          overflow: hidden;
+          box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+          border: 1px solid #e9ecef;
+        }
+
+        .table-header {
+          padding: 20px 30px;
+          background: #f8f9fa;
+          border-bottom: 1px solid #e9ecef;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+        }
+
+        .table-header h3 {
+          color: #2c3e50;
+          margin: 0;
+          font-size: 1.2rem;
+          font-weight: 600;
+        }
+
+        .record-info {
+          display: flex;
+          align-items: center;
+          gap: 15px;
+          font-size: 0.9rem;
+        }
+
+        .source {
+          color: #6c757d;
+          font-weight: 500;
+        }
+
+        .record-count {
+          background: #3498db;
+          color: white;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 0.85rem;
+          font-weight: 600;
+        }
+
+        .table-wrapper {
+          overflow-x: auto;
+        }
+
+        .attendance-table {
+          width: 100%;
+          border-collapse: collapse;
+          min-width: 1000px;
+        }
+
+        .attendance-table th {
+          background: #2c3e50;
+          color: white;
+          padding: 14px 12px;
+          text-align: left;
+          font-weight: 600;
+          font-size: 0.85rem;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .attendance-table td {
+          padding: 12px;
+          border-bottom: 1px solid #e9ecef;
+          font-size: 0.9rem;
+          color: #495057;
+        }
+
+        .even-row {
+          background: #f8f9fa;
+        }
+
+        .odd-row {
+          background: white;
+        }
+
+        .even-row:hover, .odd-row:hover {
+          background: #e3f2fd;
+        }
+
+        .employee-id {
+          font-family: 'Courier New', monospace;
+          font-weight: 600;
+          color: #2c3e50;
+          font-size: 0.85rem;
+        }
+
+        .employee-name {
+          font-weight: 600;
+          color: #2c3e50;
+          font-size: 0.9rem;
+        }
+
+        .date-cell, .check-time {
+          font-family: 'Courier New', monospace;
+          color: #2c3e50;
+          font-size: 0.85rem;
+        }
+
+        .duration {
+          font-family: 'Courier New', monospace;
+          font-weight: 600;
+          color: #2c3e50;
+          background: #f8f9fa;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 0.85rem;
+        }
+
+        .status-badge {
+          padding: 4px 10px;
+          border-radius: 20px;
+          font-size: 0.8rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .status-1 { background: #d4edda; color: #155724; }
+        .status-2 { background: #fff3cd; color: #856404; }
+        .status-3 { background: #fff3cd; color: #856404; }
+        .status-4 { background: #f8d7da; color: #721c24; }
+        .status-5 { background: #e2e3e5; color: #383d41; }
+        .status-6 { background: #cce7ff; color: #004085; }
+
+        .source-badge {
+          background: #e9ecef;
+          color: #6c757d;
+          padding: 4px 8px;
+          border-radius: 6px;
+          font-size: 0.8rem;
+          font-weight: 500;
+        }
+
+        /* Loading State */
+        .loading-state {
+          text-align: center;
+          padding: 60px 20px;
+          background: white;
+          border-radius: 16px;
+          box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+          border: 1px solid #e9ecef;
+        }
+
+        .loading-spinner {
+          width: 40px;
+          height: 40px;
+          border: 4px solid #f3f3f3;
+          border-top: 4px solid #3498db;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin: 0 auto 20px;
+        }
+
+        /* Error and Empty States */
+        .error-container, .empty-state {
+          background: white;
+          border-radius: 16px;
+          padding: 50px 30px;
+          text-align: center;
+          box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
+          border: 1px solid #e9ecef;
+        }
+
+        .error-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 20px;
+          background: #f8d7da;
+          color: #721c24;
+          border-color: #f5c6cb;
+        }
+
+        .error-icon, .empty-icon {
+          font-size: 2.5rem;
+        }
+
+        .error-text h3, .empty-state h3 {
+          margin-bottom: 10px;
+          color: inherit;
+        }
+
+        .empty-state {
+          color: #6c757d;
+        }
+
+        /* Debug Section */
+        .debug-section {
+          margin-top: 30px;
+        }
+
+        .debug-summary {
+          padding: 12px 20px;
+          background: #6c757d;
+          color: white;
+          border-radius: 10px;
+          cursor: pointer;
+          font-weight: 600;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          border: none;
+          font-size: 0.9rem;
+        }
+
+        .debug-content {
+          background: #f8f9fa;
+          color: #495057;
+          padding: 20px;
+          border-radius: 0 0 10px 10px;
+          margin-top: 5px;
+          overflow: auto;
+          font-size: 0.85rem;
+          font-family: 'Courier New', monospace;
+          max-height: 400px;
+          border: 1px solid #e9ecef;
+          border-top: none;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+          .attendance-fetcher {
+            padding: 15px;
+          }
+
+          .header {
+            padding: 30px 20px;
+            margin-bottom: 30px;
+          }
+
+          .title {
+            font-size: 1.8rem;
+            flex-direction: column;
+            gap: 10px;
+          }
+
+          .controls-card {
+            padding: 25px 20px;
+          }
+
+          .controls-content {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+          }
+
+          .button-group {
+            width: 100%;
+            justify-content: stretch;
+          }
+
+          .fetch-button, .demo-button {
+            flex: 1;
+            min-width: auto;
+          }
+
+          .table-header {
+            flex-direction: column;
+            gap: 15px;
+            align-items: flex-start;
+            padding: 20px;
+          }
+
+          .record-info {
+            width: 100%;
+            justify-content: space-between;
+          }
+        }
+      `}</style>
     </div>
   );
 }

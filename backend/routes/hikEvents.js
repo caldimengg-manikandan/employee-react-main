@@ -1,737 +1,371 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const axios = require("axios");
-const net = require("net");
-const https = require("https");
-const cheerio = require("cheerio");
-const generateHikToken = require("../utils/hikToken");
-const Attendance = require("../models/Attendance");
+const axios = require('axios');
+const crypto = require('crypto');
+require('dotenv').config();
 
-// Helper function to check if device is reachable
-async function checkDeviceReachability(host, port) {
-  return new Promise((resolve) => {
-    const socket = new net.Socket();
-    const timeout = 5000; // 5 second timeout
-    
-    socket.setTimeout(timeout);
-    socket.on('connect', () => {
-      socket.destroy();
-      resolve(true);
-    });
-    socket.on('timeout', () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.on('error', () => {
-      socket.destroy();
-      resolve(false);
-    });
-    socket.connect(port, host);
-  });
+// Hikvision configuration
+const HIK_BASE_URL = process.env.HIK_BASE_URL;
+const HIK_APP_KEY = process.env.HIK_APP_KEY;
+const HIK_APP_SECRET = process.env.HIK_APP_SECRET;
+
+// Generate authentication headers
+function generateAuthHeaders(method, path) {
+  const now = Date.now().toString();
+  
+  const cleanPath = path.split('?')[0];
+  const signString = `POST\n*/*\napplication/json\nx-ca-key:${HIK_APP_KEY}\nx-ca-timestamp:${now}\n${cleanPath}`;
+  
+  const signature = crypto.createHmac('sha256', HIK_APP_SECRET)
+    .update(signString)
+    .digest('base64');
+  
+  return {
+    'Accept': '*/*',
+    'Content-Type': 'application/json',
+    'x-ca-key': HIK_APP_KEY,
+    'x-ca-timestamp': now,
+    'x-ca-signature': signature,
+    'x-ca-signature-headers': 'x-ca-key,x-ca-timestamp'
+  };
 }
 
-// Web scraping function for Hikvision devices that don't support APIs
-async function scrapeHikvisionAttendance(deviceUrl, username, password) {
+// Main proxy function
+async function hikArtemisProxy(requestBody, uri, method = 'POST') {
   try {
-    console.log("Attempting to scrape Hikvision attendance data from web interface...");
+    const fullUrl = `${HIK_BASE_URL}${uri}`;
+    const headers = generateAuthHeaders(method, uri);
     
-    // Create basic auth header
-    const auth = Buffer.from(`${username}:${password}`).toString('base64');
+    console.log('=== HIKVISION API REQUEST ===');
+    console.log(`URL: ${fullUrl}`);
+    console.log('Headers:', headers);
+    console.log('Request Body:', JSON.stringify(requestBody, null, 2));
     
-    // Common Hikvision web interface URLs for attendance/records
-    const scrapeUrls = [
-      `${deviceUrl}/ISAPI/AccessControl/AcsEvent`,
-      `${deviceUrl}/ISAPI/AccessControl/AttendanceRecord`,
-      `${deviceUrl}/doc/page/main.asp`,
-      `${deviceUrl}/main.asp`,
-      `${deviceUrl}/login.asp`,
-      `${deviceUrl}/`,
-      `${deviceUrl}/doc/page/login.asp`
-    ];
-    
-    let response = null;
-    let scrapedUrl = '';
-    
-    // Try different URLs to find the web interface
-    for (const url of scrapeUrls) {
-      try {
-        console.log(`Trying to access: ${url}`);
-        response = await axios.get(url, {
-          headers: {
-            "Authorization": `Basic ${auth}`,
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-          },
-          timeout: 15000,
-          httpsAgent: new https.Agent({
-            rejectUnauthorized: false
-          })
-        });
-        scrapedUrl = url;
-        console.log(`Successfully accessed web interface at: ${url}`);
-        break;
-      } catch (urlError) {
-        console.log(`Failed to access ${url}: ${urlError.message}`);
-        continue;
-      }
-    }
-    
-    if (!response) {
-      throw new Error("Could not access Hikvision web interface at any known URL");
-    }
-    
-    // Parse the HTML response
-    const $ = cheerio.load(response.data);
-    const events = [];
-    
-    console.log("Parsing HTML content...");
-    
-    // Look for common patterns in Hikvision web interfaces
-    // Try to find attendance/event data in tables or specific elements
-    
-    // Look for tables with attendance data
-    const tables = $('table');
-    console.log(`Found ${tables.length} tables in the HTML`);
-    
-    tables.each((index, table) => {
-      const $table = $(table);
-      
-      // Look for headers that might indicate attendance data
-      const headers = $table.find('th, td').map((i, el) => $(el).text().trim().toLowerCase()).get();
-      
-      // Check if this table contains attendance/event data
-      const hasAttendanceData = headers.some(header => 
-        header.includes('employee') || 
-        header.includes('name') || 
-        header.includes('time') || 
-        header.includes('date') ||
-        header.includes('card') ||
-        header.includes('event') ||
-        header.includes('access')
-      );
-      
-      if (hasAttendanceData) {
-        console.log(`Table ${index} appears to contain attendance data`);
-        
-        // Extract data from table rows
-        $table.find('tr').each((rowIndex, row) => {
-          const $row = $(row);
-          const cells = $row.find('td, th').map((i, cell) => $(cell).text().trim()).get();
-          
-          if (cells.length > 1) { // Skip header rows and empty rows
-            // Try to parse attendance data from the cells
-            const event = parseAttendanceRow(cells, index);
-            if (event) {
-              events.push(event);
-            }
-          }
-        });
-      }
-    });
-    
-    // If no data found in tables, try to find data in other elements
-    if (events.length === 0) {
-      console.log("No attendance data found in tables, trying other methods...");
-      
-      // Look for divs or spans that might contain attendance data
-      const dataElements = $('div, span, p').filter(function() {
-        const text = $(this).text().trim().toLowerCase();
-        return text.includes('employee') || text.includes('card') || text.includes('time');
-      });
-      
-      console.log(`Found ${dataElements.length} elements that might contain attendance data`);
-      
-      dataElements.each((index, element) => {
-        const text = $(element).text().trim();
-        const event = parseAttendanceText(text);
-        if (event) {
-          events.push(event);
-        }
-      });
-    }
-    
-    // If still no data, try to extract any structured data we can find
-    if (events.length === 0) {
-      console.log("Attempting to extract any structured data from the page...");
-      
-      // Look for any text that might be attendance-related
-      const allText = $('body').text();
-      
-      // Try to find patterns like "Employee ID: 12345" or "Name: John Doe"
-      const employeePattern = /(?:employee|name|user|card)\s*[:#-]\s*(\w+)/gi;
-      const timePattern = /(?:time|date)\s*[:#-]\s*([\d\-:\s]+)/gi;
-      
-      const employeeMatches = [...allText.matchAll(employeePattern)];
-      const timeMatches = [...allText.matchAll(timePattern)];
-      
-      if (employeeMatches.length > 0 && timeMatches.length > 0) {
-        console.log(`Found ${employeeMatches.length} potential employee entries and ${timeMatches.length} time entries`);
-        
-        // Create mock events from the extracted data
-        for (let i = 0; i < Math.min(employeeMatches.length, timeMatches.length, 10); i++) {
-          events.push({
-            employeeNo: employeeMatches[i][1],
-            personName: `Employee ${employeeMatches[i][1]}`,
-            eventType: "access_granted",
-            time: new Date().toISOString(), // Use current time as fallback
-            deviceName: "hikvision-web",
-            readerName: "web-scraped"
-          });
-        }
-      }
-    }
-    
-    console.log(`Successfully scraped ${events.length} attendance events from web interface`);
-    return {
-      success: true,
-      events: events,
-      scrapedUrl: scrapedUrl,
-      method: 'web_scraping'
+    const config = {
+      method: method,
+      url: fullUrl,
+      headers: headers,
+      data: requestBody,
+      timeout: 30000,
+      httpsAgent: new (require('https').Agent)({
+        rejectUnauthorized: false
+      })
     };
     
+    const response = await axios(config);
+    
+    console.log('=== HIKVISION API RESPONSE ===');
+    console.log(`Status: ${response.status}`);
+    console.log('Response Data Structure:', Object.keys(response.data));
+    console.log('=== END HIKVISION API CALL ===');
+    
+    return response.data;
   } catch (error) {
-    console.error("Web scraping failed:", error.message);
-    throw error;
+    console.log('=== HIKVISION API ERROR ===');
+    if (error.response) {
+      console.log('Response Error:', error.response.status);
+      console.log('Response Data:', error.response.data);
+    } else if (error.request) {
+      console.log('No Response Received:', error.request);
+    } else {
+      console.log('Request Setup Error:', error.message);
+    }
+    
+    if (error.response) {
+      throw new Error(`Hikvision API Error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
+    } else if (error.request) {
+      throw new Error('No response received from Hikvision API');
+    } else {
+      throw new Error(`Request setup error: ${error.message}`);
+    }
   }
 }
 
-// Helper function to parse attendance data from table rows
-function parseAttendanceRow(cells, tableIndex) {
+// ============ HIKVISION ENDPOINTS ============
+
+// Get Hikvision attendance data - FIXED VERSION
+router.get('/attendance-data', async (req, res) => {
   try {
-    // Look for patterns that indicate attendance data
-    let employeeNo = null;
-    let personName = null;
-    let eventTime = null;
-    let eventType = "access_granted";
+    const { startDate, endDate, employeeId } = req.query;
     
-    // Try to find employee ID/name
-    for (let i = 0; i < cells.length; i++) {
-      const cell = cells[i].toLowerCase();
-      
-      // Look for employee ID patterns
-      if (/^\d{3,}$/.test(cells[i]) && !employeeNo) {
-        employeeNo = cells[i];
-      }
-      
-      // Look for names (avoid common header text)
-      if (cell.length > 2 && !cell.includes('employee') && !cell.includes('name') && !cell.includes('time') && !personName) {
-        if (/^[a-zA-Z\s]{3,}$/.test(cells[i])) {
-          personName = cells[i];
+    console.log('📥 Received request with params:', { startDate, endDate, employeeId });
+    
+    // Use current date instead of future date
+    const dateToUse = startDate || new Date().toISOString().split('T')[0];
+    
+    const requestBody = {
+      attendanceReportRequest: {
+        pageNo: 1,
+        pageSize: 100,
+        queryInfo: {
+          personID: employeeId ? [employeeId] : [],
+          beginTime: `${dateToUse}T00:00:00+08:00`,
+          endTime: `${dateToUse}T23:59:59+08:00`,
+          sortInfo: {
+            sortField: 1,
+            sortType: 1
+          }
         }
       }
+    };
+    
+    console.log('📤 Sending request to Hikvision...');
+    const response = await hikArtemisProxy(requestBody, "/artemis/api/attendance/v1/report");
+    
+    // FIX: Check the correct response structure
+    if (response.code === "0" || response.code === 0) {
+      // Extract records from the correct location in response
+      const records = response.data?.record || response.record || [];
+      console.log('✅ Hikvision response successful, records found:', records.length);
+      console.log('📊 Records structure:', records.length > 0 ? Object.keys(records[0]) : 'No records');
       
-      // Look for time patterns
-      if (cell.includes(':') || cell.includes('-') || /\d{1,2}:\d{2}/.test(cells[i])) {
-        eventTime = cells[i];
-      }
-    }
-    
-    // If we found at least an employee ID, create an event
-    if (employeeNo || personName) {
-      return {
-        employeeNo: employeeNo || "Unknown",
-        personName: personName || "Unknown Employee",
-        eventType: eventType,
-        time: eventTime || new Date().toISOString(),
-        deviceName: "hikvision-web",
-        readerName: "web-scraped"
-      };
-    }
-    
-  } catch (error) {
-    console.error("Error parsing attendance row:", error.message);
-  }
-  
-  return null;
-}
-
-// Helper function to parse attendance data from text
-function parseAttendanceText(text) {
-  try {
-    // Look for patterns like "Employee: John Doe" or "Card: 12345"
-    const employeeMatch = text.match(/(?:employee|name|user|card)\s*[:#-]\s*(\w+)/i);
-    const timeMatch = text.match(/(?:time|date)\s*[:#-]\s*([\d\-:\s]+)/i);
-    
-    if (employeeMatch) {
-      return {
-        employeeNo: employeeMatch[1],
-        personName: `Employee ${employeeMatch[1]}`,
-        eventType: "access_granted",
-        time: timeMatch ? timeMatch[1].trim() : new Date().toISOString(),
-        deviceName: "hikvision-web",
-        readerName: "web-scraped"
-      };
-    }
-    
-  } catch (error) {
-    console.error("Error parsing attendance text:", error.message);
-  }
-  
-  return null;
-}
-
-router.get("/pull-events", async (req, res) => {
-  try {
-    console.log("Pulling events from Hikvision:", process.env.HIK_HOST);
-    console.log("Using credentials:", process.env.HIK_KEY);
-
-    // First, try to check if the device is reachable
-    const deviceUrl = new URL(process.env.HIK_HOST);
-    const isReachable = await checkDeviceReachability(deviceUrl.hostname, deviceUrl.port || '80');
-    
-    if (!isReachable) {
-      console.log("Device is not reachable on the specified port");
-      return res.status(503).json({
+      // Transform data for frontend
+      const attendanceData = records.map((record, index) => {
+        const personInfo = record.personInfo || {};
+        const attendanceInfo = record.attendanceBaseInfo || {};
+        
+        console.log(`👤 Processing record ${index + 1}:`, {
+          employeeId: personInfo.personCode,
+          name: personInfo.fullName,
+          checkIn: attendanceInfo.beginTime,
+          checkOut: attendanceInfo.endTime
+        });
+        
+        return {
+          _id: `hik_${personInfo.personID}_${record.date}_${index}`,
+          employeeId: personInfo.personCode || personInfo.personID || 'N/A',
+          employeeName: personInfo.fullName || 'Unknown',
+          date: record.date,
+          punchTime: attendanceInfo.beginTime || record.date,
+          endTime: attendanceInfo.endTime,
+          direction: 'in',
+          source: 'hikvision',
+          workDuration: calculateHikvisionWorkDuration(record),
+          attendanceStatus: getAttendanceStatusText(attendanceInfo.attendanceStatus),
+          lateDuration: formatDuration(record.lateInfo?.durationTime),
+          earlyDuration: formatDuration(record.earlyInfo?.durationTime),
+          normalDuration: formatDuration(record.normalInfo?.durationTime),
+          planBeginTime: record.planInfo?.planBeginTime,
+          planEndTime: record.planInfo?.planEndTime,
+          actualBeginTime: attendanceInfo.beginTime,
+          actualEndTime: attendanceInfo.endTime,
+          // Include raw data for debugging
+          rawRecord: record
+        };
+      });
+      
+      console.log(`🎯 Sending ${attendanceData.length} transformed records to frontend`);
+      
+      res.json({
+        success: true,
+        attendance: attendanceData,
+        total: attendanceData.length,
+        rawCount: records.length,
+        debug: {
+          responseKeys: Object.keys(response),
+          hasData: !!response.data,
+          dataKeys: response.data ? Object.keys(response.data) : [],
+          recordCount: records.length
+        }
+      });
+    } else {
+      console.log('❌ Hikvision API error:', response.msg);
+      res.status(400).json({
         success: false,
-        error: "Hikvision device is not reachable. Please check if the device is online and the port is correct.",
-        suggestion: "Verify the device IP address and port configuration. Common ports are 80, 8000, or 8080."
+        message: response.msg,
+        code: response.code
       });
     }
-
-    // Test if the device supports Artemis API
-    const token = generateHikToken();
-    let response;
     
-    try {
-      response = await axios.post(
-        `${process.env.HIK_HOST}/artemis/api/acs/v1/events`,
-        {},
-        {
-          headers: {
-            "Content-Type": "application/json",
-            "X-Ca-Key": process.env.HIK_KEY,
-            "X-Ca-Signature": token,
-            "X-Ca-Timestamp": Date.now().toString()
-          },
-          timeout: 15000,
-          httpsAgent: new (require('https').Agent)({
-            rejectUnauthorized: false
-          })
-        }
-      );
-    } catch (apiError) {
-      if (apiError.response?.status === 404) {
-        console.log("Artemis API not supported, trying ISAPI endpoints...");
-        
-        // Try ISAPI endpoints
-        const auth = Buffer.from(`${process.env.HIK_KEY}:${process.env.HIK_SECRET}`).toString('base64');
-        
-        // Try different ISAPI endpoints for attendance data
-        const isapiEndpoints = [
-          '/ISAPI/AccessControl/AcsEvent',
-          '/ISAPI/AccessControl/AttendanceRecord',
-          '/ISAPI/AccessControl/CardInfo',
-          '/ISAPI/System/deviceInfo'
-        ];
-        
-        let isapiResponse = null;
-        let workingEndpoint = null;
-        
-        for (const endpoint of isapiEndpoints) {
-          try {
-            console.log(`Trying ISAPI endpoint: ${endpoint}`);
-            isapiResponse = await axios.get(
-              `${process.env.HIK_HOST}${endpoint}`,
-              {
-                headers: {
-                  "Authorization": `Basic ${auth}`,
-                  "Content-Type": "application/json"
-                },
-                timeout: 10000,
-                httpsAgent: new (require('https').Agent)({
-                  rejectUnauthorized: false
-                })
-              }
-            );
-            workingEndpoint = endpoint;
-            console.log(`Successfully connected to: ${endpoint}`);
-            break;
-          } catch (endpointError) {
-            console.log(`Failed to connect to ${endpoint}: ${endpointError.message}`);
-            continue;
-          }
-        }
-        
-        if (!isapiResponse) {
-          console.log("Neither Artemis API nor ISAPI endpoints are supported. Attempting web scraping...");
-          
-          // Try web scraping as a fallback
-          try {
-            const scrapeResult = await scrapeHikvisionAttendance(
-              process.env.HIK_HOST,
-              process.env.HIK_KEY,
-              process.env.HIK_SECRET
-            );
-            
-            if (scrapeResult.success && scrapeResult.events.length > 0) {
-              console.log(`Successfully scraped ${scrapeResult.events.length} events from web interface`);
-              
-              // Process scraped events
-              const events = scrapeResult.events;
-              let savedCount = 0;
-
-              for (const event of events) {
-                try {
-                  const record = {
-                    employeeId: event.employeeNo,
-                    employeeName: event.personName,
-                    direction: event.eventType === "access_granted" ? "in" : "out",
-                    punchTime: event.time,
-                    deviceId: event.readerName,
-                    source: "hikvision-web"
-                  };
-
-                  if (record.employeeId) {
-                    await Attendance.create(record);
-                    savedCount++;
-                    console.log(`Saved scraped attendance for employee: ${record.employeeId} - ${record.employeeName}`);
-                  }
-                } catch (saveError) {
-                  console.error("Error saving scraped event:", saveError.message);
-                }
-              }
-
-              return res.status(200).json({
-                success: true,
-                message: `Successfully scraped and saved ${savedCount} events from Hikvision web interface`,
-                events: events,
-                savedCount: savedCount,
-                apiType: 'Web Scraping',
-                scrapedUrl: scrapeResult.scrapedUrl
-              });
-            } else {
-              console.log("Web scraping successful but no events found");
-              return res.status(200).json({
-                success: true,
-                message: "Web scraping successful but no attendance events found",
-                events: [],
-                savedCount: 0,
-                apiType: 'Web Scraping'
-              });
-            }
-          } catch (scrapeError) {
-            console.error("Web scraping failed:", scrapeError.message);
-            // If web scraping also fails, provide comprehensive error message
-            throw new Error(`Neither Artemis API nor ISAPI endpoints are supported by this device, and web scraping also failed: ${scrapeError.message}. This device may require manual data export or specialized software.`);
-          }
-        }
-        
-        response = isapiResponse;
-        
-        // Process ISAPI response
-        if (response.data) {
-          // Convert ISAPI format to match expected format
-          const events = [];
-          
-          if (workingEndpoint.includes('AcsEvent')) {
-            // Handle access control events
-            if (response.data.AcsEvent) {
-              events.push(...response.data.AcsEvent.map(event => ({
-                employeeNo: event.employeeNo || event.employeeNoString,
-                personName: event.name || "Unknown Employee",
-                eventType: event.majorEventType === 5 ? "access_granted" : "access_denied",
-                time: event.time || event.timeStamp,
-                deviceName: event.deviceName || "hikvision",
-                readerName: event.readerName || "default"
-              })));
-            }
-          } else if (workingEndpoint.includes('AttendanceRecord')) {
-            // Handle attendance records
-            if (response.data.AttendanceRecord) {
-              events.push(...response.data.AttendanceRecord.map(record => ({
-                employeeNo: record.employeeNo || record.employeeNoString,
-                personName: record.name || "Unknown Employee", 
-                eventType: "access_granted",
-                time: record.time || record.dateTime,
-                deviceName: record.deviceName || "hikvision",
-                readerName: record.readerName || "default"
-              })));
-            }
-          }
-          
-          // Mock the response structure expected by the rest of the code
-          response.data = { data: events };
-        }
-      } else {
-        throw apiError;
-      }
-    }
-
-    console.log("Hikvision response:", response.data);
-
-    // Process and save events to database
-    if (response.data && response.data.data) {
-      const events = response.data.data;
-      let savedCount = 0;
-
-      for (const event of events) {
-        try {
-          // Convert Hik event to attendance record
-          const record = {
-            employeeId: event.employeeNo || event.personId || event.employeeId,
-            employeeName: event.personName || event.employeeName || "Unknown Employee",
-            direction: event.eventType === "access_granted" ? "in" : 
-                      event.eventType === "access_denied" ? "out" : "in",
-            punchTime: event.time || new Date(),
-            deviceId: event.readerName || event.deviceName || "hikvision",
-            source: "hikvision"
-          };
-
-          // Only save if we have employee ID
-          if (record.employeeId) {
-            await Attendance.create(record);
-            savedCount++;
-            console.log(`Saved attendance for employee: ${record.employeeId} - ${record.employeeName}`);
-          }
-        } catch (saveError) {
-          console.error("Error saving individual event:", saveError.message);
-        }
-      }
-
-      res.status(200).json({
-        success: true,
-        message: `Successfully pulled and saved ${savedCount} events from Hikvision`,
-        events: events,
-        savedCount: savedCount,
-        apiType: response.config?.url?.includes('artemis') ? 'Artemis API' : 'ISAPI'
-      });
-    } else {
-      res.status(200).json({
-        success: true,
-        message: "No events found in Hikvision system",
-        events: []
-      });
-    }
-
-  } catch (err) {
-    console.error("Hikvision API Error:", err.message);
-    console.error("Full error:", err);
-    
-    let errorMessage = "Hikvision API request failed";
-    let suggestions = [];
-    
-    if (err.code === 'ECONNREFUSED') {
-      errorMessage = "Cannot connect to Hikvision device. Connection refused.";
-      suggestions = [
-        "Check if the device is powered on and network cable is connected",
-        "Verify the IP address and port configuration",
-        "Ensure the device web service is enabled",
-        "Try accessing the device web interface directly"
-      ];
-    } else if (err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED') {
-      errorMessage = "Connection to Hikvision device timed out.";
-      suggestions = [
-        "Device may be offline or not responding",
-        "Check network connectivity and firewall settings",
-        "Verify the device port configuration",
-        "Try pinging the device to confirm network reachability"
-      ];
-    } else if (err.response?.status === 401) {
-      errorMessage = "Authentication failed.";
-      suggestions = [
-        "Verify HIK_KEY and HIK_SECRET in environment variables",
-        "Check if basic authentication is enabled on the device",
-        "Ensure the username and password are correct"
-      ];
-    } else if (err.response?.status === 404) {
-      errorMessage = "Hikvision API endpoints not found. This device may not support programmatic access.";
-      suggestions = [
-        "This Hikvision device model may not support API access",
-        "Device may require web scraping or manual data export",
-        "Check device documentation for supported integration methods",
-        "Consider using HikCentral software for data collection",
-        "Contact Hikvision support for API documentation specific to your device model"
-      ];
-    } else if (err.message.includes("Neither Artemis API nor ISAPI")) {
-      errorMessage = "Device does not support standard Hikvision APIs and web scraping failed.";
-      suggestions = [
-        "This device may require manual data export through the web interface",
-        "Consider using HikCentral or iVMS software for data collection",
-        "Contact device administrator for alternative data access methods",
-        "Device may need firmware update to support API access",
-        "Check if the device web interface requires specific browser or plugin"
-      ];
-    } else {
-      suggestions = [
-        "Check device documentation for API configuration",
-        "Verify network settings and firewall rules",
-        "Contact device administrator for assistance",
-        "Try accessing the device web interface directly in a browser"
-      ];
-    }
-
-    res.status(500).json({ 
-      success: false, 
-      error: errorMessage,
-      details: err.message,
-      suggestions: suggestions,
-      troubleshooting: {
-        deviceIp: process.env.HIK_HOST,
-        endpoint: `${process.env.HIK_HOST}/artemis/api/acs/v1/events`,
-        errorCode: err.code,
-        statusCode: err.response?.status,
-        deviceModel: "Unknown - API endpoints not found"
-      }
+  } catch (error) {
+    console.error('💥 Error in attendance-data endpoint:', error.message);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
 
-// Test connection to Hikvision
-router.get("/test-connection", async (req, res) => {
+// Debug endpoint to see raw response structure
+router.get('/debug-response', async (req, res) => {
   try {
-    console.log("Testing Hikvision connection...");
-    console.log("Base URL:", process.env.HIK_HOST);
-    console.log("Using basic auth with username:", process.env.HIK_KEY);
-
-    // First, try to check if the device is reachable
-    const deviceUrl = new URL(process.env.HIK_HOST);
-    const isReachable = await checkDeviceReachability(deviceUrl.hostname, deviceUrl.port || '80');
+    const { date = "2025-11-26" } = req.query;
     
-    if (!isReachable) {
-      console.log("Device is not reachable on the specified port");
-      return res.status(503).json({
-        success: false,
-        error: "Hikvision device is not reachable. Please check if the device is online and the port is correct.",
-        suggestion: "Verify the device IP address and port configuration. Common ports are 80, 8000, or 8080."
-      });
-    }
-
-    // Try basic authentication instead of Artemis API
-    const auth = Buffer.from(`${process.env.HIK_KEY}:${process.env.HIK_SECRET}`).toString('base64');
-    
-    // Try to access the root page or a common login page
-    const testUrls = [
-      `${process.env.HIK_HOST}/`,
-      `${process.env.HIK_HOST}/doc/page/login.asp`,
-      `${process.env.HIK_HOST}/login.asp`,
-      `${process.env.HIK_HOST}/index.asp`
-    ];
-    
-    let response = null;
-    let testedUrl = '';
-    
-    for (const url of testUrls) {
-      try {
-        console.log(`Trying URL: ${url}`);
-        response = await axios.get(url, {
-          headers: {
-            "Authorization": `Basic ${auth}`,
-            "Content-Type": "application/json"
-          },
-          timeout: 10000,
-          httpsAgent: new (require('https').Agent)({
-            rejectUnauthorized: false
-          })
-        });
-        testedUrl = url;
-        console.log(`Successfully connected to: ${url}`);
-        break;
-      } catch (urlError) {
-        console.log(`Failed to connect to ${url}: ${urlError.message}`);
-        continue;
+    const requestBody = {
+      attendanceReportRequest: {
+        pageNo: 1,
+        pageSize: 100,
+        queryInfo: {
+          beginTime: `${date}T00:00:00+08:00`,
+          endTime: `${date}T23:59:59+08:00`
+        }
       }
-    }
+    };
     
-    if (!response) {
-      throw new Error('Could not connect to any of the tested Hikvision URLs');
-    }
-
-    console.log("Hikvision connection successful with basic auth!");
-    console.log("Response status:", response.status);
-
-    res.status(200).json({
+    const response = await hikArtemisProxy(requestBody, "/artemis/api/attendance/v1/report");
+    
+    // Analyze response structure
+    const analysis = {
+      responseKeys: Object.keys(response),
+      hasData: !!response.data,
+      dataKeys: response.data ? Object.keys(response.data) : [],
+      recordCount: response.data?.record?.length || 0,
+      recordStructure: response.data?.record?.[0] ? Object.keys(response.data.record[0]) : [],
+      fullResponse: response
+    };
+    
+    res.json({
       success: true,
-      message: "Successfully connected to Hikvision device using basic authentication",
+      analysis: analysis
+    });
+    
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Test Hikvision connection
+router.get('/status', async (req, res) => {
+  try {
+    const testBody = {
+      attendanceReportRequest: {
+        pageNo: 1, 
+        pageSize: 100
+      }
+    };
+    
+    const response = await hikArtemisProxy(testBody, "/artemis/api/attendance/v1/report");
+    
+    res.json({
+      success: true,
+      connected: true,
       deviceInfo: {
         status: 'connected',
-        authType: 'basic',
-        ip: deviceUrl.hostname,
-        responseStatus: response.status,
-        accessedUrl: testedUrl
+        lastChecked: new Date().toISOString()
       }
     });
-
-  } catch (err) {
-    console.error("Hikvision Connection Test Error:", err.message);
-    console.error("Error details:", {
-      code: err.code,
-      responseStatus: err.response?.status,
-      responseData: err.response?.data,
-      config: err.config
-    });
-    
-    let errorMessage = "Failed to connect to Hikvision device";
-    let suggestions = [];
-    
-    if (err.code === 'ECONNREFUSED') {
-      errorMessage = "Cannot connect to Hikvision device. Connection refused.";
-      suggestions = [
-        "Check if the device is powered on and network cable is connected",
-        "Verify the IP address and port configuration",
-        "Ensure the device web service is enabled",
-        "Try accessing the device web interface directly"
-      ];
-    } else if (err.code === 'ETIMEDOUT' || err.code === 'ECONNABORTED') {
-      errorMessage = "Connection to Hikvision device timed out.";
-      suggestions = [
-        "Device may be offline or not responding",
-        "Check network connectivity and firewall settings",
-        "Verify the device port configuration",
-        "Try pinging the device to confirm network reachability"
-      ];
-    } else if (err.response?.status === 401) {
-      errorMessage = "Authentication failed.";
-      suggestions = [
-        "Verify API credentials in environment variables",
-        "Check if API access is enabled on the device",
-        "Ensure the X-Ca-Key and signature are correct"
-      ];
-    } else if (err.response?.status === 404) {
-      errorMessage = "Hikvision API endpoint not found.";
-      suggestions = [
-        "Verify the API endpoint URL",
-        "Check device firmware version and API compatibility",
-        "Ensure the Artemis API is available on this device model"
-      ];
-    } else {
-      suggestions = [
-        "Check device documentation for API configuration",
-        "Verify network settings and firewall rules",
-        "Contact device administrator for assistance"
-      ];
-    }
-
-    res.status(500).json({ 
-      success: false, 
-      error: errorMessage,
-      details: err.message,
-      suggestions: suggestions,
-      troubleshooting: {
-        deviceIp: process.env.HIK_HOST,
-        endpoint: `${process.env.HIK_HOST}/artemis/api/acs/v1/deviceStatus`,
-        errorCode: err.code,
-        statusCode: err.response?.status
-      }
+  } catch (error) {
+    res.json({
+      success: false,
+      connected: false,
+      error: error.message
     });
   }
 });
 
-// Helper function to check device reachability
-async function checkDeviceReachability(host, port) {
+// POST /api/hik/pull-events - Pull events from Hikvision
+router.post('/pull-events', async (req, res) => {
   try {
-    const response = await axios.get(`http://${host}:${port}`, {
-      timeout: 5000,
-      validateStatus: (status) => status < 500 // Accept any status code below 500
-    });
-    return true;
-  } catch (err) {
-    if (err.response) {
-      // Device responded but with an error status - it's reachable
-      return true;
+    const { startDate, endDate } = req.body;
+    
+    const dateToUse = startDate || new Date().toISOString().split('T')[0];
+    
+    const requestBody = {
+      attendanceReportRequest: {
+        pageNo: 1,
+        pageSize: 100,
+        queryInfo: {
+          personID: [],
+          beginTime: `${dateToUse}T00:00:00+08:00`,
+          endTime: `${dateToUse}T23:59:59+08:00`,
+          sortInfo: {
+            sortField: 1,
+            sortType: 1
+          }
+        }
+      }
+    };
+    
+    console.log('Pulling Hikvision events...');
+    const response = await hikArtemisProxy(requestBody, "/artemis/api/attendance/v1/report");
+    
+    if (response.code === "0" || response.code === 0) {
+      const records = response.data?.record || response.record || [];
+      const savedCount = records.length;
+      
+      res.json({
+        success: true,
+        message: 'Hikvision data pulled successfully',
+        savedCount: savedCount,
+        count: savedCount,
+        data: response
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: response.msg,
+        code: response.code
+      });
     }
-    // Connection failed - device not reachable
-    console.log(`Device ${host}:${port} not reachable:`, err.message);
-    return false;
+    
+  } catch (error) {
+    console.error('Hikvision pull events error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to pull Hikvision events',
+      error: error.message
+    });
   }
+});
+
+// Health check
+router.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    message: 'Hikvision API is working',
+    baseUrl: HIK_BASE_URL,
+    timestamp: new Date().toISOString()
+  });
+});
+
+// ============ HELPER FUNCTIONS ============
+
+// Calculate work duration from Hikvision data
+function calculateHikvisionWorkDuration(record) {
+  if (record.attendanceBaseInfo?.beginTime && record.attendanceBaseInfo?.endTime) {
+    const beginTime = new Date(record.attendanceBaseInfo.beginTime);
+    const endTime = new Date(record.attendanceBaseInfo.endTime);
+    const diffMs = endTime - beginTime;
+    
+    if (diffMs > 0) {
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      return `${hours}h ${minutes}m`;
+    }
+  }
+  
+  // Fallback to normal duration if available
+  if (record.normalInfo?.durationTime) {
+    const totalSeconds = parseInt(record.normalInfo.durationTime);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    return `${hours}h ${minutes}m`;
+  }
+  
+  return "-";
+}
+
+// Format duration from seconds to readable format
+function formatDuration(seconds) {
+  if (!seconds) return "-";
+  const totalSeconds = parseInt(seconds);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  return `${hours}h ${minutes}m`;
+}
+
+// Get attendance status text
+function getAttendanceStatusText(statusCode) {
+  const statusMap = {
+    '3': 'Normal',
+    '5': 'Late & Early',
+    '1': 'Absent',
+    '2': 'Leave'
+  };
+  return statusMap[statusCode] || `Status ${statusCode}`;
 }
 
 module.exports = router;

@@ -52,32 +52,44 @@ export const employeeAPI = {
   deleteEmployee: (id) => api.delete(`/employees/${id}`),
 };
 
+// 🎯 HIKVISION API (WORKING ENDPOINTS)
+export const hikvisionAPI = {
+  // Connection & Status
+  getConnectionStatus: () => api.get('/hik/status'),
+  testConnection: () => api.get('/hik/test-connection'),
+  
+  // Attendance Data
+  getAttendance: (params) => api.get('/hik/attendance-data', { params }),
+  pullEvents: (data) => api.post('/hik/pull-events', data),
+  
+  // Save Hikvision data to MongoDB
+  saveAttendanceToDB: (data) => api.post('/access/save-hikvision-attendance', data),
+  
+  // Device Information
+  getDeviceInfo: () => api.get('/hik/device-info'),
+  
+  // Test endpoints
+  testSimple: (data) => api.post('/hik/test-simple', data),
+  testAttendance: () => api.post('/hik/test-attendance'),
+};
+
 // 🔵 HIKCENTRAL EMPLOYEE API
 export const hikCentralAPI = {
   syncEmployees: () => api.post('/hik-employees/sync-employees'),
   getHikEmployees: (params) => api.get('/hik-employees/hik-employees', { params }),
   getHikEmployeeById: (personId) => api.get(`/hik-employees/hik-employees/${personId}`),
+  getAttendanceReport: () => api.post('/hik-employees/attendance-report'),
+  getHikAttendance: (params) => api.get('/hik-employees/hik-attendance', { params }),
+  syncHikvisionAttendance: () => api.post('/hik-employees/sync-attendance'),
 };
 
 // 🕒 TIMESHEET API
 export const timesheetAPI = {
-  // ➕ Submit a new timesheet
   saveTimesheet: (data) => api.post('/timesheets', data),
-
-  // 📋 Fetch all timesheets (admin or filter)
   getTimesheet: (params) => api.get('/timesheets', { params }),
-
-  // 📜 Fetch all timesheets for logged-in user (HISTORY)
   getMyTimesheets: () => api.get('/timesheets/my-timesheets'),
-
-  // 🔍 Fetch single timesheet details
   getTimesheetById: (id) => api.get(`/timesheet-history/${id}`),
-
-  // ✅ Update timesheet status (for manager)
-  updateTimesheetStatus: (id, status) =>
-    api.put(`/timesheet-history/${id}/status`, { status }),
-
-  // 🗑️ Delete timesheet
+  updateTimesheetStatus: (id, status) => api.put(`/timesheet-history/${id}/status`, { status }),
   deleteTimesheet: (id) => api.delete(`/timesheets/${id}`),
 };
 
@@ -100,24 +112,38 @@ export const allocationAPI = {
 
 // 🔑 ACCESS/ATTENDANCE API
 export const accessAPI = {
+  // Local Access Control
   getMyLogs: (params) => api.get('/access/my-logs', { params }),
   punch: (data) => api.post('/access/punch', data),
   getStats: (params) => api.get('/access/stats', { params }),
-  pullHikvisionEvents: () => api.get('/hik/pull-events'),
-  testHikvisionConnection: () => api.get('/hik/test-connection'),
   getEmployeeLogs: (params) => api.get('/access/logs', { params }),
-  getEmployees: () => api.get('/access/employees'),
+  getEmployees: () => api.get('/employees'),
   
-  // 🎯 HIKVISION ATTENDANCE SPECIFIC METHODS
-  getHikvisionAttendance: (params) => api.get('/hik-employees/hik-attendance', { params }),
-  syncHikvisionAttendance: () => api.post('/hik-employees/sync-attendance'),
-  getHikvisionConnectionStatus: () => api.get('/hik/test-connection'),
+  // Hikvision Integration
+  getHikvisionConnectionStatus: () => hikvisionAPI.getConnectionStatus(),
+  pullHikvisionEvents: (data) => hikvisionAPI.pullEvents(data),
+  getHikvisionAttendance: (params) => hikvisionAPI.getAttendance(params),
+  syncHikvisionData: () => hikvisionAPI.pullEvents({}),
   
-  // 📊 LOCAL ATTENDANCE API (NEW)
-  getLocalAttendance: (params) => api.get('/attendance/attendance', { params }),
-  createAttendanceRecord: (data) => api.post('/attendance/attendance', data),
-  getAttendanceSummary: () => api.get('/attendance/attendance/summary'),
+  // Local Database Attendance
+  getLocalAttendance: (params) => api.get('/attendance', { params }),
+  createAttendanceRecord: (data) => api.post('/attendance', data),
+  getAttendanceSummary: () => api.get('/attendance/summary'),
   
+  // Fallback methods
+  testHikvisionConnection: () => hikvisionAPI.testConnection(),
+};
+
+// 📊 ATTENDANCE API (Dedicated)
+export const attendanceAPI = {
+  // Local attendance records
+  getAll: (params) => api.get('/attendance', { params }),
+  create: (data) => api.post('/attendance', data),
+  getSummary: () => api.get('/attendance/summary'),
+  
+  // Hikvision integration
+  getHikvision: (params) => hikvisionAPI.getAttendance(params),
+  syncHikvision: () => hikvisionAPI.pullEvents({}),
 };
 
 export default api;

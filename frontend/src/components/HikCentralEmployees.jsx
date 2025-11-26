@@ -15,7 +15,7 @@ const HikCentralEmployees = () => {
   });
   const [pagination, setPagination] = useState({
     pageNo: 1,
-    pageSize: 50,
+    pageSize: 100,
     total: 0,
     totalPages: 1
   });

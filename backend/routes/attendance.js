@@ -8,7 +8,7 @@ const router = express.Router();
  * 📋 GET ALL ATTENDANCE RECORDS
  * Fetches all attendance records with optional filtering
  */
-router.get("/attendance", async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const { employeeId, startDate, endDate, source } = req.query;
     
@@ -62,7 +62,7 @@ router.get("/attendance", async (req, res) => {
  * ➕ MANUAL ATTENDANCE ENTRY
  * Allows manual creation of attendance records
  */
-router.post("/attendance", async (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const { employeeId, direction, punchTime, deviceId, source } = req.body;
     
@@ -110,74 +110,10 @@ router.post("/attendance", async (req, res) => {
 });
 
 /**
- * 🔄 BULK ATTENDANCE ENTRY
- * Allows bulk creation of attendance records
- */
-router.post("/attendance/bulk", async (req, res) => {
-  try {
-    const { attendanceRecords } = req.body;
-    
-    if (!Array.isArray(attendanceRecords) || attendanceRecords.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Attendance records array is required"
-      });
-    }
-    
-    const results = [];
-    const errors = [];
-    
-    for (const record of attendanceRecords) {
-      try {
-        const { employeeId, direction, punchTime, deviceId, source } = record;
-        
-        // Check if employee exists
-        const employee = await Employee.findOne({ employeeId });
-        if (!employee) {
-          errors.push({ employeeId, error: "Employee not found" });
-          continue;
-        }
-        
-        // Create attendance record
-        const attendanceRecord = await Attendance.create({
-          employeeId,
-          employeeName: employee.name,
-          direction: direction.toLowerCase(),
-          punchTime: punchTime ? new Date(punchTime) : new Date(),
-          deviceId: deviceId || "manual",
-          source: source || "manual"
-        });
-        
-        results.push(attendanceRecord);
-        
-      } catch (error) {
-        errors.push({ employeeId: record.employeeId, error: error.message });
-      }
-    }
-    
-    res.json({
-      success: true,
-      message: `Created ${results.length} attendance records`,
-      created: results.length,
-      errors: errors.length > 0 ? errors : undefined,
-      results
-    });
-    
-  } catch (error) {
-    console.error("Bulk Attendance Entry Error:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to create bulk attendance records",
-      error: error.message 
-    });
-  }
-});
-
-/**
  * 📊 ATTENDANCE SUMMARY
  * Provides summary statistics for attendance
  */
-router.get("/attendance/summary", async (req, res) => {
+router.get("/summary", async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
@@ -247,39 +183,6 @@ router.get("/attendance/summary", async (req, res) => {
     res.status(500).json({ 
       success: false, 
       message: "Failed to generate attendance summary",
-      error: error.message 
-    });
-  }
-});
-
-/**
- * 🗑️ DELETE ATTENDANCE RECORD
- * Allows deletion of attendance records (admin only)
- */
-router.delete("/attendance/:id", async (req, res) => {
-  try {
-    const { id } = req.params;
-    
-    const deletedRecord = await Attendance.findByIdAndDelete(id);
-    
-    if (!deletedRecord) {
-      return res.status(404).json({
-        success: false,
-        message: "Attendance record not found"
-      });
-    }
-    
-    res.json({
-      success: true,
-      message: "Attendance record deleted successfully",
-      deletedRecord
-    });
-    
-  } catch (error) {
-    console.error("Delete Attendance Error:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to delete attendance record",
       error: error.message 
     });
   }

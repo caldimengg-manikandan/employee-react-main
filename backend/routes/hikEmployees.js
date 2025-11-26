@@ -280,4 +280,78 @@ router.post("/sync-attendance", auth, async (req, res) => {
   }
 });
 
+/**
+ * 📊 GET ATTENDANCE REPORT FROM HIKCENTRAL
+ * Fetches attendance report using the correct v1 API format
+ */
+router.post("/attendance-report", auth, async (req, res) => {
+  try {
+    const apiPath = "/artemis/api/attendance/v1/report";
+    
+    // Use the exact parameter structure that works with HikCentral
+    const requestBody = {
+      attendanceReportRequest: {
+        pageNo: 1,
+        pageSize: 100,
+        queryInfo: {
+          personID: [],
+          beginTime: "2025-11-25T00:00:00+08:00",
+          endTime: "2025-11-25T23:59:59+08:00",
+          sortInfo: {
+            sortField: 1,
+            sortType: 1
+          }
+        }
+      }
+    };
+
+    console.log("Calling HikCentral attendance report API with body:", JSON.stringify(requestBody, null, 2));
+    
+    const response = await hikPost(apiPath, requestBody);
+    
+    console.log("HikCentral attendance report response:", JSON.stringify(response, null, 2));
+    
+    if (response.code === "0") {
+      const attendanceData = response.data?.list || [];
+      
+      // Transform the data to match our schema
+      const transformedAttendance = attendanceData.map(record => ({
+        employeeId: record.personId,
+        employeeName: record.personName || "Unknown Employee",
+        punchTime: record.checkTime,
+        direction: record.checkType === 1 ? "in" : "out",
+        deviceId: record.deviceId,
+        source: "hikvision_attendance_report"
+      }));
+      
+      res.json({
+        success: true,
+        message: "Attendance report fetched successfully",
+        attendance: transformedAttendance,
+        total: response.data?.total || 0,
+        pageNo: response.data?.pageNo || 1,
+        pageSize: response.data?.pageSize || 100,
+        apiEndpoint: apiPath
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: "HikCentral API returned error",
+        error: response.msg || "Unknown error",
+        responseCode: response.code,
+        fullResponse: response
+      });
+    }
+    
+  } catch (error) {
+    console.error("HikCentral Attendance Report Error:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch attendance report from HikCentral",
+      error: error.message,
+      suggestion: "Please check the HikCentral device configuration and ensure the attendance API is properly configured."
+    });
+  }
+});
+
 module.exports = router;
