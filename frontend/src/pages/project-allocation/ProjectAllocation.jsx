@@ -12,7 +12,7 @@ const ProjectAllocation = () => {
   const [activeTab, setActiveTab] = useState('projects');
   const [selectedLocation, setSelectedLocation] = useState('All');
   const [branches] = useState(['Hosur', 'Chennai', 'Outside Det.']);
-  const [divisions] = useState(['SDS (Steel Detailing)', 'Tekla Projects', 'DAS (Software)', 'Mechanical Projects']);
+  const [divisions] = useState(['SDS', 'TEKLA', 'DAS', 'Mechanical']);
   const [roles] = useState(['Modeler', 'Editor', 'Backdrafting', 'Checker', 'Estimator', 'Documentation', 'Project Lead']);
   const [statuses] = useState(['Active', 'Completed']);
 
@@ -264,6 +264,12 @@ const ProjectAllocation = () => {
   const getFilteredProjectsByDivision = () => {
     if (!allocationForm.division) return [];
     return projects.filter(project => project.division === allocationForm.division);
+  };
+
+  // Filtered employees based on selected division
+  const getFilteredEmployeesByDivision = () => {
+    if (!allocationForm.division) return [];
+    return employees.filter(employee => employee.division === allocationForm.division);
   };
 
   // Function to refresh data from MongoDB
@@ -1481,7 +1487,7 @@ const ProjectAllocation = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Division *</label>
                     <select 
                       value={allocationForm.division} 
-                      onChange={(e) => setAllocationForm(prev => ({ ...prev, division: e.target.value, projectName: '' }))} 
+                      onChange={(e) => setAllocationForm(prev => ({ ...prev, division: e.target.value, projectName: '', employeeName: '', employeeId: '' }))} 
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">Select Division</option>
@@ -1517,14 +1523,18 @@ const ProjectAllocation = () => {
                       value={allocationForm.employeeName} 
                       onChange={(e) => handleEmployeeSelect(e.target.value)} 
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      disabled={!allocationForm.division}
                     >
                       <option value="">Select Employee</option>
-                      {employees.map(employee => (
+                      {getFilteredEmployeesByDivision().map(employee => (
                         <option key={employee._id} value={employee.name}>
                           {employee.name} {employee.employeeId ? `(${employee.employeeId})` : ''}
                         </option>
                       ))}
                     </select>
+                    {!allocationForm.division && (
+                      <p className="text-sm text-gray-500 mt-1">Please select a division first</p>
+                    )}
                   </div>
 
                   <div>

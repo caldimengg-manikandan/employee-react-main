@@ -1,13 +1,13 @@
-const crypto = require("crypto");
+// const crypto = require("crypto");
 
-function generateHikToken() {
-  const keyParam = process.env.HIK_KEY_PARAM;
-  const keySlat = process.env.HIK_KEY_SLAT;
+// function generateHikToken() {
+//   const keyParam = process.env.HIK_KEY_PARAM;
+//   const keySlat = process.env.HIK_KEY_SLAT;
 
-  return crypto
-    .createHash("sha256")
-    .update(keyParam + keySlat)
-    .digest("hex");
-}
+//   return crypto
+//     .createHash("sha256")
+//     .update(keyParam + keySlat)
+//     .digest("hex");
+// }
 
-module.exports = generateHikToken;
+// module.exports = generateHikToken;

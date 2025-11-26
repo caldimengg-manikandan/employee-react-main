@@ -27,8 +27,13 @@ app.use("/api/allocations", require("./routes/allocationRoutes"));
 
 // 🔹 NEW: Hikvision Access Routes
 app.use("/api/access", require("./routes/accessRoutes"));
-app.use("/api/hik", require("./routes/hikEvents"));      // Manual Pull API
-app.use("/api/hik-callback", require("./routes/hikCallback"));  // Webhook Push API
+// app.use("/api/hik", require("./routes/hikEvents"));      // Manual Pull API
+// app.use("/api/hik-callback", require("./routes/hikCallback"));  // Webhook Push API
+app.use("/api/hik-sync", require("./routes/hikSync"));
+
+// 🔹 NEW: HikCentral Employee Management Routes
+app.use("/api/hik-employees", require("./routes/hikEmployees"));
+
 
 // Timesheet History Route
 app.use("/api/timesheet-history", require("./routes/timesheetHistory"));

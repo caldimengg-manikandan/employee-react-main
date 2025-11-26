@@ -136,8 +136,14 @@ const EmployeeForm = ({ employee, onSubmit, onCancel }) => {
         <FloatingInput
           label="Location"
           name="location"
+          type="select"
           value={formData.location}
           onChange={handleChange}
+          options={[
+            { value: '', label: 'Select Location' },
+            { value: 'Hosur', label: 'Hosur' },
+            { value: 'Chennai', label: 'Chennai' }
+          ]}
         />
 
         <FloatingInput
@@ -172,8 +178,16 @@ const EmployeeForm = ({ employee, onSubmit, onCancel }) => {
         <FloatingInput
           label="Division"
           name="division"
+          type="select"
           value={formData.division}
           onChange={handleChange}
+          options={[
+            { value: '', label: 'Select Division' },
+            { value: 'SDS', label: 'SDS' },
+            { value: 'TEKLA', label: 'TEKLA' },
+            { value: 'DAS', label: 'DAS' },
+            { value: 'Mechanical', label: 'Mechanical' }
+          ]}
         />
 
         <FloatingInput

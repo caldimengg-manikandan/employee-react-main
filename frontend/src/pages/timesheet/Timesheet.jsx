@@ -1164,11 +1164,11 @@ const Timesheet = () => {
                 </td>
                 {totals.daily.map((total, index) => (
                   <td key={index} className={`p-3 border border-gray-200 text-center ${getDailyTotalWarningClass(index)}`}>
-                    {getDailyTotalWithBreak(index)}h
+                    {getDailyTotalWithBreak(index)}
                   </td>
                 ))}
                 <td className="p-3 border border-gray-200 text-blue-700 font-bold text-center">
-                  {getWeeklyTotalWithBreak()}h
+                  {getWeeklyTotalWithBreak()}
                 </td>
                 <td className="p-3 border border-gray-200"></td>
               </tr>

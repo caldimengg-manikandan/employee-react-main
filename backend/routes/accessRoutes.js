@@ -160,6 +160,78 @@ router.get("/stats", auth, async (req, res) => {
   }
 });
 
+/**
+ * -----------------------------------------
+ *  GET ALL LOGS WITH FILTERS (Admin/Manager)
+ * -----------------------------------------
+ */
+router.get("/logs", auth, async (req, res) => {
+  try {
+    // Check if user has permission to view all employee logs
+    if (req.user.role !== "admin" && req.user.role !== "projectmanager") {
+      return res.status(403).json({ 
+        message: "Access denied. Insufficient permissions." 
+      });
+    }
+
+    const { startDate, endDate, employeeId, employeeName } = req.query;
+
+    const filter = {};
+
+    if (employeeId) filter.employeeId = employeeId;
+    if (employeeName) filter.employeeName = employeeName;
+
+    if (startDate || endDate) {
+      filter.punchTime = {};
+      if (startDate) filter.punchTime.$gte = new Date(startDate);
+      if (endDate) filter.punchTime.$lte = new Date(endDate + "T23:59:59.999Z");
+    }
+
+    const logs = await Attendance.find(filter).sort({ punchTime: -1 });
+    res.json(logs);
+
+  } catch (err) {
+    console.error("Logs fetch error:", err);
+    res.status(500).json({ message: "Error fetching logs" });
+  }
+});
+
+/**
+ * -----------------------------------------
+ *  GET UNIQUE EMPLOYEES FROM ATTENDANCE
+ * -----------------------------------------
+ */
+router.get("/employees", auth, async (req, res) => {
+  try {
+    // Check if user has permission to view employee data
+    if (req.user.role !== "admin" && req.user.role !== "projectmanager") {
+      return res.status(403).json({ 
+        message: "Access denied. Insufficient permissions." 
+      });
+    }
+
+    const employees = await Attendance.aggregate([
+      {
+        $group: {
+          _id: "$employeeId",
+          name: { $first: "$employeeName" },
+        },
+      },
+    ]);
+
+    res.json(
+      employees.map((e) => ({
+        id: e._id,
+        name: e.name,
+      }))
+    );
+
+  } catch (err) {
+    console.error("Employee fetch error:", err);
+    res.status(500).json({ message: "Error fetching employees" });
+  }
+});
+
 // Temporary endpoint — update later with real logic
 router.get("/", (req, res) => {
   res.json({ success: true, message: "Access Routes Working" });

@@ -52,6 +52,13 @@ export const employeeAPI = {
   deleteEmployee: (id) => api.delete(`/employees/${id}`),
 };
 
+// 🔵 HIKCENTRAL EMPLOYEE API
+export const hikCentralAPI = {
+  syncEmployees: () => api.post('/hik-employees/sync-employees'),
+  getHikEmployees: (params) => api.get('/hik-employees/hik-employees', { params }),
+  getHikEmployeeById: (personId) => api.get(`/hik-employees/hik-employees/${personId}`),
+};
+
 // 🕒 TIMESHEET API
 export const timesheetAPI = {
   // ➕ Submit a new timesheet
@@ -98,6 +105,8 @@ export const accessAPI = {
   getStats: (params) => api.get('/access/stats', { params }),
   pullHikvisionEvents: () => api.get('/hik/pull-events'),
   testHikvisionConnection: () => api.get('/hik/test-connection'),
+  getEmployeeLogs: (params) => api.get('/access/logs', { params }),
+  getEmployees: () => api.get('/access/employees'),
 };
 
 export default api;
