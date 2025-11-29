@@ -881,8 +881,20 @@ const TimesheetHistory = () => {
                   </span>
                 </div>
                 <div>
-                  <span className="font-medium">Total Hours:</span>{' '}
-                  {selectedTimesheet.totalHours} hours
+                  <span className="font-medium">Total Hours (Work + Break):</span>{' '}
+                  {(() => {
+                    const weeklyWork = (selectedTimesheet.entries || []).reduce(
+                      (sum, e) => sum + (Array.isArray(e.hours) ? e.hours.reduce((s, h) => s + (Number(h) || 0), 0) : 0),
+                      0
+                    );
+                    const weeklyBreak = Array.from({ length: 7 }, (_, i) => {
+                      const hasWork = (selectedTimesheet.entries || []).some(
+                        (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                      );
+                      return hasWork ? 1.25 : 0;
+                    }).reduce((sum, b) => sum + b, 0);
+                    return (weeklyWork + weeklyBreak).toFixed(2);
+                  })()} hours
                 </div>
                 <div>
                   <span className="font-medium">
@@ -941,17 +953,78 @@ const TimesheetHistory = () => {
                       );
                     })}
                   </tbody>
+                  <tfoot className="bg-gray-50">
+                    {/* Break Time (Auto) */}
+                    <tr>
+                      <td colSpan="3" className="p-3 text-sm font-semibold text-gray-700">Break Time (Auto)</td>
+                      {Array.from({ length: 7 }, (_, i) => {
+                        const hasWork = (selectedTimesheet.entries || []).some(
+                          (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                        );
+                        const breakHours = hasWork ? 1.25 : 0;
+                        return (
+                          <td key={i} className="p-3 text-sm text-blue-700 text-center">{breakHours}</td>
+                        );
+                      })}
+                      <td className="p-3 text-sm font-semibold text-blue-700 text-center">
+                        {Array.from({ length: 7 }, (_, i) => {
+                          const hasWork = (selectedTimesheet.entries || []).some(
+                            (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                          );
+                          return hasWork ? 1.25 : 0;
+                        }).reduce((sum, b) => sum + b, 0).toFixed(2)}
+                      </td>
+                    </tr>
+                    {/* Total Hours (Work + Break) */}
+                    <tr>
+                      <td colSpan="3" className="p-3 text-sm font-semibold text-gray-700">Total Hours (Work + Break)</td>
+                      {Array.from({ length: 7 }, (_, i) => {
+                        const dayWork = (selectedTimesheet.entries || []).reduce((sum, e) => sum + (Number(e.hours?.[i]) || 0), 0);
+                        const hasWork = (selectedTimesheet.entries || []).some(
+                          (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                        );
+                        const breakHours = hasWork ? 1.25 : 0;
+                        return (
+                          <td key={i} className={`p-3 text-sm text-center ${dayWork + breakHours >= 20 ? 'text-yellow-800 font-semibold' : 'text-blue-700 font-semibold'}`}>{(dayWork + breakHours).toFixed(2)}</td>
+                        );
+                      })}
+                      <td className="p-3 text-sm font-bold text-blue-700 text-center">
+                        {(() => {
+                          const weeklyWork = (selectedTimesheet.entries || []).reduce((sum, e) => sum + (Array.isArray(e.hours) ? e.hours.reduce((s, h) => s + (Number(h) || 0), 0) : 0), 0);
+                          const weeklyBreak = Array.from({ length: 7 }, (_, i) => {
+                            const hasWork = (selectedTimesheet.entries || []).some(
+                              (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                            );
+                            return hasWork ? 1.25 : 0;
+                          }).reduce((sum, b) => sum + b, 0);
+                          return (weeklyWork + weeklyBreak).toFixed(2);
+                        })()}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
 
               {/* Summary */}
               <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold text-gray-800">Total Hours:</span>
-                  <span className="text-lg font-bold text-gray-900">
-                    {selectedTimesheet.totalHours} hours
-                  </span>
-                </div>
+              <div className="flex justify-between items-center">
+                <span className="text-lg font-semibold text-gray-800">Total Hours (Work + Break):</span>
+                <span className="text-lg font-bold text-gray-900">
+                  {(() => {
+                    const weeklyWork = (selectedTimesheet.entries || []).reduce(
+                      (sum, e) => sum + (Array.isArray(e.hours) ? e.hours.reduce((s, h) => s + (Number(h) || 0), 0) : 0),
+                      0
+                    );
+                    const weeklyBreak = Array.from({ length: 7 }, (_, i) => {
+                      const hasWork = (selectedTimesheet.entries || []).some(
+                        (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                      );
+                      return hasWork ? 1.25 : 0;
+                    }).reduce((sum, b) => sum + b, 0);
+                    return (weeklyWork + weeklyBreak).toFixed(2);
+                  })()} hours
+                </span>
+              </div>
               </div>
             </div>
 

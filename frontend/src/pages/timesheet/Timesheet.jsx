@@ -474,13 +474,39 @@ const Timesheet = () => {
       numValue = Math.max(0, Math.min(8.25, numValue));
     }
 
+    // On-premises enforcement: apply only when no Permission or Half Day Leave on this day
+    const hasPermissionOnDay = timesheetRows.some(
+      (r) => r.task === "Permission" && ((r.hours?.[dayIndex] || 0) > 0)
+    );
+    const hasHalfDayOnDay = timesheetRows.some(
+      (r) => r.task === "Half Day Leave" && ((r.hours?.[dayIndex] || 0) > 0)
+    );
+
+    // Break after update depends on whether there is any project work on that day
+    const hasWorkAfterUpdate = timesheetRows.some(
+      (r) => r.type === "project" && ((r.id === id ? numValue : (r.hours?.[dayIndex] || 0)) > 0)
+    );
+    const breakAfterUpdate = hasWorkAfterUpdate ? 1.25 : 0;
+
+    if (row.type === "project" && !hasPermissionOnDay && !hasHalfDayOnDay) {
+      const opHours = Number(onPremisesTime?.daily?.[dayIndex] || 0);
+      const finalWorkTotalCandidate = currentDailyTotal + numValue;
+      const totalWithBreakCandidate = finalWorkTotalCandidate + breakAfterUpdate;
+      if (totalWithBreakCandidate > opHours) {
+        alert(
+          `Total Hours (Work + Break) for ${days[dayIndex]} (${totalWithBreakCandidate.toFixed(1)}h) cannot exceed on-premises time (${opHours}h) unless Permission or Half Day Leave is selected.`
+        );
+        return;
+      }
+    }
+
     // Double-check after task-specific validation (including break hours)
     const finalWorkTotal = currentDailyTotal + numValue;
-    const finalTotalWithBreak = finalWorkTotal + currentBreakHours;
+    const finalTotalWithBreak = finalWorkTotal + breakAfterUpdate;
     
     if (finalTotalWithBreak > 24) {
-      const currentTotalWithBreak = (currentDailyTotal + currentBreakHours).toFixed(1);
-      alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyTotal.toFixed(1)}h + Break: ${currentBreakHours.toFixed(1)}h)\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+      const currentTotalWithBreak = (currentDailyTotal + computeBreakForDay(dayIndex)).toFixed(1);
+      alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyTotal.toFixed(1)}h + Break: ${computeBreakForDay(dayIndex).toFixed(1)}h)\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
       return;
     }
 
