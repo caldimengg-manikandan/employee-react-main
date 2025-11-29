@@ -16,11 +16,13 @@ import UserForm from '../components/Forms/UserForm';
 import Modal from '../components/Modals/Modal';
 import Notification from '../components/Notifications/Notification';
 import useNotification from '../hooks/useNotification';
-import { authAPI } from '../services/api';
+import { authAPI, employeeAPI } from '../services/api';
 
 const UserAccess = () => {
   const [users, setUsers] = useState([]);
   const [allUsers, setAllUsers] = useState([]); // Store all users for export
+  const [employees, setEmployees] = useState([]);
+  const [employeeMap, setEmployeeMap] = useState({});
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -43,6 +45,7 @@ const UserAccess = () => {
   useEffect(() => {
     checkCurrentUserPermissions();
     fetchUsers();
+    fetchEmployees();
   }, []);
 
   const checkCurrentUserPermissions = async () => {
@@ -115,6 +118,53 @@ const UserAccess = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchEmployees = async () => {
+    try {
+      const res = await employeeAPI.getAllEmployees();
+      const list = Array.isArray(res.data) ? res.data : [];
+      setEmployees(list);
+      const map = {};
+      list.forEach(e => {
+        if (!e) return;
+        const keys = [e._id, e.id, e.employeeId, e.empId, e.employeeCode];
+        keys.forEach(k => { if (k) map[k] = e; });
+      });
+      setEmployeeMap(map);
+    } catch (err) {
+      setEmployees([]);
+      setEmployeeMap({});
+    }
+  };
+
+  const getDisplayEmployeeId = (user) => {
+    if (!user) return '—';
+    const emp = getEmployeeRecord(user);
+    if (emp && emp.employeeId) return emp.employeeId;
+    const candidates = [user.employeeId, user.employeeCode, user.empId, user.id];
+    for (const c of candidates) {
+      if (c) return c;
+    }
+    return '—';
+  };
+
+  const getDisplayEmployeeName = (user) => {
+    if (!user) return '—';
+    const emp = getEmployeeRecord(user);
+    if (emp && emp.name) return emp.name;
+    return user.name || '—';
+  };
+
+  const getEmployeeRecord = (user) => {
+    if (!user) return null;
+    const candidates = [user.employeeId, user.employeeCode, user.empId, user.id];
+    for (const c of candidates) {
+      if (!c) continue;
+      const emp = employeeMap[c];
+      if (emp) return emp;
+    }
+    return null;
   };
 
   const filterUsers = () => {
@@ -444,8 +494,8 @@ const UserAccess = () => {
                             </span>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                            <div className="text-sm text-gray-500">{user.email}</div>
+                            <div className="text-sm font-medium text-gray-900">{getDisplayEmployeeName(user)}</div>
+                            <div className="text-sm text-gray-500">{getDisplayEmployeeId(user)}</div>
                           </div>
                         </div>
                       </td>
@@ -499,8 +549,8 @@ const UserAccess = () => {
                 <div key={user._id} className="border-b border-gray-200 p-4 hover:bg-gray-50 transition-colors duration-150">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-sm font-medium text-gray-900 truncate">{user.name}</h3>
-                      <p className="text-sm text-gray-500 truncate">{user.email}</p>
+                      <h3 className="text-sm font-medium text-gray-900 truncate">{getDisplayEmployeeName(user)}</h3>
+                      <p className="text-sm text-gray-500 truncate">{getDisplayEmployeeId(user)}</p>
                     </div>
                     <div className="flex space-x-2 ml-2">
                       <button
@@ -629,8 +679,8 @@ const UserAccess = () => {
                 </span>
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900">{viewingUser.name}</h3>
-                <p className="text-sm text-gray-500">{viewingUser.email}</p>
+                <h3 className="text-xl font-semibold text-gray-900">{getDisplayEmployeeName(viewingUser)}</h3>
+                <p className="text-sm text-gray-500">{getDisplayEmployeeId(viewingUser)}</p>
               </div>
             </div>
             
@@ -652,6 +702,44 @@ const UserAccess = () => {
                 <p className="text-sm font-medium text-gray-900 mt-1">{formatLastLogin(viewingUser.lastLogin)}</p>
               </div>
             </div>
+
+            {(() => {
+              const emp = getEmployeeRecord(viewingUser);
+              if (!emp) return null;
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-50 p-4 rounded-lg md:col-span-2">
+                    <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Details</h4>
+                    <div className="mt-2">
+                      <p className="text-sm font-medium text-gray-900">
+                        {emp.name} ({emp.employeeId})
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm text-gray-700">
+                        <div><span className="font-medium">Division:</span> {emp.division || '—'}</div>
+                        <div><span className="font-medium">Position:</span> {emp.position || '—'}</div>
+                        <div><span className="font-medium">Location:</span> {emp.location || emp.branch || '—'}</div>
+                        <div><span className="font-medium">Date of Joining:</span> {emp.dateOfJoining || '—'}</div>
+                        <div><span className="font-medium">Experience:</span> {emp.experience || '—'}</div>
+                        <div><span className="font-medium">Qualification:</span> {emp.qualification || '—'}</div>
+                        <div><span className="font-medium">Mobile:</span> {emp.mobileNo || '—'}</div>
+                        <div><span className="font-medium">Email:</span> {emp.email || '—'}</div>
+                        <div><span className="font-medium">Status:</span> {emp.status || '—'}</div>
+                        <div><span className="font-medium">Blood Group:</span> {emp.bloodGroup || '—'}</div>
+                        <div><span className="font-medium">Date of Birth:</span> {emp.dateOfBirth || '—'}</div>
+                        <div><span className="font-medium">Guardian Name:</span> {emp.guardianName || '—'}</div>
+                        <div><span className="font-medium">Emergency Mobile:</span> {emp.emergencyMobileNo || '—'}</div>
+                        <div><span className="font-medium">PAN:</span> {emp.pan || '—'}</div>
+                        <div><span className="font-medium">Aadhaar:</span> {emp.aadhaar || '—'}</div>
+                        <div className="sm:col-span-2"><span className="font-medium">Address:</span> {emp.address || '—'}</div>
+                        <div><span className="font-medium">Bank Name:</span> {emp.bankName || '—'}</div>
+                        <div><span className="font-medium">Bank Account:</span> {emp.bankAccount || '—'}</div>
+                        <div><span className="font-medium">UAN:</span> {emp.uan || '—'}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
             
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-3">Permissions</h4>
