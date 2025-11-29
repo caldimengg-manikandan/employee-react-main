@@ -50,6 +50,7 @@ router.post("/punch", auth, async (req, res) => {
     
     const attendance = new Attendance({
       employeeId: req.user._id.toString(),
+      name: req.user.name,
       direction,
       punchTime: new Date(),
       deviceId: deviceId || "web",
@@ -230,6 +231,58 @@ router.get("/employees", auth, async (req, res) => {
   } catch (err) {
     console.error("Employee fetch error:", err);
     res.status(500).json({ message: "Error fetching employees" });
+  }
+});
+
+router.post("/save-hikvision-attendance", async (req, res) => {
+  try {
+    const { attendanceData } = req.body || {};
+    let items = [];
+
+    if (Array.isArray(attendanceData)) {
+      items = attendanceData;
+    } else if (req.body?.data?.data?.record) {
+      const records = req.body.data.data.record || [];
+      for (const r of records) {
+        const empId = r.personInfo?.personCode || r.personInfo?.personID;
+        const empName = r.personInfo?.givenName || r.personInfo?.fullName || "";
+        const begin = r.attendanceBaseInfo?.beginTime;
+        const end = r.attendanceBaseInfo?.endTime;
+        if (begin) {
+          items.push({ employeeId: empId, employeeName: empName, punchTime: begin, direction: "in" });
+        }
+        if (end) {
+          items.push({ employeeId: empId, employeeName: empName, punchTime: end, direction: "out" });
+        }
+      }
+    } else {
+      return res.status(400).json({ success: false, message: "No attendance data provided" });
+    }
+
+    let savedCount = 0;
+    const savedRecords = [];
+
+    for (const item of items) {
+      if (!item?.employeeId || !item?.punchTime || !item?.direction) continue;
+      const punchDate = new Date(item.punchTime);
+      const exists = await Attendance.findOne({ employeeId: item.employeeId, punchTime: punchDate, direction: item.direction });
+      if (exists) continue;
+      const record = await Attendance.create({
+        employeeId: item.employeeId,
+        name: item.employeeName || "",
+        punchTime: punchDate,
+        direction: item.direction,
+        deviceId: item.deviceId || "hik",
+        source: "hikvision"
+      });
+      savedCount++;
+      savedRecords.push(record);
+    }
+
+    res.json({ success: true, savedCount, savedRecords });
+  } catch (error) {
+    console.error("Save Hikvision Attendance Error:", error);
+    res.status(500).json({ success: false, message: "Failed to save Hikvision attendance", error: error.message });
   }
 });
 

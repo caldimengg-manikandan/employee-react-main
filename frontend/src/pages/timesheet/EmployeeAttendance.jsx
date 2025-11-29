@@ -1,30 +1,37 @@
 import React, { useState, useEffect } from "react";
 
 export default function AttendanceFetcher() {
-  const [date, setDate] = useState(() => {
+  const [fromDate, setFromDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
+  const [toDate, setToDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
   const [resp, setResp] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [saveResult, setSaveResult] = useState(null);
 
   // Auto-fetch data when component mounts
   useEffect(() => {
     fetchData();
   }, []);
 
-  function formatDateRange(d) {
+  function formatDateRange(from, to) {
     return {
-      begin: `${d}T00:00:00 08:00`,
-      end: `${d}T23:59:59 08:00`
+      begin: `${from}T00:00:00 08:00`,
+      end: `${to}T23:59:59 08:00`
     };
   }
 
   async function fetchData() {
     setLoading(true);
-    const { begin, end } = formatDateRange(date);
 
     try {
+      const { begin, end } = formatDateRange(fromDate, toDate);
+
       const r = await fetch("/api/hikvision/attendance", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -44,73 +51,117 @@ export default function AttendanceFetcher() {
 
       const json = await r.json();
       setResp(json);
+      try {
+        const records = json?.data?.data?.record || [];
+        if (records.length > 0) {
+          await saveToDB(json);
+        }
+      } catch (e) {}
     } catch (err) {
       // Show demo data if API fails
-      setResp(generateDemoData());
+      const demo = generateDemoData();
+      setResp(demo);
     } finally {
       setLoading(false);
     }
   }
 
-  // Generate demo data
+  async function saveToDB(payload = resp) {
+    if (!payload) return;
+    if (payload?.meta?.demo) return;
+    setSaveLoading(true);
+    setSaveResult(null);
+    try {
+      const r = await fetch('/api/attendance/save-hikvision-attendance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const json = await r.json();
+      setSaveResult(json);
+    } catch (e) {
+      setSaveResult({ success: false, message: e.message });
+    } finally {
+      setSaveLoading(false);
+    }
+  }
+
+  // Generate demo data for date range
   const generateDemoData = () => {
-    const demoRecords = [
-      {
-        personInfo: {
-          personCode: "EMP001",
-          givenName: "John Smith",
-          orgName: "Engineering"
-        },
-        date: date,
-        attendanceBaseInfo: {
-          beginTime: `${date}T08:55:00+08:00`,
-          endTime: `${date}T17:05:00+08:00`,
-          attendanceStatus: "1"
-        },
-        allDurationTime: 29400
-      },
-      {
-        personInfo: {
-          personCode: "EMP002",
-          givenName: "Sarah Johnson",
-          orgName: "Marketing"
-        },
-        date: date,
-        attendanceBaseInfo: {
-          beginTime: `${date}T09:15:00+08:00`,
-          endTime: `${date}T17:00:00+08:00`,
-          attendanceStatus: "2"
-        },
-        allDurationTime: 27900
-      },
-      {
-        personInfo: {
-          personCode: "EMP003",
-          givenName: "Mike Chen",
-          orgName: "Sales"
-        },
-        date: date,
-        attendanceBaseInfo: {
-          beginTime: `${date}T09:00:00+08:00`,
-          endTime: `${date}T16:30:00+08:00`,
-          attendanceStatus: "3"
-        },
-        allDurationTime: 27000
+    const generateRecordsForDateRange = () => {
+      const records = [];
+      const startDate = new Date(fromDate);
+      const endDate = new Date(toDate);
+      
+      // Generate records for each date in the range
+      for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+        const currentDate = date.toISOString().split('T')[0];
+        
+        const dailyRecords = [
+          {
+            personInfo: {
+              personCode: "EMP001",
+              givenName: "John Smith",
+              orgName: "Engineering"
+            },
+            date: currentDate,
+            attendanceBaseInfo: {
+              beginTime: `${currentDate}T08:55:00+08:00`,
+              endTime: `${currentDate}T17:05:00+08:00`,
+              attendanceStatus: "1"
+            },
+            allDurationTime: 29400
+          },
+          {
+            personInfo: {
+              personCode: "EMP002",
+              givenName: "Sarah Johnson",
+              orgName: "Marketing"
+            },
+            date: currentDate,
+            attendanceBaseInfo: {
+              beginTime: `${currentDate}T09:15:00+08:00`,
+              endTime: `${currentDate}T17:00:00+08:00`,
+              attendanceStatus: "2"
+            },
+            allDurationTime: 27900
+          },
+          {
+            personInfo: {
+              personCode: "EMP003",
+              givenName: "Mike Chen",
+              orgName: "Sales"
+            },
+            date: currentDate,
+            attendanceBaseInfo: {
+              beginTime: `${currentDate}T09:00:00+08:00`,
+              endTime: `${currentDate}T16:30:00+08:00`,
+              attendanceStatus: "3"
+            },
+            allDurationTime: 27000
+          }
+        ];
+
+        records.push(...dailyRecords);
       }
-    ];
+      
+      return records;
+    };
 
     return {
       ok: true,
       data: {
         data: {
-          record: demoRecords
+          record: generateRecordsForDateRange()
         }
-      }
+      },
+      meta: { demo: true }
     };
   };
 
   const testWithDemoDate = () => {
-    setDate("2025-11-24");
+    setFromDate("2025-11-24");
+    setToDate("2025-11-26");
     setTimeout(() => fetchData(), 100);
   };
 
@@ -119,8 +170,9 @@ export default function AttendanceFetcher() {
   };
 
   const resetFilters = () => {
-    const today = new Date();
-    setDate(today.toISOString().split('T')[0]);
+    const today = new Date().toISOString().split('T')[0];
+    setFromDate(today);
+    setToDate(today);
     setTimeout(() => fetchData(), 100);
   };
 
@@ -131,6 +183,31 @@ export default function AttendanceFetcher() {
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
+  };
+
+  // Format date for input field (YYYY-MM-DD)
+  const formatInputDate = (dateString) => {
+    return dateString;
+  };
+
+  const handleFromDateChange = (e) => {
+    const newFromDate = e.target.value;
+    setFromDate(newFromDate);
+    
+    // If fromDate is after toDate, adjust toDate
+    if (newFromDate > toDate) {
+      setToDate(newFromDate);
+    }
+  };
+
+  const handleToDateChange = (e) => {
+    const newToDate = e.target.value;
+    setToDate(newToDate);
+    
+    // If toDate is before fromDate, adjust fromDate
+    if (newToDate < fromDate) {
+      setFromDate(newToDate);
+    }
   };
 
   const renderTable = () => {
@@ -150,14 +227,20 @@ export default function AttendanceFetcher() {
     if (records.length === 0) {
       return (
         <div className="empty-state">
-          
-          
+          <p>No attendance records found for the selected date range.</p>
+          <button onClick={testWithDemoDate} className="demo-button">
+            Load Demo Data
+          </button>
         </div>
       );
     }
 
     return (
       <div className="table-container">
+        <div className="table-header">
+          <span>Showing records from {formatDisplayDate(fromDate)} to {formatDisplayDate(toDate)}</span>
+          <span className="record-count">{records.length} records found{saveResult?.success ? ` • saved ${saveResult.savedCount || 0}` : ''}</span>
+        </div>
         <table className="attendance-table">
           <thead>
             <tr>
@@ -188,6 +271,21 @@ export default function AttendanceFetcher() {
             ))}
           </tbody>
         </table>
+        
+        <div className="action-buttons" style={{ marginTop: 12 }}>
+          <button 
+            onClick={saveToDB} 
+            className="btn btn-primary" 
+            disabled={saveLoading || records.length === 0}
+          >
+            {saveLoading ? 'Saving...' : 'Save to MongoDB'}
+          </button>
+          {saveResult && (
+            <span style={{ marginLeft: 12, fontSize: 12, color: saveResult.success ? '#166534' : '#991b1b' }}>
+              {saveResult.success ? `Saved ${saveResult.savedCount || 0} new record(s)` : (saveResult.message || 'Save failed')}
+            </span>
+          )}
+        </div>
       </div>
     );
   };
@@ -241,13 +339,8 @@ export default function AttendanceFetcher() {
             <span>Hikvision: Connected</span>
           </div>
           <div className="status-item">
-            <span>Last sync: 28/11/2025, 12:34:00 pm</span>
+            <span>Last sync: {new Date().toLocaleString()}</span>
           </div>
-        </div>
-
-        {/* Current Date */}
-        <div className="current-date">
-          <strong>Current Date:</strong> {date}
         </div>
 
         <div className="separator"></div>
@@ -259,45 +352,42 @@ export default function AttendanceFetcher() {
               <label>Employee ID</label>
               <select className="filter-select">
                 <option>All Employee IDs</option>
+                <option>EMP001</option>
+                <option>EMP002</option>
+                <option>EMP003</option>
               </select>
             </div>
             <div className="filter-group">
               <label>From Date</label>
               <input 
-                type="text" 
-                value={formatDisplayDate(date)} 
-                readOnly 
-                className="date-display"
+                type="date" 
+                value={formatInputDate(fromDate)} 
+                onChange={handleFromDateChange}
+                className="date-input"
+                max={formatInputDate(toDate)}
               />
             </div>
             <div className="filter-group">
               <label>To Date</label>
               <input 
-                type="text" 
-                value={formatDisplayDate(date)} 
-                readOnly 
-                className="date-display"
+                type="date" 
+                value={formatInputDate(toDate)} 
+                onChange={handleToDateChange}
+                className="date-input"
+                min={formatInputDate(fromDate)}
               />
             </div>
             <button onClick={syncData} className="btn btn-primary">
-            Sync Data
-          </button>
-
+              Sync Data
+            </button>
           </div>
         </div>
 
         <div className="separator"></div>
 
         {/* Action Buttons */}
-        <div className="action-buttons">
-          
-          
-         
-        </div>
 
         <div className="separator"></div>
-
-        
 
         {/* Results Section */}
         <div className="results-section">
@@ -368,15 +458,6 @@ export default function AttendanceFetcher() {
           background: #28a745;
         }
 
-        .current-date {
-          margin: 20px 0;
-          padding: 12px 16px;
-          background: #f8f9fa;
-          border-radius: 4px;
-          font-size: 13px;
-          color: #555;
-        }
-
         .separator {
           height: 1px;
           background: #e1e5e9;
@@ -405,7 +486,7 @@ export default function AttendanceFetcher() {
           color: #555;
         }
 
-        .filter-select, .date-display {
+        .filter-select, .date-input {
           padding: 8px 12px;
           border: 1px solid #d1d5db;
           border-radius: 4px;
@@ -414,9 +495,8 @@ export default function AttendanceFetcher() {
           min-width: 150px;
         }
 
-        .date-display {
-          background: #f9fafb;
-          color: #6b7280;
+        .date-input {
+          color: #374151;
         }
 
         .action-buttons {
@@ -469,13 +549,23 @@ export default function AttendanceFetcher() {
           background: #f9fafb;
         }
 
-        .reset-section {
-          margin: 20px 0;
-        }
-
         .table-container {
           margin-top: 20px;
           overflow-x: auto;
+        }
+
+        .table-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 16px;
+          padding: 0 8px;
+        }
+
+        .record-count {
+          font-size: 12px;
+          color: #6b7280;
+          font-weight: 500;
         }
 
         .attendance-table {
@@ -596,6 +686,12 @@ export default function AttendanceFetcher() {
           .status-bar {
             flex-direction: column;
             gap: 12px;
+          }
+
+          .table-header {
+            flex-direction: column;
+            gap: 8px;
+            align-items: flex-start;
           }
         }
       `}</style>

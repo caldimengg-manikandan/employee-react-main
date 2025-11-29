@@ -1,6 +1,7 @@
 const express = require("express");
 const Attendance = require("../models/Attendance");
 const Employee = require("../models/Employee");
+const auth = require("../middleware/auth");
 
 const router = express.Router();
 
@@ -86,7 +87,7 @@ router.post("/", async (req, res) => {
     // Create attendance record
     const attendanceRecord = await Attendance.create({
       employeeId,
-      employeeName: employee.name,
+      name: employee.name,
       direction: direction.toLowerCase(),
       punchTime: punchTime ? new Date(punchTime) : new Date(),
       deviceId: deviceId || "manual",
@@ -106,6 +107,58 @@ router.post("/", async (req, res) => {
       message: "Failed to create attendance record",
       error: error.message 
     });
+  }
+});
+
+/**
+ * 📥 SAVE HIKVISION ATTENDANCE (Bulk import)
+ * Accepts transformed array or raw Hikvision response and saves to Attendance
+ */
+router.post("/save-hikvision-attendance", async (req, res) => {
+  try {
+    const { attendanceData } = req.body || {};
+    let items = [];
+
+    if (Array.isArray(attendanceData)) {
+      items = attendanceData;
+    } else if (req.body?.data?.data?.record) {
+      const records = req.body.data.data.record || [];
+      for (const r of records) {
+        const empId = r.personInfo?.personCode || r.personInfo?.personID;
+        const empName = r.personInfo?.givenName || r.personInfo?.fullName || "";
+        const begin = r.attendanceBaseInfo?.beginTime;
+        const end = r.attendanceBaseInfo?.endTime;
+        if (begin) items.push({ employeeId: empId, employeeName: empName, punchTime: begin, direction: "in" });
+        if (end) items.push({ employeeId: empId, employeeName: empName, punchTime: end, direction: "out" });
+      }
+    } else {
+      return res.status(400).json({ success: false, message: "No attendance data provided" });
+    }
+
+    let savedCount = 0;
+    const savedRecords = [];
+
+    for (const item of items) {
+      if (!item?.employeeId || !item?.punchTime || !item?.direction) continue;
+      const punchDate = new Date(item.punchTime);
+      const exists = await Attendance.findOne({ employeeId: item.employeeId, punchTime: punchDate, direction: item.direction });
+      if (exists) continue;
+      const record = await Attendance.create({
+        employeeId: item.employeeId,
+        name: item.employeeName || "",
+        punchTime: punchDate,
+        direction: item.direction,
+        deviceId: item.deviceId || "hik",
+        source: "hikvision"
+      });
+      savedCount++;
+      savedRecords.push(record);
+    }
+
+    res.json({ success: true, savedCount, savedRecords });
+  } catch (error) {
+    console.error("Save Hikvision Attendance Error:", error);
+    res.status(500).json({ success: false, message: "Failed to save Hikvision attendance", error: error.message });
   }
 });
 
@@ -185,6 +238,75 @@ router.get("/summary", async (req, res) => {
       message: "Failed to generate attendance summary",
       error: error.message 
     });
+  }
+});
+
+/**
+ * 👤 MY WEEKLY ATTENDANCE (Authenticated)
+ * Returns daily punch-in/out and computed hours for the logged-in user
+ */
+router.get("/my-week", auth, async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, message: "startDate and endDate are required" });
+    }
+
+    // Find employee by the logged-in user's email
+    const employee = await Employee.findOne({ email: req.user.email }).select("employeeId name");
+    if (!employee || !employee.employeeId) {
+      return res.status(404).json({ success: false, message: "Employee mapping not found for current user" });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    const records = await Attendance.find({
+      employeeId: employee.employeeId,
+      punchTime: { $gte: start, $lte: end }
+    }).sort({ punchTime: 1 });
+
+    // Group by date (YYYY-MM-DD)
+    const byDate = {};
+    for (const r of records) {
+      const d = new Date(r.punchTime);
+      const key = d.toISOString().split("T")[0];
+      if (!byDate[key]) byDate[key] = [];
+      byDate[key].push(r);
+    }
+
+    const result = [];
+    let weeklyTotal = 0;
+
+    Object.keys(byDate).forEach((dateKey) => {
+      const dayRecords = byDate[dateKey];
+      const ins = dayRecords.filter((x) => x.direction === "in");
+      const outs = dayRecords.filter((x) => x.direction === "out");
+
+      const firstIn = ins.length ? new Date(ins[0].punchTime) : null;
+      const lastOut = outs.length ? new Date(outs[outs.length - 1].punchTime) : null;
+
+      let hours = 0;
+      if (firstIn && lastOut && lastOut > firstIn) {
+        hours = (lastOut - firstIn) / (1000 * 60 * 60);
+      }
+
+      weeklyTotal += hours;
+
+      result.push({
+        date: dateKey,
+        punchIn: firstIn || null,
+        punchOut: lastOut || null,
+        punchTime: firstIn || null,
+        hours: Number(hours.toFixed(2))
+      });
+    });
+
+    res.json({ success: true, employeeId: employee.employeeId, records: result, weeklyHours: Number(weeklyTotal.toFixed(2)) });
+  } catch (error) {
+    console.error("My Weekly Attendance Error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch weekly attendance", error: error.message });
   }
 });
 

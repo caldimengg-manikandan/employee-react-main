@@ -63,7 +63,7 @@ export const hikvisionAPI = {
   pullEvents: (data) => api.post('/hik/pull-events', data),
   
   // Save Hikvision data to MongoDB
-  saveAttendanceToDB: (data) => api.post('/access/save-hikvision-attendance', data),
+  saveAttendanceToDB: (data) => api.post('/attendance/save-hikvision-attendance', data),
   
   // Device Information
   getDeviceInfo: () => api.get('/hik/device-info'),
@@ -91,6 +91,7 @@ export const timesheetAPI = {
   getTimesheetById: (id) => api.get(`/timesheet-history/${id}`),
   updateTimesheetStatus: (id, status) => api.put(`/timesheet-history/${id}/status`, { status }),
   deleteTimesheet: (id) => api.delete(`/timesheets/${id}`),
+  getAttendanceData: (params) => api.get('/attendance/my-week', { params }),
 };
 
 // 🏗️ PROJECT API

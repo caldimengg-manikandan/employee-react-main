@@ -110,7 +110,7 @@ const Timesheet = () => {
           endDate: normalizeToUTCDateOnly(weekDates[6])
         });
 
-        const attendanceData = attendanceRes.data || [];
+        const attendanceData = (attendanceRes.data?.records) || (attendanceRes.data || []);
         const dailyOnPremises = [0, 0, 0, 0, 0, 0, 0];
         let weeklyOnPremises = 0;
 
@@ -934,7 +934,7 @@ const Timesheet = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse table-fixed">
             <thead className="bg-gray-50">
               <tr>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 w-12">
@@ -942,9 +942,6 @@ const Timesheet = () => {
                 </th>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 min-w-60">
                   Project Name
-                </th>
-                <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 min-w-40">
-                  Project Code
                 </th>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 min-w-48">
                   Task / Leave Type
@@ -994,20 +991,10 @@ const Timesheet = () => {
                         <option value="">Select Project</option>
                         {projects.map((p) => (
                           <option key={p.code || p.name} value={p.name}>
-                            {p.name}
+                            {p.code ? `${p.name} (${p.code})` : p.name}
                           </option>
                         ))}
                       </select>
-                    )}
-                  </td>
-
-                  <td className="p-2 border border-gray-200">
-                    {row.type === "leave" ? (
-                      <div className="w-full p-2 bg-gray-100 text-gray-600 rounded text-sm text-center">-</div>
-                    ) : (
-                      <div className="w-full p-2 bg-gray-50 text-blue-700 font-mono rounded text-sm">
-                        {projects.find((p) => p.name === row.project)?.code || ""}
-                      </div>
                     )}
                   </td>
 
@@ -1028,7 +1015,7 @@ const Timesheet = () => {
                   </td>
 
                   {row.hours.map((hours, dayIndex) => (
-                    <td key={dayIndex} className="p-2 border border-gray-200">
+                    <td key={dayIndex} className="p-2 text-center border border-gray-200 w-32">
                       <div className="flex flex-col items-center">
                         <input
                           type="number"
@@ -1088,13 +1075,13 @@ const Timesheet = () => {
                     </td>
                   ))}
 
-                  <td className="p-3 font-semibold text-green-600 text-center border border-gray-200">
+                  <td className="p-3 font-semibold text-green-600 text-center border border-gray-200 w-24">
                     {row.hours
                       .reduce((sum, hours) => sum + hours, 0)
                       .toFixed(1)}
                   </td>
 
-                  <td className="p-2 text-center border border-gray-200">
+                  <td className="p-2 text-center border border-gray-200 w-20">
                     <button
                       onClick={() => deleteRow(row.id)}
                       className="p-2 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1111,7 +1098,7 @@ const Timesheet = () => {
             <tfoot className="bg-gray-50">
               {/* On-Premises Time Row */}
               <tr className="font-semibold bg-green-50">
-                <td colSpan="4" className="p-3 border border-gray-200 text-gray-900">
+                <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
                   On-Premises Time
                 </td>
                 {onPremisesTime.daily.map((time, index) => (
@@ -1127,7 +1114,7 @@ const Timesheet = () => {
 
               {/* Work Hours Totals */}
               <tr className="font-semibold">
-                <td colSpan="4" className="p-3 border border-gray-200 text-gray-900">
+                <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
                   Work Hours Total
                 </td>
                 {totals.daily.map((total, index) => (
@@ -1143,7 +1130,7 @@ const Timesheet = () => {
               
               {/* Break Time Row */}
               <tr className="font-semibold">
-                <td colSpan="4" className="p-3 border border-gray-200 text-gray-900">
+                <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
                   Break Time (Auto)
                 </td>
                 {days.map((_, index) => (
@@ -1159,7 +1146,7 @@ const Timesheet = () => {
               
               {/* Total Hours (Work + Break) */}
               <tr className="font-semibold bg-blue-50">
-                <td colSpan="4" className="p-3 border border-gray-200 text-gray-900">
+                <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
                   Total Hours (Work + Break)
                 </td>
                 {totals.daily.map((total, index) => (

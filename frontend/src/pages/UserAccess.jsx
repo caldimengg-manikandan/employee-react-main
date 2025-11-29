@@ -50,8 +50,8 @@ const UserAccess = () => {
       const response = await authAPI.verify();
       const user = response.data.user;
       setCurrentUser(user);
-      // Check if user has employees access permission
-      setHasemployeesAccess(user.permissions?.includes('employees_access') || false);
+      // Check if user has employee access permission
+      setHasemployeesAccess(user.permissions?.includes('employee_access') || false);
     } catch (error) {
       console.error('Error checking user permissions:', error);
       setCurrentUser(null);

@@ -18,7 +18,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const permissions = user.permissions || [];
-  const role = user.role || "employee";
+  const role = user.role || "employees";
 
   const [openDropdown, setOpenDropdown] = useState(null);
 
@@ -107,10 +107,10 @@ const Sidebar = ({ isOpen, onClose }) => {
     const hasPermission = permissions.includes(item.permission);
     
     // Check if role-based access is allowed
-    const allowByRole = 
+  const allowByRole = 
       role === "admin" || 
-      (role === "employee" && item.allowEmployeeRole) ||
-      (role === "project_manager" && item.name === "Project Allocation");
+      (role === "employees" && item.allowEmployeeRole) ||
+      (role === "projectmanager" && item.name === "Project Allocation");
 
     return hasPermission || allowByRole;
   });

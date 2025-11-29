@@ -30,9 +30,8 @@ app.use("/api/timesheets", require("./routes/timesheets"));
 app.use("/api/projects", require("./routes/projectRoutes"));
 app.use("/api/allocations", require("./routes/allocationRoutes"));
 
-// // 🔹 NEW: Hikvision Access Routes
-// app.use("/api/access", require("./routes/accessRoutes"));
-// app.use("/api/access", require("./routes/hikAttendance"));
+// 🔹 NEW: Hikvision Access Routes
+app.use("/api/access", require("./routes/accessRoutes"));
 
 // app.use("/api/hik", hikEventsRoutes);
 // // 🔹 NEW: HikCentral Employee Management Routes

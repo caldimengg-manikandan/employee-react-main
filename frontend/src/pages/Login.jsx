@@ -7,7 +7,7 @@ const bgUrl = "https://hitechcon.in/wp-content/uploads/2021/09/Civil.jpg";
 
 const Login = () => {
   const [formData, setFormData] = useState({
-    email: '',
+    employeeId: '',
     password: ''
   });
   const [error, setError] = useState('');
@@ -182,11 +182,11 @@ const Login = () => {
             
 
             <FloatingInput
-              type="email"
-              name="email"
-              label="Email"
+              type="text"
+              name="employeeId"
+              label="Employee ID"
               required
-              value={formData.email}
+              value={formData.employeeId}
               onChange={handleChange}
             />
 

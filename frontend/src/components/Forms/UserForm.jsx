@@ -20,7 +20,11 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
 
   const permissionOptions = [
-    'dashboard', 'user_access', 'employee_access'
+    'dashboard',
+    'user_access',
+    'employee_access',
+    'timesheet_access',
+    'project_access'
   ];
 
   const roleOptions = [

@@ -1,6 +1,7 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Employee = require('../models/Employee');
 const auth = require('../middleware/auth');
 const otpGenerator = require('otp-generator');
 const nodemailer = require('nodemailer');
@@ -20,30 +21,34 @@ const transporter = nodemailer.createTransport({
 
 // Login
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-  
-  console.log('Login attempt:', email);
-  
+  const { email, employeeId, password } = req.body;
   try {
-    const user = await User.findOne({ email });
+    let lookupEmail = email;
+    if (!lookupEmail && employeeId) {
+      const emp = await Employee.findOne({ employeeId }).select('email name');
+      if (!emp || !emp.email) {
+        return res.status(400).json({ message: 'Invalid credentials' });
+      }
+      lookupEmail = emp.email;
+    }
+
+    if (!lookupEmail || !password) {
+      return res.status(400).json({ message: 'Email or Employee ID and password are required' });
+    }
+
+    const user = await User.findOne({ email: lookupEmail });
     if (!user) {
-      console.log('User not found:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
     const isMatch = await user.matchPassword(password);
     if (!isMatch) {
-      console.log('Password mismatch for:', email);
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
-    console.log('Login successful for:', email);
-    
-    // Update lastLogin timestamp
     user.lastLogin = new Date();
     await user.save();
-    
-    // Generate token
+
     const token = jwt.sign(
       { id: user._id },
       process.env.JWT_SECRET,
@@ -62,7 +67,6 @@ router.post('/login', async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
