@@ -32,6 +32,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     "User Access": KeyIcon,
     "Employee Management": UsersIcon,
     Timesheet: ClockIcon,
+    "Employee Attendance": ClockIcon,
     "Project Allocation": FolderIcon,
     "Leave Management": CalendarIcon,
     "Salary Slips": BanknotesIcon,
@@ -55,8 +56,14 @@ const Sidebar = ({ isOpen, onClose }) => {
       children: [
         { name: "Timesheet", path: "/timesheet" },
         { name: "Timesheet History", path: "/timesheet/history" },
-        { name: "My Attendance", path: "/timesheet/attendance" },
       ],
+    },
+    {
+      name: "Employee Attendance",
+      path: "/timesheet/attendance",
+      icon: getIconForMenu("Employee Attendance"),
+      permission: "attendance_access",
+      allowEmployeeRole: false,
     },
     // {
     //   name: "Leave Management",
@@ -137,7 +144,9 @@ const Sidebar = ({ isOpen, onClose }) => {
     "Timesheet History": (
       <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />
     ),
-    "My Attendance": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Employee Attendance": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "HikCentral Employees": <UsersIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Attendance Report": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "My Leaves": <CalendarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Leave Applications": <UsersIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Payslip Viewer": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,

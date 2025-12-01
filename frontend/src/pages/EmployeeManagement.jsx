@@ -244,7 +244,7 @@ const EmployeeManagement = () => {
           {/* Tab Navigation */}
           <div className="border-b border-gray-200">
             <nav className="-mb-px flex space-x-8 px-6">
-              <button
+              {/* <button
                 onClick={() => setActiveTab('local')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'local'
@@ -253,8 +253,8 @@ const EmployeeManagement = () => {
                 }`}
               >
                 Local Employees
-              </button>
-              <button
+              </button> */}
+              {/* <button
                 onClick={() => setActiveTab('hikcentral')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'hikcentral'
@@ -263,7 +263,7 @@ const EmployeeManagement = () => {
                 }`}
               >
                 HikCentral Employees
-              </button>
+              </button> */}
             </nav>
           </div>
 

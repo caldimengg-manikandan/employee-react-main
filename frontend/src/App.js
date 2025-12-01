@@ -60,10 +60,11 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
             <Route
               path="timesheet/attendance"
               element={
-                <ProtectedRoute requiredPermissions={["timesheet_access"]} allowEmployeeRole>
+                <ProtectedRoute requiredPermissions={["attendance_access"]}>
                   <EmployeeAttendance />
                 </ProtectedRoute>
               }

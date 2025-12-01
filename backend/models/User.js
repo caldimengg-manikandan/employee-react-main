@@ -28,10 +28,13 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: ['projectmanager', 'admin', 'employees','teamlead']
   },
+  employeeId: {
+    type: String
+  },
   permissions: [{
     type: String,
     enum: [
-      'dashboard', 'user_access', 'employee_access', 'timesheet_access', 'project_access'
+      'dashboard', 'user_access', 'employee_access', 'timesheet_access', 'attendance_access', 'project_access', 'leave_access', 'leave_approval'
     ]
   }],
   lastLogin: {

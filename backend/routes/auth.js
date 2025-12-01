@@ -176,7 +176,7 @@ router.post('/users', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const { name, email, password, role, permissions } = req.body;
+    const { name, email, password, role, permissions, employeeId } = req.body;
 
     // Validate required fields
     if (!name || !email || !password) {
@@ -194,6 +194,7 @@ router.post('/users', auth, async (req, res) => {
       email,
       password,
       role,
+      employeeId,
       permissions: Array.isArray(permissions) ? permissions : []
     });
 
@@ -224,7 +225,7 @@ router.put('/users/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const { name, email, role, permissions } = req.body;
+    const { name, email, role, permissions, employeeId } = req.body;
     
     // Find user first to properly handle password and permissions
     const user = await User.findById(req.params.id);
@@ -236,6 +237,7 @@ router.put('/users/:id', auth, async (req, res) => {
     if (name) user.name = name;
     if (email) user.email = email;
     if (role) user.role = role;
+    if (employeeId) user.employeeId = employeeId;
     
     // Properly handle permissions array
     if (permissions) {
@@ -260,6 +262,13 @@ router.put('/users/:id', auth, async (req, res) => {
     return res.json(userResponse);
   } catch (error) {
     console.error('Error updating user:', error);
+    if (error && error.code === 11000 && (error.keyPattern?.email || error.keyValue?.email)) {
+      return res.status(400).json({ message: 'Email already exists' });
+    }
+    if (error && error.name === 'ValidationError') {
+      const messages = Object.values(error.errors || {}).map(e => e.message);
+      return res.status(400).json({ message: messages.join(', ') || 'Validation error' });
+    }
     return res.status(500).json({ message: 'Server error', error: error.message });
   }
 });

@@ -18,12 +18,15 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const [employees, setEmployees] = useState([]);
   const [employeeLoading, setEmployeeLoading] = useState(true);
   const [showEmployeeDropdown, setShowEmployeeDropdown] = useState(false);
+  const [showEmployeeIdDropdown, setShowEmployeeIdDropdown] = useState(false);
+  const [employeeIdSearch, setEmployeeIdSearch] = useState('');
 
   const permissionOptions = [
     'dashboard',
     'user_access',
     'employee_access',
     'timesheet_access',
+    'attendance_access',
     'project_access'
   ];
 
@@ -70,9 +73,19 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       ...prev,
       name: employee.name,
       email: employee.email,
-      employeeId: employee._id
+      employeeId: employee.employeeId
     }));
     setShowEmployeeDropdown(false);
+  };
+
+  const handleEmployeeIdSelect = (employee) => {
+    setFormData(prev => ({
+      ...prev,
+      employeeId: employee.employeeId,
+      name: employee.name,
+      email: employee.email
+    }));
+    setShowEmployeeIdDropdown(false);
   };
 
   const handleChange = (e) => {
@@ -215,6 +228,58 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         </div>
         {errors.employees && (
           <p className="mt-1 text-sm text-red-600">{errors.employees}</p>
+        )}
+      </div>
+
+      {/* Employee ID */}
+      <div className="relative">
+        <FloatingInput
+          label="Employee ID"
+          name="employeeId"
+          value={formData.employeeId}
+          onChange={handleChange}
+        />
+        <button
+          type="button"
+          onClick={() => setShowEmployeeIdDropdown(!showEmployeeIdDropdown)}
+          className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+          disabled={employeeLoading}
+        >
+          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+        {showEmployeeIdDropdown && (
+          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+            <div className="p-2 border-b border-gray-100">
+              <input
+                type="text"
+                value={employeeIdSearch}
+                onChange={(e) => setEmployeeIdSearch(e.target.value)}
+                placeholder="Search by Employee ID or name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            {(employees || []).filter(e => {
+              const q = employeeIdSearch.toLowerCase();
+              return !q || (String(e.employeeId || '').toLowerCase().includes(q) || String(e.name || '').toLowerCase().includes(q));
+            }).map((employee) => (
+              <div
+                key={employee._id}
+                onClick={() => handleEmployeeIdSelect(employee)}
+                className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+              >
+                <div className="font-medium text-gray-900">{employee.employeeId}</div>
+                <div className="text-sm text-gray-500">{employee.name}</div>
+                <div className="text-xs text-gray-400">{employee.email}</div>
+              </div>
+            ))}
+            {employees && employees.length === 0 && (
+              <div className="px-4 py-2 text-gray-500 text-center">
+                {employeeLoading ? 'Loading...' : 'No employees found'}
+              </div>
+            )}
+          </div>
         )}
       </div>
 

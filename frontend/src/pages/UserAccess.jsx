@@ -128,8 +128,13 @@ const UserAccess = () => {
       const map = {};
       list.forEach(e => {
         if (!e) return;
-        const keys = [e._id, e.id, e.employeeId, e.empId, e.employeeCode];
-        keys.forEach(k => { if (k) map[k] = e; });
+        const rawKeys = [e._id, e.employeeId, e.email];
+        rawKeys.forEach(k => {
+          if (!k) return;
+          const key = String(k);
+          map[key] = e;
+          map[key.toLowerCase()] = e;
+        });
       });
       setEmployeeMap(map);
     } catch (err) {
@@ -158,11 +163,19 @@ const UserAccess = () => {
 
   const getEmployeeRecord = (user) => {
     if (!user) return null;
-    const candidates = [user.employeeId, user.employeeCode, user.empId, user.id];
+    const candidates = [user.employeeId, user.employeeCode, user.empId, user.id, user.email];
     for (const c of candidates) {
       if (!c) continue;
-      const emp = employeeMap[c];
+      const key = typeof c === 'string' ? c : String(c);
+      const emp = employeeMap[key] || employeeMap[key.toLowerCase()];
       if (emp) return emp;
+      const found = employees.find(e => {
+        const idMatch = String(e._id) === key;
+        const empIdMatch = String(e.employeeId || '').toLowerCase() === key.toLowerCase();
+        const emailMatch = String(e.email || '').toLowerCase() === key.toLowerCase();
+        return idMatch || empIdMatch || emailMatch;
+      });
+      if (found) return found;
     }
     return null;
   };
@@ -466,86 +479,86 @@ const UserAccess = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      User
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Last Login
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {currentItems.map((user) => (
-                    <tr key={user._id} className="hover:bg-gray-50 transition-colors duration-150">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                            <span className="font-medium text-blue-800">
-                              {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                            </span>
-                          </div>
-                          <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{getDisplayEmployeeName(user)}</div>
-                            <div className="text-sm text-gray-500">{getDisplayEmployeeId(user)}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                          {user.role.replace('_', ' ')}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{formatLastLogin(user.lastLogin)}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                          Active
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => handleView(user)}
-                            className="text-blue-600 hover:text-blue-900 p-1 transition-colors duration-150"
-                            title="View"
-                          >
-                            <EyeIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(user)}
-                            className="text-indigo-600 hover:text-indigo-900 p-1 transition-colors duration-150"
-                            title="Edit"
-                          >
-                            <PencilSquareIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(user._id)}
-                            className="text-red-600 hover:text-red-900 p-1 transition-colors duration-150"
-                            title="Delete"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </td>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Division</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Qualification</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {currentItems.map((user) => {
+                      const emp = getEmployeeRecord(user);
+                      return (
+                        <tr key={user._id} className="hover:bg-gray-50 transition-colors duration-150">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="flex items-center">
+                              <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span className="font-medium text-blue-800">
+                                  {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                                </span>
+                              </div>
+                              <div className="ml-4">
+                                <div className="text-sm font-medium text-gray-900">{getDisplayEmployeeName(user)}</div>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{getDisplayEmployeeId(user)}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
+                              {user.role.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{(emp && emp.division) || '—'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{(emp && emp.qualification) || '—'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{formatLastLogin(user.lastLogin)}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end space-x-2">
+                              <button
+                                onClick={() => handleView(user)}
+                                className="text-blue-600 hover:text-blue-900 p-1 transition-colors duration-150"
+                                title="View"
+                              >
+                                <EyeIcon className="h-5 w-5" />
+                              </button>
+                              <button
+                                onClick={() => handleEdit(user)}
+                                className="text-indigo-600 hover:text-indigo-900 p-1 transition-colors duration-150"
+                                title="Edit"
+                              >
+                                <PencilSquareIcon className="h-5 w-5" />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(user._id)}
+                                className="text-red-600 hover:text-red-900 p-1 transition-colors duration-150"
+                                title="Delete"
+                              >
+                                <TrashIcon className="h-5 w-5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
             </div>
             
             {/* Mobile Card View */}
             <div className="sm:hidden">
-              {currentItems.map((user) => (
+              {currentItems.map((user) => {
+                const emp = getEmployeeRecord(user);
+                return (
                 <div key={user._id} className="border-b border-gray-200 p-4 hover:bg-gray-50 transition-colors duration-150">
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1 min-w-0">
@@ -581,14 +594,17 @@ const UserAccess = () => {
                       <span className="font-medium">Role:</span> {user.role.replace('_', ' ')}
                     </div>
                     <div>
-                      <span className="font-medium">Status:</span> Active
+                      <span className="font-medium">Division:</span> {(emp && emp.division) || '—'}
                     </div>
-                    <div className="col-span-2">
+                    <div>
+                      <span className="font-medium">Qualification:</span> {(emp && emp.qualification) || '—'}
+                    </div>
+                    <div>
                       <span className="font-medium">Last Login:</span> {formatLastLogin(user.lastLogin)}
                     </div>
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           </div>
 

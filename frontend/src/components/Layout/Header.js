@@ -20,6 +20,7 @@ const Header = ({ onMenuClick }) => {
       '/timesheet': 'Employee Timesheet',
       '/timesheet/history': 'Timesheet History',
       '/timesheet/attendance': 'Employee In/Out Timing',
+      
       '/project-allocation': 'Project Allocation',
     };
     
