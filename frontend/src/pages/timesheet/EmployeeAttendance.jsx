@@ -5,10 +5,6 @@ export default function AttendanceFetcher() {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
-  const [toDate, setToDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  });
   const [resp, setResp] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saveLoading, setSaveLoading] = useState(false);
@@ -19,10 +15,10 @@ export default function AttendanceFetcher() {
     fetchData();
   }, []);
 
-  function formatDateRange(from, to) {
+  function formatDateRange(singleDate) {
     return {
-      begin: `${from}T00:00:00 08:00`,
-      end: `${to}T23:59:59 08:00`
+      begin: `${singleDate}T00:00:00 08:00`,
+      end: `${singleDate}T23:59:59 08:00`
     };
   }
 
@@ -30,7 +26,7 @@ export default function AttendanceFetcher() {
     setLoading(true);
 
     try {
-      const { begin, end } = formatDateRange(fromDate, toDate);
+      const { begin, end } = formatDateRange(fromDate);
 
       const r = await fetch("/api/hikvision/attendance", {
         method: "POST",
@@ -90,14 +86,8 @@ export default function AttendanceFetcher() {
   const generateDemoData = () => {
     const generateRecordsForDateRange = () => {
       const records = [];
-      const startDate = new Date(fromDate);
-      const endDate = new Date(toDate);
-      
-      // Generate records for each date in the range
-      for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
-        const currentDate = date.toISOString().split('T')[0];
-        
-        const dailyRecords = [
+      const currentDate = fromDate;
+      const dailyRecords = [
           {
             personInfo: {
               personCode: "EMP001",
@@ -141,10 +131,7 @@ export default function AttendanceFetcher() {
             allDurationTime: 27000
           }
         ];
-
-        records.push(...dailyRecords);
-      }
-      
+      records.push(...dailyRecords);
       return records;
     };
 
@@ -191,23 +178,8 @@ export default function AttendanceFetcher() {
   };
 
   const handleFromDateChange = (e) => {
-    const newFromDate = e.target.value;
-    setFromDate(newFromDate);
-    
-    // If fromDate is after toDate, adjust toDate
-    if (newFromDate > toDate) {
-      setToDate(newFromDate);
-    }
-  };
-
-  const handleToDateChange = (e) => {
-    const newToDate = e.target.value;
-    setToDate(newToDate);
-    
-    // If toDate is before fromDate, adjust fromDate
-    if (newToDate < fromDate) {
-      setFromDate(newToDate);
-    }
+    const newDate = e.target.value;
+    setFromDate(newDate);
   };
 
   const renderTable = () => {
@@ -238,7 +210,7 @@ export default function AttendanceFetcher() {
     return (
       <div className="table-container">
         <div className="table-header">
-          <span>Showing records from {formatDisplayDate(fromDate)} to {formatDisplayDate(toDate)}</span>
+          <span>Showing records for {formatDisplayDate(fromDate)}</span>
           <span className="record-count">{records.length} records found{saveResult?.success ? ` • saved ${saveResult.savedCount || 0}` : ''}</span>
         </div>
         <table className="attendance-table">
@@ -358,23 +330,12 @@ export default function AttendanceFetcher() {
               </select>
             </div>
             <div className="filter-group">
-              <label>From Date</label>
+              <label>Date</label>
               <input 
                 type="date" 
                 value={formatInputDate(fromDate)} 
                 onChange={handleFromDateChange}
                 className="date-input"
-                max={formatInputDate(toDate)}
-              />
-            </div>
-            <div className="filter-group">
-              <label>To Date</label>
-              <input 
-                type="date" 
-                value={formatInputDate(toDate)} 
-                onChange={handleToDateChange}
-                className="date-input"
-                min={formatInputDate(fromDate)}
               />
             </div>
             <button onClick={syncData} className="btn btn-primary">

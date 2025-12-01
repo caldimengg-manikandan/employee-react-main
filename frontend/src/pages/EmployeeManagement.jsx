@@ -57,30 +57,30 @@ const EmployeeManagement = () => {
     } catch (error) {
       console.error('Error fetching employees:', error);
       // Mock data for demonstration
-      const mockEmployees = [
-        {
-          _id: '1',
-          employeeId: 'EMP001',
-          name: 'John Doe',
-          position: 'Software Engineer',
-          division: 'IT',
-          qualification: 'B.Tech',
-          mobileNo: '9876543210',
-          status: 'Active',
-          email: 'john.doe@example.com'
-        },
-        {
-          _id: '2',
-          employeeId: 'EMP002',
-          name: 'Jane Smith',
-          position: 'HR Manager',
-          division: 'HR',
-          qualification: 'MBA',
-          mobileNo: '9876543211',
-          status: 'Active',
-          email: 'jane.smith@example.com'
-        }
-      ];
+      // const mockEmployees = [
+      //   {
+      //     _id: '1',
+      //     employeeId: 'EMP001',
+      //     name: 'John Doe',
+      //     position: 'Software Engineer',
+      //     division: 'IT',
+      //     qualification: 'B.Tech',
+      //     mobileNo: '9876543210',
+      //     status: 'Active',
+      //     email: 'john.doe@example.com'
+      //   },
+      //   {
+      //     _id: '2',
+      //     employeeId: 'EMP002',
+      //     name: 'Jane Smith',
+      //     position: 'HR Manager',
+      //     division: 'HR',
+      //     qualification: 'MBA',
+      //     mobileNo: '9876543211',
+      //     status: 'Active',
+      //     email: 'jane.smith@example.com'
+      //   }
+      // ];
       setEmployees(mockEmployees);
       setFilteredEmployees(mockEmployees);
     } finally {

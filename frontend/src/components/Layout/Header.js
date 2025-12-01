@@ -148,8 +148,8 @@ const Header = ({ onMenuClick }) => {
                     <div className="min-w-0">
                       <p className="text-sm text-white text-opacity-90">{getGreeting()}</p>
                       <p className="text-lg font-semibold truncate">{user.name}</p>
+                      <p className="text-sm text-white text-opacity-90 truncate">{user.employeeId || '—'}</p>
                       <p className="text-sm text-white text-opacity-90 truncate">{user.email}</p>
-                      <p className="text-xs text-white text-opacity-80 mt-1">{user.role}</p>
                     </div>
                   </div>
                 </div>

@@ -1004,8 +1004,8 @@ const Timesheet = () => {
                   {/* Project Name Column */}
                   <td className="p-2 border border-gray-200">
                     {row.type === "leave" ? (
-                      <div className="w-full p-2 bg-orange-100 text-orange-800 rounded text-sm font-semibold text-center">
-                        LEAVE
+                      <div className="w-full p-2  text-blue-800 rounded text-sm font-semibold text-center">
+                        Leave
                       </div>
                     ) : (
                       <select
@@ -1129,11 +1129,11 @@ const Timesheet = () => {
                 </td>
                 {onPremisesTime.daily.map((time, index) => (
                   <td key={index} className="p-3 border border-gray-200 text-green-700 text-center">
-                    {time > 0 ? `${time}h` : "-"}
+                    {time > 0 ? `${time}` : "-"}
                   </td>
                 ))}
                 <td className="p-3 border border-gray-200 text-green-700 font-bold text-center">
-                  {onPremisesTime.weekly > 0 ? `${onPremisesTime.weekly}h` : "-"}
+                  {onPremisesTime.weekly > 0 ? `${onPremisesTime.weekly}` : "-"}
                 </td>
                 <td className="p-3 border border-gray-200"></td>
               </tr>
