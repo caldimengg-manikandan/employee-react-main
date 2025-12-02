@@ -143,7 +143,7 @@ const ProjectDashboard = () => {
                 setInfoData(data.infoData || null);
                 setChartTitle(data.chartTitle || 'Overview');
             } catch (err) {
-                setError('Could not fetch dashboard data.');
+                setError('Could not fetch dashboard datas.');
                 console.error("Error fetching dashboard data:", err);
             } finally {
                 setLoading(false);
