@@ -42,7 +42,7 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const menuItems = [
     {
-      name: "Dashboard",
+      name: "Home",
       path: "/dashboard",
       icon: getIconForMenu("Dashboard"),
       permission: "dashboard",
@@ -59,11 +59,33 @@ const Sidebar = ({ isOpen, onClose }) => {
       ],
     },
     {
+      name: "Admin Timesheet",
+      hasDropdown: true,
+      icon: getIconForMenu("Admin Timesheet"),
+      permission: "timesheet_access",
+      children: [
+        { name: "Admin Timesheet", path: "/admin/timesheet" },
+        { name: "Timesheet Summary", path: "/admin/timesheet/approval" },
+      ],
+    },
+    {
       name: "Employee Attendance",
       path: "/timesheet/attendance",
       icon: getIconForMenu("Employee Attendance"),
       permission: "attendance_access",
       allowEmployeeRole: false,
+    },
+    {
+      name: "Insurance",
+      path: "/insurance",
+      icon: getIconForMenu("Insurance"),
+      permission: "dashboard",
+    },
+    {
+      name: "Policy Portal",
+      path: "/policies",
+      icon: getIconForMenu("Policy Portal"),
+      permission: "dashboard",
     },
     // {
     //   name: "Leave Management",
@@ -110,12 +132,14 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   // Filter menu items based on permissions and role
   const filteredMenuItems = menuItems.filter((item) => {
-    // Check if user has permission
-    const hasPermission = permissions.includes(item.permission);
+    // Admin can access everything
+    if (role === "admin") return true;
+    
+    // Check if user has permission (if permission is required)
+    const hasPermission = item.permission ? permissions.includes(item.permission) : true;
     
     // Check if role-based access is allowed
-  const allowByRole = 
-      role === "admin" || 
+    const allowByRole = 
       (role === "employees" && item.allowEmployeeRole) ||
       (role === "projectmanager" && item.name === "Project Allocation");
 

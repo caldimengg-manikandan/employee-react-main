@@ -56,31 +56,7 @@ const EmployeeManagement = () => {
       setFilteredEmployees(response.data);
     } catch (error) {
       console.error('Error fetching employees:', error);
-      // Mock data for demonstration
-      // const mockEmployees = [
-      //   {
-      //     _id: '1',
-      //     employeeId: 'EMP001',
-      //     name: 'John Doe',
-      //     position: 'Software Engineer',
-      //     division: 'IT',
-      //     qualification: 'B.Tech',
-      //     mobileNo: '9876543210',
-      //     status: 'Active',
-      //     email: 'john.doe@example.com'
-      //   },
-      //   {
-      //     _id: '2',
-      //     employeeId: 'EMP002',
-      //     name: 'Jane Smith',
-      //     position: 'HR Manager',
-      //     division: 'HR',
-      //     qualification: 'MBA',
-      //     mobileNo: '9876543211',
-      //     status: 'Active',
-      //     email: 'jane.smith@example.com'
-      //   }
-      // ];
+      
       setEmployees(mockEmployees);
       setFilteredEmployees(mockEmployees);
     } finally {
@@ -139,8 +115,8 @@ const EmployeeManagement = () => {
 
   const exportToCSV = () => {
     const headers = [
-      'Employee ID', 'Name', 'Position', 'Division', 'Qualification',
-      'Mobile No', 'Email', 'Status'
+      'Employee ID', 'Name', 'Position', 'Division', 'highestQualification',
+      'Mobile No', 'Email', 'Date Of Joining', 
     ];
 
     const csvData = filteredEmployees.map(emp => [
@@ -148,9 +124,10 @@ const EmployeeManagement = () => {
       `"${emp.name}"`,
       emp.position,
       emp.division,
-      emp.qualification,
+      emp.highestQualification,
       emp.mobileNo,
-      emp.email,
+      // emp.email,
+      (emp.dateOfJoining || emp.dateofjoin || ''),
       emp.status
     ]);
 
@@ -227,6 +204,27 @@ const EmployeeManagement = () => {
       default:
         return 'bg-gray-100 text-gray-800';
     }
+  };
+
+  const getExperienceText = (emp) => {
+    const src = emp?.dateOfJoining || emp?.dateofjoin;
+    if (!src) return '-';
+    const start = new Date(src);
+    if (isNaN(start.getTime())) return '-';
+    const now = new Date();
+    let years = now.getFullYear() - start.getFullYear();
+    let months = now.getMonth() - start.getMonth();
+    const days = now.getDate() - start.getDate();
+    if (days < 0) months -= 1;
+    if (months < 0) {
+      years -= 1;
+      months += 12;
+    }
+    if (years < 0) {
+      years = 0;
+      months = 0;
+    }
+    return `${years} Years ${months} Months`;
   };
 
   if (loading && activeTab === 'local') {
@@ -406,12 +404,17 @@ const EmployeeManagement = () => {
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Qualification
                         </th>
+                        
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Date Of Joining
+                        </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Contact
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Status
+                          Experience
                         </th>
+                        
                         <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                           Actions
                         </th>
@@ -440,16 +443,21 @@ const EmployeeManagement = () => {
                             <div className="text-sm text-gray-900">{employee.division}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{employee.qualification}</div>
+                            <div className="text-sm text-gray-900">{employee.highestQualification}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{
+                              (employee.dateOfJoining || employee.dateofjoin)
+                                ? new Date(employee.dateOfJoining || employee.dateofjoin).toLocaleDateString()
+                                : '-'
+                            }</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{employee.mobileNo}</div>
-                            <div className="text-sm text-gray-500">{employee.email}</div>
+                            {/* <div className="text-sm text-gray-500">{employee.email}</div> */}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(employee.status)}`}>
-                              {employee.status}
-                            </span>
+                            <div className="text-sm text-gray-900">{getExperienceText(employee)}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                             <div className="flex justify-end space-x-2">
@@ -527,6 +535,9 @@ const EmployeeManagement = () => {
                         </div>
                         <div>
                           <span className="font-medium">Contact:</span> {employee.mobileNo}
+                        </div>
+                        <div>
+                          <span className="font-medium">Date Of Joining:</span> { (employee.dateOfJoining || employee.dateofjoin) ? new Date(employee.dateOfJoining || employee.dateofjoin).toLocaleDateString() : '-' }
                         </div>
                         <div className="col-span-2">
                           <span className="font-medium">Status:</span>{' '}
@@ -649,7 +660,12 @@ const EmployeeManagement = () => {
                   
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Qualification</h4>
-                    <p className="text-sm font-medium text-gray-900 mt-1">{viewingEmployee.qualification}</p>
+                    <p className="text-sm font-medium text-gray-900 mt-1">{viewingEmployee.highestQualification}</p>
+                  </div>
+
+                  <div className="bg-gray-50 p-4 rounded-lg">
+                    <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Date Of Joining</h4>
+                    <p className="text-sm font-medium text-gray-900 mt-1">{ (viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin) ? new Date(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin).toLocaleDateString() : '-' }</p>
                   </div>
                   
                   <div className="bg-gray-50 p-4 rounded-lg">
@@ -666,7 +682,7 @@ const EmployeeManagement = () => {
                   
                   <div className="bg-gray-50 p-4 rounded-lg">
                     <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Email</h4>
-                    <p className="text-sm font-medium text-gray-900 mt-1">{viewingEmployee.email}</p>
+                    {/* <p className="text-sm font-medium text-gray-900 mt-1">{viewingEmployee.email}</p> */}
                   </div>
                 </div>
                 

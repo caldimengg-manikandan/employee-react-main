@@ -110,33 +110,36 @@ const Timesheet = () => {
           endDate: normalizeToUTCDateOnly(weekDates[6])
         });
 
-        const attendanceData = (attendanceRes.data?.records) || (attendanceRes.data || []);
+        const attendanceData = Array.isArray(attendanceRes.data?.records)
+          ? attendanceRes.data.records
+          : [];
+
+        const weekKeys = weekDates.map((d) => {
+          const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+          return utc.toISOString().split("T")[0];
+        });
+
         const dailyOnPremises = [0, 0, 0, 0, 0, 0, 0];
         let weeklyOnPremises = 0;
 
-        // Calculate on-premises time for each day
-        attendanceData.forEach(record => {
-          const recordDate = new Date(record.punchTime);
-          const dayIndex = (recordDate.getDay() + 6) % 7; // Convert to Mon-Sun (0-6)
-          
-          if (dayIndex >= 0 && dayIndex < 7) {
-            // Calculate time difference between punch in and punch out
-            if (record.punchIn && record.punchOut) {
-              const punchIn = new Date(record.punchIn);
-              const punchOut = new Date(record.punchOut);
-              const hoursOnPremises = (punchOut - punchIn) / (1000 * 60 * 60); // Convert ms to hours
-              
-              if (hoursOnPremises > 0) {
-                dailyOnPremises[dayIndex] += hoursOnPremises;
-                weeklyOnPremises += hoursOnPremises;
+        // Calculate on-premises time for each day using API's weekly records
+        attendanceData.forEach((record) => {
+          try {
+            const key = new Date(record.date).toISOString().split("T")[0];
+            const idx = weekKeys.indexOf(key);
+            if (idx !== -1) {
+              const hours = Number(record.hours) || 0;
+              if (hours > 0) {
+                dailyOnPremises[idx] += hours;
+                weeklyOnPremises += hours;
               }
             }
-          }
+          } catch (_) {}
         });
 
         setOnPremisesTime({
-          daily: dailyOnPremises.map(hours => parseFloat(hours.toFixed(1))),
-          weekly: parseFloat(weeklyOnPremises.toFixed(1))
+          daily: dailyOnPremises.map((h) => parseFloat(h.toFixed(1))),
+          weekly: parseFloat(weeklyOnPremises.toFixed(1)),
         });
 
       } catch (error) {
@@ -257,24 +260,33 @@ const Timesheet = () => {
     
     let count = 0;
     const newPermissionCounts = {};
-    
+
+    const getPermissionCountForHours = (h) => {
+      const val = Number(h) || 0;
+      if (val <= 0) return 0;
+      if (val <= 1) return 1;
+      if (val <= 2) return 2;
+      return 3;
+    };
+
     timesheetRows.forEach((row) => {
       if (row.task === "Permission") {
         row.hours.forEach((hours, dayIndex) => {
-          if (hours > 0) {
-            const date = new Date(currentWeek);
-            date.setDate(date.getDate() + (dayIndex - date.getDay() + 1));
-            
-            if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
-              const dateKey = date.toDateString();
-              newPermissionCounts[dateKey] = (newPermissionCounts[dateKey] || 0) + 1;
-              count += 1;
+          const date = new Date(currentWeek);
+          date.setDate(date.getDate() + (dayIndex - date.getDay() + 1));
+
+          if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+            const dateKey = date.toDateString();
+            const c = getPermissionCountForHours(hours);
+            if (c > 0) {
+              newPermissionCounts[dateKey] = (newPermissionCounts[dateKey] || 0) + c;
+              count += c;
             }
           }
         });
       }
     });
-    
+
     setPermissionCounts(newPermissionCounts);
     setMonthlyPermissionCount(monthlyBasePermissionCount + count);
   };
@@ -296,7 +308,10 @@ const Timesheet = () => {
                   const d = new Date(weekStart);
                   d.setDate(d.getDate() + idx);
                   if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-                    baseCount += 1;
+                    const val = Number(h) || 0;
+                    if (val > 0 && val <= 1) baseCount += 1;
+                    else if (val > 1 && val <= 2) baseCount += 2;
+                    else if (val > 2) baseCount += 3;
                   }
                 }
               });
@@ -402,9 +417,16 @@ const Timesheet = () => {
 
     let numValue = parseFloat(value) || 0;
 
-    // Calculate current daily total without this row's current value
-    const currentDailyTotal = timesheetRows.reduce((total, r) => {
+    // Calculate current daily totals
+    // All rows (used for 24h hard cap)
+    const currentDailyAllTotal = timesheetRows.reduce((total, r) => {
       if (r.id === id) return total; // Skip current row
+      return total + (r.hours[dayIndex] || 0);
+    }, 0);
+    // Project-only rows (used for on-premises enforcement)
+    const currentDailyProjectTotal = timesheetRows.reduce((total, r) => {
+      if (r.id === id) return total; // Skip current row
+      if (r.type !== "project") return total;
       return total + (r.hours[dayIndex] || 0);
     }, 0);
 
@@ -412,22 +434,22 @@ const Timesheet = () => {
     const currentBreakHours = computeBreakForDay(dayIndex);
     
     // Check if adding new value would exceed 24 hours (including break hours)
-    const newWorkTotal = currentDailyTotal + numValue;
-    const newTotalWithBreak = newWorkTotal + currentBreakHours;
+    const newWorkTotalAll = currentDailyAllTotal + numValue;
+    const newTotalWithBreakAll = newWorkTotalAll + currentBreakHours;
     
-    if (newTotalWithBreak > 24) {
-      const currentTotalWithBreak = (currentDailyTotal + currentBreakHours).toFixed(1);
-      alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyTotal.toFixed(1)}h + Break: ${currentBreakHours.toFixed(1)}h)\nAfter update: ${newTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+    if (newTotalWithBreakAll > 24) {
+      const currentTotalWithBreak = (currentDailyAllTotal + currentBreakHours).toFixed(1);
+      alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${currentBreakHours.toFixed(1)}h)\nAfter update: ${newTotalWithBreakAll.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
       return; // Don't update if it would exceed 24 hours
     }
 
     // Warning when approaching 24 hours (within 2 hours)
-    if (newTotalWithBreak >= 22 && newTotalWithBreak <= 24) {
-      const remainingHours = (24 - newTotalWithBreak).toFixed(1);
+    if (newTotalWithBreakAll >= 22 && newTotalWithBreakAll <= 24) {
+      const remainingHours = (24 - newTotalWithBreakAll).toFixed(1);
       // Only show warning once per session for this day to avoid spam
       const warningKey = `timesheet_warning_${dayIndex}_${currentWeek.toDateString()}`;
       if (!sessionStorage.getItem(warningKey)) {
-        alert(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newTotalWithBreak.toFixed(1)}h (only ${remainingHours}h remaining)\n\nThis includes Work (${newWorkTotal.toFixed(1)}h) + Break (${currentBreakHours.toFixed(1)}h)`);
+        alert(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newTotalWithBreakAll.toFixed(1)}h (only ${remainingHours}h remaining)\n\nThis includes Work (${newWorkTotalAll.toFixed(1)}h) + Break (${currentBreakHours.toFixed(1)}h)`);
         sessionStorage.setItem(warningKey, 'true');
       }
     }
@@ -456,57 +478,77 @@ const Timesheet = () => {
         numValue = 4.75; // Force to 4.75 for positive values
       }
     } else if (row.task === "Permission") {
-      const date = new Date(currentWeek);
-      date.setDate(date.getDate() + (dayIndex - date.getDay() + 1));
-      const dateKey = date.toDateString();
-      const currentPermissionCount = permissionCounts[dateKey] || 0;
-      const remainingMonthlyPermissions = 3 - monthlyPermissionCount;
-      if (numValue > 0 && remainingMonthlyPermissions <= 0) {
-        alert("Monthly permission limit (3 counts) exceeded!");
-        numValue = 0;
-      } else if (numValue > 0) {
-        numValue = 1;
-      } else {
-        numValue = 0;
+      const clamp = (v) => Math.max(0, Math.min(3, v));
+      numValue = clamp(numValue);
+
+      const getPermissionCountForHours = (h) => {
+        const val = Number(h) || 0;
+        if (val <= 0) return 0;
+        if (val <= 1) return 1;
+        if (val <= 2) return 2;
+        return 3;
+      };
+
+      const computeMonthlyPermissionCountWithOverride = (overrideRowId, overrideDayIndex, overrideHours) => {
+        const currentMonth = currentWeek.getMonth();
+        const currentYear = currentWeek.getFullYear();
+        let count = monthlyBasePermissionCount;
+        timesheetRows.forEach((r) => {
+          if (r.task !== "Permission") return;
+          r.hours.forEach((h, idx) => {
+            const date = new Date(currentWeek);
+            date.setDate(date.getDate() + (idx - date.getDay() + 1));
+            if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+              const hours = (r.id === overrideRowId && idx === overrideDayIndex) ? overrideHours : h;
+              const c = getPermissionCountForHours(hours);
+              count += c;
+            }
+          });
+        });
+        return count;
+      };
+
+      if (numValue > 0) {
+        const prospectiveCount = computeMonthlyPermissionCountWithOverride(id, dayIndex, numValue);
+        if (prospectiveCount > 3) {
+          alert("Monthly permission limit (3 counts) exceeded!");
+          return;
+        }
       }
     } else {
       // Regular project hours
       numValue = Math.max(0, Math.min(8.25, numValue));
     }
 
-    // On-premises enforcement: apply only when no Permission or Half Day Leave on this day
-    const hasPermissionOnDay = timesheetRows.some(
-      (r) => r.task === "Permission" && ((r.hours?.[dayIndex] || 0) > 0)
-    );
-    const hasHalfDayOnDay = timesheetRows.some(
-      (r) => r.task === "Half Day Leave" && ((r.hours?.[dayIndex] || 0) > 0)
-    );
-
     // Break after update depends on whether there is any project work on that day
     const hasWorkAfterUpdate = timesheetRows.some(
       (r) => r.type === "project" && ((r.id === id ? numValue : (r.hours?.[dayIndex] || 0)) > 0)
     );
     const breakAfterUpdate = hasWorkAfterUpdate ? 1.25 : 0;
-
-    if (row.type === "project" && !hasPermissionOnDay && !hasHalfDayOnDay) {
+    // Enforce on-premises cap: project work + auto break must not exceed on-premises time
+    if (row.type === "project") {
       const opHours = Number(onPremisesTime?.daily?.[dayIndex] || 0);
-      const finalWorkTotalCandidate = currentDailyTotal + numValue;
-      const totalWithBreakCandidate = finalWorkTotalCandidate + breakAfterUpdate;
-      if (totalWithBreakCandidate > opHours) {
+      if (opHours <= 0 && numValue > 0) {
+        alert("No on-premises time recorded for this day. Please record attendance before logging project hours.");
+        return;
+      }
+      const finalProjectWorkTotal = currentDailyProjectTotal + numValue;
+      const totalWithBreakCandidate = finalProjectWorkTotal + breakAfterUpdate;
+      if (opHours > 0 && totalWithBreakCandidate > opHours) {
         alert(
-          `Total Hours (Work + Break) for ${days[dayIndex]} (${totalWithBreakCandidate.toFixed(1)}h) cannot exceed on-premises time (${opHours}h) unless Permission or Half Day Leave is selected.`
+          `Total Hours (Work + Break) for ${days[dayIndex]} (${totalWithBreakCandidate.toFixed(1)}h) cannot exceed On-Premises Time (${opHours}h).`
         );
         return;
       }
     }
 
     // Double-check after task-specific validation (including break hours)
-    const finalWorkTotal = currentDailyTotal + numValue;
+    const finalWorkTotal = currentDailyAllTotal + numValue;
     const finalTotalWithBreak = finalWorkTotal + breakAfterUpdate;
     
     if (finalTotalWithBreak > 24) {
-      const currentTotalWithBreak = (currentDailyTotal + computeBreakForDay(dayIndex)).toFixed(1);
-      alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyTotal.toFixed(1)}h + Break: ${computeBreakForDay(dayIndex).toFixed(1)}h)\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+      const currentTotalWithBreak = (currentDailyAllTotal + computeBreakForDay(dayIndex)).toFixed(1);
+      alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${computeBreakForDay(dayIndex).toFixed(1)}h)\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
       return;
     }
 
@@ -522,19 +564,11 @@ const Timesheet = () => {
     );
   };
 
-  // Check if permission is allowed for a specific day
-  const isPermissionAllowed = (dayIndex) => {
-    if (monthlyPermissionCount >= 3) return false;
-    
-    const date = new Date(currentWeek);
-    date.setDate(date.getDate() + (dayIndex - date.getDay() + 1));
-    const dateKey = date.toDateString();
-    
-    // Check if this day already has permission
+  // Check if permission is allowed for a specific day, excluding current row
+  const isPermissionAllowed = (dayIndex, excludeRowId = null) => {
     const hasExistingPermission = timesheetRows.some(row => 
-      row.task === "Permission" && row.hours[dayIndex] > 0
+      row.task === "Permission" && row.hours[dayIndex] > 0 && row.id !== excludeRowId
     );
-    
     return !hasExistingPermission;
   };
 
@@ -769,6 +803,17 @@ const Timesheet = () => {
     if (monthlyPermissionCount > 3) {
       alert(`Monthly permission limit exceeded! Current count: ${monthlyPermissionCount}/3`);
       return;
+    }
+
+    for (let i = 0; i < 7; i++) {
+      const op = Number(onPremisesTime?.daily?.[i] || 0);
+      const hasProjectHours = timesheetRows.some(
+        (row) => row.type === "project" && ((row.hours?.[i] || 0) > 0)
+      );
+      if (op <= 0 && hasProjectHours) {
+        alert(`Project hours not allowed for ${days[i]} without on-premises time. Please record attendance or remove project hours.`);
+        return;
+      }
     }
 
     const normalizeToUTCDateOnly = (d) => {
@@ -1063,36 +1108,41 @@ const Timesheet = () => {
                           max={
                             row.task === "Office Holiday" || row.task === "Full Day Leave" ? 9.5 :
                             row.task === "Half Day Leave" ? 4.75 :
-                            row.task === "Permission" ? 1 : 9
+                            row.task === "Permission" ? 3 : 9
                           }
                           step={
                             row.task === "Half Day Leave" ? 4.75 :
                             row.task === "Office Holiday" || row.task === "Full Day Leave" ? 9.5 :
-                            row.task === "Permission" ? 1 : 0.25
+                            row.task === "Permission" ? 1 : 1
                           }
                           className={`w-20 p-2 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            row.task === "Permission" && !isPermissionAllowed(dayIndex) 
+                            row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id) 
                               ? "bg-gray-100 cursor-not-allowed" 
                               : isSubmitted
                               ? "bg-gray-100 cursor-not-allowed"
                               : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
+                              ? "bg-gray-100 cursor-not-allowed"
+                              : (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
                               ? "bg-gray-100 cursor-not-allowed"
                               : ""
                           }`}
                           disabled={
                             isSubmitted ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                            (row.task === "Permission" && (!isPermissionAllowed(dayIndex) || monthlyPermissionCount >= 3))
+                            (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
+                            (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
                           }
                           title={
                             isSubmitted 
                               ? "Timesheet already submitted" 
-                              : row.task === "Permission" && !isPermissionAllowed(dayIndex) 
+                              : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id) 
                               ? "Permission not allowed for this day" 
-                              : monthlyPermissionCount >= 3 
+                              : (monthlyPermissionCount >= 3 && Number(hours) === 0)
                               ? "Monthly permission limit reached" 
                               : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
                               ? "Full Day Leave applied on this day" 
+                              : (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
+                              ? "No on-premises time recorded for this day"
                               : ""
                           }
                         />
@@ -1129,11 +1179,11 @@ const Timesheet = () => {
                 </td>
                 {onPremisesTime.daily.map((time, index) => (
                   <td key={index} className="p-3 border border-gray-200 text-green-700 text-center">
-                    {time > 0 ? `${time}` : "-"}
+                    {Number(time).toFixed(1)}
                   </td>
                 ))}
                 <td className="p-3 border border-gray-200 text-green-700 font-bold text-center">
-                  {onPremisesTime.weekly > 0 ? `${onPremisesTime.weekly}` : "-"}
+                  {Number(onPremisesTime.weekly).toFixed(1)}
                 </td>
                 <td className="p-3 border border-gray-200"></td>
               </tr>

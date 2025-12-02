@@ -280,26 +280,35 @@ router.get("/my-week", auth, async (req, res) => {
     let weeklyTotal = 0;
 
     Object.keys(byDate).forEach((dateKey) => {
-      const dayRecords = byDate[dateKey];
-      const ins = dayRecords.filter((x) => x.direction === "in");
-      const outs = dayRecords.filter((x) => x.direction === "out");
+      const dayRecords = byDate[dateKey].sort((a, b) => new Date(a.punchTime) - new Date(b.punchTime));
+      let currentIn = null;
+      let sumHours = 0;
+      let firstIn = null;
+      let lastOut = null;
 
-      const firstIn = ins.length ? new Date(ins[0].punchTime) : null;
-      const lastOut = outs.length ? new Date(outs[outs.length - 1].punchTime) : null;
-
-      let hours = 0;
-      if (firstIn && lastOut && lastOut > firstIn) {
-        hours = (lastOut - firstIn) / (1000 * 60 * 60);
+      for (const r of dayRecords) {
+        if (r.direction === "in") {
+          const t = new Date(r.punchTime);
+          if (!firstIn) firstIn = t;
+          currentIn = currentIn || t;
+        } else if (r.direction === "out") {
+          const t = new Date(r.punchTime);
+          lastOut = t;
+          if (currentIn && t > currentIn) {
+            sumHours += (t - currentIn) / (1000 * 60 * 60);
+            currentIn = null;
+          }
+        }
       }
 
-      weeklyTotal += hours;
+      weeklyTotal += sumHours;
 
       result.push({
         date: dateKey,
         punchIn: firstIn || null,
         punchOut: lastOut || null,
         punchTime: firstIn || null,
-        hours: Number(hours.toFixed(2))
+        hours: Number(sumHours.toFixed(2))
       });
     });
 

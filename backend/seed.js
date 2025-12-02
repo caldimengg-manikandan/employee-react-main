@@ -34,7 +34,8 @@ const seedData = async () => {
 
       // Update existing admin with full permissions
       existingAdmin.permissions = [
-        'dashboard', 'user_access', 'employee_access', 'timesheet_access', 'project_access'
+        'dashboard', 'user_access', 'employee_access', 'timesheet_access', 'project_access', 
+        'attendance_access', 'leave_access', 'leave_approval'
       ];
       existingAdmin.role = 'admin';
 
@@ -61,7 +62,8 @@ const seedData = async () => {
         password: 'admin123', // Will be hashed by the pre-save hook
         role: 'admin',
         permissions: [
-          'dashboard', 'user_access', 'employee_access', 'timesheet_access', 'project_access'
+          'dashboard', 'user_access', 'employee_access', 'timesheet_access', 'project_access', 
+          'attendance_access', 'leave_access', 'leave_approval'
         ]
       });
 

@@ -19,6 +19,12 @@ import ProjectAllocation from './pages/project-allocation/ProjectAllocation';
 // Leave Management Pages
 import LeaveManagement from './pages/leave-management/LeaveManagement';
 import LeaveApplications from './pages/leave-management/LeaveApplications'; // For managers/admin
+// Admin Timesheet Pages
+import AdminTimesheet from './pages/admin-timesheet/AdminTimesheet';
+import TimesheetSummary from './pages/admin-timesheet/TimesheetSummary';
+// Insurance & Policy Pages
+import InsuranceManagement from './pages/insurance/InsuranceManagement';
+import PolicyPortal from './pages/PolicyPortal';
 
 function App() {
   return (
@@ -70,6 +76,24 @@ function App() {
               }
             />
 
+            {/* ---------------- Admin Timesheet ---------------- */}
+            <Route
+              path="admin/timesheet"
+              element={
+                <ProtectedRoute requiredPermissions={["timesheet_access"]}>
+                  <AdminTimesheet />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/timesheet/approval"
+              element={
+                <ProtectedRoute requiredPermissions={["timesheet_access"]}>
+                  <TimesheetSummary />
+                </ProtectedRoute>
+              }
+            />
+
             {/* ---------------- Project Allocation ---------------- */}
             <Route 
               path="project-allocation" 
@@ -78,6 +102,24 @@ function App() {
                   <ProjectAllocation />
                 </ProtectedRoute>
               } 
+            />
+
+            {/* ---------------- Insurance & Policy ---------------- */}
+            <Route
+              path="insurance"
+              element={
+                <ProtectedRoute requiredPermissions={["dashboard"]}>
+                  <InsuranceManagement />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="policies"
+              element={
+                <ProtectedRoute requiredPermissions={["dashboard"]}>
+                  <PolicyPortal />
+                </ProtectedRoute>
+              }
             />
 
             {/* ---------------- Leave Management ---------------- */}
@@ -120,6 +162,7 @@ function App() {
         </Routes>
       </div>
     </Router>
+    
   );
 }
 
