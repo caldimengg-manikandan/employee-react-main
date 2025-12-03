@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { adminTimesheetAPI } from '../../services/api';
 
 const TimesheetSummary = () => {
   const [filters, setFilters] = useState({
@@ -8,6 +9,47 @@ const TimesheetSummary = () => {
   });
 
   const [summaryData, setSummaryData] = useState(null);
+  const [availableEmployees, setAvailableEmployees] = useState(['All Employees']);
+  const [availableProjects, setAvailableProjects] = useState(['All Projects']);
+
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const res = await adminTimesheetAPI.list({
+          employeeId: '',
+          division: 'All Division',
+          location: 'All Locations',
+          status: 'All Status',
+          project: 'All Projects'
+        });
+        let rows = res.data?.data || [];
+        rows = rows.filter(r => {
+          const s = (r.status || '').toLowerCase();
+          const includeStatus = s === 'submitted' || s === 'approved';
+          const yearMatch = (r.week || '').startsWith(filters.year);
+          return includeStatus && yearMatch;
+        });
+        const empSet = new Set();
+        const projSet = new Set();
+        rows.forEach(r => {
+          if (r.employeeName) empSet.add(r.employeeName);
+          (r.timeEntries || []).forEach(te => {
+            const p = (te.project || '').trim();
+            const taskVal = (te.task || '').toLowerCase();
+            if (p && p.toLowerCase() !== 'leave' && !taskVal.includes('holiday') && !taskVal.includes('leave')) {
+              projSet.add(p);
+            }
+          });
+        });
+        setAvailableEmployees(['All Employees', ...Array.from(empSet).sort()]);
+        setAvailableProjects(['All Projects', ...Array.from(projSet).sort()]);
+      } catch {
+        setAvailableEmployees(['All Employees']);
+        setAvailableProjects(['All Projects']);
+      }
+    };
+    loadOptions();
+  }, [filters.year]);
 
   const styles = {
     timesheetSummary: {
@@ -196,41 +238,96 @@ const TimesheetSummary = () => {
     }));
   };
 
-  const handleLoadSummary = () => {
-    // Simulate loading summary data with new table structure
-    const mockData = {
-      totalHours: 2840,
-      totalEmployees: 45,
-      totalProjects: 12,
-      averageHoursPerEmployee: 63.1,
-      monthlyData: [
-        { month: 'Jan', hours: 220, employees: 40 },
-        { month: 'Feb', hours: 240, employees: 42 },
-        { month: 'Mar', hours: 260, employees: 43 },
-        { month: 'Apr', hours: 280, employees: 44 },
-        { month: 'May', hours: 300, employees: 45 },
-        { month: 'Jun', hours: 320, employees: 45 },
-        { month: 'Jul', hours: 310, employees: 44 },
-        { month: 'Aug', hours: 290, employees: 43 },
-        { month: 'Sep', hours: 270, employees: 42 },
-        { month: 'Oct', hours: 250, employees: 41 },
-        { month: 'Nov', hours: 230, employees: 40 },
-        { month: 'Dec', hours: 210, employees: 40 }
-      ],
-      // New data structure for the detailed table
-      projectEmployeeSummary: [
-        { project: 'Project Alpha', employeeId: 'EMP001', employeeName: 'John Doe', totalHours: 120 },
-        { project: 'Project Alpha', employeeId: 'EMP004', employeeName: 'Sarah Wilson', totalHours: 95 },
-        { project: 'Project Alpha', employeeId: 'EMP007', employeeName: 'David Brown', totalHours: 85 },
-        { project: 'Project Beta', employeeId: 'EMP002', employeeName: 'Jane Smith', totalHours: 150 },
-        { project: 'Project Beta', employeeId: 'EMP001', employeeName: 'John Doe', totalHours: 65 },
-        { project: 'Project Beta', employeeId: 'EMP005', employeeName: 'Robert Taylor', totalHours: 110 },
-        { project: 'Project Gamma', employeeId: 'EMP003', employeeName: 'Mike Johnson', totalHours: 180 },
-        { project: 'Project Gamma', employeeId: 'EMP002', employeeName: 'Jane Smith', totalHours: 45 },
-        { project: 'Project Gamma', employeeId: 'EMP006', employeeName: 'Emily Davis', totalHours: 75 }
-      ]
-    };
-    setSummaryData(mockData);
+  const handleLoadSummary = async () => {
+    try {
+      const summaryRes = await adminTimesheetAPI.summary({
+        year: filters.year,
+        employee: filters.employee,
+        project: filters.project
+      });
+      const summary = summaryRes.data?.summary || { totalHours: 0, totalEmployees: [], totalProjects: [] };
+
+      const listRes = await adminTimesheetAPI.list({
+        employeeId: '',
+        division: 'All Division',
+        location: 'All Locations',
+        status: 'All Status',
+        project: filters.project
+      });
+      let rows = listRes.data?.data || [];
+
+      rows = rows.filter(r => {
+        const yearMatch = (r.week || '').startsWith(filters.year);
+        const empMatch = (filters.employee === 'All Employees') || (r.employeeName === filters.employee);
+        const projMatch = (filters.project === 'All Projects') || ((r.timeEntries || []).some(te => (te.project || '').trim() === filters.project));
+        return yearMatch && empMatch && projMatch;
+      });
+
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const monthlyMap = new Map(monthNames.map(m => [m, { month: m, hours: 0, employees: 0 }]));
+      const employeesPerMonth = new Map(monthNames.map(m => [m, new Set()]));
+
+      rows.forEach(r => {
+        const d = r.submittedDate ? new Date(r.submittedDate) : null;
+        const m = d ? monthNames[d.getMonth()] : null;
+        if (m) {
+          const v = monthlyMap.get(m);
+          v.hours += Number(r.weeklyTotal || 0);
+          monthlyMap.set(m, v);
+          const set = employeesPerMonth.get(m);
+          if (r.employeeId) set.add(r.employeeId);
+        }
+      });
+      monthNames.forEach(m => {
+        const v = monthlyMap.get(m);
+        v.employees = (employeesPerMonth.get(m) || new Set()).size;
+        monthlyMap.set(m, v);
+      });
+
+      const projectEmpMap = new Map();
+      rows.forEach(r => {
+        (r.timeEntries || []).forEach(te => {
+          const key = `${te.project}||${r.employeeId}||${r.employeeName}`;
+          const prev = projectEmpMap.get(key) || 0;
+          projectEmpMap.set(key, prev + Number(te.total || 0));
+        });
+      });
+      const projectEmployeeSummary = Array.from(projectEmpMap.entries()).map(([key, total]) => {
+        const [project, employeeId, employeeName] = key.split('||');
+        return { project, employeeId, employeeName, totalHours: total };
+      });
+
+      const totalEmployeesCount = Array.isArray(summary.totalEmployees) ? summary.totalEmployees.length : 0;
+      let totalProjectsCount = 0;
+      if (Array.isArray(summary.totalProjects)) {
+        const flat = new Set();
+        summary.totalProjects.forEach(v => {
+          if (Array.isArray(v)) v.forEach(p => flat.add(p));
+          else if (v) flat.add(v);
+        });
+        totalProjectsCount = flat.size;
+      }
+
+      const averageHoursPerEmployee = totalEmployeesCount > 0 ? Number(summary.totalHours || 0) / totalEmployeesCount : 0;
+
+      setSummaryData({
+        totalHours: Number(summary.totalHours || 0),
+        totalEmployees: totalEmployeesCount,
+        totalProjects: totalProjectsCount,
+        averageHoursPerEmployee: Number(averageHoursPerEmployee.toFixed(1)),
+        monthlyData: Array.from(monthlyMap.values()),
+        projectEmployeeSummary
+      });
+    } catch (e) {
+      setSummaryData({
+        totalHours: 0,
+        totalEmployees: 0,
+        totalProjects: 0,
+        averageHoursPerEmployee: 0,
+        monthlyData: [],
+        projectEmployeeSummary: []
+      });
+    }
   };
 
   const handleExportToExcel = () => {
@@ -266,10 +363,9 @@ const TimesheetSummary = () => {
             onChange={(e) => handleFilterChange('employee', e.target.value)}
             style={styles.filterSelect}
           >
-            <option>All Employees</option>
-            <option>Development Team</option>
-            <option>Design Team</option>
-            <option>Marketing Team</option>
+            {availableEmployees.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
           </select>
         </div>
 
@@ -280,10 +376,9 @@ const TimesheetSummary = () => {
             onChange={(e) => handleFilterChange('project', e.target.value)}
             style={styles.filterSelect}
           >
-            <option>All Projects</option>
-            <option>Project Alpha</option>
-            <option>Project Beta</option>
-            <option>Project Gamma</option>
+            {availableProjects.map((p) => (
+              <option key={p} value={p}>{p}</option>
+            ))}
           </select>
         </div>
 
@@ -306,7 +401,7 @@ const TimesheetSummary = () => {
         </button>
       </div>
 
-      {summaryData ? (
+      {summaryData ? (  
         <div style={styles.summaryContent}>
           <div style={styles.summaryStats}>
             <div style={styles.summaryStat}>

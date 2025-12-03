@@ -154,6 +154,7 @@ export const adminTimesheetAPI = {
   list: (params) => api.get('/admin-timesheet/list', { params }),
   approve: (id) => api.put(`/admin-timesheet/approve/${id}`),
   reject: (id, reason) => api.put(`/admin-timesheet/reject/${id}`, { reason }),
+  summary: (params) => api.get('/admin-timesheet/summary', { params }),
 };
 
 export default api;

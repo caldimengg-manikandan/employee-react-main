@@ -24,6 +24,7 @@ import {
 
 const AdminTimesheet = () => {
   const [timesheets, setTimesheets] = useState([]);
+  const [actionLoading, setActionLoading] = useState({});
   const [filters, setFilters] = useState({
     employeeId: '',
     division: 'All Division',
@@ -453,15 +454,14 @@ const AdminTimesheet = () => {
 
   const [loading, setLoading] = useState(false);
 
-  // All statistics set to 0
-  const stats = {
+  const [stats, setStats] = useState({
     totalTimesheets: 0,
     pending: 0,
     approved: 0,
     rejected: 0,
     totalEmployees: 0,
     projectHours: 0
-  };
+  });
 
   const statConfigs = [
     { 
@@ -512,15 +512,106 @@ const AdminTimesheet = () => {
       const setProjects = new Set();
       data.forEach(ts => {
         (ts.timeEntries || []).forEach(te => {
-          if (te.project) setProjects.add(te.project);
+          const typeVal = (te.type || '').toLowerCase();
+          const p = (te.project || '').trim();
+          const taskVal = (te.task || '').toLowerCase();
+          const looksLikeProject = typeVal === 'project' || (
+            p && p.toLowerCase() !== 'leave' &&
+            !taskVal.includes('leave') && !taskVal.includes('holiday')
+          );
+          if (looksLikeProject && p) setProjects.add(p);
         });
       });
       setProjectOptions(["All Projects", ...Array.from(setProjects).sort()]);
+
+      const totalTimesheets = data.length;
+      const statusCounts = data.reduce((acc, r) => {
+        const s = (r.status || '').toLowerCase();
+        if (s === 'approved') acc.approved++;
+        else if (s === 'rejected') acc.rejected++;
+        else if (s === 'pending' || s === 'submitted') acc.pending++;
+        else acc.pending++;
+        return acc;
+      }, { approved: 0, rejected: 0, pending: 0 });
+      const totalEmployees = new Set(data.map(r => r.employeeId).filter(Boolean)).size;
+      const projectHours = data.reduce((sum, r) => {
+        const s = (r.status || '').toLowerCase();
+        const includeRow = s === 'approved' || s === 'submitted';
+        if (!includeRow) return sum;
+        const entries = r.timeEntries || [];
+        const projSum = entries.reduce((eSum, te) => {
+          const typeVal = (te.type || '').toLowerCase();
+          const p = (te.project || '').trim();
+          const taskVal = (te.task || '').toLowerCase();
+          const isProject = typeVal === 'project' || (
+            p && p.toLowerCase() !== 'leave' &&
+            !taskVal.includes('leave') && !taskVal.includes('holiday')
+          );
+          return eSum + (isProject ? Number(te.total || 0) : 0);
+        }, 0);
+        return sum + projSum;
+      }, 0);
+
+      setStats({
+        totalTimesheets,
+        pending: statusCounts.pending,
+        approved: statusCounts.approved,
+        rejected: statusCounts.rejected,
+        totalEmployees,
+        projectHours
+      });
     } catch (e) {
       setTimesheets([]);
+      setStats({
+        totalTimesheets: 0,
+        pending: 0,
+        approved: 0,
+        rejected: 0,
+        totalEmployees: 0,
+        projectHours: 0
+      });
+      try {
+        alert('Failed to load timesheets. Please ensure the server is running.');
+      } catch (_) {}
     } finally {
       setLoading(false);
     }
+  };
+
+  const updateStatsFromList = (list) => {
+    const totalTimesheets = list.length;
+    const statusCounts = list.reduce((acc, r) => {
+      const s = (r.status || '').toLowerCase();
+      if (s === 'approved') acc.approved++;
+      else if (s === 'rejected') acc.rejected++;
+      else acc.pending++;
+      return acc;
+    }, { approved: 0, rejected: 0, pending: 0 });
+    const totalEmployees = new Set(list.map(r => r.employeeId).filter(Boolean)).size;
+    const projectHours = list.reduce((sum, r) => {
+      const s = (r.status || '').toLowerCase();
+      const includeRow = s === 'approved' || s === 'submitted' || s === 'pending';
+      const entries = r.timeEntries || [];
+      const projSum = entries.reduce((eSum, te) => {
+        const typeVal = (te.type || '').toLowerCase();
+        const p = (te.project || '').trim();
+        const taskVal = (te.task || '').toLowerCase();
+        const isProject = typeVal === 'project' || (
+          p && p.toLowerCase() !== 'leave' &&
+          !taskVal.includes('leave') && !taskVal.includes('holiday')
+        );
+        return eSum + (isProject ? Number(te.total || 0) : 0);
+      }, 0);
+      return sum + projSum;
+    }, 0);
+    setStats({
+      totalTimesheets,
+      pending: statusCounts.pending,
+      approved: statusCounts.approved,
+      rejected: statusCounts.rejected,
+      totalEmployees,
+      projectHours
+    });
   };
 
   useEffect(() => {
@@ -543,31 +634,48 @@ const AdminTimesheet = () => {
   };
 
   const handleApprove = async (timesheetId) => {
+    setActionLoading(prev => ({ ...prev, [timesheetId]: true }));
     try {
       await adminTimesheetAPI.approve(timesheetId);
-      setTimesheets(prev => prev.map(ts => 
-        ts._id === timesheetId ? { ...ts, status: 'Approved' } : ts
-      ));
-      // Trigger refresh for timesheet history components
+      setTimesheets(prev => {
+        const next = prev.map(ts => ts._id === timesheetId ? { ...ts, status: 'Approved' } : ts);
+        updateStatsFromList(next);
+        return next;
+      });
       window.dispatchEvent(new Event('refreshTimesheetHistory'));
-    } catch {}
+    } catch (e) {
+      try { alert('Approve failed. Please try again.'); } catch (_) {}
+    } finally {
+      setActionLoading(prev => ({ ...prev, [timesheetId]: false }));
+    }
   };
 
   const handleReject = async (timesheetId) => {
     const reason = window.prompt('Enter rejection reason');
     if (reason === null) return;
+    setActionLoading(prev => ({ ...prev, [timesheetId]: true }));
     try {
       await adminTimesheetAPI.reject(timesheetId, reason || '');
-      setTimesheets(prev => prev.map(ts => 
-        ts._id === timesheetId ? { ...ts, status: 'Rejected', rejectionReason: reason || '' } : ts
-      ));
-      // Trigger refresh for timesheet history components
+      setTimesheets(prev => {
+        const next = prev.map(ts => ts._id === timesheetId ? { ...ts, status: 'Rejected', rejectionReason: reason || '' } : ts);
+        updateStatsFromList(next);
+        return next;
+      });
       window.dispatchEvent(new Event('refreshTimesheetHistory'));
-    } catch {}
+    } catch (e) {
+      try { alert('Reject failed. Please try again.'); } catch (_) {}
+    } finally {
+      setActionLoading(prev => ({ ...prev, [timesheetId]: false }));
+    }
+  };
+
+  const getTimesheetId = (ts) => {
+    if (!ts) return null;
+    return ts._id || ts.id || (ts._doc && ts._doc._id) || null;
   };
 
   const handleView = (timesheetId) => {
-    const timesheet = timesheets.find(ts => ts._id === timesheetId);
+    const timesheet = timesheets.find(ts => getTimesheetId(ts) === timesheetId);
     if (timesheet) {
       setSelectedTimesheet(timesheet);
       setShowViewModal(true);
@@ -826,7 +934,7 @@ const AdminTimesheet = () => {
               ) : (
                 timesheets.map(timesheet => (
                       <tr 
-                    key={timesheet._id}
+                    key={getTimesheetId(timesheet) || `${timesheet.employeeId || 'UNKNOWN'}|${timesheet.week || 'UNKNOWN'}`}
                     style={{
                       ...styles.tableRow,
                       ...(hoverStates.tableRows?.[timesheet._id] ? styles.tableRowHover : {})
@@ -836,7 +944,7 @@ const AdminTimesheet = () => {
                   >
                     <td style={styles.tableCell}>
                       <div style={{fontWeight: '500', color: '#4299e1'}}>
-                        {timesheet.employeeId}
+                        {timesheet.employeeId || '—'}
                       </div>
                     </td>
                     <td style={styles.tableCell}>
@@ -844,39 +952,44 @@ const AdminTimesheet = () => {
                     </td>
                     <td style={styles.tableCell}>{timesheet.division}</td>
                     <td style={styles.tableCell}>{timesheet.location}</td>
-                    <td style={styles.tableCell}>{timesheet.week}</td>
+                    <td style={styles.tableCell}>{timesheet.week || '—'}</td>
                     <td style={styles.tableCell}>
-                      {timesheet.timeEntries.map(entry => entry.project).join(', ')}
+                      {(() => {
+                        const projects = (timesheet.timeEntries || []).map(entry => entry.project).filter(Boolean);
+                        return projects.length ? projects.join(', ') : '—';
+                      })()}
                     </td>
                     <td style={styles.tableCell}>
                       <div style={{fontWeight: '600'}}>{timesheet.weeklyTotal}h</div>
                     </td>
                     <td style={styles.tableCell}>
                       <span style={getStatusBadge(timesheet.status)}>
-                        {timesheet.status}
+                        {timesheet.status || '—'}
                       </span>
                     </td>
                     <td style={styles.tableCell}>
                       <div style={styles.actions}>
                         <button 
                           style={styles.viewBtn}
-                          onClick={() => handleView(timesheet._id)}
+                          onClick={() => handleView(getTimesheetId(timesheet))}
                           title="View Details"
                         >
                           <Eye size={12} />
                         </button>
-                        {(['submitted','pending'].includes((timesheet.status || '').toLowerCase())) && (
+                        {(!['approved','rejected'].includes((timesheet.status || '').toLowerCase())) && (
                           <>
                             <button 
                               style={styles.rejectBtn}
-                              onClick={() => handleReject(timesheet._id)}
+                              onClick={() => handleReject(getTimesheetId(timesheet))}
+                              disabled={!!actionLoading[getTimesheetId(timesheet)]}
                               title="Reject"
                             >
                               <XCircle size={12} />
                             </button>
                             <button 
                               style={styles.approveBtn}
-                              onClick={() => handleApprove(timesheet._id)}
+                              onClick={() => handleApprove(getTimesheetId(timesheet))}
+                              disabled={!!actionLoading[getTimesheetId(timesheet)]}
                               title="Approve"
                             >
                               <CheckCircle size={12} />
@@ -962,7 +1075,7 @@ const AdminTimesheet = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {selectedTimesheet.timeEntries.map((entry, index) => (
+                    {(selectedTimesheet?.timeEntries || []).map((entry, index) => (
                       <tr key={index}>
                         <td style={{...styles.timeEntriesCell, textAlign: 'left'}}>{entry.project}</td>
                         <td style={{...styles.timeEntriesCell, textAlign: 'left'}}>{entry.task}</td>

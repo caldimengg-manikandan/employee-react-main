@@ -1,6 +1,8 @@
 // Dashboard --> Home
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { UsersIcon, ClockIcon, CalendarIcon, BanknotesIcon, KeyIcon, FolderIcon, ShieldCheckIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip,
     BarChart, Bar, XAxis, YAxis, CartesianGrid
@@ -86,9 +88,33 @@ const ProjectDashboard = () => {
     const [projectHistory, setProjectHistory] = React.useState([]);
     const [historyLoading, setHistoryLoading] = React.useState(false);
 
+    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+    const permissions = user.permissions || [];
+    const role = user.role || 'employees';
+
+    const modules = [
+        { name: 'Timesheet', description: 'Log work hours', path: '/timesheet', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true },
+        { name: 'Policies', description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, permission: 'dashboard' },
+        { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'dashboard' },
+        { name: 'Leave Management', description: 'Apply & track leaves', path: '/leave-management', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true },
+        { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, permission: 'project_access' },
+        { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'timesheet_access' },
+        { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentTextIcon, permission: 'timesheet_access' },
+        { name: 'Employee Attendance', description: 'Attendance tracking', path: '/timesheet/attendance', icon: ClockIcon, permission: 'attendance_access' },
+        { name: 'User Access', description: 'Manage user roles & permissions', path: '/user-access', icon: KeyIcon, permission: 'user_access' },
+        { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access' }
+    ];
+
+    const visibleModules = modules.filter((m) => {
+        const hasPermission = m.permission ? permissions.includes(m.permission) : true;
+        const allowByRole = (role === 'employees' && m.allowEmployeeRole) || role === 'admin';
+        return hasPermission || allowByRole;
+    });
+
 
     // --- CONSTANTS ---
     const API_BASE_URL = 'http://localhost:5003/api/dashboard';
+    const ENABLE_DASHBOARD_DATA = false;
     const COLORS = [
     '#93c5fd', '#fdba74', '#86efac', '#fca5a5', '#d8b4fe', '#f9a8d4', '#67e8f9', '#fde047',
     '#a5b4fc', '#fb923c', '#6ee7b7', '#f87171', '#c4b5fd', '#f0abfc', '#67e8f9', '#fcd34d'
@@ -103,6 +129,10 @@ const ProjectDashboard = () => {
 
     // --- DATA FETCHING HOOKS ---
     React.useEffect(() => {
+        if (!ENABLE_DASHBOARD_DATA) {
+            setInitialLoading(false);
+            return;
+        }
         const fetchInitialData = async () => {
             try {
                 setInitialLoading(true);
@@ -118,8 +148,7 @@ const ProjectDashboard = () => {
                 setKpis(kpisData);
                 setDropdowns(dropdownsData);
             } catch (err) {
-                setError(err.message);
-                console.error("Error fetching initial data:", err);
+                setError('');
             } finally {
                 setInitialLoading(false);
             }
@@ -128,6 +157,7 @@ const ProjectDashboard = () => {
     }, []);
 
     React.useEffect(() => {
+        if (!ENABLE_DASHBOARD_DATA) return;
         const fetchDashboardData = async () => {
             if (initialLoading) return;
             setLoading(true);
@@ -145,8 +175,7 @@ const ProjectDashboard = () => {
                 setInfoData(data.infoData || null);
                 setChartTitle(data.chartTitle || 'Overview');
             } catch (err) {
-                setError('Could not fetch dashboard datas.');
-                console.error("Error fetching dashboard data:", err);
+                setError('');
             } finally {
                 setLoading(false);
             }
@@ -409,17 +438,38 @@ const ProjectDashboard = () => {
                     <div className="flex justify-center items-center h-64">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
                     </div>
-                ) : error && !chartData.length ? (
-                    <div className="text-center p-10 bg-red-50 rounded-lg">
-                        <p className="text-red-600">{error}</p>
-                    </div>
                 ) : (
                     <>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                            <KpiCard title="Total Projects" value={kpis.totalProjects} color={{ bg: 'bg-blue-50', text: 'text-blue-600' }} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m5-8h1m-1 4h1m-1 4h1M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16" /></svg>} onClick={handleTotalProjectsClick} />
-                            <KpiCard title="Completed" value={kpis.completedProjects} color={{ bg: 'bg-green-50', text: 'text-green-600' }} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
-                            <KpiCard title="In Progress" value={kpis.inProgressProjects} color={{ bg: 'bg-yellow-50', text: 'text-yellow-600' }} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
+                        {error && (
+                            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                                <p className="text-red-700">{error}</p>
+                            </div>
+                        )}
+                        <div className="mb-8">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                                {visibleModules.map((m) => (
+                                    <Link key={`${m.path}-${m.name}`} to={m.path} className="bg-white p-5 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
+                                        <div className="flex items-center">
+                                            <div className="p-3 rounded-full bg-indigo-50 mr-4">
+                                                <m.icon className="h-6 w-6 text-indigo-600" />
+                                            </div>
+                                            <div>
+                                                <h3 className="text-sm font-semibold text-gray-900 uppercase">{m.name}</h3>
+                                                <p className="text-xs text-gray-600 mt-1">{m.description}</p>
+                                            </div>
+                                        </div>
+                                    </Link>
+                                ))}
+                            </div>
                         </div>
+                        {ENABLE_DASHBOARD_DATA && (
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                <KpiCard title="Total Projects" value={kpis.totalProjects} color={{ bg: 'bg-blue-50', text: 'text-blue-600' }} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m5-8h1m-1 4h1m-1 4h1M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16" /></svg>} onClick={handleTotalProjectsClick} />
+                                <KpiCard title="Completed" value={kpis.completedProjects} color={{ bg: 'bg-green-50', text: 'text-green-600' }} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
+                                <KpiCard title="In Progress" value={kpis.inProgressProjects} color={{ bg: 'bg-yellow-50', text: 'text-yellow-600' }} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
+                            </div>
+                        )}
+                        {ENABLE_DASHBOARD_DATA && (
                         <div className="bg-white p-6 rounded-xl shadow-md mb-8 flex flex-wrap items-center gap-4">
                             <h3 className="text-xl font-bold text-gray-800 mr-4">Filters</h3>
                             <div className="flex-grow">
@@ -436,25 +486,28 @@ const ProjectDashboard = () => {
                             </div>
                             <button onClick={clearFilters} className="bg-gray-700 text-white px-5 py-2 rounded-lg hover:bg-gray-800 font-semibold shadow-sm">Clear Filters</button>
                         </div>
-                        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                            <div className={`${infoData && !loading ? 'lg:col-span-3' : 'lg:col-span-5'} bg-white p-6 rounded-xl shadow-md`}>
-                                <h2 className="text-2xl font-bold text-gray-800 mb-4">{chartTitle}</h2>
-                                {loading ? (
-                                    <div className="flex justify-center items-center h-full"><p>Loading...</p></div>
-                                ) : chartData.length > 0 ? (
-                                    <RenderChart />
-                                ) : (
-                                    <div className="flex justify-center items-center h-full"><p>No data available.</p></div>
+                        )}
+                        {ENABLE_DASHBOARD_DATA && (
+                            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                                <div className={`${infoData && !loading ? 'lg:col-span-3' : 'lg:col-span-5'} bg-white p-6 rounded-xl shadow-md`}>
+                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">{chartTitle}</h2>
+                                    {loading ? (
+                                        <div className="flex justify-center items-center h-full"><p>Loading...</p></div>
+                                    ) : chartData.length > 0 ? (
+                                        <RenderChart />
+                                    ) : (
+                                        <div className="flex justify-center items-center h-full"><p>No data available.</p></div>
+                                    )}
+                                </div>
+                                
+                                {infoData && !loading && (
+                                    <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                                        <h2 className="text-2xl font-bold text-gray-800 mb-4">Information</h2>
+                                        <InfoBoxContent />
+                                    </div>
                                 )}
                             </div>
-                            
-                            {infoData && !loading && (
-                                <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">Information</h2>
-                                    <InfoBoxContent />
-                                </div>
-                            )}
-                        </div>
+                        )}
                     </>
                 )}
             </div>

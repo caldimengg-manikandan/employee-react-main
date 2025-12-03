@@ -5,6 +5,7 @@ const Timesheet = require("../models/Timesheet");
 const User = require("../models/User");
 const Employee = require("../models/Employee");
 
+
 const router = express.Router();
 
 /**
@@ -23,7 +24,7 @@ router.get("/list", async (req, res) => {
     if (week && week !== "All Weeks") adminQuery.week = week;
     if (project && project !== "All Projects") adminQuery["timeEntries.project"] = project;
 
-    const adminDocs = await AdminTimesheet.find(adminQuery).sort({ submittedDate: -1 });
+    const adminDocs = await AdminTimesheet.find(adminQuery).sort({ submittedDate: -1 }).lean();
 
     // If caller wants specifically Submitted status OR no admin docs found, include raw submitted employee timesheets
     const includeSubmitted = !status || status === "All Status" || status === "Submitted";
@@ -65,6 +66,7 @@ router.get("/list", async (req, res) => {
             return {
               project: e.project,
               task: e.task,
+              type: e.type || 'project',
               monday: Number(hours[0] || 0),
               tuesday: Number(hours[1] || 0),
               wednesday: Number(hours[2] || 0),
@@ -139,7 +141,31 @@ router.get("/list", async (req, res) => {
     const map = new Map();
     for (const r of submittedDocs) map.set(key(r), r);
     for (const r of adminDocs) map.set(key(r), r);
-    const combined = Array.from(map.values()).sort((a, b) => (a.submittedDate < b.submittedDate ? 1 : -1));
+    let combined = Array.from(map.values()).sort((a, b) => (a.submittedDate < b.submittedDate ? 1 : -1));
+
+    // Enrich division/location/name from current Employee records to ensure correctness
+    try {
+      const employeeIds = Array.from(new Set(combined.map(r => r.employeeId).filter(Boolean)));
+      if (employeeIds.length > 0) {
+        const employees = await Employee.find({ employeeId: { $in: employeeIds } })
+          .select('employeeId name division location')
+          .lean();
+        const empMap = employees.reduce((acc, emp) => {
+          acc[emp.employeeId] = emp;
+          return acc;
+        }, {});
+        combined = combined.map(r => {
+          const emp = empMap[r.employeeId];
+          if (!emp) return r;
+          return {
+            ...r,
+            employeeName: emp.name || r.employeeName,
+            division: emp.division || r.division || 'Not Assigned',
+            location: emp.location || r.location || 'Not Assigned',
+          };
+        });
+      }
+    } catch (_) {}
 
     res.json({ success: true, data: combined });
 
@@ -397,27 +423,43 @@ module.exports = router;
 async function findTimesheetByWeek(userId, weekStr) {
   try {
     const { start, end } = isoWeekToRange(weekStr);
-    
-    // First try exact date range matching
+
+    // Primary: exact range match on weekStartDate
     let timesheet = await Timesheet.findOne({
-      userId: userId,
+      userId,
       weekStartDate: { $gte: start, $lte: end }
     });
-    
     if (timesheet) return timesheet;
-    
-    // If no exact match, try broader range (±1 day)
-    const broaderStart = new Date(start);
-    broaderStart.setDate(broaderStart.getDate() - 1);
-    const broaderEnd = new Date(end);
-    broaderEnd.setDate(broaderEnd.getDate() + 1);
-    
+
+    // Secondary: tolerant range (±2 days)
+    const tolerantStart = new Date(start);
+    tolerantStart.setDate(tolerantStart.getDate() - 2);
+    const tolerantEnd = new Date(end);
+    tolerantEnd.setDate(tolerantEnd.getDate() + 2);
     timesheet = await Timesheet.findOne({
-      userId: userId,
-      weekStartDate: { $gte: broaderStart, $lte: broaderEnd }
+      userId,
+      weekStartDate: { $gte: tolerantStart, $lte: tolerantEnd }
     });
-    
-    return timesheet;
+    if (timesheet) return timesheet;
+
+    // Fallback: scan recent sheets and compare computed ISO week string
+    const recent = await Timesheet.find({ userId })
+      .sort({ weekStartDate: -1 })
+      .limit(20)
+      .lean();
+    for (const sheet of recent) {
+      const ws = toWeekString(new Date(sheet.weekStartDate));
+      if (ws === weekStr) {
+        return await Timesheet.findById(sheet._id);
+      }
+    }
+
+    // Final fallback: match by weekEndDate range
+    timesheet = await Timesheet.findOne({
+      userId,
+      weekEndDate: { $gte: start, $lte: end }
+    });
+    return timesheet || null;
   } catch (error) {
     console.error("Error finding timesheet by week:", error);
     return null;
