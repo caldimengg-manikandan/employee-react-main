@@ -50,6 +50,8 @@ export const employeeAPI = {
   createEmployee: (data) => api.post('/employees', data),
   updateEmployee: (id, data) => api.put(`/employees/${id}`, data),
   deleteEmployee: (id) => api.delete(`/employees/${id}`),
+  // Get employees for timesheet purposes only (limited data)
+  getTimesheetEmployees: () => api.get('/employees/timesheet/employees'),
 };
 
 // 🎯 HIKVISION API (WORKING ENDPOINTS)
@@ -145,6 +147,13 @@ export const attendanceAPI = {
   // Hikvision integration
   getHikvision: (params) => hikvisionAPI.getAttendance(params),
   syncHikvision: () => hikvisionAPI.pullEvents({}),
+};
+
+// 🛠️ ADMIN TIMESHEET API
+export const adminTimesheetAPI = {
+  list: (params) => api.get('/admin-timesheet/list', { params }),
+  approve: (id) => api.put(`/admin-timesheet/approve/${id}`),
+  reject: (id, reason) => api.put(`/admin-timesheet/reject/${id}`, { reason }),
 };
 
 export default api;

@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { timesheetAPI } from '../../services/api';
-import { Eye, Filter, Calendar, FileText, X, Download, Edit, Trash2 } from 'lucide-react';
+import { Eye, Filter, Calendar, FileText, X, Download, Edit, Trash2, RefreshCw } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -44,30 +45,52 @@ const TimesheetHistory = () => {
   };
 
   // Fetch real timesheet history from backend including drafts
+  const fetchTimesheets = async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const res = await timesheetAPI.getMyTimesheets();
+      const data = Array.isArray(res.data) ? res.data : [];
+      
+      // Get session storage drafts and merge with backend data
+      const sessionDrafts = getSessionStorageDrafts();
+      const allTimesheets = [...data, ...sessionDrafts];
+      
+      setTimesheets(allTimesheets);
+      setFilteredTimesheets(allTimesheets);
+    } catch (err) {
+      console.error('Failed to fetch timesheets:', err);
+      setError(
+        err.response?.data?.message || 'Unable to load timesheet history. Please try again.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTimesheets = async () => {
-      setIsLoading(true);
-      setError('');
-      try {
-        const res = await timesheetAPI.getMyTimesheets();
-        const data = Array.isArray(res.data) ? res.data : [];
-        
-        // Get session storage drafts and merge with backend data
-        const sessionDrafts = getSessionStorageDrafts();
-        const allTimesheets = [...data, ...sessionDrafts];
-        
-        setTimesheets(allTimesheets);
-        setFilteredTimesheets(allTimesheets);
-      } catch (err) {
-        console.error('Failed to fetch timesheets:', err);
-        setError(
-          err.response?.data?.message || 'Unable to load timesheet history. Please try again.'
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchTimesheets();
+  }, []);
+
+  // Listen for refresh events (for when admin approves/rejects timesheets)
+  useEffect(() => {
+    const handleRefreshTimesheets = () => {
+      fetchTimesheets();
+    };
+
+    window.addEventListener('refreshTimesheetHistory', handleRefreshTimesheets);
+    return () => {
+      window.removeEventListener('refreshTimesheetHistory', handleRefreshTimesheets);
+    };
+  }, []);
+
+  // Auto-refresh every 30 seconds to keep data current
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchTimesheets();
+    }, 30000); // 30 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   // Get drafts from sessionStorage
@@ -569,14 +592,26 @@ const TimesheetHistory = () => {
           </div>
         </div>
         
-        {/* Results count */}
-        <div className="mt-4 text-sm text-gray-600">
-          Showing {filteredTimesheets.length} of {timesheets.length} timesheets
-          {timesheets.some(t => t.isSessionDraft) && (
-            <span className="ml-2 text-blue-600">
-              • {timesheets.filter(t => t.isSessionDraft).length} draft(s) from current session
-            </span>
-          )}
+        {/* Refresh button */}
+        <div className="mt-4 flex justify-between items-center">
+          <button
+            onClick={fetchTimesheets}
+            disabled={isLoading}
+            className="px-4 py-2 bg-gray-100 text-gray-700 rounded text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+          
+          {/* Results count */}
+          <div className="text-sm text-gray-600">
+            Showing {filteredTimesheets.length} of {timesheets.length} timesheets
+            {timesheets.some(t => t.isSessionDraft) && (
+              <span className="ml-2 text-blue-600">
+                • {timesheets.filter(t => t.isSessionDraft).length} draft(s) from current session
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

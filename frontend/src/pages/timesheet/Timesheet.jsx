@@ -517,7 +517,7 @@ const Timesheet = () => {
       }
     } else {
       // Regular project hours
-      numValue = Math.max(0, Math.min(8.25, numValue));
+      numValue = Math.max(0, Math.min(9.5, numValue));
     }
 
     // Break after update depends on whether there is any project work on that day
@@ -1113,7 +1113,7 @@ const Timesheet = () => {
                           step={
                             row.task === "Half Day Leave" ? 4.75 :
                             row.task === "Office Holiday" || row.task === "Full Day Leave" ? 9.5 :
-                            row.task === "Permission" ? 1 : 1
+                            row.task === "Permission" ? 1 : 0.25
                           }
                           className={`w-20 p-2 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                             row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id) 

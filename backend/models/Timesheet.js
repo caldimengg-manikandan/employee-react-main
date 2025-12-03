@@ -30,6 +30,7 @@ const TimesheetSchema = new mongoose.Schema(
     },
 
     submittedAt: { type: Date, default: null },
+    approvedAt: { type: Date, default: null },
   },
   { timestamps: true }
 );

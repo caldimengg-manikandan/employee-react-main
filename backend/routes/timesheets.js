@@ -1,5 +1,7 @@
 const express = require("express");
 const Timesheet = require("../models/Timesheet");
+const AdminTimesheet = require("../models/AdminTimesheet");
+const Employee = require("../models/Employee");
 const auth = require("../middleware/auth");
 
 const router = express.Router();
@@ -33,6 +35,10 @@ router.post("/", auth, async (req, res) => {
 
       await sheet.save();
 
+      if (status === "Submitted") {
+        await upsertAdminTimesheetRecord(req.user, sheet);
+      }
+
       return res.json({
         success: true,
         message: "Timesheet updated successfully",
@@ -50,6 +56,10 @@ router.post("/", auth, async (req, res) => {
       status: status || "Draft",
       submittedAt: status === "Submitted" ? new Date() : null,
     });
+
+    if (status === "Submitted") {
+      await upsertAdminTimesheetRecord(req.user, sheet);
+    }
 
     res.json({
       success: true,
@@ -169,3 +179,75 @@ router.delete("/:id", auth, async (req, res) => {
 });
 
 module.exports = router;
+
+function toWeekString(d) {
+  const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+  const weekStr = String(weekNo).padStart(2, "0");
+  return `${date.getUTCFullYear()}-W${weekStr}`;
+}
+
+async function upsertAdminTimesheetRecord(user, sheet) {
+  const weekStr = toWeekString(new Date(sheet.weekStartDate));
+  let employeeProfile = null;
+  if (user.employeeId) {
+    employeeProfile = await Employee.findOne({ employeeId: user.employeeId }).lean();
+  }
+  if (!employeeProfile && user.email) {
+    employeeProfile = await Employee.findOne({ email: user.email }).lean();
+  }
+
+  const timeEntries = (sheet.entries || []).map((e) => {
+    const hours = e.hours || [0, 0, 0, 0, 0, 0, 0];
+    const total = hours.reduce((a, b) => a + (Number(b) || 0), 0);
+    return {
+      project: e.project,
+      task: e.task,
+      monday: Number(hours[0] || 0),
+      tuesday: Number(hours[1] || 0),
+      wednesday: Number(hours[2] || 0),
+      thursday: Number(hours[3] || 0),
+      friday: Number(hours[4] || 0),
+      saturday: Number(hours[5] || 0),
+      sunday: Number(hours[6] || 0),
+      total: Number(total || 0),
+    };
+  });
+
+  const weeklyTotal = timeEntries.reduce((sum, r) => sum + (Number(r.total) || 0), 0);
+  const submittedDate = new Date().toISOString().split("T")[0];
+
+  const payload = {
+    employeeId: employeeProfile?.employeeId || user.employeeId || "",
+    employeeName: employeeProfile?.name || user.name || "",
+    division: employeeProfile?.division || "",
+    location: employeeProfile?.location || "",
+    week: weekStr,
+    status: "Pending",
+    submittedDate,
+    timeEntries,
+    weeklyTotal: Number(weeklyTotal || 0),
+  };
+
+  const query = {
+    employeeId: payload.employeeId,
+    week: payload.week,
+  };
+
+  const existing = await AdminTimesheet.findOne(query);
+  if (existing) {
+    existing.employeeName = payload.employeeName;
+    existing.division = payload.division;
+    existing.location = payload.location;
+    existing.submittedDate = payload.submittedDate;
+    existing.timeEntries = payload.timeEntries;
+    existing.weeklyTotal = payload.weeklyTotal;
+    existing.status = "Pending";
+    await existing.save();
+  } else {
+    await AdminTimesheet.create(payload);
+  }
+}

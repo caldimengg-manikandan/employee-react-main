@@ -122,7 +122,18 @@ const UserAccess = () => {
 
   const fetchEmployees = async () => {
     try {
-      const res = await employeeAPI.getAllEmployees();
+      let res;
+      
+      // Use timesheet-specific endpoint if user has only timesheet access
+      if (currentUser && 
+          currentUser.permissions?.includes('timesheet_access') && 
+          !currentUser.permissions?.includes('employee_access')) {
+        res = await employeeAPI.getTimesheetEmployees();
+      } else {
+        // Use full employee endpoint for users with employee access
+        res = await employeeAPI.getAllEmployees();
+      }
+      
       const list = Array.isArray(res.data) ? res.data : [];
       setEmployees(list);
       const map = {};

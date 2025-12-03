@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { adminTimesheetAPI } from '../../services/api';
 import { 
   BarChart3, 
   Clock, 
@@ -36,6 +37,7 @@ const AdminTimesheet = () => {
     refreshButton: false,
     tableRows: {}
   });
+  const [projectOptions, setProjectOptions] = useState(["All Projects"]);
   const [selectedTimesheet, setSelectedTimesheet] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
 
@@ -449,8 +451,7 @@ const AdminTimesheet = () => {
     }
   };
 
-  // Empty data - removed all sample data
-  const mockTimesheets = [];
+  const [loading, setLoading] = useState(false);
 
   // All statistics set to 0
   const stats = {
@@ -501,9 +502,34 @@ const AdminTimesheet = () => {
     }
   ];
 
+  const fetchTimesheets = async () => {
+    try {
+      setLoading(true);
+      const params = { ...filters };
+      const res = await adminTimesheetAPI.list(params);
+      const data = res.data?.data || [];
+      setTimesheets(data);
+      const setProjects = new Set();
+      data.forEach(ts => {
+        (ts.timeEntries || []).forEach(te => {
+          if (te.project) setProjects.add(te.project);
+        });
+      });
+      setProjectOptions(["All Projects", ...Array.from(setProjects).sort()]);
+    } catch (e) {
+      setTimesheets([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    setTimesheets(mockTimesheets);
+    fetchTimesheets();
   }, []);
+
+  useEffect(() => {
+    fetchTimesheets();
+  }, [filters]);
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -513,23 +539,35 @@ const AdminTimesheet = () => {
   };
 
   const handleRefresh = () => {
-    console.log('Refreshing data with filters:', filters);
+    fetchTimesheets();
   };
 
-  const handleApprove = (timesheetId) => {
-    setTimesheets(prev => prev.map(ts => 
-      ts.id === timesheetId ? { ...ts, status: 'Approved' } : ts
-    ));
+  const handleApprove = async (timesheetId) => {
+    try {
+      await adminTimesheetAPI.approve(timesheetId);
+      setTimesheets(prev => prev.map(ts => 
+        ts._id === timesheetId ? { ...ts, status: 'Approved' } : ts
+      ));
+      // Trigger refresh for timesheet history components
+      window.dispatchEvent(new Event('refreshTimesheetHistory'));
+    } catch {}
   };
 
-  const handleReject = (timesheetId) => {
-    setTimesheets(prev => prev.map(ts => 
-      ts.id === timesheetId ? { ...ts, status: 'Rejected' } : ts
-    ));
+  const handleReject = async (timesheetId) => {
+    const reason = window.prompt('Enter rejection reason');
+    if (reason === null) return;
+    try {
+      await adminTimesheetAPI.reject(timesheetId, reason || '');
+      setTimesheets(prev => prev.map(ts => 
+        ts._id === timesheetId ? { ...ts, status: 'Rejected', rejectionReason: reason || '' } : ts
+      ));
+      // Trigger refresh for timesheet history components
+      window.dispatchEvent(new Event('refreshTimesheetHistory'));
+    } catch {}
   };
 
   const handleView = (timesheetId) => {
-    const timesheet = timesheets.find(ts => ts.id === timesheetId);
+    const timesheet = timesheets.find(ts => ts._id === timesheetId);
     if (timesheet) {
       setSelectedTimesheet(timesheet);
       setShowViewModal(true);
@@ -543,14 +581,14 @@ const AdminTimesheet = () => {
 
   const handleApproveFromModal = () => {
     if (selectedTimesheet) {
-      handleApprove(selectedTimesheet.id);
+      handleApprove(selectedTimesheet._id);
       handleCloseModal();
     }
   };
 
   const handleRejectFromModal = () => {
     if (selectedTimesheet) {
-      handleReject(selectedTimesheet.id);
+      handleReject(selectedTimesheet._id);
       handleCloseModal();
     }
   };
@@ -571,12 +609,14 @@ const AdminTimesheet = () => {
 
   const getStatusBadge = (status) => {
     const baseStyle = styles.statusBadge;
-    switch (status.toLowerCase()) {
+    const s = (status || '').toLowerCase();
+    switch (s) {
       case 'approved':
         return { ...baseStyle, ...styles.approvedBadge };
       case 'rejected':
         return { ...baseStyle, ...styles.rejectedBadge };
       case 'pending':
+      case 'submitted':
         return { ...baseStyle, ...styles.pendingBadge };
       default:
         return baseStyle;
@@ -706,7 +746,7 @@ const AdminTimesheet = () => {
               style={styles.filterInput}
             >
               <option>All Status</option>
-              <option>Pending</option>
+              <option>Submitted</option>
               <option>Approved</option>
               <option>Rejected</option>
             </select>
@@ -739,10 +779,9 @@ const AdminTimesheet = () => {
               onChange={(e) => handleFilterChange('project', e.target.value)}
               style={styles.filterInput}
             >
-              <option>All Projects</option>
-              <option>Project Alpha</option>
-              <option>Project Beta</option>
-              <option>Project Gamma</option>
+              {projectOptions.map(p => (
+                <option key={p}>{p}</option>
+              ))}
             </select>
           </div>
         </div>
@@ -786,14 +825,14 @@ const AdminTimesheet = () => {
                 </tr>
               ) : (
                 timesheets.map(timesheet => (
-                  <tr 
-                    key={timesheet.id}
+                      <tr 
+                    key={timesheet._id}
                     style={{
                       ...styles.tableRow,
-                      ...(hoverStates.tableRows?.[timesheet.id] ? styles.tableRowHover : {})
+                      ...(hoverStates.tableRows?.[timesheet._id] ? styles.tableRowHover : {})
                     }}
-                    onMouseEnter={() => handleMouseEnter('tableRows', timesheet.id)}
-                    onMouseLeave={() => handleMouseLeave('tableRows', timesheet.id)}
+                    onMouseEnter={() => handleMouseEnter('tableRows', timesheet._id)}
+                    onMouseLeave={() => handleMouseLeave('tableRows', timesheet._id)}
                   >
                     <td style={styles.tableCell}>
                       <div style={{fontWeight: '500', color: '#4299e1'}}>
@@ -821,11 +860,29 @@ const AdminTimesheet = () => {
                       <div style={styles.actions}>
                         <button 
                           style={styles.viewBtn}
-                          onClick={() => handleView(timesheet.id)}
+                          onClick={() => handleView(timesheet._id)}
                           title="View Details"
                         >
                           <Eye size={12} />
                         </button>
+                        {(['submitted','pending'].includes((timesheet.status || '').toLowerCase())) && (
+                          <>
+                            <button 
+                              style={styles.rejectBtn}
+                              onClick={() => handleReject(timesheet._id)}
+                              title="Reject"
+                            >
+                              <XCircle size={12} />
+                            </button>
+                            <button 
+                              style={styles.approveBtn}
+                              onClick={() => handleApprove(timesheet._id)}
+                              title="Approve"
+                            >
+                              <CheckCircle size={12} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -963,18 +1020,18 @@ const AdminTimesheet = () => {
               >
                 Close
               </button>
-              {selectedTimesheet.status === 'Pending' && (
+              {(['submitted','pending'].includes((selectedTimesheet.status || '').toLowerCase())) && (
                 <>
                   <button 
                     style={styles.rejectBtn}
-                    onClick={handleRejectFromModal}
+                    onClick={() => handleReject(selectedTimesheet._id)}
                   >
                     <XCircle size={14} />
                     Reject
                   </button>
                   <button 
                     style={styles.approveBtn}
-                    onClick={handleApproveFromModal}
+                    onClick={() => handleApprove(selectedTimesheet._id)}
                   >
                     <CheckCircle size={14} />
                     Approve

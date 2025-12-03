@@ -2,10 +2,34 @@
 const express = require('express');
 const router = express.Router();
 const Employee = require('../models/Employee');
+const auth = require('../middleware/auth');
+const User = require('../models/User');
 
-// Get all employees
-router.get('/', async (req, res) => {
+// Get all employees - restricted based on user permissions
+router.get('/', auth, async (req, res) => {
   try {
+    // Check if user has employee_access permission
+    if (!req.user.permissions?.includes('employee_access')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // For employees with only timesheet access, return limited employee data
+    if (req.user.permissions?.includes('timesheet_access') && 
+        !req.user.permissions?.includes('employee_access')) {
+      // Return only basic employee info needed for timesheets
+      const employees = await Employee.find({}, {
+        'name': 1,
+        'employeeId': 1,
+        'email': 1,
+        'department': 1,
+        'position': 1,
+        '_id': 1
+      }).sort({ name: 1 });
+      
+      return res.json(employees);
+    }
+
+    // For users with full employee access, return all employee data
     const employees = await Employee.find().sort({ createdAt: -1 });
     res.json(employees);
   } catch (error) {
@@ -13,22 +37,49 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get employee by ID
-router.get('/:id', async (req, res) => {
+// Get employee by ID - restricted based on user permissions
+router.get('/:id', auth, async (req, res) => {
   try {
+    // Check if user has employee_access permission
+    if (!req.user.permissions?.includes('employee_access')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const employee = await Employee.findById(req.params.id);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
+
+    // For employees with only timesheet access, return limited employee data
+    if (req.user.permissions?.includes('timesheet_access') && 
+        !req.user.permissions?.includes('employee_access')) {
+      // Return only basic employee info needed for timesheets
+      const limitedEmployee = {
+        _id: employee._id,
+        name: employee.name,
+        employeeId: employee.employeeId,
+        email: employee.email,
+        department: employee.department,
+        position: employee.position
+      };
+      return res.json(limitedEmployee);
+    }
+
+    // For users with full employee access, return all employee data
     res.json(employee);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Create new employee
-router.post('/', async (req, res) => {
+// Create new employee - requires admin permissions
+router.post('/', auth, async (req, res) => {
   try {
+    // Check if user has admin permissions
+    if (!req.user.permissions?.includes('user_access')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const employee = new Employee(req.body);
     const savedEmployee = await employee.save();
     res.status(201).json(savedEmployee);
@@ -37,9 +88,14 @@ router.post('/', async (req, res) => {
   }
 });
 
-// Update employee
-router.put('/:id', async (req, res) => {
+// Update employee - requires admin permissions
+router.put('/:id', auth, async (req, res) => {
   try {
+    // Check if user has admin permissions
+    if (!req.user.permissions?.includes('user_access')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const employee = await Employee.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -54,14 +110,43 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// Delete employee
-router.delete('/:id', async (req, res) => {
+// Delete employee - requires admin permissions
+router.delete('/:id', auth, async (req, res) => {
   try {
+    // Check if user has admin permissions
+    if (!req.user.permissions?.includes('user_access')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const employee = await Employee.findByIdAndDelete(req.params.id);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
     res.json({ message: 'Employee deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get employees for timesheet purposes only (limited data)
+router.get('/timesheet/employees', auth, async (req, res) => {
+  try {
+    // Check if user has timesheet access
+    if (!req.user.permissions?.includes('timesheet_access')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Return only basic employee info needed for timesheets
+    const employees = await Employee.find({}, {
+      'name': 1,
+      'employeeId': 1,
+      'email': 1,
+      'department': 1,
+      'position': 1,
+      '_id': 1
+    }).sort({ name: 1 });
+    
+    res.json(employees);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

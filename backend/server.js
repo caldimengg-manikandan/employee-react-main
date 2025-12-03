@@ -18,25 +18,20 @@ connectDB();
 
 const app = express();
 
-// Middleware
+// --------------------- MIDDLEWARE --------------------- //
 app.use(cors());
-app.use(express.json());
-const upload = multer(); // optional
+app.use(express.json({ limit: "2mb" }));
+const upload = multer(); // optional for file uploads
 
-// ----------- ROUTES ----------- //
+// --------------------- API ROUTES --------------------- //
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/employees", require("./routes/employees"));
 app.use("/api/timesheets", require("./routes/timesheets"));
 app.use("/api/projects", require("./routes/projectRoutes"));
 app.use("/api/allocations", require("./routes/allocationRoutes"));
 
-// 🔹 NEW: Hikvision Access Routes
+// Hikvision Access Routes
 app.use("/api/access", require("./routes/accessRoutes"));
-
-// app.use("/api/hik", hikEventsRoutes);
-// // 🔹 NEW: HikCentral Employee Management Routes
-// app.use("/api/hik-employees", require("./routes/hikEmployees"));
-
 
 // Timesheet History Route
 app.use("/api/timesheet-history", require("./routes/timesheetHistory"));
@@ -44,21 +39,15 @@ app.use("/api/timesheet-history", require("./routes/timesheetHistory"));
 // Attendance Routes
 app.use("/api/attendance", require("./routes/attendance"));
 
+// ⭐ NEW: Admin Timesheet Routes
+app.use("/api/admin-timesheet", require("./routes/admintimesheetRoutes"));
+
 // Base Route
 app.get("/", (req, res) => {
   res.json({ message: "Caldim Employees API is running successfully 🚀" });
 });
 
-// Error Handler
-app.use((err, req, res, next) => {
-  console.error("Server Error:", err.stack);
-  res.status(500).json({ success: false, message: "Internal Server Error" });
-});
-
-app.use(cors());
-app.use(express.json({ limit: "2mb" }));
-
-// Crypto helpers
+// --------------------- HIKVISION SECURITY HELPERS --------------------- //
 function md5Base64(data) {
   return crypto.createHash("md5").update(data, "utf8").digest("base64");
 }
@@ -67,7 +56,10 @@ function hmacSha256Base64(secret, data) {
   return crypto.createHmac("sha256", secret).update(data, "utf8").digest("base64");
 }
 
-// Hikvision Proxy
+/**
+ * Hikvision Proxy Handler
+ * Handles encryption, signing, and API communication
+ */
 async function hikProxy(bodyObj = {}, uri = "/artemis/api/attendance/v1/report") {
   const bodyString = JSON.stringify(bodyObj);
 
@@ -102,7 +94,7 @@ async function hikProxy(bodyObj = {}, uri = "/artemis/api/attendance/v1/report")
   const url = `${process.env.HIK_HOST}${uri}`;
 
   const agent = url.startsWith("https://")
-    ? new https.Agent({ rejectUnauthorized: false })
+    ? new https.Agent({ rejectUnauthorized: false }) // ignore cert issues
     : new http.Agent({ keepAlive: true });
 
   const response = await axios.post(url, bodyString, {
@@ -115,26 +107,30 @@ async function hikProxy(bodyObj = {}, uri = "/artemis/api/attendance/v1/report")
   return response.data;
 }
 
-// Final attendance route
+// --------------------- HIKVISION ATTENDANCE ROUTE --------------------- //
 app.post("/api/hikvision/attendance", async (req, res) => {
   try {
-    const body = req.body; // Already formatted correctly by the React UI
+    const body = req.body; // React UI sends formatted body
 
-    console.log("PROXY REQUEST:", JSON.stringify(body, null, 2));
+    console.log("HIK REQUEST BODY:", JSON.stringify(body, null, 2));
 
     const data = await hikProxy(body);
     res.json({ ok: true, data });
 
   } catch (err) {
-    console.error("Proxy Error:", err.message);
+    console.error("Hikvision Proxy Error:", err.message);
     res.status(500).json({ ok: false, error: err.message });
   }
 });
 
+// --------------------- ERROR HANDLER --------------------- //
+app.use((err, req, res, next) => {
+  console.error("Server Error:", err.stack);
+  res.status(500).json({ success: false, message: "Internal Server Error" });
+});
 
-// Server Listen
+// --------------------- START SERVER --------------------- //
 const PORT = process.env.PORT || 5003;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
 });
-;
