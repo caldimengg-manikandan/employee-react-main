@@ -29,6 +29,10 @@ app.use("/api/employees", require("./routes/employees"));
 app.use("/api/timesheets", require("./routes/timesheets"));
 app.use("/api/projects", require("./routes/projectRoutes"));
 app.use("/api/allocations", require("./routes/allocationRoutes"));
+app.use("/api/teams", require("./routes/teamRoutes"));
+app.use("/api/leaves", require("./routes/leaves"));
+// Policies Routes
+app.use("/api/policies", require("./routes/policies"));
 
 // Hikvision Access Routes
 app.use("/api/access", require("./routes/accessRoutes"));
@@ -41,6 +45,8 @@ app.use("/api/attendance", require("./routes/attendance"));
 
 // ⭐ NEW: Admin Timesheet Routes
 app.use("/api/admin-timesheet", require("./routes/admintimesheetRoutes"));
+
+app.use("/api/leave", require("./routes/leaveRoutes"));
 
 // Base Route
 app.get("/", (req, res) => {

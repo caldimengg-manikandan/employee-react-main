@@ -104,6 +104,19 @@ export const projectAPI = {
   deleteProject: (id) => api.delete(`/projects/${id}`),
 };
 
+// 📄 POLICY API
+export const policyAPI = {
+  list: () => api.get('/policies'),
+  create: (data) => api.post('/policies', data),
+  update: (id, data) => api.put(`/policies/${id}`, data),
+  remove: (id) => api.delete(`/policies/${id}`),
+};
+
+export const leaveAPI = {
+  apply: (data) => api.post('/leaves', data),
+  myLeaves: () => api.get('/leaves/my'),
+};
+
 // 👥 ALLOCATION API
 export const allocationAPI = {
   getAllAllocations: () => api.get('/allocations'),
@@ -155,6 +168,16 @@ export const adminTimesheetAPI = {
   approve: (id) => api.put(`/admin-timesheet/approve/${id}`),
   reject: (id, reason) => api.put(`/admin-timesheet/reject/${id}`, { reason }),
   summary: (params) => api.get('/admin-timesheet/summary', { params }),
+};
+
+// 🧩 TEAM API
+export const teamAPI = {
+  getLeaders: (type) => api.get('/teams/leaders', type ? { params: { type } } : undefined),
+  list: () => api.get('/teams'),
+  getByCode: (teamCode) => api.get(`/teams/${encodeURIComponent(teamCode)}`),
+  upsert: (data) => api.post('/teams', data),
+  addMember: (teamCode, employeeId) => api.post(`/teams/${encodeURIComponent(teamCode)}/members`, { employeeId }),
+  removeMember: (teamCode, employeeId) => api.delete(`/teams/${encodeURIComponent(teamCode)}/members/${encodeURIComponent(employeeId)}`),
 };
 
 export default api;

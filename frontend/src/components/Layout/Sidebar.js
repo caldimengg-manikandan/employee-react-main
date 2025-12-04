@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X, ChevronDown, ChevronRight } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import {
   HomeIcon,
@@ -16,6 +16,7 @@ import {
 
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const permissions = user.permissions || [];
   const role = user.role || "employees";
@@ -24,6 +25,15 @@ const Sidebar = ({ isOpen, onClose }) => {
 
   const toggleDropdown = (name) => {
     setOpenDropdown(openDropdown === name ? null : name);
+  };
+
+  const handleDropdownClick = (item) => {
+    const children = getFilteredChildren(item.children || []);
+    if (children.length > 0) {
+      navigate(children[0].path);
+      onClose();
+    }
+    toggleDropdown(item.name);
   };
 
   // icon mapping
@@ -36,6 +46,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     "Project Allocation": FolderIcon,
     "Leave Management": CalendarIcon,
     "Salary Slips": BanknotesIcon,
+    
   };
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
@@ -87,17 +98,15 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: getIconForMenu("Policy Portal"),
       permission: "dashboard",
     },
-    // {
-    //   name: "Leave Management",
-    //   hasDropdown: true,
-    //   icon: getIconForMenu("Leave Management"),
-    //   permission: "leave_access",
-    //   allowEmployeeRole: true,
-    //   children: [
-    //     { name: "My Leaves", path: "/leave-management" },
-    //     { name: "Leave Applications", path: "/leave-management/applications", permission: "leave_approval" },
-    //   ],
-    // },
+    {
+      name: "Leave Applications",
+      path: "/leave-applications",
+      icon: getIconForMenu("Leave Applications"),
+      // Only visible to employees
+      showForRoles: ["employees"],
+      permission: "leave_access",
+      allowEmployeeRole: true,
+    },
     {
       name: "Project Allocation",
       path: "/project-allocation",
@@ -119,6 +128,12 @@ const Sidebar = ({ isOpen, onClose }) => {
     {
       name: "Employee Management",
       path: "/employee-management",
+      icon: getIconForMenu("Employee Management"),
+      permission: "employee_access",
+    },
+    {
+      name: "Team Management",
+      path: "/admin/team-management",
       icon: getIconForMenu("Employee Management"),
       permission: "employee_access",
     },
@@ -218,7 +233,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               {item.hasDropdown ? (
                 <>
                   <button
-                    onClick={() => toggleDropdown(item.name)}
+                    onClick={() => handleDropdownClick(item)}
                     className={`w-full flex items-center justify-between px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
                       isItemActive(item)
                         ? "bg-[#1e2050] text-white shadow-sm"

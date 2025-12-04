@@ -1,545 +1,433 @@
-// src/pages/PolicyPortal.jsx
+// src/pages/AdminPolicyPortal.jsx
 import React, { useState, useEffect } from 'react';
+import { policyAPI } from '../services/api';
 import { 
   PlusIcon,
   CheckIcon,
-  ArrowDownTrayIcon,
   TrashIcon,
-  UserCircleIcon
+  PencilIcon,
+  DocumentTextIcon
 } from '@heroicons/react/24/outline';
 
-const PolicyPortal = () => {
-  const [policyTabs, setPolicyTabs] = useState([]);
-  const [activeTab, setActiveTab] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [editingTitle, setEditingTitle] = useState(null);
-  const [tempTitle, setTempTitle] = useState('');
+const AdminPolicyPortal = () => {
+  const [policies, setPolicies] = useState([]);
+  const [activePolicy, setActivePolicy] = useState(null);
+  const [editingContent, setEditingContent] = useState(false);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [content, setContent] = useState('');
+  const [policyTitle, setPolicyTitle] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [policyToDelete, setPolicyToDelete] = useState(null);
 
-  const role = localStorage.getItem('role') || 'employee';
-  const isAdmin = role === 'admin';
-
-  const policyIcons = {
-    "Leave Policy": "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
-    "Health Insurance": "M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10",
-    "Allowances": "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-    "Bonus": "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
-    "Loss of Pay": "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01",
-    "Holiday Benefit": "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
-    "Deployment": "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
-    "PF & Gratuity": "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-    "Reward & Recognition": "M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z",
-    "Separation Policy": "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
-    "Whistleblower Policy": "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
-    "Confidentiality Policy": "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
-    "Permission Policy": "M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z",
-    "New Policy": "M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-  };
-
-  const defaultPolicies = [
-    {
-      id: 1,
-      title: "Leave Policy",
-      content: `<div class="content-header">
-                  <h2>Leave Policy</h2>
-                </div>
-                <div class="content-body">
-                  <h3>Annual Leave Entitlement</h3>
-                  <p>All full-time employees are entitled to 18 days of paid leave per calendar year. Leave accrues at a rate of 1.5 days per month.</p>
-                  
-                  <h3>Leave Application Process</h3>
-                  <ul>
-                    <li>Leave requests must be submitted at least 3 working days in advance</li>
-                    <li>For leaves exceeding 5 consecutive days, approval must be obtained 2 weeks in advance</li>
-                    <li>Medical leaves require a doctor's certificate for absences exceeding 3 days</li>
-                  </ul>
-                  
-                  <h3>Carry Forward Policy</h3>
-                  <p>Employees may carry forward up to 5 unused leave days to the next calendar year. These must be utilized by March 31st.</p>
-                </div>`
-    },
-    {
-      id: 2,
-      title: "Health Insurance",
-      content: `<div class="content-header">
-                  <h2>Health Insurance Benefits</h2>
-                </div>
-                <div class="content-body">
-                  <h3>Coverage Details</h3>
-                  <p>Our comprehensive health insurance plan covers:</p>
-                  <ul>
-                    <li>Hospitalization expenses up to ₹5,00,000 per year</li>
-                    <li>Pre-existing conditions after 1 year of continuous coverage</li>
-                    <li>Maternity benefits up to ₹50,000</li>
-                    <li>Annual health check-up worth ₹2,000</li>
-                  </ul>
-                  
-                  <h3>Dependent Coverage</h3>
-                  <p>Employees may enroll:</p>
-                  <ul>
-                    <li>Spouse</li>
-                    <li>Up to 2 children (below 25 years)</li>
-                    <li>Parents (additional premium applies)</li>
-                  </ul>
-                  
-                  <h3>Network Hospitals</h3>
-                  <p>Cashless treatment available at 5,000+ network hospitals across India.</p>
-                </div>`
-    },
-    {
-      id: 3,
-      title: "Allowances",
-      content: `<div class="content-header">
-                  <h2>Employee Allowances</h2>
-                </div>
-                <div class="content-body">
-                  <h3>Standard Allowances</h3>
-                  <table class="policy-table">
-                    <thead>
-                      <tr>
-                        <th>Allowance</th>
-                        <th>Amount</th>
-                        <th>Taxability</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td>Transportation</td>
-                        <td>₹3,000/month</td>
-                        <td>Exempt up to ₹1,600/month</td>
-                      </tr>
-                      <tr>
-                        <td>Meal</td>
-                        <td>₹2,500/month</td>
-                        <td>Fully exempt</td>
-                      </tr>
-                      <tr>
-                        <td>Internet</td>
-                        <td>₹1,000/month</td>
-                        <td>Fully taxable</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                  
-                  <h3>Special Allowances</h3>
-                  <p>Project-based allowances may be provided for:</p>
-                  <ul>
-                    <li>On-site deployments</li>
-                    <li>Shift differentials</li>
-                    <li>Hazardous work conditions</li>
-                  </ul>
-                </div>`
-    },
-    {
-      id: 4,
-      title: "Separation Policy",
-      content: `<div class="content-header">
-                  <h2>Separation Policy</h2>
-                  <p>To ensure a smooth and professional exit process for employees leaving the organization.</p>
-                </div>
-                <div class="content-body">
-                  <h3>1.1 RESIGNATION & NOTICE PERIOD</h3>
-                  
-                  <h4>TYPES OF SEPARATIONS</h4>
-                  <ul>
-                    <li><strong>Resignation</strong>: Voluntary exit initiated by the employee.</li>
-                    <li><strong>Termination</strong>: Involuntary exit due to performance issues, misconduct, or redundancy.</li>
-                    <li><strong>Retirement</strong>: Exit upon reaching the company's retirement age.</li>
-                    <li><strong>End of Agreement</strong>: Separation upon completion of a contractual term.</li>
-                  </ul>
-                  
-                  <h4>NOTICE PERIOD</h4>
-                  <ul>
-                    <li>Employees must serve a notice period of 2 months.</li>
-                    <li>Exceptions may be made with mutual agreement.</li>
-                  </ul>
-                  
-                  <h4>TRAINEE BOND AGREEMENT</h4>
-                  <ul>
-                    <li>Trainees are required to serve a minimum of 3 years as per the bond agreement.</li>
-                    <li>If a trainee resigns formally or informally before completing this period, they must pay the amount specified in the bond agreement.</li>
-                  </ul>
-                  
-                  <h4>CONFIDENTIALITY</h4>
-                  <ul>
-                    <li>Employees must honor confidentiality agreements even after separation.</li>
-                  </ul>
-                  
-                  <h3>1.2 EXIT FORMALITIES</h3>
-                  <ul>
-                    <li>Submit a formal resignation letter to HR department.</li>
-                    <li>Serve the notice period unless waived by the management.</li>
-                    <li>Complete a handover of responsibilities and company property to immediate superiors.</li>
-                    <li>Please note any damage to company property due to mishandling other than the normal wear and tear will be construed as loss to company property and hence will be deducted from the accruals owed by the company.</li>
-                  </ul>
-                  
-                  <h3>1.3 POLICY ON NOTICE PERIOD SALARY AND FINAL SETTLEMENT</h3>
-                  
-                  <h4>1.3.1 SALARY DURING NOTICE PERIOD</h4>
-                  <ul>
-                    <li>Employees serving their notice period will continue to receive their salary as per the regular payroll cycle. However, the salary for the final month of employment will be processed only after the successful completion of the full notice period.</li>
-                  </ul>
-                  
-                  <h4>1.3.2 FINAL SETTLEMENT PROCESS</h4>
-                  <ul>
-                    <li>Upon completion of the notice period, the final settlement process will be initiated. This includes:
-                      <ul>
-                        <li>Salary for the last working month (excluding any deductions for leave or pending dues)</li>
-                        <li>Leave encashment (if applicable)</li>
-                        <li>Payment of any pending allowances or reimbursements</li>
-                        <li>Deductions for any outstanding dues or advances</li>
-                      </ul>
-                    </li>
-                    <li>The final settlement process may take a minimum of 15 days and a maximum of 45 days from the employee's last working day to be fully processed.</li>
-                  </ul>
-                  
-                  <h4>1.3.3 LEAVE DURING NOTICE PERIOD</h4>
-                  <ul>
-                    <li>Employees are not eligible to take any leave (Casual Leave, Sick Leave, or Privilege Leave) during their notice period.</li>
-                    <li>Any leave taken during the notice period will be treated as Leave Without Pay (LOP).</li>
-                    <li>The corresponding LOP will be deducted from the final settlement amount.</li>
-                  </ul>
-                </div>`
-    }
-  ];
-
+  // Load policies from backend on component mount
   useEffect(() => {
-    // Load from session storage or use defaults
-    const savedPolicies = sessionStorage.getItem('policy_tabs');
-    const savedActiveTab = sessionStorage.getItem('active_policy_tab');
-    
-    if (savedPolicies) {
-      setPolicyTabs(JSON.parse(savedPolicies));
-    } else {
-      setPolicyTabs(defaultPolicies);
-    }
-    
-    if (savedActiveTab) {
-      setActiveTab(parseInt(savedActiveTab));
-    }
-    
-    setLoading(false);
+    const fetchPolicies = async () => {
+      try {
+        const res = await policyAPI.list();
+        const items = Array.isArray(res.data) ? res.data : [];
+        setPolicies(items);
+        if (items.length > 0) {
+          setActivePolicy(items[0]);
+          setContent(items[0].content || '');
+          setPolicyTitle(items[0].title || '');
+        }
+      } catch (err) {
+        // silent fail
+      }
+    };
+    fetchPolicies();
   }, []);
 
-  useEffect(() => {
-    // Save to session storage whenever policies change
-    sessionStorage.setItem('policy_tabs', JSON.stringify(policyTabs));
-    sessionStorage.setItem('active_policy_tab', activeTab.toString());
-  }, [policyTabs, activeTab]);
-
-  const handleAddPolicy = () => {
-    const newPolicy = {
-      id: Date.now(),
-      title: "New Policy",
-      content: `<div class="content-header">
-                  <h2>New Policy</h2>
-                </div>
-                <div class="content-body">
-                  <p>Edit this content to create your new policy.</p>
-                </div>`
-    };
-    
-    setPolicyTabs(prev => [...prev, newPolicy]);
-    setActiveTab(policyTabs.length);
-  };
-
-  const handleDeletePolicy = (index) => {
-    if (window.confirm(`Are you sure you want to delete the "${policyTabs[index].title}" policy?`)) {
-      const newTabs = policyTabs.filter((_, i) => i !== index);
-      setPolicyTabs(newTabs);
-      
-      if (activeTab >= index && activeTab > 0) {
-        setActiveTab(activeTab - 1);
-      }
-    }
-  };
-
-  const handleTitleEdit = (index) => {
-    setEditingTitle(index);
-    setTempTitle(policyTabs[index].title);
-  };
-
-  const handleTitleSave = (index) => {
-    const updatedTabs = policyTabs.map((tab, i) => 
-      i === index ? { ...tab, title: tempTitle } : tab
-    );
-    setPolicyTabs(updatedTabs);
-    setEditingTitle(null);
-  };
-
-  const handleTitleCancel = () => {
-    setEditingTitle(null);
-    setTempTitle('');
-  };
-
-  const handleContentUpdate = (index, newContent) => {
-    const updatedTabs = policyTabs.map((tab, i) => 
-      i === index ? { ...tab, content: newContent } : tab
-    );
-    setPolicyTabs(updatedTabs);
-  };
-
-  const handleSaveChanges = async () => {
+  // Add new policy
+  const handleAddPolicy = async () => {
     try {
-      // Simulate API call
-      console.log('Saving policies:', policyTabs);
-      alert('Policy changes saved successfully!');
-    } catch (error) {
-      console.error('Error saving policies:', error);
-      alert('Failed to save policy changes');
+      const res = await policyAPI.create({
+        title: 'New Policy',
+        content: '# New Policy\n\nAdd your policy content here...'
+      });
+      const created = res.data;
+      const updatedPolicies = [...policies, created];
+      setPolicies(updatedPolicies);
+      setActivePolicy(created);
+      setContent(created.content || '');
+      setPolicyTitle(created.title || '');
+      setEditingContent(true);
+      setEditingTitle(true);
+    } catch (err) {
+      // silent fail
     }
   };
 
-  const handleExportPDF = () => {
-    window.print();
+  // Delete policy
+  const handleDeletePolicy = async (id) => {
+    try {
+      await policyAPI.remove(id);
+      const updatedPolicies = policies.filter(policy => policy._id !== id);
+      setPolicies(updatedPolicies);
+      if (activePolicy && activePolicy._id === id) {
+        if (updatedPolicies.length > 0) {
+          setActivePolicy(updatedPolicies[0]);
+          setContent(updatedPolicies[0].content || '');
+          setPolicyTitle(updatedPolicies[0].title || '');
+        } else {
+          setActivePolicy(null);
+          setContent('');
+          setPolicyTitle('');
+        }
+      }
+    } catch (err) {
+      // silent fail
+    } finally {
+      setShowDeleteConfirm(false);
+      setPolicyToDelete(null);
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
+  // Save policy changes
+  const handleSaveChanges = async () => {
+    if (!activePolicy) return;
+    try {
+      const res = await policyAPI.update(activePolicy._id, {
+        title: policyTitle,
+        content: content
+      });
+      const updated = res.data;
+      const updatedPolicies = policies.map(policy =>
+        policy._id === updated._id ? updated : policy
+      );
+      setPolicies(updatedPolicies);
+      setActivePolicy(updated);
+    } catch (err) {
+      // silent fail
+    } finally {
+      setEditingContent(false);
+      setEditingTitle(false);
+    }
+  };
+
+  // Handle policy selection
+  const handleSelectPolicy = (policy) => {
+    setActivePolicy(policy);
+    setContent(policy.content);
+    setPolicyTitle(policy.title);
+    setEditingContent(false);
+    setEditingTitle(false);
+  };
+
+  // Handle content editing
+  const handleContentChange = (e) => {
+    setContent(e.target.value);
+  };
+
+  // Handle title editing
+  const handleTitleChange = (e) => {
+    setPolicyTitle(e.target.value);
+  };
+
+  // Format markdown content for display
+  const formatContentForDisplay = (text) => {
+    if (!text) return '';
+    
+    return text
+      .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mb-3">$1</h1>')
+      .replace(/^## (.*$)/gm, '<h2 class="text-lg font-semibold mt-4 mb-2">$1</h2>')
+      .replace(/^### (.*$)/gm, '<h3 class="text-base font-medium mt-3 mb-2">$1</h3>')
+      .replace(/^- (.*$)/gm, '<li class="ml-4 mb-1">$1</li>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*(.*?)\*/g, '<em>$1</em>')
+      .replace(/\n\n/g, '</p><p class="mb-2">')
+      .replace(/\n---\n/g, '<hr class="my-4 border-gray-300">');
+  };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-5 shadow-sm">
-        <div className="max-w-7xl mx-auto flex justify-between items-center">
-          <h1 className="text-xl font-semibold">Caldim Engineering Pvt. Ltd. - Employee Policies</h1>
-          <div className="flex items-center gap-3">
-            <span className="bg-white/20 px-2 py-1 rounded text-sm">
-              {role.charAt(0).toUpperCase() + role.slice(1)}
-            </span>
-            <UserCircleIcon className="h-6 w-6" />
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <div className="flex-1 max-w-7xl mx-auto w-full py-6 px-4">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="flex flex-col lg:flex-row min-h-[600px]">
-            {/* Content Panel (Left Side) */}
-            <div className="flex-1 p-6 lg:p-8 overflow-y-auto">
-              {policyTabs.length > 0 ? (
-                policyTabs.map((policy, index) => (
-                  <div
-                    key={policy.id}
-                    className={`tab-content ${index === activeTab ? 'block' : 'hidden'}`}
-                  >
-                    {isAdmin ? (
-                      <div
-                        contentEditable
-                        dangerouslySetInnerHTML={{ __html: policy.content }}
-                        onBlur={(e) => handleContentUpdate(index, e.target.innerHTML)}
-                        className="outline-none p-5 rounded-lg border border-dashed border-gray-300 bg-gray-50 min-h-[400px] focus:border-blue-500 focus:bg-white policy-content-editable"
-                      />
-                    ) : (
-                      <div 
-                        dangerouslySetInnerHTML={{ __html: policy.content }}
-                        className="policy-content-readonly"
-                      />
-                    )}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* Left Column - Policy Content */}
+          <div className="lg:w-2/3">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              {activePolicy ? (
+                <>
+                  {/* Policy Title Bar */}
+                  <div className="border-b border-gray-200 px-6 py-4">
+                    <div className="flex justify-between items-center">
+                    <div className="flex-1">
+                        {editingTitle ? (
+                          <input
+                            type="text"
+                            value={policyTitle}
+                            onChange={handleTitleChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-lg font-semibold"
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveChanges();
+                              }
+                            }}
+                          />
+                        ) : (
+                          <h2 className="text-lg font-semibold text-gray-900">
+                            {policyTitle}
+                          </h2>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-500">
+                          Updated: {activePolicy.updatedAt ? new Date(activePolicy.updatedAt).toISOString().split('T')[0] : ''}
+                        </span>
+                        <button
+                          onClick={() => {
+                            if (editingTitle) {
+                              handleSaveChanges();
+                            } else {
+                              setEditingTitle(true);
+                            }
+                          }}
+                          className="p-2 text-gray-600 hover:text-blue-600"
+                        >
+                          <PencilIcon className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                ))
+
+                  {/* Content Area */}
+                  <div className="p-6">
+                    {editingContent ? (
+                      <div>
+                        <textarea
+                          value={content}
+                          onChange={handleContentChange}
+                          className="w-full h-[400px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                          placeholder="# Enter policy content here"
+                        />
+                      </div>
+                    ) : (
+                      <div className="prose max-w-none">
+                        <div 
+                          className="policy-content"
+                          dangerouslySetInnerHTML={{ __html: formatContentForDisplay(content) }}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Edit Content Button */}
+                    <div className="mt-6 pt-6 border-t border-gray-200">
+                      <button
+                        onClick={() => {
+                          if (editingContent) {
+                            handleSaveChanges();
+                          } else {
+                            setEditingContent(true);
+                          }
+                        }}
+                        className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                      >
+                        {editingContent ? (
+                          <>
+                            <CheckIcon className="h-4 w-4 mr-2" />
+                            Save Content
+                          </>
+                        ) : (
+                          <>
+                            <PencilIcon className="h-4 w-4 mr-2" />
+                            Edit Content
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                </>
               ) : (
-                <div className="text-center py-12 text-gray-500">
-                  <p>No policies available.</p>
+                <div className="p-12 text-center">
+                  <DocumentTextIcon className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Policy Selected</h3>
+                  <p className="text-gray-500 mb-6">Select a policy from the list or create a new one</p>
+                  <button
+                    onClick={handleAddPolicy}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    <PlusIcon className="h-4 w-4 mr-2" />
+                    Create New Policy
+                  </button>
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Tabs Sidebar (Right Side) */}
-            <div className="w-full lg:w-80 bg-gray-50 border-t lg:border-t-0 lg:border-l border-gray-200 flex flex-col">
-              <div className="p-4 bg-blue-600 text-white font-semibold text-lg">
-                POLICY CATEGORIES
+          {/* Right Column - Policy List */}
+          <div className="lg:w-1/3">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              <div className="border-b border-gray-200 px-4 py-3">
+                <h3 className="text-base font-semibold text-gray-900">POLICIES LIST</h3>
               </div>
-              
-              {/* Tabs Container */}
-              <div className="flex-1 overflow-y-auto max-h-96 lg:max-h-none p-2">
-                {policyTabs.map((policy, index) => {
-                  const iconPath = policyIcons[policy.title] || policyIcons["New Policy"];
-                  return (
+
+              <div className="p-4">
+                <div className="space-y-2">
+                  {policies.map((policy) => (
                     <div
-                      key={policy.id}
-                      className={`tab flex items-center gap-3 p-4 rounded-lg mb-2 cursor-pointer transition-all ${
-                        index === activeTab
-                          ? 'bg-blue-50 text-blue-600 font-medium shadow-sm border-2 border-blue-200'
-                          : 'hover:bg-blue-50 hover:text-blue-600'
+                      key={policy._id}
+                      className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
+                        activePolicy?._id === policy._id
+                          ? 'bg-blue-50 border border-blue-200'
+                          : 'hover:bg-gray-50 border border-transparent'
                       }`}
-                      onClick={() => setActiveTab(index)}
+                      onClick={() => handleSelectPolicy(policy)}
                     >
-                      <svg className="h-5 w-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={iconPath} />
-                      </svg>
-                      
-                      <div className="flex-1 min-w-0">
-                        {editingTitle === index ? (
-                          <input
-                            type="text"
-                            value={tempTitle}
-                            onChange={(e) => setTempTitle(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') handleTitleSave(index);
-                              if (e.key === 'Escape') handleTitleCancel();
-                            }}
-                            className="w-full bg-transparent border-b border-blue-300 outline-none"
-                            autoFocus
-                          />
-                        ) : (
-                          <span className="truncate">{policy.title}</span>
-                        )}
-                      </div>
-
-                      {isAdmin && (
-                        <div className="flex items-center gap-1">
-                          {editingTitle === index ? (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTitleSave(index);
-                                }}
-                                className="p-1 text-green-600 hover:text-green-700"
-                              >
-                                <CheckIcon className="h-4 w-4" />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleTitleEdit(index);
-                                }}
-                                className="p-1 text-gray-400 hover:text-blue-600"
-                              >
-                                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeletePolicy(index);
-                                }}
-                                className="p-1 text-red-400 hover:text-red-600"
-                              >
-                                <TrashIcon className="h-4 w-4" />
-                              </button>
-                            </>
-                          )}
+                      <div className="flex items-center">
+                        <DocumentTextIcon className={`h-4 w-4 mr-3 ${
+                          activePolicy?._id === policy._id ? 'text-blue-600' : 'text-gray-400'
+                        }`} />
+                        <div>
+                          <div className={`text-sm font-medium ${
+                            activePolicy?._id === policy._id ? 'text-blue-700' : 'text-gray-700'
+                          }`}>
+                            {policy.title}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Updated: {policy.updatedAt ? new Date(policy.updatedAt).toISOString().split('T')[0] : ''}
+                          </div>
                         </div>
-                      )}
+                      </div>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setPolicyToDelete(policy._id);
+                          setShowDeleteConfirm(true);
+                        }}
+                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
+                  ))}
+                </div>
 
-              {/* Action Buttons - Only for Admin */}
-              {isAdmin && (
-                <div className="p-4 border-t border-gray-200 flex flex-wrap gap-2">
+                {/* Empty state */}
+                {policies.length === 0 && (
+                  <div className="text-center py-8">
+                    <DocumentTextIcon className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                    <p className="text-sm text-gray-500">No policies yet</p>
+                  </div>
+                )}
+
+                {/* Add Policy Button */}
+                <div className="mt-6">
                   <button
                     onClick={handleAddPolicy}
-                    className="btn-primary flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                    className="w-full flex items-center justify-center px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors group"
                   >
-                    <PlusIcon className="h-4 w-4" />
-                    Add Policy
-                  </button>
-                  <button
-                    onClick={handleSaveChanges}
-                    className="btn-primary flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
-                  >
-                    <CheckIcon className="h-4 w-4" />
-                    Save Changes
+                    <PlusIcon className="h-4 w-4 mr-2 group-hover:text-blue-600" />
+                    <span className="text-sm font-medium">Add New Policy</span>
                   </button>
                 </div>
-              )}
-              
-              {/* Export PDF Button - Available for all users */}
-              <div className="p-4 border-t border-gray-200">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Policy</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete this policy? This action cannot be undone.
+              </p>
+              <div className="flex justify-end space-x-3">
                 <button
-                  onClick={handleExportPDF}
-                  className="btn-outline flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium w-full justify-center"
+                  onClick={() => {
+                    setShowDeleteConfirm(false);
+                    setPolicyToDelete(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200"
                 >
-                  <ArrowDownTrayIcon className="h-4 w-4" />
-                  Export PDF
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeletePolicy(policyToDelete)}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700"
+                >
+                  Delete Policy
                 </button>
               </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Footer */}
-      <footer className="bg-gray-800 text-white text-center py-5">
-        <p>&copy; 2025 Caldim Engineering Pvt. Ltd. All rights reserved.</p>
-        <div className="flex justify-center gap-5 mt-2">
-          <a href="#" className="text-white/80 hover:text-white hover:underline text-sm">Privacy Policy</a>
-          <a href="#" className="text-white/80 hover:text-white hover:underline text-sm">Terms of Service</a>
-          <a href="#" className="text-white/80 hover:text-white hover:underline text-sm">Contact HR</a>
-        </div>
-      </footer>
-
-      {/* Additional CSS for better styling */}
+      {/* Custom CSS */}
       <style jsx>{`
-        .policy-content-editable:focus {
-          border-color: #3b82f6;
-          background-color: white;
-          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        .policy-content h1 {
+          font-size: 1.25rem;
+          font-weight: bold;
+          color: #111827;
+          margin-bottom: 0.75rem;
         }
 
-        .policy-content-readonly {
-          pointer-events: none;
-        }
-
-        .policy-content-readonly h2,
-        .policy-content-readonly h3,
-        .policy-content-readonly h4 {
-          color: #1f2937;
+        .policy-content h2 {
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: #374151;
+          margin-top: 1rem;
           margin-bottom: 0.5rem;
         }
 
-        .policy-content-readonly p,
-        .policy-content-readonly li {
+        .policy-content h3 {
+          font-size: 1rem;
+          font-weight: 600;
           color: #4b5563;
-          line-height: 1.6;
+          margin-top: 0.75rem;
+          margin-bottom: 0.25rem;
         }
 
-        .policy-table {
-          width: 100%;
-          border-collapse: collapse;
+        .policy-content p {
+          color: #6b7280;
+          margin-bottom: 0.5rem;
+          line-height: 1.5;
+        }
+
+        .policy-content ul {
+          margin-left: 1rem;
+          margin-bottom: 0.5rem;
+        }
+
+        .policy-content li {
+          color: #6b7280;
+          margin-bottom: 0.25rem;
+          position: relative;
+        }
+
+        .policy-content li:before {
+          content: "•";
+          color: #3b82f6;
+          font-weight: bold;
+          position: absolute;
+          left: -1rem;
+        }
+
+        .policy-content hr {
+          border: none;
+          border-top: 1px solid #e5e7eb;
           margin: 1rem 0;
         }
 
-        .policy-table th,
-        .policy-table td {
-          border: 1px solid #e5e7eb;
-          padding: 0.75rem;
-          text-align: left;
-        }
-
-        .policy-table th {
-          background-color: #f9fafb;
+        .policy-content strong {
           font-weight: 600;
+          color: #111827;
         }
 
-        @media print {
-          header, .tabs-sidebar, .action-buttons, footer {
-            display: none !important;
-          }
-          .content-panel {
-            padding: 0 !important;
-          }
-          .tab-content {
-            display: block !important;
-            page-break-after: always;
-          }
+        .policy-content em {
+          font-style: italic;
+        }
+
+        .prose {
+          color: #374151;
         }
       `}</style>
     </div>
   );
 };
 
-export default PolicyPortal;
+export default AdminPolicyPortal;

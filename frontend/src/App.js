@@ -16,15 +16,15 @@ import EmployeeAttendance from "./pages/timesheet/EmployeeAttendance";
 // Project Allocation Pages
 import ProjectAllocation from './pages/project-allocation/ProjectAllocation';
 
-// Leave Management Pages
-import LeaveManagement from './pages/leave-management/LeaveManagement';
-import LeaveApplications from './pages/leave-management/LeaveApplications'; // For managers/admin
+// Leave Application Pages
+import LeaveApplications from './pages/leaveapplications/LeaveApplications';
 // Admin Timesheet Pages
 import AdminTimesheet from './pages/admin-timesheet/AdminTimesheet';
 import TimesheetSummary from './pages/admin-timesheet/TimesheetSummary';
 // Insurance & Policy Pages
 import InsuranceManagement from './pages/insurance/InsuranceManagement';
 import PolicyPortal from './pages/PolicyPortal';
+import TeamManagement from './pages/admin/TeamManagement';
 
 function App() {
   return (
@@ -122,23 +122,20 @@ function App() {
               }
             />
 
-            {/* ---------------- Leave Management ---------------- */}
-            <Route
-              path="leave-management"
+            {/* ---------------- Leave Application ---------------- */}
+            <Route 
+              path="leave-applications" 
               element={
-                <ProtectedRoute requiredPermissions={["leave_access"]} allowEmployeeRole>
-                  <LeaveManagement />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="leave-management/applications"
-              element={
-                <ProtectedRoute requiredPermissions={["leave_approval"]}>
+                <ProtectedRoute 
+                  requiredPermissions={["leave_access"]} 
+                  roles={["employee"]} 
+                  allowEmployeeRole
+                >
                   <LeaveApplications />
                 </ProtectedRoute>
-              }
+              } 
             />
+        
 
             {/* ---------------- User & Employee Management ---------------- */}
             <Route
@@ -155,6 +152,16 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["employee_access"]}>
                   <EmployeeManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ---------------- Team Management ---------------- */}
+            <Route
+              path="admin/team-management"
+              element={
+                <ProtectedRoute requiredPermissions={["employee_access"]}>
+                  <TeamManagement />
                 </ProtectedRoute>
               }
             />

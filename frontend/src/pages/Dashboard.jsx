@@ -96,7 +96,7 @@ const ProjectDashboard = () => {
         { name: 'Timesheet', description: 'Log work hours', path: '/timesheet', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true },
         { name: 'Policies', description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, permission: 'dashboard' },
         { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'dashboard' },
-        { name: 'Leave Management', description: 'Apply & track leaves', path: '/leave-management', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true },
+        { name: 'Leave Application', description: 'Apply & track leaves', path: '/leave-application', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true },
         { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, permission: 'project_access' },
         { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'timesheet_access' },
         { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentTextIcon, permission: 'timesheet_access' },
