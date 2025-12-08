@@ -21,17 +21,20 @@ const Timesheet = () => {
   const [projects, setProjects] = useState([]);
   const [showNavigationDialog, setShowNavigationDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
-  const [shiftType, setShiftType] = useState("General Shift"); // Default shift type
+  const [shiftType, setShiftType] = useState("");
+  const [dailyShiftTypes, setDailyShiftTypes] = useState(["", "", "", "", "", "", ""]);
 
   const shiftTypes = [
-    "1st Shift(7.00AM to 3.30PM)",
-    "2nd Shift(3.00PM to 11.30PM)", 
-    "General Shift(9.30AM to 7.00PM)"
+    "First Shift",
+    "Secend Shift", 
+    "General Shift"
   ];
 
   const tasks = [
     "Development",
     "Testing",
+
+    
     "Implementation",
     "Maintenance Support",
     "Modeling",
@@ -85,13 +88,37 @@ const Timesheet = () => {
           type: e.type || (e.project === "Leave" ? "leave" : "project"),
           shiftType: e.shiftType || "",
         }));
-        setShiftType(sheet.shiftType || "General Shift");
-        setTimesheetRows(rows.length ? rows : []);
+        setShiftType(sheet.shiftType || "");
+        const ds = Array.isArray(sheet.dailyShiftTypes) && sheet.dailyShiftTypes.length === 7
+          ? sheet.dailyShiftTypes
+          : [
+              sheet.shiftType ? sheet.shiftType : "",
+              sheet.shiftType ? sheet.shiftType : "",
+              sheet.shiftType ? sheet.shiftType : "",
+              sheet.shiftType ? sheet.shiftType : "",
+              sheet.shiftType ? sheet.shiftType : "",
+              sheet.shiftType ? sheet.shiftType : "",
+              sheet.shiftType ? sheet.shiftType : "",
+            ];
+        setDailyShiftTypes(ds);
+        if (rows.length === 0) {
+          const newRow = {
+            id: Date.now() + Math.random(),
+            project: "",
+            task: "",
+            hours: [0, 0, 0, 0, 0, 0, 0],
+            type: "project",
+            shiftType: ""
+          };
+          setTimesheetRows([newRow]);
+        } else {
+          setTimesheetRows(rows);
+        }
         setIsSubmitted(
           (sheet.status || "").toLowerCase() === "submitted" ||
           (sheet.status || "").toLowerCase() === "approved"
         );
-        clearDraftFromSession();
+        // Keep session draft; only clear after successful save/submit
         // Set original data after loading from backend to prevent false unsaved changes
         setTimeout(() => {
           setOriginalData(JSON.stringify(rows.length ? rows : []));
@@ -217,7 +244,8 @@ const Timesheet = () => {
         weekStart: weekDates[0].toISOString(),
         weekEnd: weekDates[6].toISOString(),
         savedAt: new Date().toISOString(),
-        shiftType: shiftType // Save shift type
+        shiftType: shiftType,
+        dailyShiftTypes: dailyShiftTypes
       };
       sessionStorage.setItem(weekKey, JSON.stringify(draftData));
       console.log("💾 Draft saved to sessionStorage");
@@ -238,7 +266,20 @@ const Timesheet = () => {
       if (savedDraft) {
         const draftData = JSON.parse(savedDraft);
         setTimesheetRows(draftData.rows || []);
-        setShiftType(draftData.shiftType || "General Shift"); // Load saved shift type
+        setShiftType(draftData.shiftType || "General Shift");
+        setDailyShiftTypes(
+          Array.isArray(draftData.dailyShiftTypes) && draftData.dailyShiftTypes.length === 7
+            ? draftData.dailyShiftTypes
+            : [
+                draftData.shiftType || "General Shift",
+                draftData.shiftType || "General Shift",
+                draftData.shiftType || "General Shift",
+                draftData.shiftType || "General Shift",
+                draftData.shiftType || "General Shift",
+                draftData.shiftType || "General Shift",
+                draftData.shiftType || "General Shift",
+              ]
+        );
         console.log("📂 Draft loaded from sessionStorage");
         
         // Show confirmation message
@@ -557,7 +598,8 @@ const Timesheet = () => {
       prev.map((r) => {
         if (r.id === id) {
           const newHours = [...r.hours];
-          newHours[dayIndex] = numValue;
+          const rounded = Math.round(numValue * 100) / 100;
+          newHours[dayIndex] = rounded;
           return { ...r, hours: newHours };
         }
         return r;
@@ -726,7 +768,8 @@ const Timesheet = () => {
       entries: sanitizedEntries,
       totalHours: Number(totals.weekly.toFixed(1)) || 0,
       status: "Draft",
-      shiftType: shiftType // Include shift type in payload
+      shiftType: shiftType,
+      dailyShiftTypes: dailyShiftTypes
     };
 
     try {
@@ -784,6 +827,22 @@ const Timesheet = () => {
       }
     }
 
+    const failingDays = [];
+    for (let i = 0; i < 7; i++) {
+      const shift = dailyShiftTypes[i];
+      if (!shift || shift === "Select Shift") continue;
+      if (hasFullDayLeave(i)) continue;
+      const required = getShiftMinHours(shift);
+      if (dailyWorkTotals[i] < required) {
+        failingDays.push(`${days[i]} requires ${required}h (have ${dailyWorkTotals[i].toFixed(2)}h)`);
+      }
+    }
+
+    if (failingDays.length > 0) {
+      alert(`Minimum shift hours not met for:\n\n${failingDays.join("\n")}`);
+      return;
+    }
+
     const normalizeToUTCDateOnly = (d) => {
       const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
       return utc.toISOString();
@@ -809,7 +868,8 @@ const Timesheet = () => {
       entries: sanitizedEntries,
       totalHours: Number(totals.weekly.toFixed(1)) || 0,
       status: "Submitted",
-      shiftType: shiftType // Include shift type in payload
+      shiftType: shiftType,
+      dailyShiftTypes: dailyShiftTypes
     };
 
     try {
@@ -837,6 +897,69 @@ const Timesheet = () => {
 
   const weekDates = getWeekDates();
   const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+  const getShiftMinHours = (shift) => {
+    if (!shift) return 0;
+    if (shift.startsWith("General Shift")) return 8.25;
+    if (shift.startsWith("First Shift") || shift.startsWith("Secend Shift")) return 7.75;
+    return 0;
+  };
+
+  const dailyWorkTotals = (() => {
+    const totals = [0, 0, 0, 0, 0, 0, 0];
+    timesheetRows.forEach((row) => {
+      if (row.type === "project") {
+        row.hours.forEach((h, idx) => {
+          const n = Number(h) || 0;
+          totals[idx] += n;
+        });
+      }
+      if (row.type === "leave" && row.task === "Permission") {
+        row.hours.forEach((h, idx) => {
+          const n = Number(h) || 0;
+          totals[idx] += n;
+        });
+      }
+    });
+    return totals;
+  })();
+
+  const shiftMinimumsSatisfied = dailyShiftTypes.every((shift, idx) => {
+    if (!shift || shift === "Select Shift") return true;
+    if (hasFullDayLeave(idx)) return true;
+    const required = getShiftMinHours(shift);
+    return dailyWorkTotals[idx] >= required;
+  });
+
+  const updateDailyShift = (index, value) => {
+    setDailyShiftTypes((prev) => {
+      const next = [...prev];
+      next[index] = value;
+      return next;
+    });
+  };
+
+  const saveDailyShiftTypesToSession = () => {
+    try {
+      const weekKey = `timesheet_draft_${getWeekKey()}`;
+      const existing = sessionStorage.getItem(weekKey);
+      const base = existing ? JSON.parse(existing) : {};
+      const next = {
+        ...base,
+        dailyShiftTypes,
+        shiftType,
+        weekStart: weekDates[0].toISOString(),
+        weekEnd: weekDates[6].toISOString(),
+        savedAt: new Date().toISOString()
+      };
+      sessionStorage.setItem(weekKey, JSON.stringify(next));
+    } catch (_) {}
+  };
+
+  useEffect(() => {
+    saveDailyShiftTypesToSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dailyShiftTypes, shiftType, currentWeek]);
 
   // Navigation confirmation functions
   const handleNavigation = (navigationFunction) => {
@@ -982,7 +1105,6 @@ const Timesheet = () => {
                 <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 w-12">
                   S.no
                 </th>
-                <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 min-w-48">Shift Type</th>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 min-w-60">
                   Project Name
                 </th>
@@ -1001,6 +1123,21 @@ const Timesheet = () => {
                         day: "numeric",
                       })}
                     </div>
+                    <div className="mt-2">
+                      <select
+                        value={dailyShiftTypes[index]}
+                        onChange={(e) => updateDailyShift(index, e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={isSubmitted}
+                      >
+                        <option value="">Select Shift</option>
+                        {shiftTypes.map((shift) => (
+                          <option key={shift} value={shift}>
+                            {shift}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </th>
                 ))}
                 <th className="p-3 text-center text-sm font-semibold text-gray-700 border border-gray-200 w-24">
@@ -1017,21 +1154,7 @@ const Timesheet = () => {
                   <td className="p-3 text-gray-900 text-center border border-gray-200">
                     {index + 1}
                   </td>
-                  <td className="p-2 border border-gray-200">
-                    <select
-                      value={row.shiftType}
-                      onChange={(e) => updateRow(row.id, "shiftType", e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isSubmitted}
-                    >
-                      <option value="">Select Shift</option>
-                      {shiftTypes.map((shift) => (
-                        <option key={shift} value={shift}>
-                          {shift}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
+
 
                   {/* Project Name Column */}
                   <td className="p-2 border border-gray-200">
@@ -1161,7 +1284,7 @@ const Timesheet = () => {
             <tfoot className="bg-gray-50">
               {/* On-Premises Time Row */}
               <tr className="font-semibold bg-green-50">
-                <td colSpan="4" className="p-3 border border-gray-200 text-gray-900">
+                <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
                   On-Premises Time
                 </td>
                 {onPremisesTime.daily.map((time, index) => (
@@ -1177,7 +1300,7 @@ const Timesheet = () => {
 
               {/* Work Hours Totals */}
               <tr className="font-semibold bg-blue-50">
-                <td colSpan="4" className="p-3 border border-gray-200 text-gray-900">
+                <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
                   Work Hours Total
                 </td>
                 {totals.daily.map((total, index) => (
@@ -1215,9 +1338,9 @@ const Timesheet = () => {
           </div>
           <button
             onClick={submitTimesheet}
-            disabled={loading || isSubmitted}
+            disabled={loading || isSubmitted || !shiftMinimumsSatisfied}
             className={`px-6 py-3 rounded font-medium transition-colors flex items-center gap-2 ${
-              loading || isSubmitted
+              loading || isSubmitted || !shiftMinimumsSatisfied
                 ? "bg-gray-400 cursor-not-allowed" 
                 : "bg-blue-700 hover:bg-blue-800 text-white"
             }`}

@@ -21,6 +21,9 @@ const TimesheetSchema = new mongoose.Schema(
 
     entries: { type: [TimesheetEntrySchema], default: [] },
 
+    shiftType: { type: String, default: "" },
+    dailyShiftTypes: { type: [String], default: [] },
+
     totalHours: { type: Number, default: 0 },
 
     status: {

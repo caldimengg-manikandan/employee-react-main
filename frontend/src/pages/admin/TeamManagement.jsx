@@ -288,77 +288,77 @@ const TeamManagement = () => {
           </div>
         </div>
 
-       
+
       </div>
 
       {selectedLeaderEmpId && (
-      <div className="mt-6 bg-white rounded-lg shadow p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-lg font-medium text-gray-700">Manage Team Members</h2>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-          <div>
-            <div className="text-sm text-gray-600">Selected Leader</div>
-            <div className="text-base font-medium">{selectedLeaderEmpId} {getLeaderName(selectedLeaderEmpId)}</div>
+        <div className="mt-6 bg-white rounded-lg shadow p-4">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-medium text-gray-700">Manage Team Members</h2>
           </div>
-          {!selectedTeamCode && (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
             <div>
-              <input value={form.teamCode} onChange={(e) => setForm(prev => ({ ...prev, teamCode: e.target.value }))} className="w-full border rounded px-3 py-2" placeholder="Enter team code to create" />
+              <div className="text-sm text-gray-600">Selected Leader</div>
+              <div className="text-base font-medium">{selectedLeaderEmpId} {getLeaderName(selectedLeaderEmpId)}</div>
             </div>
-          )}
-          {!selectedTeamCode && (
+            {!selectedTeamCode && (
+              <div>
+                <input value={form.teamCode} onChange={(e) => setForm(prev => ({ ...prev, teamCode: e.target.value }))} className="w-full border rounded px-3 py-2" placeholder="Enter team code to create" />
+              </div>
+            )}
+            {!selectedTeamCode && (
+              <div className="flex items-end">
+                <button onClick={handleSaveTeam} disabled={loading || !form.teamCode || !form.leaderEmployeeId} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2">Save Team</button>
+              </div>
+            )}
+            <div>
+              <label className="block text-sm text-gray-600">Employee ID</label>
+              <input value={memberEmployeeId} onChange={(e) => setMemberEmployeeId(e.target.value)} className="mt-1 w-full border rounded px-3 py-2" placeholder="Enter employee id" />
+            </div>
             <div className="flex items-end">
-              <button onClick={handleSaveTeam} disabled={loading || !form.teamCode || !form.leaderEmployeeId} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2">Save Team</button>
+              <button onClick={handleAddMember} disabled={loading || !selectedTeamCode || !memberEmployeeId} className="w-full bg-green-600 hover:bg-green-700 text-white rounded px-3 py-2">Add to Team</button>
+            </div>
+          </div>
+
+          {teamDetails && (
+            <div className="border rounded p-3">
+              <div className="mb-3">
+                <div className="text-sm text-gray-600">Team</div>
+                <div className="text-lg font-medium">{teamDetails.teamCode}</div>
+              </div>
+              <div className="mb-3">
+                <div className="text-sm text-gray-600">Leader</div>
+                <div className="text-lg font-medium">{teamDetails.leaderEmployeeId} {getLeaderName(teamDetails.leaderEmployeeId)}</div>
+              </div>
+              <div className="mb-2 text-sm text-gray-600">Members</div>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee ID</th>
+                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {(teamDetails.members || []).map(m => (
+                      <tr key={m}>
+                        <td className="px-4 py-2 text-sm text-gray-900">{m}</td>
+                        <td className="px-4 py-2 text-right">
+                          <button onClick={() => handleRemoveMember(m)} className="px-3 py-1 rounded bg-red-600 text-white">Remove</button>
+                        </td>
+                      </tr>
+                    ))}
+                    {(teamDetails.members || []).length === 0 && (
+                      <tr>
+                        <td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>No members yet</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
-          <div>
-            <label className="block text-sm text-gray-600">Employee ID</label>
-            <input value={memberEmployeeId} onChange={(e) => setMemberEmployeeId(e.target.value)} className="mt-1 w-full border rounded px-3 py-2" placeholder="Enter employee id" />
-          </div>
-          <div className="flex items-end">
-            <button onClick={handleAddMember} disabled={loading || !selectedTeamCode || !memberEmployeeId} className="w-full bg-green-600 hover:bg-green-700 text-white rounded px-3 py-2">Add to Team</button>
-          </div>
         </div>
-
-        {teamDetails && (
-          <div className="border rounded p-3">
-            <div className="mb-3">
-              <div className="text-sm text-gray-600">Team</div>
-              <div className="text-lg font-medium">{teamDetails.teamCode}</div>
-            </div>
-            <div className="mb-3">
-              <div className="text-sm text-gray-600">Leader</div>
-              <div className="text-lg font-medium">{teamDetails.leaderEmployeeId} {getLeaderName(teamDetails.leaderEmployeeId)}</div>
-            </div>
-            <div className="mb-2 text-sm text-gray-600">Members</div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee ID</th>
-                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {(teamDetails.members || []).map(m => (
-                    <tr key={m}>
-                      <td className="px-4 py-2 text-sm text-gray-900">{m}</td>
-                      <td className="px-4 py-2 text-right">
-                        <button onClick={() => handleRemoveMember(m)} className="px-3 py-1 rounded bg-red-600 text-white">Remove</button>
-                      </td>
-                    </tr>
-                  ))}
-                  {(teamDetails.members || []).length === 0 && (
-                    <tr>
-                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={2}>No members yet</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-      </div>
       )}
     </div>
   );

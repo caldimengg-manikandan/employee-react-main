@@ -11,7 +11,7 @@ const router = express.Router();
  */
 router.post("/", auth, async (req, res) => {
   try {
-    const { weekStartDate, weekEndDate, entries, totalHours, status } = req.body;
+    const { weekStartDate, weekEndDate, entries, totalHours, status, shiftType, dailyShiftTypes } = req.body;
     const userId = req.user._id;
 
     const weekStart = new Date(weekStartDate);
@@ -28,6 +28,8 @@ router.post("/", auth, async (req, res) => {
       sheet.entries = entries;
       sheet.totalHours = totalHours;
       sheet.status = status || "Draft";
+      if (typeof shiftType !== "undefined") sheet.shiftType = shiftType || "";
+      if (Array.isArray(dailyShiftTypes)) sheet.dailyShiftTypes = dailyShiftTypes;
 
       if (status === "Submitted") {
         sheet.submittedAt = new Date();
@@ -55,6 +57,8 @@ router.post("/", auth, async (req, res) => {
       totalHours,
       status: status || "Draft",
       submittedAt: status === "Submitted" ? new Date() : null,
+      shiftType: shiftType || "",
+      dailyShiftTypes: Array.isArray(dailyShiftTypes) ? dailyShiftTypes : [],
     });
 
     if (status === "Submitted") {
@@ -109,6 +113,8 @@ router.get("/", auth, async (req, res) => {
         totalHours: 0,
         status: "Draft",
         submittedAt: null,
+        shiftType: "",
+        dailyShiftTypes: [],
       });
     }
 
