@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { X, ChevronDown, ChevronRight } from "lucide-react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import {
   HomeIcon,
@@ -12,11 +12,18 @@ import {
   FolderIcon,
   CalendarIcon,
   BanknotesIcon,
+  ShieldCheckIcon,
+  DocumentIcon,
+  ClipboardDocumentCheckIcon,
+  ClipboardDocumentListIcon,
+  ChartBarIcon,
+  AcademicCapIcon,
+  AdjustmentsHorizontalIcon,
+  CurrencyDollarIcon // Added for Expenditure Management
 } from "@heroicons/react/24/outline";
 
 const Sidebar = ({ isOpen, onClose }) => {
   const location = useLocation();
-  const navigate = useNavigate();
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const permissions = user.permissions || [];
   const role = user.role || "employees";
@@ -27,26 +34,25 @@ const Sidebar = ({ isOpen, onClose }) => {
     setOpenDropdown(openDropdown === name ? null : name);
   };
 
-  const handleDropdownClick = (item) => {
-    const children = getFilteredChildren(item.children || []);
-    if (children.length > 0) {
-      navigate(children[0].path);
-      onClose();
-    }
-    toggleDropdown(item.name);
-  };
-
   // icon mapping
   const iconMap = {
     Dashboard: HomeIcon,
     "User Access": KeyIcon,
     "Employee Management": UsersIcon,
-    Timesheet: ClockIcon,
+    "Timesheet": ClockIcon,
     "Employee Attendance": ClockIcon,
     "Project Allocation": FolderIcon,
     "Leave Management": CalendarIcon,
+    "Leave Applications": ClipboardDocumentCheckIcon,
     "Salary Slips": BanknotesIcon,
-    
+    "Admin Timesheet": ClockIcon,
+    "Insurance": ShieldCheckIcon,
+    "Policy Portal": DocumentIcon,
+    "Edit Leave Eligibility": AdjustmentsHorizontalIcon,
+    "Leave Summary": ChartBarIcon,
+    "Leave Balance": ClipboardDocumentListIcon,
+    "Trainees Management": AcademicCapIcon,
+    "Expenditure Management": CurrencyDollarIcon // Added
   };
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
@@ -54,9 +60,9 @@ const Sidebar = ({ isOpen, onClose }) => {
   const menuItems = [
     {
       name: "Home",
-      path: "/dashboard",
-      icon: getIconForMenu("Dashboard"),
-      permission: "dashboard",
+      path: "/home",
+      icon: getIconForMenu("home"),
+      permission: "home",
     },
     {
       name: "Timesheet",
@@ -70,16 +76,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       ],
     },
     {
-      name: "Admin Timesheet",
-      hasDropdown: true,
-      icon: getIconForMenu("Admin Timesheet"),
-      permission: "timesheet_access",
-      children: [
-        { name: "Admin Timesheet", path: "/admin/timesheet" },
-        { name: "Timesheet Summary", path: "/admin/timesheet/approval" },
-      ],
-    },
-    {
       name: "Employee Attendance",
       path: "/timesheet/attendance",
       icon: getIconForMenu("Employee Attendance"),
@@ -87,25 +83,13 @@ const Sidebar = ({ isOpen, onClose }) => {
       allowEmployeeRole: false,
     },
     {
-      name: "Insurance",
-      path: "/insurance",
-      icon: getIconForMenu("Insurance"),
-      permission: "dashboard",
-    },
-    {
-      name: "Policy Portal",
-      path: "/policies",
-      icon: getIconForMenu("Policy Portal"),
-      permission: "dashboard",
-    },
-    {
-      name: "Leave Applications",
-      path: "/leave-applications",
-      icon: getIconForMenu("Leave Applications"),
-      // Only visible to employees
-      showForRoles: ["employees"],
-      permission: "leave_access",
-      allowEmployeeRole: true,
+      name: "Admin Timesheet",
+      hasDropdown: true,
+      icon: getIconForMenu("Admin Timesheet"),
+      children: [
+        { name: "Admin Timesheet", path: "/admin/timesheet" },
+        { name: "Timesheet Summary", path: "/admin/timesheet/approval" },
+      ],
     },
     {
       name: "Project Allocation",
@@ -113,27 +97,87 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: getIconForMenu("Project Allocation"),
       permission: "project_access",
     },
-    // {
-    //   name: "Salary Slips",
-    //   hasDropdown: true,
-    //   icon: getIconForMenu("Salary Slips"),
-    //   permission: "payroll_access",
-    //   allowEmployeeRole: true,
-    //   children: [
-    //     { name: "Payslip Viewer", path: "/payslip-viewer" },
-    //     { name: "Salary History", path: "/salary-history" },
-    //     { name: "Tax Documents", path: "/tax-documents" },
-    //   ],
-    // },
+    // LEAVE MANAGEMENT MODULE (SIMPLIFIED - REMOVED LEAVE DASHBOARD)
+    {
+      name: "Leave Management",
+      hasDropdown: true,
+      icon: getIconForMenu("Leave Management"),
+      permission: "leave_access",
+      allowEmployeeRole: true,
+      children: [
+        { 
+          name: "Edit Leave Eligibility", 
+          path: "/leave-management/edit-eligibility",
+          icon: "AdjustmentsHorizontalIcon",
+          permission: "leave_manage",
+          showForRoles: ["admin", "hr"]
+        },
+        { 
+          name: "Leave Summary", 
+          path: "/leave-management/summary",
+          icon: "ChartBarIcon",
+          permission: "leave_view",
+          showForRoles: ["admin", "hr", "manager"]
+        },
+        { 
+          name: "Leave Balance", 
+          path: "/leave-management/balance",
+          icon: "ClipboardDocumentListIcon",
+          permission: "leave_view",
+          showForRoles: ["admin", "hr", "manager", "employee"],
+          allowEmployeeRole: true
+        },
+        { 
+          name: "Trainees Management", 
+          path: "/leave-management/trainees",
+          icon: "AcademicCapIcon",
+          permission: "leave_manage_trainees",
+          showForRoles: ["admin", "hr"]
+        }
+      ],
+    },
+    // LEAVE APPLICATIONS AS SEPARATE MODULE (ADDED)
+    {
+      name: "Leave Applications",
+      path: "/leave-applications",
+      icon: getIconForMenu("Leave Applications"),
+      permission: "leave_access",
+      allowEmployeeRole: true,
+    },
+    {
+      name: "Insurance",
+      path: "/insurance",
+      icon: getIconForMenu("Insurance"),
+    },
+    {
+      name: "Policy Portal",
+      path: "/policies",
+      icon: getIconForMenu("Policy Portal"),
+    },
+    {
+      name: "Salary Slips",
+      hasDropdown: true,
+      icon: getIconForMenu("Salary Slips"),
+      permission: "payroll_access",
+      allowEmployeeRole: true,
+      children: [
+        { name: "Payslip Viewer", path: "/payslip-viewer" },
+        { name: "Salary History", path: "/salary-history" },
+        { name: "Tax Documents", path: "/tax-documents" },
+      ],
+    },
+    // EXPENDITURE MANAGEMENT - ADDED
+    {
+      name: "Expenditure Management",
+      path: "/expenditure-management",
+      icon: getIconForMenu("Expenditure Management"),
+      permission: "expenditure_access", // You can add this permission
+      showForRoles: ["admin", "hr", "finance"], // Specify which roles can see this
+      allowEmployeeRole: false, // Employees shouldn't see this by default
+    },
     {
       name: "Employee Management",
       path: "/employee-management",
-      icon: getIconForMenu("Employee Management"),
-      permission: "employee_access",
-    },
-    {
-      name: "Team Management",
-      path: "/admin/team-management",
       icon: getIconForMenu("Employee Management"),
       permission: "employee_access",
     },
@@ -145,52 +189,104 @@ const Sidebar = ({ isOpen, onClose }) => {
     },
   ];
 
-  // Filter menu items based on permissions and role
+  // Filter menu items based on permissions, role, and showForRoles
   const filteredMenuItems = menuItems.filter((item) => {
-    // Admin can access everything
-    if (role === "admin") return true;
+    // Check if item has role-based visibility restrictions
+    if (item.showForRoles && !item.showForRoles.includes(role) && role !== "admin") {
+      return false;
+    }
     
-    // Check if user has permission (if permission is required)
-    const hasPermission = item.permission ? permissions.includes(item.permission) : true;
+    // Check if user has permission
+    const hasPermission = !item.permission || permissions.includes(item.permission);
     
     // Check if role-based access is allowed
     const allowByRole = 
+      role === "admin" || 
       (role === "employees" && item.allowEmployeeRole) ||
       (role === "projectmanager" && item.name === "Project Allocation");
 
-    return hasPermission || allowByRole;
+    return (hasPermission || allowByRole);
   });
 
-  // Filter dropdown children based on permissions
+  // Filter dropdown children based on permissions and role
   const getFilteredChildren = (children) => {
+    if (!children) return [];
+    
     return children.filter((child) => {
-      if (!child.permission) return true;
-      return permissions.includes(child.permission) || role === "admin";
+      // Check if child has role restrictions
+      if (child.showForRoles && !child.showForRoles.includes(role) && role !== "admin") {
+        return false;
+      }
+      
+      // Check permission
+      if (child.permission && !permissions.includes(child.permission) && role !== "admin") {
+        return false;
+      }
+      
+      // Check if role-based access is allowed
+      const childAllowByRole = 
+        role === "admin" || 
+        (role === "employees" && child.allowEmployeeRole);
+      
+      return childAllowByRole;
     });
   };
 
   const isItemActive = (item) => {
     if (item.path) return location.pathname === item.path;
-    if (item.children)
-      return item.children.some((child) => location.pathname === child.path);
+    if (item.children) {
+      return item.children.some((child) => 
+        child.path && location.pathname.startsWith(child.path.replace(/\/[^\/]+$/, '')) ||
+        location.pathname === child.path
+      );
+    }
     return false;
   };
 
-  const isChildActive = (childPath) => location.pathname === childPath;
+  const isChildActive = (childPath) => {
+    if (!childPath) return false;
+    
+    // Exact match
+    if (location.pathname === childPath) return true;
+    
+    // For leave management sub-paths
+    if (childPath === '/leave-management' && location.pathname.startsWith('/leave-management')) {
+      return location.pathname === '/leave-management';
+    }
+    
+    // For other sub-paths
+    if (childPath && location.pathname.startsWith(childPath)) {
+      return true;
+    }
+    
+    return false;
+  };
 
   const DropdownIcons = {
-    Timesheet: <DocumentTextIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    "Timesheet History": (
-      <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />
-    ),
+    // Timesheet icons
+    "Timesheet": <DocumentTextIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Timesheet History": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Employee Attendance": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    "HikCentral Employees": <UsersIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    "Attendance Report": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    "My Leaves": <CalendarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    "Leave Applications": <UsersIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Admin Timesheet": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Timesheet Summary": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    
+    // Leave Management icons
+    "Edit Leave Eligibility": <AdjustmentsHorizontalIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Leave Summary": <ChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Leave Balance": <ClipboardDocumentListIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Trainees Management": <AcademicCapIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    
+    // Salary Slips icons
     "Payslip Viewer": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Salary History": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Tax Documents": <DocumentTextIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    
+    // Default icon
+    "default": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />
+  };
+
+  const getChildIcon = (childName) => {
+    return DropdownIcons[childName] || DropdownIcons["default"];
   };
 
   return (
@@ -233,7 +329,7 @@ const Sidebar = ({ isOpen, onClose }) => {
               {item.hasDropdown ? (
                 <>
                   <button
-                    onClick={() => handleDropdownClick(item)}
+                    onClick={() => toggleDropdown(item.name)}
                     className={`w-full flex items-center justify-between px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
                       isItemActive(item)
                         ? "bg-[#1e2050] text-white shadow-sm"
@@ -264,9 +360,7 @@ const Sidebar = ({ isOpen, onClose }) => {
                               : "text-violet-100 hover:bg-[#1e2050] hover:text-white hover:border-l-2 hover:border-violet-300"
                           }`}
                         >
-                          {DropdownIcons[child.name] || (
-                            <ClockIcon className="mr-3 h-4 w-4" />
-                          )}
+                          {getChildIcon(child.name)}
                           <span>{child.name}</span>
                         </Link>
                       ))}

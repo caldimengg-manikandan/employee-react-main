@@ -18,6 +18,13 @@ import ProjectAllocation from './pages/project-allocation/ProjectAllocation';
 
 // Leave Application Pages
 import LeaveApplications from './pages/leaveapplications/LeaveApplications';
+
+//Leave Management Pages 
+import EditLeaveEligibility from './pages/leavemanagement/EditLeaveEligibility';
+import LeaveSummary from './pages/leavemanagement/LeaveSummary';
+import LeaveBalance from './pages/leavemanagement/LeaveBalance';
+import TraineeManagement from './pages/leavemanagement/TraineeManagement';
+
 // Admin Timesheet Pages
 import AdminTimesheet from './pages/admin-timesheet/AdminTimesheet';
 import TimesheetSummary from './pages/admin-timesheet/TimesheetSummary';
@@ -120,6 +127,63 @@ function App() {
                   <PolicyPortal />
                 </ProtectedRoute>
               }
+            />
+
+
+
+            {/* ---------------- LEAVE MANAGEMENT MODULES (NO DASHBOARD) ---------------- */}
+            
+            {/* Edit Leave Eligibility */}
+            <Route 
+              path="leave-management/edit-eligibility" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["leave_manage"]} 
+                  roles={["admin", "hr"]}
+                >
+                  <EditLeaveEligibility />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Leave Summary */}
+            <Route 
+              path="leave-management/summary" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["leave_view"]} 
+                  roles={["admin", "hr", "manager"]}
+                >
+                  <LeaveSummary />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Leave Balance */}
+            <Route 
+              path="leave-management/balance" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["leave_view"]} 
+                  roles={["admin", "hr", "manager", "employee"]}
+                  allowEmployeeRole
+                >
+                  <LeaveBalance />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* Trainees Management */}
+            <Route 
+              path="leave-management/trainees" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["leave_manage_trainees"]} 
+                  roles={["admin", "hr"]}
+                >
+                  <TraineeManagement />
+                </ProtectedRoute>
+              } 
             />
 
             {/* ---------------- Leave Application ---------------- */}
