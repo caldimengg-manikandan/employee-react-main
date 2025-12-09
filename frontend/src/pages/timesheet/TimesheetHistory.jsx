@@ -28,6 +28,7 @@ const TimesheetHistory = () => {
     // If entry has projectCode field, use it directly
     if (entry.projectCode) return entry.projectCode;
     
+    
     // Otherwise, try to extract from project name (fallback for old data)
     if (entry.project) {
       const codeMatch = entry.project.match(/^([A-Z0-9]+)/);

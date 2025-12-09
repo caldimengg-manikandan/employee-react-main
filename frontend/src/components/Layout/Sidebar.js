@@ -62,7 +62,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       name: "Home",
       path: "/dashboard",
       icon: getIconForMenu("home"),
-      permission: "home",
+      allowEmployeeRole: true,
     },
     {
       name: "Timesheet",
@@ -187,10 +187,27 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: getIconForMenu("User Access"),
       permission: "user_access",
     },
+    {
+      name: "Team Management",
+      path: "/admin/team-management",
+      icon: getIconForMenu("Employee Management"),
+      showForRoles: ["admin"],
+    },
   ];
 
-  // Filter menu items based on permissions, role, and showForRoles
   const filteredMenuItems = menuItems.filter((item) => {
+    if (role === "employees") {
+      const employeeWhitelist = new Set([
+        "Home",
+        "Timesheet",
+        "Leave Applications",
+        "Policy Portal",
+        "Salary Slips",
+      ]);
+      if (!employeeWhitelist.has(item.name)) {
+        return false;
+      }
+    }
     // Check if item has role-based visibility restrictions
     if (item.showForRoles && !item.showForRoles.includes(role) && role !== "admin") {
       return false;
@@ -209,26 +226,26 @@ const Sidebar = ({ isOpen, onClose }) => {
   });
 
   // Filter dropdown children based on permissions and role
-  const getFilteredChildren = (children) => {
+  const getFilteredChildren = (children, parentItem) => {
     if (!children) return [];
     
     return children.filter((child) => {
-      // Check if child has role restrictions
       if (child.showForRoles && !child.showForRoles.includes(role) && role !== "admin") {
         return false;
       }
-      
-      // Check permission
+
+      if (role === "employees") {
+        if (parentItem && parentItem.allowEmployeeRole) {
+          return true;
+        }
+        return !!child.allowEmployeeRole;
+      }
+
       if (child.permission && !permissions.includes(child.permission) && role !== "admin") {
         return false;
       }
-      
-      // Check if role-based access is allowed
-      const childAllowByRole = 
-        role === "admin" || 
-        (role === "employees" && child.allowEmployeeRole);
-      
-      return childAllowByRole;
+
+      return true;
     });
   };
 
@@ -349,14 +366,14 @@ const Sidebar = ({ isOpen, onClose }) => {
 
                   {openDropdown === item.name && (
                     <div className="ml-4 mt-1 mb-2 space-y-1 bg-[#1e2050]/70 rounded-lg py-2 border-l-2 border-[#3730a3]">
-                      {getFilteredChildren(item.children).map((child) => (
+                      {getFilteredChildren(item.children, item).map((child) => (
                         <Link
                           key={child.path}
                           to={child.path}
                           onClick={onClose}
                           className={`flex items-center px-3 py-2.5 text-sm rounded-md transition-all mx-1 ${
                             isChildActive(child.path)
-                              ? "bg-[#1e2050] text-white border-l-2 border-white"
+                              ? "bg[#1e2050] text-white border-l-2 border-white"
                               : "text-violet-100 hover:bg-[#1e2050] hover:text-white hover:border-l-2 hover:border-violet-300"
                           }`}
                         >

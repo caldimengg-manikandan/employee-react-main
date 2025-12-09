@@ -27,7 +27,13 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     'employee_access',
     'timesheet_access',
     'attendance_access',
-    'project_access'
+    'project_access',
+    'leave_access',
+    'leave_manage',
+    'leave_view',
+    'leave_manage_trainees',
+    'payroll_access',
+    'expenditure_access'
   ];
 
   const roleOptions = [

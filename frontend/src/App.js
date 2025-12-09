@@ -32,6 +32,7 @@ import TimesheetSummary from './pages/admin-timesheet/TimesheetSummary';
 import InsuranceManagement from './pages/insurance/InsuranceManagement';
 import PolicyPortal from './pages/PolicyPortal';
 import TeamManagement from './pages/admin/TeamManagement';
+import PayslipViewer from './pages/payroll/PayslipViewer';
 
 function App() {
   return (
@@ -125,6 +126,16 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["dashboard"]}>
                   <PolicyPortal />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ---------------- Salary Slips ---------------- */}
+            <Route
+              path="payslip-viewer"
+              element={
+                <ProtectedRoute requiredPermissions={["payroll_access"]} allowEmployeeRole>
+                  <PayslipViewer />
                 </ProtectedRoute>
               }
             />
