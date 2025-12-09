@@ -537,6 +537,11 @@ const Timesheet = () => {
     const row = timesheetRows.find(r => r.id === id);
     if (!row) return;
 
+    if (!isShiftSelectedForDay(dayIndex)) {
+      alert("Please select a shift for this day before entering hours.");
+      return;
+    }
+
     // Block editing other entries on a day with Full Day Leave/Office Holiday
     const isFullDayMarked = timesheetRows.some(
       (r) =>
@@ -670,6 +675,23 @@ const Timesheet = () => {
     } else {
       // Regular project hours
       numValue = Math.max(0, Math.min(8.25, numValue));
+
+      // Enforce daily shift-based maximum across all project rows
+      const shiftForDay = dailyShiftTypes[dayIndex];
+      if (row.type === "project" && shiftForDay && shiftForDay !== "Select Shift") {
+        const maxHours = getShiftMaxHours(shiftForDay);
+        const remaining = Math.max(0, maxHours - currentDailyProjectTotal);
+        if (numValue > remaining) {
+          const attempted = numValue;
+          numValue = remaining;
+          if (remaining <= 0 && attempted > 0) {
+            alert(
+              `Daily work hours for ${days[dayIndex]} cannot exceed ${maxHours.toFixed(2)}h for ${shiftForDay}.`
+            );
+            return;
+          }
+        }
+      }
     }
 
     // Break after update depends on whether there is any project work on that day
@@ -1032,6 +1054,18 @@ const Timesheet = () => {
     return 0;
   };
 
+  const getShiftMaxHours = (shift) => {
+    if (!shift) return 24;
+    if (shift.startsWith("General Shift")) return 8.25;
+    if (shift.startsWith("First Shift") || shift.startsWith("Secend Shift")) return 7.75;
+    return 24;
+  };
+
+  const isShiftSelectedForDay = (idx) => {
+    const s = dailyShiftTypes?.[idx];
+    return !!s && s !== "Select Shift";
+  };
+
   const dailyWorkTotals = (() => {
     const totals = [0, 0, 0, 0, 0, 0, 0];
     timesheetRows.forEach((row) => {
@@ -1391,30 +1425,34 @@ const Timesheet = () => {
                               if (e.currentTarget) e.currentTarget.blur();
                             }
                             if (e.key === 'ArrowUp') {
-                              const key = `${row.id}_${dayIndex}`;
-                              const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
-                              const base = parseHHMMToHours(baseStr);
-                              const next = base + 5 / 60;
-                              updateHours(row.id, dayIndex, formatHoursHHMM(next));
-                              setCellInputs((prev) => {
-                                const nextInputs = { ...prev };
-                                delete nextInputs[key];
-                                return nextInputs;
-                              });
-                              e.preventDefault();
+                              if (row.type !== "project") {
+                                const key = `${row.id}_${dayIndex}`;
+                                const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
+                                const base = parseHHMMToHours(baseStr);
+                                const next = base + 5 / 60;
+                                updateHours(row.id, dayIndex, formatHoursHHMM(next));
+                                setCellInputs((prev) => {
+                                  const nextInputs = { ...prev };
+                                  delete nextInputs[key];
+                                  return nextInputs;
+                                });
+                                e.preventDefault();
+                              }
                             }
                             if (e.key === 'ArrowDown') {
-                              const key = `${row.id}_${dayIndex}`;
-                              const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
-                              const base = parseHHMMToHours(baseStr);
-                              const next = Math.max(0, base - 15 / 60);
-                              updateHours(row.id, dayIndex, formatHoursHHMM(next));
-                              setCellInputs((prev) => {
-                                const nextInputs = { ...prev };
-                                delete nextInputs[key];
-                                return nextInputs;
-                              });
-                              e.preventDefault();
+                              if (row.type !== "project") {
+                                const key = `${row.id}_${dayIndex}`;
+                                const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
+                                const base = parseHHMMToHours(baseStr);
+                                const next = Math.max(0, base - 15 / 60);
+                                updateHours(row.id, dayIndex, formatHoursHHMM(next));
+                                setCellInputs((prev) => {
+                                  const nextInputs = { ...prev };
+                                  delete nextInputs[key];
+                                  return nextInputs;
+                                });
+                                e.preventDefault();
+                              }
                             }
                           }}
                           onFocus={(e) => {
@@ -1432,12 +1470,14 @@ const Timesheet = () => {
                               return next;
                             });
                           }}
-                          className={`w-20 p-2 pr-6 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          className={`w-20 p-2 ${row.type !== "project" ? "pr-6" : ""} border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                             row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id) 
                               ? "bg-gray-100 cursor-not-allowed" 
                               : isSubmitted
                               ? "bg-gray-100 cursor-not-allowed"
                               : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
+                              ? "bg-gray-100 cursor-not-allowed"
+                              : !isShiftSelectedForDay(dayIndex)
                               ? "bg-gray-100 cursor-not-allowed"
                               : (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
                               ? "bg-gray-100 cursor-not-allowed"
@@ -1447,6 +1487,7 @@ const Timesheet = () => {
                             isSubmitted ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
                             (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
+                            (!isShiftSelectedForDay(dayIndex)) ||
                             (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
                           }
                           title={
@@ -1458,61 +1499,67 @@ const Timesheet = () => {
                               ? "Monthly permission limit reached" 
                               : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
                               ? "Full Day Leave applied on this day" 
+                              : !isShiftSelectedForDay(dayIndex)
+                              ? "Please select a shift for this day"
                               : (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
                               ? "No on-premises time recorded for this day"
                               : ""
                           }
                         />
-                        <div className="absolute right-1 inset-y-1 flex flex-col justify-between">
-                          <button
-                            onClick={() => {
-                              const key = `${row.id}_${dayIndex}`;
-                              const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
-                              const base = parseHHMMToHours(baseStr);
-                              const next = base + 15 / 60;
-                              updateHours(row.id, dayIndex, formatHoursHHMM(next));
-                              setCellInputs((prev) => {
-                                const nextInputs = { ...prev };
-                                delete nextInputs[key];
-                                return nextInputs;
-                              });
-                            }}
-                            disabled={
-                              isSubmitted ||
-                              (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                              (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
-                              (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
-                            }
-                            className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Increase 5 minutes"
-                          >
-                            <ChevronUp className="w-3 h-3" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              const key = `${row.id}_${dayIndex}`;
-                              const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
-                              const base = parseHHMMToHours(baseStr);
-                              const next = Math.max(0, base - 5 / 60);
-                              updateHours(row.id, dayIndex, formatHoursHHMM(next));
-                              setCellInputs((prev) => {
-                                const nextInputs = { ...prev };
-                                delete nextInputs[key];
-                                return nextInputs;
-                              });
-                            }}
-                            disabled={
-                              isSubmitted ||
-                              (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                              (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
-                              (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
-                            }
-                            className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Decrease 15 minutes"
-                          >
-                            <ChevronDown className="w-3 h-3" />
-                          </button>
-                        </div>
+                        {row.type !== "project" && (
+                          <div className="absolute right-1 inset-y-1 flex flex-col justify-between">
+                            <button
+                              onClick={() => {
+                                const key = `${row.id}_${dayIndex}`;
+                                const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
+                                const base = parseHHMMToHours(baseStr);
+                                const next = base + 15 / 60;
+                                updateHours(row.id, dayIndex, formatHoursHHMM(next));
+                                setCellInputs((prev) => {
+                                  const nextInputs = { ...prev };
+                                  delete nextInputs[key];
+                                  return nextInputs;
+                                });
+                              }}
+                              disabled={
+                                isSubmitted ||
+                                (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
+                                (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
+                                (!isShiftSelectedForDay(dayIndex)) ||
+                                (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
+                              }
+                              className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Increase 5 minutes"
+                            >
+                              <ChevronUp className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                const key = `${row.id}_${dayIndex}`;
+                                const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
+                                const base = parseHHMMToHours(baseStr);
+                                const next = Math.max(0, base - 5 / 60);
+                                updateHours(row.id, dayIndex, formatHoursHHMM(next));
+                                setCellInputs((prev) => {
+                                  const nextInputs = { ...prev };
+                                  delete nextInputs[key];
+                                  return nextInputs;
+                                });
+                              }}
+                              disabled={
+                                isSubmitted ||
+                                (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
+                                (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
+                                (!isShiftSelectedForDay(dayIndex)) ||
+                                (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
+                              }
+                              className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Decrease 15 minutes"
+                            >
+                              <ChevronDown className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </td>
                   ))}
