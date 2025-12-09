@@ -69,22 +69,22 @@ const Header = ({ onMenuClick }) => {
     navigate('/settings');
   };
 
-  // Format date and time for America/New_York
-  const formattedDate = currentTime.toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric',
-    timeZone: 'America/New_York'
-  });
-  
-  const formattedTime = currentTime.toLocaleTimeString('en-US', { 
-    hour: '2-digit', 
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true,
-    timeZone: 'America/New_York'
-  });
+  // Using Indian English locale (en-IN) with Indian time zone
+const formattedDate = currentTime.toLocaleDateString('en-IN', { 
+  weekday: 'long', 
+  year: 'numeric', 
+  month: 'long', 
+  day: 'numeric',
+  timeZone: 'Asia/Kolkata'
+});
+
+const formattedTime = currentTime.toLocaleTimeString('en-IN', { 
+  hour: '2-digit', 
+  minute: '2-digit',
+  second: '2-digit',
+  hour12: true,
+  timeZone: 'Asia/Kolkata'
+});
 
   // Get greeting based on time
   const getGreeting = () => {
