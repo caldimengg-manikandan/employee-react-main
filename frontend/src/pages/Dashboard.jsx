@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { UsersIcon, ClockIcon, CalendarIcon, BanknotesIcon, KeyIcon, FolderIcon, ShieldCheckIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { UsersIcon, ClockIcon, CalendarIcon, BanknotesIcon, KeyIcon, FolderIcon, ShieldCheckIcon, DocumentTextIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip,
     BarChart, Bar, XAxis, YAxis, CartesianGrid
@@ -96,13 +96,14 @@ const ProjectDashboard = () => {
         { name: 'Timesheet', description: 'Log work hours', path: '/timesheet', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true },
         { name: 'Policies', description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, permission: 'dashboard' },
         { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'dashboard' },
-        { name: 'Leave Application', description: 'Apply & track leaves', path: '/leave-application', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true },
+        { name: 'Leave Applications', description: 'Apply & track leaves', path: '/leave-applications', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true },
         { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, permission: 'project_access' },
         { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'timesheet_access' },
         { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentTextIcon, permission: 'timesheet_access' },
         { name: 'Employee Attendance', description: 'Attendance tracking', path: '/timesheet/attendance', icon: ClockIcon, permission: 'attendance_access' },
         { name: 'User Access', description: 'Manage user roles & permissions', path: '/user-access', icon: KeyIcon, permission: 'user_access' },
-        { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access' }
+        { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access' },
+        { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access' }
     ];
 
     const visibleModules = modules.filter((m) => {

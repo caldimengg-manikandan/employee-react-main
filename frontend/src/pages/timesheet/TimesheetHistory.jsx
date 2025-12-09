@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
 import { timesheetAPI } from '../../services/api';
-import { Eye, Filter, Calendar, FileText, X, Download, Edit, Trash2, RefreshCw } from 'lucide-react';
+import { Eye, Filter, Calendar, FileText, X, Download, Edit, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -45,52 +44,30 @@ const TimesheetHistory = () => {
   };
 
   // Fetch real timesheet history from backend including drafts
-  const fetchTimesheets = async () => {
-    setIsLoading(true);
-    setError('');
-    try {
-      const res = await timesheetAPI.getMyTimesheets();
-      const data = Array.isArray(res.data) ? res.data : [];
-      
-      // Get session storage drafts and merge with backend data
-      const sessionDrafts = getSessionStorageDrafts();
-      const allTimesheets = [...data, ...sessionDrafts];
-      
-      setTimesheets(allTimesheets);
-      setFilteredTimesheets(allTimesheets);
-    } catch (err) {
-      console.error('Failed to fetch timesheets:', err);
-      setError(
-        err.response?.data?.message || 'Unable to load timesheet history. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   useEffect(() => {
+    const fetchTimesheets = async () => {
+      setIsLoading(true);
+      setError('');
+      try {
+        const res = await timesheetAPI.getMyTimesheets();
+        const data = Array.isArray(res.data) ? res.data : [];
+        
+        // Get session storage drafts and merge with backend data
+        const sessionDrafts = getSessionStorageDrafts();
+        const allTimesheets = [...data, ...sessionDrafts];
+        
+        setTimesheets(allTimesheets);
+        setFilteredTimesheets(allTimesheets);
+      } catch (err) {
+        console.error('Failed to fetch timesheets:', err);
+        setError(
+          err.response?.data?.message || 'Unable to load timesheet history. Please try again.'
+        );
+      } finally {
+        setIsLoading(false);
+      }
+    };
     fetchTimesheets();
-  }, []);
-
-  // Listen for refresh events (for when admin approves/rejects timesheets)
-  useEffect(() => {
-    const handleRefreshTimesheets = () => {
-      fetchTimesheets();
-    };
-
-    window.addEventListener('refreshTimesheetHistory', handleRefreshTimesheets);
-    return () => {
-      window.removeEventListener('refreshTimesheetHistory', handleRefreshTimesheets);
-    };
-  }, []);
-
-  // Auto-refresh every 30 seconds to keep data current
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchTimesheets();
-    }, 30000); // 30 seconds
-
-    return () => clearInterval(interval);
   }, []);
 
   // Get drafts from sessionStorage
@@ -592,26 +569,14 @@ const TimesheetHistory = () => {
           </div>
         </div>
         
-        {/* Refresh button */}
-        <div className="mt-4 flex justify-between items-center">
-          <button
-            onClick={fetchTimesheets}
-            disabled={isLoading}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-          
-          {/* Results count */}
-          <div className="text-sm text-gray-600">
-            Showing {filteredTimesheets.length} of {timesheets.length} timesheets
-            {timesheets.some(t => t.isSessionDraft) && (
-              <span className="ml-2 text-blue-600">
-                • {timesheets.filter(t => t.isSessionDraft).length} draft(s) from current session
-              </span>
-            )}
-          </div>
+        {/* Results count */}
+        <div className="mt-4 text-sm text-gray-600">
+          Showing {filteredTimesheets.length} of {timesheets.length} timesheets
+          {timesheets.some(t => t.isSessionDraft) && (
+            <span className="ml-2 text-blue-600">
+              • {timesheets.filter(t => t.isSessionDraft).length} draft(s) from current session
+            </span>
+          )}
         </div>
       </div>
 
@@ -916,13 +881,19 @@ const TimesheetHistory = () => {
                   </span>
                 </div>
                 <div>
-                  <span className="font-medium">Total Hours:</span>{' '}
+                  <span className="font-medium">Total Hours (Work + Break):</span>{' '}
                   {(() => {
                     const weeklyWork = (selectedTimesheet.entries || []).reduce(
                       (sum, e) => sum + (Array.isArray(e.hours) ? e.hours.reduce((s, h) => s + (Number(h) || 0), 0) : 0),
                       0
                     );
-                    return Number(weeklyWork).toFixed(2);
+                    const weeklyBreak = Array.from({ length: 7 }, (_, i) => {
+                      const hasWork = (selectedTimesheet.entries || []).some(
+                        (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                      );
+                      return hasWork ? 1.25 : 0;
+                    }).reduce((sum, b) => sum + b, 0);
+                    return (weeklyWork + weeklyBreak).toFixed(2);
                   })()} hours
                 </div>
                 <div>
@@ -983,18 +954,50 @@ const TimesheetHistory = () => {
                     })}
                   </tbody>
                   <tfoot className="bg-gray-50">
+                    {/* Break Time (Auto) */}
                     <tr>
-                      <td colSpan="3" className="p-3 text-sm font-semibold text-gray-700">Total Hours</td>
+                      <td colSpan="3" className="p-3 text-sm font-semibold text-gray-700">Break Time (Auto)</td>
+                      {Array.from({ length: 7 }, (_, i) => {
+                        const hasWork = (selectedTimesheet.entries || []).some(
+                          (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                        );
+                        const breakHours = hasWork ? 1.25 : 0;
+                        return (
+                          <td key={i} className="p-3 text-sm text-blue-700 text-center">{breakHours}</td>
+                        );
+                      })}
+                      <td className="p-3 text-sm font-semibold text-blue-700 text-center">
+                        {Array.from({ length: 7 }, (_, i) => {
+                          const hasWork = (selectedTimesheet.entries || []).some(
+                            (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                          );
+                          return hasWork ? 1.25 : 0;
+                        }).reduce((sum, b) => sum + b, 0).toFixed(2)}
+                      </td>
+                    </tr>
+                    {/* Total Hours (Work + Break) */}
+                    <tr>
+                      <td colSpan="3" className="p-3 text-sm font-semibold text-gray-700">Total Hours (Work + Break)</td>
                       {Array.from({ length: 7 }, (_, i) => {
                         const dayWork = (selectedTimesheet.entries || []).reduce((sum, e) => sum + (Number(e.hours?.[i]) || 0), 0);
+                        const hasWork = (selectedTimesheet.entries || []).some(
+                          (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                        );
+                        const breakHours = hasWork ? 1.25 : 0;
                         return (
-                          <td key={i} className={`p-3 text-sm text-center ${dayWork >= 20 ? 'text-yellow-800 font-semibold' : 'text-blue-700 font-semibold'}`}>{Number(dayWork).toFixed(2)}</td>
+                          <td key={i} className={`p-3 text-sm text-center ${dayWork + breakHours >= 20 ? 'text-yellow-800 font-semibold' : 'text-blue-700 font-semibold'}`}>{(dayWork + breakHours).toFixed(2)}</td>
                         );
                       })}
                       <td className="p-3 text-sm font-bold text-blue-700 text-center">
                         {(() => {
                           const weeklyWork = (selectedTimesheet.entries || []).reduce((sum, e) => sum + (Array.isArray(e.hours) ? e.hours.reduce((s, h) => s + (Number(h) || 0), 0) : 0), 0);
-                          return Number(weeklyWork).toFixed(2);
+                          const weeklyBreak = Array.from({ length: 7 }, (_, i) => {
+                            const hasWork = (selectedTimesheet.entries || []).some(
+                              (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                            );
+                            return hasWork ? 1.25 : 0;
+                          }).reduce((sum, b) => sum + b, 0);
+                          return (weeklyWork + weeklyBreak).toFixed(2);
                         })()}
                       </td>
                     </tr>
@@ -1005,14 +1008,20 @@ const TimesheetHistory = () => {
               {/* Summary */}
               <div className="mt-6 p-4 bg-gray-50 rounded-lg">
               <div className="flex justify-between items-center">
-                <span className="text-lg font-semibold text-gray-800">Total Hours:</span>
+                <span className="text-lg font-semibold text-gray-800">Total Hours (Work + Break):</span>
                 <span className="text-lg font-bold text-gray-900">
                   {(() => {
                     const weeklyWork = (selectedTimesheet.entries || []).reduce(
                       (sum, e) => sum + (Array.isArray(e.hours) ? e.hours.reduce((s, h) => s + (Number(h) || 0), 0) : 0),
                       0
                     );
-                    return Number(weeklyWork).toFixed(2);
+                    const weeklyBreak = Array.from({ length: 7 }, (_, i) => {
+                      const hasWork = (selectedTimesheet.entries || []).some(
+                        (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
+                      );
+                      return hasWork ? 1.25 : 0;
+                    }).reduce((sum, b) => sum + b, 0);
+                    return (weeklyWork + weeklyBreak).toFixed(2);
                   })()} hours
                 </span>
               </div>

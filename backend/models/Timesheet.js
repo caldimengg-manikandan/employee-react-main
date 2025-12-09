@@ -24,6 +24,11 @@ const TimesheetSchema = new mongoose.Schema(
     shiftType: { type: String, default: "" },
     dailyShiftTypes: { type: [String], default: [] },
 
+    onPremisesTime: {
+      daily: { type: [Number], default: [] },
+      weekly: { type: Number, default: 0 }
+    },
+
     totalHours: { type: Number, default: 0 },
 
     status: {
@@ -38,7 +43,6 @@ const TimesheetSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Auto-calc total hours
 TimesheetSchema.pre("save", function (next) {
   this.totalHours = this.entries.reduce((sum, entry) => {
     return sum + entry.hours.reduce((a, b) => a + (Number(b) || 0), 0);
@@ -48,3 +52,4 @@ TimesheetSchema.pre("save", function (next) {
 
 module.exports =
   mongoose.models.Timesheet || mongoose.model("Timesheet", TimesheetSchema);
+

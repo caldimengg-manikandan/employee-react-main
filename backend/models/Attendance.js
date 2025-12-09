@@ -7,6 +7,7 @@ const attendanceSchema = new mongoose.Schema({
   direction: { type: String, enum: ["in", "out"], required: true },
   deviceId: { type: String },
   correspondingInTime: { type: Date },
+  workDurationSeconds: { type: Number },
   source: { type: String, enum: ["local", "hikvision", "manual"], default: "local" },
 });
 

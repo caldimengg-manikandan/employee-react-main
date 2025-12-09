@@ -594,14 +594,21 @@ const ProjectAllocation = () => {
     setEditingAllocation(null);
   };
 
-  // Handle employee selection
-  const handleEmployeeSelect = (employeeName) => {
-    const selectedEmployee = employees.find(emp => emp.name === employeeName);
+  // Handle employee selection by unique employeeId to avoid duplicate names
+  const handleEmployeeSelect = (employeeId) => {
+    const selectedEmployee = employees.find(emp => emp.employeeId === employeeId);
     if (selectedEmployee) {
       setAllocationForm(prev => ({
         ...prev,
         employeeName: selectedEmployee.name,
         employeeId: selectedEmployee.employeeId || selectedEmployee.id || ''
+      }));
+    } else {
+      // Clear when no selection
+      setAllocationForm(prev => ({
+        ...prev,
+        employeeName: '',
+        employeeId: ''
       }));
     }
   };
@@ -618,9 +625,9 @@ const ProjectAllocation = () => {
       p.division === allocationForm.division
     );
 
-    // Find employee by name
+    // Find employee by employeeId (unique) to prevent mismatches
     const employee = employees.find(e => 
-      e.name === allocationForm.employeeName
+      e.employeeId === allocationForm.employeeId
     );
 
     if (!project) {
@@ -1520,14 +1527,14 @@ const ProjectAllocation = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Employee Name *</label>
                     <select 
-                      value={allocationForm.employeeName} 
+                      value={allocationForm.employeeId} 
                       onChange={(e) => handleEmployeeSelect(e.target.value)} 
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       disabled={!allocationForm.division}
                     >
                       <option value="">Select Employee</option>
                       {getFilteredEmployeesByDivision().map(employee => (
-                        <option key={employee._id} value={employee.name}>
+                        <option key={employee._id} value={employee.employeeId}>
                           {employee.name} {employee.employeeId ? `(${employee.employeeId})` : ''}
                         </option>
                       ))}

@@ -11,7 +11,7 @@ const router = express.Router();
  */
 router.post("/", auth, async (req, res) => {
   try {
-    const { weekStartDate, weekEndDate, entries, totalHours, status, shiftType, dailyShiftTypes } = req.body;
+    const { weekStartDate, weekEndDate, entries, totalHours, status, shiftType, dailyShiftTypes, onPremisesTime } = req.body;
     const userId = req.user._id;
 
     const weekStart = new Date(weekStartDate);
@@ -30,6 +30,12 @@ router.post("/", auth, async (req, res) => {
       sheet.status = status || "Draft";
       if (typeof shiftType !== "undefined") sheet.shiftType = shiftType || "";
       if (Array.isArray(dailyShiftTypes)) sheet.dailyShiftTypes = dailyShiftTypes;
+      if (onPremisesTime && Array.isArray(onPremisesTime.daily)) {
+        sheet.onPremisesTime = {
+          daily: onPremisesTime.daily.map((n) => Number(n) || 0),
+          weekly: Number(onPremisesTime.weekly) || 0
+        };
+      }
 
       if (status === "Submitted") {
         sheet.submittedAt = new Date();
@@ -59,6 +65,12 @@ router.post("/", auth, async (req, res) => {
       submittedAt: status === "Submitted" ? new Date() : null,
       shiftType: shiftType || "",
       dailyShiftTypes: Array.isArray(dailyShiftTypes) ? dailyShiftTypes : [],
+      onPremisesTime: onPremisesTime && Array.isArray(onPremisesTime.daily)
+        ? {
+            daily: onPremisesTime.daily.map((n) => Number(n) || 0),
+            weekly: Number(onPremisesTime.weekly) || 0
+          }
+        : { daily: [], weekly: 0 },
     });
 
     if (status === "Submitted") {
@@ -115,6 +127,7 @@ router.get("/", auth, async (req, res) => {
         submittedAt: null,
         shiftType: "",
         dailyShiftTypes: [],
+        onPremisesTime: { daily: [], weekly: 0 }
       });
     }
 

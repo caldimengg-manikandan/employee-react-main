@@ -276,26 +276,55 @@ router.get('/health', (req, res) => {
 // ============ HELPER FUNCTIONS ============
 
 function calculateHikvisionWorkDuration(record) {
+  if (record.normalInfo?.durationTime) {
+    const totalSeconds = parseInt(record.normalInfo.durationTime);
+    if (!isNaN(totalSeconds) && totalSeconds > 0) {
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      return `${hours}h ${minutes}m`;
+    }
+  }
+
+  const collections = [
+    record.detailInfoList,
+    record.attendanceDetailInfo,
+    record.attendanceDetailList,
+    record.attendanceDetails,
+    record.segmentList,
+    record.segments,
+    record.attendanceRecordList
+  ].filter(Array.isArray);
+
+  if (collections.length > 0) {
+    let totalMs = 0;
+    for (const list of collections) {
+      for (const item of list) {
+        const start = new Date(item.beginTime || item.startTime || item.inTime || item.checkInTime || item.begin || item.start);
+        const end = new Date(item.endTime || item.finishTime || item.outTime || item.checkOutTime || item.end || item.finish);
+        if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && end > start) {
+          totalMs += end.getTime() - start.getTime();
+        }
+      }
+    }
+    if (totalMs > 0) {
+      const hours = Math.floor(totalMs / 3600000);
+      const minutes = Math.floor((totalMs % 3600000) / 60000);
+      return `${hours}h ${minutes}m`;
+    }
+  }
+
   if (record.attendanceBaseInfo?.beginTime && record.attendanceBaseInfo?.endTime) {
     const beginTime = new Date(record.attendanceBaseInfo.beginTime);
     const endTime = new Date(record.attendanceBaseInfo.endTime);
     const diffMs = endTime - beginTime;
-    
     if (diffMs > 0) {
-      const hours = Math.floor(diffMs / (1000 * 60 * 60));
-      const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      const hours = Math.floor(diffMs / 3600000);
+      const minutes = Math.floor((diffMs % 3600000) / 60000);
       return `${hours}h ${minutes}m`;
     }
   }
-  
-  if (record.normalInfo?.durationTime) {
-    const totalSeconds = parseInt(record.normalInfo.durationTime);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    return `${hours}h ${minutes}m`;
-  }
-  
-  return "8h 30m";
+
+  return "-";
 }
 
 function formatDuration(seconds) {

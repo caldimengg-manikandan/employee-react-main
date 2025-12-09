@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { timesheetAPI, projectAPI } from "../../services/api";
-import { ChevronLeft, ChevronRight, Calendar, Plus, Trash2, Save, Send } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, Plus, Trash2, Save, Send, ChevronUp, ChevronDown } from "lucide-react";
 
 const Timesheet = () => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
@@ -23,6 +23,7 @@ const Timesheet = () => {
   const [pendingNavigation, setPendingNavigation] = useState(null);
   const [shiftType, setShiftType] = useState("");
   const [dailyShiftTypes, setDailyShiftTypes] = useState(["", "", "", "", "", "", ""]);
+  const [cellInputs, setCellInputs] = useState({});
 
   const shiftTypes = [
     "First Shift",
@@ -33,8 +34,6 @@ const Timesheet = () => {
   const tasks = [
     "Development",
     "Testing",
-
-    
     "Implementation",
     "Maintenance Support",
     "Modeling",
@@ -101,6 +100,13 @@ const Timesheet = () => {
               sheet.shiftType ? sheet.shiftType : "",
             ];
         setDailyShiftTypes(ds);
+        if (Array.isArray(sheet.onPremisesTime?.daily)) {
+          setOnPremisesTime({
+            daily: (sheet.onPremisesTime.daily || []).map((n) => Number(n) || 0),
+            weekly: Number(sheet.onPremisesTime.weekly) || 0
+          });
+        }
+
         if (rows.length === 0) {
           const newRow = {
             id: Date.now() + Math.random(),
@@ -133,6 +139,94 @@ const Timesheet = () => {
     };
     loadWeekData();
   }, [currentWeek]);
+
+  const parseDurationHours = (input) => {
+    if (input === null || input === undefined) return 0;
+    if (typeof input === "number") {
+      if (input > 100000) return input / 3600000;
+      if (input > 1000) return input / 3600;
+      if (input > 24) return input / 60;
+      return input;
+    }
+    if (typeof input === "string") {
+      const parts = input.split(":").map((n) => parseFloat(n) || 0);
+      if (parts.length >= 2) {
+        const h = parts[0];
+        const m = parts[1];
+        const s = parts[2] || 0;
+        return h + m / 60 + s / 3600;
+      }
+      const num = parseFloat(input);
+      if (!isNaN(num)) return num;
+    }
+    return 0;
+  };
+
+  const formatHoursHHMM = (hours) => {
+    const totalMinutes = Math.round((Number(hours) || 0) * 60);
+    const hh = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+    const mm = String(totalMinutes % 60).padStart(2, "0");
+    return `${hh}:${mm}`;
+  };
+
+  const parseHHMMToHours = (str) => {
+    if (typeof str !== "string") return Number(str) || 0;
+    const s = str.trim();
+    if (!s) return 0;
+    if (s.includes(":")) {
+      const parts = s.split(":");
+      let h = Math.max(0, parseInt(parts[0], 10) || 0);
+      let mRaw = parseInt(parts[1], 10);
+      let m = Math.max(0, isNaN(mRaw) ? 0 : mRaw);
+      if (m >= 60) {
+        h += Math.floor(m / 60);
+        m = m % 60;
+      }
+      const step = 5;
+      m = Math.round(m / step) * step;
+      if (m === 60) {
+        h += 1;
+        m = 0;
+      }
+      return h + m / 60;
+    }
+    const num = parseFloat(s);
+    return isNaN(num) ? 0 : num;
+  };
+
+  const parseTime = (t) => {
+    if (!t) return null;
+    try {
+      const d = new Date(t);
+      if (!isNaN(d.getTime())) return d;
+    } catch (_) {}
+    return null;
+  };
+
+  const sumIntervalsToHours = (intervals) => {
+    if (!Array.isArray(intervals)) return 0;
+    let totalMs = 0;
+    for (const it of intervals) {
+      const start = parseTime(it.in || it.start || it.punchIn || it.begin || it.from);
+      const end = parseTime(it.out || it.end || it.punchOut || it.finish || it.to);
+      if (start && end && end > start) {
+        totalMs += end.getTime() - start.getTime();
+      }
+    }
+    return totalMs / 3600000;
+  };
+
+  const computeRecordDurationHours = (record) => {
+    const candidate = record.workDuration ?? record.workDurationSeconds ?? record.workDurationMs ?? record.workDurationMillis ?? record.duration ?? record.hours;
+    const direct = parseDurationHours(candidate);
+    if (direct && direct > 0) return direct;
+    if (Array.isArray(record.intervals)) return sumIntervalsToHours(record.intervals);
+    if (Array.isArray(record.sessions)) return sumIntervalsToHours(record.sessions);
+    if (Array.isArray(record.punches)) return sumIntervalsToHours(record.punches);
+    if (Array.isArray(record.logs)) return sumIntervalsToHours(record.logs);
+    if (record.punchIn && record.punchOut) return sumIntervalsToHours([{ in: record.punchIn, out: record.punchOut }]);
+    return 0;
+  };
 
   // ✅ Load on-premises time from attendance data
   useEffect(() => {
@@ -168,7 +262,7 @@ const Timesheet = () => {
             const key = new Date(record.date).toISOString().split("T")[0];
             const idx = weekKeys.indexOf(key);
             if (idx !== -1) {
-              const hours = Number(record.hours) || 0;
+              const hours = computeRecordDurationHours(record) || 0;
               if (hours > 0) {
                 dailyOnPremises[idx] += hours;
                 weeklyOnPremises += hours;
@@ -473,28 +567,41 @@ const Timesheet = () => {
       return;
     }
 
-    let numValue = parseFloat(value) || 0;
+    let numValue = parseHHMMToHours(value);
 
     // Calculate current daily totals
+    // All rows (used for 24h hard cap)
     const currentDailyAllTotal = timesheetRows.reduce((total, r) => {
       if (r.id === id) return total; // Skip current row
       return total + (r.hours[dayIndex] || 0);
     }, 0);
+    // Project-only rows (used for on-premises enforcement)
+    const currentDailyProjectTotal = timesheetRows.reduce((total, r) => {
+      if (r.id === id) return total; // Skip current row
+      if (r.type !== "project") return total;
+      return total + (r.hours[dayIndex] || 0);
+    }, 0);
 
-    // Check if adding new value would exceed 24 hours
-    const newWorkTotalAll = currentDailyAllTotal + numValue;
+    // Calculate break hours for the day
+    const currentBreakHours = computeBreakForDay(dayIndex);
     
-    if (newWorkTotalAll > 24) {
-      alert(`Daily work hours cannot exceed 24 hours.\n\nCurrent: ${currentDailyAllTotal.toFixed(1)}h\nAfter update: ${newWorkTotalAll.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
-      return;
+    // Check if adding new value would exceed 24 hours (including break hours)
+    const newWorkTotalAll = currentDailyAllTotal + numValue;
+    const newTotalWithBreakAll = newWorkTotalAll + currentBreakHours;
+    
+    if (newTotalWithBreakAll > 24) {
+      const currentTotalWithBreak = (currentDailyAllTotal + currentBreakHours).toFixed(1);
+      alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${currentBreakHours.toFixed(1)}h)\nAfter update: ${newTotalWithBreakAll.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+      return; // Don't update if it would exceed 24 hours
     }
 
     // Warning when approaching 24 hours (within 2 hours)
-    if (newWorkTotalAll >= 22 && newWorkTotalAll <= 24) {
-      const remainingHours = (24 - newWorkTotalAll).toFixed(1);
+    if (newTotalWithBreakAll >= 22 && newTotalWithBreakAll <= 24) {
+      const remainingHours = (24 - newTotalWithBreakAll).toFixed(1);
+      // Only show warning once per session for this day to avoid spam
       const warningKey = `timesheet_warning_${dayIndex}_${currentWeek.toDateString()}`;
       if (!sessionStorage.getItem(warningKey)) {
-        alert(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newWorkTotalAll.toFixed(1)}h (only ${remainingHours}h remaining)`);
+        alert(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newTotalWithBreakAll.toFixed(1)}h (only ${remainingHours}h remaining)\n\nThis includes Work (${newWorkTotalAll.toFixed(1)}h) + Break (${currentBreakHours.toFixed(1)}h)`);
         sessionStorage.setItem(warningKey, 'true');
       }
     }
@@ -562,35 +669,39 @@ const Timesheet = () => {
       }
     } else {
       // Regular project hours
-      numValue = Math.max(0, Math.min(9.5, numValue));
+      numValue = Math.max(0, Math.min(8.25, numValue));
     }
 
-    // Enforce on-premises cap: project work must not exceed on-premises time
+    // Break after update depends on whether there is any project work on that day
+    const hasWorkAfterUpdate = timesheetRows.some(
+      (r) => r.type === "project" && ((r.id === id ? numValue : (r.hours?.[dayIndex] || 0)) > 0)
+    );
+    const breakAfterUpdate = hasWorkAfterUpdate ? 1.25 : 0;
+    
+    // Enforce on-premises cap: project work + auto break must not exceed on-premises time
     if (row.type === "project") {
       const opHours = Number(onPremisesTime?.daily?.[dayIndex] || 0);
       if (opHours <= 0 && numValue > 0) {
         alert("No on-premises time recorded for this day. Please record attendance before logging project hours.");
         return;
       }
-      const currentDailyProjectTotal = timesheetRows.reduce((total, r) => {
-        if (r.id === id) return total; // Skip current row
-        if (r.type !== "project") return total;
-        return total + (r.hours[dayIndex] || 0);
-      }, 0);
       const finalProjectWorkTotal = currentDailyProjectTotal + numValue;
-      if (opHours > 0 && finalProjectWorkTotal > opHours) {
+      const totalWithBreakCandidate = finalProjectWorkTotal + breakAfterUpdate;
+      if (opHours > 0 && totalWithBreakCandidate > opHours) {
         alert(
-          `Total Work Hours for ${days[dayIndex]} (${finalProjectWorkTotal.toFixed(1)}h) cannot exceed On-Premises Time (${opHours}h).`
+          `Total Hours (Work + Break) for ${days[dayIndex]} (${totalWithBreakCandidate.toFixed(1)}h) cannot exceed On-Premises Time (${opHours}h).`
         );
         return;
       }
     }
 
-    // Double-check after task-specific validation
+    // Double-check after task-specific validation (including break hours)
     const finalWorkTotal = currentDailyAllTotal + numValue;
+    const finalTotalWithBreak = finalWorkTotal + breakAfterUpdate;
     
-    if (finalWorkTotal > 24) {
-      alert(`Daily work hours cannot exceed 24 hours.\n\nCurrent: ${currentDailyAllTotal.toFixed(1)}h\nAfter update: ${finalWorkTotal.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+    if (finalTotalWithBreak > 24) {
+      const currentTotalWithBreak = (currentDailyAllTotal + computeBreakForDay(dayIndex)).toFixed(1);
+      alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${computeBreakForDay(dayIndex).toFixed(1)}h)\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
       return;
     }
 
@@ -743,6 +854,8 @@ const Timesheet = () => {
       return;
     }
 
+    saveDraftToSession();
+
     const normalizeToUTCDateOnly = (d) => {
       const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
       return utc.toISOString();
@@ -766,10 +879,14 @@ const Timesheet = () => {
       weekStartDate: normalizeToUTCDateOnly(weekDates[0]),
       weekEndDate: normalizeToUTCDateOnly(weekDates[6]),
       entries: sanitizedEntries,
-      totalHours: Number(totals.weekly.toFixed(1)) || 0,
+      totalHours: Number((totals.weekly + computeWeeklyBreak()).toFixed(1)) || 0,
       status: "Draft",
       shiftType: shiftType,
-      dailyShiftTypes: dailyShiftTypes
+      dailyShiftTypes: dailyShiftTypes,
+      onPremisesTime: {
+        daily: (onPremisesTime?.daily || []).map((n) => Number(n) || 0),
+        weekly: Number(onPremisesTime?.weekly) || 0
+      }
     };
 
     try {
@@ -784,6 +901,9 @@ const Timesheet = () => {
       setOriginalData(JSON.stringify(timesheetRows));
       setHasUnsavedChanges(false);
       
+      // Notify history page to refresh
+      try { window.dispatchEvent(new Event('refreshTimesheetHistory')); } catch (_) {}
+
       alert("✅ Timesheet saved as draft successfully!");
     } catch (error) {
       console.error("❌ Error saving timesheet as draft:", error);
@@ -866,10 +986,14 @@ const Timesheet = () => {
       weekStartDate: normalizeToUTCDateOnly(weekDates[0]),
       weekEndDate: normalizeToUTCDateOnly(weekDates[6]),
       entries: sanitizedEntries,
-      totalHours: Number(totals.weekly.toFixed(1)) || 0,
+      totalHours: Number((totals.weekly + computeWeeklyBreak()).toFixed(1)) || 0,
       status: "Submitted",
       shiftType: shiftType,
-      dailyShiftTypes: dailyShiftTypes
+      dailyShiftTypes: dailyShiftTypes,
+      onPremisesTime: {
+        daily: (onPremisesTime?.daily || []).map((n) => Number(n) || 0),
+        weekly: Number(onPremisesTime?.weekly) || 0
+      }
     };
 
     try {
@@ -883,6 +1007,9 @@ const Timesheet = () => {
       // Set submitted status to prevent auto-saving
       setIsSubmitted(true);
       
+      // Notify history page to refresh
+      try { window.dispatchEvent(new Event('refreshTimesheetHistory')); } catch (_) {}
+
       alert("✅ Timesheet submitted successfully!");
     } catch (error) {
       console.error("❌ Error submitting timesheet:", error);
@@ -961,6 +1088,54 @@ const Timesheet = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dailyShiftTypes, shiftType, currentWeek]);
 
+  // ========== WORK + BREAK LOGIC FUNCTIONS ==========
+  
+  // Calculate break for a specific day (1.25 hours if there's any project work)
+  const computeBreakForDay = (dayIndex) => {
+    const hasWork = timesheetRows.some(
+      (row) => row.type === "project" && (row.hours?.[dayIndex] || 0) > 0
+    );
+    return hasWork ? 1.25 : 0;
+  };
+
+  // Calculate weekly break total
+  const computeWeeklyBreak = () => {
+    let sum = 0;
+    for (let i = 0; i < 7; i++) sum += computeBreakForDay(i);
+    return sum;
+  };
+
+  // Get daily total with break (formatted in HH:MM)
+  const getDailyTotalWithBreak = (dayIndex) => {
+    const workTotal = totals.daily[dayIndex] || 0;
+    const breakTotal = computeBreakForDay(dayIndex);
+    const totalHours = workTotal + breakTotal;
+    return formatHoursHHMM(totalHours);
+  };
+
+  // Get weekly total with break (formatted in HH:MM)
+  const getWeeklyTotalWithBreak = () => {
+    const workTotal = totals.weekly || 0;
+    const breakTotal = computeWeeklyBreak();
+    const totalHours = workTotal + breakTotal;
+    return formatHoursHHMM(totalHours);
+  };
+
+  // Get current daily total with break (numeric value for calculations)
+  const getCurrentDailyTotalWithBreak = (dayIndex) => {
+    const workTotal = totals.daily[dayIndex] || 0;
+    const breakTotal = computeBreakForDay(dayIndex);
+    return workTotal + breakTotal;
+  };
+
+  // Get CSS class for daily total warning
+  const getDailyTotalWarningClass = (dayIndex) => {
+    const totalWithBreak = getCurrentDailyTotalWithBreak(dayIndex);
+    if (totalWithBreak >= 24) return "bg-red-100 text-red-800 font-bold";
+    if (totalWithBreak >= 20) return "bg-yellow-100 text-yellow-800 font-bold";
+    return "text-blue-700 font-bold";
+  };
+
   // Navigation confirmation functions
   const handleNavigation = (navigationFunction) => {
     if (hasUnsavedChanges && !isSubmitted) {
@@ -1038,8 +1213,6 @@ const Timesheet = () => {
                 {formatWeekRange()}
               </span>
             </div>
-
-            
           </div>
 
           <button
@@ -1155,7 +1328,6 @@ const Timesheet = () => {
                     {index + 1}
                   </td>
 
-
                   {/* Project Name Column */}
                   <td className="p-2 border border-gray-200">
                     {row.type === "leave" ? (
@@ -1197,35 +1369,70 @@ const Timesheet = () => {
 
                   {row.hours.map((hours, dayIndex) => (
                     <td key={dayIndex} className="p-2 text-center border border-gray-200 w-32">
-                      <div className="flex flex-col items-center">
+                      <div className="relative inline-flex items-center">
                         <input
-                          type="number"
-                          value={hours}
-                          onChange={(e) => updateHours(row.id, dayIndex, e.target.value)}
+                          type="text"
+                          value={cellInputs[`${row.id}_${dayIndex}`] ?? formatHoursHHMM(hours)}
+                          placeholder="00:00"
+                          onChange={(e) => {
+                            const key = `${row.id}_${dayIndex}`;
+                            setCellInputs((prev) => ({ ...prev, [key]: e.target.value }));
+                          }}
                           onKeyDown={(e) => {
-                            // Allow backspace and delete to work properly
-                            if (e.key === 'Backspace' || e.key === 'Delete') {
-                              // Let the change happen naturally, the onChange will handle it
+                            if (e.key === 'Enter') {
+                              const key = `${row.id}_${dayIndex}`;
+                              const entered = (e.currentTarget && e.currentTarget.value) || '';
+                              updateHours(row.id, dayIndex, entered);
+                              setCellInputs((prev) => {
+                                const next = { ...prev };
+                                delete next[key];
+                                return next;
+                              });
+                              if (e.currentTarget) e.currentTarget.blur();
+                            }
+                            if (e.key === 'ArrowUp') {
+                              const key = `${row.id}_${dayIndex}`;
+                              const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
+                              const base = parseHHMMToHours(baseStr);
+                              const next = base + 5 / 60;
+                              updateHours(row.id, dayIndex, formatHoursHHMM(next));
+                              setCellInputs((prev) => {
+                                const nextInputs = { ...prev };
+                                delete nextInputs[key];
+                                return nextInputs;
+                              });
+                              e.preventDefault();
+                            }
+                            if (e.key === 'ArrowDown') {
+                              const key = `${row.id}_${dayIndex}`;
+                              const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
+                              const base = parseHHMMToHours(baseStr);
+                              const next = Math.max(0, base - 15 / 60);
+                              updateHours(row.id, dayIndex, formatHoursHHMM(next));
+                              setCellInputs((prev) => {
+                                const nextInputs = { ...prev };
+                                delete nextInputs[key];
+                                return nextInputs;
+                              });
+                              e.preventDefault();
                             }
                           }}
-                          onInput={(e) => {
-                            // Allow empty input for better user experience
-                            if (e.target.value === '') {
-                              e.target.value = '';
-                            }
+                          onFocus={(e) => {
+                            const key = `${row.id}_${dayIndex}`;
+                            const val = (e.currentTarget && e.currentTarget.value) || '';
+                            setCellInputs((prev) => ({ ...prev, [key]: val }));
                           }}
-                          min="0"
-                          max={
-                            row.task === "Office Holiday" || row.task === "Full Day Leave" ? 9.5 :
-                            row.task === "Half Day Leave" ? 4.75 :
-                            row.task === "Permission" ? 3 : 9.5
-                          }
-                          step={
-                            row.task === "Half Day Leave" ? 4.75 :
-                            row.task === "Office Holiday" || row.task === "Full Day Leave" ? 9.5 :
-                            row.task === "Permission" ? 1 : 0.25
-                          }
-                          className={`w-20 p-2 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          onBlur={(e) => {
+                            const key = `${row.id}_${dayIndex}`;
+                            const val = (e.currentTarget && e.currentTarget.value) || '';
+                            updateHours(row.id, dayIndex, val);
+                            setCellInputs((prev) => {
+                              const next = { ...prev };
+                              delete next[key];
+                              return next;
+                            });
+                          }}
+                          className={`w-20 p-2 pr-6 border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                             row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id) 
                               ? "bg-gray-100 cursor-not-allowed" 
                               : isSubmitted
@@ -1256,15 +1463,62 @@ const Timesheet = () => {
                               : ""
                           }
                         />
-                       
+                        <div className="absolute right-1 inset-y-1 flex flex-col justify-between">
+                          <button
+                            onClick={() => {
+                              const key = `${row.id}_${dayIndex}`;
+                              const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
+                              const base = parseHHMMToHours(baseStr);
+                              const next = base + 15 / 60;
+                              updateHours(row.id, dayIndex, formatHoursHHMM(next));
+                              setCellInputs((prev) => {
+                                const nextInputs = { ...prev };
+                                delete nextInputs[key];
+                                return nextInputs;
+                              });
+                            }}
+                            disabled={
+                              isSubmitted ||
+                              (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
+                              (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
+                              (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
+                            }
+                            className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Increase 5 minutes"
+                          >
+                            <ChevronUp className="w-3 h-3" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              const key = `${row.id}_${dayIndex}`;
+                              const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
+                              const base = parseHHMMToHours(baseStr);
+                              const next = Math.max(0, base - 5 / 60);
+                              updateHours(row.id, dayIndex, formatHoursHHMM(next));
+                              setCellInputs((prev) => {
+                                const nextInputs = { ...prev };
+                                delete nextInputs[key];
+                                return nextInputs;
+                              });
+                            }}
+                            disabled={
+                              isSubmitted ||
+                              (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
+                              (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
+                              (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
+                            }
+                            className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Decrease 15 minutes"
+                          >
+                            <ChevronDown className="w-3 h-3" />
+                          </button>
+                        </div>
                       </div>
                     </td>
                   ))}
 
                   <td className="p-3 font-semibold text-green-600 text-center border border-gray-200 w-24">
-                    {row.hours
-                      .reduce((sum, hours) => sum + hours, 0)
-                      .toFixed(1)}
+                    {formatHoursHHMM(row.hours.reduce((sum, hours) => sum + hours, 0))}
                   </td>
 
                   <td className="p-2 text-center border border-gray-200 w-20">
@@ -1289,33 +1543,66 @@ const Timesheet = () => {
                 </td>
                 {onPremisesTime.daily.map((time, index) => (
                   <td key={index} className="p-3 border border-gray-200 text-green-700 text-center">
-                    {Number(time).toFixed(1)}
+                    {formatHoursHHMM(time)}
                   </td>
                 ))}
                 <td className="p-3 border border-gray-200 text-green-700 font-bold text-center">
-                  {Number(onPremisesTime.weekly).toFixed(1)}
+                  {formatHoursHHMM(onPremisesTime.weekly)}
                 </td>
                 <td className="p-3 border border-gray-200"></td>
               </tr>
 
               {/* Work Hours Totals */}
-              <tr className="font-semibold bg-blue-50">
+              <tr className="font-semibold">
                 <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
                   Work Hours Total
                 </td>
                 {totals.daily.map((total, index) => (
-                  <td key={index} className="p-3 border border-gray-200 text-blue-700 text-center font-bold">
-                    {total.toFixed(1)}
+                  <td key={index} className="p-3 border border-gray-200 text-gray-900 text-center">
+                    {formatHoursHHMM(total)}
                   </td>
                 ))}
-                <td className="p-3 border border-gray-200 text-blue-800 font-bold text-center">
-                  {totals.weekly.toFixed(1)}
+                <td className="p-3 border border-gray-200 text-green-600 font-bold text-center">
+                  {formatHoursHHMM(totals.weekly)}
+                </td>
+                <td className="p-3 border border-gray-200"></td>
+              </tr>
+              
+              {/* Break Time Row */}
+              <tr className="font-semibold">
+                <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
+                  Break Time (Auto)
+                </td>
+                {days.map((_, index) => (
+                  <td key={index} className="p-3 border border-gray-200 text-blue-600 text-center">
+                    {formatHoursHHMM(computeBreakForDay(index))}
+                  </td>
+                ))}
+                <td className="p-3 border border-gray-200 text-blue-600 font-bold text-center">
+                  {formatHoursHHMM(computeWeeklyBreak())}
+                </td>
+                <td className="p-3 border border-gray-200"></td>
+              </tr>
+              
+              {/* Total Hours (Work + Break) */}
+              <tr className="font-semibold bg-blue-50">
+                <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
+                  Total Hours (Work + Break)
+                </td>
+                {totals.daily.map((total, index) => (
+                  <td key={index} className={`p-3 border border-gray-200 text-center ${getDailyTotalWarningClass(index)}`}>
+                    {getDailyTotalWithBreak(index)}
+                  </td>
+                ))}
+                <td className="p-3 border border-gray-200 text-blue-700 font-bold text-center">
+                  {getWeeklyTotalWithBreak()}
                 </td>
                 <td className="p-3 border border-gray-200"></td>
               </tr>
             </tfoot>
           </table>
         </div>
+
 
         <div className="p-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
           <div className="text-sm text-gray-600">
@@ -1355,12 +1642,27 @@ const Timesheet = () => {
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                SUBMIT WEEK ({totals.weekly.toFixed(1)}H)
+                SUBMIT WEEK ({getWeeklyTotalWithBreak()})
               </>
             )}
           </button>
         </div>
       </div>
+        {/* Important Notes Section */}
+        <div className="p-4  border-t border-gray-200">
+          <h3 className="text-sm font-semibold text-gray-900 mb-2">Important Notes:</h3>
+          <ul className="text-xs text-gray-600 space-y-1">
+            <li>• Break time: Maximum 1 hour 15 minutes (1.15h) allowed per day</li>
+            <li>• Shift timings: 
+              <ul className="ml-4 mt-1 space-y-1">
+                <li>First Shift: 7:00 AM - 3:30 PM</li>
+                <li>Second Shift: 3:00 PM - 11:30 PM</li>
+                <li>General Shift: 9:30 AM - 7:00 PM</li>
+              </ul>
+            </li>
+            <li>• Monthly permission limit: Maximum 3 hours allowed per month</li>
+          </ul>
+        </div>
 
       {/* Navigation Confirmation Dialog */}
       {showNavigationDialog && (

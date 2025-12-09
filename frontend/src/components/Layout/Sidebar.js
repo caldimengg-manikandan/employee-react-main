@@ -60,7 +60,7 @@ const Sidebar = ({ isOpen, onClose }) => {
   const menuItems = [
     {
       name: "Home",
-      path: "/home",
+      path: "/dashboard",
       icon: getIconForMenu("home"),
       permission: "home",
     },

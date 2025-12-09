@@ -6,10 +6,17 @@ const Employee = require("../models/Employee");
 // CREATE ALLOCATION
 router.post("/", async (req, res) => {
   try {
-    const { projectName, employeeName } = req.body;
+    const { projectName, employeeName, employeeCode } = req.body;
 
     const project = await Project.findOne({ name: projectName });
-    const employee = await Employee.findOne({ name: employeeName });
+    // Prefer matching by employeeCode (unique) when provided; fallback to name
+    let employee = null;
+    if (employeeCode) {
+      employee = await Employee.findOne({ employeeId: employeeCode });
+    }
+    if (!employee && employeeName) {
+      employee = await Employee.findOne({ name: employeeName });
+    }
 
     if (!project) return res.status(400).json({ error: "Project not found" });
     if (!employee) return res.status(400).json({ error: "Employee not found" });
@@ -52,14 +59,21 @@ router.delete("/:id", async (req, res) => {
 // UPDATE ALLOCATION
 router.put("/:id", async (req, res) => {
   try {
-    const { projectName, employeeName } = req.body;
+    const { projectName, employeeName, employeeCode } = req.body;
 
     // Find project by name
     const project = await Project.findOne({ name: projectName });
     if (!project) return res.status(400).json({ error: "Project not found" });
 
     // Find employee by name
-    const employee = await Employee.findOne({ name: employeeName });
+    // Prefer matching by employeeCode (unique) when provided; fallback to name
+    let employee = null;
+    if (employeeCode) {
+      employee = await Employee.findOne({ employeeId: employeeCode });
+    }
+    if (!employee && employeeName) {
+      employee = await Employee.findOne({ name: employeeName });
+    }
     if (!employee) return res.status(400).json({ error: "Employee not found" });
 
     // Get existing allocation to preserve role if not provided

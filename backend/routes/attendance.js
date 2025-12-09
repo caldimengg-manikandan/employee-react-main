@@ -128,8 +128,12 @@ router.post("/save-hikvision-attendance", async (req, res) => {
         const empName = r.personInfo?.givenName || r.personInfo?.fullName || "";
         const begin = r.attendanceBaseInfo?.beginTime;
         const end = r.attendanceBaseInfo?.endTime;
+        const durationSec =
+          Number(r.normalInfo?.durationTime) ||
+          Number(r.allDurationTime) ||
+          (begin && end ? Math.max(0, (new Date(end) - new Date(begin)) / 1000) : 0);
         if (begin) items.push({ employeeId: empId, employeeName: empName, punchTime: begin, direction: "in" });
-        if (end) items.push({ employeeId: empId, employeeName: empName, punchTime: end, direction: "out" });
+        if (end) items.push({ employeeId: empId, employeeName: empName, punchTime: end, direction: "out", workDurationSeconds: durationSec });
       }
     } else {
       return res.status(400).json({ success: false, message: "No attendance data provided" });
@@ -149,7 +153,8 @@ router.post("/save-hikvision-attendance", async (req, res) => {
         punchTime: punchDate,
         direction: item.direction,
         deviceId: item.deviceId || "hik",
-        source: "hikvision"
+        source: "hikvision",
+        workDurationSeconds: item.workDurationSeconds
       });
       savedCount++;
       savedRecords.push(record);
@@ -286,17 +291,31 @@ router.get("/my-week", auth, async (req, res) => {
       let firstIn = null;
       let lastOut = null;
 
-      for (const r of dayRecords) {
-        if (r.direction === "in") {
-          const t = new Date(r.punchTime);
-          if (!firstIn) firstIn = t;
-          currentIn = currentIn || t;
-        } else if (r.direction === "out") {
-          const t = new Date(r.punchTime);
-          lastOut = t;
-          if (currentIn && t > currentIn) {
-            sumHours += (t - currentIn) / (1000 * 60 * 60);
-            currentIn = null;
+      // Prefer Hikvision-provided work duration when available
+      const savedDurationHours = dayRecords
+        .map((r) => (r.workDurationSeconds ? r.workDurationSeconds / 3600 : 0))
+        .reduce((a, b) => a + b, 0);
+
+      if (savedDurationHours > 0) {
+        sumHours = savedDurationHours;
+        // still set firstIn/lastOut for UI
+        for (const r of dayRecords) {
+          if (r.direction === "in" && !firstIn) firstIn = new Date(r.punchTime);
+          if (r.direction === "out") lastOut = new Date(r.punchTime);
+        }
+      } else {
+        for (const r of dayRecords) {
+          if (r.direction === "in") {
+            const t = new Date(r.punchTime);
+            if (!firstIn) firstIn = t;
+            currentIn = currentIn || t;
+          } else if (r.direction === "out") {
+            const t = new Date(r.punchTime);
+            lastOut = t;
+            if (currentIn && t > currentIn) {
+              sumHours += (t - currentIn) / (1000 * 60 * 60);
+              currentIn = null;
+            }
           }
         }
       }
