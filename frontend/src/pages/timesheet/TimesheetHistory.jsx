@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { timesheetAPI } from '../../services/api';
 import { Eye, Filter, Calendar, FileText, X, Download, Edit, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -45,79 +45,34 @@ const TimesheetHistory = () => {
   };
 
   // Fetch real timesheet history from backend including drafts
-  useEffect(() => {
-    const fetchTimesheets = async () => {
-      setIsLoading(true);
-      setError('');
-      try {
-        const res = await timesheetAPI.getMyTimesheets();
-        const data = Array.isArray(res.data) ? res.data : [];
-        
-        // Get session storage drafts and merge with backend data
-        const sessionDrafts = getSessionStorageDrafts();
-        const allTimesheets = [...data, ...sessionDrafts];
-        
-        setTimesheets(allTimesheets);
-        setFilteredTimesheets(allTimesheets);
-      } catch (err) {
-        console.error('Failed to fetch timesheets:', err);
-        setError(
-          err.response?.data?.message || 'Unable to load timesheet history. Please try again.'
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    fetchTimesheets();
+  const fetchTimesheets = useCallback(async () => {
+    setIsLoading(true);
+    setError('');
+    try {
+      const res = await timesheetAPI.getMyTimesheets();
+      const backendData = Array.isArray(res.data?.data) ? res.data.data : [];
+      setTimesheets(backendData);
+      setFilteredTimesheets(backendData);
+    } catch (err) {
+      console.error('Failed to fetch timesheets:', err);
+      setError(
+        err.response?.data?.message || 'Unable to load timesheet history. Please try again.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
-  // Get drafts from sessionStorage
-  const getSessionStorageDrafts = () => {
-    const drafts = [];
-    try {
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key && key.startsWith('timesheet_draft_')) {
-          const draftData = JSON.parse(sessionStorage.getItem(key));
-          if (draftData && draftData.rows) {
-            drafts.push({
-              _id: `session_${key}`, // Generate unique ID for session drafts
-              weekStartDate: draftData.weekStart,
-              weekEndDate: draftData.weekEnd,
-              entries: draftData.rows.map(row => ({
-                project: row.project,
-                projectCode: row.projectCode || '',
-                task: row.task,
-                type: row.type,
-                hours: row.hours
-              })),
-              totalHours: (() => {
-                const workSum = draftData.rows.reduce((total, row) =>
-                  total + row.hours.reduce((sum, hour) => sum + (Number(hour) || 0), 0), 0
-                );
-                let breakSum = 0;
-                for (let i = 0; i < 7; i++) {
-                  const hasProjectWork = draftData.rows.some(r => r.type === 'project' && ((r.hours?.[i] ?? 0) > 0));
-                  const isFullDayLeaveOrHoliday = draftData.rows.some(r => (r.type === 'leave' || r.type === 'holiday') && ((r.hours?.[i] ?? 0) >= 8));
-                  if (hasProjectWork && !isFullDayLeaveOrHoliday) {
-                    breakSum += 1.25;
-                  }
-                }
-                return Number((workSum + breakSum).toFixed(1));
-              })(),
-              status: 'Draft',
-              updatedAt: draftData.savedAt,
-              isSessionDraft: true, // Flag to identify session storage drafts
-              sessionStorageKey: key // Store the key for deletion
-            });
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error reading drafts from sessionStorage:', error);
-    }
-    return drafts;
-  };
+  useEffect(() => {
+    fetchTimesheets();
+    const handler = () => fetchTimesheets();
+    window.addEventListener('refreshTimesheetHistory', handler);
+    return () => {
+      window.removeEventListener('refreshTimesheetHistory', handler);
+    };
+  }, [fetchTimesheets]);
+
+  // SessionStorage drafts removed; drafts are stored in backend only
 
   // Apply filters whenever filter criteria changes
   useEffect(() => {
@@ -178,54 +133,33 @@ const TimesheetHistory = () => {
   };
 
   const handleEdit = (timesheet) => {
-    if (timesheet.isSessionDraft) {
-      // For session drafts, redirect to timesheet page with draft data
-      const draftData = JSON.parse(sessionStorage.getItem(timesheet.sessionStorageKey));
-      if (draftData) {
-        // Store the current draft key to load in timesheet component
-        sessionStorage.setItem('load_draft_key', timesheet.sessionStorageKey);
-        // Redirect to timesheet page - adjust the path as needed
-        window.location.href = '/timesheet';
-      }
-    } else {
-      // For backend drafts, you might need to implement an API to load the draft
-      console.log('Edit backend draft:', timesheet._id);
-      // Implement backend draft editing logic here
-      alert('Editing backend drafts will be implemented soon');
+    try {
+      const start = new Date(timesheet.weekStartDate);
+      const end = new Date(timesheet.weekEndDate);
+      const startIso = start.toISOString();
+      const endIso = end.toISOString();
+      window.location.href = `/timesheet?weekStart=${encodeURIComponent(startIso)}&weekEnd=${encodeURIComponent(endIso)}`;
+    } catch (err) {
+      try { alert('Failed to open draft for editing'); } catch (_) {}
     }
   };
 
   const handleDelete = (timesheet) => {
     if (window.confirm('Are you sure you want to delete this draft? This action cannot be undone.')) {
-      if (timesheet.isSessionDraft) {
-        // Remove from sessionStorage
-        sessionStorage.removeItem(timesheet.sessionStorageKey);
-        
-        // Update state to remove the deleted timesheet
-        const updatedTimesheets = timesheets.filter(t => t._id !== timesheet._id);
-        setTimesheets(updatedTimesheets);
-        setFilteredTimesheets(updatedTimesheets);
-        
-        alert('Draft deleted successfully');
-      } else {
-        // For backend drafts, call delete API
-        const deleteBackendDraft = async () => {
-          try {
-            await timesheetAPI.deleteTimesheet(timesheet._id);
-            
-            // Update state to remove the deleted timesheet
-            const updatedTimesheets = timesheets.filter(t => t._id !== timesheet._id);
-            setTimesheets(updatedTimesheets);
-            setFilteredTimesheets(updatedTimesheets);
-            
-            alert('Draft deleted successfully');
-          } catch (err) {
-            console.error('Failed to delete draft:', err);
-            alert('Failed to delete draft. Please try again.');
-          }
-        };
-        deleteBackendDraft();
-      }
+      // Backend drafts only
+      const deleteBackendDraft = async () => {
+        try {
+          await timesheetAPI.deleteTimesheet(timesheet._id);
+          const updatedTimesheets = timesheets.filter(t => t._id !== timesheet._id);
+          setTimesheets(updatedTimesheets);
+          setFilteredTimesheets(updatedTimesheets);
+          alert('Draft deleted successfully');
+        } catch (err) {
+          console.error('Failed to delete draft:', err);
+          alert('Failed to delete draft. Please try again.');
+        }
+      };
+      deleteBackendDraft();
     }
   };
 
@@ -573,11 +507,6 @@ const TimesheetHistory = () => {
         {/* Results count */}
         <div className="mt-4 text-sm text-gray-600">
           Showing {filteredTimesheets.length} of {timesheets.length} timesheets
-          {timesheets.some(t => t.isSessionDraft) && (
-            <span className="ml-2 text-blue-600">
-              • {timesheets.filter(t => t.isSessionDraft).length} draft(s) from current session
-            </span>
-          )}
         </div>
       </div>
 

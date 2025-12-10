@@ -108,13 +108,8 @@ const ProjectDashboard = () => {
     ];
 
     const visibleModules = modules.filter((m) => {
-        if (role === 'employees') {
-            const employeeWhitelist = new Set(['Timesheet', 'Leave Applications', 'Policies', 'Salary Slips']);
-            if (!employeeWhitelist.has(m.name)) return false;
-            return true;
-        }
         const hasPermission = m.permission ? permissions.includes(m.permission) : true;
-        const allowByRole = role === 'admin';
+        const allowByRole = role === 'admin' || (role === 'employees' && m.allowEmployeeRole);
         return hasPermission || allowByRole;
     });
 

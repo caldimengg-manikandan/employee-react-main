@@ -115,6 +115,20 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     }));
   };
 
+  const selectAllPermissions = () => {
+    setFormData(prev => ({
+      ...prev,
+      permissions: permissionOptions
+    }));
+  };
+
+  const clearAllPermissions = () => {
+    setFormData(prev => ({
+      ...prev,
+      permissions: []
+    }));
+  };
+
   const validateForm = () => {
     const newErrors = {};
     
@@ -371,9 +385,26 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         required={!user || formData.password}
       />
 
-      {/* Permissions */}
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">Permissions</label>
+        <div className="flex items-center justify-between mb-3">
+          <label className="block text-sm font-medium text-gray-700">Permissions</label>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={selectAllPermissions}
+              className="px-3 py-1 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Select All
+            </button>
+            <button
+              type="button"
+              onClick={clearAllPermissions}
+              className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-800 hover:bg-gray-300"
+            >
+              Clear
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {permissionOptions.map(permission => {
             const isActive = formData.permissions.includes(permission);

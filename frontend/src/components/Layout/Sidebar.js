@@ -196,33 +196,15 @@ const Sidebar = ({ isOpen, onClose }) => {
   ];
 
   const filteredMenuItems = menuItems.filter((item) => {
-    if (role === "employees") {
-      const employeeWhitelist = new Set([
-        "Home",
-        "Timesheet",
-        "Leave Applications",
-        "Policy Portal",
-        "Salary Slips",
-      ]);
-      if (!employeeWhitelist.has(item.name)) {
-        return false;
-      }
-    }
-    // Check if item has role-based visibility restrictions
     if (item.showForRoles && !item.showForRoles.includes(role) && role !== "admin") {
       return false;
     }
-    
-    // Check if user has permission
     const hasPermission = !item.permission || permissions.includes(item.permission);
-    
-    // Check if role-based access is allowed
-    const allowByRole = 
-      role === "admin" || 
+    const allowByRole =
+      role === "admin" ||
       (role === "employees" && item.allowEmployeeRole) ||
       (role === "projectmanager" && item.name === "Project Allocation");
-
-    return (hasPermission || allowByRole);
+    return hasPermission || allowByRole;
   });
 
   // Filter dropdown children based on permissions and role

@@ -34,7 +34,19 @@ const userSchema = new mongoose.Schema({
   permissions: [{
     type: String,
     enum: [
-      'dashboard', 'user_access', 'employee_access', 'timesheet_access', 'attendance_access', 'project_access', 'leave_access', 'leave_approval'
+      'dashboard',
+      'user_access',
+      'employee_access',
+      'timesheet_access',
+      'attendance_access',
+      'project_access',
+      'leave_access',
+      'leave_approval',
+      'leave_manage',
+      'leave_view',
+      'leave_manage_trainees',
+      'payroll_access',
+      'expenditure_access'
     ]
   }],
   lastLogin: {

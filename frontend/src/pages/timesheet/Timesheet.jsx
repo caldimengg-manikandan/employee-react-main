@@ -77,7 +77,7 @@ const Timesheet = () => {
           weekStart: normalizeToUTCDateOnly(wd[0]),
           weekEnd: normalizeToUTCDateOnly(wd[6]),
         });
-        const sheet = res.data;
+        const sheet = (res?.data && res.data.data) ? res.data.data : res.data;
         const rows = (sheet.entries || []).map((e) => ({
           id: Date.now() + Math.random(),
           project: e.project || "",
@@ -139,6 +139,17 @@ const Timesheet = () => {
     };
     loadWeekData();
   }, [currentWeek]);
+
+  useEffect(() => {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const weekStart = params.get('weekStart');
+      if (weekStart) {
+        const d = new Date(weekStart);
+        if (!isNaN(d.getTime())) setCurrentWeek(d);
+      }
+    } catch (_) {}
+  }, []);
 
   const parseDurationHours = (input) => {
     if (input === null || input === undefined) return 0;
@@ -622,12 +633,7 @@ const Timesheet = () => {
     // Warning when approaching 24 hours (within 2 hours)
     if (newTotalWithBreakAll >= 22 && newTotalWithBreakAll <= 24) {
       const remainingHours = (24 - newTotalWithBreakAll).toFixed(1);
-      // Only show warning once per session for this day to avoid spam
-      const warningKey = `timesheet_warning_${dayIndex}_${currentWeek.toDateString()}`;
-      if (!sessionStorage.getItem(warningKey)) {
-        alert(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newTotalWithBreakAll.toFixed(1)}h (only ${remainingHours}h remaining)\n\nThis includes Work (${newWorkTotalAll.toFixed(1)}h) + Break (${currentBreakHours.toFixed(1)}h)`);
-        sessionStorage.setItem(warningKey, 'true');
-      }
+      alert(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newTotalWithBreakAll.toFixed(1)}h (only ${remainingHours}h remaining)\n\nThis includes Work (${newWorkTotalAll.toFixed(1)}h) + Break (${currentBreakHours.toFixed(1)}h)`);
     }
 
     // Handle leave types
@@ -875,11 +881,6 @@ const Timesheet = () => {
 
   const previousWeek = () => {
     handleNavigation(() => {
-      // Clear warning session keys when changing weeks
-      for (let i = 0; i < 7; i++) {
-        sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
-      }
-      
       const newWeek = new Date(currentWeek);
       newWeek.setDate(newWeek.getDate() - 7);
       setCurrentWeek(newWeek);
@@ -891,11 +892,6 @@ const Timesheet = () => {
 
   const nextWeek = () => {
     handleNavigation(() => {
-      // Clear warning session keys when changing weeks
-      for (let i = 0; i < 7; i++) {
-        sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
-      }
-      
       const newWeek = new Date(currentWeek);
       newWeek.setDate(newWeek.getDate() + 7);
       setCurrentWeek(newWeek);
@@ -907,11 +903,6 @@ const Timesheet = () => {
 
   const goToCurrentWeek = () => {
     handleNavigation(() => {
-      // Clear warning session keys when changing weeks
-      for (let i = 0; i < 7; i++) {
-        sessionStorage.removeItem(`timesheet_warning_${i}_${currentWeek.toDateString()}`);
-      }
-      
       setCurrentWeek(new Date());
       setTimesheetRows([]);
       setIsSubmitted(false); // Reset submission status when changing weeks
@@ -926,7 +917,7 @@ const Timesheet = () => {
       return;
     }
 
-    saveDraftToSession();
+    // Drafts are saved to backend only
 
     const normalizeToUTCDateOnly = (d) => {
       const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -966,8 +957,7 @@ const Timesheet = () => {
       const response = await timesheetAPI.saveTimesheet(payload);
       console.log("✅ Timesheet saved as draft:", response.data);
       
-      // Clear sessionStorage draft after successful backend save
-      clearDraftFromSession();
+      // Draft persisted to backend
       
       // Update original data to mark as saved
       setOriginalData(JSON.stringify(timesheetRows));
@@ -1073,8 +1063,7 @@ const Timesheet = () => {
       const response = await timesheetAPI.saveTimesheet(payload);
       console.log("✅ Timesheet submitted:", response.data);
       
-      // Clear sessionStorage draft after successful submission
-      clearDraftFromSession();
+      // Submission persisted to backend
       
       // Set submitted status to prevent auto-saving
       setIsSubmitted(true);
@@ -1150,22 +1139,7 @@ const Timesheet = () => {
     });
   };
 
-  const saveDailyShiftTypesToSession = () => {
-    try {
-      const weekKey = `timesheet_draft_${getWeekKey()}`;
-      const existing = sessionStorage.getItem(weekKey);
-      const base = existing ? JSON.parse(existing) : {};
-      const next = {
-        ...base,
-        dailyShiftTypes,
-        shiftType,
-        weekStart: weekDates[0].toISOString(),
-        weekEnd: weekDates[6].toISOString(),
-        savedAt: new Date().toISOString()
-      };
-      sessionStorage.setItem(weekKey, JSON.stringify(next));
-    } catch (_) {}
-  };
+  const saveDailyShiftTypesToSession = () => {};
 
   useEffect(() => {
     saveDailyShiftTypesToSession();
