@@ -583,34 +583,7 @@ const LeaveApplications = () => {
               </div>
             </div>
             
-            {/* Quick Stats */}
-            <div className="mt-6 bg-white rounded-xl shadow-md p-6">
-              <h3 className="font-medium text-gray-900 mb-4">Quick Stats</h3>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-900">
-                    {leaveHistory.filter(l => l.status === 'Approved').length}
-                  </div>
-                  <div className="text-sm text-gray-600">Approved</div>
-                </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-900">
-                    {leaveHistory.filter(l => l.status === 'Pending').length}
-                  </div>
-                  <div className="text-sm text-gray-600">Pending</div>
-                </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-900">
-                    {leaveHistory.reduce((sum, leave) => sum + leave.totalDays, 0)}
-                  </div>
-                  <div className="text-sm text-gray-600">Total Days</div>
-                </div>
-                <div className="text-center p-3 bg-gray-50 rounded-lg">
-                  <div className="text-2xl font-bold text-gray-900">{leaveHistory.length}</div>
-                  <div className="text-sm text-gray-600">Total Applications</div>
-                </div>
-              </div>
-            </div>
+            
           </div>
         </div>
       </div>

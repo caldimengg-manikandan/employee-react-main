@@ -159,12 +159,14 @@ const TeamManagement = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 w-full">
+
       <h1 className="text-2xl font-semibold text-gray-800 mb-4">Team Management</h1>
       {error && <div className="mb-4 text-red-600 text-sm">{error}</div>}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 bg-white rounded-lg shadow p-4">
+      <div className="grid grid-cols-1 gap-6 w-full">
+
+        <div className=" bg-white rounded-lg shadow p-4">
           {/* <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-medium text-gray-700">Sr.Project Managers</h2>
             <button onClick={loadData} disabled={loading} className="px-3 py-2 rounded bg-gray-700 text-white">Refresh</button>

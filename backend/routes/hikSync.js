@@ -75,19 +75,38 @@ router.get("/sync", auth, async (req, res) => {
     let insertCount = 0;
 
     for (const item of list) {
-      // Avoid duplicates
-      const exists = await Attendance.findOne({
+      const punchDate = new Date(item.checkTime);
+      const direction = item.checkType === 1 ? "in" : "out";
+
+      // Rewrite existing same-day record for this employee/direction
+      const dayStart = new Date(punchDate);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(punchDate);
+      dayEnd.setHours(23, 59, 59, 999);
+
+      const existingSameDay = await Attendance.findOne({
         employeeId: item.personId,
-        punchTime: item.checkTime
+        direction,
+        punchTime: { $gte: dayStart, $lte: dayEnd }
       });
 
-      if (exists) continue;
+      if (existingSameDay) {
+        existingSameDay.name = item.personName || existingSameDay.name || "";
+        existingSameDay.punchTime = punchDate;
+        existingSameDay.direction = direction;
+        existingSameDay.deviceId = item.deviceId || existingSameDay.deviceId;
+        existingSameDay.source = `hikvision_${apiVersion}`;
+        existingSameDay.correspondingInTime = null;
+        await existingSameDay.save();
+        insertCount++;
+        continue;
+      }
 
       await Attendance.create({
         employeeId: item.personId,
-        employeeName: item.personName,
-        punchTime: item.checkTime,
-        direction: item.checkType === 1 ? "in" : "out",
+        name: item.personName,
+        punchTime: punchDate,
+        direction,
         deviceId: item.deviceId,
         correspondingInTime: null,
         source: `hikvision_${apiVersion}`

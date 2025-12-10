@@ -194,6 +194,20 @@ const Timesheet = () => {
     return isNaN(num) ? 0 : num;
   };
 
+  const normalizeHHMMInput = (val) => {
+    if (typeof val !== "string") return "";
+    const digits = val.replace(/\D/g, "");
+    if (!digits) return "";
+    const h = digits.slice(0, 2);
+    const mRaw = digits.slice(2, 4);
+    if (mRaw.length === 0) return h;
+    let m = parseInt(mRaw, 10);
+    if (isNaN(m)) m = 0;
+    if (m > 59) m = 59;
+    const mm = String(m).padStart(2, "0");
+    return `${h}:${mm}`;
+  };
+
   const parseTime = (t) => {
     if (!t) return null;
     try {
@@ -557,6 +571,11 @@ const Timesheet = () => {
       return;
     }
 
+    // Normalize string inputs to HH:MM before parsing
+    if (typeof value === "string") {
+      value = normalizeHHMMInput(value);
+    }
+
     // Handle empty string for proper deletion
     if (value === "" || value === null || value === undefined) {
       setTimesheetRows((prev) =>
@@ -635,8 +654,16 @@ const Timesheet = () => {
         numValue = 4.75; // Force to 4.75 for positive values
       }
     } else if (row.task === "Permission") {
-      const clamp = (v) => Math.max(0, Math.min(3, v));
-      numValue = clamp(numValue);
+      // Only allow 01:00, 02:00, or 03:00 (and 00:00 to clear)
+      if (numValue <= 0) {
+        numValue = 0;
+      } else if (numValue <= 1) {
+        numValue = 1;
+      } else if (numValue <= 2) {
+        numValue = 2;
+      } else {
+        numValue = 3;
+      }
 
       const getPermissionCountForHours = (h) => {
         const val = Number(h) || 0;
@@ -721,6 +748,29 @@ const Timesheet = () => {
     const finalWorkTotal = currentDailyAllTotal + numValue;
     const finalTotalWithBreak = finalWorkTotal + breakAfterUpdate;
     
+    // Enforce per-shift caps on Total Hours (Work + Break)
+    const shiftForDayCap = dailyShiftTypes[dayIndex];
+    let totalCap = null;
+    if (shiftForDayCap && shiftForDayCap.startsWith("General Shift")) {
+      totalCap = 9.5;
+    } else if (shiftForDayCap && (shiftForDayCap.startsWith("First Shift") || shiftForDayCap.startsWith("Secend Shift"))) {
+      totalCap = 9.0;
+    }
+
+    if (totalCap !== null && finalTotalWithBreak > totalCap) {
+      if (row.task === "Permission") {
+        alert(`Total Hours (Work + Break) for ${days[dayIndex]} cannot exceed ${totalCap.toFixed(2)}h for ${shiftForDayCap}.`);
+        return;
+      }
+      const remaining = Math.max(0, totalCap - (currentDailyAllTotal + breakAfterUpdate));
+      const attempted = numValue;
+      if (remaining <= 0 && attempted > 0) {
+        alert(`Total Hours (Work + Break) for ${days[dayIndex]} cannot exceed ${totalCap.toFixed(2)}h for ${shiftForDayCap}.`);
+        return;
+      }
+      numValue = remaining;
+    }
+
     if (finalTotalWithBreak > 24) {
       const currentTotalWithBreak = (currentDailyAllTotal + computeBreakForDay(dayIndex)).toFixed(1);
       alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${computeBreakForDay(dayIndex).toFixed(1)}h)\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
@@ -1425,7 +1475,13 @@ const Timesheet = () => {
                               if (e.currentTarget) e.currentTarget.blur();
                             }
                             if (e.key === 'ArrowUp') {
-                              if (row.type !== "project") {
+                              if (
+                                row.type !== "project" &&
+                                row.task !== "Permission" &&
+                                row.task !== "Full Day Leave" &&
+                                row.task !== "Office Holiday" &&
+                                row.task !== "Half Day Leave"
+                              ) {
                                 const key = `${row.id}_${dayIndex}`;
                                 const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
                                 const base = parseHHMMToHours(baseStr);
@@ -1440,7 +1496,13 @@ const Timesheet = () => {
                               }
                             }
                             if (e.key === 'ArrowDown') {
-                              if (row.type !== "project") {
+                              if (
+                                row.type !== "project" &&
+                                row.task !== "Permission" &&
+                                row.task !== "Full Day Leave" &&
+                                row.task !== "Office Holiday" &&
+                                row.task !== "Half Day Leave"
+                              ) {
                                 const key = `${row.id}_${dayIndex}`;
                                 const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
                                 const base = parseHHMMToHours(baseStr);
@@ -1471,7 +1533,9 @@ const Timesheet = () => {
                             });
                           }}
                           className={`w-20 p-2 ${row.type !== "project" ? "pr-6" : ""} border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id) 
+                            (row.type === "project" ? (!row.project || !row.task) : (!row.task))
+                              ? "bg-gray-100 cursor-not-allowed"
+                              : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id) 
                               ? "bg-gray-100 cursor-not-allowed" 
                               : isSubmitted
                               ? "bg-gray-100 cursor-not-allowed"
@@ -1485,6 +1549,7 @@ const Timesheet = () => {
                           }`}
                           disabled={
                             isSubmitted ||
+                            (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
                             (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
                             (!isShiftSelectedForDay(dayIndex)) ||
@@ -1493,6 +1558,8 @@ const Timesheet = () => {
                           title={
                             isSubmitted 
                               ? "Timesheet already submitted" 
+                              : (row.type === "project" ? (!row.project || !row.task) : (!row.task))
+                              ? (row.type === "project" ? "Please select project and task first" : "Please select a leave type or task")
                               : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id) 
                               ? "Permission not allowed for this day" 
                               : (monthlyPermissionCount >= 3 && Number(hours) === 0)
@@ -1506,7 +1573,7 @@ const Timesheet = () => {
                               : ""
                           }
                         />
-                        {row.type !== "project" && (
+                        {row.type !== "project" && row.task !== "Permission" && row.task !== "Full Day Leave" && row.task !== "Office Holiday" && row.task !== "Half Day Leave" && (
                           <div className="absolute right-1 inset-y-1 flex flex-col justify-between">
                             <button
                               onClick={() => {
@@ -1523,8 +1590,8 @@ const Timesheet = () => {
                               }}
                               disabled={
                                 isSubmitted ||
+                                (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                                 (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                                (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
                                 (!isShiftSelectedForDay(dayIndex)) ||
                                 (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
                               }
@@ -1548,8 +1615,8 @@ const Timesheet = () => {
                               }}
                               disabled={
                                 isSubmitted ||
+                                (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                                 (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                                (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
                                 (!isShiftSelectedForDay(dayIndex)) ||
                                 (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
                               }
