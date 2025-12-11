@@ -2,6 +2,7 @@ const express = require("express");
 const Timesheet = require("../models/Timesheet");
 const AdminTimesheet = require("../models/AdminTimesheet");
 const Employee = require("../models/Employee");
+const User = require("../models/User");
 const auth = require("../middleware/auth");
 const nodemailer = require("nodemailer");
 
@@ -27,6 +28,129 @@ function toWeekString(d) {
   const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
   const weekStr = String(weekNo).padStart(2, "0");
   return `${date.getUTCFullYear()}-W${weekStr}`;
+} 
+
+async function getAdminApprovalRecipients() {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const users = await User.find({ role: "admin" }).select("email");
+  const hrAdmins = await Employee.find({ role: { $in: ["HR", "Admin", "hr", "admin"] } }).select("email");
+  const cde = await Employee.findOne({ employeeId: "CDE001" }).select("email");
+  const list = [];
+  users.forEach(u => { if (u?.email && emailRegex.test(u.email)) list.push(u.email); });
+  hrAdmins.forEach(e => { if (e?.email && emailRegex.test(e.email)) list.push(e.email); });
+  if (cde?.email && emailRegex.test(cde.email)) list.push(cde.email);
+  return Array.from(new Set(list));
+}
+
+async function sendTimesheetApprovalRequestEmail(user, sheet) {
+  try {
+    const recipients = await getAdminApprovalRecipients();
+    if (!recipients.length) {
+      return { success: false, error: "No admin recipients" };
+    }
+    const weekStr = toWeekString(new Date(sheet.weekStartDate));
+    const start = new Date(sheet.weekStartDate).toISOString().split("T")[0];
+    const end = new Date(sheet.weekEndDate).toISOString().split("T")[0];
+    // Build the same email body as the employee receives
+    let employeeProfile = null;
+    if (user.employeeId) employeeProfile = await Employee.findOne({ employeeId: user.employeeId }).lean();
+    if (!employeeProfile && user.email) employeeProfile = await Employee.findOne({ email: user.email }).lean();
+    if (!employeeProfile && user._id) employeeProfile = await Employee.findOne({ userId: user._id }).lean();
+    const entries = Array.isArray(sheet.entries) ? sheet.entries : [];
+    const toHHMM = (n) => { const totalMin = Math.round(Number(n || 0) * 60); const h = Math.floor(totalMin / 60); const m = totalMin % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; };
+    const workWeeklyTotal = entries.reduce((sum, e) => { const hrs = Array.isArray(e.hours) ? e.hours : []; return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0); }, 0);
+    const computeBreakForDay = (dayIndex) => { const hasProjectWork = entries.some((e) => (e.type || 'project') === 'project' && ((e.hours?.[dayIndex] || 0) > 0)); const isFullDayLeaveOrHoliday = entries.some((e) => { const val = Number(e.hours?.[dayIndex] || 0); const t = (e.task || '').toLowerCase(); const isHoliday = t.includes('holiday'); const isFullDayLeave = t.includes('full day'); return ((e.type || 'project') === 'leave' || isHoliday) && (val >= 8) && (isHoliday || isFullDayLeave); }); return hasProjectWork && !isFullDayLeaveOrHoliday ? 1.25 : 0; };
+    const breakDaily = [0, 1, 2, 3, 4, 5, 6].map((i) => computeBreakForDay(i));
+    const breakWeekly = breakDaily.reduce((s, v) => s + v, 0);
+    const totalWithBreak = workWeeklyTotal + breakWeekly;
+    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    const onPrem = sheet.onPremisesTime || { daily: [], weekly: 0 };
+    const baseHtml = `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;padding:20px;max-width:900px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;">
+        <h2 style="color:#333;margin:0 0 20px 0;padding-bottom:10px;border-bottom:2px solid #4F46E5;">Timesheet Submitted Successfully</h2>
+        <p style="color:#666;margin-bottom:20px;">Your timesheet has been submitted and is now pending for approval.</p>
+        <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin-bottom:20px;">
+          <h3 style="color:#4F46E5;margin-top:0;">Employee Details</h3>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr><td style="padding:8px 0;color:#666;"><strong>Name:</strong></td><td style="padding:8px 0;color:#333;">${employeeProfile?.name || user.name || '-'}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Employee ID:</strong></td><td style="padding:8px 0;color:#333;">${employeeProfile?.employeeId || user.employeeId || '-'}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Division:</strong></td><td style="padding:8px 0;color:#333;">${employeeProfile?.division || '-'}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Location:</strong></td><td style="padding:8px 0;color:#333;">${employeeProfile?.location || '-'}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Email:</strong></td><td style="padding:8px 0;color:#333;">${user.email || employeeProfile?.email || '-'}</td></tr>
+          </table>
+        </div>
+        <div style="background:#f8f9fa;padding:15px;border-radius:6px;margin-bottom:20px;">
+          <h3 style="color:#4F46E5;margin-top:0;">Timesheet Summary</h3>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr><td style="padding:8px 0;color:#666;"><strong>Week:</strong></td><td style="padding:8px 0;color:#333;">${weekStr}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Period:</strong></td><td style="padding:8px 0;color:#333;">${start} to ${end}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Work Hours (sum of entries):</strong></td><td style="padding:8px 0;color:#333;font-weight:bold;">${toHHMM(workWeeklyTotal)} hours</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Break Hours:</strong></td><td style="padding:8px 0;color:#333;">${toHHMM(breakWeekly)} hours</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Total Hours:</strong></td><td style="padding:8px 0;color:#333;font-weight:bold;">${toHHMM(totalWithBreak)} hours</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Status:</strong></td><td style="padding:8px 0;color:#4F46E5;font-weight:bold;">${sheet.status || 'Submitted'}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Submitted On:</strong></td><td style="padding:8px 0;color:#333;">${new Date().toLocaleString()}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>On-Premises Weekly:</strong></td><td style="padding:8px 0;color:#333;">${toHHMM(onPrem.weekly || 0)} hours</td></tr>
+          </table>
+        </div>
+        <div style="background:#fff;padding:15px;border-radius:6px;margin-bottom:20px;border:1px solid #eee;">
+          <h3 style="color:#4F46E5;margin-top:0;">Time Entries</h3>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Project</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Project Code</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Task</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Type</th>
+                ${dayNames.map(d => `<th style=\"text-align:right;padding:8px;border-bottom:1px solid #eee;color:#666;\">${d}</th>`).join("")}
+                <th style="text-align:right;padding:8px;border-bottom:1px solid #eee;color:#666;">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${entries.map(e => { const hrs = Array.isArray(e.hours) ? e.hours : []; const rowTotal = hrs.reduce((a, b) => a + (Number(b) || 0), 0); return `
+                  <tr>
+                    <td style=\"padding:8px;color:#333;\">${e.project || '-'}</td>
+                    <td style=\"padding:8px;color:#333;\">${e.projectCode || '-'}</td>
+                    <td style=\"padding:8px;color:#333;\">${e.task || '-'}</td>
+                    <td style=\"padding:8px;color:#333;\">${e.type || '-'}</td>
+                    ${dayNames.map((_, i) => `<td style=\"text-align:right;padding:8px;color:#333;\">${toHHMM(hrs[i] || 0)}</td>`).join("")}
+                    <td style=\"text-align:right;padding:8px;color:#333;font-weight:bold;\">${toHHMM(rowTotal)}</td>
+                  </tr>
+                `; }).join("")}
+              <tr>
+                <td colspan="${4 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Work Hours Total</td>
+                <td style="text-align:right;padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;">${toHHMM(workWeeklyTotal)}</td>
+              </tr>
+              <tr>
+                <td colspan="${4 + dayNames.length}" style="padding:8px;color:#333;border-top:1px solid #eee;text-align:right;">Break Hours Total</td>
+                <td style="text-align:right;padding:8px;color:#333;border-top:1px solid #eee;">${toHHMM(breakWeekly)}</td>
+              </tr>
+              <tr>
+                <td colspan="${4 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Total (Work + Break)</td>
+                <td style="text-align:right;padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;">${toHHMM(totalWithBreak)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    // Admin banner to request approval
+    const approvalBanner = `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;padding:16px;max-width:900px;margin:0 auto 12px auto;border:1px solid #ffe58f;background:#fff8e1;border-radius:8px;">
+        <div style="display:flex;align-items:center;gap:8px;color:#8a6d3b;">
+          <strong>Action Required:</strong>
+          <span>This timesheet is awaiting your approval.</span>
+        </div>
+      </div>`;
+
+    const from = "support@caldimengg.in";
+    const subject = `Timesheet Submitted - Awaiting Approval (${weekStr})`;
+    const html = approvalBanner + baseHtml;
+    const mailOptions = { from: `"Timesheet System" <${from}>`, to: recipients.join(","), subject, html };
+    const info = await mailer.sendMail(mailOptions);
+    return { success: true, messageId: info.messageId, to: recipients };
+  } catch (e) {
+    return { success: false, error: e?.message || String(e) };
+  }
 }
 
 // Send timesheet submitted email with improved error handling
@@ -42,7 +166,7 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
       targetEmail = user.email;
       console.log("✅ Using email from user object:", targetEmail);
     } else if (user.employeeId) {
-      console.log("🔍 Looking up email by employeeId:", user.employeeId);
+      console.log("Looking up email by employeeId:", user.employeeId);
       const emp = await Employee.findOne({ employeeId: user.employeeId }).select("email");
       if (emp?.email) {
         targetEmail = emp.email;
@@ -52,7 +176,7 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
       }
     } else if (user._id) {
       // Try to find employee by user ID
-      console.log("🔍 Looking up email by user._id:", user._id);
+      console.log("Looking up email by user._id:", user._id);
       const emp = await Employee.findOne({ userId: user._id }).select("email");
       if (emp?.email) {
         targetEmail = emp.email;
@@ -62,7 +186,7 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
 
     // If still no email, try to get from Employee collection directly
     if (!targetEmail) {
-      console.log("🔍 Attempting to find any employee record for user");
+      console.log("Attempting to find any employee record for user");
       const emp = await Employee.findOne({
         $or: [
           { userId: user._id },
@@ -464,6 +588,7 @@ async function upsertAdminTimesheetRecord(user, sheet) {
     const submittedDate = new Date().toISOString().split("T")[0];
 
     const payload = {
+      timesheetId: sheet._id,
       employeeId: employeeProfile?.employeeId || user.employeeId || "",
       employeeName: employeeProfile?.name || user.name || "",
       division: employeeProfile?.division || "",
@@ -591,7 +716,7 @@ router.post("/", auth, async (req, res) => {
       if (status === "Submitted") {
         await upsertAdminTimesheetRecord(req.user, sheet);
         const emailResult = await sendTimesheetSubmittedEmail(req.user, sheet);
-        // Send separate Permission usage email (non-blocking)
+        await sendTimesheetApprovalRequestEmail(req.user, sheet);
         sendPermissionUsageEmail(req.user, sheet).catch(() => {});
         emailSent = !!(emailResult && emailResult.success);
         if (emailSent) {
@@ -632,7 +757,7 @@ router.post("/", auth, async (req, res) => {
     if (status === "Submitted") {
       await upsertAdminTimesheetRecord(req.user, sheet);
       const emailResult = await sendTimesheetSubmittedEmail(req.user, sheet);
-      // Send separate Permission usage email (non-blocking)
+      await sendTimesheetApprovalRequestEmail(req.user, sheet);
       sendPermissionUsageEmail(req.user, sheet).catch(() => {});
       emailSent = !!(emailResult && emailResult.success);
       if (emailSent) {
@@ -746,9 +871,77 @@ router.get("/my-timesheets", auth, async (req, res) => {
       .sort({ weekStartDate: -1 })
       .select("-__v");
 
+    // Sync status from AdminTimesheet records to ensure reflection in history
+    const userDoc = await User.findById(req.user._id).select("employeeId name email");
+    const employeeId = userDoc?.employeeId || req.user.employeeId || "";
+
+    const enriched = await Promise.all(sheets.map(async (sheet) => {
+      const weekStr = toWeekString(new Date(sheet.weekStartDate));
+
+      // Prefer direct link by timesheetId
+      let adminDoc = await AdminTimesheet.findOne({ timesheetId: sheet._id }).select("status");
+      if (!adminDoc) {
+        // Fallback by employeeId + week
+        if (employeeId) {
+          adminDoc = await AdminTimesheet.findOne({ employeeId, week: weekStr }).select("status");
+        }
+      }
+      if (!adminDoc && userDoc?.name) {
+        // Final fallback by employeeName + week
+        adminDoc = await AdminTimesheet.findOne({ employeeName: userDoc.name, week: weekStr }).select("status");
+      }
+
+      if (adminDoc) {
+        const s = (adminDoc.status || "").toLowerCase();
+        if (s === "approved") {
+          sheet.status = "Approved";
+        } else if (s === "rejected") {
+          sheet.status = "Rejected";
+        } else if (s === "pending") {
+          sheet.status = "Submitted";
+        }
+      }
+      else {
+        // Heuristic fallback: match by week + projects + total
+        const candidates = await AdminTimesheet.find({ week: weekStr }).select("status weeklyTotal timeEntries");
+        const sheetProjects = Array.from(new Set((sheet.entries || [])
+          .filter(e => (e.type || 'project') === 'project')
+          .map(e => (e.project || '').trim()))).sort();
+        const sheetTotal = Number(sheet.totalHours || 0);
+        const approxEqual = (a, b) => Math.abs(Number(a || 0) - Number(b || 0)) < 0.01;
+        let matched = null;
+        for (const cand of candidates) {
+          const candProjects = Array.from(new Set((cand.timeEntries || []).map(te => (te.project || '').trim()))).sort();
+          const projectsMatch = candProjects.length === sheetProjects.length && candProjects.every((p, i) => p === sheetProjects[i]);
+          if (projectsMatch && approxEqual(cand.weeklyTotal, sheetTotal)) {
+            matched = cand;
+            break;
+          }
+        }
+        if (matched) {
+          const s = (matched.status || "").toLowerCase();
+          let newStatus = null;
+          if (s === "approved") newStatus = "Approved";
+          else if (s === "rejected") newStatus = "Rejected";
+          else if (s === "pending") newStatus = "Submitted";
+          if (newStatus) {
+            sheet.status = newStatus;
+            try {
+              const update = { status: newStatus };
+              if (newStatus === "Approved") update.approvedAt = new Date();
+              await Timesheet.updateOne({ _id: sheet._id }, { $set: update });
+            } catch (_) {}
+          }
+          // Try to permanently link the admin record to this timesheet
+          try { await AdminTimesheet.updateOne({ _id: matched._id }, { $set: { timesheetId: sheet._id } }); } catch (_) {}
+        }
+      }
+      return sheet;
+    }));
+
     res.json({
       success: true,
-      data: sheets
+      data: enriched
     });
   } catch (error) {
     console.error("❌ Error fetching user timesheets:", error);

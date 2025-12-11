@@ -24,7 +24,7 @@ const hikvisionClient = axios.create({
   }
 });
 
-console.log('🔍 Starting Hikvision attendance data extraction...');
+console.log(' Starting Hikvision attendance data extraction...');
 console.log('Device:', deviceIP);
 console.log('Credentials:', username, '***');
 console.log('');

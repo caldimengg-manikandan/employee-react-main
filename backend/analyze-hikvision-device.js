@@ -9,7 +9,7 @@ const deviceIP = '192.168.1.144';
 const username = '27202606';
 const password = 'wNxzEQhAlCx01UrIFasx';
 
-console.log('🔍 Analyzing Hikvision device capabilities...');
+console.log(' Analyzing Hikvision device capabilities...');
 
 async function analyzeDevice() {
   try {

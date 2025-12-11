@@ -49,7 +49,7 @@ router.get('/attendance-data', async (req, res) => {
     console.log(`📊 Raw records received: ${records.length}`);
     
     if (records.length > 0) {
-      console.log('🔍 First raw record:', {
+      console.log('First raw record:', {
         employeeId: records[0].personInfo?.personCode,
         name: records[0].personInfo?.fullName,
         date: records[0].date

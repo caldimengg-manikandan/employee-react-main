@@ -25,7 +25,7 @@ const hikvisionClient = axios.create({
   }
 });
 
-console.log('🔍 Starting Hikvision web scraping for attendance data...');
+console.log('Starting Hikvision web scraping for attendance data...');
 
 async function scrapeAttendanceData() {
   try {
@@ -73,7 +73,7 @@ async function scrapeAttendanceData() {
           const foundKeywords = keywords.filter(keyword => content.includes(keyword));
           
           if (foundKeywords.length > 0) {
-            console.log(`   🔍 Found keywords: ${foundKeywords.join(', ')}`);
+            console.log(`Found keywords: ${foundKeywords.join(', ')}`);
             
             // Try to extract data from this page
             await extractDataFromPage(path, response.data);

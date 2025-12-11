@@ -142,7 +142,7 @@ router.get("/hik-employees", auth, async (req, res) => {
 });
 
 /**
- * 🔍 GET SINGLE EMPLOYEE FROM HIKCENTRAL
+ *  GET SINGLE EMPLOYEE FROM HIKCENTRAL
  * Fetches detailed information for a specific employee
  */
 router.get("/hik-employees/:personId", auth, async (req, res) => {

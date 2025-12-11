@@ -136,7 +136,7 @@ router.get("/sync", auth, async (req, res) => {
 });
 
 /**
- * 🔍 TEST ATTENDANCE API CONNECTION
+ * TEST ATTENDANCE API CONNECTION
  * Tests the attendance API connection and returns available endpoints
  */
 router.get("/test-attendance-api", auth, async (req, res) => {

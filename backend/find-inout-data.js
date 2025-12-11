@@ -17,7 +17,7 @@ async function findInOutData() {
     '/rest/acs/events'
   ];
   
-  console.log('🔍 Searching for IN/OUT punching data endpoints...\n');
+  console.log('Searching for IN/OUT punching data endpoints...\n');
   
   for (const endpoint of inOutEndpoints) {
     try {
@@ -60,7 +60,7 @@ async function findInOutData() {
     }
   }
   
-  console.log('🔍 IN/OUT data search complete!');
+  console.log('IN/OUT data search complete!');
 }
 
 findInOutData();

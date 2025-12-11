@@ -4,6 +4,58 @@ const AdminTimesheet = require("../models/AdminTimesheet");
 const Timesheet = require("../models/Timesheet");
 const User = require("../models/User");
 const Employee = require("../models/Employee");
+const nodemailer = require("nodemailer");
+
+const mailer = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT) || 465,
+  secure: (Number(process.env.EMAIL_PORT) || 465) === 465,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+async function getEmployeeEmail(employeeId) {
+  const emp = await Employee.findOne({ employeeId }).select("email");
+  if (emp?.email) return emp.email;
+  const user = await User.findOne({ employeeId }).select("email");
+  return user?.email || "";
+}
+
+async function sendStatusEmail(updatedDoc, status) {
+  try {
+    const to = await getEmployeeEmail(updatedDoc.employeeId);
+    if (!to) return { success: false, error: "No employee email" };
+    const from = "support@caldimengg.in";
+    const subject = `Timesheet ${status} - ${updatedDoc.week}`;
+    const html = `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;padding:20px;max-width:700px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;">
+        <h2 style="color:#333;margin:0 0 16px 0;padding-bottom:8px;border-bottom:2px solid #4F46E5;">Timesheet ${status}</h2>
+        <p style="color:#666;">Your timesheet for ${updatedDoc.week} has been ${status.toLowerCase()}.</p>
+        ${status === 'Rejected' ? `<p style=\"color:#b91c1c;\"><strong>Reason:</strong> ${updatedDoc.rejectionReason || '-'}</p>` : ''}
+        <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+          <tr>
+            <td style="padding:8px 0;color:#666;"><strong>Employee:</strong></td>
+            <td style="padding:8px 0;color:#333;">${updatedDoc.employeeName}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0;color:#666;"><strong>Division:</strong></td>
+            <td style="padding:8px 0;color:#333;">${updatedDoc.division}</td>
+          </tr>
+          <tr>
+            <td style="padding:8px 0;color:#666;"><strong>Location:</strong></td>
+            <td style="padding:8px 0;color:#333;">${updatedDoc.location}</td>
+          </tr>
+        </table>
+      </div>
+    `;
+    const info = await mailer.sendMail({ from: `"Timesheet System" <${from}>`, to, subject, html });
+    return { success: true, messageId: info.messageId };
+  } catch (e) {
+    return { success: false, error: e?.message || String(e) };
+  }
+}
 
 
 const router = express.Router();
@@ -189,22 +241,21 @@ router.put("/approve/:id", async (req, res) => {
 
     if (updated) {
       // Update the corresponding Timesheet document
-      const user = await User.findOne({ employeeId: updated.employeeId }).lean();
-      if (user) {
-        // Use improved timesheet finding function
-        const targetTimesheet = await findTimesheetByWeek(user._id, updated.week);
-        if (targetTimesheet) {
-          const timesheetResult = await Timesheet.findByIdAndUpdate(
-            targetTimesheet._id,
-            { status: "Approved", approvedAt: new Date() },
-            { new: true }
-          );
-          console.log(`✅ Approved timesheet ${targetTimesheet._id} for user ${user._id}, week ${updated.week}`);
-        } else {
-          console.log(`⚠️ No timesheet found for user ${user._id}, week ${updated.week}`);
-        }
+      if (updated.timesheetId) {
+        await Timesheet.findByIdAndUpdate(updated.timesheetId, { status: "Approved", approvedAt: new Date() });
       } else {
-        console.log(`⚠️ No user found with employeeId: ${updated.employeeId}`);
+        const user = await User.findOne({ employeeId: updated.employeeId }).lean();
+        if (user) {
+          const targetTimesheet = await findTimesheetByWeek(user._id, updated.week);
+          if (targetTimesheet) {
+            await Timesheet.findByIdAndUpdate(targetTimesheet._id, { status: "Approved", approvedAt: new Date() });
+            console.log(`✅ Approved timesheet ${targetTimesheet._id} for user ${user._id}, week ${updated.week}`);
+          } else {
+            console.log(`⚠️ No timesheet found for user ${user._id}, week ${updated.week}`);
+          }
+        } else {
+          console.log(`⚠️ No user found with employeeId: ${updated.employeeId}`);
+        }
       }
     } else {
       // Handle case where admin timesheet doesn't exist yet
@@ -263,6 +314,7 @@ router.put("/approve/:id", async (req, res) => {
       }
     }
 
+    await sendStatusEmail(updated, "Approved");
     res.json({ success: true, message: "Timesheet approved", data: updated });
 
   } catch (err) {
@@ -290,22 +342,21 @@ router.put("/reject/:id", async (req, res) => {
 
     if (updated) {
       // Update the corresponding Timesheet document
-      const user = await User.findOne({ employeeId: updated.employeeId }).lean();
-      if (user) {
-        // Use improved timesheet finding function
-        const targetTimesheet = await findTimesheetByWeek(user._id, updated.week);
-        if (targetTimesheet) {
-          const timesheetResult = await Timesheet.findByIdAndUpdate(
-            targetTimesheet._id,
-            { status: "Rejected" },
-            { new: true }
-          );
-          console.log(`❌ Rejected timesheet ${targetTimesheet._id} for user ${user._id}, week ${updated.week}`);
-        } else {
-          console.log(`⚠️ No timesheet found for user ${user._id}, week ${updated.week}`);
-        }
+      if (updated.timesheetId) {
+        await Timesheet.findByIdAndUpdate(updated.timesheetId, { status: "Rejected" });
       } else {
-        console.log(`⚠️ No user found with employeeId: ${updated.employeeId}`);
+        const user = await User.findOne({ employeeId: updated.employeeId }).lean();
+        if (user) {
+          const targetTimesheet = await findTimesheetByWeek(user._id, updated.week);
+          if (targetTimesheet) {
+            await Timesheet.findByIdAndUpdate(targetTimesheet._id, { status: "Rejected" });
+            console.log(`❌ Rejected timesheet ${targetTimesheet._id} for user ${user._id}, week ${updated.week}`);
+          } else {
+            console.log(`⚠️ No timesheet found for user ${user._id}, week ${updated.week}`);
+          }
+        } else {
+          console.log(`⚠️ No user found with employeeId: ${updated.employeeId}`);
+        }
       }
     } else {
       // Handle case where admin timesheet doesn't exist yet
@@ -364,6 +415,7 @@ router.put("/reject/:id", async (req, res) => {
       }
     }
 
+    await sendStatusEmail(updated, "Rejected");
     res.json({ success: true, message: "Timesheet rejected", data: updated });
 
   } catch (err) {

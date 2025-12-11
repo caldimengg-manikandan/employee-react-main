@@ -427,7 +427,7 @@ const LeaveSummary = () => {
       {/* Search Box (Replaces Header) */}
       <div style={searchContainerStyle}>
         <div style={searchBoxStyle}>
-          <div style={searchIconStyle}>🔍</div>
+          <div style={searchIconStyle}></div>
           <input
             type="text"
             placeholder="Search by employee name or ID..."

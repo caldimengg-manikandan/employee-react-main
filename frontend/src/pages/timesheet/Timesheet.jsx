@@ -563,7 +563,6 @@ const Timesheet = () => {
     if (!row) return;
 
     if (!isShiftSelectedForDay(dayIndex)) {
-      alert("Please select a shift for this day before entering hours.");
       return;
     }
 
@@ -706,25 +705,7 @@ const Timesheet = () => {
         }
       }
     } else {
-      // Regular project hours
-      numValue = Math.max(0, Math.min(8.25, numValue));
-
-      // Enforce daily shift-based maximum across all project rows
-      const shiftForDay = dailyShiftTypes[dayIndex];
-      if (row.type === "project" && shiftForDay && shiftForDay !== "Select Shift") {
-        const maxHours = getShiftMaxHours(shiftForDay);
-        const remaining = Math.max(0, maxHours - currentDailyProjectTotal);
-        if (numValue > remaining) {
-          const attempted = numValue;
-          numValue = remaining;
-          if (remaining <= 0 && attempted > 0) {
-            alert(
-              `Daily work hours for ${days[dayIndex]} cannot exceed ${maxHours.toFixed(2)}h for ${shiftForDay}.`
-            );
-            return;
-          }
-        }
-      }
+      numValue = Math.max(0, numValue);
     }
 
     // Break after update depends on whether there is any project work on that day
@@ -736,17 +717,13 @@ const Timesheet = () => {
     // Enforce on-premises cap: project work + auto break must not exceed on-premises time
     if (row.type === "project") {
       const opHours = Number(onPremisesTime?.daily?.[dayIndex] || 0);
-      if (opHours <= 0 && numValue > 0) {
-        alert("No on-premises time recorded for this day. Please record attendance before logging project hours.");
-        return;
-      }
-      const finalProjectWorkTotal = currentDailyProjectTotal + numValue;
-      const totalWithBreakCandidate = finalProjectWorkTotal + breakAfterUpdate;
-      if (opHours > 0 && totalWithBreakCandidate > opHours) {
-        alert(
-          `Total Hours (Work + Break) for ${days[dayIndex]} (${totalWithBreakCandidate.toFixed(1)}h) cannot exceed On-Premises Time (${opHours}h).`
-        );
-        return;
+      if (opHours <= 0) {
+        numValue = 0;
+      } else {
+        const remainingAllowed = Math.max(0, opHours - breakAfterUpdate - currentDailyProjectTotal);
+        if (numValue > remainingAllowed) {
+          numValue = remainingAllowed;
+        }
       }
     }
 
@@ -754,28 +731,7 @@ const Timesheet = () => {
     const finalWorkTotal = currentDailyAllTotal + numValue;
     const finalTotalWithBreak = finalWorkTotal + breakAfterUpdate;
     
-    // Enforce per-shift caps on Total Hours (Work + Break)
-    const shiftForDayCap = dailyShiftTypes[dayIndex];
-    let totalCap = null;
-    if (shiftForDayCap && shiftForDayCap.startsWith("General Shift")) {
-      totalCap = 9.5;
-    } else if (shiftForDayCap && (shiftForDayCap.startsWith("First Shift") || shiftForDayCap.startsWith("Secend Shift"))) {
-      totalCap = 9.0;
-    }
-
-    if (totalCap !== null && finalTotalWithBreak > totalCap) {
-      if (row.task === "Permission") {
-        alert(`Total Hours (Work + Break) for ${days[dayIndex]} cannot exceed ${totalCap.toFixed(2)}h for ${shiftForDayCap}.`);
-        return;
-      }
-      const remaining = Math.max(0, totalCap - (currentDailyAllTotal + breakAfterUpdate));
-      const attempted = numValue;
-      if (remaining <= 0 && attempted > 0) {
-        alert(`Total Hours (Work + Break) for ${days[dayIndex]} cannot exceed ${totalCap.toFixed(2)}h for ${shiftForDayCap}.`);
-        return;
-      }
-      numValue = remaining;
-    }
+    // Shift-based caps removed
 
     if (finalTotalWithBreak > 24) {
       const currentTotalWithBreak = (currentDailyAllTotal + computeBreakForDay(dayIndex)).toFixed(1);
@@ -1009,21 +965,7 @@ const Timesheet = () => {
       }
     }
 
-    const failingDays = [];
-    for (let i = 0; i < 7; i++) {
-      const shift = dailyShiftTypes[i];
-      if (!shift || shift === "Select Shift") continue;
-      if (hasFullDayLeave(i)) continue;
-      const required = getShiftMinHours(shift);
-      if (dailyWorkTotals[i] < required) {
-        failingDays.push(`${days[i]} requires ${required}h (have ${dailyWorkTotals[i].toFixed(2)}h)`);
-      }
-    }
-
-    if (failingDays.length > 0) {
-      alert(`Minimum shift hours not met for:\n\n${failingDays.join("\n")}`);
-      return;
-    }
+    // Shift minimum checks removed
 
     const normalizeToUTCDateOnly = (d) => {
       const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -1517,8 +1459,6 @@ const Timesheet = () => {
                               ? "bg-gray-100 cursor-not-allowed"
                               : !isShiftSelectedForDay(dayIndex)
                               ? "bg-gray-100 cursor-not-allowed"
-                              : (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
-                              ? "bg-gray-100 cursor-not-allowed"
                               : ""
                           }`}
                           disabled={
@@ -1526,8 +1466,7 @@ const Timesheet = () => {
                             (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
                             (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
-                            (!isShiftSelectedForDay(dayIndex)) ||
-                            (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
+                            (!isShiftSelectedForDay(dayIndex))
                           }
                           title={
                             isSubmitted 
@@ -1542,8 +1481,6 @@ const Timesheet = () => {
                               ? "Full Day Leave applied on this day" 
                               : !isShiftSelectedForDay(dayIndex)
                               ? "Please select a shift for this day"
-                              : (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
-                              ? "No on-premises time recorded for this day"
                               : ""
                           }
                         />
@@ -1566,8 +1503,7 @@ const Timesheet = () => {
                                 isSubmitted ||
                                 (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                                 (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                                (!isShiftSelectedForDay(dayIndex)) ||
-                                (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
+                                (!isShiftSelectedForDay(dayIndex))
                               }
                               className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Increase 5 minutes"
@@ -1591,8 +1527,7 @@ const Timesheet = () => {
                                 isSubmitted ||
                                 (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                                 (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                                (!isShiftSelectedForDay(dayIndex)) ||
-                                (row.type === "project" && Number(onPremisesTime?.daily?.[dayIndex] || 0) === 0)
+                                (!isShiftSelectedForDay(dayIndex))
                               }
                               className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Decrease 15 minutes"
@@ -1713,9 +1648,9 @@ const Timesheet = () => {
           </div>
           <button
             onClick={submitTimesheet}
-            disabled={loading || isSubmitted || !shiftMinimumsSatisfied}
+            disabled={loading || isSubmitted}
             className={`px-6 py-3 rounded font-medium transition-colors flex items-center gap-2 ${
-              loading || isSubmitted || !shiftMinimumsSatisfied
+              loading || isSubmitted
                 ? "bg-gray-400 cursor-not-allowed" 
                 : "bg-blue-700 hover:bg-blue-800 text-white"
             }`}
