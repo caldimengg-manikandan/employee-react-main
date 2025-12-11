@@ -154,18 +154,18 @@ const Sidebar = ({ isOpen, onClose }) => {
       path: "/policies",
       icon: getIconForMenu("Policy Portal"),
     },
+
     {
       name: "Salary Slips",
-      hasDropdown: true,
+      path: "/salaryslips",
       icon: getIconForMenu("Salary Slips"),
       permission: "payroll_access",
       allowEmployeeRole: true,
-      children: [
-        { name: "Payslip Viewer", path: "/payslip-viewer" },
-        { name: "Salary History", path: "/salary-history" },
-        { name: "Tax Documents", path: "/tax-documents" },
-      ],
     },
+
+
+
+
     // EXPENDITURE MANAGEMENT - ADDED
     {
       name: "Expenditure Management",
@@ -175,6 +175,17 @@ const Sidebar = ({ isOpen, onClose }) => {
       showForRoles: ["admin", "hr", "finance"], // Specify which roles can see this
       allowEmployeeRole: false, // Employees shouldn't see this by default
     },
+
+    {
+      name: "Employee Reward Tracker",
+      path: "/employee-reward-tracker",
+      icon: getIconForMenu("Employee Reward Tracker"),
+      permission: "reward_access",
+      showForRoles: ["admin", "hr", "manager"],
+      allowEmployeeRole: false,
+    },
+
+    
     {
       name: "Employee Management",
       path: "/employee-management",

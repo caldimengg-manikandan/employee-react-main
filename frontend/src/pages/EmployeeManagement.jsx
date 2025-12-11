@@ -1,8 +1,8 @@
 // components/EmployeeManagement.jsx
 import React, { useState, useEffect } from 'react';
-import { 
-  PlusIcon, 
-  MagnifyingGlassIcon, 
+import {
+  PlusIcon,
+  MagnifyingGlassIcon,
   FunnelIcon,
   XMarkIcon,
   ArrowDownTrayIcon,
@@ -36,7 +36,7 @@ const EmployeeManagement = () => {
   });
   const [showFilters, setShowFilters] = useState(false);
   const { notification, showSuccess, hideNotification } = useNotification();
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -150,7 +150,7 @@ const EmployeeManagement = () => {
 
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
-      filtered = filtered.filter(emp => 
+      filtered = filtered.filter(emp =>
         emp.name.toLowerCase().includes(searchTerm) ||
         emp.employeeId.toLowerCase().includes(searchTerm) ||
         (emp.email && emp.email.toLowerCase().includes(searchTerm)) ||
@@ -159,25 +159,25 @@ const EmployeeManagement = () => {
     }
 
     if (filters.role) {
-      filtered = filtered.filter(emp => 
+      filtered = filtered.filter(emp =>
         emp.role.toLowerCase().includes(filters.role.toLowerCase())
       );
     }
 
     if (filters.division) {
-      filtered = filtered.filter(emp => 
+      filtered = filtered.filter(emp =>
         emp.division === filters.division
       );
     }
 
     if (filters.status) {
-      filtered = filtered.filter(emp => 
+      filtered = filtered.filter(emp =>
         emp.status === filters.status
       );
     }
 
     if (filters.dateOfJoining) {
-      filtered = filtered.filter(emp => 
+      filtered = filtered.filter(emp =>
         emp.dateOfJoining === filters.dateOfJoining
       );
     }
@@ -204,7 +204,7 @@ const EmployeeManagement = () => {
 
   const exportToCSV = () => {
     const headers = [
-      'S.No', 'Employee ID', 'Full Name', 'Division', 'Role', 
+      'S.No', 'Employee ID', 'Full Name', 'Division', 'Role',
       'Highest Qualification', 'Date of Joining', 'Experience', 'Contact', 'Status'
     ];
 
@@ -240,11 +240,11 @@ const EmployeeManagement = () => {
     if (!dateString) return '-';
     const date = new Date(dateString);
     if (isNaN(date.getTime())) return dateString;
-    
+
     const day = date.getDate().toString().padStart(2, '0');
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const year = date.getFullYear();
-    
+
     return `${day}/${month}/${year}`;
   };
 
@@ -253,11 +253,11 @@ const EmployeeManagement = () => {
     if (!dateOfJoining) return '';
     const joinDate = new Date(dateOfJoining);
     if (isNaN(joinDate.getTime())) return '';
-    
+
     const today = new Date();
     const years = today.getFullYear() - joinDate.getFullYear();
     const months = today.getMonth() - joinDate.getMonth();
-    
+
     let result = '';
     if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
     if (months > 0) {
@@ -265,7 +265,7 @@ const EmployeeManagement = () => {
       result += `${months} month${months > 1 ? 's' : ''}`;
     }
     if (!result) result = 'Less than a month';
-    
+
     return result;
   };
 
@@ -345,7 +345,8 @@ const EmployeeManagement = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full mx-auto px-0">
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Header */}
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
@@ -354,7 +355,7 @@ const EmployeeManagement = () => {
                 <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
                 <p className="text-sm text-gray-600 mt-1">Manage your organization's employees</p>
               </div>
-              
+
               <button
                 onClick={() => setShowModal(true)}
                 className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
@@ -388,11 +389,10 @@ const EmployeeManagement = () => {
               <div className="flex items-center space-x-2">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex items-center px-3 py-2.5 border rounded-lg shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 ${
-                    showFilters || Object.values(filters).some((val, idx) => idx > 0 && Boolean(val)) 
-                      ? 'border-blue-500 text-blue-700 bg-blue-50 hover:bg-blue-100' 
+                  className={`inline-flex items-center px-3 py-2.5 border rounded-lg shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 ${showFilters || Object.values(filters).some((val, idx) => idx > 0 && Boolean(val))
+                      ? 'border-blue-500 text-blue-700 bg-blue-50 hover:bg-blue-100'
                       : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-                  }`}
+                    }`}
                 >
                   <FunnelIcon className="h-5 w-5 mr-2" />
                   Filters
@@ -402,7 +402,7 @@ const EmployeeManagement = () => {
                     </span>
                   )}
                 </button>
-                
+
                 <button
                   onClick={exportToCSV}
                   className="inline-flex items-center px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
@@ -549,8 +549,8 @@ const EmployeeManagement = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {currentItems.map((employee, index) => (
-                  <tr 
-                    key={employee._id} 
+                  <tr
+                    key={employee._id}
                     className="hover:bg-gray-50 transition-colors duration-150"
                   >
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-100">
@@ -671,7 +671,7 @@ const EmployeeManagement = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div>
                     <span className="text-xs text-gray-500">Division</span>
@@ -726,16 +726,15 @@ const EmployeeManagement = () => {
                     <button
                       onClick={() => paginate(currentPage - 1)}
                       disabled={currentPage === 1}
-                      className={`relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${
-                        currentPage === 1
+                      className={`relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${currentPage === 1
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                           : 'bg-white text-gray-500 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <span className="sr-only">Previous</span>
                       <ChevronLeftIcon className="h-5 w-5" />
                     </button>
-                    
+
                     {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                       let pageNum;
                       if (totalPages <= 5) {
@@ -747,30 +746,28 @@ const EmployeeManagement = () => {
                       } else {
                         pageNum = currentPage - 2 + i;
                       }
-                      
+
                       return (
                         <button
                           key={pageNum}
                           onClick={() => paginate(pageNum)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                            currentPage === pageNum
+                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === pageNum
                               ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                               : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </button>
                       );
                     })}
-                    
+
                     <button
                       onClick={() => paginate(currentPage + 1)}
                       disabled={currentPage === totalPages}
-                      className={`relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${
-                        currentPage === totalPages
+                      className={`relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${currentPage === totalPages
                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                           : 'bg-white text-gray-500 hover:bg-gray-50'
-                      }`}
+                        }`}
                     >
                       <span className="sr-only">Next</span>
                       <ChevronRightIcon className="h-5 w-5" />
@@ -830,28 +827,28 @@ const EmployeeManagement = () => {
                 </div>
               </div>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.role || viewingEmployee.position}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Division</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.division}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Highest Qualification</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.highestQualification || viewingEmployee.qualification || '-'}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Experience</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.currentExperience || viewingEmployee.experience || '-'}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Date of Joining</h4>
                 <div>
@@ -860,57 +857,57 @@ const EmployeeManagement = () => {
                   </p>
                 </div>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Date of Birth</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{formatDate(viewingEmployee.dateOfBirth || viewingEmployee.dob || '-')}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mobile No</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.mobileNo}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.email}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Emergency Contact</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.emergencyMobile || '-'}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Guardian Name</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.guardianName || '-'}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Blood Group</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.bloodGroup || '-'}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.location || '-'}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">PAN</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.pan || '-'}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Aadhaar</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.aadhaar || '-'}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">UAN</h4>
                 <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.uan || '-'}</p>
               </div>
-              
+
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Bank Details</h4>
                 <p className="text-sm font-medium text-gray-900 mt-1">
@@ -919,13 +916,13 @@ const EmployeeManagement = () => {
                   <span className="text-gray-600">{viewingEmployee.branch || ''}</span>
                 </p>
               </div>
-              
+
               <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Address</h4>
                 <p className="text-base font-medium text-gray-900 mt-1 whitespace-pre-line">{viewingEmployee.address || '-'}</p>
               </div>
             </div>
-            
+
             <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
               <button
                 onClick={() => setViewingEmployee(null)}

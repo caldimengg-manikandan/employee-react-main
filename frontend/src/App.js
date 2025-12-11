@@ -32,7 +32,10 @@ import TimesheetSummary from './pages/admin-timesheet/TimesheetSummary';
 import InsuranceManagement from './pages/insurance/InsuranceManagement';
 import PolicyPortal from './pages/PolicyPortal';
 import TeamManagement from './pages/admin/TeamManagement';
-import PayslipViewer from './pages/payroll/PayslipViewer';
+
+import SalarySlips from "./pages/salaryslips/SalarySlips";
+import ExpenditureManagement from "./pages/expenditure/ExpenditureManagement"
+import EmployeeRewardTracker from "./pages/rewards/EmployeeRewardTracker";
 
 function App() {
   return (
@@ -129,18 +132,34 @@ function App() {
                 </ProtectedRoute>
               }
             />
-
-            {/* ---------------- Salary Slips ---------------- */}
-            <Route
-              path="payslip-viewer"
+{/* 
+            
+            {/* ---------------- Salary Slips - ADDED ---------------- */}
+            <Route 
+              path="salaryslips" 
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access"]} allowEmployeeRole>
-                  <PayslipViewer />
+                <ProtectedRoute 
+                  requiredPermissions={["payroll_access"]} 
+                  roles={["admin", "hr", "employee"]}
+                  allowEmployeeRole
+                >
+                  <SalarySlips />
                 </ProtectedRoute>
-              }
+              } 
             />
 
-
+            {/* ---------------- Expenditure Management ---------------- */}
+            <Route 
+              path="expenditure-management" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["expenditure_access"]} 
+                  roles={["admin", "hr", "finance"]}
+                >
+                  <ExpenditureManagement />
+                </ProtectedRoute>
+              } 
+            />
 
             {/* ---------------- LEAVE MANAGEMENT MODULES (NO DASHBOARD) ---------------- */}
             
@@ -207,6 +226,19 @@ function App() {
                   allowEmployeeRole
                 >
                   <LeaveApplications />
+                </ProtectedRoute>
+              } 
+            />
+            
+            {/* ---------------- Employee Reward Tracker ---------------- */}
+            <Route 
+              path="employee-reward-tracker" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["reward_access"]} 
+                  roles={["admin", "hr", "manager"]}
+                >
+                  <EmployeeRewardTracker />
                 </ProtectedRoute>
               } 
             />

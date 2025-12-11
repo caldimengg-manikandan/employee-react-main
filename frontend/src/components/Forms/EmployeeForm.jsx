@@ -16,24 +16,32 @@ import {
   DocumentTextIcon,
   ArrowLeftIcon,
   ArrowRightIcon,
-  XMarkIcon
+  XMarkIcon,
+  PlusIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 
 const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [maritalStatus, setMaritalStatus] = useState('single');
+  const [organizations, setOrganizations] = useState([
+    { organization: '', role: '', startDate: '', endDate: '' }
+  ]);
 
   const [formData, setFormData] = useState({
     // Personal Information
     employeeId: '',
+    employeename: '',
     name: '',
     dateOfBirth: '',
+    qualification: '',
     highestQualification: '',
     bloodGroup: '',
     location: '',
     gender: '',
     maritalStatus: 'single',
     spouseName: '',
+    spouseContact: '',
     permanentAddress: '',
     currentAddress: '',
     emergencyContact: '',
@@ -46,13 +54,14 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     pan: '',
     aadhaar: '',
     passportNumber: '',
-    passportType: '',
+    uan: '',
     
     // Employment Information
     role: '',
     division: '',
     dateOfJoining: '',
     previousExperience: '',
+    previousOrganizations: [],
     currentExperience: '',
     status: 'Active',
     
@@ -60,9 +69,36 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     bankName: '',
     bankAccount: '',
     branch: '',
-    uan: '',
     ifsc: ''
   });
+
+  // Role options
+  const roleOptions = [
+    { value: '', label: 'Select Role' },
+    { value: 'Branch Manager', label: 'Branch Manager' },
+    { value: 'Admin Manager', label: 'Admin Manager' },
+    { value: 'Office Assistant', label: 'Office Assistant' },
+    { value: 'IT Admin', label: 'IT Admin' },
+    { value: 'Trainee', label: 'Trainee' },
+    { value: 'System Engineer', label: 'System Engineer' },
+    { value: 'Senior Engineer', label: 'Senior Engineer' },
+    { value: 'Junior Engineer', label: 'Junior Engineer' },
+    { value: 'Project Manager', label: 'Project Manager' },
+    { value: 'Team Lead', label: 'Team Lead' },
+    { value: 'Software Developer', label: 'Software Developer' },
+    { value: 'HR Executive', label: 'HR Executive' },
+    { value: 'Accountant', label: 'Accountant' },
+    { value: 'Sales Executive', label: 'Sales Executive' },
+    { value: 'Marketing Manager', label: 'Marketing Manager' },
+    { value: 'Operations Manager', label: 'Operations Manager' },
+    { value: 'Quality Analyst', label: 'Quality Analyst' },
+    { value: 'Technical Support', label: 'Technical Support' },
+    { value: 'Network Engineer', label: 'Network Engineer' },
+    { value: 'Database Administrator', label: 'Database Administrator' },
+    { value: 'Business Analyst', label: 'Business Analyst' },
+    { value: 'Consultant', label: 'Consultant' },
+    { value: 'Intern', label: 'Intern' }
+  ];
 
   // Blood group options
   const bloodGroupOptions = [
@@ -82,15 +118,14 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: '', label: 'Select Division' },
     { value: 'SDS', label: 'SDS' },
     { value: 'TEKLA', label: 'TEKLA' },
-    { value: 'DAS', label: 'DAS' },
-    { value: 'Mechanical', label: 'Mechanical' },
-    { value: 'HR', label: 'HR' },
-    { value: 'Finance', label: 'Finance' },
-    { value: 'IT', label: 'IT' },
-    { value: 'Operations', label: 'Operations' }
+    { value: 'DAS(Software)', label: 'DAS(Software)' },
+    { value: 'DDS(Manufacturing)', label: 'DDS(Manufacturing)' },
+    { value: 'Electrical', label: 'Electrical' },
+    { value: 'HR/Admin', label: 'HR/Admin' },
+    { value: 'Engineering Services', label: 'Engineering Services' }
   ];
 
-  // Location options - Only Hosur and Chennai
+  // Location options
   const locationOptions = [
     { value: '', label: 'Select Location' },
     { value: 'Hosur', label: 'Hosur' },
@@ -105,17 +140,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: 'other', label: 'Other' }
   ];
 
-  // Nationality options - Only Indian
+  // Nationality options
   const nationalityOptions = [
     { value: 'Indian', label: 'Indian' }
-  ];
-
-  // Passport type options
-  const passportTypeOptions = [
-    { value: '', label: 'Select Type' },
-    { value: 'ordinary', label: 'Ordinary' },
-    { value: 'official', label: 'Official' },
-    { value: 'diplomatic', label: 'Diplomatic' }
   ];
 
   // Status options
@@ -128,27 +155,112 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   useEffect(() => {
     if (employee) {
       const mappedData = {
-        ...formData,
-        ...employee,
-        highestQualification: employee.highestQualification || employee.qualification || '',
-        emergencyContact: employee.emergencyMobile || employee.emergencyContact || '',
+        // Personal Information
+        employeeId: employee.employeeId || employee.empId || '',
+        name: employee.name || employee.employeename || '',
+        employeename: employee.employeename || employee.name || '',
         dateOfBirth: employee.dateOfBirth || employee.dob || '',
-        dateOfJoining: employee.dateOfJoining || employee.dateofjoin || '',
-        contactNumber: employee.mobileNo || employee.contactNumber || '',
+        qualification: employee.qualification || employee.highestQualification || '',
+        highestQualification: employee.highestQualification || employee.qualification || '',
+        bloodGroup: employee.bloodGroup || '',
+        location: employee.location || '',
+        gender: employee.gender || '',
+        maritalStatus: employee.maritalStatus || 'single',
+        spouseName: employee.spouseName || '',
+        spouseContact: employee.spouseContact || '',
+        permanentAddress: employee.permanentAddress || '',
+        currentAddress: employee.currentAddress || '',
+        emergencyContact: employee.emergencyContact || employee.emergencyMobile || '',
         nationality: employee.nationality || 'Indian',
-        role: employee.role || employee.position || ''
+        contactNumber: employee.contactNumber || employee.mobileNo || '',
+        email: employee.email || '',
+        guardianName: employee.guardianName || '',
+        
+        // Identification
+        pan: employee.pan || '',
+        aadhaar: employee.aadhaar || '',
+        passportNumber: employee.passportNumber || '',
+        uan: employee.uan || '',
+        
+        // Employment Information
+        role: employee.role || employee.position || '',
+        division: employee.division || '',
+        dateOfJoining: employee.dateOfJoining || employee.dateofjoin || '',
+        previousExperience: employee.previousExperience || '',
+        previousOrganizations: employee.previousOrganizations || [],
+        currentExperience: employee.currentExperience || '',
+        status: employee.status || 'Active',
+        
+        // Bank Information
+        bankName: employee.bankName || '',
+        bankAccount: employee.bankAccount || '',
+        branch: employee.branch || '',
+        ifsc: employee.ifsc || ''
       };
+      
+      // Set marital status
+      setMaritalStatus(mappedData.maritalStatus || 'single');
+      
+      // Set organizations if available
+      if (mappedData.previousOrganizations && mappedData.previousOrganizations.length > 0) {
+        setOrganizations(mappedData.previousOrganizations);
+      }
+      
       setFormData(mappedData);
     }
   }, [employee]);
 
-  const handleInputChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+  useEffect(() => {
+    // Calculate total previous experience whenever organizations change
+    if (organizations.length > 0 && organizations[0].organization) {
+      let totalMonths = 0;
+      
+      organizations.forEach(org => {
+        if (org.startDate && org.endDate) {
+          const start = new Date(org.startDate);
+          const end = new Date(org.endDate);
+          const diffInMonths = (end.getFullYear() - start.getFullYear()) * 12 + 
+                              (end.getMonth() - start.getMonth());
+          totalMonths += diffInMonths;
+        } else if (org.startDate) {
+          const start = new Date(org.startDate);
+          const now = new Date();
+          const diffInMonths = (now.getFullYear() - start.getFullYear()) * 12 + 
+                              (now.getMonth() - start.getMonth());
+          totalMonths += diffInMonths;
+        }
+      });
+      
+      const years = Math.floor(totalMonths / 12);
+      const months = totalMonths % 12;
+      
+      let experienceText = '';
+      if (years > 0) {
+        experienceText += `${years} year${years > 1 ? 's' : ''}`;
+      }
+      if (months > 0) {
+        experienceText += `${years > 0 ? ' ' : ''}${months} month${months > 1 ? 's' : ''}`;
+      }
+      if (!experienceText) {
+        experienceText = '0 years';
+      }
+      
+      // Update formData with calculated experience
+      setFormData(prev => ({
+        ...prev,
+        previousExperience: experienceText,
+        previousOrganizations: organizations
+      }));
+    }
+  }, [organizations]);
 
-    // Auto-calculate experience when date of joining changes
+  const handleInputChange = (field, value) => {
+    const updatedData = {
+      ...formData,
+      [field]: value
+    };
+
+    // Auto-calculate current experience when date of joining changes
     if (field === 'dateOfJoining' && value) {
       const joiningDate = new Date(value);
       const today = new Date();
@@ -166,13 +278,41 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         if (months > 0) {
           experienceText += `${years > 0 ? ' ' : ''}${months} month${months > 1 ? 's' : ''}`;
         }
+        if (!experienceText) {
+          experienceText = 'Less than 1 month';
+        }
         
-        setFormData(prev => ({
-          ...prev,
-          currentExperience: experienceText || '0 years'
-        }));
+        updatedData.currentExperience = experienceText;
+      } else {
+        updatedData.currentExperience = '0 years';
       }
     }
+
+    // Update marital status in state when formData changes
+    if (field === 'maritalStatus') {
+      setMaritalStatus(value);
+    }
+
+    setFormData(updatedData);
+  };
+
+  const handleOrganizationChange = (index, field, value) => {
+    const updatedOrganizations = [...organizations];
+    updatedOrganizations[index][field] = value;
+    setOrganizations(updatedOrganizations);
+  };
+
+  const addOrganization = () => {
+    setOrganizations([
+      ...organizations,
+      { organization: '', role: '', startDate: '', endDate: '' }
+    ]);
+  };
+
+  const removeOrganization = (index) => {
+    const updatedOrganizations = [...organizations];
+    updatedOrganizations.splice(index, 1);
+    setOrganizations(updatedOrganizations);
   };
 
   const handleStepClick = (step) => {
@@ -193,19 +333,59 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    
+    // Prepare final data
+    const finalData = {
+      ...formData,
+      name: formData.name || formData.employeename,
+      employeename: formData.employeename || formData.name,
+      qualification: formData.qualification || formData.highestQualification,
+      highestQualification: formData.highestQualification || formData.qualification,
+      previousOrganizations: organizations
+    };
+    
+    onSubmit(finalData);
+    
     if (!isModal) {
       // Reset form if not in modal mode
       setCurrentStep(1);
       setMaritalStatus('single');
+      setOrganizations([{ organization: '', role: '', startDate: '', endDate: '' }]);
       setFormData({
-        employeeId: '', name: '', dateOfBirth: '', highestQualification: '', bloodGroup: '', location: '', gender: '',
-        maritalStatus: 'single', spouseName: '', spouseContact: '', permanentAddress: '',
-        currentAddress: '', emergencyContact: '', nationality: 'Indian', contactNumber: '',
-        email: '', guardianName: '', pan: '', aadhaar: '', passportNumber: '', passportType: '',
-        role: '', division: '', dateOfJoining: '', previousExperience: '', currentExperience: '',
+        employeeId: '',
+        employeename: '',
+        name: '',
+        dateOfBirth: '',
+        qualification: '',
+        highestQualification: '',
+        bloodGroup: '',
+        location: '',
+        gender: '',
+        maritalStatus: 'single',
+        spouseName: '',
+        spouseContact: '',
+        permanentAddress: '',
+        currentAddress: '',
+        emergencyContact: '',
+        nationality: 'Indian',
+        contactNumber: '',
+        email: '',
+        guardianName: '',
+        pan: '',
+        aadhaar: '',
+        passportNumber: '',
+        uan: '',
+        role: '',
+        division: '',
+        dateOfJoining: '',
+        previousExperience: '',
+        previousOrganizations: [],
+        currentExperience: '',
         status: 'Active',
-        bankName: '', bankAccount: '', branch: '', uan: '', ifsc: ''
+        bankName: '',
+        bankAccount: '',
+        branch: '',
+        ifsc: ''
       });
     }
   };
@@ -289,12 +469,15 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Full Name *
+                    Employee Name *
                   </label>
                   <input
                     type="text"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    value={formData.name || formData.employeename}
+                    onChange={(e) => {
+                      handleInputChange('name', e.target.value);
+                      handleInputChange('employeename', e.target.value);
+                    }}
                     required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                     placeholder="John Doe"
@@ -333,12 +516,15 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Highest Qualification
+                    Qualification
                   </label>
                   <input
                     type="text"
-                    value={formData.highestQualification}
-                    onChange={(e) => handleInputChange('highestQualification', e.target.value)}
+                    value={formData.qualification || formData.highestQualification}
+                    onChange={(e) => {
+                      handleInputChange('qualification', e.target.value);
+                      handleInputChange('highestQualification', e.target.value);
+                    }}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                     placeholder="e.g., B.E (CIVIL)"
                   />
@@ -605,22 +791,17 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     placeholder="Passport number"
                   />
                 </div>
-
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Passport Type
+                    UAN Number
                   </label>
-                  <select
-                    value={formData.passportType}
-                    onChange={(e) => handleInputChange('passportType', e.target.value)}
+                  <input
+                    type="text"
+                    value={formData.uan}
+                    onChange={(e) => handleInputChange('uan', e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
-                  >
-                    {passportTypeOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                    placeholder="101147215588"
+                  />
                 </div>
               </div>
             </div>
@@ -639,21 +820,25 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
             <div className="border border-gray-200 rounded-lg p-4 lg:p-6 bg-white shadow-sm">
               <h4 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide flex items-center gap-2">
                 <BuildingLibraryIcon className="h-4 w-4" />
-                Employment Details
+                Current Employment Details
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Role *
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={formData.role}
                     onChange={(e) => handleInputChange('role', e.target.value)}
                     required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
-                    placeholder="e.g., Software Engineer"
-                  />
+                  >
+                    {roleOptions.map(option => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 <div>
@@ -702,18 +887,18 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Previous Experience
+                    Total Previous Experience
                   </label>
                   <input
                     type="text"
                     value={formData.previousExperience}
-                    onChange={(e) => handleInputChange('previousExperience', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
-                    placeholder="e.g., 2 years 6 months"
+                    readOnly
+                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm"
+                    placeholder="Auto-calculated from organizations below"
                   />
+                  <p className="text-xs text-gray-500 mt-1">Calculated from previous organizations</p>
                 </div>
 
-                
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Status
@@ -731,6 +916,99 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                   </select>
                 </div>
               </div>
+            </div>
+
+            {/* Previous Organizations */}
+            <div className="border border-gray-200 rounded-lg p-4 lg:p-6 bg-white shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-2">
+                  <DocumentTextIcon className="h-4 w-4" />
+                  Previous Organizations
+                </h4>
+                <button
+                  type="button"
+                  onClick={addOrganization}
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                >
+                  <PlusIcon className="h-4 w-4" />
+                  Add Organization
+                </button>
+              </div>
+              
+              {organizations.map((org, index) => (
+                <div key={index} className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                  <div className="flex justify-between items-center mb-3">
+                    <h5 className="text-sm font-medium text-gray-700">Organization {index + 1}</h5>
+                    {organizations.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeOrganization(index)}
+                        className="p-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded"
+                      >
+                        <TrashIcon className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Organization Name
+                      </label>
+                      <input
+                        type="text"
+                        value={org.organization}
+                        onChange={(e) => handleOrganizationChange(index, 'organization', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                        placeholder="Company name"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Role
+                      </label>
+                      <input
+                        type="text"
+                        value={org.role}
+                        onChange={(e) => handleOrganizationChange(index, 'role', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                        placeholder="Job role"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        Start Date
+                      </label>
+                      <input
+                        type="date"
+                        value={org.startDate}
+                        onChange={(e) => handleOrganizationChange(index, 'startDate', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        End Date (Leave empty if current)
+                      </label>
+                      <input
+                        type="date"
+                        value={org.endDate}
+                        onChange={(e) => handleOrganizationChange(index, 'endDate', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+              
+              {organizations.length === 0 && (
+                <div className="text-center py-6 text-gray-500 text-sm">
+                  No previous organizations added. Click "Add Organization" to add one.
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -799,19 +1077,6 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     onChange={(e) => handleInputChange('ifsc', e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                     placeholder="IFSC code"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    UAN Number
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.uan}
-                    onChange={(e) => handleInputChange('uan', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
-                    placeholder="101147215588"
                   />
                 </div>
               </div>
