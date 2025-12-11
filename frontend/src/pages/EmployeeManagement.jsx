@@ -1,5 +1,5 @@
 // components/EmployeeManagement.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -31,6 +31,7 @@ const EmployeeManagement = () => {
     search: '',
     role: '',
     division: '',
+    location: '',
     status: 'Active',
     dateOfJoining: ''
   });
@@ -57,87 +58,7 @@ const EmployeeManagement = () => {
       setFilteredEmployees(response.data);
     } catch (error) {
       console.error('Error fetching employees:', error);
-      // Mock data matching the provided structure
-      const mockEmployees = [
-        {
-          _id: '1',
-          employeeId: 'CDE004',
-          name: 'PRAKASH R',
-          role: 'Sr.Team leader',
-          division: 'TEKLA',
-          highestQualification: 'B.E (CIVIL)',
-          currentExperience: '6+ years',
-          previousExperience: '2 years',
-          mobileNo: '8072199313',
-          status: 'Active',
-          email: 'vinothprakash128@gmail.com',
-          dateOfJoining: '2017-08-18',
-          location: 'Hosur',
-          dateOfBirth: '1994-05-01',
-          bloodGroup: 'AB+',
-          pan: 'BSLPP0737R',
-          aadhaar: '643440526564',
-          bankName: 'HDFC',
-          bankAccount: '50100283576471',
-          branch: 'RAMAPURAM',
-          uan: '101147215588',
-          guardianName: 'RAVI',
-          emergencyMobile: '8903907714',
-          address: '38,NEHRU STREET, SURAMPATTI VALASU, ERODE-638009.'
-        },
-        {
-          _id: '2',
-          employeeId: 'EMP002',
-          name: 'JANE SMITH',
-          role: 'HR Manager',
-          division: 'HR',
-          highestQualification: 'MBA',
-          currentExperience: '8+ years',
-          previousExperience: '3 years',
-          mobileNo: '9876543211',
-          status: 'Active',
-          email: 'jane.smith@example.com',
-          dateOfJoining: '2020-01-15',
-          location: 'Chennai',
-          dateOfBirth: '1990-03-15',
-          bloodGroup: 'O+',
-          pan: 'ABCDE1234F',
-          aadhaar: '987654321012',
-          bankName: 'ICICI',
-          bankAccount: '123456789012',
-          branch: 'CHENNAI',
-          uan: '101234567890',
-          guardianName: 'JOHN SMITH',
-          emergencyMobile: '9876543222',
-          address: '123, Main Street, Chennai - 600001'
-        },
-        {
-          _id: '3',
-          employeeId: 'EMP003',
-          name: 'RAJESH KUMAR',
-          role: 'Software Developer',
-          division: 'IT',
-          highestQualification: 'B.Tech (CSE)',
-          currentExperience: '3+ years',
-          previousExperience: '1 year',
-          mobileNo: '9876543212',
-          status: 'Active',
-          email: 'rajesh.kumar@example.com',
-          dateOfJoining: '2022-06-01',
-          location: 'Chennai',
-          dateOfBirth: '1995-08-20',
-          bloodGroup: 'B+',
-          pan: 'XYZPP1234A',
-          aadhaar: '876543210987',
-          bankName: 'SBI',
-          bankAccount: '987654321098',
-          branch: 'CHENNAI',
-          uan: '101987654321',
-          guardianName: 'SURESH KUMAR',
-          emergencyMobile: '9876543233',
-          address: '456, Gandhi Street, Chennai - 600002'
-        }
-      ];
+    
       setEmployees(mockEmployees);
       setFilteredEmployees(mockEmployees);
     } finally {
@@ -160,13 +81,19 @@ const EmployeeManagement = () => {
 
     if (filters.role) {
       filtered = filtered.filter(emp =>
-        emp.role.toLowerCase().includes(filters.role.toLowerCase())
+        String(emp.role || emp.position || '') === filters.role
       );
     }
 
     if (filters.division) {
       filtered = filtered.filter(emp =>
         emp.division === filters.division
+      );
+    }
+
+    if (filters.location) {
+      filtered = filtered.filter(emp =>
+        String(emp.location || emp.branch || '') === filters.location
       );
     }
 
@@ -197,6 +124,7 @@ const EmployeeManagement = () => {
       search: '',
       role: '',
       division: '',
+      location: '',
       status: 'Active',
       dateOfJoining: ''
     });
@@ -269,6 +197,85 @@ const EmployeeManagement = () => {
     return result;
   };
 
+  // Calculate duration between two dates (start to end) in years/months
+  const calculateDuration = (startDate, endDate) => {
+    if (!startDate) return '-';
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : new Date();
+    if (isNaN(start.getTime())) return '-';
+    if (isNaN(end.getTime())) return '-';
+
+    let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+    if (months < 0) months = 0;
+    const years = Math.floor(months / 12);
+    const remMonths = months % 12;
+    let result = '';
+    if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
+    if (remMonths > 0) {
+      if (result) result += ' ';
+      result += `${remMonths} month${remMonths > 1 ? 's' : ''}`;
+    }
+    if (!result) result = 'Less than a month';
+    return result;
+  };
+
+  // Sum durations across previous organizations
+  const calculatePreviousExperienceFromOrganizations = (orgs = []) => {
+    if (!Array.isArray(orgs) || orgs.length === 0) return '';
+    let totalMonths = 0;
+    orgs.forEach((org) => {
+      if (!org?.startDate) return;
+      const start = new Date(org.startDate);
+      const end = org.endDate ? new Date(org.endDate) : new Date();
+      if (isNaN(start.getTime())) return;
+      if (isNaN(end.getTime())) return;
+      const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+      if (months > 0) totalMonths += months;
+    });
+    const years = Math.floor(totalMonths / 12);
+    const remMonths = totalMonths % 12;
+    let result = '';
+    if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
+    if (remMonths > 0) {
+      if (result) result += ' ';
+      result += `${remMonths} month${remMonths > 1 ? 's' : ''}`;
+    }
+    if (!result) result = 'Less than a month';
+    return result;
+  };
+
+  // Total experience = previous orgs duration + service years (date of joining)
+  const calculateTotalExperience = (employee) => {
+    const monthsBetween = (startDate, endDate) => {
+      if (!startDate) return 0;
+      const s = new Date(startDate);
+      const e = endDate ? new Date(endDate) : new Date();
+      if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
+      let m = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
+      if (m < 0) m = 0;
+      return m;
+    };
+
+    const sumPreviousMonths = (orgs = []) => {
+      if (!Array.isArray(orgs)) return 0;
+      return orgs.reduce((sum, org) => sum + monthsBetween(org?.startDate, org?.endDate), 0);
+    };
+
+    const serviceMonths = (doj) => monthsBetween(doj, new Date());
+
+    const totalMonths = sumPreviousMonths(employee?.previousOrganizations || []) + serviceMonths(employee?.dateOfJoining || employee?.dateofjoin);
+    const years = Math.floor(totalMonths / 12);
+    const remMonths = totalMonths % 12;
+    let result = '';
+    if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
+    if (remMonths > 0) {
+      if (result) result += ' ';
+      result += `${remMonths} month${remMonths > 1 ? 's' : ''}`;
+    }
+    if (!result) result = 'Less than a month';
+    return result;
+  };
+
   // Pagination logic
   const indexOfLastItem = currentPage * itemsPerPage;
   const indexOfFirstItem = indexOfLastItem - itemsPerPage;
@@ -330,10 +337,18 @@ const EmployeeManagement = () => {
     }
   };
 
-  // Division options
-  const divisionOptions = [
-    'SDS', 'TEKLA', 'DAS', 'Mechanical', 'HR', 'Finance', 'IT', 'Operations'
-  ];
+  // Dynamic filter options from employees
+  const divisionOptions = useMemo(() => (
+    Array.from(new Set(employees.map(e => e.division).filter(Boolean)))
+  ), [employees]);
+
+  const roleOptions = useMemo(() => (
+    Array.from(new Set(employees.map(e => (e.role || e.position)).filter(Boolean)))
+  ), [employees]);
+
+  const locationOptions = useMemo(() => (
+    Array.from(new Set(employees.map(e => (e.location || e.branch)).filter(Boolean)))
+  ), [employees]);
 
   if (loading) {
     return (
@@ -349,60 +364,10 @@ const EmployeeManagement = () => {
 
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Header */}
-          <div className="px-4 py-5 sm:px-6 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+          <div className="px-4 py-5 sm:px-6 border-b border-gray-200 bg-white">
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
-                <p className="text-sm text-gray-600 mt-1">Manage your organization's employees</p>
-              </div>
-
-              <button
-                onClick={() => setShowModal(true)}
-                className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-              >
-                <PlusIcon className="h-5 w-5 mr-2" />
-                Add Employee
-              </button>
-            </div>
-          </div>
-
-          {/* Search and Filter Bar */}
-          <div className="px-4 py-4 border-b border-gray-200 bg-white">
-            <div className="flex flex-col md:flex-row md:items-center space-y-3 md:space-y-0 md:space-x-4">
-              {/* Search Input */}
-              <div className="flex-1">
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={(e) => handleFilterChange('search', e.target.value)}
-                    className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm shadow-sm"
-                    placeholder="Search by name, ID, email, or phone..."
-                  />
-                </div>
-              </div>
-
-              {/* Filter Buttons */}
+              <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
               <div className="flex items-center space-x-2">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex items-center px-3 py-2.5 border rounded-lg shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 ${showFilters || Object.values(filters).some((val, idx) => idx > 0 && Boolean(val))
-                      ? 'border-blue-500 text-blue-700 bg-blue-50 hover:bg-blue-100'
-                      : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
-                    }`}
-                >
-                  <FunnelIcon className="h-5 w-5 mr-2" />
-                  Filters
-                  {Object.values(filters).slice(1).filter(Boolean).length > 0 && (
-                    <span className="ml-2 inline-flex items-center justify-center h-5 w-5 text-xs font-bold text-white bg-blue-600 rounded-full">
-                      {Object.values(filters).slice(1).filter(Boolean).length}
-                    </span>
-                  )}
-                </button>
-
                 <button
                   onClick={exportToCSV}
                   className="inline-flex items-center px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
@@ -410,72 +375,81 @@ const EmployeeManagement = () => {
                   <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
                   Export
                 </button>
+                <button
+                  onClick={() => setShowModal(true)}
+                  className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+                >
+                  <PlusIcon className="h-5 w-5 mr-2" />
+                  Add Employee
+                </button>
               </div>
             </div>
+          </div>
 
-            {/* Expanded Filters */}
-            {showFilters && (
-              <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-                    <select
-                      value={filters.division}
-                      onChange={(e) => handleFilterChange('division', e.target.value)}
-                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
-                    >
-                      <option value="">All Divisions</option>
-                      {divisionOptions.map(div => (
-                        <option key={div} value={div}>{div}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                    <input
-                      type="text"
-                      value={filters.role}
-                      onChange={(e) => handleFilterChange('role', e.target.value)}
-                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
-                      placeholder="Filter by role"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
-                    <select
-                      value={filters.status}
-                      onChange={(e) => handleFilterChange('status', e.target.value)}
-                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
-                    >
-                      <option value="">All Status</option>
-                      <option value="Active">Active</option>
-                      <option value="Inactive">Inactive</option>
-                      <option value="Suspended">Suspended</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Date of Joining</label>
-                    <input
-                      type="date"
-                      value={filters.dateOfJoining}
-                      onChange={(e) => handleFilterChange('dateOfJoining', e.target.value)}
-                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
-                    />
-                  </div>
-                  <div className="md:col-span-2 lg:col-span-4 flex items-end">
-                    {Object.values(filters).slice(1).filter(Boolean).length > 0 && (
-                      <button
-                        onClick={clearFilters}
-                        className="inline-flex items-center px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 w-full transition-colors duration-200"
-                      >
-                        <XMarkIcon className="h-5 w-5 mr-2" />
-                        Clear Filters
-                      </button>
-                    )}
-                  </div>
-                </div>
+          {/* Filters Bar (always visible) */}
+          <div className="px-4 py-4 border-b border-gray-200 bg-white">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                <input
+                  type="text"
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange('search', e.target.value)}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
+                  placeholder="Filter by name"
+                />
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                <select
+                  value={filters.division}
+                  onChange={(e) => handleFilterChange('division', e.target.value)}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
+                >
+                  <option value="">All Divisions</option>
+                  {divisionOptions.map(div => (
+                    <option key={div} value={div}>{div}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                <select
+                  value={filters.role}
+                  onChange={(e) => handleFilterChange('role', e.target.value)}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
+                >
+                  <option value="">All Roles</option>
+                  {roleOptions.map(r => (
+                    <option key={r} value={r}>{r}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <select
+                  value={filters.location}
+                  onChange={(e) => handleFilterChange('location', e.target.value)}
+                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
+                >
+                  <option value="">All Locations</option>
+                  {locationOptions.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="md:col-span-2 lg:col-span-4">
+                {Object.values(filters).filter(Boolean).length > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="inline-flex items-center px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                  >
+                    <XMarkIcon className="h-5 w-5 mr-2" />
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Results Count */}
@@ -519,7 +493,10 @@ const EmployeeManagement = () => {
                     Employee ID
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
-                    Full Name
+                    Employee Name
+                  </th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
+                    Email
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
                     Division
@@ -528,19 +505,13 @@ const EmployeeManagement = () => {
                     Role
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
-                    Highest Qualification
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
-                    Date of Joining
+                    Qualification
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
                     Experience
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
                     Contact
-                  </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
-                    Status
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
                     Actions
@@ -560,17 +531,10 @@ const EmployeeManagement = () => {
                       <span className="font-semibold text-blue-600">{employee.employeeId}</span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center border border-blue-200">
-                          <span className="text-lg font-bold text-blue-800">
-                            {employee.name ? employee.name.charAt(0).toUpperCase() : 'E'}
-                          </span>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-semibold text-gray-900">{employee.name}</div>
-                          <div className="text-xs text-gray-500">{employee.email}</div>
-                        </div>
-                      </div>
+                      <div className="text-sm font-semibold text-gray-900">{employee.name}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
+                      {employee.email}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
                       <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
@@ -584,20 +548,10 @@ const EmployeeManagement = () => {
                       {employee.highestQualification || employee.qualification || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
-                      <div className="font-medium">
-                        {formatDate(employee.dateOfJoining || employee.dateofjoin)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
-                      {employee.currentExperience || employee.experience || '-'}
+                      {calculateServiceYears(employee.dateOfJoining || employee.dateofjoin) || employee.currentExperience || employee.experience || '-'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
                       <div className="font-medium">{employee.mobileNo}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
-                      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(employee.status)}`}>
-                        {employee.status}
-                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <div className="flex items-center space-x-2">
@@ -635,18 +589,11 @@ const EmployeeManagement = () => {
             {currentItems.map((employee, index) => (
               <div key={employee._id} className="border-b border-gray-200 p-4 hover:bg-gray-50 transition-colors duration-150">
                 <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center">
-                    <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-lg flex items-center justify-center border border-blue-200">
-                      <span className="text-lg font-bold text-blue-800">
-                        {employee.name ? employee.name.charAt(0).toUpperCase() : 'E'}
-                      </span>
-                    </div>
-                    <div className="ml-3">
+                    <div>
                       <h3 className="text-base font-semibold text-gray-900">{employee.name}</h3>
                       <p className="text-sm text-blue-600 font-medium">{employee.employeeId}</p>
                       <p className="text-xs text-gray-500 mt-1">{employee.email}</p>
                     </div>
-                  </div>
                   <div className="flex space-x-1">
                     <button
                       onClick={() => handleView(employee)}
@@ -687,7 +634,7 @@ const EmployeeManagement = () => {
                   </div>
                   <div>
                     <span className="text-xs text-gray-500">Experience</span>
-                    <p className="font-medium text-gray-900">{employee.currentExperience || employee.experience || '-'}</p>
+                    <p className="font-medium text-gray-900">{calculateServiceYears(employee.dateOfJoining || employee.dateofjoin) || employee.currentExperience || employee.experience || '-'}</p>
                   </div>
                   <div>
                     <span className="text-xs text-gray-500">Date of Joining</span>
@@ -819,7 +766,7 @@ const EmployeeManagement = () => {
                 <h3 className="text-2xl font-bold text-gray-900">{viewingEmployee.name}</h3>
                 <div className="flex items-center space-x-4 mt-1">
                   <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                    ID: {viewingEmployee.employeeId}
+                    {viewingEmployee.employeeId}
                   </span>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(viewingEmployee.status)}`}>
                     {viewingEmployee.status}
@@ -846,7 +793,12 @@ const EmployeeManagement = () => {
 
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Experience</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.currentExperience || viewingEmployee.experience || '-'}</p>
+                <p className="text-base font-medium text-gray-900 mt-1">{calculateServiceYears(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin) || viewingEmployee.currentExperience || viewingEmployee.experience || viewingEmployee.previousExperience || '-'}</p>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Experience</h4>
+                <p className="text-base font-medium text-gray-900 mt-1">{calculateTotalExperience(viewingEmployee) || '-'}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">
@@ -916,6 +868,37 @@ const EmployeeManagement = () => {
                   <span className="text-gray-600">{viewingEmployee.branch || ''}</span>
                 </p>
               </div>
+
+              {/* Previous Organizations */}
+              {Array.isArray(viewingEmployee.previousOrganizations) && viewingEmployee.previousOrganizations.length > 0 && (
+                <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
+                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Previous Organizations</h4>
+                  <div className="mt-3 overflow-x-auto bg-white rounded-md border border-gray-200">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Organization</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Role</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">From</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">To</th>
+                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Duration</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-200">
+                        {viewingEmployee.previousOrganizations.map((org, idx) => (
+                          <tr key={idx}>
+                            <td className="px-4 py-2 text-sm text-gray-900">{org.organization || '-'}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{org.role || '-'}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{formatDate(org.startDate) || '-'}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{formatDate(org.endDate) || '-'}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{calculateDuration(org.startDate, org.endDate)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
 
               <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Address</h4>

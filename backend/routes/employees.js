@@ -79,8 +79,20 @@ router.post('/', auth, async (req, res) => {
     if (!req.user.permissions?.includes('user_access')) {
       return res.status(403).json({ message: 'Access denied' });
     }
+    const body = req.body || {};
+    const data = { ...body };
+    if (!data.name && data.employeename) data.name = data.employeename;
+    if (!data.employeename && data.name) data.employeename = data.name;
+    if (!data.mobileNo && (data.contactNumber || data.phone)) data.mobileNo = data.contactNumber || data.phone;
+    if (!data.contactNumber && data.mobileNo) data.contactNumber = data.mobileNo;
+    if (!data.dateOfBirth && data.dob) data.dateOfBirth = data.dob;
+    if (!data.dateOfJoining && (data.hireDate || data.dateofjoin)) data.dateOfJoining = data.hireDate || data.dateofjoin;
+    if (!data.emergencyMobileNo && (data.emergencyMobile || data.emergencyContact)) data.emergencyMobileNo = data.emergencyMobile || data.emergencyContact;
+    if (!data.emergencyContact && (data.emergencyMobileNo || data.emergencyMobile)) data.emergencyContact = data.emergencyMobileNo || data.emergencyMobile;
+    if (!data.highestQualification && data.qualification) data.highestQualification = data.qualification;
+    if (!data.qualification && data.highestQualification) data.qualification = data.highestQualification;
 
-    const employee = new Employee(req.body);
+    const employee = new Employee(data);
     const savedEmployee = await employee.save();
     res.status(201).json(savedEmployee);
   } catch (error) {
@@ -96,9 +108,22 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
+    const body = req.body || {};
+    const data = { ...body };
+    if (!data.name && data.employeename) data.name = data.employeename;
+    if (!data.employeename && data.name) data.employeename = data.name;
+    if (!data.mobileNo && (data.contactNumber || data.phone)) data.mobileNo = data.contactNumber || data.phone;
+    if (!data.contactNumber && data.mobileNo) data.contactNumber = data.mobileNo;
+    if (!data.dateOfBirth && data.dob) data.dateOfBirth = data.dob;
+    if (!data.dateOfJoining && (data.hireDate || data.dateofjoin)) data.dateOfJoining = data.hireDate || data.dateofjoin;
+    if (!data.emergencyMobileNo && (data.emergencyMobile || data.emergencyContact)) data.emergencyMobileNo = data.emergencyMobile || data.emergencyContact;
+    if (!data.emergencyContact && (data.emergencyMobileNo || data.emergencyMobile)) data.emergencyContact = data.emergencyMobileNo || data.emergencyMobile;
+    if (!data.highestQualification && data.qualification) data.highestQualification = data.qualification;
+    if (!data.qualification && data.highestQualification) data.qualification = data.highestQualification;
+
     const employee = await Employee.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      data,
       { new: true, runValidators: true }
     );
     if (!employee) {
