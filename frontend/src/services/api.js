@@ -116,6 +116,10 @@ export const leaveAPI = {
   apply: (data) => api.post('/leaves', data),
   myLeaves: () => api.get('/leaves/my'),
   getBalance: (params) => api.get('/leaves/balance', params ? { params } : undefined),
+  list: (params) => api.get('/leaves', params ? { params } : undefined),
+  updateStatus: (id, status, rejectionReason) => api.put(`/leaves/${id}/status`, { status, rejectionReason }),
+  update: (id, data) => api.put(`/leaves/${id}`, data),
+  remove: (id) => api.delete(`/leaves/${id}`)
 };
 
 // 👥 ALLOCATION API

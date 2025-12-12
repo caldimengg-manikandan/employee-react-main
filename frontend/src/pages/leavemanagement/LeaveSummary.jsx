@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { leaveAPI } from '../../services/api';
 
 const LeaveSummary = () => {
   // Get current year and month
@@ -13,7 +14,9 @@ const LeaveSummary = () => {
   const [selectedLeaveType, setSelectedLeaveType] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  const [searchTerm, setSearchTerm] = useState('');
+  
+  // State to track if any filter is applied
+  const [isFilterApplied, setIsFilterApplied] = useState(false);
   
   // Generate years (current year and previous 5 years)
   const years = Array.from({ length: 6 }, (_, i) => currentYear - i);
@@ -34,131 +37,61 @@ const LeaveSummary = () => {
     { value: 12, name: 'December' }
   ];
 
-  // Locations
-  const locations = ['New York', 'London', 'Tokyo', 'Singapore', 'Bangalore', 'Sydney'];
+  // Locations - Only Hosur and Chennai
+  const locations = ['Hosur', 'Chennai'];
 
-  // Leave types
-  const leaveTypes = ['Casual Leave', 'Sick Leave', 'Annual Leave', 'Emergency Leave', 'Maternity Leave', 'Paternity Leave'];
+  // Leave types - Only the 4 specified types
+  const leaveTypes = ['Casual Leave', 'Sick Leave', 'Privilege Leave', 'Bereavement Leave'];
 
   // Status options
   const statusOptions = ['Approved', 'Pending', 'Rejected'];
 
-  // Sample leave applications data
-  const leaveApplications = [
-    { 
-      id: 'LA001', 
-      employeeName: 'John Doe', 
-      employeeId: 'EMP001',
-      leaveType: 'Casual Leave',
-      fromDate: '10-06-2024',
-      toDate: '12-06-2024',
-      days: 3,
-      totalLeaveDays: 12,
-      status: 'Approved',
-      location: 'New York'
-    },
-    { 
-      id: 'LA002', 
-      employeeName: 'Jane Smith', 
-      employeeId: 'EMP002',
-      leaveType: 'Sick Leave',
-      fromDate: '15-06-2024',
-      toDate: '16-06-2024',
-      days: 2,
-      totalLeaveDays: 8,
-      status: 'Pending',
-      location: 'London'
-    },
-    { 
-      id: 'LA003', 
-      employeeName: 'Mike Johnson', 
-      employeeId: 'EMP003',
-      leaveType: 'Annual Leave',
-      fromDate: '20-06-2024',
-      toDate: '25-06-2024',
-      days: 6,
-      totalLeaveDays: 18,
-      status: 'Approved',
-      location: 'Tokyo'
-    },
-    { 
-      id: 'LA004', 
-      employeeName: 'Sarah Wilson', 
-      employeeId: 'EMP004',
-      leaveType: 'Emergency Leave',
-      fromDate: '05-06-2024',
-      toDate: '05-06-2024',
-      days: 1,
-      totalLeaveDays: 6,
-      status: 'Rejected',
-      location: 'Singapore'
-    },
-    { 
-      id: 'LA005', 
-      employeeName: 'David Brown', 
-      employeeId: 'EMP005',
-      leaveType: 'Casual Leave',
-      fromDate: '18-06-2024',
-      toDate: '19-06-2024',
-      days: 2,
-      totalLeaveDays: 10,
-      status: 'Approved',
-      location: 'Bangalore'
-    },
-    { 
-      id: 'LA006', 
-      employeeName: 'Priya Sharma', 
-      employeeId: 'EMP006',
-      leaveType: 'Annual Leave',
-      fromDate: '01-07-2024',
-      toDate: '05-07-2024',
-      days: 5,
-      totalLeaveDays: 15,
-      status: 'Pending',
-      location: 'Bangalore'
-    },
-    { 
-      id: 'LA007', 
-      employeeName: 'Amit Patel', 
-      employeeId: 'EMP007',
-      leaveType: 'Sick Leave',
-      fromDate: '10-08-2024',
-      toDate: '12-08-2024',
-      days: 3,
-      totalLeaveDays: 9,
-      status: 'Approved',
-      location: 'Singapore'
-    },
-    { 
-      id: 'LA008', 
-      employeeName: 'Emily Chen', 
-      employeeId: 'EMP008',
-      leaveType: 'Maternity Leave',
-      fromDate: '01-09-2024',
-      toDate: '31-12-2024',
-      days: 90,
-      totalLeaveDays: 90,
-      status: 'Approved',
-      location: 'Tokyo'
-    },
-  ];
+  const [leaveApplications, setLeaveApplications] = useState([]);
+
+  const loadLeaves = async () => {
+    try {
+      const res = await leaveAPI.list();
+      const items = Array.isArray(res.data) ? res.data : [];
+      const mapped = items.map(l => ({
+        id: l._id,
+        employeeName: l.employeeName || l.name || '',
+        employeeId: l.employeeId || '',
+        leaveType: l.leaveType === 'CL' ? 'Casual Leave' : l.leaveType === 'SL' ? 'Sick Leave' : l.leaveType === 'PL' ? 'Privilege Leave' : l.leaveType === 'BEREAVEMENT' ? 'Bereavement Leave' : l.leaveType,
+        fromDate: new Date(l.startDate).toLocaleDateString('en-IN'),
+        toDate: new Date(l.endDate).toLocaleDateString('en-IN'),
+        fromMonth: new Date(l.startDate).getMonth() + 1,
+        fromYear: new Date(l.startDate).getFullYear(),
+        days: l.totalDays || 0,
+        totalLeaveDays: l.totalDays || 0,
+        status: l.status || 'Pending',
+        location: l.location || l.branch || '—'
+      }));
+      setLeaveApplications(mapped);
+    } catch {
+      setLeaveApplications([]);
+    }
+  };
+
+  useEffect(() => {
+    loadLeaves();
+    const timer = setInterval(loadLeaves, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Check if any filter is applied
+  const checkIfFilterApplied = () => {
+    return selectedYear !== currentYear || 
+           selectedMonth !== currentMonth || 
+           selectedEmployeeId !== '' || 
+           selectedLeaveType !== 'all' || 
+           selectedLocation !== 'all' || 
+           selectedStatus !== 'all';
+  };
 
   // Filter leave applications based on all filter criteria
   const filteredApplications = leaveApplications.filter(app => {
-    // Get month from fromDate (format: DD-MM-YYYY)
-    const fromMonth = parseInt(app.fromDate.split('-')[1]);
-    
-    // Match search term
-    const matchesSearch = searchTerm === '' || 
-      app.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      app.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    // Match year (extract year from fromDate)
-    const fromYear = parseInt(app.fromDate.split('-')[2]);
-    const matchesYear = selectedYear === 'all' || fromYear === selectedYear;
-    
-    // Match month
-    const matchesMonth = selectedMonth === 'all' || fromMonth === selectedMonth;
+    const matchesYear = selectedYear === 'all' || app.fromYear === selectedYear;
+    const matchesMonth = selectedMonth === 'all' || app.fromMonth === selectedMonth;
     
     // Match employee ID
     const matchesEmployeeId = selectedEmployeeId === '' || 
@@ -173,31 +106,81 @@ const LeaveSummary = () => {
     // Match status
     const matchesStatus = selectedStatus === 'all' || app.status === selectedStatus;
     
-    return matchesSearch && matchesYear && matchesMonth && matchesEmployeeId && 
+    return matchesYear && matchesMonth && matchesEmployeeId && 
            matchesLeaveType && matchesLocation && matchesStatus;
   });
 
   // Calculate total leave days for filtered applications
   const totalLeaveDays = filteredApplications.reduce((sum, app) => sum + app.days, 0);
 
-  // Handle filter reset
-  const handleResetFilters = () => {
+  // Handle filter change
+  const handleFilterChange = (filterType, value) => {
+    switch(filterType) {
+      case 'year':
+        setSelectedYear(value);
+        break;
+      case 'month':
+        setSelectedMonth(value);
+        break;
+      case 'employeeId':
+        setSelectedEmployeeId(value);
+        break;
+      case 'leaveType':
+        setSelectedLeaveType(value);
+        break;
+      case 'location':
+        setSelectedLocation(value);
+        break;
+      case 'status':
+        setSelectedStatus(value);
+        break;
+      default:
+        break;
+    }
+    
+    // Check if any filter is applied after the change
+    const isApplied = checkIfFilterApplied();
+    setIsFilterApplied(isApplied);
+  };
+
+  // Handle refresh (reset all filters)
+  const handleRefresh = () => {
     setSelectedYear(currentYear);
     setSelectedMonth(currentMonth);
     setSelectedEmployeeId('');
     setSelectedLeaveType('all');
     setSelectedLocation('all');
     setSelectedStatus('all');
-    setSearchTerm('');
+    setIsFilterApplied(false);
+    loadLeaves();
+  };
+
+  // Handle clear all filters
+  const handleClearAllFilters = () => {
+    setSelectedYear(currentYear);
+    setSelectedMonth(currentMonth);
+    setSelectedEmployeeId('');
+    setSelectedLeaveType('all');
+    setSelectedLocation('all');
+    setSelectedStatus('all');
+    setIsFilterApplied(false);
   };
 
   // Handle approve/reject actions
-  const handleApprove = (id) => {
-    alert(`Leave application ${id} approved`);
+  const handleApprove = async (id) => {
+    try {
+      const res = await leaveAPI.updateStatus(id, 'Approved');
+      const updated = res.data;
+      setLeaveApplications(prev => prev.map(a => a.id === id ? { ...a, status: updated.status } : a));
+    } catch {}
   };
 
-  const handleReject = (id) => {
-    alert(`Leave application ${id} rejected`);
+  const handleReject = async (id) => {
+    try {
+      const res = await leaveAPI.updateStatus(id, 'Rejected');
+      const updated = res.data;
+      setLeaveApplications(prev => prev.map(a => a.id === id ? { ...a, status: updated.status } : a));
+    } catch {}
   };
 
   // Handle Excel download
@@ -227,7 +210,7 @@ const LeaveSummary = () => {
     minHeight: '100vh'
   };
 
-  const searchContainerStyle = {
+  const headerStyle = {
     backgroundColor: 'white',
     borderRadius: '8px',
     padding: '20px',
@@ -235,27 +218,26 @@ const LeaveSummary = () => {
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   };
 
-  const searchBoxStyle = {
+  const headerTitleStyle = {
+    fontSize: '25px',
+    fontWeight: '600',
+    color: '#2c3e50',
+    margin: '0'
+  };
+
+  const refreshButtonStyle = {
+    padding: '10px 20px',
+    backgroundColor: '#3498db',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    transition: 'all 0.2s',
     display: 'flex',
     alignItems: 'center',
-    gap: '15px',
-    marginBottom: '20px'
-  };
-
-  const searchInputStyle = {
-    padding: '12px 16px',
-    border: '1px solid #e0e0e0',
-    borderRadius: '8px',
-    fontSize: '14px',
-    flex: '1',
-    boxSizing: 'border-box',
-    backgroundColor: '#fdfdfd',
-    transition: 'border 0.2s, box-shadow 0.2s'
-  };
-
-  const searchIconStyle = {
-    fontSize: '18px',
-    color: '#7f8c8d'
+    gap: '8px'
   };
 
   const cardStyle = {
@@ -266,10 +248,20 @@ const LeaveSummary = () => {
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   };
 
-  const filterGridStyle = {
+  // Filters section style - moved to top of table
+  const filtersSectionStyle = {
+    backgroundColor: '#f8f9fa',
+    borderRadius: '8px',
+    padding: '20px',
+    marginBottom: '20px',
+    border: '1px solid #e9ecef'
+  };
+
+  const filtersGridStyle = {
     display: 'grid',
     gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-    gap: '15px'
+    gap: '15px',
+    marginBottom: '15px'
   };
 
   const filterGroupStyle = {
@@ -279,7 +271,7 @@ const LeaveSummary = () => {
   const labelStyle = {
     fontSize: '13px',
     fontWeight: '600',
-    marginBottom: '6px',
+    marginBottom: '8px',
     display: 'block',
     color: '#34495e'
   };
@@ -306,14 +298,17 @@ const LeaveSummary = () => {
     marginTop: '20px'
   };
 
+  // Blue header only - all headers same blue color
   const thStyle = {
-    backgroundColor: '#f8f9fa',
     padding: '14px',
     textAlign: 'left',
     borderBottom: '2px solid #e9ecef',
     fontWeight: '600',
     fontSize: '14px',
-    color: '#495057'
+    color: 'white',
+    position: 'sticky',
+    top: '0',
+    backgroundColor: '#3498db' // Single blue color for all headers
   };
 
   const tdStyle = {
@@ -369,13 +364,6 @@ const LeaveSummary = () => {
     color: 'white'
   };
 
-  const resetButtonStyle = {
-    ...buttonStyle,
-    backgroundColor: '#7f8c8d',
-    color: 'white',
-    padding: '10px 20px'
-  };
-
   const downloadButtonStyle = {
     padding: '12px 24px',
     backgroundColor: '#3498db',
@@ -386,6 +374,21 @@ const LeaveSummary = () => {
     fontSize: '14px',
     fontWeight: '600',
     transition: 'all 0.2s'
+  };
+
+  const clearAllButtonStyle = {
+    padding: '10px 20px',
+    backgroundColor: '#e74c3c',
+    color: 'white',
+    border: 'none',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    fontWeight: '600',
+    transition: 'all 0.2s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
   };
 
   const totalStyle = {
@@ -408,7 +411,7 @@ const LeaveSummary = () => {
   };
 
   const filterTitleStyle = {
-    fontSize: '16px',
+    fontSize: '18px',
     fontWeight: '600',
     color: '#2c3e50',
     margin: '0'
@@ -422,45 +425,48 @@ const LeaveSummary = () => {
     borderRadius: '4px'
   };
 
+  const filterButtonsStyle = {
+    display: 'flex',
+    justifyContent: 'flex-end',
+    gap: '10px',
+    marginTop: '10px'
+  };
+
+  // Table header style with refresh button
+  const tableHeaderStyle = {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: '15px'
+  };
+
+  const tableTitleStyle = {
+    fontSize: '18px',
+    fontWeight: '600',
+    color: '#2c3e50',
+    margin: '0'
+  };
+
   return (
     <div style={containerStyle}>
-      {/* Search Box (Replaces Header) */}
-      <div style={searchContainerStyle}>
-        <div style={searchBoxStyle}>
-          <div style={searchIconStyle}></div>
-          <input
-            type="text"
-            placeholder="Search by employee name or ID..."
-            style={searchInputStyle}
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onFocus={(e) => {
-              e.target.style.border = '1px solid #3498db';
-              e.target.style.boxShadow = '0 0 0 2px rgba(52, 152, 219, 0.1)';
-            }}
-            onBlur={(e) => {
-              e.target.style.border = '1px solid #e0e0e0';
-              e.target.style.boxShadow = 'none';
-            }}
-          />
-          <button 
-            style={resetButtonStyle}
-            onClick={handleResetFilters}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#6c7a7d'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#7f8c8d'}
-          >
-            Reset Filters
-          </button>
-        </div>
+      
 
-        {/* Filters Grid */}
-        <div style={filterGridStyle}>
+      {/* Filters Section - Now at the top of the table */}
+      <div style={filtersSectionStyle}>
+        <div style={filterHeaderStyle}>
+          <h2 style={filterTitleStyle}>Filters</h2>
+          <div style={resultsCountStyle}>
+            {filteredApplications.length} applications found
+          </div>
+        </div>
+        
+        <div style={filtersGridStyle}>
           <div style={filterGroupStyle}>
             <label style={labelStyle}>Year</label>
             <select 
               style={selectStyle}
               value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              onChange={(e) => handleFilterChange('year', Number(e.target.value))}
             >
               <option value="all">All Years</option>
               {years.map(year => (
@@ -474,7 +480,7 @@ const LeaveSummary = () => {
             <select 
               style={selectStyle}
               value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              onChange={(e) => handleFilterChange('month', Number(e.target.value))}
             >
               <option value="all">All Months</option>
               {months.map(month => (
@@ -490,7 +496,7 @@ const LeaveSummary = () => {
               placeholder="Enter employee ID..."
               style={inputStyle}
               value={selectedEmployeeId}
-              onChange={(e) => setSelectedEmployeeId(e.target.value)}
+              onChange={(e) => handleFilterChange('employeeId', e.target.value)}
             />
           </div>
           
@@ -499,7 +505,7 @@ const LeaveSummary = () => {
             <select 
               style={selectStyle}
               value={selectedLeaveType}
-              onChange={(e) => setSelectedLeaveType(e.target.value)}
+              onChange={(e) => handleFilterChange('leaveType', e.target.value)}
             >
               <option value="all">All Types</option>
               {leaveTypes.map(type => (
@@ -513,7 +519,7 @@ const LeaveSummary = () => {
             <select 
               style={selectStyle}
               value={selectedLocation}
-              onChange={(e) => setSelectedLocation(e.target.value)}
+              onChange={(e) => handleFilterChange('location', e.target.value)}
             >
               <option value="all">All Locations</option>
               {locations.map(location => (
@@ -527,7 +533,7 @@ const LeaveSummary = () => {
             <select 
               style={selectStyle}
               value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
+              onChange={(e) => handleFilterChange('status', e.target.value)}
             >
               <option value="all">All Status</option>
               {statusOptions.map(status => (
@@ -536,139 +542,161 @@ const LeaveSummary = () => {
             </select>
           </div>
         </div>
+        
+        {/* Show Clear All button only when filters are applied */}
+        {isFilterApplied && (
+          <div style={filterButtonsStyle}>
+            <button 
+              style={clearAllButtonStyle}
+              onClick={handleClearAllFilters}
+              onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
+              onMouseOut={(e) => e.target.style.backgroundColor = '#e74c3c'}
+            >
+              <span>✕</span> Clear All Filters
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Leave Applications Card */}
       <div style={cardStyle}>
-        <div style={filterHeaderStyle}>
-          <h2 style={filterTitleStyle}>Leave Applications</h2>
-          <div style={resultsCountStyle}>
-            Showing {filteredApplications.length} of {leaveApplications.length} applications
-          </div>
+        {/* Table Header with Refresh Button */}
+        <div style={tableHeaderStyle}>
+         
+          <button 
+            style={refreshButtonStyle}
+            onClick={handleRefresh}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#2980b9'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#3498db'}
+          >
+            <span>↻</span> Refresh
+          </button>
         </div>
 
         {/* Leave Applications Table */}
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>S.No</th>
-              <th style={thStyle}>Employee ID</th>
-              <th style={thStyle}>Employee Name</th>
-              <th style={thStyle}>Leave Type</th>
-              <th style={thStyle}>Location</th>
-              <th style={thStyle}>Leave Dates</th>
-              <th style={thStyle}>Days Count</th>
-              <th style={thStyle}>Total Leave Days ({selectedYear})</th>
-              <th style={thStyle}>Status</th>
-              <th style={thStyle}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredApplications.length > 0 ? (
-              filteredApplications.map((app, index) => (
-                <tr key={app.id}>
-                  <td style={tdStyle}>{index + 1}</td>
-                  <td style={tdStyle}>
-                    <span style={{
-                      fontFamily: 'monospace',
-                      fontWeight: '600',
-                      color: '#3498db'
-                    }}>
-                      {app.employeeId}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>{app.employeeName}</td>
-                  <td style={tdStyle}>{app.leaveType}</td>
-                  <td style={tdStyle}>
-                    <span style={{
-                      backgroundColor: '#f1f8ff',
-                      padding: '4px 10px',
-                      borderRadius: '4px',
-                      fontSize: '13px'
-                    }}>
-                      {app.location}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    <div style={{fontSize: '13px'}}>
-                      <div><strong>From:</strong> {app.fromDate}</div>
-                      <div><strong>To:</strong> {app.toDate}</div>
+        <div style={{overflowX: 'auto'}}>
+          <table style={tableStyle}>
+            <thead>
+              <tr>
+                <th style={thStyle}>S.No</th>
+                <th style={thStyle}>Employee ID</th>
+                <th style={thStyle}>Employee Name</th>
+                <th style={thStyle}>Leave Type</th>
+                <th style={thStyle}>Location</th>
+                <th style={thStyle}>Leave Dates</th>
+                <th style={thStyle}>Days Count</th>
+                <th style={thStyle}>Total Leave Days ({selectedYear})</th>
+                <th style={thStyle}>Status</th>
+                <th style={thStyle}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredApplications.length > 0 ? (
+                filteredApplications.map((app, index) => (
+                  <tr key={app.id}>
+                    <td style={tdStyle}>{index + 1}</td>
+                    <td style={tdStyle}>
+                      <span style={{
+                        fontFamily: 'monospace',
+                        fontWeight: '600',
+                        color: '#3498db'
+                      }}>
+                        {app.employeeId}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>{app.employeeName}</td>
+                    <td style={tdStyle}>{app.leaveType}</td>
+                    <td style={tdStyle}>
+                      <span style={{
+                        backgroundColor: '#f1f8ff',
+                        padding: '4px 10px',
+                        borderRadius: '4px',
+                        fontSize: '13px'
+                      }}>
+                        {app.location}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <div style={{fontSize: '13px'}}>
+                        <div><strong>From:</strong> {app.fromDate}</div>
+                        <div><strong>To:</strong> {app.toDate}</div>
+                      </div>
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{
+                        fontWeight: 'bold', 
+                        color: '#2c3e50',
+                        backgroundColor: '#f8f9fa',
+                        padding: '5px 10px',
+                        borderRadius: '4px',
+                        display: 'inline-block',
+                        minWidth: '40px',
+                        textAlign: 'center'
+                      }}>
+                        {app.days}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={{
+                        fontWeight: 'bold', 
+                        color: '#27ae60',
+                        backgroundColor: '#e7f6ec',
+                        padding: '5px 12px',
+                        borderRadius: '4px',
+                        display: 'inline-block'
+                      }}>
+                        {app.totalLeaveDays} days
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      <span style={statusBadgeStyle(app.status)}>
+                        {app.status}
+                      </span>
+                    </td>
+                    <td style={tdStyle}>
+                      {app.status === 'Pending' && (
+                        <div>
+                          <button 
+                            style={approveButtonStyle}
+                            onClick={() => handleApprove(app.id)}
+                            onMouseOver={(e) => e.target.style.backgroundColor = '#219653'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = '#27ae60'}
+                          >
+                            Approve
+                          </button>
+                          <button 
+                            style={rejectButtonStyle}
+                            onClick={() => handleReject(app.id)}
+                            onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
+                            onMouseOut={(e) => e.target.style.backgroundColor = '#e74c3c'}
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      )}
+                      {app.status !== 'Pending' && (
+                        <span style={{ color: '#95a5a6', fontSize: '13px' }}>Completed</span>
+                      )}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="10" style={{...tdStyle, textAlign: 'center', padding: '40px'}}>
+                    <div style={{color: '#7f8c8d', fontSize: '16px'}}>
+                      No leave applications found matching your filters.
                     </div>
                   </td>
-                  <td style={tdStyle}>
-                    <span style={{
-                      fontWeight: 'bold', 
-                      color: '#2c3e50',
-                      backgroundColor: '#f8f9fa',
-                      padding: '5px 10px',
-                      borderRadius: '4px',
-                      display: 'inline-block',
-                      minWidth: '40px',
-                      textAlign: 'center'
-                    }}>
-                      {app.days}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={{
-                      fontWeight: 'bold', 
-                      color: '#27ae60',
-                      backgroundColor: '#e7f6ec',
-                      padding: '5px 12px',
-                      borderRadius: '4px',
-                      display: 'inline-block'
-                    }}>
-                      {app.totalLeaveDays} days
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    <span style={statusBadgeStyle(app.status)}>
-                      {app.status}
-                    </span>
-                  </td>
-                  <td style={tdStyle}>
-                    {app.status === 'Pending' && (
-                      <div>
-                        <button 
-                          style={approveButtonStyle}
-                          onClick={() => handleApprove(app.id)}
-                          onMouseOver={(e) => e.target.style.backgroundColor = '#219653'}
-                          onMouseOut={(e) => e.target.style.backgroundColor = '#27ae60'}
-                        >
-                          Approve
-                        </button>
-                        <button 
-                          style={rejectButtonStyle}
-                          onClick={() => handleReject(app.id)}
-                          onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
-                          onMouseOut={(e) => e.target.style.backgroundColor = '#e74c3c'}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
-                    {app.status !== 'Pending' && (
-                      <span style={{ color: '#95a5a6', fontSize: '13px' }}>Completed</span>
-                    )}
-                  </td>
                 </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="10" style={{...tdStyle, textAlign: 'center', padding: '40px'}}>
-                  <div style={{color: '#7f8c8d', fontSize: '16px'}}>
-                    No leave applications found matching your filters.
-                  </div>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+              )}
+            </tbody>
+          </table>
+        </div>
 
         {/* Total Summary */}
         {filteredApplications.length > 0 && (
           <div style={totalStyle}>
-            Total Leave Days for Filtered Results: {totalLeaveDays} days
+            Total Leave Days: {totalLeaveDays} days ({filteredApplications.length} applications)
           </div>
         )}
 
@@ -680,7 +708,7 @@ const LeaveSummary = () => {
             onMouseOver={(e) => e.target.style.backgroundColor = '#2980b9'}
             onMouseOut={(e) => e.target.style.backgroundColor = '#3498db'}
           >
-            Download Excel Report ({filteredApplications.length} records)
+            Download Excel Report
           </button>
         </div>
       </div>

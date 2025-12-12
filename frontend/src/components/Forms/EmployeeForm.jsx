@@ -138,9 +138,11 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: 'IT Admin', label: 'IT Admin' },
     { value: 'Trainee', label: 'Trainee' },
     { value: 'System Engineer', label: 'System Engineer' },
-    { value: 'Senior Engineer', label: 'Senior Engineer' },
-    { value: 'Junior Engineer', label: 'Junior Engineer' },
+    { value: 'Sr.Engineer', label: 'Sr.Engineer' },
+    { value: 'Jr.Engineer', label: 'Jr.Engineer' },
     { value: 'Project Manager', label: 'Project Manager' },
+    { value: 'Sr Project Manager', label: 'Sr Project Manager' },
+    { value: 'Asst Project Manager', label: 'Asst Project Manager' },
     { value: 'Team Lead', label: 'Team Lead' },
     { value: 'Software Developer', label: 'Software Developer' },
     { value: 'HR Executive', label: 'HR Executive' },
@@ -148,12 +150,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: 'Sales Executive', label: 'Sales Executive' },
     { value: 'Marketing Manager', label: 'Marketing Manager' },
     { value: 'Operations Manager', label: 'Operations Manager' },
-    { value: 'Quality Analyst', label: 'Quality Analyst' },
     { value: 'Technical Support', label: 'Technical Support' },
     { value: 'Network Engineer', label: 'Network Engineer' },
-    { value: 'Database Administrator', label: 'Database Administrator' },
-    { value: 'Business Analyst', label: 'Business Analyst' },
-    { value: 'Consultant', label: 'Consultant' }
+    { value: 'Detailer', label: 'Detailer' },
   ];
 
   // Blood group options

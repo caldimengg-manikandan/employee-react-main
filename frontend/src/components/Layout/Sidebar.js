@@ -105,13 +105,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       permission: "leave_access",
       allowEmployeeRole: true,
       children: [
-        { 
-          name: "Edit Leave Eligibility", 
-          path: "/leave-management/edit-eligibility",
-          icon: "AdjustmentsHorizontalIcon",
-          permission: "leave_manage",
-          showForRoles: ["admin", "hr"]
-        },
+      
         { 
           name: "Leave Summary", 
           path: "/leave-management/summary",
@@ -127,13 +121,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           showForRoles: ["admin", "hr", "manager", "employee"],
           allowEmployeeRole: true
         },
-        { 
-          name: "Trainees Management", 
-          path: "/leave-management/trainees",
-          icon: "AcademicCapIcon",
-          permission: "leave_manage_trainees",
-          showForRoles: ["admin", "hr"]
-        }
+       
       ],
     },
     // LEAVE APPLICATIONS AS SEPARATE MODULE (ADDED)

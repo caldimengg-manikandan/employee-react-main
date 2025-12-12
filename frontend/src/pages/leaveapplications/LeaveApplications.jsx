@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { leaveAPI } from '../../services/api';
+import { leaveAPI, employeeAPI } from '../../services/api';
 import { 
   Calendar, 
   CheckCircle, 
@@ -8,7 +8,10 @@ import {
   AlertCircle,
   Home,
   Heart,
-  XCircle 
+  XCircle,
+  Eye,
+  Pencil,
+  Trash
 } from 'lucide-react';
 
 const LeaveApplications = () => {
@@ -33,28 +36,114 @@ const LeaveApplications = () => {
   
   // Leave history state
   const [leaveHistory, setLeaveHistory] = useState([]);
+  const [editingLeaveId, setEditingLeaveId] = useState(null);
+  const [viewLeave, setViewLeave] = useState(null);
 
+  const fetchMyLeaves = async () => {
+    try {
+      const res = await leaveAPI.myLeaves();
+      const items = Array.isArray(res.data) ? res.data : [];
+      const mapped = items.map(l => ({
+        id: l._id,
+        leaveType: l.leaveType,
+        leaveTypeName: leaveTypes.find(t => t.value === l.leaveType)?.label || l.leaveType,
+        startDate: l.startDate,
+        endDate: l.endDate,
+        dayType: l.dayType,
+        totalDays: l.totalDays,
+        status: l.status,
+        appliedDate: l.appliedDate,
+        reason: l.reason,
+        bereavementRelation: l.bereavementRelation || ''
+      }));
+      setLeaveHistory(mapped);
+    } catch {}
+  };
+  
   useEffect(() => {
-    const loadLeaves = async () => {
-      try {
-        const res = await leaveAPI.myLeaves();
-        const items = Array.isArray(res.data) ? res.data : [];
-        const mapped = items.map(l => ({
-          id: l._id,
-          leaveType: l.leaveType,
-          leaveTypeName: leaveTypes.find(t => t.value === l.leaveType)?.label || l.leaveType,
-          startDate: l.startDate,
-          endDate: l.endDate,
-          dayType: l.dayType,
-          totalDays: l.totalDays,
-          status: l.status,
-          appliedDate: l.appliedDate,
-          reason: l.reason
-        }));
-        setLeaveHistory(mapped);
-      } catch {}
+    fetchMyLeaves();
+    const timer = setInterval(fetchMyLeaves, 30000);
+    return () => clearInterval(timer);
+  }, []);
+  
+  useEffect(() => {
+    const monthsBetween = (dateString) => {
+      if (!dateString) return 0;
+      const start = new Date(dateString);
+      if (isNaN(start.getTime())) return 0;
+      const now = new Date();
+      const years = now.getFullYear() - start.getFullYear();
+      const months = now.getMonth() - start.getMonth();
+      const total = years * 12 + months;
+      return Math.max(0, total);
     };
-    loadLeaves();
+    const calculateLeaveBalances = (employee) => {
+      const { designation, monthsOfService } = employee;
+      let casual = 0, sick = 0, privilege = 0;
+      const isTrainee = String(designation || '').toLowerCase() === 'trainee';
+      const traineeMonths = Math.min(monthsOfService, 12);
+      if (isTrainee) {
+        privilege = traineeMonths * 1;
+        casual = 0;
+        sick = 0;
+      } else {
+        const firstSix = Math.min(monthsOfService, 6);
+        const afterSix = Math.max(monthsOfService - 6, 0);
+        const plNonCarry = (firstSix * 1);
+        const plCarry = afterSix * 1.25;
+        privilege = plNonCarry + plCarry;
+        casual = afterSix * 0.5;
+        sick = afterSix * 0.5;
+      }
+      return {
+        CL: Math.round(casual * 10) / 10,
+        SL: Math.round(sick * 10) / 10,
+        PL: Math.round(privilege * 10) / 10
+      };
+    };
+    const loadBalanceForMe = async () => {
+      try {
+        const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+        const empId = user.employeeId || user.employeeCode || user.empId || '';
+        const res = await leaveAPI.getBalance(empId ? { employeeId: empId } : undefined);
+        const items = Array.isArray(res.data) ? res.data : [];
+        const mine = items.find(e => String(e.employeeId || '').toLowerCase() === String(empId || '').toLowerCase())
+          || items.find(e => String(e.email || '').toLowerCase() === String(user.email || '').toLowerCase())
+          || items.find(e => String(e.name || '').toLowerCase() === String(user.name || '').toLowerCase());
+        if (mine && mine.balances) {
+          setLeaveBalance({
+            CL: mine.balances.casual?.balance || 0,
+            SL: mine.balances.sick?.balance || 0,
+            PL: mine.balances.privilege?.balance || 0,
+            BEREAVEMENT: 2
+          });
+          return;
+        }
+        throw new Error('No balance found');
+      } catch {
+        try {
+          const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+          const empId = user.employeeId || user.employeeCode || user.empId || '';
+          const res2 = await employeeAPI.getAllEmployees();
+          const list = Array.isArray(res2.data) ? res2.data : [];
+          const emp = list.find(e => String(e.employeeId || '').toLowerCase() === String(empId || '').toLowerCase())
+            || list.find(e => String(e.email || '').toLowerCase() === String(user.email || '').toLowerCase())
+            || list.find(e => String(e.name || '').toLowerCase() === String(user.name || '').toLowerCase());
+          if (!emp) return;
+          const doj = emp.dateOfJoining || emp.dateofjoin || emp.hireDate || emp.createdAt || '';
+          const m = monthsBetween(doj);
+          const d = emp.designation || emp.position || emp.role || '';
+          const balances = calculateLeaveBalances({ designation: d, monthsOfService: m });
+          setLeaveBalance({
+            CL: balances.CL,
+            SL: balances.SL,
+            PL: balances.PL,
+            BEREAVEMENT: 2
+          });
+        } catch {}
+      }
+    };
+    loadBalanceForMe();
   }, []);
   
   // Leave types as per policy
@@ -149,18 +238,23 @@ const LeaveApplications = () => {
     }
     
     // Check leave balance
-    if (leaveData.leaveType === 'CL' && totalLeaveDays > leaveBalance.CL) {
-      alert(`Insufficient Casual Leave balance. Available: ${leaveBalance.CL} days`);
+    if (leaveData.leaveType === 'CL' && totalLeaveDays > getAvailableBalance('CL')) {
+      alert(`Insufficient Casual Leave balance. Available: ${getAvailableBalance('CL')} days`);
       return;
     }
     
-    if (leaveData.leaveType === 'SL' && totalLeaveDays > leaveBalance.SL) {
-      alert(`Insufficient Sick Leave balance. Available: ${leaveBalance.SL} days`);
+    if (leaveData.leaveType === 'SL' && totalLeaveDays > getAvailableBalance('SL')) {
+      alert(`Insufficient Sick Leave balance. Available: ${getAvailableBalance('SL')} days`);
       return;
     }
     
-    if (leaveData.leaveType === 'PL' && totalLeaveDays > leaveBalance.PL) {
-      alert(`Insufficient Privilege Leave balance. Available: ${leaveBalance.PL} days`);
+    if (leaveData.leaveType === 'PL' && totalLeaveDays > getAvailableBalance('PL')) {
+      alert(`Insufficient Privilege Leave balance. Available: ${getAvailableBalance('PL')} days`);
+      return;
+    }
+    
+    if (leaveData.leaveType === 'BEREAVEMENT' && totalLeaveDays > getAvailableBalance('BEREAVEMENT')) {
+      alert(`Insufficient Bereavement Leave balance. Available: ${getAvailableBalance('BEREAVEMENT')} days`);
       return;
     }
     
@@ -170,42 +264,60 @@ const LeaveApplications = () => {
       return;
     }
     
-    // Create new leave application
+    // Create or update leave application
     const leaveTypeName = leaveTypes.find(type => type.value === leaveData.leaveType)?.label || leaveData.leaveType;
     
     try {
-      const res = await leaveAPI.apply({
-        leaveType: leaveData.leaveType,
-        startDate: leaveData.startDate,
-        endDate: leaveData.endDate,
-        dayType: leaveData.dayType,
-        reason: leaveData.reason || '',
-        bereavementRelation: leaveData.bereavementRelation || '',
-        totalDays: totalLeaveDays
-      });
-      const l = res.data;
-      const newLeave = {
-        id: l._id,
-        leaveType: l.leaveType,
-        leaveTypeName: leaveTypeName,
-        startDate: l.startDate,
-        endDate: l.endDate,
-        dayType: l.dayType,
-        totalDays: l.totalDays,
-        status: l.status,
-        appliedDate: l.appliedDate,
-        reason: l.reason
-      };
-      setLeaveHistory(prev => [newLeave, ...prev]);
+      if (editingLeaveId) {
+        const res = await leaveAPI.update(editingLeaveId, {
+          leaveType: leaveData.leaveType,
+          startDate: leaveData.startDate,
+          endDate: leaveData.endDate,
+          dayType: leaveData.dayType,
+          reason: leaveData.reason || '',
+          bereavementRelation: leaveData.bereavementRelation || '',
+          totalDays: totalLeaveDays
+        });
+        const l = res.data;
+        setLeaveHistory(prev => prev.map(x => x.id === editingLeaveId ? {
+          id: l._id,
+          leaveType: l.leaveType,
+          leaveTypeName: leaveTypeName,
+          startDate: l.startDate,
+          endDate: l.endDate,
+          dayType: l.dayType,
+          totalDays: l.totalDays,
+          status: l.status,
+          appliedDate: l.appliedDate,
+          reason: l.reason
+        } : x));
+        setEditingLeaveId(null);
+      } else {
+        const res = await leaveAPI.apply({
+          leaveType: leaveData.leaveType,
+          startDate: leaveData.startDate,
+          endDate: leaveData.endDate,
+          dayType: leaveData.dayType,
+          reason: leaveData.reason || '',
+          bereavementRelation: leaveData.bereavementRelation || '',
+          totalDays: totalLeaveDays
+        });
+        const l = res.data;
+        const newLeave = {
+          id: l._id,
+          leaveType: l.leaveType,
+          leaveTypeName: leaveTypeName,
+          startDate: l.startDate,
+          endDate: l.endDate,
+          dayType: l.dayType,
+          totalDays: l.totalDays,
+          status: l.status,
+          appliedDate: l.appliedDate,
+          reason: l.reason
+        };
+        setLeaveHistory(prev => [newLeave, ...prev]);
+      }
     } catch {}
-    
-    // Update leave balance
-    if (['CL', 'SL', 'PL'].includes(leaveData.leaveType)) {
-      setLeaveBalance(prev => ({
-        ...prev,
-        [leaveData.leaveType]: prev[leaveData.leaveType] - totalLeaveDays
-      }));
-    }
     
     // Reset form
     setLeaveData({
@@ -219,8 +331,45 @@ const LeaveApplications = () => {
     });
     setTotalLeaveDays(0);
     
-    alert('Leave application submitted successfully! Awaiting approval.');
+    alert(editingLeaveId ? 'Leave application updated successfully.' : 'Leave application submitted successfully! Awaiting approval.');
   };
+  
+  const handleEdit = (leave) => {
+    if (leave.status !== 'Pending') {
+      alert('Only Pending applications can be edited.');
+      return;
+    }
+    setEditingLeaveId(leave.id);
+    setLeaveData({
+      leaveType: leave.leaveType,
+      startDate: new Date(leave.startDate).toISOString().slice(0,10),
+      endDate: new Date(leave.endDate).toISOString().slice(0,10),
+      dayType: leave.dayType || 'Full Day',
+      reason: leave.reason || '',
+      bereavementRelation: leave.leaveType === 'BEREAVEMENT' ? (leave.bereavementRelation || '') : '',
+      supportingDocuments: null
+    });
+    setTotalLeaveDays(leave.totalDays || 0);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+  
+  const handleDelete = async (leave) => {
+    if (leave.status !== 'Pending') {
+      alert('Only Pending applications can be deleted.');
+      return;
+    }
+    const ok = window.confirm('Delete this leave application?');
+    if (!ok) return;
+    try {
+      await leaveAPI.remove(leave.id);
+      setLeaveHistory(prev => prev.filter(x => x.id !== leave.id));
+      alert('Leave application deleted.');
+    } catch (e) {
+      alert('Failed to delete leave application.');
+    }
+  };
+  
+  const handleView = (leave) => setViewLeave(leave);
   
   // Get leave type icon
   const getLeaveTypeIcon = (type) => {
@@ -266,11 +415,12 @@ const LeaveApplications = () => {
     const used = {
       CL: 0,
       SL: 0,
-      PL: 0
+      PL: 0,
+      BEREAVEMENT: 0
     };
     
     leaveHistory.forEach(leave => {
-      if (['CL', 'SL', 'PL'].includes(leave.leaveType) && leave.status === 'Approved') {
+      if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(leave.leaveType) && leave.status === 'Approved') {
         used[leave.leaveType] += leave.totalDays;
       }
     });
@@ -279,10 +429,30 @@ const LeaveApplications = () => {
   };
   
   const usedLeaves = calculateLeaveSummary();
+  const calculatePendingSummary = () => {
+    const pending = {
+      CL: 0,
+      SL: 0,
+      PL: 0,
+      BEREAVEMENT: 0
+    };
+    leaveHistory.forEach(leave => {
+      if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(leave.leaveType) && leave.status === 'Pending') {
+        pending[leave.leaveType] += leave.totalDays;
+      }
+    });
+    return pending;
+  };
+  const pendingLeaves = calculatePendingSummary();
+  const getAvailableBalance = (type) => {
+    const base = Number(leaveBalance[type] || 0);
+    const pending = Number(pendingLeaves[type] || 0);
+    return Math.max(0, Math.round((base - pending) * 10) / 10);
+  };
   
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full mx-auto px-0">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Employee Leave Application</h1>
@@ -399,32 +569,8 @@ const LeaveApplications = () => {
                   </div>
                 </div>
                 
-                {/* Total Leave Days */}
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700">Total Working Days:</span>
-                    <span className="text-2xl font-bold text-blue-600">{totalLeaveDays}</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Calculated excluding weekends (Saturday & Sunday)
-                  </p>
-                </div>
-                
-                {/* Reason */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Reason for Leave *
-                  </label>
-                  <textarea
-                    name="reason"
-                    value={leaveData.reason}
-                    onChange={handleInputChange}
-                    rows="3"
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                    placeholder="Please provide detailed reason for leave..."
-                    required
-                  />
-                </div>
+             
+               
                 
                 {/* Supporting Documents (for sick leave) */}
                 {leaveData.leaveType === 'SL' && totalLeaveDays > 3 && (
@@ -470,7 +616,8 @@ const LeaveApplications = () => {
                       <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
                       <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
                       <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
-                      <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reason</th>
+                      <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+
                       <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
@@ -502,10 +649,33 @@ const LeaveApplications = () => {
                           </span>
                         </td>
                         <td className="py-4 px-6">
-                          <div className="max-w-xs">
-                            <p className="text-sm text-gray-900 truncate">{leave.reason}</p>
+                          <div className="flex items-center gap-4">
+                            <button
+                              onClick={() => handleView(leave)}
+                              className="text-blue-600 hover:text-blue-800"
+                              title="View"
+                            >
+                              <Eye className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleEdit(leave)}
+                              disabled={leave.status !== 'Pending'}
+                              className={`hover:text-green-700 ${leave.status === 'Pending' ? 'text-green-600' : 'text-gray-300 cursor-not-allowed'}`}
+                              title="Edit"
+                            >
+                              <Pencil className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(leave)}
+                              disabled={leave.status !== 'Pending'}
+                              className={`hover:text-red-700 ${leave.status === 'Pending' ? 'text-red-600' : 'text-gray-300 cursor-not-allowed'}`}
+                              title="Delete"
+                            >
+                              <Trash className="w-5 h-5" />
+                            </button>
                           </div>
                         </td>
+                        
                         <td className="py-4 px-6">
                           <div className="flex items-center">
                             <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(leave.status)}`}>
@@ -531,6 +701,35 @@ const LeaveApplications = () => {
                   </tbody>
                 </table>
               </div>
+              
+              {viewLeave && (
+                <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+                  <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
+                    <div className="p-6 border-b">
+                      <h3 className="text-lg font-semibold text-gray-800">Leave Application</h3>
+                    </div>
+                    <div className="p-6 space-y-2 text-sm">
+                      <div><span className="font-medium text-gray-700">Type:</span> {viewLeave.leaveTypeName}</div>
+                      <div><span className="font-medium text-gray-700">Dates:</span> {new Date(viewLeave.startDate).toLocaleDateString('en-GB')} to {new Date(viewLeave.endDate).toLocaleDateString('en-GB')}</div>
+                      <div><span className="font-medium text-gray-700">Day Type:</span> {viewLeave.dayType}</div>
+                      <div><span className="font-medium text-gray-700">Days:</span> {viewLeave.totalDays}</div>
+                      <div><span className="font-medium text-gray-700">Status:</span> {viewLeave.status}</div>
+                      {viewLeave.leaveType === 'BEREAVEMENT' && (
+                        <div><span className="font-medium text-gray-700">Relation:</span> {viewLeave.bereavementRelation || '—'}</div>
+                      )}
+                      <div><span className="font-medium text-gray-700">Reason:</span> {viewLeave.reason || '—'}</div>
+                    </div>
+                    <div className="p-4 border-t flex justify-end">
+                      <button
+                        onClick={() => setViewLeave(null)}
+                        className="px-4 py-2 border rounded hover:bg-gray-50"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           
@@ -547,7 +746,7 @@ const LeaveApplications = () => {
                     <h3 className="font-medium text-gray-900">Casual Leave (CL)</h3>
                     <Home className="w-5 h-5 text-green-600" />
                   </div>
-                  <div className="text-3xl font-bold text-green-600">{leaveBalance.CL} days</div>
+                  <div className="text-3xl font-bold text-green-600">{getAvailableBalance('CL')} days</div>
                   <div className="text-sm text-gray-600 mt-1">0.5 days/month entitlement</div>
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.CL} days</div>
                 </div>
@@ -557,7 +756,7 @@ const LeaveApplications = () => {
                     <h3 className="font-medium text-gray-900">Sick Leave (SL)</h3>
                     <AlertCircle className="w-5 h-5 text-red-600" />
                   </div>
-                  <div className="text-3xl font-bold text-red-600">{leaveBalance.SL} days</div>
+                  <div className="text-3xl font-bold text-red-600">{getAvailableBalance('SL')} days</div>
                   <div className="text-sm text-gray-600 mt-1">0.5 days/month entitlement</div>
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.SL} days</div>
                 </div>
@@ -567,7 +766,7 @@ const LeaveApplications = () => {
                     <h3 className="font-medium text-gray-900">Privilege Leave (PL)</h3>
                     <Calendar className="w-5 h-5 text-blue-600" />
                   </div>
-                  <div className="text-3xl font-bold text-blue-600">{leaveBalance.PL} days</div>
+                  <div className="text-3xl font-bold text-blue-600">{getAvailableBalance('PL')} days</div>
                   <div className="text-sm text-gray-600 mt-1">15 days/year after completion</div>
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.PL} days</div>
                 </div>
@@ -577,8 +776,9 @@ const LeaveApplications = () => {
                     <h3 className="font-medium text-gray-900">Bereavement Leave</h3>
                     <Heart className="w-5 h-5 text-purple-600" />
                   </div>
-                  <div className="text-3xl font-bold text-purple-600">2 days</div>
+                  <div className="text-3xl font-bold text-purple-600">{getAvailableBalance('BEREAVEMENT')} days</div>
                   <div className="text-sm text-gray-600 mt-1">Paid leave for immediate family</div>
+                  <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.BEREAVEMENT} days</div>
                 </div>
               </div>
             </div>
