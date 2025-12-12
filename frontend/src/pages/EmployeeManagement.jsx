@@ -11,8 +11,16 @@ import {
   EyeIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  Bars3Icon,
-  CalendarIcon
+  AdjustmentsHorizontalIcon,
+  UserIcon,
+  PhoneIcon,
+  MapPinIcon,
+  IdentificationIcon,
+  CakeIcon,
+  BriefcaseIcon,
+  BanknotesIcon,
+  AcademicCapIcon,
+  HomeIcon
 } from '@heroicons/react/24/outline';
 import EmployeeForm from '../components/Forms/EmployeeForm';
 import Modal from '../components/Modals/Modal';
@@ -29,11 +37,9 @@ const EmployeeManagement = () => {
   const [viewingEmployee, setViewingEmployee] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
-    role: '',
+    designation: '',
     division: '',
-    location: '',
-    status: 'Active',
-    dateOfJoining: ''
+    location: ''
   });
   const [showFilters, setShowFilters] = useState(false);
   const { notification, showSuccess, hideNotification } = useNotification();
@@ -58,7 +64,7 @@ const EmployeeManagement = () => {
       setFilteredEmployees(response.data);
     } catch (error) {
       console.error('Error fetching employees:', error);
-    
+
       setEmployees(mockEmployees);
       setFilteredEmployees(mockEmployees);
     } finally {
@@ -79,9 +85,9 @@ const EmployeeManagement = () => {
       );
     }
 
-    if (filters.role) {
+    if (filters.designation) {
       filtered = filtered.filter(emp =>
-        String(emp.role || emp.position || '') === filters.role
+        String(emp.designation || emp.role || emp.position || '') === filters.designation
       );
     }
 
@@ -94,18 +100,6 @@ const EmployeeManagement = () => {
     if (filters.location) {
       filtered = filtered.filter(emp =>
         String(emp.location || emp.branch || '') === filters.location
-      );
-    }
-
-    if (filters.status) {
-      filtered = filtered.filter(emp =>
-        emp.status === filters.status
-      );
-    }
-
-    if (filters.dateOfJoining) {
-      filtered = filtered.filter(emp =>
-        emp.dateOfJoining === filters.dateOfJoining
       );
     }
 
@@ -122,17 +116,20 @@ const EmployeeManagement = () => {
   const clearFilters = () => {
     setFilters({
       search: '',
-      role: '',
+      designation: '',
       division: '',
-      location: '',
-      status: 'Active',
-      dateOfJoining: ''
+      location: ''
     });
   };
 
+  // Check if any filter is applied
+  const isFilterApplied = useMemo(() => {
+    return Object.values(filters).some(value => value !== '');
+  }, [filters]);
+
   const exportToCSV = () => {
     const headers = [
-      'S.No', 'Employee ID', 'Full Name', 'Division', 'Role',
+      'S.No', 'Employee ID', 'Full Name', 'Division', 'Designation',
       'Highest Qualification', 'Date of Joining', 'Experience', 'Contact', 'Status'
     ];
 
@@ -141,7 +138,7 @@ const EmployeeManagement = () => {
       emp.employeeId,
       `"${emp.name}"`,
       emp.division,
-      emp.role || emp.position || '',
+      emp.designation || emp.role || emp.position || '',
       emp.highestQualification || emp.qualification || '',
       emp.dateOfJoining || emp.dateofjoin || '',
       emp.currentExperience || emp.experience || '',
@@ -163,7 +160,7 @@ const EmployeeManagement = () => {
     window.URL.revokeObjectURL(url);
   };
 
-  // Format date to DD/MM/YYYY
+  // Format date to DD/MM/YYYY for table
   const formatDate = (dateString) => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -183,96 +180,23 @@ const EmployeeManagement = () => {
     if (isNaN(joinDate.getTime())) return '';
 
     const today = new Date();
-    const years = today.getFullYear() - joinDate.getFullYear();
-    const months = today.getMonth() - joinDate.getMonth();
-
-    let result = '';
-    if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
-    if (months > 0) {
-      if (result) result += ' ';
-      result += `${months} month${months > 1 ? 's' : ''}`;
-    }
-    if (!result) result = 'Less than a month';
-
-    return result;
-  };
-
-  // Calculate duration between two dates (start to end) in years/months
-  const calculateDuration = (startDate, endDate) => {
-    if (!startDate) return '-';
-    const start = new Date(startDate);
-    const end = endDate ? new Date(endDate) : new Date();
-    if (isNaN(start.getTime())) return '-';
-    if (isNaN(end.getTime())) return '-';
-
-    let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+    let months = (today.getFullYear() - joinDate.getFullYear()) * 12;
+    months -= joinDate.getMonth();
+    months += today.getMonth();
+    
     if (months < 0) months = 0;
+    
     const years = Math.floor(months / 12);
-    const remMonths = months % 12;
+    const remainingMonths = months % 12;
+    
     let result = '';
     if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
-    if (remMonths > 0) {
+    if (remainingMonths > 0) {
       if (result) result += ' ';
-      result += `${remMonths} month${remMonths > 1 ? 's' : ''}`;
+      result += `${remainingMonths} month${remainingMonths > 1 ? 's' : ''}`;
     }
     if (!result) result = 'Less than a month';
-    return result;
-  };
-
-  // Sum durations across previous organizations
-  const calculatePreviousExperienceFromOrganizations = (orgs = []) => {
-    if (!Array.isArray(orgs) || orgs.length === 0) return '';
-    let totalMonths = 0;
-    orgs.forEach((org) => {
-      if (!org?.startDate) return;
-      const start = new Date(org.startDate);
-      const end = org.endDate ? new Date(org.endDate) : new Date();
-      if (isNaN(start.getTime())) return;
-      if (isNaN(end.getTime())) return;
-      const months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
-      if (months > 0) totalMonths += months;
-    });
-    const years = Math.floor(totalMonths / 12);
-    const remMonths = totalMonths % 12;
-    let result = '';
-    if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
-    if (remMonths > 0) {
-      if (result) result += ' ';
-      result += `${remMonths} month${remMonths > 1 ? 's' : ''}`;
-    }
-    if (!result) result = 'Less than a month';
-    return result;
-  };
-
-  // Total experience = previous orgs duration + service years (date of joining)
-  const calculateTotalExperience = (employee) => {
-    const monthsBetween = (startDate, endDate) => {
-      if (!startDate) return 0;
-      const s = new Date(startDate);
-      const e = endDate ? new Date(endDate) : new Date();
-      if (isNaN(s.getTime()) || isNaN(e.getTime())) return 0;
-      let m = (e.getFullYear() - s.getFullYear()) * 12 + (e.getMonth() - s.getMonth());
-      if (m < 0) m = 0;
-      return m;
-    };
-
-    const sumPreviousMonths = (orgs = []) => {
-      if (!Array.isArray(orgs)) return 0;
-      return orgs.reduce((sum, org) => sum + monthsBetween(org?.startDate, org?.endDate), 0);
-    };
-
-    const serviceMonths = (doj) => monthsBetween(doj, new Date());
-
-    const totalMonths = sumPreviousMonths(employee?.previousOrganizations || []) + serviceMonths(employee?.dateOfJoining || employee?.dateofjoin);
-    const years = Math.floor(totalMonths / 12);
-    const remMonths = totalMonths % 12;
-    let result = '';
-    if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
-    if (remMonths > 0) {
-      if (result) result += ' ';
-      result += `${remMonths} month${remMonths > 1 ? 's' : ''}`;
-    }
-    if (!result) result = 'Less than a month';
+    
     return result;
   };
 
@@ -342,13 +266,349 @@ const EmployeeManagement = () => {
     Array.from(new Set(employees.map(e => e.division).filter(Boolean)))
   ), [employees]);
 
-  const roleOptions = useMemo(() => (
-    Array.from(new Set(employees.map(e => (e.role || e.position)).filter(Boolean)))
-  ), [employees]);
+  // Designation options including MD and GM
+  const designationOptions = useMemo(() => {
+    const designationsFromEmployees = Array.from(new Set(
+      employees.map(e => (e.designation || e.role || e.position)).filter(Boolean)
+    ));
+    
+    // Add MD and GM if not already present
+    const allDesignations = [...designationsFromEmployees];
+    if (!allDesignations.includes('Managing Director (MD)')) {
+      allDesignations.unshift('Managing Director (MD)');
+    }
+    if (!allDesignations.includes('General Manager (GM)')) {
+      allDesignations.unshift('General Manager (GM)');
+    }
+    
+    return allDesignations;
+  }, [employees]);
 
   const locationOptions = useMemo(() => (
     Array.from(new Set(employees.map(e => (e.location || e.branch)).filter(Boolean)))
   ), [employees]);
+
+  // View Employee Modal Component (integrated) - Showing only Add Employee fields
+  const renderViewEmployeeModal = () => {
+    if (!viewingEmployee) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center rounded-t-2xl">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+                <span className="text-2xl font-bold text-white">
+                  {viewingEmployee.name ? viewingEmployee.name.charAt(0).toUpperCase() : 'E'}
+                </span>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">{viewingEmployee.name}</h2>
+                <div className="flex items-center gap-3 mt-1">
+                  <span className="text-lg font-medium text-gray-700">
+                    {viewingEmployee.designation || viewingEmployee.role || viewingEmployee.position}
+                  </span>
+                  <span className="text-base font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">
+                    {viewingEmployee.employeeId}
+                  </span>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(viewingEmployee.status)}`}>
+                    {viewingEmployee.status}
+                  </span>
+                </div>
+              </div>
+            </div>
+            <button
+              onClick={() => setViewingEmployee(null)}
+              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-lg transition-colors"
+            >
+              <XMarkIcon className="h-6 w-6" />
+            </button>
+          </div>
+
+          {/* Content - Showing only Add Employee fields */}
+          <div className="p-6">
+            {/* Personal Information Section */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <UserIcon className="h-6 w-6 text-blue-600" />
+                <h3 className="text-xl font-bold text-gray-900">Personal Information</h3>
+              </div>
+              
+              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Basic Information */}
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Employee ID</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.employeeId || '-'}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Employee Name</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.name || '-'}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Gender</div>
+                      <div className="text-lg font-bold text-gray-900 capitalize">{viewingEmployee.gender || '-'}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Date of Birth</div>
+                      <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.dateOfBirth || viewingEmployee.dob)}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Qualification</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.qualification || viewingEmployee.highestQualification || '-'}</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Blood Group</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.bloodGroup || '-'}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Marital Status</div>
+                      <div className="text-lg font-bold text-gray-900 capitalize">{viewingEmployee.maritalStatus || '-'}</div>
+                    </div>
+                    
+                    {viewingEmployee.maritalStatus === 'married' && (
+                      <>
+                        <div className="space-y-1">
+                          <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Spouse Name</div>
+                          <div className="text-lg font-bold text-gray-900">{viewingEmployee.spouseName || '-'}</div>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Spouse Contact</div>
+                          <div className="text-lg font-bold text-gray-900">{viewingEmployee.spouseContact || '-'}</div>
+                        </div>
+                      </>
+                    )}
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Nationality</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.nationality || '-'}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Guardian Name</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.guardianName || '-'}</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Location</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.location || '-'}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">PAN Number</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.pan || '-'}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Aadhaar Number</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.aadhaar || '-'}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Passport Number</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.passportNumber || '-'}</div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">UAN Number</div>
+                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.uan || '-'}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Address Information */}
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <div className="flex items-center gap-2 mb-4">
+                    <HomeIcon className="h-5 w-5 text-blue-600" />
+                    <h4 className="text-lg font-semibold text-gray-900">Address Information</h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Permanent Address</div>
+                      <div className="text-base font-medium text-gray-900 whitespace-pre-line">
+                        {viewingEmployee.permanentAddress || '-'}
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Current Address</div>
+                      <div className="text-base font-medium text-gray-900 whitespace-pre-line">
+                        {viewingEmployee.currentAddress || '-'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Information Section */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <PhoneIcon className="h-6 w-6 text-green-600" />
+                <h3 className="text-xl font-bold text-gray-900">Contact Information</h3>
+              </div>
+              
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Mobile Number</div>
+                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.contactNumber || viewingEmployee.mobileNo || '-'}</div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Email Address</div>
+                    <div className="text-lg font-bold text-gray-900 break-words">{viewingEmployee.email || '-'}</div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Emergency Contact</div>
+                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.emergencyContact || viewingEmployee.emergencyMobile || '-'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Professional Information Section */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <BriefcaseIcon className="h-6 w-6 text-indigo-600" />
+                <h3 className="text-xl font-bold text-gray-900">Professional Information</h3>
+              </div>
+              
+              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Designation</div>
+                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.designation || viewingEmployee.role || viewingEmployee.position || '-'}</div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Division</div>
+                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.division || '-'}</div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Date of Joining</div>
+                    <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin)}</div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Current Experience</div>
+                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.currentExperience || calculateServiceYears(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin) || '-'}</div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Previous Experience</div>
+                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.previousExperience || '-'}</div>
+                  </div>
+                </div>
+
+                {/* Previous Organizations */}
+                {viewingEmployee.previousOrganizations && viewingEmployee.previousOrganizations.length > 0 && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="flex items-center gap-2 mb-4">
+                      <AcademicCapIcon className="h-5 w-5 text-indigo-600" />
+                      <h4 className="text-lg font-semibold text-gray-900">Previous Organizations</h4>
+                    </div>
+                    
+                    <div className="overflow-x-auto">
+                      <table className="min-w-full divide-y divide-gray-200">
+                        <thead>
+                          <tr className="bg-indigo-100">
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Organization</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Designation</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Start Date</th>
+                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">End Date</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {viewingEmployee.previousOrganizations.map((org, index) => (
+                            <tr key={index}>
+                              <td className="px-4 py-3 text-sm text-gray-900">{org.organization || '-'}</td>
+                              <td className="px-4 py-3 text-sm text-gray-900">{org.designation || org.position || org.role || '-'}</td>
+                              <td className="px-4 py-3 text-sm text-gray-900">{formatDate(org.startDate)}</td>
+                              <td className="px-4 py-3 text-sm text-gray-900">{formatDate(org.endDate) || '-'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Bank Information Section */}
+            <div className="mb-8">
+              <div className="flex items-center gap-2 mb-4">
+                <BanknotesIcon className="h-6 w-6 text-amber-600" />
+                <h3 className="text-xl font-bold text-gray-900">Bank Information</h3>
+              </div>
+              
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Bank Name</div>
+                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.bankName || '-'}</div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Account Number</div>
+                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.bankAccount || '-'}</div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Branch</div>
+                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.branch || '-'}</div>
+                  </div>
+                  
+                  <div className="space-y-1">
+                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">IFSC Code</div>
+                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.ifsc || '-'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 rounded-b-2xl">
+            <div className="flex justify-end space-x-4">
+              <button
+                onClick={() => setViewingEmployee(null)}
+                className="px-6 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 shadow-sm"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => {
+                  setViewingEmployee(null);
+                  handleEdit(viewingEmployee);
+                }}
+                className="px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg"
+              >
+                Edit Employee
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -361,13 +621,29 @@ const EmployeeManagement = () => {
   return (
     <div className="bg-gray-50 min-h-screen p-4 sm:p-6 lg:p-8">
       <div className="w-full mx-auto px-0">
-
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          {/* Header */}
+          {/* Header with Actions - All buttons on right side */}
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200 bg-white">
-            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center space-y-4 sm:space-y-0">
-              <h1 className="text-2xl font-bold text-gray-900">Employee Management</h1>
-              <div className="flex items-center space-x-2">
+            <div className="flex justify-end">
+              <div className="flex items-center space-x-3">
+                {/* Filter Button */}
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`inline-flex items-center px-3 py-2.5 border rounded-lg shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 ${
+                    showFilters || isFilterApplied
+                      ? 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <AdjustmentsHorizontalIcon className="h-5 w-5 mr-2" />
+                  Filters
+                  {isFilterApplied && (
+                    <span className="ml-2 inline-flex items-center justify-center h-5 w-5 text-xs font-semibold rounded-full bg-blue-600 text-white">
+                      !
+                    </span>
+                  )}
+                </button>
+                
                 <button
                   onClick={exportToCSV}
                   className="inline-flex items-center px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
@@ -386,71 +662,74 @@ const EmployeeManagement = () => {
             </div>
           </div>
 
-          {/* Filters Bar (always visible) */}
-          <div className="px-4 py-4 border-b border-gray-200 bg-white">
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
-                <input
-                  type="text"
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange('search', e.target.value)}
-                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
-                  placeholder="Filter by name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
-                <select
-                  value={filters.division}
-                  onChange={(e) => handleFilterChange('division', e.target.value)}
-                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
-                >
-                  <option value="">All Divisions</option>
-                  {divisionOptions.map(div => (
-                    <option key={div} value={div}>{div}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                <select
-                  value={filters.role}
-                  onChange={(e) => handleFilterChange('role', e.target.value)}
-                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
-                >
-                  <option value="">All Roles</option>
-                  {roleOptions.map(r => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
-                <select
-                  value={filters.location}
-                  onChange={(e) => handleFilterChange('location', e.target.value)}
-                  className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
-                >
-                  <option value="">All Locations</option>
-                  {locationOptions.map(loc => (
-                    <option key={loc} value={loc}>{loc}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="md:col-span-2 lg:col-span-4">
-                {Object.values(filters).filter(Boolean).length > 0 && (
+          {/* Filters Panel (Collapsible) */}
+          {showFilters && (
+            <div className="px-4 py-4 border-b border-gray-200 bg-blue-50">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-800">Filter Employees</h3>
+                {isFilterApplied && (
                   <button
                     onClick={clearFilters}
-                    className="inline-flex items-center px-4 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
+                    className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-colors duration-200"
                   >
-                    <XMarkIcon className="h-5 w-5 mr-2" />
-                    Clear Filters
+                    <XMarkIcon className="h-4 w-4 mr-1" />
+                    Clear All Filters
                   </button>
                 )}
               </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => handleFilterChange('search', e.target.value)}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
+                    placeholder="Filter by name"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                  <select
+                    value={filters.division}
+                    onChange={(e) => handleFilterChange('division', e.target.value)}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
+                  >
+                    <option value="">All Divisions</option>
+                    {divisionOptions.map(div => (
+                      <option key={div} value={div}>{div}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                  <select
+                    value={filters.designation}
+                    onChange={(e) => handleFilterChange('designation', e.target.value)}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
+                  >
+                    <option value="">All Designations</option>
+                    {designationOptions.map(desig => (
+                      <option key={desig} value={desig}>{desig}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <select
+                    value={filters.location}
+                    onChange={(e) => handleFilterChange('location', e.target.value)}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
+                  >
+                    <option value="">All Locations</option>
+                    {locationOptions.map(loc => (
+                      <option key={loc} value={loc}>{loc}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Results Count */}
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
@@ -481,39 +760,39 @@ const EmployeeManagement = () => {
             </div>
           </div>
 
-          {/* Desktop Table View */}
+          {/* Desktop Table View with BLUE HEADER */}
           <div className="hidden lg:block overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
+              <thead>
+                <tr className="bg-gradient-to-r from-blue-600 to-indigo-600">
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
                     S.No
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
                     Employee ID
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
                     Employee Name
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
                     Email
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
                     Division
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
-                    Role
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
+                    Designation
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
                     Qualification
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
                     Experience
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider border-r border-gray-200">
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
                     Contact
                   </th>
-                  <th scope="col" className="px-6 py-3 text-left text-xs font-semibold text-gray-900 uppercase tracking-wider">
+                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -542,7 +821,7 @@ const EmployeeManagement = () => {
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
-                      {employee.role || employee.position}
+                      {employee.designation || employee.role || employee.position}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
                       {employee.highestQualification || employee.qualification || '-'}
@@ -625,8 +904,8 @@ const EmployeeManagement = () => {
                     <p className="font-medium text-gray-900">{employee.division}</p>
                   </div>
                   <div>
-                    <span className="text-xs text-gray-500">Role</span>
-                    <p className="font-medium text-gray-900">{employee.role || employee.position}</p>
+                    <span className="text-xs text-gray-500">Designation</span>
+                    <p className="font-medium text-gray-900">{employee.designation || employee.role || employee.position}</p>
                   </div>
                   <div>
                     <span className="text-xs text-gray-500">Qualification</span>
@@ -747,185 +1026,8 @@ const EmployeeManagement = () => {
         />
       </Modal>
 
-      {/* View Employee Modal */}
-      {viewingEmployee && (
-        <Modal
-          isOpen={!!viewingEmployee}
-          onClose={() => setViewingEmployee(null)}
-          title="Employee Details"
-          size="xl"
-        >
-          <div className="space-y-6">
-            <div className="flex items-center space-x-4">
-              <div className="flex-shrink-0 h-20 w-20 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-xl flex items-center justify-center border border-blue-200">
-                <span className="text-3xl font-bold text-blue-800">
-                  {viewingEmployee.name ? viewingEmployee.name.charAt(0).toUpperCase() : 'E'}
-                </span>
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900">{viewingEmployee.name}</h3>
-                <div className="flex items-center space-x-4 mt-1">
-                  <span className="text-sm font-medium text-blue-600 bg-blue-50 px-2 py-1 rounded">
-                    {viewingEmployee.employeeId}
-                  </span>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(viewingEmployee.status)}`}>
-                    {viewingEmployee.status}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Role</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.role || viewingEmployee.position}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Division</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.division}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Highest Qualification</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.highestQualification || viewingEmployee.qualification || '-'}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Experience</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{calculateServiceYears(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin) || viewingEmployee.currentExperience || viewingEmployee.experience || viewingEmployee.previousExperience || '-'}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Total Experience</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{calculateTotalExperience(viewingEmployee) || '-'}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Date of Joining</h4>
-                <div>
-                  <p className="text-base font-medium text-gray-900 mt-1">
-                    {formatDate(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin || '-')}
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Date of Birth</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{formatDate(viewingEmployee.dateOfBirth || viewingEmployee.dob || '-')}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Mobile No</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.mobileNo}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.email}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Emergency Contact</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.emergencyMobile || '-'}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Guardian Name</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.guardianName || '-'}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Blood Group</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.bloodGroup || '-'}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Location</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.location || '-'}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">PAN</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.pan || '-'}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Aadhaar</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.aadhaar || '-'}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">UAN</h4>
-                <p className="text-base font-medium text-gray-900 mt-1">{viewingEmployee.uan || '-'}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Bank Details</h4>
-                <p className="text-sm font-medium text-gray-900 mt-1">
-                  {viewingEmployee.bankName || '-'} • {viewingEmployee.bankAccount || '-'}
-                  <br />
-                  <span className="text-gray-600">{viewingEmployee.branch || ''}</span>
-                </p>
-              </div>
-
-              {/* Previous Organizations */}
-              {Array.isArray(viewingEmployee.previousOrganizations) && viewingEmployee.previousOrganizations.length > 0 && (
-                <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
-                  <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Previous Organizations</h4>
-                  <div className="mt-3 overflow-x-auto bg-white rounded-md border border-gray-200">
-                    <table className="min-w-full divide-y divide-gray-200">
-                      <thead className="bg-gray-50">
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Organization</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Role</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">From</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">To</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-700">Duration</th>
-                        </tr>
-                      </thead>
-                      <tbody className="bg-white divide-y divide-gray-200">
-                        {viewingEmployee.previousOrganizations.map((org, idx) => (
-                          <tr key={idx}>
-                            <td className="px-4 py-2 text-sm text-gray-900">{org.organization || '-'}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{org.role || '-'}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{formatDate(org.startDate) || '-'}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{formatDate(org.endDate) || '-'}</td>
-                            <td className="px-4 py-2 text-sm text-gray-900">{calculateDuration(org.startDate, org.endDate)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              <div className="md:col-span-2 bg-gray-50 p-4 rounded-lg">
-                <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Address</h4>
-                <p className="text-base font-medium text-gray-900 mt-1 whitespace-pre-line">{viewingEmployee.address || '-'}</p>
-              </div>
-            </div>
-
-            <div className="flex justify-end space-x-3 pt-6 border-t border-gray-200">
-              <button
-                onClick={() => setViewingEmployee(null)}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  setViewingEmployee(null);
-                  handleEdit(viewingEmployee);
-                }}
-                className="px-4 py-2 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-lg hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
-              >
-                Edit Employee
-              </button>
-            </div>
-          </div>
-        </Modal>
-      )}
+      {/* View Employee Modal - Showing only Add Employee fields */}
+      {renderViewEmployeeModal()}
 
       {/* Notification */}
       <Notification

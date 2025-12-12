@@ -11,10 +11,16 @@ router.get('/leaders', auth, async (req, res) => {
     }
     const type = String(req.query.type || 'team').toLowerCase();
     const pattern = type === 'project' ? /sr\.?\s*project\s*manager/i : /sr\.?\s*team/i;
-    const leaders = await Employee.find({ position: { $regex: pattern } }, {
+    const leaders = await Employee.find({ 
+      $or: [
+        { designation: { $regex: pattern } },
+        { position: { $regex: pattern } }
+      ]
+    }, {
       name: 1,
       employeeId: 1,
       division: 1,
+      designation: 1,
       position: 1,
       _id: 1
     }).sort({ name: 1 });

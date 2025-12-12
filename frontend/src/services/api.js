@@ -115,6 +115,7 @@ export const policyAPI = {
 export const leaveAPI = {
   apply: (data) => api.post('/leaves', data),
   myLeaves: () => api.get('/leaves/my'),
+  getBalance: (params) => api.get('/leaves/balance', params ? { params } : undefined),
 };
 
 // 👥 ALLOCATION API

@@ -25,7 +25,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [maritalStatus, setMaritalStatus] = useState('single');
   const [organizations, setOrganizations] = useState([
-    { organization: '', role: '', startDate: '', endDate: '' }
+    { organization: '', designation: '', startDate: '', endDate: '' }
   ]);
 
   const [formData, setFormData] = useState({
@@ -57,7 +57,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     uan: '',
     
     // Employment Information
-    role: '',
+    designation: '',
     division: '',
     dateOfJoining: '',
     previousExperience: '',
@@ -71,10 +71,67 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     branch: '',
     ifsc: ''
   });
+  const [errors, setErrors] = useState({});
 
-  // Role options
-  const roleOptions = [
-    { value: '', label: 'Select Role' },
+  const validateField = (field, value) => {
+    const v = String(value || '').trim();
+    if (field === 'employeeId') {
+      if (!/^CDE\d{3}$/.test(v)) return 'Must be CDE followed by exactly 3 digits';
+    }
+    if (field === 'name' || field === 'employeename') {
+      if (!v) return 'Employee name is required';
+      if (!/^[A-Za-z\s]+$/.test(v)) return 'Only alphabetic characters allowed';
+    }
+    if (field === 'qualification' || field === 'highestQualification') {
+      if (v && !/^[A-Z\s]+$/.test(v)) return 'Only uppercase letters allowed';
+    }
+    if (field === 'contactNumber') {
+      if (!/^\d{10}$/.test(v)) return 'Must be exactly 10 digits';
+    }
+    if (field === 'email') {
+      if (!v.includes('@')) return 'Email must include @';
+    }
+    if (field === 'emergencyContact') {
+      if (v && !/^\d{10}$/.test(v)) return 'Must be 10 digits';
+    }
+    if (field === 'location') {
+      if (!v) return 'Location is required';
+    }
+    if (field === 'guardianName') {
+      if (v && !/^[A-Za-z\s]+$/.test(v)) return 'Only alphabetic characters allowed';
+    }
+    if (field === 'pan') {
+      if (v && !/^[A-Z]{5}\d{4}[A-Z]$/.test(v)) return 'Format: 5 letters + 4 digits + 1 letter';
+    }
+    if (field === 'aadhaar') {
+      if (v && !/^\d{14}$/.test(v)) return 'Must be exactly 14 digits';
+    }
+    return '';
+  };
+
+  const validateForm = (data) => {
+    const e = {};
+    e.employeeId = validateField('employeeId', data.employeeId);
+    e.name = validateField('name', data.name || data.employeename);
+    e.qualification = validateField('qualification', data.qualification);
+    e.contactNumber = validateField('contactNumber', data.contactNumber);
+    e.email = validateField('email', data.email);
+    e.emergencyContact = validateField('emergencyContact', data.emergencyContact);
+    e.location = validateField('location', data.location);
+    e.guardianName = validateField('guardianName', data.guardianName);
+    e.pan = validateField('pan', data.pan);
+    e.aadhaar = validateField('aadhaar', data.aadhaar);
+    Object.keys(e).forEach((k) => {
+      if (!e[k]) delete e[k];
+    });
+    return e;
+  };
+
+  // Designation options - CORRECTED NAME
+  const designationOptions = [
+    { value: '', label: 'Select Designation' },
+    { value: 'Managing Director (MD)', label: 'Managing Director (MD)' },
+    { value: 'General Manager (GM)', label: 'General Manager (GM)' },
     { value: 'Branch Manager', label: 'Branch Manager' },
     { value: 'Admin Manager', label: 'Admin Manager' },
     { value: 'Office Assistant', label: 'Office Assistant' },
@@ -96,8 +153,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: 'Network Engineer', label: 'Network Engineer' },
     { value: 'Database Administrator', label: 'Database Administrator' },
     { value: 'Business Analyst', label: 'Business Analyst' },
-    { value: 'Consultant', label: 'Consultant' },
-    { value: 'Intern', label: 'Intern' }
+    { value: 'Consultant', label: 'Consultant' }
   ];
 
   // Blood group options
@@ -182,8 +238,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         passportNumber: employee.passportNumber || '',
         uan: employee.uan || '',
         
-        // Employment Information
-        role: employee.role || employee.position || '',
+        // Employment Information - CORRECTED: Using designation field
+        designation: employee.designation || employee.role || employee.position || '',
         division: employee.division || '',
         dateOfJoining: employee.dateOfJoining || employee.dateofjoin || '',
         previousExperience: employee.previousExperience || '',
@@ -201,9 +257,14 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       // Set marital status
       setMaritalStatus(mappedData.maritalStatus || 'single');
       
-      // Set organizations if available
+      // Set organizations if available - CORRECTED: Map designation field
       if (mappedData.previousOrganizations && mappedData.previousOrganizations.length > 0) {
-        setOrganizations(mappedData.previousOrganizations);
+        setOrganizations(mappedData.previousOrganizations.map(org => ({
+          organization: org.organization || '',
+          designation: org.designation || org.role || '',
+          startDate: org.startDate || '',
+          endDate: org.endDate || ''
+        })));
       }
       
       setFormData(mappedData);
@@ -255,10 +316,43 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   }, [organizations]);
 
   const handleInputChange = (field, value) => {
+    let newValue = value;
+    if (field === 'employeeId') {
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    }
+    if (field === 'name' || field === 'employeename') {
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Za-z\s]/g, '');
+    }
+    if (field === 'qualification' || field === 'highestQualification') {
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z\s]/g, '');
+    }
+    if (field === 'contactNumber' || field === 'spouseContact' || field === 'emergencyContact') {
+      newValue = String(newValue || '').replace(/\D/g, '');
+      if (field === 'contactNumber' || field === 'emergencyContact') {
+        newValue = newValue.slice(0, 10);
+      }
+    }
+    if (field === 'guardianName') {
+      newValue = String(newValue || '').replace(/[^A-Za-z\s]/g, '');
+    }
+    if (field === 'pan') {
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+    }
+    if (field === 'aadhaar') {
+      newValue = String(newValue || '').replace(/\D/g, '').slice(0, 14);
+    }
+
     const updatedData = {
       ...formData,
-      [field]: value
+      [field]: newValue
     };
+
+    // Convert Employee Name to uppercase automatically
+    if (field === 'name' || field === 'employeename') {
+      const uppercaseValue = newValue.toUpperCase();
+      updatedData.name = uppercaseValue;
+      updatedData.employeename = uppercaseValue;
+    }
 
     // Auto-calculate current experience when date of joining changes
     if (field === 'dateOfJoining' && value) {
@@ -294,6 +388,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     }
 
     setFormData(updatedData);
+    const err = validateField(field, updatedData[field]);
+    setErrors((prev) => ({ ...prev, [field]: err }));
   };
 
   const handleOrganizationChange = (index, field, value) => {
@@ -343,6 +439,12 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       highestQualification: formData.highestQualification || formData.qualification,
       previousOrganizations: organizations
     };
+
+    const formErrors = validateForm(finalData);
+    setErrors(formErrors);
+    if (Object.keys(formErrors).length > 0) {
+      return;
+    }
     
     onSubmit(finalData);
     
@@ -350,7 +452,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       // Reset form if not in modal mode
       setCurrentStep(1);
       setMaritalStatus('single');
-      setOrganizations([{ organization: '', role: '', startDate: '', endDate: '' }]);
+      setOrganizations([{ organization: '', designation: '', startDate: '', endDate: '' }]);
       setFormData({
         employeeId: '',
         employeename: '',
@@ -375,7 +477,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         aadhaar: '',
         passportNumber: '',
         uan: '',
-        role: '',
+        designation: '',
         division: '',
         dateOfJoining: '',
         previousExperience: '',
@@ -462,9 +564,11 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     value={formData.employeeId}
                     onChange={(e) => handleInputChange('employeeId', e.target.value)}
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    maxLength={6}
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.employeeId ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="EMP001"
                   />
+                  {errors.employeeId && <p className="text-xs text-red-600 mt-1">{errors.employeeId}</p>}
                 </div>
 
                 <div>
@@ -475,13 +579,15 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     type="text"
                     value={formData.name || formData.employeename}
                     onChange={(e) => {
-                      handleInputChange('name', e.target.value);
-                      handleInputChange('employeename', e.target.value);
+                      const uppercaseValue = e.target.value.toUpperCase();
+                      handleInputChange('name', uppercaseValue);
+                      handleInputChange('employeename', uppercaseValue);
                     }}
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
-                    placeholder="John Doe"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white uppercase ${errors.name ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                    placeholder="JOHN DOE"
                   />
+                  {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
                 </div>
 
                 <div>
@@ -525,9 +631,10 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       handleInputChange('qualification', e.target.value);
                       handleInputChange('highestQualification', e.target.value);
                     }}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.qualification ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="e.g., B.E (CIVIL)"
                   />
+                  {errors.qualification && <p className="text-xs text-red-600 mt-1">{errors.qualification}</p>}
                 </div>
 
                 <div>
@@ -630,9 +737,11 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     value={formData.contactNumber}
                     onChange={(e) => handleInputChange('contactNumber', e.target.value)}
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    inputMode="numeric"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.contactNumber ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="9876543210"
                   />
+                  {errors.contactNumber && <p className="text-xs text-red-600 mt-1">{errors.contactNumber}</p>}
                 </div>
 
                 <div>
@@ -644,9 +753,10 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     value={formData.email}
                     onChange={(e) => handleInputChange('email', e.target.value)}
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.email ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="john.doe@example.com"
                   />
+                  {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
                 </div>
 
                 <div>
@@ -657,9 +767,11 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     type="tel"
                     value={formData.emergencyContact}
                     onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    inputMode="numeric"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.emergencyContact ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="Emergency contact number"
                   />
+                  {errors.emergencyContact && <p className="text-xs text-red-600 mt-1">{errors.emergencyContact}</p>}
                 </div>
 
                 <div>
@@ -670,9 +782,10 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     type="text"
                     value={formData.guardianName}
                     onChange={(e) => handleInputChange('guardianName', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.guardianName ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="Father/Mother/Spouse Name"
                   />
+                  {errors.guardianName && <p className="text-xs text-red-600 mt-1">{errors.guardianName}</p>}
                 </div>
 
                 <div>
@@ -694,12 +807,13 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Location
+                    Location *
                   </label>
                   <select
                     value={formData.location}
                     onChange={(e) => handleInputChange('location', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    required
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.location ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   >
                     {locationOptions.map(option => (
                       <option key={option.value} value={option.value}>
@@ -707,6 +821,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       </option>
                     ))}
                   </select>
+                  {errors.location && <p className="text-xs text-red-600 mt-1">{errors.location}</p>}
                 </div>
               </div>
             </div>
@@ -761,9 +876,11 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     type="text"
                     value={formData.pan}
                     onChange={(e) => handleInputChange('pan', e.target.value.toUpperCase())}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    maxLength={10}
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.pan ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="ABCDE1234F"
                   />
+                  {errors.pan && <p className="text-xs text-red-600 mt-1">{errors.pan}</p>}
                 </div>
 
                 <div>
@@ -774,9 +891,12 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     type="text"
                     value={formData.aadhaar}
                     onChange={(e) => handleInputChange('aadhaar', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    inputMode="numeric"
+                    maxLength={14}
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.aadhaar ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="123456789012"
                   />
+                  {errors.aadhaar && <p className="text-xs text-red-600 mt-1">{errors.aadhaar}</p>}
                 </div>
 
                 <div>
@@ -825,15 +945,15 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Role *
+                    Designation *
                   </label>
                   <select
-                    value={formData.role}
-                    onChange={(e) => handleInputChange('role', e.target.value)}
+                    value={formData.designation}
+                    onChange={(e) => handleInputChange('designation', e.target.value)}
                     required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                   >
-                    {roleOptions.map(option => (
+                    {designationOptions.map(option => (
                       <option key={option.value} value={option.value}>
                         {option.label}
                       </option>
@@ -887,20 +1007,6 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Total Previous Experience
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.previousExperience}
-                    readOnly
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm"
-                    placeholder="Auto-calculated from organizations below"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Calculated from previous organizations</p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
                     Status
                   </label>
                   <select
@@ -918,12 +1024,12 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
               </div>
             </div>
 
-            {/* Previous Organizations */}
+            {/* Previous Organizations - Now includes Previous Experience field */}
             <div className="border border-gray-200 rounded-lg p-4 lg:p-6 bg-white shadow-sm">
               <div className="flex justify-between items-center mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-2">
                   <DocumentTextIcon className="h-4 w-4" />
-                  Previous Organizations
+                  Previous Organizations & Experience
                 </h4>
                 <button
                   type="button"
@@ -933,6 +1039,24 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                   <PlusIcon className="h-4 w-4" />
                   Add Organization
                 </button>
+              </div>
+              
+              <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Total Previous Experience
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.previousExperience}
+                      readOnly
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm font-medium"
+                      placeholder="Calculated from organizations below"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Auto-calculated total from all organizations</p>
+                  </div>
+                </div>
               </div>
               
               {organizations.map((org, index) => (
@@ -966,14 +1090,14 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
-                        Role
+                        role
                       </label>
                       <input
                         type="text"
-                        value={org.role}
-                        onChange={(e) => handleOrganizationChange(index, 'role', e.target.value)}
+                        value={org.designation}
+                        onChange={(e) => handleOrganizationChange(index, 'designation', e.target.value)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
-                        placeholder="Job role"
+                        placeholder="Job designation"
                       />
                     </div>
 
@@ -991,7 +1115,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
-                        End Date (Leave empty if current)
+                        End Date
                       </label>
                       <input
                         type="date"

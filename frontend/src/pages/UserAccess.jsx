@@ -740,7 +740,7 @@ const UserAccess = () => {
                       </p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm text-gray-700">
                         <div><span className="font-medium">Division:</span> {emp.division || '—'}</div>
-                        <div><span className="font-medium">Position:</span> {emp.position || '—'}</div>
+                        <div><span className="font-medium">Designation:</span> {emp.designation || emp.role || emp.position || '—'}</div>
                         <div><span className="font-medium">Location:</span> {emp.location || emp.branch || '—'}</div>
                         <div><span className="font-medium">Date of Joining:</span> {emp.dateOfJoining || '—'}</div>
                         <div><span className="font-medium">Experience:</span> {emp.experience || '—'}</div>

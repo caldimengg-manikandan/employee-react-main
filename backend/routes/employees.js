@@ -22,6 +22,7 @@ router.get('/', auth, async (req, res) => {
         'employeeId': 1,
         'email': 1,
         'department': 1,
+        'designation': 1,
         'position': 1,
         '_id': 1
       }).sort({ name: 1 });
@@ -60,6 +61,7 @@ router.get('/:id', auth, async (req, res) => {
         employeeId: employee.employeeId,
         email: employee.email,
         department: employee.department,
+        designation: employee.designation || employee.position || employee.role,
         position: employee.position
       };
       return res.json(limitedEmployee);
@@ -91,6 +93,20 @@ router.post('/', auth, async (req, res) => {
     if (!data.emergencyContact && (data.emergencyMobileNo || data.emergencyMobile)) data.emergencyContact = data.emergencyMobileNo || data.emergencyMobile;
     if (!data.highestQualification && data.qualification) data.highestQualification = data.qualification;
     if (!data.qualification && data.highestQualification) data.qualification = data.highestQualification;
+    if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
+    if (!data.position && data.role) data.position = data.role;
+    if (!data.position && data.designation) data.position = data.designation;
+    if (Array.isArray(data.previousOrganizations)) {
+      data.previousOrganizations = data.previousOrganizations.map(org => {
+        const o = { ...org };
+        if (!o.designation && (o.position || o.role)) o.designation = o.position || o.role;
+        if (!o.position && o.role) o.position = o.role;
+        if (!o.position && o.designation) o.position = o.designation;
+        delete o.role;
+        return o;
+      });
+    }
+    delete data.role;
 
     const employee = new Employee(data);
     const savedEmployee = await employee.save();
@@ -120,6 +136,20 @@ router.put('/:id', auth, async (req, res) => {
     if (!data.emergencyContact && (data.emergencyMobileNo || data.emergencyMobile)) data.emergencyContact = data.emergencyMobileNo || data.emergencyMobile;
     if (!data.highestQualification && data.qualification) data.highestQualification = data.qualification;
     if (!data.qualification && data.highestQualification) data.qualification = data.highestQualification;
+    if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
+    if (!data.position && data.role) data.position = data.role;
+    if (!data.position && data.designation) data.position = data.designation;
+    if (Array.isArray(data.previousOrganizations)) {
+      data.previousOrganizations = data.previousOrganizations.map(org => {
+        const o = { ...org };
+        if (!o.designation && (o.position || o.role)) o.designation = o.position || o.role;
+        if (!o.position && o.role) o.position = o.role;
+        if (!o.position && o.designation) o.position = o.designation;
+        delete o.role;
+        return o;
+      });
+    }
+    delete data.role;
 
     const employee = await Employee.findByIdAndUpdate(
       req.params.id,
@@ -167,6 +197,7 @@ router.get('/timesheet/employees', auth, async (req, res) => {
       'employeeId': 1,
       'email': 1,
       'department': 1,
+      'designation': 1,
       'position': 1,
       '_id': 1
     }).sort({ name: 1 });
