@@ -258,17 +258,23 @@ router.get("/my-week", auth, async (req, res) => {
       return res.status(400).json({ success: false, message: "startDate and endDate are required" });
     }
 
-    // Find employee by the logged-in user's email
-    const employee = await Employee.findOne({ email: req.user.email }).select("employeeId name");
-    if (!employee || !employee.employeeId) {
-      return res.status(404).json({ success: false, message: "Employee mapping not found for current user" });
+    let employeeIdToUse = null;
+    if (req.user.employeeId) {
+      employeeIdToUse = req.user.employeeId;
+    } else {
+      const employee = await Employee.findOne({ email: req.user.email }).select("employeeId");
+      if (employee && employee.employeeId) {
+        employeeIdToUse = employee.employeeId;
+      } else {
+        employeeIdToUse = String(req.user._id);
+      }
     }
 
     const start = new Date(startDate);
     const end = new Date(endDate);
 
     const records = await Attendance.find({
-      employeeId: employee.employeeId,
+      employeeId: employeeIdToUse,
       punchTime: { $gte: start, $lte: end }
     }).sort({ punchTime: 1 });
 
@@ -331,7 +337,7 @@ router.get("/my-week", auth, async (req, res) => {
       });
     });
 
-    res.json({ success: true, employeeId: employee.employeeId, records: result, weeklyHours: Number(weeklyTotal.toFixed(2)) });
+    res.json({ success: true, employeeId: employeeIdToUse, records: result, weeklyHours: Number(weeklyTotal.toFixed(2)) });
   } catch (error) {
     console.error("My Weekly Attendance Error:", error);
     res.status(500).json({ success: false, message: "Failed to fetch weekly attendance", error: error.message });

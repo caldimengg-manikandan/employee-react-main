@@ -1,17 +1,14 @@
 import axios from 'axios';
 
-// Base API URL
-// const API_BASE_URL = 'http://localhost:5003/api';
+const API_BASE_URL =
+  process.env.REACT_APP_API_BASE ||
+  (typeof window !== 'undefined' ? `${window.location.origin}/api` : 'http://localhost:5003/api');
 
-const API_BASE_URL = 'https://employee-react-main.onrender.com'
-
-// Axios instance
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 20000 // 20 second timeout for all requests
+  timeout: 20000
 });
 
-// Attach token
 api.interceptors.request.use((config) => {
   const token = sessionStorage.getItem('token');
   if (token) {
@@ -20,7 +17,6 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle unauthorized responses
 api.interceptors.response.use(
   (response) => response,
   (error) => {
@@ -33,7 +29,6 @@ api.interceptors.response.use(
   }
 );
 
-// 🔐 AUTH API
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   forgotPassword: (email) => api.post('/auth/forgot-password', { email }),
@@ -45,7 +40,6 @@ export const authAPI = {
   deleteUser: (id) => api.delete(`/auth/users/${id}`),
 };
 
-// 👥 EMPLOYEE API
 export const employeeAPI = {
   getAllEmployees: () => api.get('/employees'),
   getEmployeeById: (id) => api.get(`/employees/${id}`),
@@ -56,7 +50,6 @@ export const employeeAPI = {
   getTimesheetEmployees: () => api.get('/employees/timesheet/employees'),
 };
 
-// 🎯 HIKVISION API (WORKING ENDPOINTS)
 export const hikvisionAPI = {
   // Connection & Status
   getConnectionStatus: () => api.get('/hik/status'),
@@ -77,7 +70,6 @@ export const hikvisionAPI = {
   testAttendance: () => api.post('/hik/test-attendance'),
 };
 
-// 🔵 HIKCENTRAL EMPLOYEE API
 export const hikCentralAPI = {
   syncEmployees: () => api.post('/hik-employees/sync-employees'),
   getHikEmployees: (params) => api.get('/hik-employees/hik-employees', { params }),
@@ -87,7 +79,6 @@ export const hikCentralAPI = {
   syncHikvisionAttendance: () => api.post('/hik-employees/sync-attendance'),
 };
 
-// 🕒 TIMESHEET API
 export const timesheetAPI = {
   saveTimesheet: (data) => api.post('/timesheets', data),
   getTimesheet: (params) => api.get('/timesheets', { params }),
@@ -98,7 +89,6 @@ export const timesheetAPI = {
   getAttendanceData: (params) => api.get('/attendance/my-week', { params }),
 };
 
-// 🏗️ PROJECT API
 export const projectAPI = {
   getAllProjects: () => api.get('/projects'),
   createProject: (data) => api.post('/projects', data),
@@ -106,7 +96,6 @@ export const projectAPI = {
   deleteProject: (id) => api.delete(`/projects/${id}`),
 };
 
-// 📄 POLICY API
 export const policyAPI = {
   list: () => api.get('/policies'),
   create: (data) => api.post('/policies', data),
@@ -124,7 +113,6 @@ export const leaveAPI = {
   remove: (id) => api.delete(`/leaves/${id}`)
 };
 
-// 👥 ALLOCATION API
 export const allocationAPI = {
   getAllAllocations: () => api.get('/allocations'),
   createAllocation: (data) => api.post('/allocations', data),
@@ -133,7 +121,6 @@ export const allocationAPI = {
   getProjectCode: (projectName) => api.get(`/allocations/project-code/${encodeURIComponent(projectName)}`),
 };
 
-// 🔑 ACCESS/ATTENDANCE API
 export const accessAPI = {
   // Local Access Control
   getMyLogs: (params) => api.get('/access/my-logs', { params }),
@@ -157,7 +144,6 @@ export const accessAPI = {
   testHikvisionConnection: () => hikvisionAPI.testConnection(),
 };
 
-// 📊 ATTENDANCE API (Dedicated)
 export const attendanceAPI = {
   // Local attendance records
   getAll: (params) => api.get('/attendance', { params }),
@@ -169,7 +155,6 @@ export const attendanceAPI = {
   syncHikvision: () => hikvisionAPI.pullEvents({}),
 };
 
-// 🛠️ ADMIN TIMESHEET API
 export const adminTimesheetAPI = {
   list: (params) => api.get('/admin-timesheet/list', { params }),
   approve: (id) => api.put(`/admin-timesheet/approve/${id}`),
@@ -177,7 +162,6 @@ export const adminTimesheetAPI = {
   summary: (params) => api.get('/admin-timesheet/summary', { params }),
 };
 
-// 🧩 TEAM API
 export const teamAPI = {
   getLeaders: (type) => api.get('/teams/leaders', type ? { params: { type } } : undefined),
   list: () => api.get('/teams'),
