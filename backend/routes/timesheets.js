@@ -692,6 +692,52 @@ router.post("/", auth, async (req, res) => {
       });
     }
 
+    const entriesArray = Array.isArray(entries) ? entries : [];
+    const dayIndices = [0, 1, 2, 3, 4, 5, 6];
+    const workDaily = dayIndices.map((i) => {
+      return entriesArray.reduce((sum, e) => {
+        const hrs = Array.isArray(e.hours) ? e.hours : [];
+        return sum + (Number(hrs[i]) || 0);
+      }, 0);
+    });
+    const computeBreakForDay = (dayIndex) => {
+      const hasProjectWork = entriesArray.some(
+        (e) => (e.type || "project") === "project" && ((e.hours?.[dayIndex] || 0) > 0)
+      );
+      const isFullDayLeaveOrHoliday = entriesArray.some((e) => {
+        const val = Number(e.hours?.[dayIndex] || 0);
+        const t = (e.task || "").toLowerCase();
+        const isHoliday = t.includes("holiday");
+        const isFullDayLeave = t.includes("full day");
+        return ((e.type || "project") === "leave" || isHoliday) && (val >= 8) && (isHoliday || isFullDayLeave);
+      });
+      return hasProjectWork && !isFullDayLeaveOrHoliday ? 1.25 : 0;
+    };
+    const breakDaily = dayIndices.map((i) => computeBreakForDay(i));
+    const breakWeekly = breakDaily.reduce((s, v) => s + v, 0);
+    const workWeeklyTotal = workDaily.reduce((s, v) => s + v, 0);
+    const totalWithBreakWeekly = workWeeklyTotal + breakWeekly;
+    if (onPremisesTime && Array.isArray(onPremisesTime.daily)) {
+      for (let i = 0; i < 7; i++) {
+        const limit = workDaily[i] + breakDaily[i];
+        const val = Number(onPremisesTime.daily[i]) || 0;
+        if (val > limit) {
+          const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+          return res.status(400).json({
+            success: false,
+            message: `On-Premises Time on ${dayNames[i]} cannot exceed Total (Work + Break)`,
+          });
+        }
+      }
+      const weeklyVal = Number(onPremisesTime.weekly) || 0;
+      if (weeklyVal > totalWithBreakWeekly) {
+        return res.status(400).json({
+          success: false,
+          message: "On-Premises weekly time cannot exceed Total (Work + Break)",
+        });
+      }
+    }
+
     if (sheet) {
       // Update existing timesheet
       sheet.entries = entries;
