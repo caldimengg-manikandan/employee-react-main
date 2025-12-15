@@ -119,7 +119,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       if (v && !/^[A-Z]{5}\d{4}[A-Z]$/.test(v)) return 'Format: 5 letters + 4 digits + 1 letter';
     }
     if (field === 'aadhaar') {
-      if (v && !/^\d{14}$/.test(v)) return 'Must be exactly 14 digits';
+      if (v && !/^\d{12}$/.test(v)) return 'Must be exactly 12 digits';
     }
     return '';
   };
@@ -353,7 +353,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     }
     if (field === 'aadhaar') {
-      newValue = String(newValue || '').replace(/\D/g, '').slice(0, 14);
+      newValue = String(newValue || '').replace(/\D/g, '').slice(0, 12);
     }
 
     const updatedData = {
@@ -925,7 +925,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     value={formData.aadhaar}
                     onChange={(e) => handleInputChange('aadhaar', e.target.value)}
                     inputMode="numeric"
-                    maxLength={14}
+                    maxLength={12}
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.aadhaar ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="123456789012"
                   />
