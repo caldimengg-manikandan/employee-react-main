@@ -89,6 +89,7 @@ router.post('/forgot-password', async (req, res) => {
       specialChars: false,
       lowerCaseAlphabets: false
     });
+    
     user.resetOtp = otp;
     user.resetOtpExpiry = Date.now() + 10 * 60 * 1000;
     await user.save();

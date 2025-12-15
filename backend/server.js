@@ -48,6 +48,10 @@ app.use("/api/admin-timesheet", require("./routes/admintimesheetRoutes"));
 
 app.use("/api/leave", require("./routes/leaveRoutes"));
 
+//zoho email
+app.use("/api/mail", require("./routes/mailRoutes"));
+
+
 // Base Route
 app.get("/", (req, res) => {
   res.json({ message: "Caldim Employees API is running successfully 🚀" });
@@ -139,4 +143,9 @@ app.use((err, req, res, next) => {
 const PORT = process.env.PORT || 5003;
 app.listen(PORT, () => {
   console.log(`✅ Server running on port ${PORT}`);
+});
+
+//--------zoho email-----//
+app.get("/zoho/callback", (req, res) => {
+  res.send("Zoho OAuth success. You can close this page.");
 });
