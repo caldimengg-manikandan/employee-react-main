@@ -14,7 +14,7 @@ const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordData, setForgotPasswordData] = useState({
-    email: '',
+    employeeId: '',
     otp: '',
     newPassword: ''
   });
@@ -59,7 +59,7 @@ const Login = () => {
   const handleSendOtp = async (e) => {
     e.preventDefault();
     try {
-      await authAPI.forgotPassword(forgotPasswordData.email);
+      await authAPI.forgotPassword({ employeeId: forgotPasswordData.employeeId });
       setForgotPasswordStep(2);
       setForgotPasswordMessage('OTP sent to your email');
     } catch (error) {
@@ -70,12 +70,16 @@ const Login = () => {
   const handleResetPassword = async (e) => {
     e.preventDefault();
     try {
-      await authAPI.resetPassword(forgotPasswordData);
+      await authAPI.resetPassword({
+        employeeId: forgotPasswordData.employeeId,
+        otp: forgotPasswordData.otp,
+        newPassword: forgotPasswordData.newPassword
+      });
       setForgotPasswordMessage('Password reset successfully');
       setTimeout(() => {
         setShowForgotPassword(false);
         setForgotPasswordStep(1);
-        setForgotPasswordData({ email: '', otp: '', newPassword: '' });
+        setForgotPasswordData({ employeeId: '', otp: '', newPassword: '' });
         setForgotPasswordMessage('');
       }, 2000);
     } catch (error) {
@@ -101,11 +105,11 @@ const Login = () => {
           <form className="space-y-6" onSubmit={forgotPasswordStep === 1 ? handleSendOtp : handleResetPassword}>
             {forgotPasswordStep === 1 && (
               <FloatingInput
-                type="email"
-                name="email"
-                label="Email"
+                type="text"
+                name="employeeId"
+                label="Employee ID"
                 required
-                value={forgotPasswordData.email}
+                value={forgotPasswordData.employeeId}
                 onChange={handleForgotPasswordChange}
               />
             )}

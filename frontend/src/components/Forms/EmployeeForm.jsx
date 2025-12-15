@@ -28,6 +28,21 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { organization: '', designation: '', startDate: '', endDate: '' }
   ]);
 
+  const toInputDate = (d) => {
+    if (!d) return '';
+    const date = new Date(d);
+    if (isNaN(date.getTime())) {
+      const s = String(d);
+      const p = s.split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(p)) return p;
+      return '';
+    }
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const da = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${da}`;
+  };
+
   const [formData, setFormData] = useState({
     // Personal Information
     employeeId: '',
@@ -214,7 +229,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         employeeId: employee.employeeId || employee.empId || '',
         name: employee.name || employee.employeename || '',
         employeename: employee.employeename || employee.name || '',
-        dateOfBirth: employee.dateOfBirth || employee.dob || '',
+        dateOfBirth: toInputDate(employee.dateOfBirth || employee.dob) || '',
         qualification: employee.qualification || employee.highestQualification || '',
         highestQualification: employee.highestQualification || employee.qualification || '',
         bloodGroup: employee.bloodGroup || '',
@@ -240,7 +255,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         // Employment Information - CORRECTED: Using designation field
         designation: employee.designation || employee.role || employee.position || '',
         division: employee.division || '',
-        dateOfJoining: employee.dateOfJoining || employee.dateofjoin || '',
+        dateOfJoining: toInputDate(employee.dateOfJoining || employee.dateofjoin) || '',
         previousExperience: employee.previousExperience || '',
         previousOrganizations: employee.previousOrganizations || [],
         currentExperience: employee.currentExperience || '',
@@ -261,8 +276,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         setOrganizations(mappedData.previousOrganizations.map(org => ({
           organization: org.organization || '',
           designation: org.designation || org.role || '',
-          startDate: org.startDate || '',
-          endDate: org.endDate || ''
+          startDate: toInputDate(org.startDate) || '',
+          endDate: toInputDate(org.endDate) || ''
         })));
       }
       
@@ -516,30 +531,49 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   );
 
   const renderStepLabels = () => (
-    <div className="grid grid-cols-3 mb-8">
-      <div className={`text-center ${currentStep === 1 ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+    <div className="grid grid-cols-3 mb-8 gap-2">
+      <button
+        type="button"
+        onClick={() => handleStepClick(1)}
+        className={`text-center py-3 rounded-lg transition ${
+          currentStep === 1
+            ? 'text-blue-600 font-semibold bg-blue-50'
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+        }`}
+      >
         <UserIcon className="h-6 w-6 mx-auto mb-2" />
         <span className="text-sm">Personal Info</span>
-      </div>
-      <div className={`text-center ${currentStep === 2 ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+      </button>
+      <button
+        type="button"
+        onClick={() => handleStepClick(2)}
+        className={`text-center py-3 rounded-lg transition ${
+          currentStep === 2
+            ? 'text-blue-600 font-semibold bg-blue-50'
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+        }`}
+      >
         <BriefcaseIcon className="h-6 w-6 mx-auto mb-2" />
         <span className="text-sm">Professional</span>
-      </div>
-      <div className={`text-center ${currentStep === 3 ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+      </button>
+      <button
+        type="button"
+        onClick={() => handleStepClick(3)}
+        className={`text-center py-3 rounded-lg transition ${
+          currentStep === 3
+            ? 'text-blue-600 font-semibold bg-blue-50'
+            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
+        }`}
+      >
         <BanknotesIcon className="h-6 w-6 mx-auto mb-2" />
         <span className="text-sm">Bank Details</span>
-      </div>
+      </button>
     </div>
   );
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      {!isModal && (
-        <>
-          {renderStepIndicator()}
-          {renderStepLabels()}
-        </>
-      )}
+      {!isModal && renderStepLabels()}
 
       <form onSubmit={handleSubmit} className="p-4 lg:p-6">
         {/* Step 1: Personal Information */}

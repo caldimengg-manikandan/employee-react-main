@@ -73,34 +73,32 @@ router.post('/login', async (req, res) => {
 
 // Forgot Password - Send OTP
 router.post('/forgot-password', async (req, res) => {
-  const { email } = req.body;
-
+  const { email, employeeId } = req.body;
   try {
-    const user = await User.findOne({ email });
+    let user = null;
+    if (employeeId) {
+      user = await User.findOne({ employeeId });
+    } else if (email) {
+      user = await User.findOne({ email });
+    }
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    const otp = otpGenerator.generate(6, { 
-      upperCaseAlphabets: false, 
-      specialChars: false, 
-      lowerCaseAlphabets: false 
+    const otp = otpGenerator.generate(6, {
+      upperCaseAlphabets: false,
+      specialChars: false,
+      lowerCaseAlphabets: false
     });
-
     user.resetOtp = otp;
-    user.resetOtpExpiry = Date.now() + 10 * 60 * 1000; // 10 minutes
+    user.resetOtpExpiry = Date.now() + 10 * 60 * 1000;
     await user.save();
-
-    // Send email with OTP
     const mailOptions = {
       from: process.env.EMAIL_USER,
-      to: email,
+      to: user.email,
       subject: 'Password Reset OTP',
       text: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`
     };
-
     await transporter.sendMail(mailOptions);
-
     res.json({ message: 'OTP sent to your email' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
@@ -109,24 +107,29 @@ router.post('/forgot-password', async (req, res) => {
 
 // Reset Password with OTP
 router.post('/reset-password', async (req, res) => {
-  const { email, otp, newPassword } = req.body;
-
+  const { email, employeeId, otp, newPassword } = req.body;
   try {
-    const user = await User.findOne({ 
-      email, 
-      resetOtp: otp, 
-      resetOtpExpiry: { $gt: Date.now() } 
-    });
-
+    let user = null;
+    if (employeeId) {
+      user = await User.findOne({
+        employeeId,
+        resetOtp: otp,
+        resetOtpExpiry: { $gt: Date.now() }
+      });
+    } else if (email) {
+      user = await User.findOne({
+        email,
+        resetOtp: otp,
+        resetOtpExpiry: { $gt: Date.now() }
+      });
+    }
     if (!user) {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }
-
     user.password = newPassword;
     user.resetOtp = undefined;
     user.resetOtpExpiry = undefined;
     await user.save();
-
     res.json({ message: 'Password reset successfully' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
