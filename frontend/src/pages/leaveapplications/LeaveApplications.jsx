@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { leaveAPI, employeeAPI } from '../../services/api';
-import { 
-  Calendar, 
-  CheckCircle, 
-  Clock, 
-  FileText, 
+import {
+  Calendar,
+  CheckCircle,
+  Clock,
+  FileText,
   AlertCircle,
   Home,
   Heart,
@@ -25,7 +25,7 @@ const LeaveApplications = () => {
     bereavementRelation: '',
     supportingDocuments: null
   });
-  
+
   const [totalLeaveDays, setTotalLeaveDays] = useState(0);
   const [leaveBalance, setLeaveBalance] = useState({
     CL: 6,
@@ -33,7 +33,7 @@ const LeaveApplications = () => {
     PL: 15,
     BEREAVEMENT: 2
   });
-  
+
   // Leave history state
   const [leaveHistory, setLeaveHistory] = useState([]);
   const [editingLeaveId, setEditingLeaveId] = useState(null);
@@ -57,15 +57,15 @@ const LeaveApplications = () => {
         bereavementRelation: l.bereavementRelation || ''
       }));
       setLeaveHistory(mapped);
-    } catch {}
+    } catch { }
   };
-  
+
   useEffect(() => {
     fetchMyLeaves();
     const timer = setInterval(fetchMyLeaves, 30000);
     return () => clearInterval(timer);
   }, []);
-  
+
   useEffect(() => {
     const monthsBetween = (dateString) => {
       if (!dateString) return 0;
@@ -140,12 +140,12 @@ const LeaveApplications = () => {
             PL: balances.PL,
             BEREAVEMENT: 2
           });
-        } catch {}
+        } catch { }
       }
     };
     loadBalanceForMe();
   }, []);
-  
+
   // Leave types as per policy
   const leaveTypes = [
     { value: 'CL', label: 'Casual Leave (CL)' },
@@ -153,25 +153,25 @@ const LeaveApplications = () => {
     { value: 'PL', label: 'Privilege Leave (PL)' },
     { value: 'BEREAVEMENT', label: 'Bereavement Leave' }
   ];
-  
+
   const bereavementRelations = [
     'Spouse', 'Parent', 'Child', 'Sibling', 'Grandparent', 'In-Laws'
   ];
-  
+
   const dayTypes = ['Full Day', 'Half Day'];
-  
+
   // Calculate total working days excluding weekends
   const calculateWorkingDays = (start, end, dayType) => {
     if (!start || !end) return 0;
-    
+
     const startDate = new Date(start);
     const endDate = new Date(end);
-    
+
     if (startDate > endDate) return 0;
-    
+
     let count = 0;
     const current = new Date(startDate);
-    
+
     while (current <= endDate) {
       const day = current.getDay();
       // Skip weekends (0=Sunday, 6=Saturday)
@@ -180,25 +180,25 @@ const LeaveApplications = () => {
       }
       current.setDate(current.getDate() + 1);
     }
-    
+
     // Adjust for half day
     if (dayType === 'Half Day' && count === 1) {
       return 0.5;
     }
-    
+
     return count;
   };
-  
+
   // Handle form input changes
   const handleInputChange = (e) => {
     const { name, value, type, files } = e.target;
-    
+
     if (type === 'file') {
       setLeaveData(prev => ({ ...prev, [name]: files[0] }));
     } else {
       setLeaveData(prev => ({ ...prev, [name]: value }));
     }
-    
+
     // Recalculate days when dates or day type changes
     if (name === 'startDate' || name === 'endDate' || name === 'dayType') {
       setTimeout(() => {
@@ -211,62 +211,62 @@ const LeaveApplications = () => {
       }, 0);
     }
   };
-  
+
   // Handle day type change
   const handleDayTypeChange = (type) => {
     setLeaveData(prev => ({ ...prev, dayType: type }));
-    
+
     if (leaveData.startDate && leaveData.endDate) {
       const days = calculateWorkingDays(leaveData.startDate, leaveData.endDate, type);
       setTotalLeaveDays(days);
     }
   };
-  
+
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     // Validation
     if (!leaveData.startDate || !leaveData.endDate || !leaveData.leaveType) {
       alert('Please fill in all required fields');
       return;
     }
-    
+
     if (leaveData.leaveType === 'BEREAVEMENT' && !leaveData.bereavementRelation) {
       alert('Please specify relationship for bereavement leave');
       return;
     }
-    
+
     // Check leave balance
     if (leaveData.leaveType === 'CL' && totalLeaveDays > getAvailableBalance('CL')) {
       alert(`Insufficient Casual Leave balance. Available: ${getAvailableBalance('CL')} days`);
       return;
     }
-    
+
     if (leaveData.leaveType === 'SL' && totalLeaveDays > getAvailableBalance('SL')) {
       alert(`Insufficient Sick Leave balance. Available: ${getAvailableBalance('SL')} days`);
       return;
     }
-    
+
     if (leaveData.leaveType === 'PL' && totalLeaveDays > getAvailableBalance('PL')) {
       alert(`Insufficient Privilege Leave balance. Available: ${getAvailableBalance('PL')} days`);
       return;
     }
-    
+
     if (leaveData.leaveType === 'BEREAVEMENT' && totalLeaveDays > getAvailableBalance('BEREAVEMENT')) {
       alert(`Insufficient Bereavement Leave balance. Available: ${getAvailableBalance('BEREAVEMENT')} days`);
       return;
     }
-    
+
     // Medical certificate check for sick leave > 3 days
     if (leaveData.leaveType === 'SL' && totalLeaveDays > 3 && !leaveData.supportingDocuments) {
       alert('Medical certificate is required for sick leave exceeding 3 days');
       return;
     }
-    
+
     // Create or update leave application
     const leaveTypeName = leaveTypes.find(type => type.value === leaveData.leaveType)?.label || leaveData.leaveType;
-    
+
     try {
       if (editingLeaveId) {
         const res = await leaveAPI.update(editingLeaveId, {
@@ -317,8 +317,8 @@ const LeaveApplications = () => {
         };
         setLeaveHistory(prev => [newLeave, ...prev]);
       }
-    } catch {}
-    
+    } catch { }
+
     // Reset form
     setLeaveData({
       leaveType: 'CL',
@@ -330,10 +330,10 @@ const LeaveApplications = () => {
       supportingDocuments: null
     });
     setTotalLeaveDays(0);
-    
+
     alert(editingLeaveId ? 'Leave application updated successfully.' : 'Leave application submitted successfully! Awaiting approval.');
   };
-  
+
   const handleEdit = (leave) => {
     if (leave.status !== 'Pending') {
       alert('Only Pending applications can be edited.');
@@ -342,8 +342,8 @@ const LeaveApplications = () => {
     setEditingLeaveId(leave.id);
     setLeaveData({
       leaveType: leave.leaveType,
-      startDate: new Date(leave.startDate).toISOString().slice(0,10),
-      endDate: new Date(leave.endDate).toISOString().slice(0,10),
+      startDate: new Date(leave.startDate).toISOString().slice(0, 10),
+      endDate: new Date(leave.endDate).toISOString().slice(0, 10),
       dayType: leave.dayType || 'Full Day',
       reason: leave.reason || '',
       bereavementRelation: leave.leaveType === 'BEREAVEMENT' ? (leave.bereavementRelation || '') : '',
@@ -352,7 +352,7 @@ const LeaveApplications = () => {
     setTotalLeaveDays(leave.totalDays || 0);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
-  
+
   const handleDelete = async (leave) => {
     if (leave.status !== 'Pending') {
       alert('Only Pending applications can be deleted.');
@@ -368,9 +368,9 @@ const LeaveApplications = () => {
       alert('Failed to delete leave application.');
     }
   };
-  
+
   const handleView = (leave) => setViewLeave(leave);
-  
+
   // Get leave type icon
   const getLeaveTypeIcon = (type) => {
     switch (type) {
@@ -381,7 +381,7 @@ const LeaveApplications = () => {
       default: return <FileText className="w-5 h-5" />;
     }
   };
-  
+
   // Get status badge style
   const getStatusBadge = (status) => {
     switch (status) {
@@ -395,7 +395,7 @@ const LeaveApplications = () => {
         return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
   };
-  
+
   // Get status icon
   const getStatusIcon = (status) => {
     switch (status) {
@@ -409,7 +409,7 @@ const LeaveApplications = () => {
         return <FileText className="w-4 h-4" />;
     }
   };
-  
+
   // Calculate leave summary
   const calculateLeaveSummary = () => {
     const used = {
@@ -418,16 +418,16 @@ const LeaveApplications = () => {
       PL: 0,
       BEREAVEMENT: 0
     };
-    
+
     leaveHistory.forEach(leave => {
       if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(leave.leaveType) && leave.status === 'Approved') {
         used[leave.leaveType] += leave.totalDays;
       }
     });
-    
+
     return used;
   };
-  
+
   const usedLeaves = calculateLeaveSummary();
   const calculatePendingSummary = () => {
     const pending = {
@@ -449,16 +449,16 @@ const LeaveApplications = () => {
     const pending = Number(pendingLeaves[type] || 0);
     return Math.max(0, Math.round((base - pending) * 10) / 10);
   };
-  
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="w-full mx-auto px-0">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Employee Leave Application</h1>
-        
+
         </div>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left column - Leave request form */}
           <div className="lg:col-span-2">
@@ -467,7 +467,7 @@ const LeaveApplications = () => {
                 <Calendar className="w-5 h-5 text-blue-600" />
                 Submit Leave Request
               </h2>
-              
+
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Leave Type Selection */}
                 <div>
@@ -480,8 +480,8 @@ const LeaveApplications = () => {
                         key={type.value}
                         type="button"
                         onClick={() => setLeaveData(prev => ({ ...prev, leaveType: type.value }))}
-                        className={`p-4 rounded-lg border-2 transition flex items-center justify-center gap-3 ${leaveData.leaveType === type.value 
-                          ? 'border-blue-500 bg-blue-50' 
+                        className={`p-4 rounded-lg border-2 transition flex items-center justify-center gap-3 ${leaveData.leaveType === type.value
+                          ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'}`}
                       >
                         <div className={`p-2 rounded ${leaveData.leaveType === type.value ? 'bg-blue-100' : 'bg-gray-100'}`}>
@@ -492,7 +492,7 @@ const LeaveApplications = () => {
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Bereavement Relation (if bereavement leave selected) */}
                 {leaveData.leaveType === 'BEREAVEMENT' && (
                   <div>
@@ -513,7 +513,7 @@ const LeaveApplications = () => {
                     </select>
                   </div>
                 )}
-                
+
                 {/* Dates Section */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   {/* Start Date */}
@@ -530,7 +530,7 @@ const LeaveApplications = () => {
                       required
                     />
                   </div>
-                  
+
                   {/* Day Type */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -542,8 +542,8 @@ const LeaveApplications = () => {
                           key={type}
                           type="button"
                           onClick={() => handleDayTypeChange(type)}
-                          className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition ${leaveData.dayType === type 
-                            ? 'bg-blue-600 text-white' 
+                          className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition ${leaveData.dayType === type
+                            ? 'bg-blue-600 text-white'
                             : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
                         >
                           {type}
@@ -551,7 +551,7 @@ const LeaveApplications = () => {
                       ))}
                     </div>
                   </div>
-                  
+
                   {/* End Date */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -568,10 +568,10 @@ const LeaveApplications = () => {
                     />
                   </div>
                 </div>
-                
-             
-               
-                
+
+
+
+
                 {/* Supporting Documents (for sick leave) */}
                 {leaveData.leaveType === 'SL' && totalLeaveDays > 3 && (
                   <div>
@@ -591,7 +591,7 @@ const LeaveApplications = () => {
                     </p>
                   </div>
                 )}
-                
+
                 {/* Submit Button */}
                 <button
                   type="submit"
@@ -601,14 +601,14 @@ const LeaveApplications = () => {
                 </button>
               </form>
             </div>
-            
+
             {/* Leave History */}
             <div className="mt-6 bg-white rounded-xl shadow-md overflow-hidden">
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-800">Leave History</h2>
                 <p className="text-gray-600 text-sm mt-1">Your previous leave applications</p>
               </div>
-              
+
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50">
@@ -675,7 +675,7 @@ const LeaveApplications = () => {
                             </button>
                           </div>
                         </td>
-                        
+
                         <td className="py-4 px-6">
                           <div className="flex items-center">
                             <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium ${getStatusBadge(leave.status)}`}>
@@ -686,7 +686,7 @@ const LeaveApplications = () => {
                         </td>
                       </tr>
                     ))}
-                    
+
                     {leaveHistory.length === 0 && (
                       <tr>
                         <td colSpan="5" className="py-12 text-center">
@@ -701,7 +701,7 @@ const LeaveApplications = () => {
                   </tbody>
                 </table>
               </div>
-              
+
               {viewLeave && (
                 <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
                   <div className="bg-white rounded-lg shadow-xl max-w-lg w-full">
@@ -732,13 +732,13 @@ const LeaveApplications = () => {
               )}
             </div>
           </div>
-          
+
           {/* Right column - Leave Summary */}
           <div className="lg:col-span-1">
             {/* Leave Balance Summary */}
             <div className="bg-white rounded-xl shadow-md p-6 sticky top-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-6">Leave Summary</h2>
-              
+
               {/* Leave Balance Cards */}
               <div className="space-y-4">
                 <div className="p-4 bg-green-50 rounded-lg border border-green-200">
@@ -750,7 +750,7 @@ const LeaveApplications = () => {
                   <div className="text-sm text-gray-600 mt-1">0.5 days/month entitlement</div>
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.CL} days</div>
                 </div>
-                
+
                 <div className="p-4 bg-red-50 rounded-lg border border-red-200">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-medium text-gray-900">Sick Leave (SL)</h3>
@@ -760,7 +760,7 @@ const LeaveApplications = () => {
                   <div className="text-sm text-gray-600 mt-1">0.5 days/month entitlement</div>
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.SL} days</div>
                 </div>
-                
+
                 <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-medium text-gray-900">Privilege Leave (PL)</h3>
@@ -770,7 +770,7 @@ const LeaveApplications = () => {
                   <div className="text-sm text-gray-600 mt-1">15 days/year after completion</div>
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.PL} days</div>
                 </div>
-                
+
                 <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-medium text-gray-900">Bereavement Leave</h3>
@@ -782,8 +782,8 @@ const LeaveApplications = () => {
                 </div>
               </div>
             </div>
-            
-            
+
+
           </div>
         </div>
       </div>

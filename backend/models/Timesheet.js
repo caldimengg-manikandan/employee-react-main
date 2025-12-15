@@ -6,6 +6,8 @@ const TimesheetEntrySchema = new mongoose.Schema({
   task: { type: String, required: true },
   type: { type: String, enum: ["project", "leave"], default: "project" },
   hours: { type: [Number], default: [0, 0, 0, 0, 0, 0, 0] },
+  locked: { type: Boolean, default: false },
+  lockedDays: { type: [Boolean], default: [false, false, false, false, false, false, false] }
 });
 
 const TimesheetSchema = new mongoose.Schema(
@@ -30,6 +32,9 @@ const TimesheetSchema = new mongoose.Schema(
     },
 
     totalHours: { type: Number, default: 0 },
+    totalHoursWithBreak: { type: Number, default: 0 },
+
+    lockedDays: { type: [Boolean], default: [false, false, false, false, false, false, false] },
 
     status: {
       type: String,
@@ -43,13 +48,67 @@ const TimesheetSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+// Function to calculate total hours with break
+function calculateTotalHoursWithBreak(sheet) {
+  const entries = Array.isArray(sheet.entries) ? sheet.entries : [];
+  
+  // Calculate work hours from all entries
+  const workWeeklyTotal = entries.reduce((sum, entry) => {
+    const hrs = Array.isArray(entry.hours) ? entry.hours : [];
+    return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0);
+  }, 0);
+  
+  // Calculate break hours (1.25 hours per day with project work, except full day leave/holiday)
+  const computeBreakForDay = (dayIndex) => {
+    const hasProjectWork = entries.some((entry) => {
+      if (entry.type !== 'project') return false;
+      const hrs = Array.isArray(entry.hours) ? entry.hours : [];
+      return (Number(hrs[dayIndex] || 0) > 0);
+    });
+    
+    const hasFullDayLeaveOrHoliday = entries.some((entry) => {
+      const hrs = Array.isArray(entry.hours) ? entry.hours : [];
+      const val = Number(hrs[dayIndex] || 0);
+      const task = (entry.task || '').toLowerCase();
+      const isHoliday = task.includes('holiday');
+      const isFullDayLeave = task.includes('full day') || val >= 8;
+      
+      return ((entry.type === 'leave' || isHoliday) && (val >= 8) && (isHoliday || isFullDayLeave));
+    });
+    
+    return hasProjectWork && !hasFullDayLeaveOrHoliday ? 1.25 : 0;
+  };
+  
+  const breakDaily = [0, 1, 2, 3, 4, 5, 6].map(computeBreakForDay);
+  const breakWeekly = breakDaily.reduce((sum, val) => sum + val, 0);
+  
+  return workWeeklyTotal + breakWeekly;
+}
+
 TimesheetSchema.pre("save", function (next) {
+  // Calculate work hours total
   this.totalHours = this.entries.reduce((sum, entry) => {
     return sum + entry.hours.reduce((a, b) => a + (Number(b) || 0), 0);
   }, 0);
+  
+  // Calculate total hours with break
+  this.totalHoursWithBreak = calculateTotalHoursWithBreak(this);
+  
+  // Update lockedDays based on leave entries
+  this.lockedDays = [false, false, false, false, false, false, false];
+  
+  this.entries.forEach(entry => {
+    if (entry.type === 'leave' && entry.locked) {
+      entry.hours.forEach((hour, index) => {
+        if (hour > 0) {
+          this.lockedDays[index] = true;
+        }
+      });
+    }
+  });
+  
   next();
 });
 
 module.exports =
   mongoose.models.Timesheet || mongoose.model("Timesheet", TimesheetSchema);
-

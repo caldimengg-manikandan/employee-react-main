@@ -2,8 +2,195 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const LeaveApplication = require('../models/LeaveApplication');
 const Employee = require('../models/Employee');
+const Timesheet = require('../models/Timesheet');
+const User = require('../models/User');
 
 const router = express.Router();
+
+function getMonday(d) {
+  const date = new Date(d);
+  const day = date.getUTCDay();
+  const diff = date.getUTCDate() - day + (day === 0 ? -6 : 1);
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), diff));
+}
+
+// Helper function to get locked days for user in a week
+async function getLockedDaysForUser(userId, weekStartDate, weekEndDate) {
+  try {
+    const weekStart = new Date(weekStartDate);
+    const weekEnd = new Date(weekEndDate);
+    
+    const approvedLeaves = await LeaveApplication.find({
+      userId: userId,
+      status: 'Approved',
+      $or: [
+        { startDate: { $gte: weekStart, $lte: weekEnd } },
+        { endDate: { $gte: weekStart, $lte: weekEnd } },
+        { startDate: { $lte: weekStart }, endDate: { $gte: weekEnd } }
+      ]
+    });
+    
+    const lockedDays = [false, false, false, false, false, false, false];
+    
+    approvedLeaves.forEach(leave => {
+      const start = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      
+      // Loop through each day of the week
+      for (let i = 0; i < 7; i++) {
+        const currentDate = new Date(weekStart);
+        currentDate.setDate(currentDate.getDate() + i);
+        
+        // Check if currentDate is within leave period
+        if (currentDate >= start && currentDate <= end) {
+          // Skip weekends if needed (optional)
+          const dayOfWeek = currentDate.getDay();
+          if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Monday-Friday
+            lockedDays[i] = true;
+          }
+        }
+      }
+    });
+    
+    return lockedDays;
+  } catch (error) {
+    console.error("Error getting locked days:", error);
+    return [false, false, false, false, false, false, false];
+  }
+}
+
+async function syncTimesheetWithLeave(leaveApp) {
+  const startDate = new Date(leaveApp.startDate);
+  const endDate = new Date(leaveApp.endDate);
+  const userId = leaveApp.userId;
+
+  // Initialize loopDate to UTC midnight
+  let loopDate = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
+  
+  // Initialize endDateTime to UTC midnight
+  const endDateTime = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate()));
+
+  // Cache timesheets to avoid repeated DB calls for same week
+  const timesheetCache = {};
+
+  while (loopDate <= endDateTime) {
+      const weekStart = getMonday(loopDate);
+      const weekStartStr = weekStart.toISOString();
+
+      let timesheet;
+      
+      if (timesheetCache[weekStartStr]) {
+          timesheet = timesheetCache[weekStartStr];
+      } else {
+          // weekEnd should be Sunday midnight UTC
+          const weekEnd = new Date(weekStart);
+          weekEnd.setUTCDate(weekStart.getUTCDate() + 6);
+
+          timesheet = await Timesheet.findOne({
+              userId: userId,
+              weekStartDate: weekStart,
+              weekEndDate: weekEnd 
+          });
+
+          if (!timesheet) {
+              console.log("Timesheet not found, creating new one.");
+              if (leaveApp.status !== 'Approved') {
+                  // If not approving and timesheet doesn't exist, nothing to do for this week
+                  loopDate.setUTCDate(loopDate.getUTCDate() + 1);
+                  continue;
+              }
+              timesheet = new Timesheet({
+                  userId: userId,
+                  weekStartDate: weekStart,
+                  weekEndDate: weekEnd,
+                  entries: [],
+                  status: 'Draft'
+              });
+          } else {
+             console.log("Timesheet found:", timesheet._id);
+          }
+          timesheetCache[weekStartStr] = timesheet;
+      }
+
+      const dayIndex = Math.round((loopDate.getTime() - weekStart.getTime()) / (1000 * 3600 * 24));
+      console.log(`Processing date: ${loopDate.toISOString()}, dayIndex: ${dayIndex}`);
+
+      if (dayIndex >= 0 && dayIndex <= 6) {
+          let leaveEntry = timesheet.entries.find(e => e.project === 'Leave' && e.task === 'Leave Approved');
+          
+          if (leaveApp.status === 'Approved') {
+              if (!leaveEntry) {
+                  console.log("Adding new Leave Approved entry.");
+                  timesheet.entries.push({
+                      project: 'Leave',
+                      task: 'Leave Approved',
+                      type: 'leave',
+                      hours: [0, 0, 0, 0, 0, 0, 0],
+                      locked: true
+                  });
+                  leaveEntry = timesheet.entries[timesheet.entries.length - 1];
+              } else {
+                 console.log("Updating existing Leave Approved entry.");
+                 leaveEntry.locked = true;
+              }
+              
+              // Set 9.5 hours (9:30) for full day leave, 4.75 for half day
+              const leaveHours = leaveApp.dayType === 'Half Day' ? 4.75 : 9.5;
+              console.log(`Setting ${leaveHours} hours for dayIndex ${dayIndex}`);
+              leaveEntry.hours.set(dayIndex, leaveHours);
+              
+              // Mark all project entries for this day as locked
+              // BUT: if it's a Half Day leave, do NOT lock the day
+              const isHalfDay = leaveApp.dayType === 'Half Day';
+              
+              timesheet.entries.forEach(entry => {
+                  if (entry.type === 'project') {
+                      // Create a lockedDays array if it doesn't exist
+                      if (!entry.lockedDays) {
+                          entry.lockedDays = [false, false, false, false, false, false, false];
+                      }
+                      // Mark this day as locked ONLY if it's NOT a half day
+                      if (!isHalfDay) {
+                        entry.lockedDays[dayIndex] = true;
+                      } else {
+                        // Ensure it's unlocked if it was previously locked (e.g. if updated from Full to Half)
+                        entry.lockedDays[dayIndex] = false;
+                      }
+                  }
+              });
+          } else {
+              // Rejected or Pending - revert changes
+              if (leaveEntry) {
+                  console.log(`Removing leave for dayIndex ${dayIndex}`);
+                  // Reset hours to 0
+                  leaveEntry.hours.set(dayIndex, 0);
+                  
+                  // Unlock project entries for this day
+                  timesheet.entries.forEach(entry => {
+                      if (entry.type === 'project' && entry.lockedDays) {
+                          entry.lockedDays[dayIndex] = false;
+                      }
+                  });
+                  
+                  // Check if row is now empty
+                  const totalHours = leaveEntry.hours.reduce((a, b) => a + (Number(b) || 0), 0);
+                  if (totalHours === 0) {
+                      // Remove the entry if no hours left
+                      console.log("Removing empty Leave Approved entry.");
+                      timesheet.entries.pull(leaveEntry._id);
+                  }
+              }
+          }
+      }
+      
+      loopDate.setUTCDate(loopDate.getUTCDate() + 1);
+  }
+
+  // Save all modified timesheets
+  for (const ts of Object.values(timesheetCache)) {
+      await ts.save();
+  }
+}
 
 function hasPermission(user, perm) {
   return Array.isArray(user?.permissions) && user.permissions.includes(perm);
@@ -177,21 +364,73 @@ router.get('/', auth, async (req, res) => {
       if (endDate) filter.startDate.$lte = new Date(endDate);
     }
     const items = await LeaveApplication.find(filter).sort({ createdAt: -1 }).lean();
-    const ids = Array.from(new Set(items.map(i => i.employeeId).filter(Boolean)));
-    let empMap = {};
-    if (ids.length > 0) {
-      const emps = await Employee.find({ employeeId: { $in: ids } }).lean();
-      empMap = emps.reduce((acc, e) => {
-        acc[e.employeeId] = e;
+    
+    // Get user details to fallback for missing employeeId/Name
+    const userIds = Array.from(new Set(items.map(i => i.userId).filter(Boolean)));
+    let userMap = {};
+    if (userIds.length > 0) {
+      const users = await User.find({ _id: { $in: userIds } }).select('employeeId name email').lean();
+      userMap = users.reduce((acc, u) => {
+        acc[u._id.toString()] = u;
         return acc;
       }, {});
     }
+
+    // Collect all potential employee IDs and Emails
+    const empIds = new Set();
+    const userEmails = new Set();
+    
+    items.forEach(i => {
+      if (i.employeeId) empIds.add(i.employeeId);
+      const user = userMap[i.userId?.toString()];
+      if (user) {
+        if (user.employeeId) empIds.add(user.employeeId);
+        if (user.email) userEmails.add(user.email);
+      }
+    });
+
+    const empQuery = { $or: [] };
+    if (empIds.size > 0) empQuery.$or.push({ employeeId: { $in: Array.from(empIds) } });
+    if (userEmails.size > 0) empQuery.$or.push({ email: { $in: Array.from(userEmails) } });
+
+    let empMap = {};
+    let empEmailMap = {};
+
+    if (empQuery.$or.length > 0) {
+      const emps = await Employee.find(empQuery).lean();
+      emps.forEach(e => {
+        if (e.employeeId) empMap[e.employeeId] = e;
+        if (e.email) empEmailMap[e.email] = e;
+      });
+    }
+
     const mapped = items.map(i => {
-      const emp = empMap[i.employeeId] || {};
+      const user = userMap[i.userId?.toString()] || {};
+      
+      // Try to resolve employee from multiple sources
+      let emp = null;
+      
+      // 1. Direct Employee ID
+      if (i.employeeId && empMap[i.employeeId]) {
+        emp = empMap[i.employeeId];
+      }
+      // 2. User's Employee ID
+      else if (user.employeeId && empMap[user.employeeId]) {
+        emp = empMap[user.employeeId];
+      }
+      // 3. User's Email
+      else if (user.email && empEmailMap[user.email]) {
+        emp = empEmailMap[user.email];
+      }
+
+      // Determine final values
+      const effectiveEmployeeId = emp?.employeeId || i.employeeId || user.employeeId || '';
+      
       return {
         ...i,
-        employeeName: emp.name || emp.employeename || '',
-        location: emp.location || emp.branch || ''
+        employeeId: effectiveEmployeeId,
+        employeeName: emp?.name || emp?.employeename || user.name || '',
+        location: emp?.location || emp?.branch || ''
       };
     });
     res.json(mapped);
@@ -216,10 +455,36 @@ router.put('/:id/status', auth, async (req, res) => {
       { status, ...(status === 'Rejected' ? { rejectionReason: rejectionReason || '' } : { rejectionReason: '' }) },
       { new: true }
     );
+    if (updated) {
+       await syncTimesheetWithLeave(updated);
+    }
     if (!updated) return res.status(404).json({ error: 'Leave application not found' });
     res.json(updated);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Get locked days for a specific week
+router.get('/locked-days', auth, async (req, res) => {
+  try {
+    const { weekStart, weekEnd } = req.query;
+    
+    if (!weekStart || !weekEnd) {
+      return res.status(400).json({ 
+        error: 'weekStart and weekEnd parameters are required' 
+      });
+    }
+    
+    const lockedDays = await getLockedDaysForUser(
+      req.user._id,
+      new Date(weekStart),
+      new Date(weekEnd)
+    );
+    
+    res.json({ lockedDays });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

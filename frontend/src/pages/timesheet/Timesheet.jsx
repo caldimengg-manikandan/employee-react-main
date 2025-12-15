@@ -27,7 +27,7 @@ const Timesheet = () => {
 
   const shiftTypes = [
     "First Shift",
-    "Secend Shift", 
+    "Secend Shift",
     "General Shift"
   ];
 
@@ -49,7 +49,7 @@ const Timesheet = () => {
 
   const leaveTypes = [
     "Office Holiday",
-    "Full Day Leave", 
+    "Full Day Leave",
     "Half Day Leave",
     "Permission"
   ];
@@ -76,6 +76,7 @@ const Timesheet = () => {
         const res = await timesheetAPI.getTimesheet({
           weekStart: normalizeToUTCDateOnly(wd[0]),
           weekEnd: normalizeToUTCDateOnly(wd[6]),
+          _t: Date.now() // Prevent caching
         });
         const sheet = (res?.data && res.data.data) ? res.data.data : res.data;
         const rows = (sheet.entries || []).map((e) => ({
@@ -83,22 +84,23 @@ const Timesheet = () => {
           project: e.project || "",
           projectCode: e.projectCode || "",
           task: e.task || "",
-          hours: Array.isArray(e.hours) ? e.hours : [0,0,0,0,0,0,0],
+          hours: Array.isArray(e.hours) ? e.hours : [0, 0, 0, 0, 0, 0, 0],
           type: e.type || (e.project === "Leave" ? "leave" : "project"),
           shiftType: e.shiftType || "",
+          locked: e.locked || false,
         }));
         setShiftType(sheet.shiftType || "");
         const ds = Array.isArray(sheet.dailyShiftTypes) && sheet.dailyShiftTypes.length === 7
           ? sheet.dailyShiftTypes
           : [
-              sheet.shiftType ? sheet.shiftType : "",
-              sheet.shiftType ? sheet.shiftType : "",
-              sheet.shiftType ? sheet.shiftType : "",
-              sheet.shiftType ? sheet.shiftType : "",
-              sheet.shiftType ? sheet.shiftType : "",
-              sheet.shiftType ? sheet.shiftType : "",
-              sheet.shiftType ? sheet.shiftType : "",
-            ];
+            sheet.shiftType ? sheet.shiftType : "",
+            sheet.shiftType ? sheet.shiftType : "",
+            sheet.shiftType ? sheet.shiftType : "",
+            sheet.shiftType ? sheet.shiftType : "",
+            sheet.shiftType ? sheet.shiftType : "",
+            sheet.shiftType ? sheet.shiftType : "",
+            sheet.shiftType ? sheet.shiftType : "",
+          ];
         setDailyShiftTypes(ds);
         if (Array.isArray(sheet.onPremisesTime?.daily)) {
           setOnPremisesTime({
@@ -148,7 +150,7 @@ const Timesheet = () => {
         const d = new Date(weekStart);
         if (!isNaN(d.getTime())) setCurrentWeek(d);
       }
-    } catch (_) {}
+    } catch (_) { }
   }, []);
 
   const parseDurationHours = (input) => {
@@ -224,7 +226,7 @@ const Timesheet = () => {
     try {
       const d = new Date(t);
       if (!isNaN(d.getTime())) return d;
-    } catch (_) {}
+    } catch (_) { }
     return null;
   };
 
@@ -293,7 +295,7 @@ const Timesheet = () => {
                 weeklyOnPremises += hours;
               }
             }
-          } catch (_) {}
+          } catch (_) { }
         });
 
         setOnPremisesTime({
@@ -381,7 +383,7 @@ const Timesheet = () => {
     try {
       const weekKey = `timesheet_draft_${getWeekKey()}`;
       const savedDraft = sessionStorage.getItem(weekKey);
-      
+
       if (savedDraft) {
         const draftData = JSON.parse(savedDraft);
         setTimesheetRows(draftData.rows || []);
@@ -390,17 +392,17 @@ const Timesheet = () => {
           Array.isArray(draftData.dailyShiftTypes) && draftData.dailyShiftTypes.length === 7
             ? draftData.dailyShiftTypes
             : [
-                draftData.shiftType || "General Shift",
-                draftData.shiftType || "General Shift",
-                draftData.shiftType || "General Shift",
-                draftData.shiftType || "General Shift",
-                draftData.shiftType || "General Shift",
-                draftData.shiftType || "General Shift",
-                draftData.shiftType || "General Shift",
-              ]
+              draftData.shiftType || "General Shift",
+              draftData.shiftType || "General Shift",
+              draftData.shiftType || "General Shift",
+              draftData.shiftType || "General Shift",
+              draftData.shiftType || "General Shift",
+              draftData.shiftType || "General Shift",
+              draftData.shiftType || "General Shift",
+            ]
         );
         console.log("📂 Draft loaded from sessionStorage");
-        
+
         // Show confirmation message
         if (draftData.rows && draftData.rows.length > 0) {
           const savedTime = new Date(draftData.savedAt).toLocaleTimeString();
@@ -432,7 +434,7 @@ const Timesheet = () => {
   const updateMonthlyPermissionCount = () => {
     const currentMonth = currentWeek.getMonth();
     const currentYear = currentWeek.getFullYear();
-    
+
     let count = 0;
     const newPermissionCounts = {};
 
@@ -545,12 +547,12 @@ const Timesheet = () => {
       prev.map((row) => {
         if (row.id === id) {
           const updatedRow = { ...row, [field]: value };
-          
+
           // Reset hours when task type changes
           if (field === "task") {
             updatedRow.hours = [0, 0, 0, 0, 0, 0, 0];
           }
-          
+
           return updatedRow;
         }
         return row;
@@ -566,18 +568,19 @@ const Timesheet = () => {
       return;
     }
 
-    // Block editing other entries on a day with Full Day Leave/Office Holiday
+    // Block editing other entries on a day with Full Day Leave/Office Holiday/Leave Approved (Full Day)
     const isFullDayMarked = timesheetRows.some(
       (r) =>
-        (r.task === "Full Day Leave" || r.task === "Office Holiday") &&
+        (r.task === "Full Day Leave" || r.task === "Office Holiday" || (r.task === "Leave Approved" && (r.hours?.[dayIndex] || 0) >= 9)) &&
         ((r.hours?.[dayIndex] || 0) > 0)
     );
     if (
       isFullDayMarked &&
       row.task !== "Full Day Leave" &&
-      row.task !== "Office Holiday"
+      row.task !== "Office Holiday" &&
+      row.task !== "Leave Approved"
     ) {
-      alert("Full Day Leave applied on this day; other entries are blocked.");
+      alert("Leave/Holiday applied on this day; other entries are blocked.");
       return;
     }
 
@@ -618,11 +621,11 @@ const Timesheet = () => {
 
     // Calculate break hours for the day
     const currentBreakHours = computeBreakForDay(dayIndex);
-    
+
     // Check if adding new value would exceed 24 hours (including break hours)
     const newWorkTotalAll = currentDailyAllTotal + numValue;
     const newTotalWithBreakAll = newWorkTotalAll + currentBreakHours;
-    
+
     if (newTotalWithBreakAll > 24) {
       const currentTotalWithBreak = (currentDailyAllTotal + currentBreakHours).toFixed(1);
       alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${currentBreakHours.toFixed(1)}h)\nAfter update: ${newTotalWithBreakAll.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
@@ -713,9 +716,32 @@ const Timesheet = () => {
       (r) => r.type === "project" && ((r.id === id ? numValue : (r.hours?.[dayIndex] || 0)) > 0)
     );
     const breakAfterUpdate = hasWorkAfterUpdate ? 1.25 : 0;
-    
+
+    // Enforce Shift Limit (9.5h) - Leave Hours
+    // This ensures Total (Project + Leave) <= 9.5
+    const MAX_SHIFT_HOURS = 9.5;
+    const currentDailyLeaveTotal = timesheetRows.reduce((total, r) => {
+      if (r.type === "leave") return total + (r.hours[dayIndex] || 0);
+      return total;
+    }, 0);
+
+    // Calculate how much project time is allowed based on the 9.5h limit
+    const remainingShiftAllowed = Math.max(0, MAX_SHIFT_HOURS - currentDailyLeaveTotal - currentDailyProjectTotal);
+
+    // Apply Shift Limit Cap
+    if (numValue > remainingShiftAllowed) {
+      numValue = remainingShiftAllowed;
+    }
+
     // Enforce on-premises cap: project work + auto break must not exceed on-premises time
-    if (row.type === "project") {
+    // WE RELAX THIS CHECK if there is a Half Day Leave / Leave Approved (Partial), 
+    // to allow entering project hours even if biometric data is missing/short.
+    const hasPartialLeave = timesheetRows.some(
+      (r) => (r.task === "Half Day Leave" || (r.task === "Leave Approved" && (r.hours?.[dayIndex] || 0) < 9)) &&
+        (r.hours?.[dayIndex] || 0) > 0
+    );
+
+    if (row.type === "project" && !hasPartialLeave) {
       const opHours = Number(onPremisesTime?.daily?.[dayIndex] || 0);
       if (opHours <= 0) {
         numValue = 0;
@@ -730,7 +756,7 @@ const Timesheet = () => {
     // Double-check after task-specific validation (including break hours)
     const finalWorkTotal = currentDailyAllTotal + numValue;
     const finalTotalWithBreak = finalWorkTotal + breakAfterUpdate;
-    
+
     // Shift-based caps removed
 
     if (finalTotalWithBreak > 24) {
@@ -754,7 +780,7 @@ const Timesheet = () => {
 
   // Check if permission is allowed for a specific day, excluding current row
   const isPermissionAllowed = (dayIndex, excludeRowId = null) => {
-    const hasExistingPermission = timesheetRows.some(row => 
+    const hasExistingPermission = timesheetRows.some(row =>
       row.task === "Permission" && row.hours[dayIndex] > 0 && row.id !== excludeRowId
     );
     return !hasExistingPermission;
@@ -762,7 +788,7 @@ const Timesheet = () => {
 
   const hasFullDayLeave = (dayIndex) => {
     return timesheetRows.some(row =>
-      (row.task === 'Full Day Leave' || row.task === 'Office Holiday') &&
+      (row.task === 'Full Day Leave' || row.task === 'Office Holiday' || (row.task === 'Leave Approved' && row.hours[dayIndex] >= 9)) &&
       row.hours[dayIndex] > 0
     );
   };
@@ -773,11 +799,11 @@ const Timesheet = () => {
     const nextRows = timesheetRows.map(r => ({ ...r, hours: [...r.hours] }));
     for (let d = 0; d < daysCount; d++) {
       const hasFull = nextRows.some(
-        (r) => (r.task === 'Full Day Leave' || r.task === 'Office Holiday') && ((r.hours?.[d] || 0) > 0)
+        (r) => (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || (r.task === 'Leave Approved' && (r.hours?.[d] || 0) >= 9)) && ((r.hours?.[d] || 0) > 0)
       );
       if (!hasFull) continue;
       nextRows.forEach((r) => {
-        if (r.task === 'Full Day Leave' || r.task === 'Office Holiday') return;
+        if (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || r.task === 'Leave Approved') return;
         if ((r.hours?.[d] || 0) > 0) {
           r.hours[d] = 0;
           updated = true;
@@ -791,9 +817,9 @@ const Timesheet = () => {
 
   // ✅ Check if there's at least some data entered
   const hasSomeData = () => {
-    return timesheetRows.some(row => 
-      row.project || 
-      row.task || 
+    return timesheetRows.some(row =>
+      row.project ||
+      row.task ||
       row.hours.some(hours => hours > 0)
     );
   };
@@ -888,6 +914,7 @@ const Timesheet = () => {
           : (projects.find((p) => p.name === row.project)?.code || ""),
       task: row.task || "Unnamed Task",
       type: row.type,
+      locked: row.locked,
       hours: (row.hours || []).map((h) => {
         const n = Number(h);
         return Number.isFinite(n) ? n : 0;
@@ -912,22 +939,22 @@ const Timesheet = () => {
       setLoading(true);
       const response = await timesheetAPI.saveTimesheet(payload);
       console.log("✅ Timesheet saved as draft:", response.data);
-      
+
       // Draft persisted to backend
-      
+
       // Update original data to mark as saved
       setOriginalData(JSON.stringify(timesheetRows));
       setHasUnsavedChanges(false);
-      
+
       // Notify history page to refresh
-      try { window.dispatchEvent(new Event('refreshTimesheetHistory')); } catch (_) {}
+      try { window.dispatchEvent(new Event('refreshTimesheetHistory')); } catch (_) { }
 
       alert("✅ Timesheet saved as draft successfully!");
     } catch (error) {
       console.error("❌ Error saving timesheet as draft:", error);
       alert(
         error.response?.data?.message ||
-          "Failed to save timesheet as draft. Please try again."
+        "Failed to save timesheet as draft. Please try again."
       );
     } finally {
       setLoading(false);
@@ -959,6 +986,31 @@ const Timesheet = () => {
       const hasProjectHours = timesheetRows.some(
         (row) => row.type === "project" && ((row.hours?.[i] || 0) > 0)
       );
+
+      // Validation: Total Hours (Project + Leave) should not exceed On-Premises Timing (usually 9.5 or similar, but practically 24h is the hard limit, however user requested "not more then a On-Premises Timeing")
+      // User request: "not more then a On-Premises Timeing"
+      // If "On-Premises Timing" refers to the shift duration (e.g. 9.5h), we should check against that.
+      // But typically "On-Premises Time" in this app context refers to the actual attendance duration fetched from Hikvision.
+      // If the user means "don't exceed the shift limit" (e.g. 24h or 9.5h), that's one thing.
+      // If the user means "don't exceed the actual time they were in the office", that's another.
+      // Given the phrasing "once the employee apply the 0.5 day leave 4:45hours that day time the project cell will enterable not more then a On-Premises Timeing",
+      // it sounds like they want the sum of (Leave + Project) to be <= Shift Duration (e.g. 9.5h) OR <= Actual On-Premises Time.
+      // However, usually you can't book more time than you were present + leave.
+
+      // Let's assume "On-Premises Timeing" implies the standard full day working hours (9.5 hours) for now, as 4.75 is half of 9.5.
+      const MAX_DAILY_HOURS = 9.5;
+
+      // Calculate total hours for the day (Project + Leave)
+      let totalDayHours = 0;
+      timesheetRows.forEach(row => {
+        totalDayHours += (Number(row.hours?.[i]) || 0);
+      });
+
+      if (totalDayHours > MAX_DAILY_HOURS) {
+        alert(`Total hours for ${days[i]} (Project + Leave) cannot exceed ${MAX_DAILY_HOURS} hours.`);
+        return;
+      }
+
       if (op <= 0 && hasProjectHours) {
         alert(`Project hours not allowed for ${days[i]} without on-premises time. Please record attendance or remove project hours.`);
         return;
@@ -980,6 +1032,7 @@ const Timesheet = () => {
           : (projects.find((p) => p.name === row.project)?.code || ""),
       task: row.task,
       type: row.type,
+      locked: row.locked,
       hours: (row.hours || []).map((h) => {
         const n = Number(h);
         return Number.isFinite(n) ? n : 0;
@@ -1004,21 +1057,21 @@ const Timesheet = () => {
       setLoading(true);
       const response = await timesheetAPI.saveTimesheet(payload);
       console.log("✅ Timesheet submitted:", response.data);
-      
+
       // Submission persisted to backend
-      
+
       // Set submitted status to prevent auto-saving
       setIsSubmitted(true);
-      
+
       // Notify history page to refresh
-      try { window.dispatchEvent(new Event('refreshTimesheetHistory')); } catch (_) {}
+      try { window.dispatchEvent(new Event('refreshTimesheetHistory')); } catch (_) { }
 
       alert("✅ Timesheet submitted successfully!");
     } catch (error) {
       console.error("❌ Error submitting timesheet:", error);
       alert(
         error.response?.data?.message ||
-          "Failed to submit timesheet. Please try again."
+        "Failed to submit timesheet. Please try again."
       );
     } finally {
       setLoading(false);
@@ -1056,7 +1109,7 @@ const Timesheet = () => {
           totals[idx] += n;
         });
       }
-      if (row.type === "leave" && row.task === "Permission") {
+      if (row.type === "leave") {
         row.hours.forEach((h, idx) => {
           const n = Number(h) || 0;
           totals[idx] += n;
@@ -1081,7 +1134,7 @@ const Timesheet = () => {
     });
   };
 
-  const saveDailyShiftTypesToSession = () => {};
+  const saveDailyShiftTypesToSession = () => { };
 
   useEffect(() => {
     saveDailyShiftTypesToSession();
@@ -1089,13 +1142,17 @@ const Timesheet = () => {
   }, [dailyShiftTypes, shiftType, currentWeek]);
 
   // ========== WORK + BREAK LOGIC FUNCTIONS ==========
-  
+
   // Calculate break for a specific day (1.25 hours if there's any project work)
   const computeBreakForDay = (dayIndex) => {
     const hasWork = timesheetRows.some(
       (row) => row.type === "project" && (row.hours?.[dayIndex] || 0) > 0
     );
-    return hasWork ? 1.25 : 0;
+    // No break for approved leave days
+    const hasApprovedLeave = timesheetRows.some(
+      (row) => row.task === "Leave Approved" && (row.hours?.[dayIndex] || 0) > 0
+    );
+    return hasWork && !hasApprovedLeave ? 1.25 : 0;
   };
 
   // Calculate weekly break total
@@ -1191,14 +1248,14 @@ const Timesheet = () => {
               >
                 <ChevronLeft className="w-5 h-5 text-gray-600" />
               </button>
-              
+
               <div className="text-lg font-semibold text-gray-800">
                 {currentWeek.toLocaleDateString("en-US", {
                   month: "long",
                   year: "numeric"
                 })}
               </div>
-              
+
               <button
                 onClick={nextWeek}
                 className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -1206,7 +1263,7 @@ const Timesheet = () => {
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
             </div>
-            
+
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600 font-medium">Week:</span>
               <span className="text-sm text-gray-800 font-semibold">
@@ -1241,15 +1298,14 @@ const Timesheet = () => {
               <Plus className="w-4 h-4" />
               ADD PROJECT
             </button>
-            
+
             <button
               onClick={addLeaveRow}
               disabled={isAddLeaveDisabled()}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${
-                isAddLeaveDisabled()
-                  ? "bg-gray-400 cursor-not-allowed" 
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isAddLeaveDisabled()
+                  ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-700 hover:bg-blue-800 text-white"
-              }`}
+                }`}
               title={isAddLeaveDisabled() ? "Maximum 4 leave rows allowed" : "Add Leave Row"}
             >
               <Plus className="w-4 h-4" />
@@ -1259,11 +1315,10 @@ const Timesheet = () => {
             <button
               onClick={saveAsDraft}
               disabled={loading || !hasSomeData() || isSubmitted}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${
-                loading || !hasSomeData() || isSubmitted
-                  ? "bg-gray-400 cursor-not-allowed" 
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${loading || !hasSomeData() || isSubmitted
+                  ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-700 hover:bg-blue-800 text-white"
-              }`}
+                }`}
             >
               <Save className="w-4 h-4" />
               SAVE DRAFT
@@ -1339,7 +1394,7 @@ const Timesheet = () => {
                         value={row.project}
                         onChange={(e) => updateRow(row.id, "project", e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        disabled={isSubmitted}
+                        disabled={isSubmitted || row.locked}
                       >
                         <option value="">Select Project</option>
                         {projects.map((p) => (
@@ -1356,7 +1411,7 @@ const Timesheet = () => {
                       value={row.task}
                       onChange={(e) => updateRow(row.id, "task", e.target.value)}
                       className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isSubmitted}
+                      disabled={isSubmitted || row.locked}
                     >
                       <option value="">Select {row.type === "leave" ? "Leave Type" : "Task"}</option>
                       {(row.type === "leave" ? leaveTypes : tasks).map((item) => (
@@ -1364,6 +1419,9 @@ const Timesheet = () => {
                           {item}
                         </option>
                       ))}
+                      {row.task === "Leave Approved" && (
+                        <option value="Leave Approved">Leave Approved</option>
+                      )}
                     </select>
                   </td>
 
@@ -1391,12 +1449,14 @@ const Timesheet = () => {
                               if (e.currentTarget) e.currentTarget.blur();
                             }
                             if (e.key === 'ArrowUp') {
+                              // Don't allow arrow keys for Leave Approved
                               if (
                                 row.type !== "project" &&
                                 row.task !== "Permission" &&
                                 row.task !== "Full Day Leave" &&
                                 row.task !== "Office Holiday" &&
-                                row.task !== "Half Day Leave"
+                                row.task !== "Half Day Leave" &&
+                                row.task !== "Leave Approved"  // Added this condition
                               ) {
                                 const key = `${row.id}_${dayIndex}`;
                                 const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
@@ -1412,12 +1472,14 @@ const Timesheet = () => {
                               }
                             }
                             if (e.key === 'ArrowDown') {
+                              // Don't allow arrow keys for Leave Approved
                               if (
                                 row.type !== "project" &&
                                 row.task !== "Permission" &&
                                 row.task !== "Full Day Leave" &&
                                 row.task !== "Office Holiday" &&
-                                row.task !== "Half Day Leave"
+                                row.task !== "Half Day Leave" &&
+                                row.task !== "Leave Approved"  // Added this condition
                               ) {
                                 const key = `${row.id}_${dayIndex}`;
                                 const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
@@ -1448,94 +1510,104 @@ const Timesheet = () => {
                               return next;
                             });
                           }}
-                          className={`w-20 p-2 ${row.type !== "project" ? "pr-6" : ""} border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                            (row.type === "project" ? (!row.project || !row.task) : (!row.task))
+                          className={`w-20 p-2 ${row.type !== "project" ? "pr-6" : ""} border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${(row.type === "project" ? (!row.project || !row.task) : (!row.task))
                               ? "bg-gray-100 cursor-not-allowed"
-                              : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id) 
-                              ? "bg-gray-100 cursor-not-allowed" 
-                              : isSubmitted
-                              ? "bg-gray-100 cursor-not-allowed"
-                              : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
-                              ? "bg-gray-100 cursor-not-allowed"
-                              : !isShiftSelectedForDay(dayIndex)
-                              ? "bg-gray-100 cursor-not-allowed"
-                              : ""
-                          }`}
+                              : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
+                                ? "bg-gray-100 cursor-not-allowed"
+                                : isSubmitted || row.locked
+                                  ? "bg-gray-100 cursor-not-allowed"
+                                  : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
+                                    ? "bg-gray-100 cursor-not-allowed"
+                                    : !isShiftSelectedForDay(dayIndex)
+                                      ? "bg-gray-100 cursor-not-allowed"
+                                      : ""
+                            }`}
                           disabled={
                             isSubmitted ||
+                            row.locked ||
                             (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
                             (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
                             (!isShiftSelectedForDay(dayIndex))
                           }
                           title={
-                            isSubmitted 
-                              ? "Timesheet already submitted" 
-                              : (row.type === "project" ? (!row.project || !row.task) : (!row.task))
-                              ? (row.type === "project" ? "Please select project and task first" : "Please select a leave type or task")
-                              : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id) 
-                              ? "Permission not allowed for this day" 
-                              : (monthlyPermissionCount >= 3 && Number(hours) === 0)
-                              ? "Monthly permission limit reached" 
-                              : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
-                              ? "Full Day Leave applied on this day" 
-                              : !isShiftSelectedForDay(dayIndex)
-                              ? "Please select a shift for this day"
-                              : ""
+                            isSubmitted
+                              ? "Timesheet already submitted"
+                              : row.locked
+                                ? "Locked due to approved leave"
+                                : (row.type === "project" ? (!row.project || !row.task) : (!row.task))
+                                  ? (row.type === "project" ? "Please select project and task first" : "Please select a leave type or task")
+                                  : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
+                                    ? "Permission not allowed for this day"
+                                    : (monthlyPermissionCount >= 3 && Number(hours) === 0)
+                                      ? "Monthly permission limit reached"
+                                      : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
+                                        ? "Full Day Leave applied on this day"
+                                        : !isShiftSelectedForDay(dayIndex)
+                                          ? "Please select a shift for this day"
+                                          : ""
                           }
                         />
-                        {row.type !== "project" && row.task !== "Permission" && row.task !== "Full Day Leave" && row.task !== "Office Holiday" && row.task !== "Half Day Leave" && (
-                          <div className="absolute right-1 inset-y-1 flex flex-col justify-between">
-                            <button
-                              onClick={() => {
-                                const key = `${row.id}_${dayIndex}`;
-                                const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
-                                const base = parseHHMMToHours(baseStr);
-                                const next = base + 15 / 60;
-                                updateHours(row.id, dayIndex, formatHoursHHMM(next));
-                                setCellInputs((prev) => {
-                                  const nextInputs = { ...prev };
-                                  delete nextInputs[key];
-                                  return nextInputs;
-                                });
-                              }}
-                              disabled={
-                                isSubmitted ||
-                                (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
-                                (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                                (!isShiftSelectedForDay(dayIndex))
-                              }
-                              className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Increase 5 minutes"
-                            >
-                              <ChevronUp className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => {
-                                const key = `${row.id}_${dayIndex}`;
-                                const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
-                                const base = parseHHMMToHours(baseStr);
-                                const next = Math.max(0, base - 5 / 60);
-                                updateHours(row.id, dayIndex, formatHoursHHMM(next));
-                                setCellInputs((prev) => {
-                                  const nextInputs = { ...prev };
-                                  delete nextInputs[key];
-                                  return nextInputs;
-                                });
-                              }}
-                              disabled={
-                                isSubmitted ||
-                                (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
-                                (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                                (!isShiftSelectedForDay(dayIndex))
-                              }
-                              className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Decrease 15 minutes"
-                            >
-                              <ChevronDown className="w-3 h-3" />
-                            </button>
-                          </div>
-                        )}
+                        {/* Hide arrows for Leave Approved and other specific leave types */}
+                        {row.type !== "project" &&
+                          row.task !== "Permission" &&
+                          row.task !== "Full Day Leave" &&
+                          row.task !== "Office Holiday" &&
+                          row.task !== "Half Day Leave" &&
+                          row.task !== "Leave Approved" && (  // Added this condition
+                            <div className="absolute right-1 inset-y-1 flex flex-col justify-between">
+                              <button
+                                onClick={() => {
+                                  const key = `${row.id}_${dayIndex}`;
+                                  const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
+                                  const base = parseHHMMToHours(baseStr);
+                                  const next = base + 15 / 60;
+                                  updateHours(row.id, dayIndex, formatHoursHHMM(next));
+                                  setCellInputs((prev) => {
+                                    const nextInputs = { ...prev };
+                                    delete nextInputs[key];
+                                    return nextInputs;
+                                  });
+                                }}
+                                disabled={
+                                  isSubmitted ||
+                                  row.locked ||
+                                  (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
+                                  (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
+                                  (!isShiftSelectedForDay(dayIndex))
+                                }
+                                className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Increase 5 minutes"
+                              >
+                                <ChevronUp className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  const key = `${row.id}_${dayIndex}`;
+                                  const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
+                                  const base = parseHHMMToHours(baseStr);
+                                  const next = Math.max(0, base - 5 / 60);
+                                  updateHours(row.id, dayIndex, formatHoursHHMM(next));
+                                  setCellInputs((prev) => {
+                                    const nextInputs = { ...prev };
+                                    delete nextInputs[key];
+                                    return nextInputs;
+                                  });
+                                }}
+                                disabled={
+                                  isSubmitted ||
+                                  row.locked ||
+                                  (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
+                                  (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
+                                  (!isShiftSelectedForDay(dayIndex))
+                                }
+                                className="w-4 h-4 flex items-center justify-center bg-transparent text-gray-600 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Decrease 15 minutes"
+                              >
+                                <ChevronDown className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
                       </div>
                     </td>
                   ))}
@@ -1548,8 +1620,8 @@ const Timesheet = () => {
                     <button
                       onClick={() => deleteRow(row.id)}
                       className="p-2 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={timesheetRows.length <= 1 || isSubmitted}
-                      title={isSubmitted ? "Cannot delete after submission" : "Delete Row"}
+                      disabled={timesheetRows.length <= 1 || isSubmitted || row.locked}
+                      title={isSubmitted ? "Cannot delete after submission" : row.locked ? "Cannot delete locked leave entry" : "Delete Row"}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1590,7 +1662,7 @@ const Timesheet = () => {
                 </td>
                 <td className="p-3 border border-gray-200"></td>
               </tr>
-              
+
               {/* Break Time Row */}
               <tr className="font-semibold">
                 <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
@@ -1606,7 +1678,7 @@ const Timesheet = () => {
                 </td>
                 <td className="p-3 border border-gray-200"></td>
               </tr>
-              
+
               {/* Total Hours (Work + Break) */}
               <tr className="font-semibold bg-blue-50">
                 <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
@@ -1649,11 +1721,10 @@ const Timesheet = () => {
           <button
             onClick={submitTimesheet}
             disabled={loading || isSubmitted}
-            className={`px-6 py-3 rounded font-medium transition-colors flex items-center gap-2 ${
-              loading || isSubmitted
-                ? "bg-gray-400 cursor-not-allowed" 
+            className={`px-6 py-3 rounded font-medium transition-colors flex items-center gap-2 ${loading || isSubmitted
+                ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-700 hover:bg-blue-800 text-white"
-            }`}
+              }`}
           >
             {loading ? (
               <>
@@ -1671,21 +1742,21 @@ const Timesheet = () => {
           </button>
         </div>
       </div>
-        {/* Important Notes Section */}
-        <div className="p-4  border-t border-gray-200">
-          <h3 className="text-sm font-semibold text-gray-900 mb-2">Important Notes:</h3>
-          <ul className="text-xs text-gray-600 space-y-1">
-            <li>• Break time: Maximum 1 hour 15 minutes (1.15h) allowed per day</li>
-            <li>• Shift timings: 
-              <ul className="ml-4 mt-1 space-y-1">
-                <li>First Shift: 7:00 AM - 3:30 PM</li>
-                <li>Second Shift: 3:00 PM - 11:30 PM</li>
-                <li>General Shift: 9:30 AM - 7:00 PM</li>
-              </ul>
-            </li>
-            <li>• Monthly permission limit: Maximum 3 hours allowed per month</li>
-          </ul>
-        </div>
+      {/* Important Notes Section */}
+      <div className="p-4  border-t border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-900 mb-2">Important Notes:</h3>
+        <ul className="text-xs text-gray-600 space-y-1">
+          <li>• Break time: Maximum 1 hour 15 minutes (1.15h) allowed per day</li>
+          <li>• Shift timings:
+            <ul className="ml-4 mt-1 space-y-1">
+              <li>First Shift: 7:00 AM - 3:30 PM</li>
+              <li>Second Shift: 3:00 PM - 11:30 PM</li>
+              <li>General Shift: 9:30 AM - 7:00 PM</li>
+            </ul>
+          </li>
+          <li>• Monthly permission limit: Maximum 3 hours allowed per month</li>
+        </ul>
+      </div>
 
       {/* Navigation Confirmation Dialog */}
       {showNavigationDialog && (
