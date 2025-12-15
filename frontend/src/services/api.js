@@ -1,8 +1,14 @@
 import axios from 'axios';
 
+const origin = typeof window !== 'undefined' ? window.location.origin : '';
+const isVercelHost = typeof window !== 'undefined' && /vercel\.app$/i.test(window.location.host);
 const API_BASE_URL =
   process.env.REACT_APP_API_BASE ||
-  (typeof window !== 'undefined' ? `${window.location.origin}/api` : 'http://localhost:5003/api');
+  (isVercelHost
+    ? 'https://employee-react-main.onrender.com/api'
+    : origin
+      ? `${origin}/api`
+      : 'http://localhost:5003/api');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
