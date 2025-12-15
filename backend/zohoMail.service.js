@@ -1,8 +1,7 @@
-// services/zohoMail.service.js
 const axios = require("axios");
 
 async function getAccessToken() {
-  const res = await axios.post(
+  const response = await axios.post(
     "https://accounts.zoho.in/oauth/v2/token",
     null,
     {
@@ -15,7 +14,7 @@ async function getAccessToken() {
     }
   );
 
-  return res.data.access_token;
+  return response.data.access_token;
 }
 
 async function sendZohoMail({ to, subject, content }) {
@@ -27,7 +26,7 @@ async function sendZohoMail({ to, subject, content }) {
       fromAddress: "support@caldimengg.in",
       toAddress: to,
       subject,
-      content, // plain text or HTML
+      content,
     },
     {
       headers: {

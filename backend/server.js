@@ -26,6 +26,7 @@ const upload = multer(); // optional for file uploads
 // --------------------- API ROUTES --------------------- //
 app.use("/api/auth", require("./routes/auth"));
 app.use("/api/employees", require("./routes/employees"));
+app.use("/api/mail", require("./routes/mail.routes"));
 app.use("/api/timesheets", require("./routes/timesheets"));
 app.use("/api/projects", require("./routes/projectRoutes"));
 app.use("/api/allocations", require("./routes/allocationRoutes"));
@@ -48,8 +49,8 @@ app.use("/api/admin-timesheet", require("./routes/admintimesheetRoutes"));
 
 app.use("/api/leave", require("./routes/leaveRoutes"));
 
-//zoho email
-app.use("/api/mail", require("./routes/mailRoutes"));
+app.use("/api/mail", require("./routes/mail.routes"));
+
 
 
 // Base Route
@@ -147,5 +148,5 @@ app.listen(PORT, () => {
 
 //--------zoho email-----//
 app.get("/zoho/callback", (req, res) => {
-  res.send("Zoho OAuth success. You can close this page.");
+  res.send("Zoho OAuth successful. You can close this tab.");
 });

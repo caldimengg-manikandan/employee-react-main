@@ -1,6 +1,6 @@
-// routes/mailRoutes.js
 const express = require("express");
 const { sendZohoMail } = require("../zohoMail.service");
+
 
 const router = express.Router();
 

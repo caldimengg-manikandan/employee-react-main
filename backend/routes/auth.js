@@ -4,20 +4,11 @@ const User = require('../models/User');
 const Employee = require('../models/Employee');
 const auth = require('../middleware/auth');
 const otpGenerator = require('otp-generator');
-const nodemailer = require('nodemailer');
+const { sendZohoMail } = require('../zohoMail.service');
 
 const router = express.Router();
 
-// Configure nodemailer
-const transporter = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: process.env.EMAIL_PORT,
-  secure: true,
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
-  }
-});
+ 
 
 // Login
 router.post('/login', async (req, res) => {
@@ -93,13 +84,11 @@ router.post('/forgot-password', async (req, res) => {
     user.resetOtp = otp;
     user.resetOtpExpiry = Date.now() + 10 * 60 * 1000;
     await user.save();
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
+    await sendZohoMail({
       to: user.email,
       subject: 'Password Reset OTP',
-      text: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`
-    };
-    await transporter.sendMail(mailOptions);
+      content: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`
+    });
     res.json({ message: 'OTP sent to your email' });
   } catch (error) {
     res.status(500).json({ message: 'Server error' });
