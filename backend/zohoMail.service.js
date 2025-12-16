@@ -1,39 +1,32 @@
-const axios = require("axios");
-
-async function getAccessToken() {
-  const response = await axios.post(
-    "https://accounts.zoho.in/oauth/v2/token",
-    null,
-    {
-      params: {
-        refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-        client_id: process.env.ZOHO_CLIENT_ID,
-        client_secret: process.env.ZOHO_CLIENT_SECRET,
-        grant_type: "refresh_token",
-      },
-    }
-  );
-
-  return response.data.access_token;
-}
+const nodemailer = require("nodemailer");
 
 async function sendZohoMail({ to, subject, content }) {
-  const accessToken = await getAccessToken();
-
-  return axios.post(
-    `https://mail.zoho.in/api/accounts/${process.env.ZOHO_ACCOUNT_ID}/messages`,
-    {
-      fromAddress: "support@caldimengg.in",
-      toAddress: to,
-      subject,
-      content,
-    },
-    {
-      headers: {
-        Authorization: `Zoho-oauthtoken ${accessToken}`,
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST || "smtp.zoho.com",
+      port: process.env.EMAIL_PORT || 465,
+      secure: true, // true for 465, false for other ports
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
       },
-    }
-  );
+    });
+
+    const mailOptions = {
+      from: process.env.EMAIL_USER, // sender address
+      to: to, // list of receivers
+      subject: subject, // Subject line
+      text: content, // plain text body
+      html: content, // html body (optional, using content as both for now)
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log("Message sent: %s", info.messageId);
+    return info;
+  } catch (error) {
+    console.error("Error sending Zoho mail:", error);
+    throw error;
+  }
 }
 
 module.exports = { sendZohoMail };

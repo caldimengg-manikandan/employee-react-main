@@ -5,6 +5,7 @@ const Employee = require('../models/Employee');
 const auth = require('../middleware/auth');
 const otpGenerator = require('otp-generator');
 const { sendZohoMail } = require('../zohoMail.service');
+const { sendResendMail } = require('../resend.service');
 
 const router = express.Router();
 
@@ -67,11 +68,27 @@ router.post('/forgot-password', async (req, res) => {
   const { email, employeeId } = req.body;
   try {
     let user = null;
-    if (employeeId) {
-      user = await User.findOne({ employeeId });
-    } else if (email) {
-      user = await User.findOne({ email });
+    let targetEmail = email;
+
+    // Resolve by employeeId -> Employee -> email -> User
+    if (!targetEmail && employeeId) {
+      const emp = await Employee.findOne({ employeeId }).select('email name employeeId');
+      if (!emp || !emp.email) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+      targetEmail = emp.email;
     }
+
+    // Find user by resolved email, fall back to employeeId
+    if (targetEmail) {
+      user = await User.findOne({ email: targetEmail });
+      if (!user && employeeId) {
+        user = await User.findOne({ employeeId });
+      }
+    } else if (employeeId) {
+      user = await User.findOne({ employeeId });
+    }
+
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -84,13 +101,31 @@ router.post('/forgot-password', async (req, res) => {
     user.resetOtp = otp;
     user.resetOtpExpiry = Date.now() + 10 * 60 * 1000;
     await user.save();
-    await sendZohoMail({
-      to: user.email,
-      subject: 'Password Reset OTP',
-      content: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`
-    });
+    try {
+      if (process.env.RESEND_API_KEY) {
+        await sendResendMail({
+          to: targetEmail || user.email,
+          subject: 'Password Reset OTP',
+          content: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`
+        });
+      } else {
+        await sendZohoMail({
+          to: targetEmail || user.email,
+          subject: 'Password Reset OTP',
+          content: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`
+        });
+      }
+    } catch (e) {
+      console.error("Resend/Primary mail failed, trying Zoho fallback:", e.message);
+      await sendZohoMail({
+        to: targetEmail || user.email,
+        subject: 'Password Reset OTP',
+        content: `Your OTP for password reset is: ${otp}. It will expire in 10 minutes.`
+      });
+    }
     res.json({ message: 'OTP sent to your email' });
   } catch (error) {
+    console.error("Forgot Password Error:", error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -100,19 +135,30 @@ router.post('/reset-password', async (req, res) => {
   const { email, employeeId, otp, newPassword } = req.body;
   try {
     let user = null;
-    if (employeeId) {
+    let targetEmail = email;
+
+    // Resolve email via employeeId if provided
+    if (!targetEmail && employeeId) {
+      const emp = await Employee.findOne({ employeeId }).select('email');
+      targetEmail = emp?.email || null;
+    }
+
+    // Find user by email and OTP window, fallback to employeeId
+    if (targetEmail) {
+      user = await User.findOne({
+        email: targetEmail,
+        resetOtp: otp,
+        resetOtpExpiry: { $gt: Date.now() }
+      });
+    }
+    if (!user && employeeId) {
       user = await User.findOne({
         employeeId,
         resetOtp: otp,
         resetOtpExpiry: { $gt: Date.now() }
       });
-    } else if (email) {
-      user = await User.findOne({
-        email,
-        resetOtp: otp,
-        resetOtpExpiry: { $gt: Date.now() }
-      });
     }
+
     if (!user) {
       return res.status(400).json({ message: 'Invalid or expired OTP' });
     }

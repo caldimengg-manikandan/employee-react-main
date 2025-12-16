@@ -147,37 +147,37 @@ const AdminPolicyPortal = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Column - Policy Content */}
-          {!isEmployee && (
-            <div className="lg:w-2/3">
-              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-                {activePolicy ? (
-                  <>
-                    {/* Policy Title Bar */}
-                    <div className="border-b border-gray-200 px-6 py-4">
-                      <div className="flex justify-between items-center">
-                        <div className="flex-1">
-                          {editingTitle ? (
-                            <input
-                              type="text"
-                              value={policyTitle}
-                              onChange={handleTitleChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-lg font-semibold"
-                              onKeyPress={(e) => {
-                                if (e.key === 'Enter') {
-                                  handleSaveChanges();
-                                }
-                              }}
-                            />
-                          ) : (
-                            <h2 className="text-lg font-semibold text-gray-900">
-                              {policyTitle}
-                            </h2>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <span className="text-sm text-gray-500">
-                            Updated: {activePolicy.updatedAt ? new Date(activePolicy.updatedAt).toISOString().split('T')[0] : ''}
-                          </span>
+          <div className="lg:w-2/3">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+              {activePolicy ? (
+                <>
+                  {/* Policy Title Bar */}
+                  <div className="border-b border-gray-200 px-6 py-4">
+                    <div className="flex justify-between items-center">
+                      <div className="flex-1">
+                        {editingTitle ? (
+                          <input
+                            type="text"
+                            value={policyTitle}
+                            onChange={handleTitleChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-lg font-semibold"
+                            onKeyPress={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveChanges();
+                              }
+                            }}
+                          />
+                        ) : (
+                          <h2 className="text-lg font-semibold text-gray-900">
+                            {policyTitle}
+                          </h2>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm text-gray-500">
+                          Updated: {activePolicy.updatedAt ? new Date(activePolicy.updatedAt).toISOString().split('T')[0] : ''}
+                        </span>
+                        {!isEmployee && (
                           <button
                             onClick={() => {
                               if (editingTitle) {
@@ -190,31 +190,33 @@ const AdminPolicyPortal = () => {
                           >
                             <PencilIcon className="h-4 w-4" />
                           </button>
-                        </div>
+                        )}
                       </div>
                     </div>
-  
-                    {/* Content Area */}
-                    <div className="p-6">
-                      {editingContent ? (
-                        <div>
-                          <textarea
-                            value={content}
-                            onChange={handleContentChange}
-                            className="w-full h-[400px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                            placeholder="# Enter policy content here"
-                          />
-                        </div>
-                      ) : (
-                        <div className="prose max-w-none">
-                          <div 
-                            className="policy-content"
-                            dangerouslySetInnerHTML={{ __html: formatContentForDisplay(content) }}
-                          />
-                        </div>
-                      )}
-                      
-                      {/* Edit Content Button */}
+                  </div>
+
+                  {/* Content Area */}
+                  <div className="p-6">
+                    {editingContent ? (
+                      <div>
+                        <textarea
+                          value={content}
+                          onChange={handleContentChange}
+                          className="w-full h-[400px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                          placeholder="# Enter policy content here"
+                        />
+                      </div>
+                    ) : (
+                      <div className="prose max-w-none">
+                        <div 
+                          className="policy-content"
+                          dangerouslySetInnerHTML={{ __html: formatContentForDisplay(content) }}
+                        />
+                      </div>
+                    )}
+                    
+                    {/* Edit Content Button */}
+                    {!isEmployee && (
                       <div className="mt-6 pt-6 border-t border-gray-200">
                         <button
                           onClick={() => {
@@ -239,13 +241,15 @@ const AdminPolicyPortal = () => {
                           )}
                         </button>
                       </div>
-                    </div>
-                  </>
-                ) : (
-                  <div className="p-12 text-center">
-                    <DocumentTextIcon className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Policy Selected</h3>
-                    <p className="text-gray-500 mb-6">Select a policy from the list or create a new one</p>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="p-12 text-center">
+                  <DocumentTextIcon className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Policy Selected</h3>
+                  <p className="text-gray-500 mb-6">Select a policy from the list or create a new one</p>
+                  {!isEmployee && (
                     <button
                       onClick={handleAddPolicy}
                       className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -253,11 +257,11 @@ const AdminPolicyPortal = () => {
                       <PlusIcon className="h-4 w-4 mr-2" />
                       Create New Policy
                     </button>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </div>
-          )}
+          </div>
 
           {/* Right Column - Policy List */}
           <div className="lg:w-1/3">

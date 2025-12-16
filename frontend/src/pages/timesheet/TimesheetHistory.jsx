@@ -420,10 +420,10 @@ const TimesheetHistory = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6">
+      {/* <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Timesheet History</h1>
         <p className="text-gray-600">View your submitted timesheets and drafts</p>
-      </div>
+      </div> */}
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">

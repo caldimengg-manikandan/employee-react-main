@@ -473,10 +473,10 @@ const LeaveApplications = () => {
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="w-full mx-auto px-0">
         {/* Header */}
-        <div className="mb-8">
+        {/* <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">Employee Leave Application</h1>
 
-        </div>
+        </div> */}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left column - Leave request form */}

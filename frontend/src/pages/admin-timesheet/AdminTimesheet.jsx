@@ -737,9 +737,9 @@ const AdminTimesheet = () => {
   return (
     <div style={styles.adminTimesheet}>
       {/* Header */}
-      <div style={styles.timesheetHeader}>
+      {/* <div style={styles.timesheetHeader}>
         <h1 style={styles.headerTitle}>Timesheet Management</h1>
-      </div>
+      </div> */}
 
       {/* Statistics Cards */}
       <div style={styles.statsGrid}>

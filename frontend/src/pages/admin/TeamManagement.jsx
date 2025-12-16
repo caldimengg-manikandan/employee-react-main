@@ -161,7 +161,7 @@ const TeamManagement = () => {
   return (
     <div className="p-6 w-full">
 
-      <h1 className="text-2xl font-semibold text-gray-800 mb-4">Team Management</h1>
+      {/* <h1 className="text-2xl font-semibold text-gray-800 mb-4">Team Management</h1> */}
       {error && <div className="mb-4 text-red-600 text-sm">{error}</div>}
 
       <div className="grid grid-cols-1 gap-6 w-full">

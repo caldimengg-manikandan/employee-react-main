@@ -191,12 +191,12 @@ const LeaveBalance = () => {
   return (
     <div className="space-y-4 p-6">
       {/* Header */}
-      <div className="flex justify-between items-center mb-6">
+      {/* <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Leave Balance Management</h1>
           <p className="text-gray-600">View employee leave balances</p>
         </div>
-      </div>
+      </div> */}
 
       {/* Search Box and Refresh Button */}
       <div className="flex items-center justify-between">

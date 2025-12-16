@@ -38,7 +38,20 @@ const Header = ({ onMenuClick }) => {
       '/timesheet': 'Employee Timesheet',
       '/timesheet/history': 'Timesheet History',
       '/timesheet/attendance': 'Employee In/Out Timing',
+      '/admin/timesheet': 'Admin Timesheet Management',
+      '/admin/timesheet/approval': 'Timesheet Summary',
       '/project-allocation': 'Project Allocation',
+      '/leave-management/summary': 'Leave Summary',
+      '/leave-management/balance': 'Leave Balance',
+      '/leave-management/edit-eligibility': 'Edit Leave Eligibility',
+      '/leave-management/trainees': 'Trainees Management',
+      '/leave-applications': 'Leave Applications',
+      '/insurance': 'Insurance',
+      '/policies': 'Policy Portal',
+      '/salaryslips': 'Salary Slips',
+      '/expenditure-management': 'Expenditure Management',
+      '/employee-reward-tracker': 'Employee Reward Tracker',
+      '/admin/team-management': 'Team Management',
     };
     
     return routeTitles[location.pathname] || 'Dashboard';
@@ -202,7 +215,7 @@ const Header = ({ onMenuClick }) => {
           const mappedData = {
             employeeId: emp.employeeId || base.employeeId,
             name: emp.name || emp.employeename || base.name,
-            dateOfBirth: emp.dateOfBirth || emp.dob || base.dateOfBirth,
+            dateOfBirth: (emp.dateOfBirth || emp.dob) ? new Date(emp.dateOfBirth || emp.dob).toISOString().split('T')[0] : base.dateOfBirth,
             qualification: emp.qualification || emp.highestQualification || base.qualification,
             bloodGroup: emp.bloodGroup || base.bloodGroup,
             location: emp.location || base.location,
@@ -223,7 +236,7 @@ const Header = ({ onMenuClick }) => {
             uan: emp.uan || base.uan,
             designation: emp.designation || base.designation,
             division: emp.division || base.division,
-            dateOfJoining: emp.dateOfJoining || base.dateOfJoining,
+            dateOfJoining: (emp.dateOfJoining || emp.dateofjoin) ? new Date(emp.dateOfJoining || emp.dateofjoin).toISOString().split('T')[0] : base.dateOfJoining,
             previousExperience: emp.previousExperience || base.previousExperience,
             previousOrganizations: emp.previousOrganizations || base.previousOrganizations,
             currentExperience: emp.currentExperience || base.currentExperience,
@@ -390,8 +403,10 @@ const Header = ({ onMenuClick }) => {
     try {
       const hasUserAccess = Array.isArray(user.permissions) && user.permissions.includes('user_access');
       if (hasUserAccess && employeeDoc && employeeDoc._id) {
+        // If user has admin access and is editing a linked employee doc, update it via ID
         await employeeAPI.updateEmployee(employeeDoc._id, finalData);
       } else {
+        // Otherwise use the "me" endpoint which uses the logged-in user's employeeId
         await employeeAPI.updateMyProfile(finalData);
       }
       const updatedUser = {
@@ -404,9 +419,21 @@ const Header = ({ onMenuClick }) => {
         status: finalData.status || user.status
       };
       sessionStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
       setIsProfileEditOpen(false);
-      window.location.reload();
-    } catch {}
+      alert('Profile updated successfully!');
+      
+      // Refresh the employee data
+      try {
+        const res = await employeeAPI.getMyProfile();
+        setEmployeeDoc(res.data);
+      } catch (err) {
+        console.error("Error refreshing profile:", err);
+      }
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      alert('Failed to update profile. Please try again.');
+    }
   };
 
   const handleProfileCancel = () => {
