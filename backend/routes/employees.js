@@ -35,6 +35,19 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Get current user's employee profile
+router.get('/me', auth, async (req, res) => {
+  try {
+    const empId = req.user.employeeId;
+    if (!empId) return res.status(404).json({ message: 'Employee ID not linked' });
+    const employee = await Employee.findOne({ employeeId: empId });
+    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+    res.json(employee);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get employee by ID - restricted based on user permissions
 router.get('/:id', auth, async (req, res) => {
   try {
@@ -61,19 +74,6 @@ router.get('/:id', auth, async (req, res) => {
     }
 
     return res.status(403).json({ message: 'Access denied' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Get current user's employee profile
-router.get('/me', auth, async (req, res) => {
-  try {
-    const empId = req.user.employeeId;
-    if (!empId) return res.status(404).json({ message: 'Employee ID not linked' });
-    const employee = await Employee.findOne({ employeeId: empId });
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
-    res.json(employee);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -116,6 +116,51 @@ router.post('/', auth, async (req, res) => {
     const employee = new Employee(data);
     const savedEmployee = await employee.save();
     res.status(201).json(savedEmployee);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+});
+
+// Update current user's own employee profile (self-service)
+router.put('/me', auth, async (req, res) => {
+  try {
+    const empId = req.user.employeeId;
+    if (!empId) return res.status(404).json({ message: 'Employee ID not linked' });
+
+    const body = req.body || {};
+    const data = { ...body };
+    if (!data.name && data.employeename) data.name = data.employeename;
+    if (!data.employeename && data.name) data.employeename = data.name;
+    if (!data.mobileNo && (data.contactNumber || data.phone)) data.mobileNo = data.contactNumber || data.phone;
+    if (!data.contactNumber && data.mobileNo) data.contactNumber = data.mobileNo;
+    if (!data.dateOfBirth && data.dob) data.dateOfBirth = data.dob;
+    if (!data.dateOfJoining && (data.hireDate || data.dateofjoin)) data.dateOfJoining = data.hireDate || data.dateofjoin;
+    if (!data.emergencyMobileNo && (data.emergencyMobile || data.emergencyContact)) data.emergencyMobileNo = data.emergencyMobile || data.emergencyContact;
+    if (!data.emergencyContact && (data.emergencyMobileNo || data.emergencyMobile)) data.emergencyContact = data.emergencyMobileNo || data.emergencyMobile;
+    if (!data.highestQualification && data.qualification) data.highestQualification = data.qualification;
+    if (!data.qualification && data.highestQualification) data.qualification = data.highestQualification;
+    if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
+    if (!data.position && data.role) data.position = data.role;
+    if (!data.position && data.designation) data.position = data.designation;
+    if (Array.isArray(data.previousOrganizations)) {
+      data.previousOrganizations = data.previousOrganizations.map(org => {
+        const o = { ...org };
+        if (!o.designation && (o.position || o.role)) o.designation = o.position || o.role;
+        if (!o.position && o.role) o.position = o.role;
+        if (!o.position && o.designation) o.position = o.designation;
+        delete o.role;
+        return o;
+      });
+    }
+    delete data.role;
+
+    const employee = await Employee.findOneAndUpdate(
+      { employeeId: empId },
+      data,
+      { new: true, runValidators: true }
+    );
+    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+    res.json(employee);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -164,51 +209,6 @@ router.put('/:id', auth, async (req, res) => {
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
-    res.json(employee);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-});
-
-// Update current user's own employee profile (self-service)
-router.put('/me', auth, async (req, res) => {
-  try {
-    const empId = req.user.employeeId;
-    if (!empId) return res.status(404).json({ message: 'Employee ID not linked' });
-
-    const body = req.body || {};
-    const data = { ...body };
-    if (!data.name && data.employeename) data.name = data.employeename;
-    if (!data.employeename && data.name) data.employeename = data.name;
-    if (!data.mobileNo && (data.contactNumber || data.phone)) data.mobileNo = data.contactNumber || data.phone;
-    if (!data.contactNumber && data.mobileNo) data.contactNumber = data.mobileNo;
-    if (!data.dateOfBirth && data.dob) data.dateOfBirth = data.dob;
-    if (!data.dateOfJoining && (data.hireDate || data.dateofjoin)) data.dateOfJoining = data.hireDate || data.dateofjoin;
-    if (!data.emergencyMobileNo && (data.emergencyMobile || data.emergencyContact)) data.emergencyMobileNo = data.emergencyMobile || data.emergencyContact;
-    if (!data.emergencyContact && (data.emergencyMobileNo || data.emergencyMobile)) data.emergencyContact = data.emergencyMobileNo || data.emergencyMobile;
-    if (!data.highestQualification && data.qualification) data.highestQualification = data.qualification;
-    if (!data.qualification && data.highestQualification) data.qualification = data.highestQualification;
-    if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
-    if (!data.position && data.role) data.position = data.role;
-    if (!data.position && data.designation) data.position = data.designation;
-    if (Array.isArray(data.previousOrganizations)) {
-      data.previousOrganizations = data.previousOrganizations.map(org => {
-        const o = { ...org };
-        if (!o.designation && (o.position || o.role)) o.designation = o.position || o.role;
-        if (!o.position && o.role) o.position = o.role;
-        if (!o.position && o.designation) o.position = o.designation;
-        delete o.role;
-        return o;
-      });
-    }
-    delete data.role;
-
-    const employee = await Employee.findOneAndUpdate(
-      { employeeId: empId },
-      data,
-      { new: true, runValidators: true }
-    );
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
     res.json(employee);
   } catch (error) {
     res.status(400).json({ message: error.message });

@@ -122,22 +122,28 @@ const LeaveApplications = () => {
         throw new Error('No balance found');
       } catch {
         try {
-          const user = JSON.parse(sessionStorage.getItem('user') || '{}');
-          const empId = user.employeeId || user.employeeCode || user.empId || '';
-          const res2 = await employeeAPI.getAllEmployees();
-          const list = Array.isArray(res2.data) ? res2.data : [];
-          const emp = list.find(e => String(e.employeeId || '').toLowerCase() === String(empId || '').toLowerCase())
-            || list.find(e => String(e.email || '').toLowerCase() === String(user.email || '').toLowerCase())
-            || list.find(e => String(e.name || '').toLowerCase() === String(user.name || '').toLowerCase());
-          if (!emp) return;
+          const [empRes, myLeavesRes] = await Promise.all([
+            employeeAPI.getMyProfile().catch(() => null),
+            leaveAPI.myLeaves().catch(() => ({ data: [] }))
+          ]);
+          const emp = empRes?.data || {};
           const doj = emp.dateOfJoining || emp.dateofjoin || emp.hireDate || emp.createdAt || '';
           const m = monthsBetween(doj);
           const d = emp.designation || emp.position || emp.role || '';
-          const balances = calculateLeaveBalances({ designation: d, monthsOfService: m });
+          const alloc = calculateLeaveBalances({ designation: d, monthsOfService: m });
+          const myApproved = Array.isArray(myLeavesRes?.data) ? myLeavesRes.data.filter(l => l.status === 'Approved') : [];
+          const used = myApproved.reduce((acc, l) => {
+            const t = l.leaveType;
+            const days = Number(l.totalDays || 0);
+            if (t === 'CL') acc.CL += days;
+            else if (t === 'SL') acc.SL += days;
+            else if (t === 'PL') acc.PL += days;
+            return acc;
+          }, { CL: 0, SL: 0, PL: 0 });
           setLeaveBalance({
-            CL: balances.CL,
-            SL: balances.SL,
-            PL: balances.PL,
+            CL: Math.max(0, Math.round((Number(alloc.CL || 0) - Number(used.CL || 0)) * 10) / 10),
+            SL: Math.max(0, Math.round((Number(alloc.SL || 0) - Number(used.SL || 0)) * 10) / 10),
+            PL: Math.max(0, Math.round((Number(alloc.PL || 0) - Number(used.PL || 0)) * 10) / 10),
             BEREAVEMENT: 2
           });
         } catch { }
