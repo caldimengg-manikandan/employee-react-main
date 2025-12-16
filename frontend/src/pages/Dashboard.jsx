@@ -92,7 +92,7 @@ const ProjectDashboard = () => {
     const permissions = user.permissions || [];
     const role = user.role || 'employees';
 
-    const policyModuleName = role === 'admin' ? 'Police Portal' : 'Police';
+    const policyModuleName = role === 'admin' ? 'Policy Portal' : 'Policy';
     const modules = [
         { name: 'Timesheet', description: 'Log work hours', path: '/timesheet', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true },
         { name: policyModuleName, description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, permission: 'dashboard', allowEmployeeRole: true },
