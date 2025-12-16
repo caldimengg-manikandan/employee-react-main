@@ -717,21 +717,16 @@ const Timesheet = () => {
     );
     const breakAfterUpdate = hasWorkAfterUpdate ? 1.25 : 0;
 
-    // Enforce Shift Limit (9.5h) - Leave Hours
-    // This ensures Total (Project + Leave) <= 9.5
-    const MAX_SHIFT_HOURS = 9.5;
-    const currentDailyLeaveTotal = timesheetRows.reduce((total, r) => {
-      if (r.type === "leave") return total + (r.hours[dayIndex] || 0);
-      return total;
-    }, 0);
-
-    // Calculate how much project time is allowed based on the 9.5h limit
-    const remainingShiftAllowed = Math.max(0, MAX_SHIFT_HOURS - currentDailyLeaveTotal - currentDailyProjectTotal);
-
-    // Apply Shift Limit Cap
-    if (numValue > remainingShiftAllowed) {
-      numValue = remainingShiftAllowed;
+    // Enforce daily cap: Total (Work + Break) must not exceed On-Premises Time
+    {
+      const opHoursCap = Number(onPremisesTime?.daily?.[dayIndex] || 0);
+      const allowedAdditional = Math.max(0, opHoursCap - breakAfterUpdate - currentDailyAllTotal);
+      if (numValue > allowedAdditional) {
+        numValue = allowedAdditional;
+      }
     }
+
+    // Shift-based caps removed in favor of on-premises enforcement
 
     // Enforce on-premises cap: project work + auto break must not exceed on-premises time
     // WE RELAX THIS CHECK if there is a Half Day Leave / Leave Approved (Partial), 
@@ -987,27 +982,15 @@ const Timesheet = () => {
         (row) => row.type === "project" && ((row.hours?.[i] || 0) > 0)
       );
 
-      // Validation: Total Hours (Project + Leave) should not exceed On-Premises Timing (usually 9.5 or similar, but practically 24h is the hard limit, however user requested "not more then a On-Premises Timeing")
-      // User request: "not more then a On-Premises Timeing"
-      // If "On-Premises Timing" refers to the shift duration (e.g. 9.5h), we should check against that.
-      // But typically "On-Premises Time" in this app context refers to the actual attendance duration fetched from Hikvision.
-      // If the user means "don't exceed the shift limit" (e.g. 24h or 9.5h), that's one thing.
-      // If the user means "don't exceed the actual time they were in the office", that's another.
-      // Given the phrasing "once the employee apply the 0.5 day leave 4:45hours that day time the project cell will enterable not more then a On-Premises Timeing",
-      // it sounds like they want the sum of (Leave + Project) to be <= Shift Duration (e.g. 9.5h) OR <= Actual On-Premises Time.
-      // However, usually you can't book more time than you were present + leave.
-
-      // Let's assume "On-Premises Timeing" implies the standard full day working hours (9.5 hours) for now, as 4.75 is half of 9.5.
-      const MAX_DAILY_HOURS = 9.5;
-
-      // Calculate total hours for the day (Project + Leave)
-      let totalDayHours = 0;
-      timesheetRows.forEach(row => {
-        totalDayHours += (Number(row.hours?.[i]) || 0);
+      let workTotal = 0;
+      timesheetRows.forEach((row) => {
+        workTotal += Number(row.hours?.[i] || 0);
       });
+      const breakHours = computeBreakForDay(i);
+      const totalWithBreak = workTotal + breakHours;
 
-      if (totalDayHours > MAX_DAILY_HOURS) {
-        alert(`Total hours for ${days[i]} (Project + Leave) cannot exceed ${MAX_DAILY_HOURS} hours.`);
+      if (totalWithBreak > op) {
+        alert(`Total Hours (Work + Break) for ${days[i]} cannot exceed On-Premises Time.\n\nEntered: ${formatHoursHHMM(totalWithBreak)}\nOn-Premises: ${formatHoursHHMM(op)}`);
         return;
       }
 

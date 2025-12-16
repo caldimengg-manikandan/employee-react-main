@@ -462,40 +462,8 @@ const SalarySlips = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header className="flex justify-between items-center px-4 sm:px-6 py-4 bg-[#262760] text-white shadow-md print:hidden">
-        <button 
-          onClick={showPayslip ? handleBackToSelection : handleGoHome}
-          className="px-4 py-2 bg-teal-600 hover:bg-teal-700 text-white rounded-md font-medium transition-colors flex items-center"
-        >
-          {showPayslip ? (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
-              </svg>
-              Back
-            </>
-          ) : (
-            <>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
-              </svg>
-              Home
-            </>
-          )}
-        </button>
-        <div className="text-center flex-1">
-          <h1 className="text-lg sm:text-xl font-semibold">
-            {showPayslip ? (
-              <>
-                Payslip - {payslipData?.month} {payslipData?.year}
-                <span className="block text-sm font-normal mt-1">
-                  Financial Year: {payslipData?.financialYear}
-                </span>
-              </>
-            ) : (
-              'Salary Slips - CALDIM ENGINEERING'
-            )}
-          </h1>
-        </div>
+        
+       
         <div className="flex items-center gap-2">
           {showPayslip && (
             <>
@@ -520,15 +488,7 @@ const SalarySlips = () => {
               </button>
             </>
           )}
-          <button 
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md font-medium transition-colors flex items-center"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M3 3a1 1 0 00-1 1v12a1 1 0 001 1h12a1 1 0 001-1V4a1 1 0 00-1-1H3zm11 4a2 2 0 10-2.83 1.757l2.83 2.829a2 2 0 101.415-1.414l-2.83-2.829A1.99 1.99 0 0014 7z" clipRule="evenodd" />
-            </svg>
-            Logout
-          </button>
+         
         </div>
       </header>
 

@@ -91,15 +91,15 @@ function App() {
             <Route
               path="admin/timesheet"
               element={
-                <ProtectedRoute requiredPermissions={["timesheet_access"]}>
+                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin"]}>
                   <AdminTimesheet />
                 </ProtectedRoute>
               }
             />
-            <Route
+            <Route 
               path="admin/timesheet/approval"
               element={
-                <ProtectedRoute requiredPermissions={["timesheet_access"]}>
+                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin"]}>
                   <TimesheetSummary />
                 </ProtectedRoute>
               }
@@ -140,7 +140,7 @@ function App() {
               element={
                 <ProtectedRoute 
                   requiredPermissions={["payroll_access"]} 
-                  roles={["admin", "hr", "employee"]}
+                  roles={["admin", "hr", "employees"]}
                   allowEmployeeRole
                 >
                   <SalarySlips />
@@ -195,7 +195,7 @@ function App() {
               element={
                 <ProtectedRoute 
                   requiredPermissions={["leave_view"]} 
-                  roles={["admin", "hr", "manager", "employee"]}
+                  roles={["admin", "hr", "manager", "employees"]}
                   allowEmployeeRole
                 >
                   <LeaveBalance />
@@ -222,7 +222,7 @@ function App() {
               element={
                 <ProtectedRoute 
                   requiredPermissions={["leave_access"]} 
-                  roles={["employee"]} 
+                  roles={["employees"]} 
                   allowEmployeeRole
                 >
                   <LeaveApplications />

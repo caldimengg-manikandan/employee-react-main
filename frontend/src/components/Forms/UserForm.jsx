@@ -58,6 +58,16 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         permissions: user.permissions || [],
         employeeId: user.employeeId || ''
       });
+    } else {
+      setFormData({
+        name: '',
+        email: '',
+        role: '',
+        password: '',
+        confirmPassword: '',
+        permissions: [],
+        employeeId: ''
+      });
     }
   }, [user]);
 

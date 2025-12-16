@@ -98,7 +98,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       if (!/^[A-Za-z\s]+$/.test(v)) return 'Only alphabetic characters allowed';
     }
     if (field === 'qualification' || field === 'highestQualification') {
-      if (v && !/^[A-Z\s]+$/.test(v)) return 'Only uppercase letters allowed';
+      if (v && !/^[A-Z\s()./&-]+$/.test(v)) return 'Only uppercase letters and . ( ) / & - allowed';
     }
     if (field === 'contactNumber') {
       if (!/^\d{10}$/.test(v)) return 'Must be exactly 10 digits';
@@ -338,7 +338,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       newValue = String(newValue || '').toUpperCase().replace(/[^A-Za-z\s]/g, '');
     }
     if (field === 'qualification' || field === 'highestQualification') {
-      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z\s]/g, '');
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z\s()./&-]/g, '');
     }
     if (field === 'contactNumber' || field === 'spouseContact' || field === 'emergencyContact') {
       newValue = String(newValue || '').replace(/\D/g, '');

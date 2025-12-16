@@ -18,6 +18,7 @@ import {
   TrashIcon,
   XMarkIcon
 } from '@heroicons/react/24/outline';
+import { employeeAPI } from '../../services/api';
 
 const Header = ({ onMenuClick }) => {
   const location = useLocation();
@@ -153,15 +154,17 @@ const Header = ({ onMenuClick }) => {
   ]);
   const [currentStep, setCurrentStep] = useState(1);
   const [maritalStatus, setMaritalStatus] = useState('single');
+  const [employeeDoc, setEmployeeDoc] = useState(null);
 
   // Populate form data when modal opens
   useEffect(() => {
-    if (isProfileEditOpen && user) {
-      const mappedData = {
-        employeeId: user.employeeId || user.empId || '',
-        name: user.name || user.employeename || '',
-        dateOfBirth: user.dateOfBirth || user.dob || '',
-        qualification: user.qualification || user.highestQualification || '',
+    const load = async () => {
+      if (!isProfileEditOpen) return;
+      const base = {
+        employeeId: user.employeeId || '',
+        name: user.name || '',
+        dateOfBirth: user.dateOfBirth || '',
+        qualification: user.qualification || '',
         bloodGroup: user.bloodGroup || '',
         location: user.location || '',
         gender: user.gender || '',
@@ -175,12 +178,10 @@ const Header = ({ onMenuClick }) => {
         contactNumber: user.contactNumber || user.mobileNo || '',
         email: user.email || '',
         guardianName: user.guardianName || '',
-        
         pan: user.pan || '',
         aadhaar: user.aadhaar || '',
         passportNumber: user.passportNumber || '',
         uan: user.uan || '',
-        
         designation: user.designation || user.role || user.position || '',
         division: user.division || '',
         dateOfJoining: user.dateOfJoining || user.dateofjoin || '',
@@ -188,26 +189,76 @@ const Header = ({ onMenuClick }) => {
         previousOrganizations: user.previousOrganizations || [],
         currentExperience: user.currentExperience || '',
         status: user.status || 'Active',
-        
         bankName: user.bankName || '',
         bankAccount: user.bankAccount || '',
         branch: user.branch || '',
         ifsc: user.ifsc || ''
       };
-      
-      setMaritalStatus(mappedData.maritalStatus || 'single');
-      
-      if (mappedData.previousOrganizations && mappedData.previousOrganizations.length > 0) {
-        setOrganizations(mappedData.previousOrganizations.map(org => ({
-          organization: org.organization || '',
-          designation: org.designation || org.role || '',
-          startDate: org.startDate || '',
-          endDate: org.endDate || ''
-        })));
+      try {
+        const res = await employeeAPI.getMyProfile();
+        const emp = res.data;
+        if (emp && emp.employeeId) {
+          setEmployeeDoc(emp);
+          const mappedData = {
+            employeeId: emp.employeeId || base.employeeId,
+            name: emp.name || emp.employeename || base.name,
+            dateOfBirth: emp.dateOfBirth || emp.dob || base.dateOfBirth,
+            qualification: emp.qualification || emp.highestQualification || base.qualification,
+            bloodGroup: emp.bloodGroup || base.bloodGroup,
+            location: emp.location || base.location,
+            gender: emp.gender || base.gender,
+            maritalStatus: emp.maritalStatus || base.maritalStatus,
+            spouseName: emp.spouseName || base.spouseName,
+            spouseContact: emp.spouseContact || base.spouseContact,
+            permanentAddress: emp.permanentAddress || base.permanentAddress,
+            currentAddress: emp.currentAddress || base.currentAddress,
+            emergencyContact: emp.emergencyContact || base.emergencyContact,
+            nationality: emp.nationality || base.nationality,
+            contactNumber: emp.contactNumber || base.contactNumber,
+            email: emp.email || base.email,
+            guardianName: emp.guardianName || base.guardianName,
+            pan: emp.pan || base.pan,
+            aadhaar: emp.aadhaar || base.aadhaar,
+            passportNumber: emp.passportNumber || base.passportNumber,
+            uan: emp.uan || base.uan,
+            designation: emp.designation || base.designation,
+            division: emp.division || base.division,
+            dateOfJoining: emp.dateOfJoining || base.dateOfJoining,
+            previousExperience: emp.previousExperience || base.previousExperience,
+            previousOrganizations: emp.previousOrganizations || base.previousOrganizations,
+            currentExperience: emp.currentExperience || base.currentExperience,
+            status: emp.status || base.status,
+            bankName: emp.bankName || base.bankName,
+            bankAccount: emp.bankAccount || base.bankAccount,
+            branch: emp.branch || base.branch,
+            ifsc: emp.ifsc || base.ifsc
+          };
+          setMaritalStatus(mappedData.maritalStatus || 'single');
+          if (mappedData.previousOrganizations && mappedData.previousOrganizations.length > 0) {
+            setOrganizations(mappedData.previousOrganizations.map(org => ({
+              organization: org.organization || '',
+              designation: org.designation || org.role || '',
+              startDate: org.startDate || '',
+              endDate: org.endDate || ''
+            })));
+          } else {
+            setOrganizations([{ organization: '', designation: '', startDate: '', endDate: '' }]);
+          }
+          setFormData(mappedData);
+        } else {
+          setEmployeeDoc(null);
+          setMaritalStatus(base.maritalStatus || 'single');
+          setOrganizations(base.previousOrganizations && base.previousOrganizations.length > 0 ? base.previousOrganizations : [{ organization: '', designation: '', startDate: '', endDate: '' }]);
+          setFormData(base);
+        }
+      } catch {
+        setEmployeeDoc(null);
+        setMaritalStatus(base.maritalStatus || 'single');
+        setOrganizations([{ organization: '', designation: '', startDate: '', endDate: '' }]);
+        setFormData(base);
       }
-      
-      setFormData(mappedData);
-    }
+    };
+    load();
   }, [isProfileEditOpen, user]);
 
   // Calculate total previous experience
@@ -329,23 +380,33 @@ const Header = ({ onMenuClick }) => {
     }
   };
 
-  const handleProfileSubmit = (e) => {
+  const handleProfileSubmit = async (e) => {
     e.preventDefault();
-    
     const finalData = {
       ...formData,
       qualification: formData.qualification,
       previousOrganizations: organizations
     };
-    
-    const updatedUser = {
-      ...user,
-      ...finalData
-    };
-    
-    sessionStorage.setItem('user', JSON.stringify(updatedUser));
-    setIsProfileEditOpen(false);
-    window.location.reload();
+    try {
+      const hasUserAccess = Array.isArray(user.permissions) && user.permissions.includes('user_access');
+      if (hasUserAccess && employeeDoc && employeeDoc._id) {
+        await employeeAPI.updateEmployee(employeeDoc._id, finalData);
+      } else {
+        await employeeAPI.updateMyProfile(finalData);
+      }
+      const updatedUser = {
+        ...user,
+        name: finalData.name || user.name,
+        email: finalData.email || user.email,
+        employeeId: finalData.employeeId || user.employeeId,
+        designation: finalData.designation || user.designation,
+        division: finalData.division || user.division,
+        status: finalData.status || user.status
+      };
+      sessionStorage.setItem('user', JSON.stringify(updatedUser));
+      setIsProfileEditOpen(false);
+      window.location.reload();
+    } catch {}
   };
 
   const handleProfileCancel = () => {

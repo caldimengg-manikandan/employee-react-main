@@ -49,8 +49,10 @@ export const authAPI = {
 export const employeeAPI = {
   getAllEmployees: () => api.get('/employees'),
   getEmployeeById: (id) => api.get(`/employees/${id}`),
+  getMyProfile: () => api.get('/employees/me'),
   createEmployee: (data) => api.post('/employees', data),
   updateEmployee: (id, data) => api.put(`/employees/${id}`, data),
+  updateMyProfile: (data) => api.put('/employees/me', data),
   deleteEmployee: (id) => api.delete(`/employees/${id}`),
   // Get employees for timesheet purposes only (limited data)
   getTimesheetEmployees: () => api.get('/employees/timesheet/employees'),

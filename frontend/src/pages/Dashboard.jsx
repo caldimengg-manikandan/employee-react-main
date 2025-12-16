@@ -92,9 +92,10 @@ const ProjectDashboard = () => {
     const permissions = user.permissions || [];
     const role = user.role || 'employees';
 
+    const policyModuleName = role === 'admin' ? 'Police Portal' : 'Police';
     const modules = [
         { name: 'Timesheet', description: 'Log work hours', path: '/timesheet', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true },
-        { name: 'Policies', description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, permission: 'dashboard', allowEmployeeRole: true },
+        { name: policyModuleName, description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, permission: 'dashboard', allowEmployeeRole: true },
         { name: 'Salary Slips', description: 'View payslips', path: '/payslip-viewer', icon: BanknotesIcon, permission: 'payroll_access', allowEmployeeRole: true },
         { name: 'Leave Applications', description: 'Apply & track leaves', path: '/leave-applications', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true },
         { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'dashboard' },
@@ -110,7 +111,7 @@ const ProjectDashboard = () => {
     const visibleModules = modules.filter((m) => {
         const hasPermission = m.permission ? permissions.includes(m.permission) : true;
         const allowByRole = role === 'admin' || (role === 'employees' && m.allowEmployeeRole);
-        return hasPermission || allowByRole;
+        return hasPermission && allowByRole;
     });
 
 

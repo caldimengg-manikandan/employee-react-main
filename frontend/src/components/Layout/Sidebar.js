@@ -86,6 +86,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       name: "Admin Timesheet",
       hasDropdown: true,
       icon: getIconForMenu("Admin Timesheet"),
+      allowEmployeeRole: false,
       children: [
         { name: "Admin Timesheet", path: "/admin/timesheet" },
         { name: "Timesheet Summary", path: "/admin/timesheet/approval" },
@@ -103,7 +104,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       hasDropdown: true,
       icon: getIconForMenu("Leave Management"),
       permission: "leave_access",
-      allowEmployeeRole: true,
+      allowEmployeeRole: false,
       children: [
       
         { 
@@ -118,7 +119,7 @@ const Sidebar = ({ isOpen, onClose }) => {
           path: "/leave-management/balance",
           icon: "ClipboardDocumentListIcon",
           permission: "leave_view",
-          showForRoles: ["admin", "hr", "manager", "employee"],
+          showForRoles: ["admin", "hr", "manager", "employees"],
           allowEmployeeRole: true
         },
        
@@ -138,9 +139,10 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: getIconForMenu("Insurance"),
     },
     {
-      name: "Policy Portal",
+      name: role === "admin" ? "Policy Portal" : "Policy",
       path: "/policies",
       icon: getIconForMenu("Policy Portal"),
+      allowEmployeeRole: true,
     },
 
     {
@@ -203,7 +205,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       role === "admin" ||
       (role === "employees" && item.allowEmployeeRole) ||
       (role === "projectmanager" && item.name === "Project Allocation");
-    return hasPermission || allowByRole;
+    return hasPermission && allowByRole;
   });
 
   // Filter dropdown children based on permissions and role

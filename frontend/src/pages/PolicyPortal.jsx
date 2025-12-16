@@ -18,6 +18,9 @@ const AdminPolicyPortal = () => {
   const [policyTitle, setPolicyTitle] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [policyToDelete, setPolicyToDelete] = useState(null);
+  const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+  const role = user.role || 'employees';
+  const isEmployee = role === 'employees';
 
   // Load policies from backend on component mount
   useEffect(() => {
@@ -144,115 +147,117 @@ const AdminPolicyPortal = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Left Column - Policy Content */}
-          <div className="lg:w-2/3">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-              {activePolicy ? (
-                <>
-                  {/* Policy Title Bar */}
-                  <div className="border-b border-gray-200 px-6 py-4">
-                    <div className="flex justify-between items-center">
-                    <div className="flex-1">
-                        {editingTitle ? (
-                          <input
-                            type="text"
-                            value={policyTitle}
-                            onChange={handleTitleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-lg font-semibold"
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
+          {!isEmployee && (
+            <div className="lg:w-2/3">
+              <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+                {activePolicy ? (
+                  <>
+                    {/* Policy Title Bar */}
+                    <div className="border-b border-gray-200 px-6 py-4">
+                      <div className="flex justify-between items-center">
+                        <div className="flex-1">
+                          {editingTitle ? (
+                            <input
+                              type="text"
+                              value={policyTitle}
+                              onChange={handleTitleChange}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-lg font-semibold"
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSaveChanges();
+                                }
+                              }}
+                            />
+                          ) : (
+                            <h2 className="text-lg font-semibold text-gray-900">
+                              {policyTitle}
+                            </h2>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <span className="text-sm text-gray-500">
+                            Updated: {activePolicy.updatedAt ? new Date(activePolicy.updatedAt).toISOString().split('T')[0] : ''}
+                          </span>
+                          <button
+                            onClick={() => {
+                              if (editingTitle) {
                                 handleSaveChanges();
+                              } else {
+                                setEditingTitle(true);
                               }
                             }}
-                          />
-                        ) : (
-                          <h2 className="text-lg font-semibold text-gray-900">
-                            {policyTitle}
-                          </h2>
-                        )}
+                            className="p-2 text-gray-600 hover:text-blue-600"
+                          >
+                            <PencilIcon className="h-4 w-4" />
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-sm text-gray-500">
-                          Updated: {activePolicy.updatedAt ? new Date(activePolicy.updatedAt).toISOString().split('T')[0] : ''}
-                        </span>
+                    </div>
+  
+                    {/* Content Area */}
+                    <div className="p-6">
+                      {editingContent ? (
+                        <div>
+                          <textarea
+                            value={content}
+                            onChange={handleContentChange}
+                            className="w-full h-[400px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                            placeholder="# Enter policy content here"
+                          />
+                        </div>
+                      ) : (
+                        <div className="prose max-w-none">
+                          <div 
+                            className="policy-content"
+                            dangerouslySetInnerHTML={{ __html: formatContentForDisplay(content) }}
+                          />
+                        </div>
+                      )}
+                      
+                      {/* Edit Content Button */}
+                      <div className="mt-6 pt-6 border-t border-gray-200">
                         <button
                           onClick={() => {
-                            if (editingTitle) {
+                            if (editingContent) {
                               handleSaveChanges();
                             } else {
-                              setEditingTitle(true);
+                              setEditingContent(true);
                             }
                           }}
-                          className="p-2 text-gray-600 hover:text-blue-600"
+                          className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
                         >
-                          <PencilIcon className="h-4 w-4" />
+                          {editingContent ? (
+                            <>
+                              <CheckIcon className="h-4 w-4 mr-2" />
+                              Save Content
+                            </>
+                          ) : (
+                            <>
+                              <PencilIcon className="h-4 w-4 mr-2" />
+                              Edit Content
+                            </>
+                          )}
                         </button>
                       </div>
                     </div>
+                  </>
+                ) : (
+                  <div className="p-12 text-center">
+                    <DocumentTextIcon className="h-16 w-16 mx-auto text-gray-300 mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Policy Selected</h3>
+                    <p className="text-gray-500 mb-6">Select a policy from the list or create a new one</p>
+                    <button
+                      onClick={handleAddPolicy}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Create New Policy
+                    </button>
                   </div>
-
-                  {/* Content Area */}
-                  <div className="p-6">
-                    {editingContent ? (
-                      <div>
-                        <textarea
-                          value={content}
-                          onChange={handleContentChange}
-                          className="w-full h-[400px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
-                          placeholder="# Enter policy content here"
-                        />
-                      </div>
-                    ) : (
-                      <div className="prose max-w-none">
-                        <div 
-                          className="policy-content"
-                          dangerouslySetInnerHTML={{ __html: formatContentForDisplay(content) }}
-                        />
-                      </div>
-                    )}
-                    
-                    {/* Edit Content Button */}
-                    <div className="mt-6 pt-6 border-t border-gray-200">
-                      <button
-                        onClick={() => {
-                          if (editingContent) {
-                            handleSaveChanges();
-                          } else {
-                            setEditingContent(true);
-                          }
-                        }}
-                        className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                      >
-                        {editingContent ? (
-                          <>
-                            <CheckIcon className="h-4 w-4 mr-2" />
-                            Save Content
-                          </>
-                        ) : (
-                          <>
-                            <PencilIcon className="h-4 w-4 mr-2" />
-                            Edit Content
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="p-12 text-center">
-                  <DocumentTextIcon className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">No Policy Selected</h3>
-                  <p className="text-gray-500 mb-6">Select a policy from the list or create a new one</p>
-                  <button
-                    onClick={handleAddPolicy}
-                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-2" />
-                    Create New Policy
-                  </button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Right Column - Policy List */}
           <div className="lg:w-1/3">
@@ -277,7 +282,7 @@ const AdminPolicyPortal = () => {
                         <DocumentTextIcon className={`h-4 w-4 mr-3 ${
                           activePolicy?._id === policy._id ? 'text-blue-600' : 'text-gray-400'
                         }`} />
-                        <div>
+                      <div>
                           <div className={`text-sm font-medium ${
                             activePolicy?._id === policy._id ? 'text-blue-700' : 'text-gray-700'
                           }`}>
@@ -288,16 +293,18 @@ const AdminPolicyPortal = () => {
                           </div>
                         </div>
                       </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setPolicyToDelete(policy._id);
-                          setShowDeleteConfirm(true);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500"
-                      >
-                        <TrashIcon className="h-4 w-4" />
-                      </button>
+                      {!isEmployee && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setPolicyToDelete(policy._id);
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-red-500"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -312,13 +319,15 @@ const AdminPolicyPortal = () => {
 
                 {/* Add Policy Button */}
                 <div className="mt-6">
-                  <button
-                    onClick={handleAddPolicy}
-                    className="w-full flex items-center justify-center px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors group"
-                  >
-                    <PlusIcon className="h-4 w-4 mr-2 group-hover:text-blue-600" />
-                    <span className="text-sm font-medium">Add New Policy</span>
-                  </button>
+                  {!isEmployee && (
+                    <button
+                      onClick={handleAddPolicy}
+                      className="w-full flex items-center justify-center px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors group"
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2 group-hover:text-blue-600" />
+                      <span className="text-sm font-medium">Add New Policy</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
