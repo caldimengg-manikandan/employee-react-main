@@ -64,51 +64,138 @@ const Timesheet = () => {
     return getLeaveRowCount() >= 4 || isSubmitted;
   };
 
-  // ✅ Load existing week data from backend; fallback to session draft
+  // ✅ Load existing week data from backend AND attendance data
   useEffect(() => {
     const loadWeekData = async () => {
       try {
+        setLoading(true);
         const wd = getWeekDates();
         const normalizeToUTCDateOnly = (d) => {
           const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
           return utc.toISOString();
         };
-        const res = await timesheetAPI.getTimesheet({
-          weekStart: normalizeToUTCDateOnly(wd[0]),
-          weekEnd: normalizeToUTCDateOnly(wd[6]),
-          _t: Date.now() // Prevent caching
-        });
-        const sheet = (res?.data && res.data.data) ? res.data.data : res.data;
-        const rows = (sheet.entries || []).map((e) => ({
-          id: Date.now() + Math.random(),
-          project: e.project || "",
-          projectCode: e.projectCode || "",
-          task: e.task || "",
-          hours: Array.isArray(e.hours) ? e.hours : [0, 0, 0, 0, 0, 0, 0],
-          type: e.type || (e.project === "Leave" ? "leave" : "project"),
-          shiftType: e.shiftType || "",
-          locked: e.locked || false,
-        }));
-        setShiftType(sheet.shiftType || "");
-        const ds = Array.isArray(sheet.dailyShiftTypes) && sheet.dailyShiftTypes.length === 7
-          ? sheet.dailyShiftTypes
-          : [
-            sheet.shiftType ? sheet.shiftType : "",
-            sheet.shiftType ? sheet.shiftType : "",
-            sheet.shiftType ? sheet.shiftType : "",
-            sheet.shiftType ? sheet.shiftType : "",
-            sheet.shiftType ? sheet.shiftType : "",
-            sheet.shiftType ? sheet.shiftType : "",
-            sheet.shiftType ? sheet.shiftType : "",
-          ];
-        setDailyShiftTypes(ds);
-        if (Array.isArray(sheet.onPremisesTime?.daily)) {
+
+        const weekStartStr = normalizeToUTCDateOnly(wd[0]);
+        const weekEndStr = normalizeToUTCDateOnly(wd[6]);
+
+        // Run both requests in parallel to avoid race conditions
+        const [timesheetRes, attendanceRes] = await Promise.allSettled([
+          timesheetAPI.getTimesheet({
+            weekStart: weekStartStr,
+            weekEnd: weekEndStr,
+            _t: Date.now() // Prevent caching
+          }),
+          timesheetAPI.getAttendanceData({
+            startDate: weekStartStr,
+            endDate: weekEndStr,
+            _t: Date.now()
+          })
+        ]);
+
+        // --- Process Timesheet Data ---
+        let sheet = {};
+        let rows = [];
+        let loadedShiftType = "";
+        let loadedDailyShiftTypes = ["", "", "", "", "", "", ""];
+
+        if (timesheetRes.status === "fulfilled" && timesheetRes.value) {
+          const res = timesheetRes.value;
+          sheet = (res?.data && res.data.data) ? res.data.data : res.data;
+          
+          rows = (sheet.entries || []).map((e) => ({
+            id: Date.now() + Math.random(),
+            project: e.project || "",
+            projectCode: e.projectCode || "",
+            task: e.task || "",
+            hours: Array.isArray(e.hours) ? e.hours : [0, 0, 0, 0, 0, 0, 0],
+            type: e.type || (e.project === "Leave" ? "leave" : "project"),
+            shiftType: e.shiftType || "",
+            locked: e.locked || false,
+          }));
+
+          loadedShiftType = sheet.shiftType || "";
+          if (Array.isArray(sheet.dailyShiftTypes) && sheet.dailyShiftTypes.length === 7) {
+            loadedDailyShiftTypes = sheet.dailyShiftTypes;
+          } else {
+            loadedDailyShiftTypes = [
+              loadedShiftType ? loadedShiftType : "",
+              loadedShiftType ? loadedShiftType : "",
+              loadedShiftType ? loadedShiftType : "",
+              loadedShiftType ? loadedShiftType : "",
+              loadedShiftType ? loadedShiftType : "",
+              loadedShiftType ? loadedShiftType : "",
+              loadedShiftType ? loadedShiftType : "",
+            ];
+          }
+
+          setShiftType(loadedShiftType);
+          setDailyShiftTypes(loadedDailyShiftTypes);
+          
+          setIsSubmitted(
+            (sheet.status || "").toLowerCase() === "submitted" ||
+            (sheet.status || "").toLowerCase() === "approved"
+          );
+        }
+
+        // --- Process Attendance Data ---
+        let attendanceOnPremises = null;
+        if (attendanceRes.status === "fulfilled" && attendanceRes.value) {
+          const attRes = attendanceRes.value;
+          const attendanceData = Array.isArray(attRes.data?.records) ? attRes.data.records : [];
+          
+          if (attendanceData.length > 0) {
+            const weekKeys = wd.map((d) => {
+              const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+              return utc.toISOString().split("T")[0];
+            });
+
+            const dailyOnPremises = [0, 0, 0, 0, 0, 0, 0];
+            let weeklyOnPremises = 0;
+
+            attendanceData.forEach((record) => {
+              try {
+                const key = new Date(record.date).toISOString().split("T")[0];
+                const idx = weekKeys.indexOf(key);
+                if (idx !== -1) {
+                  const hours = computeRecordDurationHours(record) || 0;
+                  if (hours > 0) {
+                    dailyOnPremises[idx] += hours;
+                    weeklyOnPremises += hours;
+                  }
+                }
+              } catch (_) { }
+            });
+
+            const roundedDaily = dailyOnPremises.map((h) => parseFloat(h.toFixed(1)));
+            const roundedWeekly = parseFloat(weeklyOnPremises.toFixed(1));
+            const hasAnyHours = roundedDaily.some((h) => h > 0) || roundedWeekly > 0;
+            
+            if (hasAnyHours) {
+              attendanceOnPremises = {
+                daily: roundedDaily,
+                weekly: roundedWeekly
+              };
+            }
+          }
+        }
+
+        // --- Determine Final On-Premises Time ---
+        // Priority: 1. Fresh Attendance Data, 2. Saved Timesheet Data, 3. Default Zeros
+        if (attendanceOnPremises) {
+          setOnPremisesTime(attendanceOnPremises);
+        } else if (Array.isArray(sheet.onPremisesTime?.daily)) {
           setOnPremisesTime({
             daily: (sheet.onPremisesTime.daily || []).map((n) => Number(n) || 0),
             weekly: Number(sheet.onPremisesTime.weekly) || 0
           });
+        } else {
+          setOnPremisesTime({
+            daily: [0, 0, 0, 0, 0, 0, 0],
+            weekly: 0
+          });
         }
 
+        // --- Set Timesheet Rows ---
         if (rows.length === 0) {
           const newRow = {
             id: Date.now() + Math.random(),
@@ -126,16 +213,14 @@ const Timesheet = () => {
           setOriginalData(JSON.stringify(rows));
           setHasUnsavedChanges(false);
         }
-        setIsSubmitted(
-          (sheet.status || "").toLowerCase() === "submitted" ||
-          (sheet.status || "").toLowerCase() === "approved"
-        );
         
       } catch (err) {
+        console.error("❌ Error loading week data:", err);
         // Don't load draft from session automatically - start fresh
         if (timesheetRows.length === 0) addProjectRow();
       } finally {
         updateMonthlyPermissionCount();
+        setLoading(false);
       }
     };
     loadWeekData();
@@ -254,71 +339,7 @@ const Timesheet = () => {
     return 0;
   };
 
-  // ✅ Load on-premises time from attendance data
-  useEffect(() => {
-    const loadOnPremisesTime = async () => {
-      try {
-        const weekDates = getWeekDates();
-        const normalizeToUTCDateOnly = (d) => {
-          const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-          return utc.toISOString();
-        };
 
-        // Get attendance data for the current week
-        const attendanceRes = await timesheetAPI.getAttendanceData({
-          startDate: normalizeToUTCDateOnly(weekDates[0]),
-          endDate: normalizeToUTCDateOnly(weekDates[6]),
-          _t: Date.now()
-        });
-
-        const attendanceData = Array.isArray(attendanceRes.data?.records)
-          ? attendanceRes.data.records
-          : [];
-
-        if (!attendanceData.length) {
-          return;
-        }
-
-        const weekKeys = weekDates.map((d) => {
-          const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-          return utc.toISOString().split("T")[0];
-        });
-
-        const dailyOnPremises = [0, 0, 0, 0, 0, 0, 0];
-        let weeklyOnPremises = 0;
-
-        // Calculate on-premises time for each day using API's weekly records
-        attendanceData.forEach((record) => {
-          try {
-            const key = new Date(record.date).toISOString().split("T")[0];
-            const idx = weekKeys.indexOf(key);
-            if (idx !== -1) {
-              const hours = computeRecordDurationHours(record) || 0;
-              if (hours > 0) {
-                dailyOnPremises[idx] += hours;
-                weeklyOnPremises += hours;
-              }
-            }
-          } catch (_) { }
-        });
-
-        const roundedDaily = dailyOnPremises.map((h) => parseFloat(h.toFixed(1)));
-        const roundedWeekly = parseFloat(weeklyOnPremises.toFixed(1));
-        const hasAnyHours = roundedDaily.some((h) => h > 0) || roundedWeekly > 0;
-        if (hasAnyHours) {
-          setOnPremisesTime({
-            daily: roundedDaily,
-            weekly: roundedWeekly,
-          });
-        }
-
-      } catch (error) {
-        console.error("❌ Error loading on-premises time:", error);
-      }
-    };
-
-    loadOnPremisesTime();
-  }, [currentWeek]);
 
   // Track if data has been modified for navigation warning
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
