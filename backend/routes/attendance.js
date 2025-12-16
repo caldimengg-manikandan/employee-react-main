@@ -272,10 +272,12 @@ router.get("/my-week", auth, async (req, res) => {
 
     const start = new Date(startDate);
     const end = new Date(endDate);
+    const startOfDay = new Date(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+    const endOfDay = new Date(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate(), 23, 59, 59, 999);
 
     const records = await Attendance.find({
       employeeId: employeeIdToUse,
-      punchTime: { $gte: start, $lte: end }
+      punchTime: { $gte: startOfDay, $lte: endOfDay }
     }).sort({ punchTime: 1 });
 
     // Group by date (YYYY-MM-DD)

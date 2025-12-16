@@ -119,19 +119,18 @@ const Timesheet = () => {
             shiftType: ""
           };
           setTimesheetRows([newRow]);
+          setOriginalData(JSON.stringify([newRow]));
+          setHasUnsavedChanges(false);
         } else {
           setTimesheetRows(rows);
+          setOriginalData(JSON.stringify(rows));
+          setHasUnsavedChanges(false);
         }
         setIsSubmitted(
           (sheet.status || "").toLowerCase() === "submitted" ||
           (sheet.status || "").toLowerCase() === "approved"
         );
-        // Keep session draft; only clear after successful save/submit
-        // Set original data after loading from backend to prevent false unsaved changes
-        setTimeout(() => {
-          setOriginalData(JSON.stringify(rows.length ? rows : []));
-          setHasUnsavedChanges(false);
-        }, 100);
+        
       } catch (err) {
         // Don't load draft from session automatically - start fresh
         if (timesheetRows.length === 0) addProjectRow();
@@ -268,12 +267,17 @@ const Timesheet = () => {
         // Get attendance data for the current week
         const attendanceRes = await timesheetAPI.getAttendanceData({
           startDate: normalizeToUTCDateOnly(weekDates[0]),
-          endDate: normalizeToUTCDateOnly(weekDates[6])
+          endDate: normalizeToUTCDateOnly(weekDates[6]),
+          _t: Date.now()
         });
 
         const attendanceData = Array.isArray(attendanceRes.data?.records)
           ? attendanceRes.data.records
           : [];
+
+        if (!attendanceData.length) {
+          return;
+        }
 
         const weekKeys = weekDates.map((d) => {
           const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -298,18 +302,18 @@ const Timesheet = () => {
           } catch (_) { }
         });
 
-        setOnPremisesTime({
-          daily: dailyOnPremises.map((h) => parseFloat(h.toFixed(1))),
-          weekly: parseFloat(weeklyOnPremises.toFixed(1)),
-        });
+        const roundedDaily = dailyOnPremises.map((h) => parseFloat(h.toFixed(1)));
+        const roundedWeekly = parseFloat(weeklyOnPremises.toFixed(1));
+        const hasAnyHours = roundedDaily.some((h) => h > 0) || roundedWeekly > 0;
+        if (hasAnyHours) {
+          setOnPremisesTime({
+            daily: roundedDaily,
+            weekly: roundedWeekly,
+          });
+        }
 
       } catch (error) {
         console.error("❌ Error loading on-premises time:", error);
-        // Set default values if API fails
-        setOnPremisesTime({
-          daily: [0, 0, 0, 0, 0, 0, 0],
-          weekly: 0
-        });
       }
     };
 
