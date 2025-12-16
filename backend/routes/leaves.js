@@ -347,6 +347,45 @@ router.get('/balance', auth, async (req, res) => {
   }
 });
 
+// Leave balance for the current logged-in user (employees)
+router.get('/my-balance', auth, async (req, res) => {
+  try {
+    // Resolve employee record for current user
+    const user = req.user || {};
+    let emp = null;
+    if (user.employeeId) {
+      emp = await Employee.findOne({ employeeId: user.employeeId }).lean();
+    }
+    // Fallback by email if available
+    if (!emp && user.email) {
+      emp = await Employee.findOne({ email: user.email }).lean();
+    }
+    // Fallback by name
+    if (!emp && user.name) {
+      emp = await Employee.findOne({ name: user.name }).lean();
+    }
+    if (!emp) {
+      return res.status(404).json({ message: 'Employee profile not found' });
+    }
+
+    // Aggregate approved leaves for this user
+    const approvals = await LeaveApplication.find({ userId: user._id, status: 'Approved' }).lean();
+    const used = approvals.reduce((acc, rec) => {
+      const t = rec.leaveType;
+      const val = Number(rec.totalDays || 0);
+      if (t === 'CL') acc.CL += val;
+      else if (t === 'SL') acc.SL += val;
+      else if (t === 'PL') acc.PL += val;
+      return acc;
+    }, { CL: 0, SL: 0, PL: 0 });
+
+    const result = calcBalanceForEmployee(emp, used);
+    return res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // Admin: list leave applications with filters
 router.get('/', auth, async (req, res) => {
   try {

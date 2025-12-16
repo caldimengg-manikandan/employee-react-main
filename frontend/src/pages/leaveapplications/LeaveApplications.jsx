@@ -103,6 +103,19 @@ const LeaveApplications = () => {
     };
     const loadBalanceForMe = async () => {
       try {
+        // Try dedicated endpoint for current user's balance
+        const myRes = await leaveAPI.myBalance();
+        const data = myRes?.data || {};
+        if (data && data.balances) {
+          setLeaveBalance({
+            CL: data.balances.casual?.balance || 0,
+            SL: data.balances.sick?.balance || 0,
+            PL: data.balances.privilege?.balance || 0,
+            BEREAVEMENT: 2
+          });
+          return;
+        }
+        // Fallback to generic balance list when accessible
         const user = JSON.parse(sessionStorage.getItem('user') || '{}');
         const empId = user.employeeId || user.employeeCode || user.empId || '';
         const res = await leaveAPI.getBalance(empId ? { employeeId: empId } : undefined);

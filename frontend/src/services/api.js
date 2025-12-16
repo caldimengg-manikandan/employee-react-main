@@ -114,6 +114,7 @@ export const policyAPI = {
 export const leaveAPI = {
   apply: (data) => api.post('/leaves', data),
   myLeaves: () => api.get('/leaves/my'),
+  myBalance: () => api.get('/leaves/my-balance'),
   getBalance: (params) => api.get('/leaves/balance', params ? { params } : undefined),
   list: (params) => api.get('/leaves', params ? { params } : undefined),
   updateStatus: (id, status, rejectionReason) => api.put(`/leaves/${id}/status`, { status, rejectionReason }),

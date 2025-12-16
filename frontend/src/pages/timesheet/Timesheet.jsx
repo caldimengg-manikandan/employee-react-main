@@ -932,6 +932,26 @@ const Timesheet = () => {
 
     try {
       setLoading(true);
+      for (let i = 0; i < 7; i++) {
+        const op = Number(onPremisesTime?.daily?.[i] || 0);
+        let workTotal = 0;
+        timesheetRows.forEach((row) => {
+          workTotal += Number(row.hours?.[i] || 0);
+        });
+        const breakHours = computeBreakForDay(i);
+        const totalWithBreak = workTotal + breakHours;
+        if (op > totalWithBreak) {
+          alert(`On-Premises Time for ${days[i]} cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(op)}\nTotal: ${formatHoursHHMM(totalWithBreak)}`);
+          setLoading(false);
+          return;
+        }
+      }
+      const weeklyTotalWithBreak = totals.weekly + computeWeeklyBreak();
+      if ((Number(onPremisesTime?.weekly) || 0) > weeklyTotalWithBreak) {
+        alert(`On-Premises weekly time cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(onPremisesTime?.weekly || 0)}\nTotal: ${formatHoursHHMM(weeklyTotalWithBreak)}`);
+        setLoading(false);
+        return;
+      }
       const response = await timesheetAPI.saveTimesheet(payload);
       console.log("✅ Timesheet saved as draft:", response.data);
 
@@ -989,8 +1009,8 @@ const Timesheet = () => {
       const breakHours = computeBreakForDay(i);
       const totalWithBreak = workTotal + breakHours;
 
-      if (totalWithBreak > op) {
-        alert(`Total Hours (Work + Break) for ${days[i]} cannot exceed On-Premises Time.\n\nEntered: ${formatHoursHHMM(totalWithBreak)}\nOn-Premises: ${formatHoursHHMM(op)}`);
+      if (op > totalWithBreak) {
+        alert(`On-Premises Time for ${days[i]} cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(op)}\nTotal: ${formatHoursHHMM(totalWithBreak)}`);
         return;
       }
 
@@ -1000,7 +1020,11 @@ const Timesheet = () => {
       }
     }
 
-    // Shift minimum checks removed
+    const weeklyTotalWithBreak = totals.weekly + computeWeeklyBreak();
+    if ((Number(onPremisesTime?.weekly) || 0) > weeklyTotalWithBreak) {
+      alert(`On-Premises weekly time cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(onPremisesTime?.weekly || 0)}\nTotal: ${formatHoursHHMM(weeklyTotalWithBreak)}`);
+      return;
+    }
 
     const normalizeToUTCDateOnly = (d) => {
       const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
