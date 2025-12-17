@@ -37,6 +37,15 @@ import SalarySlips from "./pages/salaryslips/SalarySlips";
 import ExpenditureManagement from "./pages/expenditure/ExpenditureManagement"
 import EmployeeRewardTracker from "./pages/rewards/EmployeeRewardTracker";
 
+// Payroll
+import PayrollDetails from "./pages/payroll/PayrollDetails";
+import CostToTheCompany from "./pages/payroll/CostToTheCompany";
+import LoanSummary from "./pages/payroll/LoanSummary";
+import GratuitySummary from "./pages/payroll/GratuitySummary";
+import MonthlyPayroll from "./pages/payroll/MonthlyPayroll";
+
+
+
 function App() {
   return (
     <Router>
@@ -242,6 +251,49 @@ function App() {
                 </ProtectedRoute>
               } 
             />
+
+            {/* PAYROLL */}
+            <Route
+              path="payroll/details"
+              element={
+                <ProtectedRoute requiredPermissions={["payroll_access"]} roles={["admin", "hr", "finance"]}>
+                  <PayrollDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="payroll/cost-to-the-company"
+              element={
+                <ProtectedRoute requiredPermissions={["payroll_view"]} roles={["admin", "hr", "finance"]}>
+                  <CostToTheCompany />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="payroll/loan-summary"
+              element={
+                <ProtectedRoute requiredPermissions={["loan_view"]} roles={["admin", "hr", "finance"]}>
+                  <LoanSummary />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="payroll/gratuity-summary"
+              element={
+                <ProtectedRoute requiredPermissions={["gratuity_view"]} roles={["admin", "hr", "finance"]}>
+                  <GratuitySummary />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="payroll/monthly"
+              element={
+                <ProtectedRoute requiredPermissions={["payroll_access"]} roles={["admin", "hr", "finance"]}>
+                  <MonthlyPayroll />
+                </ProtectedRoute>
+              }
+            />
+
         
 
             {/* ---------------- User & Employee Management ---------------- */}

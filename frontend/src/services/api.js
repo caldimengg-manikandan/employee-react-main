@@ -180,4 +180,12 @@ export const teamAPI = {
   removeMember: (teamCode, employeeId) => api.delete(`/teams/${encodeURIComponent(teamCode)}/members/${encodeURIComponent(employeeId)}`),
 };
 
+export const payrollAPI = {
+  list: () => api.get('/payroll'),
+  create: (data) => api.post('/payroll', data),
+  update: (id, data) => api.put(`/payroll/${id}`, data),
+  remove: (id) => api.delete(`/payroll/${id}`),
+  getById: (id) => api.get(`/payroll/${id}`)
+};
+
 export default api;

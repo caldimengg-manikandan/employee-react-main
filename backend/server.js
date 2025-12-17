@@ -9,6 +9,7 @@ const { v4: uuidv4 } = require("uuid");
 const https = require("https");
 const http = require("http");
 const axios = require("axios");
+const payrollRoutes = require("./routes/payroll");
 
 // Load environment variables
 dotenv.config();
@@ -50,6 +51,11 @@ app.use("/api/admin-timesheet", require("./routes/admintimesheetRoutes"));
 app.use("/api/leave", require("./routes/leaveRoutes"));
 
 app.use("/api/mail", require("./routes/mail.routes"));
+
+//payroll
+
+
+app.use("/api/payroll", payrollRoutes);
 
 
 

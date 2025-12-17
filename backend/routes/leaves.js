@@ -235,7 +235,8 @@ function toLower(s) {
   return String(s || '').toLowerCase();
 }
 
-function calcBalanceForEmployee(emp, used = { CL: 0, SL: 0, PL: 0 }) {
+function calcBalanceForEmployee(emp, approvedLeaves = []) {
+  const currentDate = new Date();
   const position = emp.position || emp.role || '';
   const doj = emp.dateOfJoining || emp.hireDate || emp.createdAt;
   const mos = monthsBetween(doj);
@@ -257,35 +258,74 @@ function calcBalanceForEmployee(emp, used = { CL: 0, SL: 0, PL: 0 }) {
   }
   const postTraineeMonths = Math.max(0, mos - traineeMonths);
 
-  let casual = 0, sick = 0, privilege = 0;
-  // Trainee accrual: 1 PL per month up to 12 months
-  privilege += traineeMonths * 1;
-  // Non-trainee rule based on DOJ:
-  // First 6 months: PL 1/day per month
-  // After 6 months: CL 0.5, SL 0.5, PL 1.25 per month
-  const firstSix = Math.min(postTraineeMonths, 6);
+  let casual = 0, sick = 0;
+  // CL/SL Rule: After 6 months of regular service (post-trainee)?
+  // Preserving original logic for CL/SL:
   const afterSix = Math.max(postTraineeMonths - 6, 0);
-  const plNonCarry = (traineeMonths * 1) + (firstSix * 1);
-  const plCarry = afterSix * 1.25;
-  privilege = plNonCarry + plCarry;
   casual += afterSix * 0.5;
   sick += afterSix * 0.5;
 
   const allocated = {
     casual: Math.round(casual * 10) / 10,
     sick: Math.round(sick * 10) / 10,
-    privilege: Math.round(privilege * 10) / 10
+    privilege: 0
   };
-  // Apply used PL against non-carry first, then carry-forward portion
-  const usedPL = Number(used.PL || 0);
-  const nonCarryAfterUse = Math.max(0, plNonCarry - usedPL);
-  const carryAfterUse = Math.max(0, plCarry - Math.max(0, usedPL - plNonCarry));
-  const balance = {
-    casual: Math.max(0, Math.round((allocated.casual - (used.CL || 0)) * 10) / 10),
-    sick: Math.max(0, Math.round((allocated.sick - (used.SL || 0)) * 10) / 10),
-    privilege: Math.max(0, Math.round((nonCarryAfterUse + carryAfterUse) * 10) / 10)
-  };
-  const totalBalance = Math.max(0, Math.round((balance.casual + balance.sick + balance.privilege) * 10) / 10);
+
+  // Calculate Used totals for CL/SL
+  const usedCL = approvedLeaves
+    .filter(l => l.leaveType === 'CL')
+    .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+    
+  const usedSL = approvedLeaves
+    .filter(l => l.leaveType === 'SL')
+    .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+
+  // PL Logic
+  let plAllocated = 0;
+  let plUsed = 0;
+  let plBalance = 0;
+  
+  const dojDate = new Date(doj);
+  const sixMonthThreshold = new Date(dojDate);
+  sixMonthThreshold.setMonth(sixMonthThreshold.getMonth() + 6);
+  
+  if (currentDate < sixMonthThreshold) {
+      // Rule 1: < 6 months. Expire monthly.
+      plAllocated = 1; 
+      
+      const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+      const currentMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+      
+      plUsed = approvedLeaves
+          .filter(l => l.leaveType === 'PL')
+          .filter(l => {
+              const d = new Date(l.startDate);
+              return d >= currentMonthStart && d <= currentMonthEnd;
+          })
+           .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+           
+       plBalance = (plAllocated - plUsed);
+   } else {
+      // Rule 2: > 6 months. Carry forward.
+      const monthsAfterThreshold = monthsBetweenRange(sixMonthThreshold, currentDate);
+      plAllocated = monthsAfterThreshold * 1.25;
+      
+      plUsed = approvedLeaves
+          .filter(l => l.leaveType === 'PL')
+          .filter(l => new Date(l.startDate) >= sixMonthThreshold)
+           .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+       
+       plBalance = (plAllocated - plUsed);
+   }
+   
+   allocated.privilege = Math.round(plAllocated * 10) / 10;
+   
+   const balance = {
+     casual: Math.round((allocated.casual - usedCL) * 10) / 10,
+     sick: Math.round((allocated.sick - usedSL) * 10) / 10,
+     privilege: Math.round(plBalance * 10) / 10
+   };
+   const totalBalance = Math.round((balance.casual + balance.sick + balance.privilege) * 10) / 10;
 
   return {
     employeeId: emp.employeeId || '',
@@ -296,15 +336,15 @@ function calcBalanceForEmployee(emp, used = { CL: 0, SL: 0, PL: 0 }) {
     traineeMonths,
     regularMonths: postTraineeMonths,
     balances: {
-      casual: { allocated: allocated.casual, used: used.CL || 0, balance: balance.casual },
-      sick: { allocated: allocated.sick, used: used.SL || 0, balance: balance.sick },
+      casual: { allocated: allocated.casual, used: usedCL, balance: balance.casual },
+      sick: { allocated: allocated.sick, used: usedSL, balance: balance.sick },
       privilege: { 
         allocated: allocated.privilege, 
-        used: used.PL || 0, 
+        used: plUsed, 
         balance: balance.privilege,
-        nonCarryAllocated: Math.round(plNonCarry * 10) / 10,
-        carryAllocated: Math.round(plCarry * 10) / 10,
-        carryForwardEligibleBalance: Math.round(carryAfterUse * 10) / 10
+        nonCarryAllocated: 0,
+        carryAllocated: allocated.privilege,
+        carryForwardEligibleBalance: balance.privilege
       },
       totalBalance
     }
@@ -329,18 +369,14 @@ router.get('/balance', auth, async (req, res) => {
         const approvals = await LeaveApplication.find({ employeeId: { $in: empIds }, status: 'Approved' }).lean();
         for (const rec of approvals) {
           const id = rec.employeeId;
-          const type = rec.leaveType;
-          if (!usedMap[id]) usedMap[id] = { CL: 0, SL: 0, PL: 0 };
-          const val = Number(rec.totalDays || 0);
-          if (type === 'CL') usedMap[id].CL += val;
-          else if (type === 'SL') usedMap[id].SL += val;
-          else if (type === 'PL') usedMap[id].PL += val;
+          if (!usedMap[id]) usedMap[id] = [];
+          usedMap[id].push(rec);
         }
       }
     } catch (_) {
       // If usage aggregation fails, continue with zero used
     }
-    const result = employees.map(emp => calcBalanceForEmployee(emp, usedMap[emp.employeeId] || { CL: 0, SL: 0, PL: 0 }));
+    const result = employees.map(emp => calcBalanceForEmployee(emp, usedMap[emp.employeeId] || []));
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -370,16 +406,8 @@ router.get('/my-balance', auth, async (req, res) => {
 
     // Aggregate approved leaves for this user
     const approvals = await LeaveApplication.find({ userId: user._id, status: 'Approved' }).lean();
-    const used = approvals.reduce((acc, rec) => {
-      const t = rec.leaveType;
-      const val = Number(rec.totalDays || 0);
-      if (t === 'CL') acc.CL += val;
-      else if (t === 'SL') acc.SL += val;
-      else if (t === 'PL') acc.PL += val;
-      return acc;
-    }, { CL: 0, SL: 0, PL: 0 });
-
-    const result = calcBalanceForEmployee(emp, used);
+    // Pass raw approvals array to calcBalanceForEmployee
+    const result = calcBalanceForEmployee(emp, approvals);
     return res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });

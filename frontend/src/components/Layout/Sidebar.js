@@ -1,3 +1,4 @@
+// Sidebar.jsx - Updated with Exit Management
 import React, { useState } from "react";
 import { X, ChevronDown, ChevronRight } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -19,7 +20,16 @@ import {
   ChartBarIcon,
   AcademicCapIcon,
   AdjustmentsHorizontalIcon,
-  CurrencyDollarIcon // Added for Expenditure Management
+  CurrencyDollarIcon,
+  CalculatorIcon,
+  CurrencyRupeeIcon,
+  UserGroupIcon,
+  BriefcaseIcon,
+  ChartPieIcon,
+  // NEW ICONS FOR EXIT MANAGEMENT
+  ArrowRightOnRectangleIcon,
+  ClipboardDocumentCheckIcon as ApprovalIcon,
+  UserCircleIcon
 } from "@heroicons/react/24/outline";
 
 const Sidebar = ({ isOpen, onClose }) => {
@@ -34,7 +44,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     setOpenDropdown(openDropdown === name ? null : name);
   };
 
-  // icon mapping
+  // icon mapping - Updated with Exit Management icons
   const iconMap = {
     Dashboard: HomeIcon,
     "User Access": KeyIcon,
@@ -52,7 +62,20 @@ const Sidebar = ({ isOpen, onClose }) => {
     "Leave Summary": ChartBarIcon,
     "Leave Balance": ClipboardDocumentListIcon,
     "Trainees Management": AcademicCapIcon,
-    "Expenditure Management": CurrencyDollarIcon // Added
+    "Expenditure Management": CurrencyDollarIcon,
+    "Payroll Management": CalculatorIcon,
+    "Cost to the Company": CurrencyRupeeIcon,
+    "Payroll Details": CurrencyRupeeIcon,
+    "Team Management": UserGroupIcon,
+    "Employee Reward Tracker": BriefcaseIcon,
+    "Dashboard Reports": ChartPieIcon,
+    "Loan Summary": BanknotesIcon,
+    "Gratuity Summary": BanknotesIcon,
+    "Monthly Payroll": BanknotesIcon,
+    // NEW ICONS FOR EXIT MANAGEMENT
+    "Employee Exit Form": ArrowRightOnRectangleIcon,
+    "Exit Approval": ApprovalIcon,
+    "Exit Management": UserCircleIcon
   };
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
@@ -61,7 +84,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     {
       name: "Home",
       path: "/dashboard",
-      icon: getIconForMenu("home"),
+      icon: getIconForMenu("Dashboard"),
       allowEmployeeRole: true,
     },
     {
@@ -80,13 +103,14 @@ const Sidebar = ({ isOpen, onClose }) => {
       path: "/timesheet/attendance",
       icon: getIconForMenu("Employee Attendance"),
       permission: "attendance_access",
-      allowEmployeeRole: false,
+      showForRoles: ["admin", "hr", "manager"],
     },
     {
       name: "Admin Timesheet",
       hasDropdown: true,
       icon: getIconForMenu("Admin Timesheet"),
-      allowEmployeeRole: false,
+      permission: "admin_timesheet_access",
+      showForRoles: ["admin", "hr", "manager"],
       children: [
         { name: "Admin Timesheet", path: "/admin/timesheet" },
         { name: "Timesheet Summary", path: "/admin/timesheet/approval" },
@@ -97,35 +121,31 @@ const Sidebar = ({ isOpen, onClose }) => {
       path: "/project-allocation",
       icon: getIconForMenu("Project Allocation"),
       permission: "project_access",
+      showForRoles: ["admin", "projectmanager", "manager"],
     },
-    // LEAVE MANAGEMENT MODULE (SIMPLIFIED - REMOVED LEAVE DASHBOARD)
+    // LEAVE MANAGEMENT MODULE
     {
       name: "Leave Management",
       hasDropdown: true,
       icon: getIconForMenu("Leave Management"),
       permission: "leave_access",
-      allowEmployeeRole: false,
+      allowEmployeeRole: true,
       children: [
-      
         { 
           name: "Leave Summary", 
           path: "/leave-management/summary",
-          icon: "ChartBarIcon",
           permission: "leave_view",
           showForRoles: ["admin", "hr", "manager"]
         },
         { 
           name: "Leave Balance", 
           path: "/leave-management/balance",
-          icon: "ClipboardDocumentListIcon",
           permission: "leave_view",
-          showForRoles: ["admin", "hr", "manager", "employees"],
           allowEmployeeRole: true
-        },
-       
+        }
       ],
     },
-    // LEAVE APPLICATIONS AS SEPARATE MODULE (ADDED)
+    // LEAVE APPLICATIONS
     {
       name: "Leave Applications",
       path: "/leave-applications",
@@ -137,94 +157,199 @@ const Sidebar = ({ isOpen, onClose }) => {
       name: "Insurance",
       path: "/insurance",
       icon: getIconForMenu("Insurance"),
-    },
-    {
-      name: role === "admin" ? "Policy Portal" : "Policy",
-      path: "/policies",
-      icon: getIconForMenu("Policy Portal"),
+      permission: "insurance_access",
       allowEmployeeRole: true,
     },
-
+    {
+      name: "Policy Portal",
+      path: "/policies",
+      icon: getIconForMenu("Policy Portal"),
+      permission: "policy_access",
+      allowEmployeeRole: true,
+    },
+    // SALARY SLIPS
     {
       name: "Salary Slips",
       path: "/salaryslips",
       icon: getIconForMenu("Salary Slips"),
-      permission: "payroll_access",
+      permission: "payroll_view",
       allowEmployeeRole: true,
     },
-
-
-
-
-    // EXPENDITURE MANAGEMENT - ADDED
+    // PAYROLL MANAGEMENT
+    {
+      name: "Payroll Management",
+      hasDropdown: true,
+      icon: getIconForMenu("Payroll Management"),
+      permission: "payroll_access",
+      showForRoles: ["admin", "hr", "finance"],
+      allowEmployeeRole: false,
+      children: [
+        { 
+          name: "Payroll Details", 
+          path: "/payroll/details",
+          permission: "payroll_manage",
+          showForRoles: ["admin", "hr", "finance"]
+        },
+        {
+          name: "Cost to the Company",
+          path: "/payroll/cost-to-the-company",
+          permission: "payroll_view",
+          showForRoles: ["admin", "hr", "finance"]
+        },
+        {
+          name: "Loan Summary",
+          path: "/payroll/loan-summary",
+          permission: "loan_view",
+          showForRoles: ["admin", "hr", "finance"]
+        },
+        {
+          name: "Gratuity Summary",
+          path: "/payroll/gratuity-summary",
+          permission: "gratuity_view",
+          showForRoles: ["admin", "hr", "finance"]
+        },
+        {
+          name: "Monthly Payroll",
+          path: "/payroll/monthly",
+          permission: "payroll_access",
+          showForRoles: ["admin", "hr", "finance"],
+          allowEmployeeRole: false
+        }
+      ],
+    },
+    // EXPENDITURE MANAGEMENT
     {
       name: "Expenditure Management",
-      path: "/expenditure-management",
+      path: "/expenditure/management",
       icon: getIconForMenu("Expenditure Management"),
-      permission: "expenditure_access", // You can add this permission
-      showForRoles: ["admin", "hr", "finance"], // Specify which roles can see this
-      allowEmployeeRole: false, // Employees shouldn't see this by default
+      permission: "expenditure_access",
+      showForRoles: ["admin", "hr", "finance"],
+      allowEmployeeRole: false,
     },
-
+    // EXIT MANAGEMENT - NEW MODULE
+    // {
+    //   name: "Exit Management",
+    //   hasDropdown: true,
+    //   icon: getIconForMenu("Exit Management"),
+    //   permission: "exit_access",
+    //   showForRoles: ["admin", "hr", "manager", "employee"],
+    //   children: [
+    //     { 
+    //       name: "Employee Exit Form", 
+    //       path: "/employee-exit/form",
+    //       permission: "exit_form_access",
+    //       allowEmployeeRole: true,
+    //       showForRoles: ["employee"]
+    //     },
+    //     { 
+    //       name: "Exit Approval", 
+    //       path: "/employee-exit/approval",
+    //       permission: "exit_approval_access",
+    //       showForRoles: ["admin", "hr", "manager"]
+    //     }
+    //   ],
+    // },
+    // EMPLOYEE REWARD TRACKER
     {
       name: "Employee Reward Tracker",
       path: "/employee-reward-tracker",
       icon: getIconForMenu("Employee Reward Tracker"),
       permission: "reward_access",
       showForRoles: ["admin", "hr", "manager"],
-      allowEmployeeRole: false,
     },
-
-    
+    // EMPLOYEE MANAGEMENT
     {
       name: "Employee Management",
       path: "/employee-management",
       icon: getIconForMenu("Employee Management"),
       permission: "employee_access",
+      showForRoles: ["admin", "hr"],
     },
+    // USER ACCESS
     {
       name: "User Access",
       path: "/user-access",
       icon: getIconForMenu("User Access"),
       permission: "user_access",
+      showForRoles: ["admin"],
     },
+    // TEAM MANAGEMENT
     {
       name: "Team Management",
       path: "/admin/team-management",
-      icon: getIconForMenu("Employee Management"),
-      showForRoles: ["admin"],
+      icon: getIconForMenu("Team Management"),
+      permission: "team_access",
+      showForRoles: ["admin", "manager"],
     },
+   
   ];
 
+  // Filter logic
   const filteredMenuItems = menuItems.filter((item) => {
-    if (item.showForRoles && !item.showForRoles.includes(role) && role !== "admin") {
+    // Admin can see everything
+    if (role === "admin") {
+      return true;
+    }
+
+    // Check if item has showForRoles restriction
+    if (item.showForRoles && !item.showForRoles.includes(role)) {
       return false;
     }
-    const hasPermission = !item.permission || permissions.includes(item.permission);
-    const allowByRole =
-      role === "admin" ||
-      (role === "employees" && item.allowEmployeeRole) ||
-      (role === "projectmanager" && item.name === "Project Allocation");
-    return hasPermission && allowByRole;
+
+    // Check permission
+    if (item.permission && !permissions.includes(item.permission)) {
+      return false;
+    }
+
+    // For employees, check allowEmployeeRole
+    if (role === "employees" && !item.allowEmployeeRole) {
+      return false;
+    }
+
+    // For projectmanager
+    if (role === "projectmanager" && item.name === "Project Allocation") {
+      return true;
+    }
+
+    // For hr role
+    if (role === "hr" && item.showForRoles && item.showForRoles.includes("hr")) {
+      return true;
+    }
+
+    // For finance role
+    if (role === "finance" && item.showForRoles && item.showForRoles.includes("finance")) {
+      return true;
+    }
+
+    // For manager role
+    if (role === "manager" && item.showForRoles && item.showForRoles.includes("manager")) {
+      return true;
+    }
+
+    // Default: show if it passed permission check
+    return true;
   });
 
-  // Filter dropdown children based on permissions and role
-  const getFilteredChildren = (children, parentItem) => {
+  // Filter dropdown children
+  const getFilteredChildren = (children) => {
     if (!children) return [];
     
     return children.filter((child) => {
-      if (child.showForRoles && !child.showForRoles.includes(role) && role !== "admin") {
+      // Admin can see everything
+      if (role === "admin") return true;
+
+      // Check if child has showForRoles restriction
+      if (child.showForRoles && !child.showForRoles.includes(role)) {
         return false;
       }
 
-      if (role === "employees") {
-        if (parentItem && parentItem.allowEmployeeRole) {
-          return true;
-        }
-        return !!child.allowEmployeeRole;
+      // Check permission
+      if (child.permission && !permissions.includes(child.permission)) {
+        return false;
       }
 
-      if (child.permission && !permissions.includes(child.permission) && role !== "admin") {
+      // For employees, check allowEmployeeRole
+      if (role === "employees" && !child.allowEmployeeRole) {
         return false;
       }
 
@@ -249,12 +374,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     // Exact match
     if (location.pathname === childPath) return true;
     
-    // For leave management sub-paths
-    if (childPath === '/leave-management' && location.pathname.startsWith('/leave-management')) {
-      return location.pathname === '/leave-management';
-    }
-    
-    // For other sub-paths
+    // For sub-paths
     if (childPath && location.pathname.startsWith(childPath)) {
       return true;
     }
@@ -262,26 +382,22 @@ const Sidebar = ({ isOpen, onClose }) => {
     return false;
   };
 
+  // DropdownIcons - Updated with Exit Management icons
   const DropdownIcons = {
-    // Timesheet icons
     "Timesheet": <DocumentTextIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Timesheet History": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    "Employee Attendance": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Admin Timesheet": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Timesheet Summary": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    
-    // Leave Management icons
-    "Edit Leave Eligibility": <AdjustmentsHorizontalIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Leave Summary": <ChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Leave Balance": <ClipboardDocumentListIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    "Trainees Management": <AcademicCapIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    
-    // Salary Slips icons
-    "Payslip Viewer": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    "Salary History": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    "Tax Documents": <DocumentTextIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    
-    // Default icon
+    "Payroll Details": <CurrencyRupeeIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Cost to the Company": <CurrencyRupeeIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Loan Summary": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Gratuity Summary": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Monthly Payroll": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    // NEW ICONS FOR EXIT MANAGEMENT
+    "Employee Exit Form": <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Exit Approval": <ApprovalIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "default": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />
   };
 
@@ -349,14 +465,14 @@ const Sidebar = ({ isOpen, onClose }) => {
 
                   {openDropdown === item.name && (
                     <div className="ml-4 mt-1 mb-2 space-y-1 bg-[#1e2050]/70 rounded-lg py-2 border-l-2 border-[#3730a3]">
-                      {getFilteredChildren(item.children, item).map((child) => (
+                      {getFilteredChildren(item.children).map((child) => (
                         <Link
                           key={child.path}
                           to={child.path}
                           onClick={onClose}
                           className={`flex items-center px-3 py-2.5 text-sm rounded-md transition-all mx-1 ${
                             isChildActive(child.path)
-                              ? "bg[#1e2050] text-white border-l-2 border-white"
+                              ? "bg-[#1e2050] text-white border-l-2 border-white"
                               : "text-violet-100 hover:bg-[#1e2050] hover:text-white hover:border-l-2 hover:border-violet-300"
                           }`}
                         >
@@ -404,8 +520,11 @@ const Sidebar = ({ isOpen, onClose }) => {
               <p className="text-sm font-medium text-white truncate">
                 {user.name || "User"}
               </p>
-              <p className="text-xs text-violet-200 truncate">
+              <p className="text-xs text-violet-200 truncate capitalize">
                 {role || "Employee"}
+              </p>
+              <p className="text-xs text-violet-300 truncate">
+                {permissions.length} permissions
               </p>
             </div>
           </div>

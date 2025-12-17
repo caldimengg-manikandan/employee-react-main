@@ -154,9 +154,9 @@ const LeaveApplications = () => {
             return acc;
           }, { CL: 0, SL: 0, PL: 0 });
           setLeaveBalance({
-            CL: Math.max(0, Math.round((Number(alloc.CL || 0) - Number(used.CL || 0)) * 10) / 10),
-            SL: Math.max(0, Math.round((Number(alloc.SL || 0) - Number(used.SL || 0)) * 10) / 10),
-            PL: Math.max(0, Math.round((Number(alloc.PL || 0) - Number(used.PL || 0)) * 10) / 10),
+            CL: Math.round((Number(alloc.CL || 0) - Number(used.CL || 0)) * 10) / 10,
+            SL: Math.round((Number(alloc.SL || 0) - Number(used.SL || 0)) * 10) / 10,
+            PL: Math.round((Number(alloc.PL || 0) - Number(used.PL || 0)) * 10) / 10,
             BEREAVEMENT: 2
           });
         } catch { }
@@ -256,22 +256,7 @@ const LeaveApplications = () => {
       return;
     }
 
-    // Check leave balance
-    if (leaveData.leaveType === 'CL' && totalLeaveDays > getAvailableBalance('CL')) {
-      alert(`Insufficient Casual Leave balance. Available: ${getAvailableBalance('CL')} days`);
-      return;
-    }
-
-    if (leaveData.leaveType === 'SL' && totalLeaveDays > getAvailableBalance('SL')) {
-      alert(`Insufficient Sick Leave balance. Available: ${getAvailableBalance('SL')} days`);
-      return;
-    }
-
-    if (leaveData.leaveType === 'PL' && totalLeaveDays > getAvailableBalance('PL')) {
-      alert(`Insufficient Privilege Leave balance. Available: ${getAvailableBalance('PL')} days`);
-      return;
-    }
-
+    // Check leave balance (allow negative for CL/SL/PL; keep bereavement strict)
     if (leaveData.leaveType === 'BEREAVEMENT' && totalLeaveDays > getAvailableBalance('BEREAVEMENT')) {
       alert(`Insufficient Bereavement Leave balance. Available: ${getAvailableBalance('BEREAVEMENT')} days`);
       return;
@@ -466,7 +451,7 @@ const LeaveApplications = () => {
   const getAvailableBalance = (type) => {
     const base = Number(leaveBalance[type] || 0);
     const pending = Number(pendingLeaves[type] || 0);
-    return Math.max(0, Math.round((base - pending) * 10) / 10);
+    return Math.round((base - pending) * 10) / 10;
   };
 
   return (
