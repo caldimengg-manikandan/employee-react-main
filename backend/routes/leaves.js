@@ -425,7 +425,16 @@ router.get('/', auth, async (req, res) => {
     if (employeeId) filter.employeeId = employeeId;
     if (status && status !== 'all') filter.status = status;
     if (leaveType && leaveType !== 'all') filter.leaveType = leaveType;
-    if (startDate || endDate) {
+    
+    if (req.query.overlap === 'true' && startDate && endDate) {
+      const sDate = new Date(startDate);
+      const eDate = new Date(endDate);
+      // Overlap: Start <= EndOfRange AND End >= StartOfRange
+      filter.$and = [
+        { startDate: { $lte: eDate } },
+        { endDate: { $gte: sDate } }
+      ];
+    } else if (startDate || endDate) {
       filter.startDate = {};
       if (startDate) filter.startDate.$gte = new Date(startDate);
       if (endDate) filter.startDate.$lte = new Date(endDate);

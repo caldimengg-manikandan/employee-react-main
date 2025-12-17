@@ -508,7 +508,12 @@ const PayrollDetails = () => {
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-gray-900">{record.location}</div>
+                    <div className="text-gray-900">
+                      {record.location || 
+                       employeeList.find(e => e.employeeId === record.employeeId)?.location || 
+                       employeeList.find(e => e.employeeId === record.employeeId)?.address || 
+                       'Unknown'}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">

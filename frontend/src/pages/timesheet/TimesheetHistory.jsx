@@ -126,6 +126,14 @@ const TimesheetHistory = () => {
     const e = new Date(end);
     return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   };
+  const toHHMM = (h) => {
+    const m = Math.round(Number(h || 0) * 60);
+    const sign = m < 0 ? '-' : '';
+    const abs = Math.abs(m);
+    const hh = String(Math.floor(abs / 60)).padStart(2, '0');
+    const mm = String(abs % 60).padStart(2, '0');
+    return `${sign}${hh}:${mm}`;
+  };
 
   const handleViewDetails = (timesheet) => {
     setSelectedTimesheet(timesheet);
@@ -587,7 +595,7 @@ const TimesheetHistory = () => {
                         </div>
                       </td>
                       <td className="p-4 text-sm font-semibold text-gray-900">
-                        {t.totalHours} hours
+                        {toHHMM(t.totalHours)}
                       </td>
                       <td className="p-4">
                         <span className={getStatusBadge(t.status)}>
@@ -823,8 +831,8 @@ const TimesheetHistory = () => {
                       );
                       return hasWork ? 1.25 : 0;
                     }).reduce((sum, b) => sum + b, 0);
-                    return (weeklyWork + weeklyBreak).toFixed(2);
-                  })()} hours
+                    return toHHMM(weeklyWork + weeklyBreak);
+                  })()}
                 </div>
                 <div>
                   <span className="font-medium">
@@ -876,9 +884,9 @@ const TimesheetHistory = () => {
                           </td>
                           <td className="p-3 text-sm text-gray-700">{entry.task}</td>
                           {hours.map((h, i) => (
-                            <td key={i} className="p-3 text-sm text-gray-700">{Number(h) || 0}</td>
+                          <td key={i} className="p-3 text-sm text-gray-700">{Number(h) || 0}</td>
                           ))}
-                          <td className="p-3 text-sm font-semibold text-gray-900">{rowTotal}</td>
+                          <td className="p-3 text-sm font-semibold text-gray-900">{toHHMM(rowTotal)}</td>
                         </tr>
                       );
                     })}
@@ -927,7 +935,7 @@ const TimesheetHistory = () => {
                             );
                             return hasWork ? 1.25 : 0;
                           }).reduce((sum, b) => sum + b, 0);
-                          return (weeklyWork + weeklyBreak).toFixed(2);
+                          return toHHMM(weeklyWork + weeklyBreak);
                         })()}
                       </td>
                     </tr>
@@ -951,8 +959,8 @@ const TimesheetHistory = () => {
                       );
                       return hasWork ? 1.25 : 0;
                     }).reduce((sum, b) => sum + b, 0);
-                    return (weeklyWork + weeklyBreak).toFixed(2);
-                  })()} hours
+                    return toHHMM(weeklyWork + weeklyBreak);
+                  })()}
                 </span>
               </div>
               </div>

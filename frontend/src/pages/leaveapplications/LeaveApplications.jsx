@@ -170,7 +170,8 @@ const LeaveApplications = () => {
     { value: 'CL', label: 'Casual Leave (CL)' },
     { value: 'SL', label: 'Sick Leave (SL)' },
     { value: 'PL', label: 'Privilege Leave (PL)' },
-    { value: 'BEREAVEMENT', label: 'Bereavement Leave' }
+    { value: 'BEREAVEMENT', label: 'Bereavement Leave' },
+    { value: 'LOP', label: 'Loss of Pay' }
   ];
 
   const bereavementRelations = [

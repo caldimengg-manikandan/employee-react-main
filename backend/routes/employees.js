@@ -8,6 +8,7 @@ const User = require('../models/User');
 // Get all employees - restricted based on user permissions
 router.get('/', auth, async (req, res) => {
   try {
+    
     // Full access for users with employee_access
     if (req.user.permissions?.includes('employee_access')) {
       const employees = await Employee.find().sort({ createdAt: -1 });

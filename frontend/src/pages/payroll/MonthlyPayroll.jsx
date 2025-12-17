@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Download, Check, X, Mail, Filter } from 'lucide-react';
+import { employeeAPI, leaveAPI, payrollAPI } from '../../services/api';
 
-const calculateSalaryFields = (salaryData) => {
+const calculateSalaryFields = (salaryData, lopDaysInput) => {
   const basicDA = parseFloat(salaryData.basicDA) || 0;
   const hra = parseFloat(salaryData.hra) || 0;
   const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
@@ -11,10 +12,19 @@ const calculateSalaryFields = (salaryData) => {
   const tax = parseFloat(salaryData.tax) || 0;
   const professionalTax = parseFloat(salaryData.professionalTax) || 0;
   const loanDeduction = parseFloat(salaryData.loanDeduction) || 0;
-  const lop = parseFloat(salaryData.lop) || 0;
+
+  // Use input if provided, otherwise check record, otherwise 0
+  const lopDays = lopDaysInput !== undefined ? lopDaysInput : (salaryData.lopDays || 0);
 
   const totalEarnings = basicDA + hra + specialAllowance;
-  const totalDeductions = pf + esi + tax + professionalTax + loanDeduction + lop + gratuity;
+  
+  // Calculate LOP deduction
+  // Per Day Salary = Total Earnings / 30
+  const perDaySalary = totalEarnings / 30;
+  const lopDeduction = Math.round(perDaySalary * lopDays);
+
+  // Gratuity is part of CTC but usually not deducted from monthly Net Salary (it's separate)
+  const totalDeductions = pf + esi + tax + professionalTax + loanDeduction + lopDeduction;
   const netSalary = totalEarnings - totalDeductions;
   const ctc = totalEarnings + gratuity;
 
@@ -23,75 +33,13 @@ const calculateSalaryFields = (salaryData) => {
     totalEarnings,
     totalDeductions,
     netSalary,
-    ctc
+    ctc,
+    lop: lopDeduction,
+    lopDays
   };
 };
 
-const defaultSample = [
-  {
-    id: 1,
-    employeeId: 'EMP001',
-    employeeName: 'John Doe',
-    designation: 'Software Engineer',
-    location: 'Chennai',
-    basicDA: 40000,
-    hra: 16000,
-    specialAllowance: 8000,
-    gratuity: 2000,
-    pf: 4800,
-    esi: 1200,
-    tax: 3000,
-    professionalTax: 200,
-    loanDeduction: 0,
-    lop: 0,
-    status: 'Pending',
-    accountNumber: '123456789012',
-    ifscCode: 'HDFC0001234',
-    bankName: 'HDFC Bank'
-  },
-  {
-    id: 2,
-    employeeId: 'EMP002',
-    employeeName: 'Jane Smith',
-    designation: 'HR Manager',
-    location: 'Hosur',
-    basicDA: 50000,
-    hra: 20000,
-    specialAllowance: 10000,
-    gratuity: 2500,
-    pf: 6000,
-    esi: 1500,
-    tax: 5000,
-    professionalTax: 200,
-    loanDeduction: 2000,
-    lop: 0,
-    status: 'Pending',
-    accountNumber: '987654321098',
-    ifscCode: 'SBIN0001234',
-    bankName: 'SBI'
-  },
-  {
-    id: 3,
-    employeeId: 'EMP003',
-    employeeName: 'Robert Johnson',
-    designation: 'Sales Executive',
-    location: 'Chennai',
-    basicDA: 30000,
-    hra: 12000,
-    specialAllowance: 6000,
-    gratuity: 1500,
-    pf: 3600,
-    esi: 900,
-    tax: 2000,
-    professionalTax: 200,
-    loanDeduction: 1000,
-    lop: 0,
-    status: 'Pending',
-    accountNumber: '543210987654',
-    ifscCode: 'AXIS0001234',
-    bankName: 'Axis Bank'
-  }
-];
+const defaultSample = [];
 
 export default function MonthlyPayroll() {
   const [salaryRecords, setSalaryRecords] = useState([]);
@@ -102,28 +50,64 @@ export default function MonthlyPayroll() {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [simulation, setSimulation] = useState(null);
   const [processing, setProcessing] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [filterBank, setFilterBank] = useState('all');
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem('payrollRecords');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        const normalized = parsed.map(r => ({ 
-          accountNumber: '', 
-          ifscCode: '', 
-          bankName: 'HDFC Bank', 
-          ...r 
-        }));
-        setSalaryRecords(normalized);
-        return;
-      }
-    } catch (e) {
-      console.warn('Failed to parse payrollRecords from localStorage', e);
-    }
-    setSalaryRecords(defaultSample);
+    fetchEmployees();
   }, []);
+
+  const fetchEmployees = async () => {
+    setLoading(true);
+    try {
+      const [empResponse, payrollResponse] = await Promise.all([
+        employeeAPI.getAllEmployees(),
+        payrollAPI.list()
+      ]);
+      
+      const employees = Array.isArray(empResponse.data) ? empResponse.data : [];
+      const payrolls = Array.isArray(payrollResponse.data) ? payrollResponse.data : [];
+
+      const mapped = employees.map(emp => {
+        // Find matching payroll record
+        const payrollRec = payrolls.find(p => p.employeeId === emp.employeeId);
+        
+        return {
+          id: emp._id,
+          employeeId: emp.employeeId,
+          employeeName: emp.name,
+          designation: emp.designation,
+          location: emp.location || emp.address || emp.currentAddress || 'Unknown',
+          
+          // Use payroll record if available, else fallback to employee record
+          basicDA: payrollRec ? (payrollRec.basicDA || 0) : (emp.basicDA || emp.basic || 0),
+          hra: payrollRec ? (payrollRec.hra || 0) : (emp.hra || 0),
+          specialAllowance: payrollRec ? (payrollRec.specialAllowance || 0) : (emp.specialAllowance || 0),
+          gratuity: payrollRec ? (payrollRec.gratuity || 0) : (emp.gratuity || 0),
+          
+          pf: payrollRec ? (payrollRec.pf || 0) : (emp.pf || 0),
+          esi: payrollRec ? (payrollRec.esi || 0) : (emp.esi || 0),
+          tax: payrollRec ? (payrollRec.tax || 0) : (emp.tax || 0),
+          professionalTax: payrollRec ? (payrollRec.professionalTax || 0) : (emp.professionalTax || 0),
+          loanDeduction: payrollRec ? (payrollRec.loanDeduction || 0) : (emp.loanDeduction || 0),
+          
+          lop: 0,
+          status: 'Pending',
+          
+          accountNumber: payrollRec?.accountNumber || emp.bankAccount || '',
+          ifscCode: payrollRec?.ifscCode || emp.ifsc || '',
+          bankName: payrollRec?.bankName || emp.bankName || ''
+        };
+      });
+      setSalaryRecords(mapped);
+    } catch (e) {
+      console.error('Failed to fetch employees or payrolls', e);
+      setMessage('Error fetching data. Please check permissions.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const toggleSelectEmployee = (id) => {
     setSelectedEmployees(prev => 
@@ -139,7 +123,7 @@ export default function MonthlyPayroll() {
     setSelectedEmployees([]);
   };
 
-  const runSimulation = () => {
+  const runSimulation = async () => {
     if (selectedEmployees.length === 0) {
       setMessage('Select at least one employee to simulate payroll.');
       setTimeout(() => setMessage(''), 3000);
@@ -147,34 +131,94 @@ export default function MonthlyPayroll() {
     }
 
     setProcessing(true);
-    const selectedRecords = salaryRecords.filter(r => selectedEmployees.includes(r.id));
+    
+    try {
+      // Calculate month start and end
+      const [year, month] = selectedMonth.split('-');
+      // Start of month
+      const start = new Date(parseInt(year), parseInt(month) - 1, 1);
+      // End of month
+      const end = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
 
-    const results = selectedRecords.map(rec => {
-      const base = calculateSalaryFields(rec);
-      const adjusted = { ...base };
+      // Fetch approved leaves with overlap
+      const leavesResponse = await leaveAPI.list({
+        status: 'Approved',
+        startDate: start.toISOString(),
+        endDate: end.toISOString(),
+        overlap: 'true'
+      });
       
-      // Include gratuity by default (calculation already includes it)
-      adjusted.salaryMonth = `${selectedMonth}-01`;
-      adjusted.paymentDate = new Date().toISOString().slice(0,10);
-      adjusted.accountNumber = rec.accountNumber || '';
-      adjusted.ifscCode = rec.ifscCode || '';
-      adjusted.bankName = rec.bankName || 'HDFC Bank';
-      
-      return adjusted;
-    });
+      const leaves = leavesResponse.data || [];
 
-    const totals = results.reduce((acc, r) => {
-      acc.totalEarnings += Number(r.totalEarnings || 0);
-      acc.totalDeductions += Number(r.totalDeductions || 0);
-      acc.netSalary += Number(r.netSalary || 0);
-      acc.ctc += Number(r.ctc || 0);
-      return acc;
-    }, { totalEarnings: 0, totalDeductions: 0, netSalary: 0, ctc: 0 });
+      const selectedRecords = salaryRecords.filter(r => selectedEmployees.includes(r.id));
 
-    setTimeout(() => {
+      const results = selectedRecords.map(rec => {
+        // Calculate LOP days for this employee
+        // Match by employeeId or loose match by name if needed
+        const employeeLeaves = leaves.filter(l => 
+          (l.employeeId && l.employeeId === rec.employeeId)
+        );
+        
+        // Filter only LOP leaves (case-insensitive)
+        const lopLeaves = employeeLeaves.filter(l => {
+          const type = (l.leaveType || '').toLowerCase().replace(/\s+/g, '');
+          return ['lop', 'lossofpay', 'unpaid', 'lwop'].includes(type);
+        });
+
+        // Calculate actual days falling within the selected month
+        const lopDays = lopLeaves.reduce((sum, l) => {
+          const startOfDay = (d) => {
+            const newD = new Date(d);
+            newD.setHours(0, 0, 0, 0);
+            return newD;
+          };
+
+          const lStart = startOfDay(l.startDate);
+          const lEnd = startOfDay(l.endDate);
+          const mStart = startOfDay(start);
+          const mEnd = startOfDay(end);
+          
+          // Intersection with month
+          const effectiveStart = lStart < mStart ? mStart : lStart;
+          const effectiveEnd = lEnd > mEnd ? mEnd : lEnd;
+          
+          if (effectiveStart > effectiveEnd) return sum;
+          
+          // Calculate days difference (inclusive)
+          const diffTime = Math.abs(effectiveEnd - effectiveStart);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+          
+          return sum + diffDays;
+        }, 0);
+
+        const base = calculateSalaryFields(rec, lopDays);
+        const adjusted = { ...base };
+        
+        // Include gratuity by default (calculation already includes it)
+        adjusted.salaryMonth = `${selectedMonth}-01`;
+        adjusted.paymentDate = new Date().toISOString().slice(0,10);
+        adjusted.accountNumber = rec.accountNumber || '';
+        adjusted.ifscCode = rec.ifscCode || '';
+        adjusted.bankName = rec.bankName || 'HDFC Bank';
+        
+        return adjusted;
+      });
+
+      const totals = results.reduce((acc, r) => {
+        acc.totalEarnings += Number(r.totalEarnings || 0);
+        acc.totalDeductions += Number(r.totalDeductions || 0);
+        acc.netSalary += Number(r.netSalary || 0);
+        acc.ctc += Number(r.ctc || 0);
+        return acc;
+      }, { totalEarnings: 0, totalDeductions: 0, netSalary: 0, ctc: 0 });
+
       setSimulation({ results, totals });
+    } catch (err) {
+      console.error("Simulation failed", err);
+      setMessage("Failed to run simulation: " + err.message);
+    } finally {
       setProcessing(false);
-    }, 800);
+    }
   };
 
   const sendPaymentEmail = () => {
@@ -451,11 +495,27 @@ Payroll Department
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredRecords.map(record => {
-                const salary = calculateSalaryFields(record);
-                return (
-                  <tr key={record.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
+              {loading ? (
+                <tr>
+                  <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                      Loading employees...
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredRecords.length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
+                    No employees found matching the criteria.
+                  </td>
+                </tr>
+              ) : (
+                filteredRecords.map(record => {
+                  const salary = calculateSalaryFields(record);
+                  return (
+                    <tr key={record.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
                       <input 
                         type="checkbox" 
                         checked={selectedEmployees.includes(record.id)} 
@@ -514,7 +574,7 @@ Payroll Department
                     </td>
                   </tr>
                 );
-              })}
+              }))}
             </tbody>
           </table>
         </div>
@@ -576,6 +636,12 @@ Payroll Department
                     Total Earnings
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    LOP Days
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    LOP Deduction
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Total Deductions
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -595,6 +661,12 @@ Payroll Department
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       {formatCurrency(result.totalEarnings)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-red-600 font-medium">
+                      {result.lopDays || 0}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                      {formatCurrency(result.lop)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       {formatCurrency(result.totalDeductions)}
@@ -625,6 +697,12 @@ Payroll Department
                   <td className="px-6 py-4 whitespace-nowrap">Totals</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     {formatCurrency(simulation.totals.totalEarnings)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    -
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                    {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.lop || 0), 0))}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right">
                     {formatCurrency(simulation.totals.totalDeductions)}

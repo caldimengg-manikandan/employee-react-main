@@ -10,6 +10,7 @@ const https = require("https");
 const http = require("http");
 const axios = require("axios");
 const payrollRoutes = require("./routes/payroll");
+const monthlyPayrollRoutes = require("./routes/monthlyPayroll");
 
 // Load environment variables
 dotenv.config();
@@ -54,9 +55,8 @@ app.use("/api/mail", require("./routes/mail.routes"));
 
 //payroll
 
-
 app.use("/api/payroll", payrollRoutes);
-
+app.use("/api/monthly-payroll", monthlyPayrollRoutes);
 
 
 // Base Route
