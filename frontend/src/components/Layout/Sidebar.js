@@ -94,8 +94,8 @@ const Sidebar = ({ isOpen, onClose }) => {
       permission: "timesheet_access",
       allowEmployeeRole: true,
       children: [
-        { name: "Timesheet", path: "/timesheet" },
-        { name: "Timesheet History", path: "/timesheet/history" },
+        { name: "Timesheet", path: "/timesheet", allowEmployeeRole: true },
+        { name: "Timesheet History", path: "/timesheet/history", allowEmployeeRole: true },
       ],
     },
     {
