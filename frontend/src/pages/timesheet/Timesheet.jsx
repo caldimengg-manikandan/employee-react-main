@@ -1292,7 +1292,7 @@ const Timesheet = () => {
       </div>
 
       {/* Timesheet Table */}
-      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
         {/* Header with action buttons */}
         <div className="p-4 border-b border-gray-200 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-800">
@@ -1336,7 +1336,7 @@ const Timesheet = () => {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse table-fixed">
+          <table className="min-w-max w-full border-collapse table-fixed">
             <thead className="bg-gray-50">
               <tr>
                 <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 w-12">
