@@ -484,22 +484,7 @@ Payroll Department
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Bank Filter</label>
-            <select 
-              value={filterBank} 
-              onChange={(e) => setFilterBank(e.target.value)} 
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Banks</option>
-              <option value="hdfc">HDFC Bank</option>
-              <option value="sbi">SBI</option>
-              <option value="axis">Axis Bank</option>
-              <option value="indian">Indian Bank</option>
-              <option value="icici">ICICI Bank</option>
-              <option value="other">Other Banks</option>
-            </select>
-          </div>
+        
 
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Selected Employees</label>
@@ -779,9 +764,9 @@ Payroll Department
                         {formatCurrency(simulation.totals.netSalary)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {/* <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                           Mixed Banks
-                        </span>
+                        </span> */}
                       </td>
                     </tr>
                   </tbody>

@@ -148,7 +148,7 @@ function App() {
               path="salaryslips" 
               element={
                 <ProtectedRoute 
-                  requiredPermissions={["payroll_access"]} 
+                  requiredPermissions={["payroll_view"]} 
                   roles={["admin", "hr", "employees"]}
                   allowEmployeeRole
                 >

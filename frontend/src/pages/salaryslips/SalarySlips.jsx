@@ -1,7 +1,9 @@
 // src/pages/salaryslips/SalarySlips.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { monthlyPayrollAPI } from '../../services/api';
+import { monthlyPayrollAPI, employeeAPI } from '../../services/api';
+import html2canvas from 'html2canvas';
+import jsPDF from 'jspdf';
 
 const SalarySlips = () => {
   const navigate = useNavigate();
@@ -19,22 +21,29 @@ const SalarySlips = () => {
   ];
 
   useEffect(() => {
-    // Check authentication
-    const user = JSON.parse(sessionStorage.getItem('user') || '{}');
-    if (!user.id) {
-      navigate('/login');
-      return;
-    }
-    setEmployeeId(user.id || user.username);
-    
-    // Generate financial years (last 3 years + current + next)
-    const currentYear = new Date().getFullYear();
-    const years = [];
-    for (let i = -2; i <= 1; i++) {
-      const year = currentYear + i;
-      years.push(`${year}-${year + 1}`);
-    }
-    setAvailableYears(years);
+    const init = async () => {
+      const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+      if (!user?.id) {
+        navigate('/login');
+        return;
+      }
+      try {
+        const me = await employeeAPI.getMyProfile();
+        const empId = me?.data?.employeeId || user.employeeId || user.username || user.id;
+        setEmployeeId(empId);
+      } catch (err) {
+        const fallbackId = user.employeeId || user.username || user.id;
+        setEmployeeId(fallbackId);
+      }
+      const currentYear = new Date().getFullYear();
+      const years = [];
+      for (let i = -2; i <= 1; i++) {
+        const year = currentYear + i;
+        years.push(`${year}-${year + 1}`);
+      }
+      setAvailableYears(years);
+    };
+    init();
   }, [navigate]);
 
   const fetchPayslip = async (selectedMonth) => {
@@ -65,24 +74,51 @@ const SalarySlips = () => {
     setIsLoading(true);
     
     try {
-      // Replace with your actual API endpoint
-      const response = await axios.get('/api/payslips', {
-        params: {
-          employeeId,
-          month: formattedMonth
-        }
-      });
-      
-      if (response.data.success) {
-        setPayslipData(response.data.data);
-        setShowPayslip(true);
-      } else {
+      const response = await monthlyPayrollAPI.list({ month: formattedMonth });
+      const records = Array.isArray(response?.data) ? response.data : [];
+      const rec = records.find(r => String(r.employeeId) === String(employeeId));
+      if (!rec) {
         alert('Payslip not found for the selected period');
+        setIsLoading(false);
+        return;
       }
+      const workingDays = 30;
+      const lopDays = Number(rec.lopDays || 0);
+      const paidDays = Math.max(0, workingDays - lopDays);
+      const paidDate = rec.paymentDate || `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-28`;
+      const mapped = {
+        employeeId: rec.employeeId,
+        employeeName: rec.employeeName,
+        designation: rec.designation || '',
+        department: rec.department || '',
+        month: selectedMonth,
+        year: selectedYear,
+        financialYear,
+        basicSalary: Number(rec.basicDA || 0),
+        hra: Number(rec.hra || 0),
+        specialAllowance: Number(rec.specialAllowance || 0),
+        totalEarnings: Number(rec.totalEarnings || 0),
+        pfDeduction: Number(rec.pf || 0),
+        professionalTax: Number(rec.professionalTax || 0),
+        tds: Number(rec.tax || 0),
+        esi: Number(rec.esi || 0),
+        lopDeduction: Number(rec.lop || 0),
+        otherDeductions: Number(rec.loanDeduction || 0) + Number(rec.gratuity || 0),
+        totalDeductions: Number(rec.totalDeductions || 0),
+        netSalary: Number(rec.netSalary || 0),
+        bankName: rec.bankName || '',
+        accountNumber: rec.accountNumber || '',
+        ifscCode: rec.ifscCode || '',
+        workingDays,
+        paidDays,
+        leaveDays: lopDays,
+        paidDate,
+        monthYear: formattedMonth
+      };
+      setPayslipData(mapped);
+      setShowPayslip(true);
     } catch (error) {
-      console.error('Error fetching payslip:', error);
       alert('Failed to load payslip. Please try again.');
-      // For demo purposes, show mock data
       showMockPayslip(selectedMonth, selectedYear, formattedMonth, selectedMonthNum);
     } finally {
       setIsLoading(false);
@@ -151,23 +187,30 @@ const SalarySlips = () => {
 
   const handleDownloadPDF = async () => {
     if (!payslipData) return;
-    
-    try {
-      const response = await axios.get(`/api/payslips/download/${employeeId}/${payslipData.monthYear}`, {
-        responseType: 'blob'
-      });
-      
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `payslip_${employeeId}_${payslipData.monthYear}.pdf`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-    } catch (error) {
-      console.error('Download failed:', error);
-      alert('Download failed. You can use the print function instead.');
+    const element = document.getElementById('payslip-content');
+    if (!element) return;
+    const canvas = await html2canvas(element, { scale: 2 });
+    const imgData = canvas.toDataURL('image/png');
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = pageWidth;
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    let position = 0;
+    if (imgHeight < pageHeight) {
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
+    } else {
+      let heightLeft = imgHeight;
+      while (heightLeft > 0) {
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+        if (heightLeft > 0) {
+          pdf.addPage();
+          position = position - pageHeight;
+        }
+      }
     }
+    pdf.save(`payslip_${employeeId}_${payslipData.monthYear}.pdf`);
   };
 
   const handleLogout = () => {
@@ -308,7 +351,7 @@ const SalarySlips = () => {
             <p><span className="font-medium text-gray-700 print:text-black">Bank Name:</span> <span className="ml-2">{data.bankName}</span></p>
             <p><span className="font-medium text-gray-700 print:text-black">Account Number:</span> <span className="ml-2">{data.accountNumber}</span></p>
             <p><span className="font-medium text-gray-700 print:text-black">IFSC Code:</span> <span className="ml-2">{data.ifscCode}</span></p>
-            <p><span className="font-medium text-gray-700 print:text-black">Payment Mode:</span> <span className="ml-2">Bank Transfer (NEFT)</span></p>
+           
             <p><span className="font-medium text-gray-700 print:text-black">Pay Date:</span> <span className="ml-2">{data.paidDate}</span></p>
           </div>
         </div>
@@ -330,10 +373,7 @@ const SalarySlips = () => {
             <p className="text-sm text-gray-600 print:text-black">Leave Days</p>
             <p className="text-xl font-bold text-amber-600 print:text-lg print:text-black">{data.leaveDays}</p>
           </div>
-          <div className="text-center p-3 bg-white rounded shadow border border-blue-100 print:border-black print:p-2">
-            <p className="text-sm text-gray-600 print:text-black">Pay Slip No</p>
-            <p className="text-xl font-bold text-purple-600 print:text-lg print:text-black">PS{data.monthYear.replace('-', '')}{data.employeeId.slice(-4)}</p>
-          </div>
+          
         </div>
       </div>
 
@@ -380,12 +420,13 @@ const SalarySlips = () => {
             </div>
             <div className="flex justify-between">
               <span>Employee State Insurance (ESI)</span>
-              <span className="font-medium">75.00</span>
+              <span className="font-medium">{data.esi.toLocaleString('en-IN')}</span>
             </div>
             <div className="flex justify-between">
-              <span>Other Deductions</span>
-              <span className="font-medium">{data.otherDeductions.toLocaleString('en-IN')}</span>
+              <span>Loss of Pay (LOP)</span>
+              <span className="font-medium">{data.lopDeduction.toLocaleString('en-IN')}</span>
             </div>
+            
             <div className="flex justify-between border-t-2 pt-3 font-bold text-lg border-blue-600 print:border-black print:pt-2">
               <span>Total Deductions</span>
               <span className="text-red-600 print:text-black">₹{data.totalDeductions.toLocaleString('en-IN')}</span>
@@ -399,7 +440,7 @@ const SalarySlips = () => {
         <div className="flex flex-col md:flex-row justify-between items-center">
           <div>
             <h3 className="text-xl font-bold text-gray-800 print:text-lg print:text-black">NET SALARY PAYABLE</h3>
-            <p className="text-gray-600 mt-1 print:text-sm print:text-black">Amount transferred to your bank account via NEFT</p>
+           
           </div>
           <div className="text-center md:text-right mt-4 md:mt-0 print:mt-2">
             <div className="text-3xl md:text-4xl font-bold text-green-700 mb-2 print:text-2xl print:text-black">
@@ -442,16 +483,8 @@ const SalarySlips = () => {
           <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-500 print:text-xxs print:text-black">
             <div className="text-left mb-2 md:mb-0 print:mb-1">
               <p>This is a computer-generated document and does not require a signature.</p>
-              <p className="mt-1 print:mt-0">For any discrepancies, please contact HR department within 7 days of receipt.</p>
             </div>
-            <div className="text-center mb-2 md:mb-0 print:mb-1">
-              <p className="font-bold text-gray-700 print:text-black">CONFIDENTIAL</p>
-              <p>For Employee Use Only</p>
-            </div>
-            <div className="text-right print:text-center">
-              <p>Authorized Signatory</p>
-              <p>HR Department</p>
-            </div>
+            
           </div>
         </div>
       </div>
@@ -461,22 +494,13 @@ const SalarySlips = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header className="flex justify-between items-center px-4 sm:px-6 py-4 bg-[#262760] text-white shadow-md print:hidden">
+      <header>
         
        
         <div className="flex items-center gap-2">
           {showPayslip && (
             <>
-              <button 
-                onClick={handlePrint}
-                className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md font-medium transition-colors hidden md:inline-flex items-center"
-                title="Print Payslip"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
-                </svg>
-                Print
-              </button>
+  
               <button 
                 onClick={handleDownloadPDF}
                 className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors hidden md:inline-flex items-center"
@@ -504,7 +528,7 @@ const SalarySlips = () => {
                   </svg>
                 </div>
                 <h2 className="text-xl font-bold text-gray-800">Select Pay Period</h2>
-              </div>
+              </div>  
               
               <div className="space-y-6">
                 <div>
