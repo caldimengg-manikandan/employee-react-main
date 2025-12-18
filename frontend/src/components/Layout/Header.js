@@ -52,6 +52,8 @@ const Header = ({ onMenuClick }) => {
       '/expenditure-management': 'Expenditure Management',
       '/employee-reward-tracker': 'Employee Reward Tracker',
       '/admin/team-management': 'Team Management',
+      '/payroll/PayrollDetails': 'Employee PayRolls Details',
+
     };
     
     return routeTitles[location.pathname] || 'Dashboard';

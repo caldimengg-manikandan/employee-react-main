@@ -1,7 +1,7 @@
 // src/pages/salaryslips/SalarySlips.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { monthlyPayrollAPI } from '../../services/api';
 
 const SalarySlips = () => {
   const navigate = useNavigate();

@@ -10,7 +10,7 @@ import {
   Calculator,
   MapPin
 } from 'lucide-react';
-import { employeeAPI, payrollAPI } from '../../services/api';
+import { employeeAPI, payrollAPI, leaveAPI } from '../../services/api';
 
 // Salary Calculation Functions
 const calculateSalaryFields = (salaryData) => {
@@ -88,6 +88,7 @@ const PayrollDetails = () => {
   const [viewRecord, setViewRecord] = useState(null);
   const [employeeLookupError, setEmployeeLookupError] = useState('');
   const [employeeList, setEmployeeList] = useState([]);
+  const [lopPreview, setLopPreview] = useState(null);
 
   // Load payroll data on mount (fallback to empty if API fails)
   useEffect(() => {
@@ -101,7 +102,25 @@ const PayrollDetails = () => {
         setPayrollRecords([]);
       });
   }, []);
-  
+
+  useEffect(() => {
+    if (openDialog && formData.employeeId) {
+      const base = calculateSalaryFields(formData);
+      computeLopPreview(formData.employeeId, base);
+    } else if (!openDialog) {
+      setLopPreview(null);
+    }
+  }, [openDialog, formData.employeeId, formData.basicDA, formData.hra, formData.specialAllowance]);
+
+  useEffect(() => {
+    if (viewRecord && viewRecord.employeeId) {
+      const base = calculateSalaryFields(viewRecord);
+      computeLopPreview(viewRecord.employeeId, base);
+    } else if (!viewRecord) {
+      setLopPreview(null);
+    }
+  }, [viewRecord]);
+
   useEffect(() => {
     employeeAPI.getAllEmployees()
       .then(res => {
@@ -188,6 +207,44 @@ const PayrollDetails = () => {
             setEmployeeLookupError('Unable to load employee data');
           });
       }
+    }
+  };
+
+  const computeLopPreview = async (empId, base) => {
+    try {
+      const res = await leaveAPI.getBalance(empId ? { employeeId: empId } : undefined);
+      const data = res?.data;
+      let balances = null;
+      if (Array.isArray(data)) {
+        const found = data.find(e => String(e.employeeId || '').toLowerCase() === String(empId || '').toLowerCase());
+        balances = found?.balances || null;
+      } else if (data && data.balances) {
+        balances = data.balances;
+      }
+      const totalEarnings = (base?.totalEarnings ?? (calculateSalaryFields(base).totalEarnings)) || 0;
+      const perDay = totalEarnings / 30;
+      const cl = Number(balances?.casual?.balance ?? 0);
+      const sl = Number(balances?.sick?.balance ?? 0);
+      const pl = Number(balances?.privilege?.balance ?? 0);
+      const negDays = Math.max(0, -cl) + Math.max(0, -sl) + Math.max(0, -pl);
+      const lopAmount = Math.round(perDay * negDays);
+      const adjustedNet = Math.round(totalEarnings - lopAmount);
+      setLopPreview({
+        days: negDays,
+        perDay,
+        amount: lopAmount,
+        adjustedNet,
+        totalEarnings
+      });
+    } catch {
+      const totalEarnings = (base?.totalEarnings ?? (calculateSalaryFields(base).totalEarnings)) || 0;
+      setLopPreview({
+        days: 0,
+        perDay: totalEarnings / 30,
+        amount: 0,
+        adjustedNet: totalEarnings,
+        totalEarnings
+      });
     }
   };
 
@@ -764,6 +821,37 @@ const PayrollDetails = () => {
                       </div>
                     ))}
                   </div>
+                  {lopPreview && formData.employeeId && (
+                    <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Standard Month Days</label>
+                          <input
+                            type="text"
+                            value={30}
+                            readOnly
+                            className="w-full pl-3 pr-3 py-2 bg-gray-50 border border-gray-300 rounded-lg"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Per Day Salary</label>
+                          <div className="font-medium">{formatCurrency(lopPreview.perDay)}</div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">Negative Leave Days</label>
+                          <div className="font-medium text-red-600">{lopPreview.days}</div>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1">LOP Deduction</label>
+                          <div className="font-medium text-red-600">{formatCurrency(lopPreview.amount)}</div>
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <label className="text-sm font-medium text-gray-700">Net Salary (Adjusted for LOP)</label>
+                        <div className="text-xl font-bold text-blue-700">{formatCurrency(lopPreview.adjustedNet)}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Bank Details */}
@@ -956,6 +1044,33 @@ const PayrollDetails = () => {
                     </div>
                   </div>
                 </div>
+                {lopPreview && viewRecord?.employeeId && (
+                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h3 className="text-lg font-medium text-gray-900 mb-3">Monthly LOP Impact</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Standard Month Days</label>
+                        <p className="font-medium">30</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Per Day Salary</label>
+                        <p className="font-medium">{formatCurrency(lopPreview.perDay)}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">Negative Leave Days</label>
+                        <p className="font-medium text-red-600">{lopPreview.days}</p>
+                      </div>
+                      <div>
+                        <label className="text-sm font-medium text-gray-500">LOP Deduction</label>
+                        <p className="font-medium text-red-600">{formatCurrency(lopPreview.amount)}</p>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <label className="text-sm font-medium text-gray-700">Net Salary (Adjusted for LOP)</label>
+                      <p className="text-xl font-bold text-blue-700">{formatCurrency(lopPreview.adjustedNet)}</p>
+                    </div>
+                  </div>
+                )}
 
                 {/* Bank Details */}
                 {viewRecord.bankName && (

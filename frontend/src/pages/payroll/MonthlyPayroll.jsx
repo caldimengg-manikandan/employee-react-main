@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Download, Check, X, Mail, Filter } from 'lucide-react';
-import { employeeAPI, leaveAPI, payrollAPI } from '../../services/api';
+import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI } from '../../services/api';
 
 const calculateSalaryFields = (salaryData, lopDaysInput) => {
   const basicDA = parseFloat(salaryData.basicDA) || 0;
@@ -50,6 +50,7 @@ export default function MonthlyPayroll() {
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [simulation, setSimulation] = useState(null);
   const [processing, setProcessing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [filterBank, setFilterBank] = useState('all');
@@ -140,15 +141,27 @@ export default function MonthlyPayroll() {
       // End of month
       const end = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
 
-      // Fetch approved leaves with overlap
-      const leavesResponse = await leaveAPI.list({
-        status: 'Approved',
-        startDate: start.toISOString(),
-        endDate: end.toISOString(),
-        overlap: 'true'
-      });
+      // Fetch approved leaves with overlap and current balances
+      const [leavesResponse, balancesResponse] = await Promise.all([
+        leaveAPI.list({
+          status: 'Approved',
+          startDate: start.toISOString(),
+          endDate: end.toISOString(),
+          overlap: 'true'
+        }),
+        leaveAPI.getBalance()
+      ]);
       
       const leaves = leavesResponse.data || [];
+      const balancesList = Array.isArray(balancesResponse.data) ? balancesResponse.data : [];
+      
+      // Create a map of employee balances for quick lookup
+      const balanceMap = new Map();
+      balancesList.forEach(item => {
+        if (item.employeeId && item.balances) {
+          balanceMap.set(item.employeeId, item.balances);
+        }
+      });
 
       const selectedRecords = salaryRecords.filter(r => selectedEmployees.includes(r.id));
 
@@ -166,7 +179,7 @@ export default function MonthlyPayroll() {
         });
 
         // Calculate actual days falling within the selected month
-        const lopDays = lopLeaves.reduce((sum, l) => {
+        const explicitLopDays = lopLeaves.reduce((sum, l) => {
           const startOfDay = (d) => {
             const newD = new Date(d);
             newD.setHours(0, 0, 0, 0);
@@ -191,11 +204,27 @@ export default function MonthlyPayroll() {
           return sum + diffDays;
         }, 0);
 
+        // Check for negative balances (excess leave taken)
+        let negativeBalanceDays = 0;
+        const empBalances = balanceMap.get(rec.employeeId);
+        
+        if (empBalances) {
+          const cl = Number(empBalances.casual?.balance || 0);
+          const sl = Number(empBalances.sick?.balance || 0);
+          const pl = Number(empBalances.privilege?.balance || 0);
+          
+          // Sum up all negative balances
+          negativeBalanceDays = Math.max(0, -cl) + Math.max(0, -sl) + Math.max(0, -pl);
+        }
+        
+        // Total LOP days = Explicit LOP applications + Negative Balance days
+        const lopDays = explicitLopDays + negativeBalanceDays;
+
         const base = calculateSalaryFields(rec, lopDays);
         const adjusted = { ...base };
         
         // Include gratuity by default (calculation already includes it)
-        adjusted.salaryMonth = `${selectedMonth}-01`;
+        adjusted.salaryMonth = selectedMonth;
         adjusted.paymentDate = new Date().toISOString().slice(0,10);
         adjusted.accountNumber = rec.accountNumber || '';
         adjusted.ifscCode = rec.ifscCode || '';
@@ -218,6 +247,29 @@ export default function MonthlyPayroll() {
       setMessage("Failed to run simulation: " + err.message);
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const savePayroll = async () => {
+    if (!simulation) return;
+    
+    setSaving(true);
+    try {
+      // Format payload to match backend expectation
+      const payload = {
+        payrolls: simulation.results
+      };
+      
+      const response = await monthlyPayrollAPI.save(payload);
+      
+      setMessage(`Successfully saved ${response.data.count} payroll records to database.`);
+      setTimeout(() => setMessage(''), 5000);
+      
+    } catch (error) {
+      console.error('Failed to save payroll:', error);
+      setMessage('Error saving payroll data: ' + (error.response?.data?.message || error.message));
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -593,155 +645,173 @@ Payroll Department
         </div>
       </div>
 
-      {/* Simulation Result */}
+      {/* Simulation Result Modal */}
       {simulation && (
-        <div className="bg-white p-5 rounded-lg shadow mb-6 border border-gray-200">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-gray-800">
-              Simulation Preview ({simulation.results.length} employees)
-            </h3>
-            <div className="flex items-center gap-2">
-              <button 
-                onClick={exportSimulationCSV} 
-                className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-2"
-              >
-                <Download className="w-4 h-4" />
-                Export CSV
-              </button>
-              <button 
-                onClick={sendPaymentEmail}
-                className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors flex items-center gap-2"
-              >
-                <Mail className="w-4 h-4" />
-                Send Payment Email
-              </button>
-              <button 
-                onClick={() => setSimulation(null)} 
-                className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center gap-2"
-              >
-                <X className="w-4 h-4" />
-                Close
-              </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-gray-200">
+            {/* Header - Frozen */}
+            <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-white rounded-t-lg z-10 shrink-0">
+              <h3 className="text-lg font-semibold text-gray-800">
+                Simulation Preview ({simulation.results.length} employees)
+              </h3>
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={savePayroll} 
+                  className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  disabled={saving}
+                >
+                  {saving ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <Check className="w-4 h-4" />
+                  )}
+                  Save
+                </button>
+                <button 
+                  onClick={exportSimulationCSV} 
+                  className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </button>
+                <button 
+                  onClick={sendPaymentEmail}
+                  className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors flex items-center gap-2"
+                >
+                  <Mail className="w-4 h-4" />
+                  Send Payment Email
+                </button>
+                <button 
+                  onClick={() => setSimulation(null)} 
+                  className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center gap-2"
+                >
+                  <X className="w-4 h-4" />
+                  Close
+                </button>
+              </div>
             </div>
-          </div>
 
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-[#262760]">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Employee
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Total Earnings
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    LOP Days
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    LOP Deduction
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Total Deductions
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Net Salary
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                    Bank
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {simulation.results.map(result => (
-                  <tr key={result.id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{result.employeeName}</div>
-                      <div className="text-xs text-gray-500">{result.employeeId}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      {formatCurrency(result.totalEarnings)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-red-600 font-medium">
-                      {result.lopDays || 0}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
-                      {formatCurrency(result.lop)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
-                      {formatCurrency(result.totalDeductions)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-600">
-                      {formatCurrency(result.netSalary)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        result.bankName?.includes('HDFC') 
-                          ? 'bg-green-100 text-green-800' 
-                          : result.bankName?.includes('SBI')
-                          ? 'bg-blue-100 text-blue-800'
-                          : result.bankName?.includes('Axis')
-                          ? 'bg-purple-100 text-purple-800'
-                          : result.bankName?.includes('Indian')
-                          ? 'bg-indigo-100 text-indigo-800'
-                          : result.bankName?.includes('ICICI')
-                          ? 'bg-orange-100 text-orange-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {result.bankName || 'N/A'}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-                <tr className="border-t font-semibold bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">Totals</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    {formatCurrency(simulation.totals.totalEarnings)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    -
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
-                    {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.lop || 0), 0))}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    {formatCurrency(simulation.totals.totalDeductions)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-600">
+            {/* Scrollable Content */}
+            <div className="overflow-auto flex-1 p-5">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-[#262760] sticky top-0 z-10">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Employee
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Total Earnings
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        LOP Days
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        LOP Deduction
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Total Deductions
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Net Salary
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Bank
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {simulation.results.map(result => (
+                      <tr key={result.id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="font-medium text-gray-900">{result.employeeName}</div>
+                          <div className="text-xs text-gray-500">{result.employeeId}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          {formatCurrency(result.totalEarnings)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-red-600 font-medium">
+                          {result.lopDays || 0}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                          {formatCurrency(result.lop)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          {formatCurrency(result.totalDeductions)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-600">
+                          {formatCurrency(result.netSalary)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            result.bankName?.includes('HDFC') 
+                              ? 'bg-green-100 text-green-800' 
+                              : result.bankName?.includes('SBI')
+                              ? 'bg-blue-100 text-blue-800'
+                              : result.bankName?.includes('Axis')
+                              ? 'bg-purple-100 text-purple-800'
+                              : result.bankName?.includes('Indian')
+                              ? 'bg-indigo-100 text-indigo-800'
+                              : result.bankName?.includes('ICICI')
+                              ? 'bg-orange-100 text-orange-800'
+                              : 'bg-gray-100 text-gray-800'
+                          }`}>
+                            {result.bankName || 'N/A'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t font-semibold bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">Totals</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        {formatCurrency(simulation.totals.totalEarnings)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        -
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                        {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.lop || 0), 0))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        {formatCurrency(simulation.totals.totalDeductions)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-600">
+                        {formatCurrency(simulation.totals.netSalary)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                          Mixed Banks
+                        </span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Summary Stats */}
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+                  <div className="text-sm text-blue-600 font-medium">Total Employees</div>
+                  <div className="text-xl font-bold text-blue-700">{simulation.results.length}</div>
+                </div>
+                <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+                  <div className="text-sm text-green-600 font-medium">Total Net Salary</div>
+                  <div className="text-xl font-bold text-green-700">
                     {formatCurrency(simulation.totals.netSalary)}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      Mixed Banks
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          
-          {/* Summary Stats */}
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-              <div className="text-sm text-blue-600 font-medium">Total Employees</div>
-              <div className="text-xl font-bold text-blue-700">{simulation.results.length}</div>
-            </div>
-            <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-              <div className="text-sm text-green-600 font-medium">Total Net Salary</div>
-              <div className="text-xl font-bold text-green-700">
-                {formatCurrency(simulation.totals.netSalary)}
-              </div>
-            </div>
-            <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
-              <div className="text-sm text-purple-600 font-medium">Gratuity Included</div>
-              <div className="text-xl font-bold text-purple-700">
-                {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.gratuity || 0), 0))}
-              </div>
-            </div>
-            <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
-              <div className="text-sm text-orange-600 font-medium">Total CTC</div>
-              <div className="text-xl font-bold text-orange-700">
-                {formatCurrency(simulation.totals.ctc)}
+                  </div>
+                </div>
+                <div className="bg-purple-50 p-3 rounded-lg border border-purple-200">
+                  <div className="text-sm text-purple-600 font-medium">Gratuity Included</div>
+                  <div className="text-xl font-bold text-purple-700">
+                    {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.gratuity || 0), 0))}
+                  </div>
+                </div>
+                <div className="bg-orange-50 p-3 rounded-lg border border-orange-200">
+                  <div className="text-sm text-orange-600 font-medium">Total CTC</div>
+                  <div className="text-xl font-bold text-orange-700">
+                    {formatCurrency(simulation.totals.ctc)}
+                  </div>
+                </div>
               </div>
             </div>
           </div>

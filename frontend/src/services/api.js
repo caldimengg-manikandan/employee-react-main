@@ -188,4 +188,12 @@ export const payrollAPI = {
   getById: (id) => api.get(`/payroll/${id}`)
 };
 
+export const monthlyPayrollAPI = {
+  save: (data) => api.post('/monthly-payroll/run', data),
+  list: (params) => api.get('/monthly-payroll', { params }),
+  markEmailSent: (data) => api.put('/monthly-payroll/mark-email-sent', data),
+  markPaid: (data) => api.put('/monthly-payroll/mark-paid', data),
+  delete: (month) => api.delete(`/monthly-payroll/${month}`)
+};
+
 export default api;
