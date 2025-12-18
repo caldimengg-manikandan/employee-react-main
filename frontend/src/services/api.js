@@ -196,4 +196,13 @@ export const monthlyPayrollAPI = {
   delete: (month) => api.delete(`/monthly-payroll/${month}`)
 };
 
+export const loanAPI = {
+  list: (params) => api.get('/loans', { params }),
+  getById: (id) => api.get(`/loans/${id}`),
+  create: (data) => api.post('/loans', data),
+  update: (id, data) => api.put(`/loans/${id}`, data),
+  delete: (id) => api.delete(`/loans/${id}`),
+  togglePayment: (id) => api.patch(`/loans/${id}/payment`),
+};
+
 export default api;

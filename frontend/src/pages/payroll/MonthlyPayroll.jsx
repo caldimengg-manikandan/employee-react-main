@@ -136,9 +136,9 @@ export default function MonthlyPayroll() {
     try {
       // Calculate month start and end
       const [year, month] = selectedMonth.split('-');
-      // Start of month
+      // Start of selected month for LOP calculation
       const start = new Date(parseInt(year), parseInt(month) - 1, 1);
-      // End of month
+      // End of selected month for LOP calculation
       const end = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
 
       // Fetch approved leaves with overlap and current balances

@@ -57,6 +57,9 @@ const LeaveSummary = () => {
         employeeName: l.employeeName || l.name || '',
         employeeId: l.employeeId || '',
         leaveType: l.leaveType === 'CL' ? 'Casual Leave' : l.leaveType === 'SL' ? 'Sick Leave' : l.leaveType === 'PL' ? 'Privilege Leave' : l.leaveType === 'BEREAVEMENT' ? 'Bereavement Leave' : l.leaveType,
+        // Keep raw dates for accurate month-overlap filtering
+        startDateRaw: l.startDate,
+        endDateRaw: l.endDate,
         fromDate: new Date(l.startDate).toLocaleDateString('en-IN'),
         toDate: new Date(l.endDate).toLocaleDateString('en-IN'),
         fromMonth: new Date(l.startDate).getMonth() + 1,
@@ -88,26 +91,27 @@ const LeaveSummary = () => {
            selectedStatus !== 'all';
   };
 
+  // Helper: does leave overlap selected month/year?
+  const overlapsSelectedMonth = (startISO, endISO, year, month) => {
+    if (year === 'all' || month === 'all') return true;
+    const leaveStart = new Date(startISO);
+    const leaveEnd = new Date(endISO);
+    // Month window boundaries
+    const windowStart = new Date(year, month - 1, 1, 0, 0, 0, 0);
+    const windowEnd = new Date(year, month, 0, 23, 59, 59, 999);
+    return leaveStart <= windowEnd && leaveEnd >= windowStart;
+  };
+
   // Filter leave applications based on all filter criteria
   const filteredApplications = leaveApplications.filter(app => {
-    const matchesYear = selectedYear === 'all' || app.fromYear === selectedYear;
-    const matchesMonth = selectedMonth === 'all' || app.fromMonth === selectedMonth;
-    
-    // Match employee ID
+    const matchesMonthWindow = overlapsSelectedMonth(app.startDateRaw, app.endDateRaw, selectedYear, selectedMonth);
+
     const matchesEmployeeId = selectedEmployeeId === '' || 
-      app.employeeId.toLowerCase().includes(selectedEmployeeId.toLowerCase());
-    
-    // Match leave type
+      (app.employeeId || '').toLowerCase().includes(selectedEmployeeId.toLowerCase());
     const matchesLeaveType = selectedLeaveType === 'all' || app.leaveType === selectedLeaveType;
-    
-    // Match location
     const matchesLocation = selectedLocation === 'all' || app.location === selectedLocation;
-    
-    // Match status
     const matchesStatus = selectedStatus === 'all' || app.status === selectedStatus;
-    
-    return matchesYear && matchesMonth && matchesEmployeeId && 
-           matchesLeaveType && matchesLocation && matchesStatus;
+    return matchesMonthWindow && matchesEmployeeId && matchesLeaveType && matchesLocation && matchesStatus;
   });
 
   // Calculate total leave days for filtered applications

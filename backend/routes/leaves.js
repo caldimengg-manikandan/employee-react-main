@@ -235,11 +235,13 @@ function toLower(s) {
   return String(s || '').toLowerCase();
 }
 
-function calcBalanceForEmployee(emp, approvedLeaves = []) {
-  const currentDate = new Date();
+function calcBalanceForEmployee(emp, approvedLeaves = [], calculationDate = new Date()) {
+  const currentDate = new Date(calculationDate);
   const position = emp.position || emp.role || '';
   const doj = emp.dateOfJoining || emp.hireDate || emp.createdAt;
-  const mos = monthsBetween(doj);
+  
+  // Use calculationDate for months of service
+  const mos = monthsBetween(doj, currentDate);
   const isTrainee = toLower(position) === 'trainee' || toLower(position).includes('trainee');
 
   // Derive trainee months from previous organizations if present
@@ -505,8 +507,8 @@ router.get('/', auth, async (req, res) => {
       return {
         ...i,
         employeeId: effectiveEmployeeId,
-        employeeName: emp?.name || emp?.employeename || user.name || '',
-        location: emp?.location || emp?.branch || ''
+        employeeName: i.employeeName || emp?.name || emp?.employeename || user.name || '',
+        location: i.location || emp?.location || emp?.branch || ''
       };
     });
     res.json(mapped);
@@ -578,9 +580,30 @@ router.post('/', auth, async (req, res) => {
     const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, totalDays } = req.body;
     const computedDays = countWorkingDays(startDate, endDate, dayType);
     const finalDays = typeof totalDays === 'number' && totalDays > 0 ? totalDays : computedDays;
+
+    // Fetch employee details to populate name and location
+    let employeeName = req.user.name || '';
+    let location = '';
+    
+    // Try to find employee record
+    let emp = null;
+    if (req.user.employeeId) {
+      emp = await Employee.findOne({ employeeId: req.user.employeeId }).lean();
+    }
+    if (!emp && req.user.email) {
+      emp = await Employee.findOne({ email: req.user.email }).lean();
+    }
+
+    if (emp) {
+      employeeName = emp.name || emp.employeename || employeeName;
+      location = emp.location || emp.branch || '';
+    }
+
     const created = await LeaveApplication.create({
       userId: req.user._id,
-      employeeId: req.user.employeeId || '',
+      employeeId: req.user.employeeId || emp?.employeeId || '',
+      employeeName,
+      location,
       leaveType,
       startDate,
       endDate,
