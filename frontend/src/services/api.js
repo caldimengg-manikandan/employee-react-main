@@ -174,6 +174,13 @@ export const adminTimesheetAPI = {
   summary: (params) => api.get('/admin-timesheet/summary', { params }),
 };
 
+export const attendanceApprovalAPI = {
+  request: (data) => api.post('/attendance-approval/request', data),
+  list: (params) => api.get('/attendance-approval/list', { params }),
+  approve: (id) => api.put(`/attendance-approval/approve/${id}`),
+  reject: (id, reason) => api.put(`/attendance-approval/reject/${id}`, { reason }),
+};
+
 export const teamAPI = {
   getLeaders: (type) => api.get('/teams/leaders', type ? { params: { type } } : undefined),
   list: () => api.get('/teams'),

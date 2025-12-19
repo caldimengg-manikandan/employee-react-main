@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Edit, Calendar } from "lucide-react";
-import { timesheetAPI, attendanceAPI } from "../../services/api";
+import { timesheetAPI, attendanceAPI, attendanceApprovalAPI } from "../../services/api";
 
 const AttendanceRegularization = () => {
   const [month, setMonth] = useState(() => {
@@ -165,42 +165,12 @@ const AttendanceRegularization = () => {
 
     try {
       setLoading(true);
-      try {
-        await attendanceAPI.regularize({
-          employeeId,
-          inTime: inISO,
-          outTime: outISO,
-          deviceId: "manual",
-          source: "manual",
-          workDurationSeconds: durationSeconds,
-        });
-      } catch (err) {
-        if (err?.response?.status === 404) {
-          if (inISO) {
-            await attendanceAPI.create({
-              employeeId,
-              direction: "in",
-              punchTime: inISO,
-              deviceId: "manual",
-              source: "manual",
-            });
-          }
-          if (outISO) {
-            await attendanceAPI.create({
-              employeeId,
-              direction: "out",
-              punchTime: outISO,
-              deviceId: "manual",
-              source: "manual",
-              correspondingInTime: inISO,
-              workDurationSeconds: durationSeconds,
-            });
-          }
-        } else {
-          throw err;
-        }
-      }
-      await loadAttendance();
+      await attendanceApprovalAPI.request({
+        employeeId,
+        inTime: inISO,
+        outTime: outISO,
+        workDurationSeconds: durationSeconds,
+      });
     } catch {
     } finally {
       setLoading(false);

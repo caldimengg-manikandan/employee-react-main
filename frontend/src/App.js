@@ -13,6 +13,7 @@ import Timesheet from "./pages/timesheet/Timesheet";
 import TimesheetHistory from "./pages/timesheet/TimesheetHistory";
 import EmployeeAttendance from "./pages/timesheet/EmployeeAttendance";
 import AttendanceRegularization from "./pages/timesheet/AttendanceRegularization";
+import AttendanceApproval from "./pages/timesheet/AttendanceApproval";
 
 // Project Allocation Pages
 import ProjectAllocation from './pages/project-allocation/ProjectAllocation';
@@ -101,6 +102,14 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["timesheet_access"]} allowEmployeeRole>
                   <AttendanceRegularization />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="timesheet/attendance-approval"
+              element={
+                <ProtectedRoute requiredPermissions={["attendance_access"]} roles={["admin", "hr", "manager"]}>
+                  <AttendanceApproval />
                 </ProtectedRoute>
               }
             />

@@ -47,6 +47,9 @@ app.use("/api/timesheet-history", require("./routes/timesheetHistory"));
 // Attendance Routes
 app.use("/api/attendance", require("./routes/attendance"));
 
+// Attendance Approval Routes
+app.use("/api/attendance-approval", require("./routes/attendanceApproval"));
+
 // ⭐ NEW: Admin Timesheet Routes
 app.use("/api/admin-timesheet", require("./routes/admintimesheetRoutes"));
 
