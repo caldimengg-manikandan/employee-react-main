@@ -8,8 +8,10 @@ const router = express.Router();
 
 router.post("/request", auth, async (req, res) => {
   try {
-    const { employeeId, inTime, outTime, workDurationSeconds } = req.body;
-    if (!employeeId || !inTime || !outTime) {
+    const { employeeId, email, inTime, outTime, workDurationSeconds } = req.body;
+    console.log("Attendance Approval Request:", { employeeId, email, inTime, outTime });
+
+    if ((!employeeId && !email) || !inTime || !outTime) {
       return res.status(400).json({ success: false, message: "Missing fields" });
     }
     const inDt = new Date(inTime);
@@ -17,13 +19,24 @@ router.post("/request", auth, async (req, res) => {
     if (!(outDt > inDt)) {
       return res.status(400).json({ success: false, message: "Invalid time range" });
     }
-    const employee = await Employee.findOne({ employeeId });
+    
+    let employee = null;
+    if (employeeId) {
+      employee = await Employee.findOne({ employeeId });
+    }
+    
+    if (!employee && email) {
+      console.log("Employee not found by ID (or no ID), trying email:", email);
+      employee = await Employee.findOne({ email });
+    }
+
     if (!employee) {
+      console.log("Employee not found for ID:", employeeId, "Email:", email);
       return res.status(404).json({ success: false, message: "Employee not found" });
     }
     const durationSecs = typeof workDurationSeconds === "number" ? workDurationSeconds : Math.round((outDt - inDt) / 1000);
     const created = await AttendanceRegularizationRequest.create({
-      employeeId,
+      employeeId: employee.employeeId,
       employeeName: employee.name,
       inTime: inDt,
       outTime: outDt,
@@ -41,8 +54,32 @@ router.get("/list", auth, async (req, res) => {
     const { status } = req.query;
     const query = {};
     if (status) query.status = status;
+    
+    // Find requests
     const items = await AttendanceRegularizationRequest.find(query).sort({ createdAt: -1 }).limit(500);
-    res.json({ success: true, requests: items });
+    
+    // Get unique employee names to bulk lookup
+    const names = [...new Set(items.map(i => i.employeeName))];
+    const employees = await Employee.find({ name: { $in: names } }).select("name employeeId");
+    
+    // Map name -> employeeId
+    const nameToId = {};
+    employees.forEach(e => { nameToId[e.name] = e.employeeId; });
+    
+    // Enrich items with correct employeeId if available
+    const enriched = items.map(item => {
+      const realId = nameToId[item.employeeName];
+      if (realId) {
+        // Return a plain object with the correct ID overrides
+        return {
+          ...item.toObject(),
+          employeeId: realId // Use the looked-up ID
+        };
+      }
+      return item;
+    });
+
+    res.json({ success: true, requests: enriched });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to fetch requests", error: error.message });
   }
@@ -51,12 +88,19 @@ router.get("/list", auth, async (req, res) => {
 router.put("/approve/:id", auth, async (req, res) => {
   try {
     const id = req.params.id;
+    console.log("Approve request called for ID:", id);
     const item = await AttendanceRegularizationRequest.findById(id);
     if (!item) {
+      console.log("Request not found:", id);
       return res.status(404).json({ success: false, message: "Request not found" });
     }
-    const employee = await Employee.findOne({ employeeId: item.employeeId });
+    let employee = await Employee.findOne({ employeeId: item.employeeId });
     if (!employee) {
+      console.log("Employee not found for ID:", item.employeeId, "Trying fallback by name:", item.employeeName);
+      employee = await Employee.findOne({ name: item.employeeName });
+    }
+    if (!employee) {
+      console.log("Employee not found by ID or Name:", item.employeeId, item.employeeName);
       return res.status(404).json({ success: false, message: "Employee not found" });
     }
     const inDt = new Date(item.inTime);

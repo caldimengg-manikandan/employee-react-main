@@ -1,8 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Edit, Calendar } from "lucide-react";
 import { timesheetAPI, attendanceAPI, attendanceApprovalAPI } from "../../services/api";
+import useNotification from "../../hooks/useNotification";
+import Notification from "../../components/Notifications/Notification";
 
 const AttendanceRegularization = () => {
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
   const [month, setMonth] = useState(() => {
     const d = new Date();
     return new Date(d.getFullYear(), d.getMonth(), 1);
@@ -167,14 +170,19 @@ const AttendanceRegularization = () => {
       setLoading(true);
       await attendanceApprovalAPI.request({
         employeeId,
+        email: user.email,
         inTime: inISO,
         outTime: outISO,
         workDurationSeconds: durationSeconds,
       });
-    } catch {
+      showSuccess("Request sent successfully");
+      closeEdit();
+    } catch (error) {
+      console.error("Save error:", error);
+      const msg = error.response?.data?.message || "Failed to save request";
+      showError(msg);
     } finally {
       setLoading(false);
-      closeEdit();
     }
   };
 
@@ -441,6 +449,13 @@ const AttendanceRegularization = () => {
           </div>
         </div>
       )}
+
+      <Notification
+        message={notification.message}
+        type={notification.type}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
     </div>
   );
 };

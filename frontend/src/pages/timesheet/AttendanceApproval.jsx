@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { attendanceApprovalAPI } from "../../services/api";
+import useNotification from "../../hooks/useNotification";
+import Notification from "../../components/Notifications/Notification";
 
 const AttendanceApproval = () => {
   const [loading, setLoading] = useState(false);
@@ -7,6 +9,7 @@ const AttendanceApproval = () => {
   const [statusFilter, setStatusFilter] = useState("Pending");
   const [rejectReason, setRejectReason] = useState("");
   const [rejectId, setRejectId] = useState(null);
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
 
   const load = async () => {
     setLoading(true);
@@ -16,8 +19,10 @@ const AttendanceApproval = () => {
       );
       const list = Array.isArray(res.data?.requests) ? res.data.requests : [];
       setRequests(list);
-    } catch {
+    } catch (error) {
       setRequests([]);
+      const msg = error.response?.data?.message || "Failed to load requests";
+      showError(msg);
     } finally {
       setLoading(false);
     }
@@ -31,8 +36,11 @@ const AttendanceApproval = () => {
     setLoading(true);
     try {
       await attendanceApprovalAPI.approve(id);
+      showSuccess("Request approved");
       await load();
-    } catch {
+    } catch (error) {
+      const msg = error.response?.data?.message || "Failed to approve request";
+      showError(msg);
     } finally {
       setLoading(false);
     }
@@ -45,8 +53,11 @@ const AttendanceApproval = () => {
       await attendanceApprovalAPI.reject(rejectId, rejectReason || "");
       setRejectId(null);
       setRejectReason("");
+      showSuccess("Request rejected");
       await load();
-    } catch {
+    } catch (error) {
+      const msg = error.response?.data?.message || "Failed to reject request";
+      showError(msg);
     } finally {
       setLoading(false);
     }
@@ -109,23 +120,26 @@ const AttendanceApproval = () => {
       <table style={styles.table}>
         <thead>
           <tr>
-            <th style={styles.th}>Employee</th>
+            <th style={styles.th}>Employee Name</th>
+            <th style={styles.th}>Employee ID</th>
             <th style={styles.th}>IN</th>
             <th style={styles.th}>OUT</th>
             <th style={styles.th}>Hours</th>
             <th style={styles.th}>Status</th>
             <th style={styles.th}>Actions</th>
           </tr>
+          
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={6} style={styles.td}>Loading...</td></tr>
+            <tr><td colSpan={7} style={styles.td}>Loading...</td></tr>
           ) : requests.length === 0 ? (
-            <tr><td colSpan={6} style={styles.td}>No records</td></tr>
+            <tr><td colSpan={7} style={styles.td}>No records</td></tr>
           ) : (
             requests.map((r) => (
               <tr key={r._id}>
-                <td style={styles.td}>{r.employeeName} ({r.employeeId})</td>
+                <td style={styles.td}>{r.employeeName}</td>
+                <td style={styles.td}>{r.employeeId}</td>
                 <td style={styles.td}>{formatDateTime(r.inTime)}</td>
                 <td style={styles.td}>{formatDateTime(r.outTime)}</td>
                 <td style={styles.td}>{formatHours(Number(r.workDurationSeconds || 0))}</td>
@@ -177,6 +191,12 @@ const AttendanceApproval = () => {
           </div>
         </div>
       )}
+      <Notification
+        message={notification.message}
+        type={notification.type}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
     </div>
   );
 };
