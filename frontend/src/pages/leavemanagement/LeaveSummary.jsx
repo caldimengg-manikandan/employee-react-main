@@ -6,7 +6,7 @@ const LeaveSummary = () => {
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth() + 1; // 1-12 for January-December
-  
+
   // State for filters
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -14,13 +14,13 @@ const LeaveSummary = () => {
   const [selectedLeaveType, setSelectedLeaveType] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
-  
+
   // State to track if any filter is applied
   const [isFilterApplied, setIsFilterApplied] = useState(false);
-  
+
   // Generate years (current year and previous 5 years)
   const years = Array.from({ length: 6 }, (_, i) => currentYear - i);
-  
+
   // Months
   const months = [
     { value: 1, name: 'January' },
@@ -83,12 +83,12 @@ const LeaveSummary = () => {
 
   // Check if any filter is applied
   const checkIfFilterApplied = () => {
-    return selectedYear !== currentYear || 
-           selectedMonth !== currentMonth || 
-           selectedEmployeeId !== '' || 
-           selectedLeaveType !== 'all' || 
-           selectedLocation !== 'all' || 
-           selectedStatus !== 'all';
+    return selectedYear !== currentYear ||
+      selectedMonth !== currentMonth ||
+      selectedEmployeeId !== '' ||
+      selectedLeaveType !== 'all' ||
+      selectedLocation !== 'all' ||
+      selectedStatus !== 'all';
   };
 
   // Helper: does leave overlap selected month/year?
@@ -106,7 +106,7 @@ const LeaveSummary = () => {
   const filteredApplications = leaveApplications.filter(app => {
     const matchesMonthWindow = overlapsSelectedMonth(app.startDateRaw, app.endDateRaw, selectedYear, selectedMonth);
 
-    const matchesEmployeeId = selectedEmployeeId === '' || 
+    const matchesEmployeeId = selectedEmployeeId === '' ||
       (app.employeeId || '').toLowerCase().includes(selectedEmployeeId.toLowerCase());
     const matchesLeaveType = selectedLeaveType === 'all' || app.leaveType === selectedLeaveType;
     const matchesLocation = selectedLocation === 'all' || app.location === selectedLocation;
@@ -119,7 +119,7 @@ const LeaveSummary = () => {
 
   // Handle filter change
   const handleFilterChange = (filterType, value) => {
-    switch(filterType) {
+    switch (filterType) {
       case 'year':
         setSelectedYear(value);
         break;
@@ -141,7 +141,7 @@ const LeaveSummary = () => {
       default:
         break;
     }
-    
+
     // Check if any filter is applied after the change
     const isApplied = checkIfFilterApplied();
     setIsFilterApplied(isApplied);
@@ -176,7 +176,7 @@ const LeaveSummary = () => {
       const res = await leaveAPI.updateStatus(id, 'Approved');
       const updated = res.data;
       setLeaveApplications(prev => prev.map(a => a.id === id ? { ...a, status: updated.status } : a));
-    } catch {}
+    } catch { }
   };
 
   const handleReject = async (id) => {
@@ -184,7 +184,7 @@ const LeaveSummary = () => {
       const res = await leaveAPI.updateStatus(id, 'Rejected');
       const updated = res.data;
       setLeaveApplications(prev => prev.map(a => a.id === id ? { ...a, status: updated.status } : a));
-    } catch {}
+    } catch { }
   };
 
   // Handle Excel download
@@ -202,7 +202,7 @@ const LeaveSummary = () => {
       'Status': app.status,
       'Location': app.location
     }));
-    
+
     alert(`Downloading Excel report for ${selectedMonthName} ${selectedYear} (${data.length} records)`);
     console.log('Excel data:', data);
   };
@@ -332,8 +332,8 @@ const LeaveSummary = () => {
       textTransform: 'uppercase',
       letterSpacing: '0.5px'
     };
-    
-    switch(status.toLowerCase()) {
+
+    switch (status.toLowerCase()) {
       case 'approved':
         return { ...baseStyle, backgroundColor: '#e7f6ec', color: '#0a5c36' };
       case 'pending':
@@ -453,7 +453,7 @@ const LeaveSummary = () => {
 
   return (
     <div style={containerStyle}>
-      
+
 
       {/* Filters Section - Now at the top of the table */}
       <div style={filtersSectionStyle}>
@@ -463,11 +463,11 @@ const LeaveSummary = () => {
             {filteredApplications.length} applications found
           </div>
         </div>
-        
+
         <div style={filtersGridStyle}>
           <div style={filterGroupStyle}>
             <label style={labelStyle}>Year</label>
-            <select 
+            <select
               style={selectStyle}
               value={selectedYear}
               onChange={(e) => handleFilterChange('year', Number(e.target.value))}
@@ -478,10 +478,10 @@ const LeaveSummary = () => {
               ))}
             </select>
           </div>
-          
+
           <div style={filterGroupStyle}>
             <label style={labelStyle}>Month</label>
-            <select 
+            <select
               style={selectStyle}
               value={selectedMonth}
               onChange={(e) => handleFilterChange('month', Number(e.target.value))}
@@ -492,7 +492,7 @@ const LeaveSummary = () => {
               ))}
             </select>
           </div>
-          
+
           <div style={filterGroupStyle}>
             <label style={labelStyle}>Employee ID</label>
             <input
@@ -503,10 +503,10 @@ const LeaveSummary = () => {
               onChange={(e) => handleFilterChange('employeeId', e.target.value)}
             />
           </div>
-          
+
           <div style={filterGroupStyle}>
             <label style={labelStyle}>Leave Type</label>
-            <select 
+            <select
               style={selectStyle}
               value={selectedLeaveType}
               onChange={(e) => handleFilterChange('leaveType', e.target.value)}
@@ -517,10 +517,10 @@ const LeaveSummary = () => {
               ))}
             </select>
           </div>
-          
+
           <div style={filterGroupStyle}>
             <label style={labelStyle}>Location</label>
-            <select 
+            <select
               style={selectStyle}
               value={selectedLocation}
               onChange={(e) => handleFilterChange('location', e.target.value)}
@@ -531,10 +531,10 @@ const LeaveSummary = () => {
               ))}
             </select>
           </div>
-          
+
           <div style={filterGroupStyle}>
             <label style={labelStyle}>Status</label>
-            <select 
+            <select
               style={selectStyle}
               value={selectedStatus}
               onChange={(e) => handleFilterChange('status', e.target.value)}
@@ -546,11 +546,11 @@ const LeaveSummary = () => {
             </select>
           </div>
         </div>
-        
+
         {/* Show Clear All button only when filters are applied */}
         {isFilterApplied && (
           <div style={filterButtonsStyle}>
-            <button 
+            <button
               style={clearAllButtonStyle}
               onClick={handleClearAllFilters}
               onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
@@ -566,8 +566,8 @@ const LeaveSummary = () => {
       <div style={cardStyle}>
         {/* Table Header with Refresh Button */}
         <div style={tableHeaderStyle}>
-         
-          <button 
+
+          <button
             style={refreshButtonStyle}
             onClick={handleRefresh}
             onMouseOver={(e) => e.target.style.backgroundColor = '#2980b9'}
@@ -578,7 +578,7 @@ const LeaveSummary = () => {
         </div>
 
         {/* Leave Applications Table */}
-        <div style={{overflowX: 'auto'}}>
+        <div style={{ overflowX: 'auto' }}>
           <table style={tableStyle}>
             <thead>
               <tr>
@@ -621,14 +621,14 @@ const LeaveSummary = () => {
                       </span>
                     </td>
                     <td style={tdStyle}>
-                      <div style={{fontSize: '13px'}}>
+                      <div style={{ fontSize: '13px' }}>
                         <div><strong>From:</strong> {app.fromDate}</div>
                         <div><strong>To:</strong> {app.toDate}</div>
                       </div>
                     </td>
                     <td style={tdStyle}>
                       <span style={{
-                        fontWeight: 'bold', 
+                        fontWeight: 'bold',
                         color: '#2c3e50',
                         backgroundColor: '#f8f9fa',
                         padding: '5px 10px',
@@ -642,7 +642,7 @@ const LeaveSummary = () => {
                     </td>
                     <td style={tdStyle}>
                       <span style={{
-                        fontWeight: 'bold', 
+                        fontWeight: 'bold',
                         color: '#27ae60',
                         backgroundColor: '#e7f6ec',
                         padding: '5px 12px',
@@ -660,7 +660,7 @@ const LeaveSummary = () => {
                     <td style={tdStyle}>
                       {app.status === 'Pending' && (
                         <div>
-                          <button 
+                          <button
                             style={approveButtonStyle}
                             onClick={() => handleApprove(app.id)}
                             onMouseOver={(e) => e.target.style.backgroundColor = '#219653'}
@@ -668,7 +668,7 @@ const LeaveSummary = () => {
                           >
                             Approve
                           </button>
-                          <button 
+                          <button
                             style={rejectButtonStyle}
                             onClick={() => handleReject(app.id)}
                             onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
@@ -686,8 +686,8 @@ const LeaveSummary = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10" style={{...tdStyle, textAlign: 'center', padding: '40px'}}>
-                    <div style={{color: '#7f8c8d', fontSize: '16px'}}>
+                  <td colSpan="10" style={{ ...tdStyle, textAlign: 'center', padding: '40px' }}>
+                    <div style={{ color: '#7f8c8d', fontSize: '16px' }}>
                       No leave applications found matching your filters.
                     </div>
                   </td>
@@ -705,8 +705,8 @@ const LeaveSummary = () => {
         )}
 
         {/* Download Excel Button */}
-        <div style={{textAlign: 'right', marginTop: '30px'}}>
-          <button 
+        <div style={{ textAlign: 'right', marginTop: '30px' }}>
+          <button
             style={downloadButtonStyle}
             onClick={handleDownloadExcel}
             onMouseOver={(e) => e.target.style.backgroundColor = '#2980b9'}

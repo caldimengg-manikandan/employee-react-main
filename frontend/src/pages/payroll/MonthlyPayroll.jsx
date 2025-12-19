@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Download, Check, X, Mail, Filter } from 'lucide-react';
-import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI } from '../../services/api';
+import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI } from '../../services/api';
 
 const calculateSalaryFields = (salaryData, lopDaysInput) => {
   const basicDA = parseFloat(salaryData.basicDA) || 0;
@@ -62,18 +62,33 @@ export default function MonthlyPayroll() {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const [empResponse, payrollResponse] = await Promise.all([
+      const [empResponse, payrollResponse, loanResponse] = await Promise.all([
         employeeAPI.getAllEmployees(),
-        payrollAPI.list()
+        payrollAPI.list(),
+        loanAPI.list()
       ]);
       
       const employees = Array.isArray(empResponse.data) ? empResponse.data : [];
       const payrolls = Array.isArray(payrollResponse.data) ? payrollResponse.data : [];
+      const loans = loanResponse.data && loanResponse.data.loans ? loanResponse.data.loans : [];
 
       const mapped = employees.map(emp => {
         // Find matching payroll record
         const payrollRec = payrolls.find(p => p.employeeId === emp.employeeId);
         
+        // Calculate Loan Deduction from active loans
+        const empLoans = loans.filter(l => 
+          l.employeeId === emp.employeeId && 
+          l.status === 'active' && 
+          l.paymentEnabled === true
+        );
+        
+        const calculatedLoanDeduction = empLoans.reduce((sum, loan) => {
+          if (!loan.amount || !loan.tenureMonths) return sum;
+          const monthly = Math.round(loan.amount / loan.tenureMonths);
+          return sum + monthly;
+        }, 0);
+
         return {
           id: emp._id,
           employeeId: emp.employeeId,
@@ -91,7 +106,9 @@ export default function MonthlyPayroll() {
           esi: payrollRec ? (payrollRec.esi || 0) : (emp.esi || 0),
           tax: payrollRec ? (payrollRec.tax || 0) : (emp.tax || 0),
           professionalTax: payrollRec ? (payrollRec.professionalTax || 0) : (emp.professionalTax || 0),
-          loanDeduction: payrollRec ? (payrollRec.loanDeduction || 0) : (emp.loanDeduction || 0),
+          
+          // Use calculated loan deduction if available, otherwise fallback
+          loanDeduction: calculatedLoanDeduction > 0 ? calculatedLoanDeduction : (payrollRec ? (payrollRec.loanDeduction || 0) : (emp.loanDeduction || 0)),
           
           lop: 0,
           status: 'Pending',
