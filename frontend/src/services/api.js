@@ -215,4 +215,13 @@ export const loanAPI = {
   togglePayment: (id) => api.patch(`/loans/${id}/payment`),
 };
 
+export const expenditureAPI = {
+  healthCheck: () => api.get('/expenditure/health-check'),
+  saveMonthlyRecord: (data) => api.post('/expenditure/save-monthly', data),
+  updateRecord: (id, data) => api.put(`/expenditure/update/${id}`, data),
+  getSummary: (params) => api.get('/expenditure/summary', { params }),
+  getRecordById: (id) => api.get(`/expenditure/record/${id}`),
+  deleteRecord: (id) => api.delete(`/expenditure/record/${id}`)
+};
+
 export default api;
