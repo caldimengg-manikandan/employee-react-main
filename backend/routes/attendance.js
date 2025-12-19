@@ -7,7 +7,6 @@ const router = express.Router();
 
 /**
  * 📋 GET ALL ATTENDANCE RECORDS
- * Fetches all attendance records with optional filtering
  */
 router.get("/", async (req, res) => {
   try {
@@ -27,7 +26,6 @@ router.get("/", async (req, res) => {
       .sort({ punchTime: -1 })
       .limit(1000);
     
-    // Get employee names for better display
     const employeeIds = [...new Set(attendance.map(record => record.employeeId))];
     const employees = await Employee.find({ 
       employeeId: { $in: employeeIds } 
@@ -61,13 +59,11 @@ router.get("/", async (req, res) => {
 
 /**
  * ➕ MANUAL ATTENDANCE ENTRY
- * Allows manual creation of attendance records
  */
 router.post("/", async (req, res) => {
   try {
-    const { employeeId, direction, punchTime, deviceId, source } = req.body;
+    const { employeeId, direction, punchTime, deviceId, source, correspondingInTime, workDurationSeconds } = req.body;
     
-    // Validate required fields
     if (!employeeId || !direction) {
       return res.status(400).json({
         success: false,
@@ -75,7 +71,6 @@ router.post("/", async (req, res) => {
       });
     }
     
-    // Check if employee exists
     const employee = await Employee.findOne({ employeeId });
     if (!employee) {
       return res.status(404).json({
@@ -84,14 +79,15 @@ router.post("/", async (req, res) => {
       });
     }
     
-    // Create attendance record
     const attendanceRecord = await Attendance.create({
       employeeId,
       name: employee.name,
       direction: direction.toLowerCase(),
       punchTime: punchTime ? new Date(punchTime) : new Date(),
       deviceId: deviceId || "manual",
-      source: source || "manual"
+      source: source || "manual",
+      correspondingInTime: correspondingInTime ? new Date(correspondingInTime) : undefined,
+      workDurationSeconds: typeof workDurationSeconds === "number" ? workDurationSeconds : undefined
     });
     
     res.json({
@@ -111,8 +107,7 @@ router.post("/", async (req, res) => {
 });
 
 /**
- * 📥 SAVE HIKVISION ATTENDANCE (Bulk import)
- * Accepts transformed array or raw Hikvision response and saves to Attendance
+ * 📥 SAVE HIKVISION ATTENDANCE
  */
 router.post("/save-hikvision-attendance", async (req, res) => {
   try {
@@ -169,7 +164,6 @@ router.post("/save-hikvision-attendance", async (req, res) => {
 
 /**
  * 📊 ATTENDANCE SUMMARY
- * Provides summary statistics for attendance
  */
 router.get("/summary", async (req, res) => {
   try {
@@ -210,7 +204,6 @@ router.get("/summary", async (req, res) => {
       { $sort: { lastPunch: -1 } }
     ]);
     
-    // Get employee names
     const employeeIds = summary.map(item => item._id);
     const employees = await Employee.find({ 
       employeeId: { $in: employeeIds } 
@@ -247,15 +240,17 @@ router.get("/summary", async (req, res) => {
 });
 
 /**
- * 👤 MY WEEKLY ATTENDANCE (Authenticated)
- * Returns daily punch-in/out and computed hours for the logged-in user
+ * 👤 MY WEEKLY ATTENDANCE
  */
 router.get("/my-week", auth, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
     if (!startDate || !endDate) {
-      return res.status(400).json({ success: false, message: "startDate and endDate are required" });
+      return res.status(400).json({ 
+        success: false, 
+        message: "startDate and endDate are required" 
+      });
     }
 
     let employeeIdToUse = null;
@@ -280,69 +275,203 @@ router.get("/my-week", auth, async (req, res) => {
       punchTime: { $gte: startOfDay, $lte: endOfDay }
     }).sort({ punchTime: 1 });
 
-    // Group by date (YYYY-MM-DD)
-    const byDate = {};
-    for (const r of records) {
-      const d = new Date(r.punchTime);
-      const key = d.toISOString().split("T")[0];
-      if (!byDate[key]) byDate[key] = [];
-      byDate[key].push(r);
-    }
+    const events = records.sort((a, b) => new Date(a.punchTime) - new Date(b.punchTime));
+    const pairs = [];
+    let currentIn = null;
 
-    const result = [];
-    let weeklyTotal = 0;
-
-    Object.keys(byDate).forEach((dateKey) => {
-      const dayRecords = byDate[dateKey].sort((a, b) => new Date(a.punchTime) - new Date(b.punchTime));
-      let currentIn = null;
-      let sumHours = 0;
-      let firstIn = null;
-      let lastOut = null;
-
-      // Prefer Hikvision-provided work duration when available
-      const savedDurationHours = dayRecords
-        .map((r) => (r.workDurationSeconds ? r.workDurationSeconds / 3600 : 0))
-        .reduce((a, b) => a + b, 0);
-
-      if (savedDurationHours > 0) {
-        sumHours = savedDurationHours;
-        // still set firstIn/lastOut for UI
-        for (const r of dayRecords) {
-          if (r.direction === "in" && !firstIn) firstIn = new Date(r.punchTime);
-          if (r.direction === "out") lastOut = new Date(r.punchTime);
-        }
-      } else {
-        for (const r of dayRecords) {
-          if (r.direction === "in") {
-            const t = new Date(r.punchTime);
-            if (!firstIn) firstIn = t;
-            currentIn = currentIn || t;
-          } else if (r.direction === "out") {
-            const t = new Date(r.punchTime);
-            lastOut = t;
-            if (currentIn && t > currentIn) {
-              sumHours += (t - currentIn) / (1000 * 60 * 60);
-              currentIn = null;
-            }
-          }
+    for (const e of events) {
+      if (e.direction === "in") {
+        const t = new Date(e.punchTime);
+        currentIn = currentIn || t;
+      } else if (e.direction === "out") {
+        const t = new Date(e.punchTime);
+        if (currentIn && t > currentIn) {
+          pairs.push({ start: new Date(currentIn), end: t });
+          currentIn = null;
         }
       }
+    }
 
-      weeklyTotal += sumHours;
+    const weeklyTotal = Number(
+      pairs
+        .map(p => (p.end - p.start) / (1000 * 60 * 60))
+        .reduce((a, b) => a + b, 0)
+        .toFixed(2)
+    );
 
-      result.push({
-        date: dateKey,
-        punchIn: firstIn || null,
-        punchOut: lastOut || null,
-        punchTime: firstIn || null,
-        hours: Number(sumHours.toFixed(2))
+    const result = [];
+    const dayCursor = new Date(startOfDay);
+    while (dayCursor <= endOfDay) {
+      const dateKey = new Date(Date.UTC(dayCursor.getFullYear(), dayCursor.getMonth(), dayCursor.getDate()))
+        .toISOString()
+        .split("T")[0];
+      
+      const dayPairs = pairs.filter(p => {
+        const k = new Date(p.start).toISOString().split("T")[0];
+        return k === dateKey;
       });
-    });
+      
+      if (dayPairs.length > 0) {
+        const firstIn = dayPairs[0].start;
+        const lastOut = dayPairs[dayPairs.length - 1].end;
+        const sumHours = Number(
+          dayPairs
+            .map(p => (p.end - p.start) / (1000 * 60 * 60))
+            .reduce((a, b) => a + b, 0)
+            .toFixed(2)
+        );
+        result.push({
+          date: dateKey,
+          punchIn: firstIn,
+          punchOut: lastOut,
+          punchTime: firstIn,
+          hours: sumHours
+        });
+      }
 
-    res.json({ success: true, employeeId: employeeIdToUse, records: result, weeklyHours: Number(weeklyTotal.toFixed(2)) });
+      dayCursor.setDate(dayCursor.getDate() + 1);
+    }
+
+    res.json({ 
+      success: true, 
+      employeeId: employeeIdToUse, 
+      records: result, 
+      weeklyHours: Number(weeklyTotal.toFixed(2)) 
+    });
   } catch (error) {
     console.error("My Weekly Attendance Error:", error);
-    res.status(500).json({ success: false, message: "Failed to fetch weekly attendance", error: error.message });
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch weekly attendance", 
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * ✏️ ATTENDANCE REGULARIZATION
+ */
+router.post("/regularize", auth, async (req, res) => {
+  try {
+    const { employeeId, inTime, outTime, deviceId, source, workDurationSeconds } = req.body;
+    
+    if (!inTime || !outTime) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "inTime and outTime are required" 
+      });
+    }
+    
+    const inDt = new Date(inTime);
+    const outDt = new Date(outTime);
+    
+    if (!(outDt > inDt)) {
+      return res.status(400).json({ 
+        success: false, 
+        message: "outTime must be after inTime" 
+      });
+    }
+
+    let employeeIdToUse = employeeId;
+    if (!employeeIdToUse) {
+      if (req.user.employeeId) {
+        employeeIdToUse = req.user.employeeId;
+      } else {
+        const employee = await Employee.findOne({ email: req.user.email }).select("employeeId");
+        employeeIdToUse = employee?.employeeId || String(req.user._id);
+      }
+    }
+
+    const employee = await Employee.findOne({ employeeId: employeeIdToUse });
+    if (!employee) {
+      return res.status(404).json({ 
+        success: false, 
+        message: "Employee not found" 
+      });
+    }
+
+    const startWindow = new Date(inDt.getFullYear(), inDt.getMonth(), inDt.getDate(), 0, 0, 0, 0);
+    const endWindow = new Date(outDt.getFullYear(), outDt.getMonth(), outDt.getDate(), 23, 59, 59, 999);
+
+    const windowRecords = await Attendance.find({
+      employeeId: employeeIdToUse,
+      punchTime: { $gte: startWindow, $lte: endWindow }
+    }).sort({ punchTime: 1 });
+
+    const existingIn = windowRecords.find(r => r.direction === "in");
+    const existingOut = [...windowRecords].reverse().find(r => r.direction === "out");
+
+    let inRecordId = null;
+    let outRecordId = null;
+
+    if (existingIn) {
+      existingIn.punchTime = inDt;
+      existingIn.deviceId = deviceId || "manual";
+      existingIn.source = source || "manual";
+      await existingIn.save();
+      inRecordId = existingIn._id;
+    } else {
+      const createdIn = await Attendance.create({
+        employeeId: employeeIdToUse,
+        name: employee.name,
+        direction: "in",
+        punchTime: inDt,
+        deviceId: deviceId || "manual",
+        source: source || "manual"
+      });
+      inRecordId = createdIn._id;
+    }
+
+    const durationSecs = typeof workDurationSeconds === "number" 
+      ? workDurationSeconds 
+      : Math.round((outDt - inDt) / 1000);
+
+    if (existingOut) {
+      existingOut.punchTime = outDt;
+      existingOut.deviceId = deviceId || "manual";
+      existingOut.source = source || "manual";
+      existingOut.correspondingInTime = inDt;
+      existingOut.workDurationSeconds = durationSecs;
+      await existingOut.save();
+      outRecordId = existingOut._id;
+    } else {
+      const createdOut = await Attendance.create({
+        employeeId: employeeIdToUse,
+        name: employee.name,
+        direction: "out",
+        punchTime: outDt,
+        deviceId: deviceId || "manual",
+        source: source || "manual",
+        correspondingInTime: inDt,
+        workDurationSeconds: durationSecs
+      });
+      outRecordId = createdOut._id;
+    }
+
+    const keepIds = [inRecordId, outRecordId].filter(Boolean);
+    if (keepIds.length > 0) {
+      await Attendance.deleteMany({
+        employeeId: employeeIdToUse,
+        punchTime: { $gte: startWindow, $lte: endWindow },
+        source: "manual",
+        _id: { $nin: keepIds }
+      });
+    }
+
+    return res.json({ 
+      success: true,
+      message: "Attendance regularized successfully",
+      inTime: inDt,
+      outTime: outDt,
+      workHours: (durationSecs / 3600).toFixed(2)
+    });
+  } catch (error) {
+    console.error("Attendance Regularize Error:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to regularize attendance", 
+      error: error.message 
+    });
   }
 });
 

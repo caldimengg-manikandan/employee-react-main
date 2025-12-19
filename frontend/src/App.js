@@ -12,6 +12,7 @@ import EmployeeManagement from "./pages/EmployeeManagement";
 import Timesheet from "./pages/timesheet/Timesheet";
 import TimesheetHistory from "./pages/timesheet/TimesheetHistory";
 import EmployeeAttendance from "./pages/timesheet/EmployeeAttendance";
+import AttendanceRegularization from "./pages/timesheet/AttendanceRegularization";
 
 // Project Allocation Pages
 import ProjectAllocation from './pages/project-allocation/ProjectAllocation';
@@ -92,6 +93,14 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["attendance_access"]}>
                   <EmployeeAttendance />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="timesheet/regularization"
+              element={
+                <ProtectedRoute requiredPermissions={["timesheet_access"]} allowEmployeeRole>
+                  <AttendanceRegularization />
                 </ProtectedRoute>
               }
             />

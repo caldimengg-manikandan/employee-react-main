@@ -18,6 +18,7 @@ const Timesheet = () => {
   const [monthlyPermissionCount, setMonthlyPermissionCount] = useState(0);
   const [monthlyBasePermissionCount, setMonthlyBasePermissionCount] = useState(0);
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [isLeaveAutoDraft, setIsLeaveAutoDraft] = useState(false);
   const [projects, setProjects] = useState([]);
   const [showNavigationDialog, setShowNavigationDialog] = useState(false);
   const [pendingNavigation, setPendingNavigation] = useState(null);
@@ -61,7 +62,7 @@ const Timesheet = () => {
 
   // ✅ Check if add leave button should be disabled
   const isAddLeaveDisabled = () => {
-    return getLeaveRowCount() >= 4 || isSubmitted;
+    return getLeaveRowCount() >= 4 || isSubmitted || isLeaveAutoDraft;
   };
 
   // ✅ Load existing week data from backend AND attendance data
@@ -135,6 +136,8 @@ const Timesheet = () => {
             (sheet.status || "").toLowerCase() === "submitted" ||
             (sheet.status || "").toLowerCase() === "approved"
           );
+          const hasApprovedLeaveEntry = rows.some(r => (r.project || "") === "Leave" && (r.task || "") === "Leave Approved");
+          setIsLeaveAutoDraft(((sheet.status || "").toLowerCase() === "draft") && hasApprovedLeaveEntry);
         }
 
         // --- Process Attendance Data ---
@@ -1302,7 +1305,8 @@ const Timesheet = () => {
           <div className="flex gap-3">
             <button
               onClick={addProjectRow}
-              className="px-4 py-2 bg-blue-700 text-white rounded text-sm font-medium hover:bg-blue-800 transition-colors flex items-center gap-2"
+              disabled={isLeaveAutoDraft}
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isLeaveAutoDraft ? "bg-gray-400 cursor-not-allowed text-white" : "bg-blue-700 hover:bg-blue-800 text-white"}`}
             >
               <Plus className="w-4 h-4" />
               ADD PROJECT
@@ -1323,8 +1327,8 @@ const Timesheet = () => {
 
             <button
               onClick={saveAsDraft}
-              disabled={loading || !hasSomeData() || isSubmitted}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${loading || !hasSomeData() || isSubmitted
+              disabled={loading || !hasSomeData() || isSubmitted || isLeaveAutoDraft}
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${loading || !hasSomeData() || isSubmitted || isLeaveAutoDraft
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-700 hover:bg-blue-800 text-white"
                 }`}
@@ -1365,7 +1369,7 @@ const Timesheet = () => {
                         value={dailyShiftTypes[index]}
                         onChange={(e) => updateDailyShift(index, e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        disabled={isSubmitted}
+                        disabled={isSubmitted || isLeaveAutoDraft}
                       >
                         <option value="">Select Shift</option>
                         {shiftTypes.map((shift) => (
@@ -1403,7 +1407,7 @@ const Timesheet = () => {
                         value={row.project}
                         onChange={(e) => updateRow(row.id, "project", e.target.value)}
                         className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        disabled={isSubmitted || row.locked}
+                        disabled={isSubmitted || isLeaveAutoDraft || row.locked}
                       >
                         <option value="">Select Project</option>
                         {projects.map((p) => (
@@ -1420,7 +1424,7 @@ const Timesheet = () => {
                       value={row.task}
                       onChange={(e) => updateRow(row.id, "task", e.target.value)}
                       className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isSubmitted || row.locked}
+                      disabled={isSubmitted || isLeaveAutoDraft || row.locked}
                     >
                       <option value="">Select {row.type === "leave" ? "Leave Type" : "Task"}</option>
                       {(row.type === "leave" ? leaveTypes : tasks).map((item) => (
@@ -1532,7 +1536,7 @@ const Timesheet = () => {
                                       : ""
                             }`}
                           disabled={
-                            isSubmitted ||
+                            isSubmitted || isLeaveAutoDraft ||
                             row.locked ||
                             (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
@@ -1579,7 +1583,7 @@ const Timesheet = () => {
                                   });
                                 }}
                                 disabled={
-                                  isSubmitted ||
+                                  isSubmitted || isLeaveAutoDraft ||
                                   row.locked ||
                                   (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                                   (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
@@ -1604,7 +1608,7 @@ const Timesheet = () => {
                                   });
                                 }}
                                 disabled={
-                                  isSubmitted ||
+                                  isSubmitted || isLeaveAutoDraft ||
                                   row.locked ||
                                   (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                                   (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
@@ -1629,8 +1633,8 @@ const Timesheet = () => {
                     <button
                       onClick={() => deleteRow(row.id)}
                       className="p-2 text-red-500 hover:text-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      disabled={timesheetRows.length <= 1 || isSubmitted || row.locked}
-                      title={isSubmitted ? "Cannot delete after submission" : row.locked ? "Cannot delete locked leave entry" : "Delete Row"}
+                      disabled={timesheetRows.length <= 1 || isSubmitted || isLeaveAutoDraft || row.locked}
+                      title={(isSubmitted || isLeaveAutoDraft) ? "Cannot delete in this state" : row.locked ? "Cannot delete locked leave entry" : "Delete Row"}
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -1729,8 +1733,8 @@ const Timesheet = () => {
           </div>
           <button
             onClick={submitTimesheet}
-            disabled={loading || isSubmitted}
-            className={`px-6 py-3 rounded font-medium transition-colors flex items-center gap-2 ${loading || isSubmitted
+            disabled={loading || isSubmitted || isLeaveAutoDraft}
+            className={`px-6 py-3 rounded font-medium transition-colors flex items-center gap-2 ${loading || isSubmitted || isLeaveAutoDraft
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-700 hover:bg-blue-800 text-white"
               }`}

@@ -6,9 +6,11 @@ const API_BASE_URL =
   process.env.REACT_APP_API_BASE ||
   (isVercelHost
     ? 'https://employee-react-main.onrender.com/api'
-    : origin
-      ? `${origin}/api`
-      : 'http://localhost:5003/api');
+    : (origin && /localhost/i.test(origin))
+      ? 'http://localhost:5003/api'
+      : origin
+        ? `${origin}/api`
+        : 'http://localhost:5003/api');
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -158,6 +160,7 @@ export const attendanceAPI = {
   getAll: (params) => api.get('/attendance', { params }),
   create: (data) => api.post('/attendance', data),
   getSummary: () => api.get('/attendance/summary'),
+  regularize: (data) => api.post('/attendance/regularize', data),
   
   // Hikvision integration
   getHikvision: (params) => hikvisionAPI.getAttendance(params),

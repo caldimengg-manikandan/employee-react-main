@@ -96,6 +96,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       children: [
         { name: "Timesheet", path: "/timesheet", allowEmployeeRole: true },
         { name: "Timesheet History", path: "/timesheet/history", allowEmployeeRole: true },
+        { name: "Attendance Regularization", path: "/timesheet/regularization", allowEmployeeRole: true },
       ],
     },
     {
@@ -509,26 +510,6 @@ const Sidebar = ({ isOpen, onClose }) => {
             </div>
           )}
         </nav>
-
-        {/* User Info */}
-        <div className="p-4 border-t border-[#1e2050]">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-full bg-white bg-opacity-20 text-white font-medium">
-              {user.name ? user.name.charAt(0).toUpperCase() : "U"}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">
-                {user.name || "User"}
-              </p>
-              <p className="text-xs text-violet-200 truncate capitalize">
-                {role || "Employee"}
-              </p>
-              <p className="text-xs text-violet-300 truncate">
-                {permissions.length} permissions
-              </p>
-            </div>
-          </div>
-        </div>
       </div>
     </>
   );

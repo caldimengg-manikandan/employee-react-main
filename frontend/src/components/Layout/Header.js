@@ -38,6 +38,7 @@ const Header = ({ onMenuClick }) => {
       '/timesheet': 'Employee Timesheet',
       '/timesheet/history': 'Timesheet History',
       '/timesheet/attendance': 'Employee In/Out Timing',
+      '/timesheet/regularization': 'Attendance Regularization',
       '/admin/timesheet': 'Admin Timesheet Management',
       '/admin/timesheet/approval': 'Timesheet Summary',
       '/project-allocation': 'Project Allocation',

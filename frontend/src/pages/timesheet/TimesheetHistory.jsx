@@ -194,6 +194,9 @@ const TimesheetHistory = () => {
   const isDraft = (timesheet) => {
     return (timesheet.status || '').toLowerCase() === 'draft';
   };
+  const hasApprovedLeave = (timesheet) => {
+    return (timesheet.entries || []).some(e => (e.project || '') === 'Leave' && (e.task || '') === 'Leave Approved');
+  };
 
   // Download Functions (keep the same as your original code)
   const generateWeeklyExcel = () => {
@@ -553,6 +556,7 @@ const TimesheetHistory = () => {
                   const projectCodes = getProjectCodes(t.entries);
                   const isDraftTimesheet = isDraft(t);
                   const isSessionDraft = t.isSessionDraft;
+                  const isAutoLeaveDraft = isDraftTimesheet && hasApprovedLeave(t);
                   
                   return (
                     <tr key={t._id} className="hover:bg-gray-50 border-b">
@@ -633,7 +637,7 @@ const TimesheetHistory = () => {
                           </button>
                           
                           {/* Show Edit and Delete only for drafts */}
-                          {isDraftTimesheet && (
+                          {isDraftTimesheet && !isAutoLeaveDraft && (
                             <>
                               <button 
                                 onClick={() => handleEdit(t)}
