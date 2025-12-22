@@ -12,7 +12,7 @@ const ProjectAllocation = () => {
   const [activeTab, setActiveTab] = useState('projects');
   const [selectedLocation, setSelectedLocation] = useState('All');
   const [branches] = useState(['Hosur', 'Chennai', 'Outside Det.']);
-  const [divisions] = useState(['SDS', 'TEKLA', 'DAS', 'Mechanical']);
+  const [divisions] = useState(['SDS', 'TEKLA', 'DAS(Software)', 'Mechanical']);
   const [roles] = useState(['Modeler', 'Editor', 'Backdrafting', 'Checker', 'Estimator', 'Documentation', 'Project Lead']);
   const [statuses] = useState(['Active', 'Completed']);
 

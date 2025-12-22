@@ -395,10 +395,8 @@ const Timesheet = () => {
           const matchesEmployee =
             (a.employeeCode && me.employeeId && String(a.employeeCode) === String(me.employeeId)) ||
             (a.employeeId && me._id && String(a.employeeId) === String(me._id));
-          const matchesDivision =
-            !me.division || !a.projectDivision || String(a.projectDivision) === String(me.division);
           const isActive = String(a.status || '').toLowerCase() === 'active';
-          return matchesEmployee && matchesDivision && isActive && inRange(a);
+          return matchesEmployee && isActive && inRange(a);
         });
 
         const unique = [];

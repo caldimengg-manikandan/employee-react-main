@@ -3,7 +3,7 @@ const router = express.Router();
 const axios = require('axios');
 
 // Use your working Hikvision API
-const WORKING_HIKVISION_API = 'http://localhost:3000/api/hikvision/attendance';
+const WORKING_HIKVISION_API = 'https://192.168.1.131/artemis-web/api/attendance/v1/report';
 
 // Get Hikvision attendance data - Using your working API
 router.get('/attendance-data', async (req, res) => {

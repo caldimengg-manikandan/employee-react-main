@@ -822,7 +822,7 @@ const TimesheetHistory = () => {
                     {selectedTimesheet.status || '—'}
                   </span>
                 </div>
-                <div>
+                {/* <div>
                   <span className="font-medium">Total Hours (Work + Break):</span>{' '}
                   {(() => {
                     const weeklyWork = (selectedTimesheet.entries || []).reduce(
@@ -837,7 +837,7 @@ const TimesheetHistory = () => {
                     }).reduce((sum, b) => sum + b, 0);
                     return toHHMM(weeklyWork + weeklyBreak);
                   })()}
-                </div>
+                </div> */}
                 <div>
                   <span className="font-medium">
                     {selectedTimesheet.status === 'Draft' ? 'Last Updated:' : 'Submitted:'}
