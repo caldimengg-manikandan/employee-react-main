@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { UsersIcon, ClockIcon, CalendarIcon, BanknotesIcon, KeyIcon, FolderIcon, ShieldCheckIcon, DocumentTextIcon, CurrencyDollarIcon } from '@heroicons/react/24/outline';
+import { UsersIcon, ClockIcon, CalendarIcon, BanknotesIcon, KeyIcon, FolderIcon, ShieldCheckIcon, DocumentTextIcon, CurrencyDollarIcon, DocumentChartBarIcon, ClipboardDocumentCheckIcon, ChartBarIcon, ClipboardDocumentListIcon, CurrencyRupeeIcon, BriefcaseIcon, UserGroupIcon } from '@heroicons/react/24/outline';
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip,
     BarChart, Bar, XAxis, YAxis, CartesianGrid
@@ -94,24 +94,72 @@ const ProjectDashboard = () => {
 
     const policyModuleName = role === 'admin' ? 'Policy Portal' : 'Policy';
     const modules = [
+        // Timesheet
         { name: 'Timesheet', description: 'Log work hours', path: '/timesheet', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true },
-        { name: policyModuleName, description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, permission: 'dashboard', allowEmployeeRole: true },
-        { name: 'Salary Slips', description: 'View payslips', path: '/salaryslips', icon: BanknotesIcon, permission: 'payroll_view', allowEmployeeRole: true },
+        { name: 'Timesheet History', description: 'View past timesheets', path: '/timesheet/history', icon: DocumentChartBarIcon, permission: 'timesheet_access', allowEmployeeRole: true },
+        { name: 'Attendance Regularization', description: 'Regularize attendance', path: '/timesheet/regularization', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true },
+        { name: 'Employee Attendance', description: 'Attendance tracking', path: '/timesheet/attendance', icon: ClockIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager'] },
+        { name: 'Attendance Approval', description: 'Approve attendance', path: '/timesheet/attendance-approval', icon: ClipboardDocumentCheckIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager'] },
+        
+        // Admin Timesheet
+        { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'] },
+        { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentChartBarIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'] },
+        
+        // Project
+        { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, permission: 'project_access', showForRoles: ['admin', 'projectmanager', 'manager'] },
+        
+        // Leave Management
+        { name: 'Leave Summary', description: 'View leave summary', path: '/leave-management/summary', icon: ChartBarIcon, permission: 'leave_view', showForRoles: ['admin', 'hr', 'manager'] },
+        { name: 'Leave Balance', description: 'Check leave balance', path: '/leave-management/balance', icon: ClipboardDocumentListIcon, permission: 'leave_view', allowEmployeeRole: true },
         { name: 'Leave Applications', description: 'Apply & track leaves', path: '/leave-applications', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true },
-        { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'dashboard' },
-        { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, permission: 'project_access' },
-        { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'timesheet_access' },
-        { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentTextIcon, permission: 'timesheet_access' },
-        { name: 'Employee Attendance', description: 'Attendance tracking', path: '/timesheet/attendance', icon: ClockIcon, permission: 'attendance_access' },
-        { name: 'User Access', description: 'Manage user roles & permissions', path: '/user-access', icon: KeyIcon, permission: 'user_access' },
-        { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access' },
-        { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access' }
+        
+        // Insurance & Policy
+        { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'insurance_access', allowEmployeeRole: true },
+        { name: policyModuleName, description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, allowEmployeeRole: true },
+        
+        // Payroll
+        { name: 'Salary Slips', description: 'View payslips', path: '/salaryslips', icon: BanknotesIcon, allowEmployeeRole: true },
+        { name: 'Payroll Details', description: 'Manage payroll details', path: '/payroll/details', icon: CurrencyRupeeIcon, permission: 'payroll_manage', showForRoles: ['admin', 'hr', 'finance'] },
+        { name: 'Cost to the Company', description: 'View CTC', path: '/payroll/cost-to-the-company', icon: CurrencyRupeeIcon, permission: 'payroll_view', showForRoles: ['admin', 'hr', 'finance'] },
+        { name: 'Loan Summary', description: 'View loans', path: '/payroll/loan-summary', icon: BanknotesIcon, permission: 'loan_view', showForRoles: ['admin', 'hr', 'finance'] },
+        { name: 'Gratuity Summary', description: 'View gratuity', path: '/payroll/gratuity-summary', icon: BanknotesIcon, permission: 'gratuity_view', showForRoles: ['admin', 'hr', 'finance'] },
+        { name: 'Monthly Payroll', description: 'Process monthly payroll', path: '/payroll/monthly', icon: BanknotesIcon, permission: 'payroll_access', showForRoles: ['admin', 'hr', 'finance'] },
+        
+        // Expenditure
+        { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance'] },
+        
+        // Other
+        { name: 'Employee Reward Tracker', description: 'Track rewards', path: '/employee-reward-tracker', icon: BriefcaseIcon, permission: 'reward_access', showForRoles: ['admin', 'hr', 'manager'] },
+        { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access', showForRoles: ['admin', 'hr'] },
+        { name: 'User Access', description: 'Manage user roles & permissions', path: '/user-access', icon: KeyIcon, permission: 'user_access', showForRoles: ['admin'] },
+        { name: 'Team Management', description: 'Manage teams', path: '/admin/team-management', icon: UserGroupIcon, permission: 'team_access', showForRoles: ['admin', 'manager'] },
     ];
 
     const visibleModules = modules.filter((m) => {
-        const hasPermission = m.permission ? permissions.includes(m.permission) : true;
-        const allowByRole = role === 'admin' || (role === 'employees' && m.allowEmployeeRole);
-        return hasPermission && allowByRole;
+        // Admin sees everything
+        if (role === 'admin') return true;
+
+        // Check showForRoles restriction if it exists
+        if (m.showForRoles && !m.showForRoles.includes(role)) {
+            return false;
+        }
+
+        // Check permission if it exists
+        if (m.permission && !permissions.includes(m.permission)) {
+            return false;
+        }
+
+        // For employees, check allowEmployeeRole
+        if (role === 'employees' && !m.allowEmployeeRole) {
+            return false;
+        }
+
+        // Specific role override for Project Manager
+        if (role === 'projectmanager' && m.name === 'Project Allocation') {
+            return true;
+        }
+
+        return true;
     });
 
 

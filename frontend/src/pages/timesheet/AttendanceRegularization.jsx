@@ -188,10 +188,11 @@ const AttendanceRegularization = () => {
 
   const styles = {
     container: {
-      maxWidth: "1100px",
-      margin: "0 auto",
-      padding: "20px",
-    },
+  width: "100%",
+  padding: "20px",
+  boxSizing: "border-box",
+},
+
     header: {
       display: "flex",
       alignItems: "center",
@@ -336,8 +337,8 @@ const AttendanceRegularization = () => {
     <div style={styles.container}>
       <div style={styles.header}>
         <div style={styles.title}>
-          <Calendar size={18} />
-          Attendance Regularization
+          
+          
         </div>
         <div style={styles.monthNav}>
           <button onClick={prevMonth} style={styles.btnSecondary}>
@@ -373,6 +374,7 @@ const AttendanceRegularization = () => {
             </tr>
           ) : (
             records.map((rec, idx) => (
+
               <tr key={`${rec.date}|${idx}`} style={styles.row}>
                 <td style={styles.td}>{formatDate(rec.date)}</td>
                 <td style={styles.td}>{formatTime(rec.punchIn)}</td>

@@ -154,7 +154,7 @@ function App() {
             <Route
               path="policies"
               element={
-                <ProtectedRoute requiredPermissions={["dashboard"]}>
+                <ProtectedRoute requiredPermissions={["dashboard"]} allowEmployeeRole>
                   <PolicyPortal />
                 </ProtectedRoute>
               }

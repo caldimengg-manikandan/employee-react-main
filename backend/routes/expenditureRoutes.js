@@ -78,6 +78,7 @@ router.get('/summary', auth, async (req, res) => {
 
 // Get Record By ID
 router.get('/record/:id', auth, async (req, res) => {
+  
   try {
     const record = await MonthlyExpenditure.findById(req.params.id);
     if (!record) {

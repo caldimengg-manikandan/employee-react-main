@@ -138,7 +138,7 @@ const Sidebar = ({ isOpen, onClose }) => {
       hasDropdown: true,
       icon: getIconForMenu("Leave Management"),
       permission: "leave_access",
-      allowEmployeeRole: true,
+      allowEmployeeRole: false,
       children: [
         { 
           name: "Leave Summary", 
@@ -173,7 +173,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       name: "Policy Portal",
       path: "/policies",
       icon: getIconForMenu("Policy Portal"),
-      permission: "policy_access",
       allowEmployeeRole: true,
     },
     // SALARY SLIPS
@@ -181,7 +180,6 @@ const Sidebar = ({ isOpen, onClose }) => {
       name: "Salary Slips",
       path: "/salaryslips",
       icon: getIconForMenu("Salary Slips"),
-      permission: "payroll_view",
       allowEmployeeRole: true,
     },
     // PAYROLL MANAGEMENT
@@ -229,7 +227,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     // EXPENDITURE MANAGEMENT
     {
       name: "Expenditure Management",
-      path: "/expenditure/management",
+      path: "/expenditure-management",
       icon: getIconForMenu("Expenditure Management"),
       permission: "expenditure_access",
       showForRoles: ["admin", "hr", "finance"],

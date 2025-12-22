@@ -79,7 +79,12 @@ const AttendanceApproval = () => {
   };
 
   const styles = {
-    container: { maxWidth: "1100px", margin: "0 auto", padding: "20px" },
+    container: {
+  width: "100%",
+  padding: "20px",
+  boxSizing: "border-box",
+},
+
     header: { display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "16px" },
     title: { fontSize: "20px", fontWeight: 700, color: "#1a202c" },
     controls: { display: "flex", gap: "8px", alignItems: "center" },

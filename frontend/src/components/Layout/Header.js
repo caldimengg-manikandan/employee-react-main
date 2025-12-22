@@ -39,6 +39,7 @@ const Header = ({ onMenuClick }) => {
       '/timesheet/history': 'Timesheet History',
       '/timesheet/attendance': 'Employee In/Out Timing',
       '/timesheet/regularization': 'Attendance Regularization',
+      '/timesheet/attendance-approval': 'Attendance Approval',
       '/admin/timesheet': 'Admin Timesheet Management',
       '/admin/timesheet/approval': 'Timesheet Summary',
       '/project-allocation': 'Project Allocation',
@@ -53,8 +54,11 @@ const Header = ({ onMenuClick }) => {
       '/expenditure-management': 'Expenditure Management',
       '/employee-reward-tracker': 'Employee Reward Tracker',
       '/admin/team-management': 'Team Management',
-      '/payroll/PayrollDetails': 'Employee PayRolls Details',
-
+      '/payroll/details': 'Employee PayRolls Details',
+      '/payroll/cost-to-the-company': 'Cost to the Company',
+      '/payroll/loan-summary': 'Loan Summary',
+      '/payroll/gratuity-summary': 'Gratuity Summary',
+      '/payroll/monthly': 'Monthly Payroll',
     };
     
     return routeTitles[location.pathname] || 'Dashboard';

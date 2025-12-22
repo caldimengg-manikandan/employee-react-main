@@ -649,10 +649,7 @@ const ExpenditureManagement = () => {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-800">Expenditure Management</h1>
-          <p className="text-gray-600 mt-1">Track and manage office expenditures</p>
-        </div>
+        
         <div className="flex items-center gap-3">
           {activeTab === "manage" && (
             <button 

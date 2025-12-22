@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { timesheetAPI, projectAPI } from "../../services/api";
+import { timesheetAPI, allocationAPI, employeeAPI } from "../../services/api";
 import { ChevronLeft, ChevronRight, Calendar, Plus, Trash2, Save, Send, ChevronUp, ChevronDown } from "lucide-react";
 
 const Timesheet = () => {
@@ -368,20 +368,56 @@ const Timesheet = () => {
     updateMonthlyPermissionCount();
   }, [timesheetRows, currentWeek]);
 
-  // Load projects from Project Allocation
+  // Load allocated projects for the logged-in employee
   useEffect(() => {
-    const loadProjects = async () => {
+    const loadAllocatedProjects = async () => {
       try {
-        const res = await projectAPI.getAllProjects();
-        const projectData = Array.isArray(res.data) ? res.data : [];
-        setProjects(projectData.map(p => ({ name: p.name, code: p.code })));
+        const [meRes, allocRes] = await Promise.all([
+          employeeAPI.getMyProfile(),
+          allocationAPI.getAllAllocations()
+        ]);
+        const me = meRes?.data || {};
+        const allocations = Array.isArray(allocRes?.data) ? allocRes.data : [];
+
+        const today = new Date();
+        const inRange = (alloc) => {
+          try {
+            const sd = new Date(alloc.startDate);
+            const ed = new Date(alloc.endDate);
+            if (isNaN(sd.getTime()) || isNaN(ed.getTime())) return true;
+            return sd <= today && today <= ed;
+          } catch (_) {
+            return true;
+          }
+        };
+
+        const mine = allocations.filter(a => {
+          const matchesEmployee =
+            (a.employeeCode && me.employeeId && String(a.employeeCode) === String(me.employeeId)) ||
+            (a.employeeId && me._id && String(a.employeeId) === String(me._id));
+          const matchesDivision =
+            !me.division || !a.projectDivision || String(a.projectDivision) === String(me.division);
+          const isActive = String(a.status || '').toLowerCase() === 'active';
+          return matchesEmployee && matchesDivision && isActive && inRange(a);
+        });
+
+        const unique = [];
+        const seen = new Set();
+        for (const a of mine) {
+          const key = `${a.projectName}|${a.projectCode}`;
+          if (!seen.has(key)) {
+            seen.add(key);
+            unique.push({ name: a.projectName, code: a.projectCode });
+          }
+        }
+
+        setProjects(unique);
       } catch (error) {
-        console.error("❌ Error loading projects:", error);
-        // Fallback to empty array if API fails
+        console.error("❌ Error loading allocated projects:", error);
         setProjects([]);
       }
     };
-    loadProjects();
+    loadAllocatedProjects();
   }, []);
 
   // ✅ Save draft to sessionStorage
