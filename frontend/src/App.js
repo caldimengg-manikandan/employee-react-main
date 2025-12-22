@@ -45,6 +45,7 @@ import CostToTheCompany from "./pages/payroll/CostToTheCompany";
 import LoanSummary from "./pages/payroll/LoanSummary";
 import GratuitySummary from "./pages/payroll/GratuitySummary";
 import MonthlyPayroll from "./pages/payroll/MonthlyPayroll";
+import AnnouncementManagement from "./pages/announcements/AnnouncementManagement";
 
 
 
@@ -339,6 +340,16 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["employee_access"]}>
                   <TeamManagement />
+                </ProtectedRoute>
+              }
+            />
+            
+            {/* ---------------- Announcements ---------------- */}
+            <Route
+              path="announcements"
+              element={
+                <ProtectedRoute requiredPermissions={["announcement_manage"]} roles={["admin", "hr", "manager"]}>
+                  <AnnouncementManagement />
                 </ProtectedRoute>
               }
             />

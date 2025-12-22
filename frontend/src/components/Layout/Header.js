@@ -35,6 +35,7 @@ const Header = ({ onMenuClick }) => {
       '/dashboard': 'Project Dashboard',
       '/user-access': 'User Access',
       '/employee-management': 'Employee Management',
+      '/announcements': 'Announcement Management',
       '/timesheet': 'Employee Timesheet',
       '/timesheet/history': 'Timesheet History',
       '/timesheet/attendance': 'Employee In/Out Timing',

@@ -116,12 +116,48 @@ const ExpenditureManagement = () => {
     testAPIConnection();
   }, []);
 
-  // Auto-load summary when switching to Summary tab
+  // Auto-load summary when switching to Summary tab or changing year/location
   useEffect(() => {
     if (activeTab === "summary" && summaryYear) {
       loadSummary();
     }
-  }, [activeTab]);
+  }, [activeTab, summaryYear, summaryLocation]);
+
+  // Check for existing record when Month, Year, Location changes
+  useEffect(() => {
+    if (month && year && location && !viewMode) {
+      checkExistingRecord();
+    }
+  }, [month, year, location]);
+
+  const checkExistingRecord = async () => {
+    try {
+      // Check if a record already exists for this combination
+      const res = await expenditureAPI.getSummary({ year, location });
+      if (res.data && res.data.success) {
+        // Look for exact match on month
+        const existing = res.data.data.find(r => r.month === month);
+        
+        if (existing) {
+          const confirmLoad = window.confirm(
+            `A record for ${month} ${year} in ${location} already exists.\n\n` +
+            `You cannot create a duplicate record.\n` +
+            `Click OK to load the existing record for editing/adding expenditures.\n` +
+            `Click Cancel to change the selection.`
+          );
+          
+          if (confirmLoad) {
+            loadRecordForEditing(existing._id || existing.id);
+          } else {
+            // Clear selection to prevent user from trying to save
+            setMonth("");
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Error checking for existing record:", err);
+    }
+  };
 
   const testAPIConnection = async () => {
     try {
@@ -327,6 +363,14 @@ const ExpenditureManagement = () => {
       
       if (response.data && response.data.success) {
         alert(`✅ Record ${viewMode ? 'updated' : 'saved'} successfully in database!`);
+        
+        // Update summary filters to match the saved record
+        setSummaryYear(year);
+        setSummaryLocation(location);
+        
+        // Switch to summary tab to show the saved data
+        setActiveTab("summary");
+        
         clearForm();
       } else {
         alert(`❌ ${viewMode ? 'Update' : 'Save'} failed: ${response.data?.message || "Unknown error"}`);
@@ -334,7 +378,13 @@ const ExpenditureManagement = () => {
     } catch (err) {
       console.error("❌ Save error:", err);
       const errorMessage = err.response?.data?.message || err.message || "Unknown error";
-      alert(`❌ Save failed: ${errorMessage}`);
+      
+      // Special handling for duplicate record error
+      if (err.response?.status === 400 && errorMessage.includes("already exists")) {
+        alert(`❌ Cannot save: A record for this period already exists.\n\nPlease check the 'Summary' tab to find and edit the existing record.`);
+      } else {
+        alert(`❌ Save failed: ${errorMessage}`);
+      }
       
       // Detailed error logging
       if (err.response) {

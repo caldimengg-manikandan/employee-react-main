@@ -62,8 +62,10 @@ app.use("/api/mail", require("./routes/mail.routes"));
 app.use("/api/payroll", payrollRoutes);
 app.use("/api/monthly-payroll", monthlyPayrollRoutes);
 app.use("/api/loans", loanRoutes);
-app.use("/api/expenditure", require("./routes/expenditureRoutes"));
 
+
+// Announcements Routes
+app.use("/api/announcements", require("./routes/announcementRoutes"));
 
 
 // Base Route

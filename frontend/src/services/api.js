@@ -224,4 +224,28 @@ export const expenditureAPI = {
   deleteRecord: (id) => api.delete(`/expenditure/record/${id}`)
 };
 
+// Announcements (management + public active list)
+authAPI.announcement = {
+  getAll: async () => {
+    const res = await api.get('/announcements');
+    return res.data;
+  },
+  getActive: async () => {
+    const res = await api.get('/announcements/active');
+    return res.data;
+  },
+  create: async (data) => {
+    const res = await api.post('/announcements', data);
+    return res.data;
+  },
+  update: async (id, data) => {
+    const res = await api.put(`/announcements/${id}`, data);
+    return res.data;
+  },
+  delete: async (id) => {
+    const res = await api.delete(`/announcements/${id}`);
+    return res.data;
+  }
+};
+
 export default api;

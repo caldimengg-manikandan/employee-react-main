@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { authAPI } from '../services/api';
+import LoginAnnouncements from '../components/LoginAnnouncements';
 
 const Login = () => {
   const [formData, setFormData] = useState({
@@ -9,6 +10,7 @@ const Login = () => {
   });
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotPasswordData, setForgotPasswordData] = useState({
     employeeId: '',
@@ -27,9 +29,12 @@ const Login = () => {
   const [currentSlide, setCurrentSlide] = useState(0);
   
   const navigate = useNavigate();
+  const canvasRef = useRef(null);
 
   // Company history slideshow images
   const slides = [
+    { url: "/images/12.jpeg", title: "Hosur Office", desc: "" },
+    { url: "/images/13.jpeg", title: "Chennai Office", desc: "" },
     {
       url: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
       title: "Engineering Excellence",
@@ -49,45 +54,34 @@ const Login = () => {
       url: "https://images.unsplash.com/photo-1542744095-fcf48d80b0fd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
       title: "Project Success",
       desc: "Successful project delivery"
-    }
+    },
+    
+   
   ];
 
+
   // Holiday Calendar 2026 data
-  const holidays2026= [
-    { month: 'JAN', date: '26', occasion: 'Republic Day', day: 'Wednesday' },
-    { month: 'MAR', date: '07', occasion: 'Maha Shivaratri', day: 'Tuesday' },
-    { month: 'MAR', date: '25', occasion: 'Holi', day: 'Saturday' },
-    { month: 'APR', date: '14', occasion: 'Ambedkar Jayanti', day: 'Friday' },
-    { month: 'MAY', date: '01', occasion: 'Labour Day', day: 'Monday' },
-    { month: 'AUG', date: '15', occasion: 'Independence Day', day: 'Tuesday' },
-    { month: 'OCT', date: '02', occasion: 'Gandhi Jayanti', day: 'Monday' },
-    { month: 'DEC', date: '25', occasion: 'Christmas', day: 'Monday' }
+  const holidays2026 = [
+    { date: '01-Jan-26', day: 'THURSDAY', occasion: 'NEW YEAR' },
+    { date: '15-Jan-26', day: 'THURSDAY', occasion: 'THAI PONGAL' },
+    { date: '16-Jan-26', day: 'FRIDAY', occasion: 'MATTU PONGAL' },
+    { date: '26-Jan-26', day: 'MONDAY', occasion: 'REPUBLIC DAY' },
+    { date: '14-Apr-26', day: 'TUESDAY', occasion: 'TAMIL NEW YEAR' },
+    { date: '01-May-26', day: 'FRIDAY', occasion: 'LABOUR DAY' },
+    { date: '14-Sep-26', day: 'MONDAY', occasion: 'VINAYAGAR CHATHURTHI' },
+    { date: '02-Oct-26', day: 'FRIDAY', occasion: 'GANDHI JAYANTHI' },
+    { date: '19-Oct-26', day: 'MONDAY', occasion: 'AYUDHA POOJA' },
+    { date: 'REGIONAL', day: 'CHOOSE ONE', occasion: 'REGIONAL HOLIDAY (TELUGU NEW YEAR / GOOD FRIDAY / BAKRID / CHRISTMAS)' }
   ];
 
   // Today's Updates data
   const todaysUpdates = [
-    { 
-      id: 1, 
-      title: "Employee Pension Scheme", 
-      description: "Important Announcement: Employee Pension Scheme - Circular & Annexures have been released.", 
-      time: "Today, 10:30 AM",
-      priority: "high"
-    },
-    { 
-      id: 2, 
-      title: "Team Building Workshop", 
-      description: "Register for the upcoming team building workshop scheduled for next Friday.", 
-      time: "Yesterday",
-      priority: "medium"
-    },
-    { 
-      id: 3, 
-      title: "Quarterly Performance Reviews", 
-      description: "Quarterly performance reviews will commence next week.", 
-      time: "2 days ago",
-      priority: "medium"
-    }
+    
   ];
+
+
+
+  
 
   // Skills data for About Us modal
   const skills = [
@@ -102,6 +96,168 @@ const Login = () => {
     { name: "DAS Software", percentage: 90 },
     { name: "Electrical", percentage: 50 }
   ];
+
+  // Animated background particles
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    let animationFrameId;
+    let particles = [];
+
+    // Set canvas dimensions
+    const resizeCanvas = () => {
+      canvas.width = canvas.offsetWidth;
+      canvas.height = canvas.offsetHeight;
+    };
+
+    // Particle class
+    class Particle {
+      constructor() {
+        this.reset();
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+      }
+
+      reset() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.size = Math.random() * 2 + 0.5;
+        this.speedX = Math.random() * 0.5 - 0.25;
+        this.speedY = Math.random() * 0.5 - 0.25;
+        this.color = `rgba(${Math.floor(Math.random() * 100 + 155)}, ${Math.floor(Math.random() * 100 + 155)}, 255, ${Math.random() * 0.3 + 0.1})`;
+      }
+
+      update() {
+        this.x += this.speedX;
+        this.y += this.speedY;
+
+        // Reset particle if it goes off screen
+        if (this.x > canvas.width || this.x < 0 || this.y > canvas.height || this.y < 0) {
+          this.reset();
+        }
+      }
+
+      draw() {
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Create particles
+    const createParticles = () => {
+      particles = [];
+      for (let i = 0; i < 150; i++) {
+        particles.push(new Particle());
+      }
+    };
+
+    // Draw connections between particles
+    const drawConnections = () => {
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i; j < particles.length; j++) {
+          const dx = particles[i].x - particles[j].x;
+          const dy = particles[i].y - particles[j].y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance < 100) {
+            ctx.strokeStyle = `rgba(100, 150, 255, ${0.1 * (1 - distance / 100)})`;
+            ctx.lineWidth = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(particles[i].x, particles[i].y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.stroke();
+          }
+        }
+      }
+    };
+
+    // Animation loop
+    const animate = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // Draw subtle gradient background
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, 'rgba(10, 15, 44, 0.3)');
+      gradient.addColorStop(1, 'rgba(74, 20, 140, 0.3)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Update and draw particles
+      particles.forEach(particle => {
+        particle.update();
+        particle.draw();
+      });
+
+      drawConnections();
+
+      // Draw floating geometric shapes
+      drawFloatingShapes();
+
+      animationFrameId = requestAnimationFrame(animate);
+    };
+
+    // Draw floating geometric shapes
+    const drawFloatingShapes = () => {
+      const time = Date.now() * 0.001;
+
+      // Draw rotating triangles
+      ctx.save();
+      ctx.translate(canvas.width * 0.2, canvas.height * 0.3);
+      ctx.rotate(time * 0.2);
+      ctx.strokeStyle = 'rgba(100, 150, 255, 0.1)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      for (let i = 0; i < 3; i++) {
+        const angle = (Math.PI * 2 * i) / 3;
+        const x = Math.cos(angle) * 40;
+        const y = Math.sin(angle) * 40;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.restore();
+
+      // Draw rotating squares
+      ctx.save();
+      ctx.translate(canvas.width * 0.8, canvas.height * 0.7);
+      ctx.rotate(-time * 0.2);
+      ctx.strokeStyle = 'rgba(150, 100, 255, 0.1)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(-30, -30, 60, 60);
+      ctx.restore();
+
+      // Draw circles
+      ctx.save();
+      ctx.translate(canvas.width * 0.4, canvas.height * 0.8);
+      ctx.strokeStyle = 'rgba(100, 200, 255, 0.05)';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < 3; i++) {
+        ctx.beginPath();
+        ctx.arc(0, 0, 20 + i * 15, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    };
+
+    // Initialize
+    resizeCanvas();
+    createParticles();
+    animate();
+
+    // Event listeners
+    window.addEventListener('resize', resizeCanvas);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('resize', resizeCanvas);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
 
   // Slideshow auto-rotate
   useEffect(() => {
@@ -181,7 +337,7 @@ const Login = () => {
       <div className="bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
         {/* Header */}
         <div className="relative p-6 border-b border-white/20">
-          <h2 className="text-2xl font-bold text-white text-center" style={{ fontFamily: "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif" }}>
+          <h2 className="text-2xl font-bold text-white text-center">
             About CALDIM Engineering
           </h2>
           <button
@@ -192,54 +348,24 @@ const Login = () => {
           </button>
         </div>
 
-        {/* Content - With Scroll Enabled */}
+        {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[65vh]">
           {/* Company History */}
           <div className="mb-8">
             <h3 className="text-xl font-bold text-white mb-4">Our Company History</h3>
             <div className="space-y-4 text-blue-100">
               <p className="leading-relaxed">
-                <span className="font-bold text-white">CALDIM Engineering Pvt. Ltd.</span> was founded with a vision to revolutionize the engineering and detailing services in the construction industry. From humble beginnings, we have grown into a premier partner for comprehensive engineering solutions.
+                <span className="font-bold text-white">CALDIM Engineering Pvt. Ltd.</span> was founded with a vision to revolutionize the engineering and detailing services in the construction industry.
               </p>
               <p className="leading-relaxed">
-                We are your premier partner for comprehensive engineering and detailing services tailored to the construction industry. With a dedicated team of skilled professionals and a commitment to excellence, we specialize in delivering a wide range of services to meet the diverse needs of our clients.
-              </p>
-              <p className="leading-relaxed">
-                At Caldim, we are committed to exceeding client expectations, prioritizing quality, reliability, and client satisfaction in everything we do. Partner with us for your next construction project and experience the difference that our comprehensive engineering and detailing services can make.
+                We are your premier partner for comprehensive engineering and detailing services tailored to the construction industry. With a dedicated team of skilled professionals and a commitment to excellence.
               </p>
             </div>
-          </div>
-
-          {/* Capabilities */}
-          <div className="mb-8">
-            <h3 className="text-xl font-bold text-white mb-4">Our Capabilities</h3>
-            <ul className="space-y-3 text-blue-100">
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-blue-400 rounded-full mr-3 mt-2"></span>
-                NISD Certified detailers on board
-              </li>
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-blue-400 rounded-full mr-3 mt-2"></span>
-                Signed and sealed calculations for connection design with detailing
-              </li>
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-blue-400 rounded-full mr-3 mt-2"></span>
-                Experience in handling large and complex projects
-              </li>
-              <li className="flex items-start">
-                <span className="w-2 h-2 bg-blue-400 rounded-full mr-3 mt-2"></span>
-                Ability to work with contractors, Engineers and design/build services
-              </li>
-            </ul>
           </div>
 
           {/* Services */}
           <div className="mb-8">
             <h3 className="text-xl font-bold text-white mb-4">Our Services</h3>
-            <p className="text-blue-100 mb-6">
-              From structural design and analysis to architectural detailing and MEP coordination, Caldim offers a full suite of engineering solutions to support every stage of the construction process. Our expertise spans across various sectors, including residential, commercial, industrial, and institutional projects.
-            </p>
-            
             <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 rounded-xl p-6 border border-white/10">
               <h4 className="text-lg font-bold text-white mb-4">Our Expertise</h4>
               <div className="space-y-4">
@@ -260,14 +386,6 @@ const Login = () => {
               </div>
             </div>
           </div>
-
-          {/* Leadership Team */}
-          <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 rounded-xl p-6 border border-white/10">
-            <h3 className="text-xl font-bold text-white mb-4">Our Leadership Team</h3>
-            <p className="text-blue-100 leading-relaxed">
-              Our leadership team exemplifies exceptional skill and versatility in navigating diverse challenges and driving our organization forward. Each member brings a unique blend of expertise and experience to the table, allowing us to tackle a wide range of issues with confidence and finesse. Whether it's strategizing for growth, resolving complex issues, or fostering innovation, our leaders demonstrate a remarkable ability to adapt to changing circumstances and lead with agility.
-            </p>
-          </div>
         </div>
       </div>
     </div>
@@ -276,11 +394,11 @@ const Login = () => {
   // Holidays Modal
   const HolidaysModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden">
+      <div className="bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden">
         {/* Header */}
         <div className="relative p-6 border-b border-white/20">
-          <h2 className="text-2xl font-bold text-white text-center" style={{ fontFamily: "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif" }}>
-            CALDIM Holidays Calendar 2026
+          <h2 className="text-2xl font-bold text-white text-center">
+            HOLIDAY LIST 2026-2027
           </h2>
           <button
             onClick={() => setShowHolidays(false)}
@@ -290,44 +408,29 @@ const Login = () => {
           </button>
         </div>
 
-        {/* Content - No Scroll */}
-        <div className="p-6">
-          <div className="mb-6 text-center">
-            <p className="text-blue-200 mb-4">Plan your leaves with our official holiday calendar</p>
-            <div className="inline-flex items-center bg-blue-900/30 px-4 py-2 rounded-full">
-              <svg className="w-5 h-5 text-yellow-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-              </svg>
-              <span className="text-white font-medium">Total Holidays: {holidays2026.length} Days</span>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {holidays2026.map((holiday, index) => (
-              <div 
-                key={index} 
-                className="bg-gradient-to-br from-blue-900/30 to-purple-900/30 rounded-xl p-4 text-center border border-white/10 hover:scale-105 transition-transform duration-300"
-              >
-                <div className="text-blue-300 text-xs font-medium uppercase">
-                  {holiday.month}
-                </div>
-                <div className="text-3xl font-bold text-white my-2">
-                  {holiday.date}
-                </div>
-                <div className="text-blue-200 text-xs mb-1">
-                  {holiday.day}
-                </div>
-                <div className="text-white text-sm font-medium">
-                  {holiday.occasion}
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-6 p-4 bg-blue-900/20 rounded-xl">
-            <p className="text-center text-blue-200 text-sm">
-              Note: All holidays are subject to change as per company policy
-            </p>
+        {/* Content */}
+        <div className="p-6 overflow-y-auto max-h-[60vh]">
+          <div className="mb-6 overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr className="bg-blue-900/40">
+                  <th className="border border-white/20 p-3 text-left text-white font-semibold">S.No</th>
+                  <th className="border border-white/20 p-3 text-left text-white font-semibold">DATE</th>
+                  <th className="border border-white/20 p-3 text-left text-white font-semibold">DAY</th>
+                  <th className="border border-white/20 p-3 text-left text-white font-semibold">LIST OF HOLIDAYS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {holidays2026.map((holiday, index) => (
+                  <tr key={index} className="hover:bg-white/10 transition-colors">
+                    <td className="border border-white/20 p-3 text-white font-medium">{index + 1}</td>
+                    <td className="border border-white/20 p-3 text-white font-medium">{holiday.date}</td>
+                    <td className="border border-white/20 p-3 text-blue-200">{holiday.day}</td>
+                    <td className="border border-white/20 p-3 text-white">{holiday.occasion}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -340,18 +443,9 @@ const Login = () => {
       <div className="bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden">
         {/* Header */}
         <div className="relative p-6 border-b border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-white" style={{ fontFamily: "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif" }}>
-                Today's Updates
-              </h2>
-              <p className="text-blue-200 text-sm">Latest announcements and notifications</p>
-            </div>
-            <div className="flex items-center">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse mr-2"></div>
-              <span className="text-green-300 text-sm font-medium">Live Updates</span>
-            </div>
-          </div>
+          <h2 className="text-2xl font-bold text-white">
+            Upcomming Events
+          </h2>
           <button
             onClick={() => setShowUpdates(false)}
             className="absolute right-6 top-6 text-white hover:text-blue-300 text-xl"
@@ -360,49 +454,25 @@ const Login = () => {
           </button>
         </div>
 
-        {/* Content - No Scroll */}
+        {/* Content */}
         <div className="p-6">
-          <div className="mb-6">
-            <div className="inline-flex items-center bg-gradient-to-r from-blue-600/30 to-purple-600/30 px-4 py-2 rounded-full">
-              <svg className="w-5 h-5 text-white mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-              </svg>
-              <span className="text-white font-medium">Last Updated: Today, 10:45 AM</span>
-            </div>
-          </div>
-
           <div className="space-y-4">
             {todaysUpdates.map((update) => (
-              <div 
-                key={update.id} 
-                className="bg-gradient-to-r from-blue-900/30 to-blue-800/20 rounded-xl p-5 border border-white/10 hover:border-white/20 transition-all duration-300"
-              >
+              <div key={update.id} className="bg-gradient-to-r from-blue-900/30 to-blue-800/20 rounded-xl p-5 border border-white/10">
                 <div className="flex items-start">
-                  <div className={`mr-4 mt-1 w-3 h-3 rounded-full ${
-                    update.priority === 'high' ? 'bg-red-400' :
-                    update.priority === 'medium' ? 'bg-yellow-400' : 'bg-blue-400'
-                  }`}></div>
+                  <div className={`mr-4 mt-1 w-3 h-3 rounded-full ${update.priority === 'high' ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
                   <div className="flex-1">
-                    <div className="flex justify-between items-start mb-3">
-                      <h3 className="text-lg font-semibold text-white">{update.title}</h3>
-                      <span className="text-blue-300 text-sm bg-blue-900/30 px-3 py-1 rounded-full">{update.time}</span>
-                    </div>
-                    <p className="text-blue-100">{update.description}</p>
+                    <h3 className="text-lg font-semibold text-white mb-2">{update.title}</h3>
+                    <p className="text-blue-100 mb-3">{update.description}</p>
+                    <span className="text-sm text-blue-300">{update.time}</span>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-
-          <div className="mt-6 p-4 bg-blue-900/20 rounded-xl">
-            <div className="flex items-center">
-              <svg className="w-5 h-5 text-blue-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 13V5a2 2 0 00-2-2H4a2 2 0 00-2 2v8a2 2 0 002 2h3l3 3 3-3h3a2 2 0 002-2zM5 7a1 1 0 011-1h8a1 1 0 110 2H6a1 1 0 01-1-1zm1 3a1 1 0 100 2h3a1 1 0 100-2H6z" clipRule="evenodd" />
-              </svg>
-              <p className="text-blue-200 text-sm">
-                For more detailed information, visit the official announcements section in the portal.
-              </p>
-            </div>
+          
+          <div className="mt-6">
+            <LoginAnnouncements />
           </div>
         </div>
       </div>
@@ -413,11 +483,9 @@ const Login = () => {
   if (showForgotPassword) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C]">
-        <div className="absolute inset-0 bg-black/30"></div>
-
         <div className="relative z-10 bg-white rounded-2xl shadow-2xl p-8 w-full max-w-sm mx-6">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-[#0A0F2C] mb-2" style={{ fontFamily: "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif" }}>
+            <h1 className="text-2xl font-bold text-[#0A0F2C] mb-2">
               Forgot Password
             </h1>
             <p className="text-gray-600 text-sm">Reset your account password</p>
@@ -453,14 +521,23 @@ const Login = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">New Password</label>
-                  <input
-                    type="password"
-                    name="newPassword"
-                    value={forgotPasswordData.newPassword}
-                    onChange={handleForgotPasswordChange}
-                    required
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      name="newPassword"
+                      value={forgotPasswordData.newPassword}
+                      onChange={handleForgotPasswordChange}
+                      required
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                    >
+                      {showPassword ? '👁️' : '👁️‍🗨️'}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -480,12 +557,7 @@ const Login = () => {
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setShowForgotPassword(false);
-                  setForgotPasswordStep(1);
-                  setForgotPasswordData({ employeeId: '', otp: '', newPassword: '' });
-                  setForgotPasswordMessage('');
-                }}
+                onClick={() => setShowForgotPassword(false)}
                 className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200"
               >
                 Cancel
@@ -505,162 +577,250 @@ const Login = () => {
       {showUpdates && <UpdatesModal />}
       
       <div className="min-h-screen flex bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C] overflow-hidden">
-        {/* Left Side - Login Box */}
-        <div className="w-full lg:w-1/2 flex flex-col items-center justify-center p-4 lg:p-8">
-          <div className="w-full max-w-md">
-            {/* Header with new CALDIM font */}
-            <div className="text-center mb-8">
-              <h1 className="text-5xl font-bold text-white mb-2 tracking-tight" 
-                  style={{ 
-                    fontFamily: "'Calibri', 'Candara', 'Segoe', 'Segoe UI', 'Optima', 'Arial', 'sans-serif'",
-                    fontWeight: '700',
-                    letterSpacing: '-0.5px'
-                  }}>
-                CALDIM
-              </h1>
-             
+        {/* Left Side - Animated Login Background */}
+        <div className="w-full lg:w-1/2 relative overflow-hidden">
+          {/* Animated Canvas Background */}
+          <canvas
+            ref={canvasRef}
+            className="absolute inset-0 w-full h-full"
+          />
+          
+          {/* Animated Background Elements */}
+          <div className="absolute inset-0">
+            {/* Floating particles container */}
+            <div className="absolute inset-0">
+              {[...Array(20)].map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute w-1 h-1 bg-blue-400 rounded-full animate-float"
+                  style={{
+                    left: `${Math.random() * 100}%`,
+                    top: `${Math.random() * 100}%`,
+                    animationDelay: `${Math.random() * 5}s`,
+                    opacity: Math.random() * 0.3 + 0.1
+                  }}
+                />
+              ))}
             </div>
 
-            {/* Login Box */}
-            <div className="bg-white/95 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-white/30">
-              <div className="text-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800" style={{ fontFamily: "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif" }}>
-                  Employee Portal
-                </h2>
-               
+            {/* Animated grid lines */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute inset-0" style={{
+                backgroundImage: `
+                  linear-gradient(90deg, transparent 95%, rgba(100, 150, 255, 0.3) 100%),
+                  linear-gradient(180deg, transparent 95%, rgba(100, 150, 255, 0.3) 100%)
+                `,
+                backgroundSize: '50px 50px',
+                animation: 'gridMove 20s linear infinite'
+              }} />
+            </div>
+
+            {/* Pulsing circles */}
+            <div className="absolute top-1/4 left-1/4 w-64 h-64">
+              <div className="absolute inset-0 border-2 border-blue-400/20 rounded-full animate-ping" style={{ animationDuration: '4s' }} />
+              <div className="absolute inset-8 border-2 border-purple-400/20 rounded-full animate-ping" style={{ animationDuration: '6s', animationDelay: '1s' }} />
+            </div>
+
+            {/* Scanning line */}
+            {/* <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400 to-transparent animate-scan" /> */}
+          </div>
+
+          {/* Login Box Container */}
+          <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-4 lg:p-8">
+            {/* Logo at Top */}
+            <div className="absolute top-0 left-0 right-0 p-4 lg:p-6">
+              <div className="flex items-center justify-center">
+                <img
+                  src="/images/steel-logo.png"
+                  alt="caldim"
+                  className="h-auto w-full max-w-[140px] object-contain mx-auto"
+                />
+                
               </div>
 
-              <form className="space-y-5" onSubmit={handleSubmit}>
-                {/* Employee ID Field */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Employee ID
-                  </label>
-                  <input
-                    type="text"
-                    name="employeeId"
-                    value={formData.employeeId}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-                    placeholder="Enter your employee ID"
-                  />
+              <div className="text-center mb-8">
+                  <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">
+                    CALDIM Engineering
+                  </h1>
+                   
                 </div>
-
-                {/* Password Field */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password
-                  </label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-                    placeholder="Enter your password"
-                  />
-                </div>
-
-                {error && (
-                  <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
-                    <div className="flex items-center">
-                      <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                      </svg>
-                      {error}
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center text-sm">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
-                    />
-                    <span className="ml-2 text-gray-600">Remember me</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowForgotPassword(true)}
-                    className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-300"
-                  >
-                    Forgot Password?
-                  </button>
-                </div>
-
-                {/* Login Button */}
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-3.5 rounded-lg font-bold hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-xl"
-                >
-                  {isLoading ? (
-                    <>
-                      <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Signing in...
-                    </>
-                  ) : (
-                    'Login to Portal'
-                  )}
-                </button>
-              </form>
-
-              {/* Footer */}
-              
             </div>
 
-            {/* Bottom Buttons */}
-            <div className="mt-6 grid grid-cols-2 gap-3">
-              {/* Holidays Calendar Button */}
-              <button
-                onClick={() => setShowHolidays(true)}
-                className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border border-white/20 px-4 py-3 rounded-xl hover:from-blue-600/30 hover:to-purple-600/30 hover:border-white/40 transition-all duration-300 flex items-center justify-center"
-              >
-                <svg className="w-5 h-5 mr-2 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                </svg>
-                <div className="text-left">
-                  <div className="text-xs text-blue-200">Holidays</div>
-                  <div className="font-medium">Calendar 2026</div>
-                </div>
-              </button>
+              <div className="w-full max-w-md">
+                {/* Header */}
+                
 
-              {/* Today's Updates Button */}
-              <button
-                onClick={() => setShowUpdates(true)}
-                className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border border-white/20 px-4 py-3 rounded-xl hover:from-blue-600/30 hover:to-purple-600/30 hover:border-white/40 transition-all duration-300 flex items-center justify-center"
-              >
-                <div className="relative mr-2">
-                  <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                
+
+                {/* Login Box */}
+                <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/30 hover:border-white/50 transition-all duration-300">
+                  <div className="text-center mb-6">
+                    <h2 className="text-2xl font-bold text-gray-800">
+                      EMPLOYEE PORTAL
+                  </h2>
+                  
+                </div>
+
+                <form className="space-y-5" onSubmit={handleSubmit}>
+                  {/* Employee ID Field */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Employee ID
+                    </label>
+                    <input
+                      type="text"
+                      name="employeeId"
+                      value={formData.employeeId}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400"
+                      placeholder="Enter your employee ID"
+                    />
+                  </div>
+
+                  {/* Password Field */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        name="password"
+                        value={formData.password}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400 pr-10"
+                        placeholder="Enter your password"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                      >
+                        {showPassword ? '👁️' : '👁️‍🗨️'}
+                      </button>
+                    </div>
+                  </div>
+
+                  {error && (
+                    <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+                      <div className="flex items-center">
+                        <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        {error}
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center text-sm">
+                    <label className="flex items-center">
+                      <input
+                        type="checkbox"
+                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                      />
+                      <span className="ml-2 text-gray-600">Remember me</span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotPassword(true)}
+                      className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-300"
+                    >
+                      Forgot Password?
+                    </button>
+                  </div>
+
+                  {/* Login Button */}
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-3.5 rounded-lg font-bold hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-[1.02] transform"
+                  >
+                    {isLoading ? (
+                      <>
+                        <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Signing in...
+                      </>
+                    ) : (
+                      'Sign In'
+                    )}
+                  </button>
+                </form>
+
+                {/* Footer */}
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <p className="text-center text-gray-500 text-xs">
+                    © 2026 CALDIM Engineering Pvt. Ltd. All rights reserved.
+                  </p>
+                </div>
+              </div>
+
+              {/* Bottom Buttons */}
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                {/* Holidays Calendar Button */}
+                <button
+                  onClick={() => setShowHolidays(true)}
+                  className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border border-white/20 px-4 py-3 rounded-xl hover:from-blue-600/30 hover:to-purple-600/30 hover:border-white/40 transition-all duration-300 flex items-center justify-center hover:scale-[1.02] transform backdrop-blur-sm"
+                >
+                  <svg className="w-5 h-5 mr-2 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                   </svg>
-                  <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
-                </div>
-                <div className="text-left">
-                  <div className="text-xs text-blue-200">Today's</div>
-                  <div className="font-medium">Updates</div>
-                </div>
-              </button>
+                  <div className="text-left">
+                    <div className="text-xs text-blue-200">Official</div>
+                    <div className="font-medium">Holidays 2026</div>
+                  </div>
+                </button>
+
+                {/* Today's Updates Button */}
+                <button
+                  onClick={() => setShowUpdates(true)}
+                  className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border border-white/20 px-4 py-3 rounded-xl hover:from-blue-600/30 hover:to-purple-600/30 hover:border-white/40 transition-all duration-300 flex items-center justify-center hover:scale-[1.02] transform backdrop-blur-sm"
+                >
+                  <div className="relative mr-2">
+                    <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                    </svg>
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  </div>
+                  <div className="text-left">
+                    <div className="text-xs text-blue-200"></div>
+                    <div className="font-medium">Upcomming Events</div>
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side - Photo Gallery with About Us Button in Header */}
+        {/* Right Side - Photo Gallery */}
         <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
-          {/* About Us Button in Top Left */}
-          <div className="absolute top-10 left-10 z-30">
+          {/* About Us Button */}
+          <div className="absolute top-10 right-10 z-30">
             <button
               onClick={() => setShowAboutUs(true)}
-              className="bg-gradient-to-r from-blue-600/40 to-purple-600/40 text-white border border-white/30 px-8 py-3 rounded-full hover:from-blue-600/50 hover:to-purple-600/50 hover:border-white/50 transition-all duration-300 backdrop-blur-sm font-bold text-lg shadow-xl"
+              className="bg-gradient-to-r from-blue-600/40 to-purple-600/40 text-white border border-white/30 px-6 py-3 rounded-full hover:from-blue-600/50 hover:to-purple-600/50 hover:border-white/50 transition-all duration-300 backdrop-blur-sm font-bold shadow-xl hover:scale-105 transform flex items-center"
             >
+              <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+              </svg>
               About Us
             </button>
+          </div>
+
+          {/* Company Vision */}
+          <div className="absolute top-10 left-10 text-left z-20">
+            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
+              <h3 className="text-2xl font-bold text-white mb-2">
+                OUR VISION
+              </h3>
+              <p className="text-blue-100">
+                To be a pioneering global engineering solutions organization
+              </p>
+            </div>
           </div>
 
           <div className="absolute inset-0 bg-gradient-to-l from-black/40 to-transparent z-10"></div>
@@ -683,7 +843,7 @@ const Login = () => {
                 
                 {/* Slide Content */}
                 <div className="absolute bottom-20 left-10 right-10 text-white z-20">
-                  <h2 className="text-5xl font-bold mb-4" style={{ fontFamily: "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif" }}>
+                  <h2 className="text-5xl font-bold mb-4">
                     {slide.title}
                   </h2>
                   <p className="text-xl text-blue-200">
@@ -707,39 +867,70 @@ const Login = () => {
                 />
               ))}
             </div>
-
-            {/* Next/Prev Buttons */}
-            <button
-              onClick={() => setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length)}
-              className="absolute left-6 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full z-20 transition-all duration-300 backdrop-blur-sm"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <button
-              onClick={() => setCurrentSlide((prev) => (prev + 1) % slides.length)}
-              className="absolute right-6 top-1/2 transform -translate-y-1/2 bg-white/20 hover:bg-white/40 text-white p-3 rounded-full z-20 transition-all duration-300 backdrop-blur-sm"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Company Vision */}
-          <div className="absolute top-10 right-10 text-right z-20">
-            <div className="bg-gradient-to-l from-blue-600/20 to-purple-600/20 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <h3 className="text-2xl font-bold text-white mb-2" style={{ fontFamily: "'Segoe UI', 'Roboto', 'Helvetica Neue', sans-serif" }}>
-                OUR VISION
-              </h3>
-              <p className="text-blue-100">
-                To be a pioneering global engineering solutions organization
-              </p>
-            </div>
           </div>
         </div>
       </div>
+
+      {/* CSS Animations */}
+      <style jsx>{`
+        @keyframes float {
+          0%, 100% {
+            transform: translateY(0) rotate(0deg);
+          }
+          50% {
+            transform: translateY(-20px) rotate(180deg);
+          }
+        }
+
+        @keyframes gridMove {
+          0% {
+            transform: translate(0, 0);
+          }
+          100% {
+            transform: translate(50px, 50px);
+          }
+        }
+
+        @keyframes scan {
+          0% {
+            transform: translateY(0);
+            opacity: 0;
+          }
+          10% {
+            opacity: 1;
+          }
+          90% {
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(100vh);
+            opacity: 0;
+          }
+        }
+
+        .animate-float {
+          animation: float 8s ease-in-out infinite;
+        }
+
+        .animate-grid {
+          animation: gridMove 20s linear infinite;
+        }
+
+        .animate-scan {
+          animation: scan 3s linear infinite;
+        }
+
+        .animate-ping {
+          animation: ping 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+        }
+
+        @keyframes ping {
+          75%, 100% {
+            transform: scale(2);
+            opacity: 0;
+          }
+        }
+      `}</style>
     </>
   );
 };

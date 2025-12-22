@@ -73,6 +73,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     "Loan Summary": BanknotesIcon,
     "Gratuity Summary": BanknotesIcon,
     "Monthly Payroll": BanknotesIcon,
+    "Announcements": DocumentTextIcon,
     // NEW ICONS FOR EXIT MANAGEMENT
     "Employee Exit Form": ArrowRightOnRectangleIcon,
     "Exit Approval": ApprovalIcon,
@@ -231,6 +232,15 @@ const Sidebar = ({ isOpen, onClose }) => {
       icon: getIconForMenu("Expenditure Management"),
       permission: "expenditure_access",
       showForRoles: ["admin", "hr", "finance"],
+      allowEmployeeRole: false,
+    },
+    // ANNOUNCEMENTS
+    {
+      name: "Announcements",
+      path: "/announcements",
+      icon: getIconForMenu("Announcements"),
+      permission: "announcement_manage",
+      showForRoles: ["admin", "hr", "manager"],
       allowEmployeeRole: false,
     },
     // EXIT MANAGEMENT - NEW MODULE
