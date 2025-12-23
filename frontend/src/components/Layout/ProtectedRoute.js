@@ -47,10 +47,15 @@ const ProtectedRoute = ({
         </div>
       );
     }
+    
+    // Allow projectmanager to bypass permission check if they are in the allowed roles
+    if (user.role === "projectmanager" || user.role === "project_manager") {
+      return children;
+    }
   }
 
   // Allow employees to access pages explicitly marked
-  if (allowEmployeeRole && user.role === "employees") {
+  if (allowEmployeeRole && (user.role === "employees" || user.role === "projectmanager" || user.role === "project_manager")) {
     return children;
   }
 

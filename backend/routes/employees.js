@@ -15,6 +15,22 @@ router.get('/', auth, async (req, res) => {
       return res.json(employees);
     }
 
+    // Access for Project Managers (project_access)
+    if (req.user.permissions?.includes('project_access') || req.user.role === 'projectmanager' || req.user.role === 'project_manager') {
+      const employees = await Employee.find({}, {
+        'name': 1,
+        'employeeId': 1,
+        'email': 1,
+        'department': 1,
+        'designation': 1,
+        'position': 1,
+        'division': 1,
+        'branch': 1,
+        '_id': 1
+      }).sort({ name: 1 });
+      return res.json(employees);
+    }
+
     // Limited access for users with timesheet_access only
     if (req.user.permissions?.includes('timesheet_access')) {
       const employees = await Employee.find({}, {

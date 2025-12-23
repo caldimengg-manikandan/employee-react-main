@@ -5,6 +5,7 @@ const Timesheet = require("../models/Timesheet");
 const User = require("../models/User");
 const Employee = require("../models/Employee");
 const nodemailer = require("nodemailer");
+const auth = require("../middleware/auth");
 
 const mailer = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -60,18 +61,29 @@ async function sendStatusEmail(updatedDoc, status) {
 
 const router = express.Router();
 
-/**
- * GET All Timesheets with Filters
- * /api/admin-timesheet/list
- */
-router.get("/list", async (req, res) => {
+router.get("/list", auth, async (req, res) => {
   try {
     const { employeeId, division, location, status, week, project } = req.query;
+    let pmDivision = "";
+    let pmLocation = "";
+    const isPM = req.user?.role === "projectmanager" || req.user?.role === "project_manager";
+    if (isPM && req.user?.employeeId) {
+      try {
+        const pmEmp = await Employee.findOne({ employeeId: req.user.employeeId }).lean();
+        pmDivision = pmEmp?.division || "";
+        pmLocation = pmEmp?.location || "";
+      } catch (_) {}
+    }
 
     let adminQuery = {};
     if (employeeId) adminQuery.employeeId = employeeId;
-    if (division && division !== "All Division") adminQuery.division = division;
-    if (location && location !== "All Locations") adminQuery.location = location;
+    if (isPM) {
+      if (pmDivision) adminQuery.division = pmDivision;
+      if (pmLocation) adminQuery.location = pmLocation;
+    } else {
+      if (division && division !== "All Division") adminQuery.division = division;
+      if (location && location !== "All Locations") adminQuery.location = location;
+    }
     if (status && status !== "All Status") adminQuery.status = status;
     if (week && week !== "All Weeks") adminQuery.week = week;
     if (project && project !== "All Projects") adminQuery["timeEntries.project"] = project;
@@ -173,8 +185,13 @@ router.get("/list", async (req, res) => {
 
           // Apply filters to submitted records
           if (employeeId && record.employeeId !== employeeId) continue;
-          if (division && division !== "All Division" && record.division !== division) continue;
-          if (location && location !== "All Locations" && record.location !== location) continue;
+          if (isPM) {
+            if (pmDivision && record.division !== pmDivision) continue;
+            if (pmLocation && record.location !== pmLocation) continue;
+          } else {
+            if (division && division !== "All Division" && record.division !== division) continue;
+            if (location && location !== "All Locations" && record.location !== location) continue;
+          }
           if (week && week !== "All Weeks" && record.week !== week) continue;
           if (project && project !== "All Projects") {
             const hasProject = (record.timeEntries || []).some((te) => te.project === project);

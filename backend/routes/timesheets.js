@@ -29,33 +29,38 @@ function toWeekString(d) {
   const weekStr = String(weekNo).padStart(2, "0");
   return `${date.getUTCFullYear()}-W${weekStr}`;
 } 
-
-async function getAdminApprovalRecipients() {
+async function getProjectManagerRecipients(division, location) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const users = await User.find({ role: "admin" }).select("email");
-  const hrAdmins = await Employee.find({ role: { $in: ["HR", "Admin", "hr", "admin"] } }).select("email");
-  const cde = await Employee.findOne({ employeeId: "CDE001" }).select("email");
-  const list = [];
-  users.forEach(u => { if (u?.email && emailRegex.test(u.email)) list.push(u.email); });
-  hrAdmins.forEach(e => { if (e?.email && emailRegex.test(e.email)) list.push(e.email); });
-  if (cde?.email && emailRegex.test(cde.email)) list.push(cde.email);
-  return Array.from(new Set(list));
+  const roleRegex = /project\s*manager/i;
+  const empPMs = await Employee.find({
+    division: division || "",
+    location: location || "",
+    $or: [
+      { role: { $regex: roleRegex } },
+      { designation: { $regex: roleRegex } },
+      { position: { $regex: roleRegex } }
+    ]
+  }).select("email employeeId");
+  const empEmails = empPMs.map(e => e?.email).filter(e => e && emailRegex.test(e));
+  const empIds = empPMs.map(e => e.employeeId).filter(Boolean);
+  const userPMs = await User.find({ role: "projectmanager", employeeId: { $in: empIds } }).select("email");
+  const userEmails = userPMs.map(u => u?.email).filter(e => e && emailRegex.test(e));
+  return Array.from(new Set([...empEmails, ...userEmails]));
 }
 
 async function sendTimesheetApprovalRequestEmail(user, sheet) {
   try {
-    const recipients = await getAdminApprovalRecipients();
-    if (!recipients.length) {
-      return { success: false, error: "No admin recipients" };
-    }
-    const weekStr = toWeekString(new Date(sheet.weekStartDate));
-    const start = new Date(sheet.weekStartDate).toISOString().split("T")[0];
-    const end = new Date(sheet.weekEndDate).toISOString().split("T")[0];
-    // Build the same email body as the employee receives
     let employeeProfile = null;
     if (user.employeeId) employeeProfile = await Employee.findOne({ employeeId: user.employeeId }).lean();
     if (!employeeProfile && user.email) employeeProfile = await Employee.findOne({ email: user.email }).lean();
     if (!employeeProfile && user._id) employeeProfile = await Employee.findOne({ userId: user._id }).lean();
+    const recipients = await getProjectManagerRecipients(employeeProfile?.division, employeeProfile?.location);
+    if (!recipients.length) {
+      return { success: false, error: "No project manager recipients" };
+    }
+    const weekStr = toWeekString(new Date(sheet.weekStartDate));
+    const start = new Date(sheet.weekStartDate).toISOString().split("T")[0];
+    const end = new Date(sheet.weekEndDate).toISOString().split("T")[0];
     const entries = Array.isArray(sheet.entries) ? sheet.entries : [];
     const toHHMM = (n) => { const totalMin = Math.round(Number(n || 0) * 60); const h = Math.floor(totalMin / 60); const m = totalMin % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; };
     const workWeeklyTotal = entries.reduce((sum, e) => { const hrs = Array.isArray(e.hours) ? e.hours : []; return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0); }, 0);

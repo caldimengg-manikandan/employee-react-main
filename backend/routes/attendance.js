@@ -278,18 +278,54 @@ router.get("/my-week", auth, async (req, res) => {
     const events = records.sort((a, b) => new Date(a.punchTime) - new Date(b.punchTime));
     const pairs = [];
     let currentIn = null;
+    let currentOut = null;
 
     for (const e of events) {
       if (e.direction === "in") {
-        const t = new Date(e.punchTime);
-        currentIn = currentIn || t;
-      } else if (e.direction === "out") {
-        const t = new Date(e.punchTime);
-        if (currentIn && t > currentIn) {
-          pairs.push({ start: new Date(currentIn), end: t });
+        // If we have a pending pair, push it
+        if (currentIn && currentOut) {
+          pairs.push({ start: new Date(currentIn.punchTime), end: new Date(currentOut.punchTime) });
           currentIn = null;
+          currentOut = null;
+        }
+
+        if (!currentIn) {
+          currentIn = e;
+        } else {
+          // Resolution: Prefer Manual > Earliest
+          if (e.source === "manual" && currentIn.source !== "manual") {
+            currentIn = e;
+          }
+          // If both are manual or both are not manual, keep the first one (Earliest)
+        }
+      } else if (e.direction === "out") {
+        if (currentIn) {
+          const t = new Date(e.punchTime);
+          const inT = new Date(currentIn.punchTime);
+          
+          if (t > inT) {
+            if (!currentOut) {
+              currentOut = e;
+            } else {
+              // Resolution: Prefer Manual > Latest
+              if (e.source === "manual" && currentOut.source !== "manual") {
+                currentOut = e;
+              } else if (e.source === "manual" && currentOut.source === "manual") {
+                // Both manual: take latest
+                if (t > new Date(currentOut.punchTime)) currentOut = e;
+              } else if (e.source !== "manual" && currentOut.source !== "manual") {
+                // Both auto: take latest
+                if (t > new Date(currentOut.punchTime)) currentOut = e;
+              }
+            }
+          }
         }
       }
+    }
+    
+    // Push the last pair if exists
+    if (currentIn && currentOut) {
+      pairs.push({ start: new Date(currentIn.punchTime), end: new Date(currentOut.punchTime) });
     }
 
     const weeklyTotal = Number(

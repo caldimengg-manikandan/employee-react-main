@@ -5,7 +5,7 @@ import { employeeAPI, projectAPI, allocationAPI } from '../../services/api';
 const ProjectAllocation = () => {
   // Get user from sessionStorage
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
-  const isProjectManager = user.role === 'project_manager' || user.role === 'admin';
+  const isProjectManager = user.role === 'projectmanager' || user.role === 'project_manager' || user.role === 'admin';
   const canEdit = isProjectManager;
 
   // UI state

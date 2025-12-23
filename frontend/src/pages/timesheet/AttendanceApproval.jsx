@@ -6,7 +6,7 @@ import Notification from "../../components/Notifications/Notification";
 const AttendanceApproval = () => {
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState([]);
-  const [statusFilter, setStatusFilter] = useState("Pending");
+  const [statusFilter, setStatusFilter] = useState("");
   const [rejectReason, setRejectReason] = useState("");
   const [rejectId, setRejectId] = useState(null);
   const { notification, showSuccess, showError, hideNotification } = useNotification();
@@ -105,6 +105,23 @@ const AttendanceApproval = () => {
     modalFooter: { padding: "12px 16px", borderTop: "1px solid #edf2f7", display: "flex", justifyContent: "flex-end", gap: "8px" },
     btnSecondary: { padding: "8px 12px", borderRadius: "6px", border: "1px solid #e2e8f0", backgroundColor: "#fff", cursor: "pointer" },
     btnPrimary: { padding: "8px 12px", borderRadius: "6px", backgroundColor: "#3182ce", color: "#fff", border: "none", cursor: "pointer" },
+    statusBadge: (status) => {
+      const colors = {
+        Pending: { bg: "#fff7ed", text: "#c05621" },
+        Approved: { bg: "#f0fdf4", text: "#15803d" },
+        Rejected: { bg: "#fef2f2", text: "#b91c1c" },
+      };
+      const c = colors[status] || { bg: "#f7fafc", text: "#4a5568" };
+      return {
+        backgroundColor: c.bg,
+        color: c.text,
+        padding: "4px 8px",
+        borderRadius: "9999px",
+        fontSize: "12px",
+        fontWeight: "600",
+        display: "inline-block",
+      };
+    },
   };
 
   return (
@@ -113,10 +130,10 @@ const AttendanceApproval = () => {
         <div style={styles.title}>Attendance Approval</div>
         <div style={styles.controls}>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={styles.select}>
+            <option value="">All Statuses</option>
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
             <option value="Rejected">Rejected</option>
-            <option value="">All</option>
           </select>
           <button style={{ ...styles.btn, ...styles.btnSecondary }} onClick={load} disabled={loading}>Refresh</button>
         </div>
@@ -148,7 +165,9 @@ const AttendanceApproval = () => {
                 <td style={styles.td}>{formatDateTime(r.inTime)}</td>
                 <td style={styles.td}>{formatDateTime(r.outTime)}</td>
                 <td style={styles.td}>{formatHours(Number(r.workDurationSeconds || 0))}</td>
-                <td style={styles.td}>{r.status}</td>
+                <td style={styles.td}>
+                  <span style={styles.statusBadge(r.status)}>{r.status}</span>
+                </td>
                 <td style={styles.td}>
                   <div style={styles.actions}>
                     <button

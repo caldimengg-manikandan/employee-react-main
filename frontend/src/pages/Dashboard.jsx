@@ -139,6 +139,23 @@ const ProjectDashboard = () => {
         // Admin sees everything
         if (role === 'admin') return true;
 
+        // Project Manager should see the same modules as Sidebar allows
+        if (role === 'projectmanager') {
+            const pmAllowed = [
+                'Timesheet',
+                'Timesheet History',
+                'Attendance Regularization',
+                'Admin Timesheet',
+                'Timesheet Summary',
+                'Project Allocation',
+                'Leave Applications',
+                'Policy',
+                'Policy Portal',
+                'Salary Slips'
+            ];
+            return pmAllowed.includes(m.name);
+        }
+
         // Check showForRoles restriction if it exists
         if (m.showForRoles && !m.showForRoles.includes(role)) {
             return false;
@@ -152,11 +169,6 @@ const ProjectDashboard = () => {
         // For employees, check allowEmployeeRole
         if (role === 'employees' && !m.allowEmployeeRole) {
             return false;
-        }
-
-        // Specific role override for Project Manager
-        if (role === 'projectmanager' && m.name === 'Project Allocation') {
-            return true;
         }
 
         return true;

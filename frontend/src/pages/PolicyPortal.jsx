@@ -20,7 +20,7 @@ const AdminPolicyPortal = () => {
   const [policyToDelete, setPolicyToDelete] = useState(null);
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const role = user.role || 'employees';
-  const isEmployee = role === 'employees';
+  const isReadOnly = role === 'employees' || role === 'projectmanager';
 
   // Load policies from backend on component mount
   useEffect(() => {
@@ -177,7 +177,7 @@ const AdminPolicyPortal = () => {
                         <span className="text-sm text-gray-500">
                           Updated: {activePolicy.updatedAt ? new Date(activePolicy.updatedAt).toISOString().split('T')[0] : ''}
                         </span>
-                        {!isEmployee && (
+                        {!isReadOnly && (
                           <button
                             onClick={() => {
                               if (editingTitle) {
@@ -216,7 +216,7 @@ const AdminPolicyPortal = () => {
                     )}
                     
                     {/* Edit Content Button */}
-                    {!isEmployee && (
+                    {!isReadOnly && (
                       <div className="mt-6 pt-6 border-t border-gray-200">
                         <button
                           onClick={() => {
@@ -249,7 +249,7 @@ const AdminPolicyPortal = () => {
                   <DocumentTextIcon className="h-16 w-16 mx-auto text-gray-300 mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 mb-2">No Policy Selected</h3>
                   <p className="text-gray-500 mb-6">Select a policy from the list or create a new one</p>
-                  {!isEmployee && (
+                  {!isReadOnly && (
                     <button
                       onClick={handleAddPolicy}
                       className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -297,7 +297,7 @@ const AdminPolicyPortal = () => {
                           </div>
                         </div>
                       </div>
-                      {!isEmployee && (
+                      {!isReadOnly && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -323,7 +323,7 @@ const AdminPolicyPortal = () => {
 
                 {/* Add Policy Button */}
                 <div className="mt-6">
-                  {!isEmployee && (
+                  {!isReadOnly && (
                     <button
                       onClick={handleAddPolicy}
                       className="w-full flex items-center justify-center px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors group"

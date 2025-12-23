@@ -119,7 +119,7 @@ function App() {
             <Route
               path="admin/timesheet"
               element={
-                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin"]}>
+                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin", "projectmanager", "project_manager"]}>
                   <AdminTimesheet />
                 </ProtectedRoute>
               }
@@ -127,7 +127,7 @@ function App() {
             <Route 
               path="admin/timesheet/approval"
               element={
-                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin"]}>
+                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin", "projectmanager", "project_manager"]}>
                   <TimesheetSummary />
                 </ProtectedRoute>
               }
@@ -137,7 +137,7 @@ function App() {
             <Route 
               path="project-allocation" 
               element={
-                <ProtectedRoute requiredPermissions={["project_access"]}>
+                <ProtectedRoute requiredPermissions={["project_access"]} roles={["admin", "projectmanager", "project_manager"]}>
                   <ProjectAllocation />
                 </ProtectedRoute>
               } 
@@ -160,15 +160,14 @@ function App() {
                 </ProtectedRoute>
               }
             />
-{/* 
-            
+
             {/* ---------------- Salary Slips - ADDED ---------------- */}
             <Route 
               path="salaryslips" 
               element={
                 <ProtectedRoute 
                   requiredPermissions={["payroll_view"]} 
-                  roles={["admin", "hr", "employees"]}
+                  roles={["admin", "hr", "employees", "projectmanager", "project_manager"]}
                   allowEmployeeRole
                 >
                   <SalarySlips />
@@ -250,7 +249,7 @@ function App() {
               element={
                 <ProtectedRoute 
                   requiredPermissions={["leave_access"]} 
-                  roles={["employees"]} 
+                  roles={["employees", "projectmanager", "project_manager"]} 
                   allowEmployeeRole
                 >
                   <LeaveApplications />
