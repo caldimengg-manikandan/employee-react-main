@@ -67,6 +67,8 @@ app.use("/api/loans", loanRoutes);
 // Announcements Routes
 app.use("/api/announcements", require("./routes/announcementRoutes"));
 
+// Expenditure Management Routes
+app.use("/api/expenditure", require("./routes/expenditureRoutes"));
 
 // Base Route
 app.get("/", (req, res) => {
