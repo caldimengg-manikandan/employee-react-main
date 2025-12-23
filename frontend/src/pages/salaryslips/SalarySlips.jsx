@@ -516,7 +516,8 @@ const SalarySlips = () => {
         </div>
       </header>
 
-      <div className="container mx-auto px-3 sm:px-4 py-6 sm:py-8 max-w-7xl print:py-0 print:px-0 print:max-w-none">
+      <div className="w-full px-3 sm:px-4 py-6 sm:py-8 print:py-0 print:px-0 print:w-full">
+
         {!showPayslip ? (
           <div className="flex flex-col lg:flex-row gap-6 print:hidden">
             {/* Controls Panel */}

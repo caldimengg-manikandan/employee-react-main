@@ -13,18 +13,30 @@ import {
   Pencil,
   Trash
 } from 'lucide-react';
+import Modal from '../../components/Modals/Modal';
+import Notification from '../../components/Notifications/Notification';
 
-const LeaveApplications = () => {
-  // State for leave form
-  const [leaveData, setLeaveData] = useState({
-    leaveType: 'CL',
-    startDate: '',
-    endDate: '',
-    dayType: 'Full Day',
-    reason: '',
-    bereavementRelation: '',
-    supportingDocuments: null
-  });
+  // Leave types as per policy
+  const allLeaveTypes = [
+    { value: 'CL', label: 'Casual Leave (CL)' },
+    { value: 'SL', label: 'Sick Leave (SL)' },
+    { value: 'PL', label: 'Privilege Leave (PL)' },
+    { value: 'BEREAVEMENT', label: 'Bereavement Leave' },
+  ];
+
+  const LeaveApplications = () => {
+    // State for leave form
+    const [leaveData, setLeaveData] = useState({
+      leaveType: 'CL',
+      startDate: '',
+      endDate: '',
+      dayType: 'Full Day',
+     
+      bereavementRelation: '',
+      supportingDocuments: null
+    });
+
+    const [allowedLeaveTypes, setAllowedLeaveTypes] = useState(allLeaveTypes);
 
   const [totalLeaveDays, setTotalLeaveDays] = useState(0);
   const [leaveBalance, setLeaveBalance] = useState({
@@ -38,6 +50,17 @@ const LeaveApplications = () => {
   const [leaveHistory, setLeaveHistory] = useState([]);
   const [editingLeaveId, setEditingLeaveId] = useState(null);
   const [viewLeave, setViewLeave] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [notification, setNotification] = useState({ message: '', type: 'success', isVisible: false });
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, leaveId: null });
+
+  const showNotification = (message, type = 'success') => {
+    setNotification({ message, type, isVisible: true });
+  };
+
+  const closeNotification = () => {
+    setNotification(prev => ({ ...prev, isVisible: false }));
+  };
 
   const fetchMyLeaves = async () => {
     try {
@@ -46,14 +69,14 @@ const LeaveApplications = () => {
       const mapped = items.map(l => ({
         id: l._id,
         leaveType: l.leaveType,
-        leaveTypeName: leaveTypes.find(t => t.value === l.leaveType)?.label || l.leaveType,
+        leaveTypeName: allLeaveTypes.find(t => t.value === l.leaveType)?.label || l.leaveType,
         startDate: l.startDate,
         endDate: l.endDate,
         dayType: l.dayType,
         totalDays: l.totalDays,
         status: l.status,
         appliedDate: l.appliedDate,
-        reason: l.reason,
+       
         bereavementRelation: l.bereavementRelation || ''
       }));
       setLeaveHistory(mapped);
@@ -102,11 +125,37 @@ const LeaveApplications = () => {
       };
     };
     const loadBalanceForMe = async () => {
+      const applyVisibilityRules = (designation, monthsOfService) => {
+        const isTrainee = String(designation || '').toLowerCase().includes('trainee');
+        let showCLSL = false;
+        
+        if (isTrainee) {
+          if (monthsOfService >= 12) showCLSL = true;
+        } else {
+          if (monthsOfService >= 6) showCLSL = true;
+        }
+        
+        const filtered = allLeaveTypes.filter(t => {
+          if (t.value === 'CL' || t.value === 'SL') return showCLSL;
+          return true;
+        });
+        setAllowedLeaveTypes(filtered);
+        
+        // If current selected leave type is now hidden, reset to something valid or PL if available
+        setLeaveData(prev => {
+           if (!filtered.find(t => t.value === prev.leaveType)) {
+             return { ...prev, leaveType: filtered[0]?.value || '' };
+           }
+           return prev;
+        });
+      };
+
       try {
         // Try dedicated endpoint for current user's balance
         const myRes = await leaveAPI.myBalance();
         const data = myRes?.data || {};
         if (data && data.balances) {
+          applyVisibilityRules(data.position || data.designation, data.monthsOfService || 0);
           setLeaveBalance({
             CL: data.balances.casual?.balance || 0,
             SL: data.balances.sick?.balance || 0,
@@ -124,6 +173,7 @@ const LeaveApplications = () => {
           || items.find(e => String(e.email || '').toLowerCase() === String(user.email || '').toLowerCase())
           || items.find(e => String(e.name || '').toLowerCase() === String(user.name || '').toLowerCase());
         if (mine && mine.balances) {
+          applyVisibilityRules(mine.position || mine.designation, mine.monthsOfService || 0);
           setLeaveBalance({
             CL: mine.balances.casual?.balance || 0,
             SL: mine.balances.sick?.balance || 0,
@@ -143,6 +193,9 @@ const LeaveApplications = () => {
           const doj = emp.dateOfJoining || emp.dateofjoin || emp.hireDate || emp.createdAt || '';
           const m = monthsBetween(doj);
           const d = emp.designation || emp.position || emp.role || '';
+          
+          applyVisibilityRules(d, m);
+
           const alloc = calculateLeaveBalances({ designation: d, monthsOfService: m });
           const myApproved = Array.isArray(myLeavesRes?.data) ? myLeavesRes.data.filter(l => l.status === 'Approved') : [];
           const used = myApproved.reduce((acc, l) => {
@@ -165,13 +218,7 @@ const LeaveApplications = () => {
     loadBalanceForMe();
   }, []);
 
-  // Leave types as per policy
-  const leaveTypes = [
-    { value: 'CL', label: 'Casual Leave (CL)' },
-    { value: 'SL', label: 'Sick Leave (SL)' },
-    { value: 'PL', label: 'Privilege Leave (PL)' },
-    { value: 'BEREAVEMENT', label: 'Bereavement Leave' },
-  ];
+  // Leave types definition moved to top
 
   const bereavementRelations = [
     'Spouse', 'Parent', 'Child', 'Sibling', 'Grandparent', 'In-Laws'
@@ -247,29 +294,29 @@ const LeaveApplications = () => {
 
     // Validation
     if (!leaveData.startDate || !leaveData.endDate || !leaveData.leaveType) {
-      alert('Please fill in all required fields');
+      showNotification('Please fill in all required fields', 'error');
       return;
     }
 
     if (leaveData.leaveType === 'BEREAVEMENT' && !leaveData.bereavementRelation) {
-      alert('Please specify relationship for bereavement leave');
+      showNotification('Please specify relationship for bereavement leave', 'error');
       return;
     }
 
     // Check leave balance (allow negative for CL/SL/PL; keep bereavement strict)
     if (leaveData.leaveType === 'BEREAVEMENT' && totalLeaveDays > getAvailableBalance('BEREAVEMENT')) {
-      alert(`Insufficient Bereavement Leave balance. Available: ${getAvailableBalance('BEREAVEMENT')} days`);
+      showNotification(`Insufficient Bereavement Leave balance. Available: ${getAvailableBalance('BEREAVEMENT')} days`, 'error');
       return;
     }
 
     // Medical certificate check for sick leave > 3 days
     if (leaveData.leaveType === 'SL' && totalLeaveDays > 3 && !leaveData.supportingDocuments) {
-      alert('Medical certificate is required for sick leave exceeding 3 days');
+      showNotification('Medical certificate is required for sick leave exceeding 3 days', 'error');
       return;
     }
 
     // Create or update leave application
-    const leaveTypeName = leaveTypes.find(type => type.value === leaveData.leaveType)?.label || leaveData.leaveType;
+    const leaveTypeName = allLeaveTypes.find(type => type.value === leaveData.leaveType)?.label || leaveData.leaveType;
 
     try {
       if (editingLeaveId) {
@@ -278,7 +325,7 @@ const LeaveApplications = () => {
           startDate: leaveData.startDate,
           endDate: leaveData.endDate,
           dayType: leaveData.dayType,
-          reason: leaveData.reason || '',
+        
           bereavementRelation: leaveData.bereavementRelation || '',
           totalDays: totalLeaveDays
         });
@@ -293,7 +340,7 @@ const LeaveApplications = () => {
           totalDays: l.totalDays,
           status: l.status,
           appliedDate: l.appliedDate,
-          reason: l.reason
+        
         } : x));
         setEditingLeaveId(null);
       } else {
@@ -302,7 +349,7 @@ const LeaveApplications = () => {
           startDate: leaveData.startDate,
           endDate: leaveData.endDate,
           dayType: leaveData.dayType,
-          reason: leaveData.reason || '',
+        
           bereavementRelation: leaveData.bereavementRelation || '',
           totalDays: totalLeaveDays
         });
@@ -317,7 +364,7 @@ const LeaveApplications = () => {
           totalDays: l.totalDays,
           status: l.status,
           appliedDate: l.appliedDate,
-          reason: l.reason
+         
         };
         setLeaveHistory(prev => [newLeave, ...prev]);
       }
@@ -329,18 +376,19 @@ const LeaveApplications = () => {
       startDate: '',
       endDate: '',
       dayType: 'Full Day',
-      reason: '',
+    
       bereavementRelation: '',
       supportingDocuments: null
     });
     setTotalLeaveDays(0);
+    setIsEditModalOpen(false);
 
-    alert(editingLeaveId ? 'Leave application updated successfully.' : 'Leave application submitted successfully! Awaiting approval.');
+    showNotification(editingLeaveId ? 'Leave application updated successfully.' : 'Leave application submitted successfully! Awaiting approval.', 'success');
   };
 
   const handleEdit = (leave) => {
     if (leave.status !== 'Pending') {
-      alert('Only Pending applications can be edited.');
+      showNotification('Only Pending applications can be edited.', 'error');
       return;
     }
     setEditingLeaveId(leave.id);
@@ -349,28 +397,47 @@ const LeaveApplications = () => {
       startDate: new Date(leave.startDate).toISOString().slice(0, 10),
       endDate: new Date(leave.endDate).toISOString().slice(0, 10),
       dayType: leave.dayType || 'Full Day',
-      reason: leave.reason || '',
+     
       bereavementRelation: leave.leaveType === 'BEREAVEMENT' ? (leave.bereavementRelation || '') : '',
       supportingDocuments: null
     });
     setTotalLeaveDays(leave.totalDays || 0);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setIsEditModalOpen(true);
   };
 
-  const handleDelete = async (leave) => {
+  const handleCloseModal = () => {
+    setIsEditModalOpen(false);
+    setEditingLeaveId(null);
+    setLeaveData({
+      leaveType: allowedLeaveTypes[0]?.value || 'CL',
+      startDate: '',
+      endDate: '',
+      dayType: 'Full Day',
+    
+      bereavementRelation: '',
+      supportingDocuments: null
+    });
+    setTotalLeaveDays(0);
+  };
+
+  const handleDelete = (leave) => {
     if (leave.status !== 'Pending') {
-      alert('Only Pending applications can be deleted.');
+      showNotification('Only Pending applications can be deleted.', 'error');
       return;
     }
-    const ok = window.confirm('Delete this leave application?');
-    if (!ok) return;
+    setDeleteModal({ isOpen: true, leaveId: leave.id });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModal.leaveId) return;
     try {
-      await leaveAPI.remove(leave.id);
-      setLeaveHistory(prev => prev.filter(x => x.id !== leave.id));
-      alert('Leave application deleted.');
+      await leaveAPI.remove(deleteModal.leaveId);
+      setLeaveHistory(prev => prev.filter(x => x.id !== deleteModal.leaveId));
+      showNotification('Leave application deleted.', 'success');
     } catch (e) {
-      alert('Failed to delete leave application.');
+      showNotification('Failed to delete leave application.', 'error');
     }
+    setDeleteModal({ isOpen: false, leaveId: null });
   };
 
   const handleView = (leave) => setViewLeave(leave);
@@ -454,6 +521,140 @@ const LeaveApplications = () => {
     return Math.round((base - pending) * 10) / 10;
   };
 
+  const leaveFormContent = (
+    <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Leave Type Selection */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Select Leave Type *
+        </label>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {allowedLeaveTypes.map(type => (
+            <button
+              key={type.value}
+              type="button"
+              onClick={() => setLeaveData(prev => ({ ...prev, leaveType: type.value }))}
+              className={`p-4 rounded-lg border-2 transition flex items-center justify-center gap-3 ${leaveData.leaveType === type.value
+                ? 'border-blue-500 bg-blue-50'
+                : 'border-gray-200 hover:border-gray-300'}`}
+            >
+              <div className={`p-2 rounded ${leaveData.leaveType === type.value ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                {getLeaveTypeIcon(type.value)}
+              </div>
+              <div className="font-medium text-gray-900">{type.label}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Bereavement Relation (if bereavement leave selected) */}
+      {leaveData.leaveType === 'BEREAVEMENT' && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Relationship with Deceased *
+          </label>
+          <select
+            name="bereavementRelation"
+            value={leaveData.bereavementRelation}
+            onChange={handleInputChange}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            required
+          >
+            <option value="">Select Relationship</option>
+            {bereavementRelations.map(relation => (
+              <option key={relation} value={relation}>{relation}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
+      {/* Dates Section */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Start Date */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Start Date *
+          </label>
+          <input
+            type="date"
+            name="startDate"
+            value={leaveData.startDate}
+            onChange={handleInputChange}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            required
+          />
+        </div>
+
+        {/* Day Type */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Day Type
+          </label>
+          <div className="flex gap-2">
+            {dayTypes.map(type => (
+              <button
+                key={type}
+                type="button"
+                onClick={() => handleDayTypeChange(type)}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition ${leaveData.dayType === type
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+              >
+                {type}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* End Date */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            End Date *
+          </label>
+          <input
+            type="date"
+            name="endDate"
+            value={leaveData.endDate}
+            onChange={handleInputChange}
+            min={leaveData.startDate}
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            required
+          />
+        </div>
+      </div>
+
+  
+
+      {/* Supporting Documents (for sick leave) */}
+      {leaveData.leaveType === 'SL' && totalLeaveDays > 3 && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Medical Certificate * (Required for sick leave exceeding 3 days)
+          </label>
+          <input
+            type="file"
+            name="supportingDocuments"
+            onChange={handleInputChange}
+            accept=".pdf,.jpg,.jpeg,.png"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            required
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            Upload medical certificate (PDF, JPG, PNG)
+          </p>
+        </div>
+      )}
+
+      {/* Submit Button */}
+      <button
+        type="submit"
+        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition duration-200"
+      >
+        {editingLeaveId ? 'Update Leave Application' : 'Submit Leave Application'}
+      </button>
+    </form>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="w-full mx-auto px-0">
@@ -472,145 +673,14 @@ const LeaveApplications = () => {
                 Submit Leave Request
               </h2>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Leave Type Selection */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Select Leave Type *
-                  </label>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    {leaveTypes.map(type => (
-                      <button
-                        key={type.value}
-                        type="button"
-                        onClick={() => setLeaveData(prev => ({ ...prev, leaveType: type.value }))}
-                        className={`p-4 rounded-lg border-2 transition flex items-center justify-center gap-3 ${leaveData.leaveType === type.value
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'}`}
-                      >
-                        <div className={`p-2 rounded ${leaveData.leaveType === type.value ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                          {getLeaveTypeIcon(type.value)}
-                        </div>
-                        <div className="font-medium text-gray-900">{type.label}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Bereavement Relation (if bereavement leave selected) */}
-                {leaveData.leaveType === 'BEREAVEMENT' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Relationship with Deceased *
-                    </label>
-                    <select
-                      name="bereavementRelation"
-                      value={leaveData.bereavementRelation}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                      required
-                    >
-                      <option value="">Select Relationship</option>
-                      {bereavementRelations.map(relation => (
-                        <option key={relation} value={relation}>{relation}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Dates Section */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Start Date */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Date *
-                    </label>
-                    <input
-                      type="date"
-                      name="startDate"
-                      value={leaveData.startDate}
-                      onChange={handleInputChange}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                      required
-                    />
-                  </div>
-
-                  {/* Day Type */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Day Type
-                    </label>
-                    <div className="flex gap-2">
-                      {dayTypes.map(type => (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => handleDayTypeChange(type)}
-                          className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition ${leaveData.dayType === type
-                            ? 'bg-blue-600 text-white'
-                            : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
-                        >
-                          {type}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* End Date */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      End Date *
-                    </label>
-                    <input
-                      type="date"
-                      name="endDate"
-                      value={leaveData.endDate}
-                      onChange={handleInputChange}
-                      min={leaveData.startDate}
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                      required
-                    />
-                  </div>
-                </div>
-
-
-
-
-                {/* Supporting Documents (for sick leave) */}
-                {leaveData.leaveType === 'SL' && totalLeaveDays > 3 && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Medical Certificate * (Required for sick leave exceeding 3 days)
-                    </label>
-                    <input
-                      type="file"
-                      name="supportingDocuments"
-                      onChange={handleInputChange}
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                      required
-                    />
-                    <p className="text-xs text-gray-500 mt-1">
-                      Upload medical certificate (PDF, JPG, PNG)
-                    </p>
-                  </div>
-                )}
-
-                {/* Submit Button */}
-                <button
-                  type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition duration-200"
-                >
-                  Submit Leave Application
-                </button>
-              </form>
+              {leaveFormContent}
             </div>
 
             {/* Leave History */}
             <div className="mt-6 bg-white rounded-xl shadow-md overflow-hidden">
               <div className="p-6 border-b border-gray-200">
                 <h2 className="text-xl font-semibold text-gray-800">Leave History</h2>
-                <p className="text-gray-600 text-sm mt-1">Your previous leave applications</p>
+                
               </div>
 
               <div className="overflow-x-auto">
@@ -721,7 +791,7 @@ const LeaveApplications = () => {
                       {viewLeave.leaveType === 'BEREAVEMENT' && (
                         <div><span className="font-medium text-gray-700">Relation:</span> {viewLeave.bereavementRelation || '—'}</div>
                       )}
-                      <div><span className="font-medium text-gray-700">Reason:</span> {viewLeave.reason || '—'}</div>
+                      
                     </div>
                     <div className="p-4 border-t flex justify-end">
                       <button
@@ -791,6 +861,48 @@ const LeaveApplications = () => {
           </div>
         </div>
       </div>
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={handleCloseModal}
+        title="Edit Leave Application"
+      >
+        {leaveFormContent}
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModal.isOpen}
+        onClose={() => setDeleteModal({ isOpen: false, leaveId: null })}
+        title="Confirm Deletion"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-600">
+            Are you sure you want to delete this leave application? This action cannot be undone.
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setDeleteModal({ isOpen: false, leaveId: null })}
+              className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      <Notification
+        message={notification.message}
+        type={notification.type}
+        isVisible={notification.isVisible}
+        onClose={closeNotification}
+      />
     </div>
   );
 };

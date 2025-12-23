@@ -309,8 +309,7 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
     <div className="p-6">
       <div className="flex justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-semibold">Loan Summary</h1>
-          <p className="text-gray-600">Manage employee loans and payments</p>
+          
         </div>
         <button
           onClick={() => setShowAddModal(true)}

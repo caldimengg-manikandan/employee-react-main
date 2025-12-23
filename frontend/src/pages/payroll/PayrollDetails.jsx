@@ -26,7 +26,7 @@ const calculateSalaryFields = (salaryData) => {
   const lop = parseFloat(salaryData.lop) || 0;
 
   const totalEarnings = basicDA + hra + specialAllowance;
-  const totalDeductions = pf + esi + tax + professionalTax + loanDeduction + lop + gratuity;
+  const totalDeductions = pf + esi + tax + professionalTax + loanDeduction + lop;
   const netSalary = totalEarnings - totalDeductions;
   const ctc = totalEarnings + gratuity;
 
@@ -67,6 +67,8 @@ const initialSalaryData = {
   netSalary: 0,
   ctc: 0,
   
+  location: '', // Add location field
+
   // Status
   status: 'Pending',
   
@@ -183,6 +185,7 @@ const PayrollDetails = () => {
               employeeName: emp.name || emp.employeename || '',
               designation: emp.designation || emp.position || emp.role || '',
               department: emp.department || emp.division || '',
+              location: emp.location || emp.address || emp.currentAddress || '',
               dateOfJoining: dojISO,
               // Salary Components from employee profile when available
               basicDA: emp.basicDA ?? formData.basicDA,
@@ -365,7 +368,8 @@ const PayrollDetails = () => {
       pdfContent += `Employee Name: ${record.employeeName}\n`;
       pdfContent += `Designation: ${record.designation}\n`;
       pdfContent += `Department: ${record.department}\n`;
-      pdfContent += `Location: ${record.location || 'N/A'}\n\n`;
+      const location = employeeList.find(e => e.employeeId === record.employeeId)?.location || record.location || 'N/A';
+      pdfContent += `Location: ${location}\n\n`;
       
       pdfContent += `EARNINGS:\n`;
       pdfContent += `  Basic + DA: ₹${record.basicDA.toLocaleString('en-IN')}\n`;
@@ -380,9 +384,11 @@ const PayrollDetails = () => {
       pdfContent += `  Professional Tax: ₹${record.professionalTax.toLocaleString('en-IN')}\n`;
       pdfContent += `  Loan Deduction: ₹${record.loanDeduction.toLocaleString('en-IN')}\n`;
       pdfContent += `  LOP: ₹${record.lop.toLocaleString('en-IN')}\n`;
-      pdfContent += `  Gratuity: ₹${record.gratuity.toLocaleString('en-IN')}\n`;
       pdfContent += `  Total Deductions: ₹${record.totalDeductions.toLocaleString('en-IN')}\n\n`;
       
+      pdfContent += `BENEFITS:\n`;
+      pdfContent += `  Gratuity: ₹${record.gratuity.toLocaleString('en-IN')}\n\n`;
+
       pdfContent += `SUMMARY:\n`;
       pdfContent += `  Net Salary: ₹${record.netSalary.toLocaleString('en-IN')}\n`;
       pdfContent += `  CTC: ₹${record.ctc.toLocaleString('en-IN')}\n`;
@@ -422,7 +428,8 @@ const PayrollDetails = () => {
       record.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
     
     // Location filter
-    const matchesLocation = filterLocation === 'all' || record.location === filterLocation;
+    const effectiveLocation = employeeList.find(e => e.employeeId === record.employeeId)?.location || record.location;
+    const matchesLocation = filterLocation === 'all' || effectiveLocation === filterLocation;
     
     return matchesSearch && matchesLocation;
   });
@@ -566,8 +573,8 @@ const PayrollDetails = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-gray-900">
-                      {record.location || 
-                       employeeList.find(e => e.employeeId === record.employeeId)?.location || 
+                      {employeeList.find(e => e.employeeId === record.employeeId)?.location || 
+                       record.location || 
                        employeeList.find(e => e.employeeId === record.employeeId)?.address || 
                        'Unknown'}
                     </div>
@@ -661,7 +668,8 @@ const PayrollDetails = () => {
                         name="employeeName"
                         value={formData.employeeName}
                         onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        readOnly
+                        className={`w-full px-3 py-2 border rounded-lg bg-gray-100 cursor-not-allowed focus:outline-none ${
                           errors.employeeName ? 'border-red-500' : 'border-gray-300'
                         }`}
                       />
@@ -675,7 +683,8 @@ const PayrollDetails = () => {
                         name="designation"
                         value={formData.designation}
                         onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        readOnly
+                        className={`w-full px-3 py-2 border rounded-lg bg-gray-100 cursor-not-allowed focus:outline-none ${
                           errors.designation ? 'border-red-500' : 'border-gray-300'
                         }`}
                       />
@@ -689,9 +698,24 @@ const PayrollDetails = () => {
                         name="department"
                         value={formData.department}
                         onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        readOnly
+                        className={`w-full px-3 py-2 border rounded-lg bg-gray-100 cursor-not-allowed focus:outline-none ${
                           errors.department ? 'border-red-500' : 'border-gray-300'
                         }`}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Location
+                      </label>
+                      <input
+                        type="text"
+                        name="location"
+                        value={formData.location}
+                        onChange={handleInputChange}
+                        readOnly
+                        placeholder="e.g. Chennai, Hosur"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed focus:outline-none"
                       />
                     </div>
                     <div>
@@ -703,7 +727,8 @@ const PayrollDetails = () => {
                         name="dateOfJoining"
                         value={formData.dateOfJoining}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed focus:outline-none"
                       />
                     </div>
                     <div>
@@ -728,13 +753,13 @@ const PayrollDetails = () => {
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-medium text-gray-900">Earnings & Allowances</h3>
-                    <button
+                    {/* <button
                       onClick={handleCalculateSalary}
                       className="flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
                     >
                       <Calculator className="w-4 h-4 mr-1" />
                       Calculate Salary
-                    </button>
+                    </button> */}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
@@ -763,6 +788,32 @@ const PayrollDetails = () => {
                   </div>
                 </div>
 
+                {/* Benefits */}
+                <div>
+                  <h3 className="text-lg font-medium text-purple-900 mb-4">Benefits (Part of CTC)</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {[
+                      { label: 'Gratuity', name: 'gratuity' },
+                    ].map((field) => (
+                      <div key={field.name}>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {field.label}
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+                          <input
+                            type="number"
+                            name={field.name}
+                            value={formData[field.name]}
+                            onChange={handleInputChange}
+                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 {/* Deductions */}
                 <div>
                   <h3 className="text-lg font-medium text-red-900 mb-4">Deductions</h3>
@@ -770,7 +821,6 @@ const PayrollDetails = () => {
                     {[
                       { label: 'PF Contribution', name: 'pf' },
                       { label: 'ESI Contribution', name: 'esi' },
-                      { label: 'Gratuity', name: 'gratuity' },
                       { label: 'Income Tax', name: 'tax' },
                       { label: 'Professional Tax', name: 'professionalTax' },
                       { label: 'Loan Deduction', name: 'loanDeduction' },
@@ -867,7 +917,8 @@ const PayrollDetails = () => {
                         name="bankName"
                         value={formData.bankName}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed focus:outline-none"
                       />
                     </div>
                     <div>
@@ -879,7 +930,8 @@ const PayrollDetails = () => {
                         name="accountNumber"
                         value={formData.accountNumber}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed focus:outline-none"
                       />
                     </div>
                     <div>
@@ -891,7 +943,8 @@ const PayrollDetails = () => {
                         name="ifscCode"
                         value={formData.ifscCode}
                         onChange={handleInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed focus:outline-none"
                       />
                     </div>
                   </div>
@@ -960,7 +1013,7 @@ const PayrollDetails = () => {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Location</label>
-                    <p>{viewRecord.location || 'N/A'}</p>
+                    <p>{employeeList.find(e => e.employeeId === viewRecord.employeeId)?.location || viewRecord.location || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500">Employment Type</label>
@@ -987,6 +1040,17 @@ const PayrollDetails = () => {
                     <div>
                       <label className="text-sm font-medium text-gray-500">Total Earnings</label>
                       <p className="font-bold text-green-600">{formatCurrency(viewRecord.totalEarnings)}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Benefits */}
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-3">Benefits</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Gratuity</label>
+                      <p className="font-medium">{formatCurrency(viewRecord.gratuity)}</p>
                     </div>
                   </div>
                 </div>

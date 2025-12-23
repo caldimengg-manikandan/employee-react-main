@@ -36,6 +36,30 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     'expenditure_access'
   ];
 
+  const rolePermissionDefaults = {
+    admin: permissionOptions,
+    projectmanager: [
+      'dashboard',
+      'timesheet_access',
+      'project_access',
+      'leave_access',
+      'leave_view'
+    ],
+    teamlead: [
+      'dashboard',
+      'timesheet_access',
+      'project_access',
+      'leave_access',
+      'leave_view'
+    ],
+    employees: [
+      'dashboard',
+      'timesheet_access',
+      'leave_access',
+      'leave_view'
+    ]
+  };
+
   const roleOptions = [
     { value: 'projectmanager', label: 'Project Manager' },
     { value: 'admin', label: 'ADMIN' },
@@ -106,10 +130,13 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+    setFormData(prev => {
+      const next = { ...prev, [name]: value };
+      if (name === 'role') {
+        next.permissions = rolePermissionDefaults[value] || [];
+      }
+      return next;
+    });
 
     if (errors[name]) {
       setErrors(prev => ({ ...prev, [name]: '' }));

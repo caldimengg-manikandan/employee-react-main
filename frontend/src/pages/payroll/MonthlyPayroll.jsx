@@ -712,6 +712,9 @@ Payroll Department
                         LOP Deduction
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Loan Deduction
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                         Total Deductions
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -737,6 +740,9 @@ Payroll Department
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
                           {formatCurrency(result.lop)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                          {formatCurrency(result.loanDeduction)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           {formatCurrency(result.totalDeductions)}
@@ -773,6 +779,9 @@ Payroll Department
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
                         {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.lop || 0), 0))}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                        {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.loanDeduction || 0), 0))}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         {formatCurrency(simulation.totals.totalDeductions)}
