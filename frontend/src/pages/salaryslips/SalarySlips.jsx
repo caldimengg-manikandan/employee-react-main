@@ -103,7 +103,8 @@ const SalarySlips = () => {
         tds: Number(rec.tax || 0),
         esi: Number(rec.esi || 0),
         lopDeduction: Number(rec.lop || 0),
-        otherDeductions: Number(rec.loanDeduction || 0) + Number(rec.gratuity || 0),
+        loanDeduction: Number(rec.loanDeduction || 0),
+        otherDeductions: Number(rec.gratuity || 0),
         totalDeductions: Number(rec.totalDeductions || 0),
         netSalary: Number(rec.netSalary || 0),
         bankName: rec.bankName || '',
@@ -141,7 +142,8 @@ const SalarySlips = () => {
       pfDeduction: 1800,
       professionalTax: 200,
       tds: 5000,
-      otherDeductions: 1000,
+      loanDeduction: 1000,
+      otherDeductions: 0,
       totalDeductions: 8000,
       netSalary: 77000,
       bankName: "ABC Bank",
@@ -357,8 +359,13 @@ const SalarySlips = () => {
         </div>
       </div>
 
+      <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2 border-blue-600 print:text-base print:border-black print:text-black"></h3>
+      
+
+      
+
       {/* Attendance Summary */}
-      <div className="mb-8 p-4 bg-blue-50 rounded-lg border border-blue-200 print:bg-white print:border-black print:p-3 print:mb-6">
+      {/* <div className="mb-8 p-4 bg-blue-50 rounded-lg border border-blue-200 print:bg-white print:border-black print:p-3 print:mb-6">
         <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2 border-blue-600 print:text-base print:border-black print:text-black">Attendance Summary</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:gap-3">
           <div className="text-center p-3 bg-white rounded shadow border border-blue-100 print:border-black print:p-2">
@@ -375,7 +382,7 @@ const SalarySlips = () => {
           </div>
           
         </div>
-      </div>
+      </div> */}
 
       {/* Earnings and Deductions - Removed conveyance and medical allowances */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 print:gap-6 print:mb-6">
@@ -426,6 +433,18 @@ const SalarySlips = () => {
               <span>Loss of Pay (LOP)</span>
               <span className="font-medium">{data.lopDeduction.toLocaleString('en-IN')}</span>
             </div>
+            {data.loanDeduction > 0 && (
+              <div className="flex justify-between">
+                <span>Loan Deduction</span>
+                <span className="font-medium">{data.loanDeduction.toLocaleString('en-IN')}</span>
+              </div>
+            )}
+            {data.otherDeductions > 0 && (
+              <div className="flex justify-between">
+                <span>Other Deductions</span>
+                <span className="font-medium">{data.otherDeductions.toLocaleString('en-IN')}</span>
+              </div>
+            )}
             
             <div className="flex justify-between border-t-2 pt-3 font-bold text-lg border-blue-600 print:border-black print:pt-2">
               <span>Total Deductions</span>
