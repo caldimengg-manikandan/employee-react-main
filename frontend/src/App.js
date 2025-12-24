@@ -46,6 +46,7 @@ import LoanSummary from "./pages/payroll/LoanSummary";
 import GratuitySummary from "./pages/payroll/GratuitySummary";
 import MonthlyPayroll from "./pages/payroll/MonthlyPayroll";
 import AnnouncementManagement from "./pages/announcements/AnnouncementManagement";
+import InternReference from "./pages/internship/InternReference";
 
 
 
@@ -129,6 +130,15 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin", "projectmanager", "project_manager"]}>
                   <TimesheetSummary />
+                </ProtectedRoute>
+              }
+            />
+            
+            <Route
+              path="admin/interns"
+              element={
+                <ProtectedRoute roles={["admin", "hr", "manager"]}>
+                  <InternReference />
                 </ProtectedRoute>
               }
             />

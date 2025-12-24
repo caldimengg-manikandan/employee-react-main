@@ -190,6 +190,15 @@ export const teamAPI = {
   removeMember: (teamCode, employeeId) => api.delete(`/teams/${encodeURIComponent(teamCode)}/members/${encodeURIComponent(employeeId)}`),
 };
 
+export const internAPI = {
+  getAll: () => api.get('/interns'),
+  getById: (id) => api.get(`/interns/${id}`),
+  search: (params) => api.get('/interns/search', { params }),
+  create: (data) => api.post('/interns', data),
+  update: (id, data) => api.put(`/interns/${id}`, data),
+  remove: (id) => api.delete(`/interns/${id}`),
+};
+
 export const payrollAPI = {
   list: () => api.get('/payroll'),
   create: (data) => api.post('/payroll', data),

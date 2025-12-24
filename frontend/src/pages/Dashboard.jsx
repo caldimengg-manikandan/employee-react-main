@@ -133,6 +133,7 @@ const ProjectDashboard = () => {
         { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access', showForRoles: ['admin', 'hr'] },
         { name: 'User Access', description: 'Manage user roles & permissions', path: '/user-access', icon: KeyIcon, permission: 'user_access', showForRoles: ['admin'] },
         { name: 'Team Management', description: 'Manage teams', path: '/admin/team-management', icon: UserGroupIcon, permission: 'team_access', showForRoles: ['admin', 'manager'] },
+        { name: 'Internships', description: 'Manage interns & references', path: '/admin/interns', icon: BriefcaseIcon, showForRoles: ['admin', 'hr', 'manager'] },
     ];
 
     const visibleModules = modules.filter((m) => {

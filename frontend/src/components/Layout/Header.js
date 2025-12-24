@@ -60,6 +60,7 @@ const Header = ({ onMenuClick }) => {
       '/payroll/loan-summary': 'Loan Summary',
       '/payroll/gratuity-summary': 'Gratuity Summary',
       '/payroll/monthly': 'Monthly Payroll',
+      '/admin/interns': 'Internships',
     };
     
     return routeTitles[location.pathname] || 'Dashboard';

@@ -70,6 +70,9 @@ app.use("/api/announcements", require("./routes/announcementRoutes"));
 // Expenditure Management Routes
 app.use("/api/expenditure", require("./routes/expenditureRoutes"));
 
+// Internship Routes
+app.use("/api/interns", require("./routes/internship"));
+
 // Base Route
 app.get("/", (req, res) => {
   res.json({ message: "Caldim Employees API is running successfully 🚀" });
