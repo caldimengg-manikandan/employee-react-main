@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { employeeAPI } from '../../services/api';
 
 export default function GratuitySummary() {
   const [employees, setEmployees] = useState([]);
@@ -15,43 +16,19 @@ export default function GratuitySummary() {
     setLoading(true);
     setError('');
     try {
-      // TODO: Replace with real API call
-      // const res = await fetch('/api/payroll/gratuity');
-      // const data = await res.json();
-
-      // Sample data for demo
-      const data = [
-        {
-          id: 'E001',
-          name: 'Ravi Kumar',
-          dateOfJoining: '2015-04-15',
-          dateOfExit: '2025-07-01',
-          lastDrawnBasic: 45000,
-          lastDrawnDA: 5000,
-          department: 'Engineering',
-          designation: 'Senior Developer',
-        },
-        {
-          id: 'E008',
-          name: 'Meena S',
-          dateOfJoining: '2019-09-01',
-          dateOfExit: null,
-          lastDrawnBasic: 35000,
-          lastDrawnDA: 3500,
-          department: 'HR',
-          designation: 'HR Manager',
-        },
-        {
-          id: 'E012',
-          name: 'Arun Rao',
-          dateOfJoining: '2022-06-10',
-          dateOfExit: '2024-12-31',
-          lastDrawnBasic: 22000,
-          lastDrawnDA: 2200,
-          department: 'Sales',
-          designation: 'Sales Executive',
-        },
-      ];
+      const res = await employeeAPI.getAllEmployees();
+      const rawData = res.data || [];
+      
+      const data = rawData.map(emp => ({
+        id: emp.employeeId,
+        name: emp.name,
+        dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining).toISOString().split('T')[0] : '',
+        dateOfExit: emp.status === 'Inactive' ? (emp.updatedAt ? new Date(emp.updatedAt).toISOString().split('T')[0] : null) : null,
+        lastDrawnBasic: emp.basicDA || 0,
+        lastDrawnDA: 0,
+        department: emp.department || '',
+        designation: emp.designation || emp.position || '',
+      }));
 
       setEmployees(data);
     } catch (err) {

@@ -5,6 +5,7 @@ import Sidebar from './Sidebar';
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
 
   // Close sidebar when window is resized to desktop size
   useEffect(() => {
@@ -23,10 +24,19 @@ const Layout = () => {
     setSidebarOpen(false);
   };
 
+  const toggleDesktopSidebar = () => {
+    setIsDesktopSidebarOpen(!isDesktopSidebarOpen);
+  };
+
   return (
     <div className="h-screen flex overflow-hidden bg-gray-50">
       {/* Full Height Sidebar */}
-      <Sidebar isOpen={sidebarOpen} onClose={handleCloseSidebar} />
+      <Sidebar 
+        isOpen={sidebarOpen} 
+        onClose={handleCloseSidebar} 
+        isDesktopOpen={isDesktopSidebarOpen}
+        toggleDesktopSidebar={toggleDesktopSidebar}
+      />
       
       {/* Main Content Area - includes Header and Outlet */}
       <div className="flex flex-col flex-1 w-full min-w-0">

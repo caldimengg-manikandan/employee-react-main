@@ -32,7 +32,7 @@ const Header = ({ onMenuClick }) => {
   // Map routes to page titles
   const getPageTitle = () => {
     const routeTitles = {
-      '/dashboard': 'Home',
+      '/dashboard': 'Caldim Engineering ',
       '/user-access': 'User Access',
       '/employee-management': 'Employee Management',
       '/announcements': 'Announcement Management',

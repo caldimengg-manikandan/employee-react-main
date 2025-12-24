@@ -379,24 +379,44 @@ const Timesheet = () => {
         const me = meRes?.data || {};
         const allocations = Array.isArray(allocRes?.data) ? allocRes.data : [];
 
-        const today = new Date();
-        const inRange = (alloc) => {
+        const weekDates = getWeekDates();
+        const weekStart = new Date(weekDates[0]);
+        const weekEnd = new Date(weekDates[6]);
+        weekEnd.setHours(23, 59, 59, 999);
+
+        const inSelectedWeek = (alloc) => {
           try {
             const sd = new Date(alloc.startDate);
             const ed = new Date(alloc.endDate);
             if (isNaN(sd.getTime()) || isNaN(ed.getTime())) return true;
-            return sd <= today && today <= ed;
+            return sd <= weekEnd && ed >= weekStart;
           } catch (_) {
             return true;
           }
         };
 
+        const normalizeId = (id) => String(id || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+
+        const userSession = JSON.parse(sessionStorage.getItem("user") || "{}");
+        // Normalize employee ID for comparison (removes spaces, special chars, and lowercases)
+        const empId = normalizeId(me.employeeId || userSession.employeeId);
+        const empMongoId = String(me._id || "").trim();
+        const empName = String(me.name || userSession.name || "").trim().toLowerCase();
+
         const mine = allocations.filter(a => {
+          const code = normalizeId(a.employeeCode);
+          const eid = String(a.employeeId || "").trim();
+          const ename = String(a.employeeName || "").trim().toLowerCase();
+          
           const matchesEmployee =
-            (a.employeeCode && me.employeeId && String(a.employeeCode) === String(me.employeeId)) ||
-            (a.employeeId && me._id && String(a.employeeId) === String(me._id));
-          const isActive = String(a.status || '').toLowerCase() === 'active';
-          return matchesEmployee && isActive && inRange(a);
+            (code && empId && code === empId) ||
+            (eid && empMongoId && eid === empMongoId) ||
+            (ename && empName && ename === empName);
+            
+          const statusVal = String(a.status || "").trim().toLowerCase();
+          const statusAllowed = statusVal === "active" || statusVal === "completed";
+          
+          return matchesEmployee && statusAllowed && inSelectedWeek(a);
         });
 
         const unique = [];
@@ -416,7 +436,7 @@ const Timesheet = () => {
       }
     };
     loadAllocatedProjects();
-  }, []);
+  }, [currentWeek]);
 
   // ✅ Save draft to sessionStorage
   const saveDraftToSession = () => {

@@ -159,7 +159,7 @@ const ProjectDashboard = () => {
         { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentChartBarIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
         
         // Project
-        { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, permission: 'project_access', showForRoles: ['admin', 'projectmanager', 'manager'], category: 'Work & Productivity' },
+        { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, showForRoles: ['admin', 'projectmanager', 'manager', 'employees'], allowEmployeeRole: true, category: 'Work & Productivity' },
         
         // Leave Management
         { name: 'Leave Summary', description: 'View leave summary', path: '/leave-management/summary', icon: ChartBarIcon, permission: 'leave_view', showForRoles: ['admin', 'hr', 'manager'], category: 'Leave Management' },
@@ -783,7 +783,7 @@ const ProjectDashboard = () => {
                             </div>
                             <div onClick={() => setShowAnnouncementsModal(true)} className="cursor-pointer">
                                 <p className="text-xs text-gray-500 uppercase font-semibold">Notifications</p>
-                                <p className="text-lg font-bold text-gray-900">{kpis.notifications} Pending</p>
+                                <p className="text-lg font-bold text-gray-900">{kpis.notifications} Events</p>
                             </div>
                         </div>
                     </div>

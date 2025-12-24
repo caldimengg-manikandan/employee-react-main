@@ -9,7 +9,7 @@ const ProjectAllocation = () => {
   const canEdit = isProjectManager;
 
   // UI state
-  const [activeTab, setActiveTab] = useState('projects');
+  const [activeTab, setActiveTab] = useState(isProjectManager ? 'projects' : 'myAllocations');
   const [selectedLocation, setSelectedLocation] = useState('All');
   const [branches] = useState(['Hosur', 'Chennai', 'Outside Det.']);
   const [divisions] = useState(['SDS', 'TEKLA', 'DAS(Software)', 'Mechanical']);
@@ -292,10 +292,18 @@ const ProjectAllocation = () => {
   // Calculate current user's allocations
   const myAllocations = allocations.filter(alloc => {
     if (!user) return false;
-    if (user.id && Number(user.id) === Number(alloc.employeeId)) return true;
-    if (user.employeeId && String(user.employeeId) === String(alloc.employeeCode)) return true;
-    if (user.name && String(user.name).toLowerCase() === String(alloc.employeeName).toLowerCase()) return true;
-    return false;
+    
+    // robust matching logic
+    const matchesId = (user.id && alloc.employeeId && String(user.id) === String(alloc.employeeId)) || 
+                      (user._id && alloc.employeeId && String(user._id) === String(alloc.employeeId));
+                      
+    const matchesEmployeeId = user.employeeId && alloc.employeeCode && 
+                             String(user.employeeId).trim() === String(alloc.employeeCode).trim();
+                             
+    const matchesName = user.name && alloc.employeeName && 
+                       String(user.name).trim().toLowerCase() === String(alloc.employeeName).trim().toLowerCase();
+
+    return matchesId || matchesEmployeeId || matchesName;
   });
 
   // Utility functions

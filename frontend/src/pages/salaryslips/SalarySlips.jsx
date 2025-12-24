@@ -104,7 +104,8 @@ const SalarySlips = () => {
         esi: Number(rec.esi || 0),
         lopDeduction: Number(rec.lop || 0),
         loanDeduction: Number(rec.loanDeduction || 0),
-        otherDeductions: Number(rec.gratuity || 0),
+        gratuity: Number(rec.gratuity || 0),
+        otherDeductions: 0,
         totalDeductions: Number(rec.totalDeductions || 0),
         netSalary: Number(rec.netSalary || 0),
         bankName: rec.bankName || '',
@@ -244,12 +245,20 @@ const SalarySlips = () => {
     return 'Amount too large';
   };
 
-  // Payslip Component with Blue Logo Styling
+  // Payslip Component with New Template Styling
   const PayslipViewer = ({ data }) => (
-    <div className="bg-white p-6 rounded-lg shadow-lg print:p-0 print:shadow-none print:rounded-none" id="payslip-content">
+    <div className="bg-white relative min-h-[1120px] w-[794px] mx-auto shadow-lg print:shadow-none print:w-full print:min-h-0 font-sans" id="payslip-content">
       {/* Print Styles */}
       <style jsx global>{`
         @media print {
+          @page {
+            size: A4;
+            margin: 0;
+          }
+          body {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
           body.printing * {
             visibility: hidden;
           }
@@ -264,8 +273,9 @@ const SalarySlips = () => {
             left: 0;
             top: 0;
             width: 100%;
+            height: 100%;
             margin: 0;
-            padding: 20px;
+            padding: 0;
             box-shadow: none;
             border: none;
             background: white;
@@ -275,236 +285,166 @@ const SalarySlips = () => {
           header, button, .no-print, .md\\:hidden, .md\\:inline-flex, .md\\:inline-block {
             display: none !important;
           }
-          
-          body {
-            background: white !important;
-            font-size: 11pt !important;
-            color: black !important;
-            margin: 0 !important;
-            padding: 0 !important;
-          }
-          
-          #payslip-content {
-            box-shadow: none !important;
-            border: none !important;
-            padding: 20px !important;
-            margin: 0 !important;
-            max-width: 100% !important;
-          }
-          
-          .container {
-            max-width: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          
-          .bg-gray-50, .bg-blue-50, .bg-green-50, .bg-purple-50, .bg-gradient-to-r {
-            background: white !important;
-            background-image: none !important;
-          }
-          
-          .border, .border-2, .border-b, .border-t {
-            border-color: #000 !important;
-          }
-          
-          .text-blue-900, .text-blue-700, .text-green-700, .text-red-600, .text-[#262760] {
-            color: black !important;
-          }
-          
-          .logo-blue {
-            filter: brightness(0) saturate(100%) invert(25%) sepia(99%) saturate(2000%) hue-rotate(200deg) brightness(90%) contrast(100%) !important;
-          }
         }
       `}</style>
 
-      {/* Simple Header with Blue Logo */}
-      <div className="flex flex-col items-center justify-center mb-8 border-b-2 border-blue-500 pb-4 print:border-black print:pb-3">
-        <div className="flex items-center mb-2 print:mb-1">
-          <img
-            src="/images/steel-logo.png"
-            alt="CALDIM"
-            className="h-20 w-auto mr-4 logo-blue print :h-16"
-          />
-          <h1 className="text-3xl font-bold text-blue-900 print:text-2xl print:text-black">CALDIM ENGINEERING PVT LTD</h1>
-        </div>
-        <h2 className="text-2xl font-bold text-gray-800 mt-2 print:text-xl print:text-black">SALARY SLIP</h2>
-        <p className="text-gray-600 mt-1 print:text-sm print:text-black">
-          Period: <span className="font-semibold">{data.month} {data.year}</span> | Financial Year: <span className="font-semibold">{data.financialYear}</span>
-        </p>
+      {/* Watermark */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+        <img 
+          src="/images/steel-logo.png" 
+          alt="Watermark" 
+          className="w-[500px] opacity-[0.05] grayscale"
+        />
       </div>
 
-      {/* Employee & Company Info */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 print:gap-6 print:mb-6">
-        <div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2 border-blue-600 print:text-base print:border-black print:text-black">Employee Details</h3>
-          <div className="space-y-2 print:space-y-1">
-            <p><span className="font-medium text-gray-700 print:text-black">Employee ID:</span> <span className="ml-2">{data.employeeId}</span></p>
-            <p><span className="font-medium text-gray-700 print:text-black">Name:</span> <span className="ml-2">{data.employeeName}</span></p>
-            <p><span className="font-medium text-gray-700 print:text-black">Designation:</span> <span className="ml-2">{data.designation}</span></p>
-            <p><span className="font-medium text-gray-700 print:text-black">Department:</span> <span className="ml-2">{data.department}</span></p>
-            <p><span className="font-medium text-gray-700 print:text-black">PAN Number:</span> <span className="ml-2">ABCD1234E</span></p>
-            <p><span className="font-medium text-gray-700 print:text-black">UAN:</span> <span className="ml-2">100123456789</span></p>
-          </div>
-        </div>
-        
-        <div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2 border-blue-600 print:text-base print:border-black print:text-black">Payment & Bank Details</h3>
-          <div className="space-y-2 print:space-y-1">
-            <p><span className="font-medium text-gray-700 print:text-black">Bank Name:</span> <span className="ml-2">{data.bankName}</span></p>
-            <p><span className="font-medium text-gray-700 print:text-black">Account Number:</span> <span className="ml-2">{data.accountNumber}</span></p>
-            <p><span className="font-medium text-gray-700 print:text-black">IFSC Code:</span> <span className="ml-2">{data.ifscCode}</span></p>
-           
-            <p><span className="font-medium text-gray-700 print:text-black">Pay Date:</span> <span className="ml-2">{data.paidDate}</span></p>
-          </div>
-        </div>
-      </div>
-
-      <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2 border-blue-600 print:text-base print:border-black print:text-black"></h3>
-      
-
-      
-
-      {/* Attendance Summary */}
-      {/* <div className="mb-8 p-4 bg-blue-50 rounded-lg border border-blue-200 print:bg-white print:border-black print:p-3 print:mb-6">
-        <h3 className="text-lg font-semibold text-gray-700 mb-3 border-b pb-2 border-blue-600 print:text-base print:border-black print:text-black">Attendance Summary</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:gap-3">
-          <div className="text-center p-3 bg-white rounded shadow border border-blue-100 print:border-black print:p-2">
-            <p className="text-sm text-gray-600 print:text-black">Working Days</p>
-            <p className="text-xl font-bold text-blue-700 print:text-lg print:text-black">{data.workingDays}</p>
-          </div>
-          <div className="text-center p-3 bg-white rounded shadow border border-blue-100 print:border-black print:p-2">
-            <p className="text-sm text-gray-600 print:text-black">Paid Days</p>
-            <p className="text-xl font-bold text-green-700 print:text-lg print:text-black">{data.paidDays}</p>
-          </div>
-          <div className="text-center p-3 bg-white rounded shadow border border-blue-100 print:border-black print:p-2">
-            <p className="text-sm text-gray-600 print:text-black">Leave Days</p>
-            <p className="text-xl font-bold text-amber-600 print:text-lg print:text-black">{data.leaveDays}</p>
-          </div>
-          
-        </div>
-      </div> */}
-
-      {/* Earnings and Deductions - Removed conveyance and medical allowances */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8 print:gap-6 print:mb-6">
-        {/* Earnings */}
-        <div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-4 pb-2 border-b border-blue-600 print:text-base print:border-black print:text-black">Earnings (₹)</h3>
-          <div className="space-y-3 print:space-y-2">
-            <div className="flex justify-between">
-              <span>Basic Salary</span>
-              <span className="font-medium">{data.basicSalary.toLocaleString('en-IN')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>House Rent Allowance (HRA)</span>
-              <span className="font-medium">{data.hra.toLocaleString('en-IN')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Special Allowance</span>
-              <span className="font-medium">{data.specialAllowance.toLocaleString('en-IN')}</span>
-            </div>
-            <div className="flex justify-between border-t-2 pt-3 font-bold text-lg border-blue-600 print:border-black print:pt-2">
-              <span>Total Earnings</span>
-              <span className="text-green-700 print:text-black">₹{data.totalEarnings.toLocaleString('en-IN')}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Deductions */}
-        <div>
-          <h3 className="text-lg font-semibold text-gray-700 mb-4 pb-2 border-b border-blue-600 print:text-base print:border-black print:text-black">Deductions (₹)</h3>
-          <div className="space-y-3 print:space-y-2">
-            <div className="flex justify-between">
-              <span>Provident Fund (PF)</span>
-              <span className="font-medium">{data.pfDeduction.toLocaleString('en-IN')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Professional Tax</span>
-              <span className="font-medium">{data.professionalTax.toLocaleString('en-IN')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Tax Deducted at Source (TDS)</span>
-              <span className="font-medium">{data.tds.toLocaleString('en-IN')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Employee State Insurance (ESI)</span>
-              <span className="font-medium">{data.esi.toLocaleString('en-IN')}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Loss of Pay (LOP)</span>
-              <span className="font-medium">{data.lopDeduction.toLocaleString('en-IN')}</span>
-            </div>
-            {data.loanDeduction > 0 && (
-              <div className="flex justify-between">
-                <span>Loan Deduction</span>
-                <span className="font-medium">{data.loanDeduction.toLocaleString('en-IN')}</span>
-              </div>
-            )}
-            {data.otherDeductions > 0 && (
-              <div className="flex justify-between">
-                <span>Other Deductions</span>
-                <span className="font-medium">{data.otherDeductions.toLocaleString('en-IN')}</span>
-              </div>
-            )}
-            
-            <div className="flex justify-between border-t-2 pt-3 font-bold text-lg border-blue-600 print:border-black print:pt-2">
-              <span>Total Deductions</span>
-              <span className="text-red-600 print:text-black">₹{data.totalDeductions.toLocaleString('en-IN')}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Net Salary */}
-      <div className="bg-gradient-to-r from-blue-50 to-blue-100 p-6 rounded-lg border-2 border-blue-300 print:bg-white print:border-black print:p-4">
-        <div className="flex flex-col md:flex-row justify-between items-center">
-          <div>
-            <h3 className="text-xl font-bold text-gray-800 print:text-lg print:text-black">NET SALARY PAYABLE</h3>
-           
-          </div>
-          <div className="text-center md:text-right mt-4 md:mt-0 print:mt-2">
-            <div className="text-3xl md:text-4xl font-bold text-green-700 mb-2 print:text-2xl print:text-black">
-              ₹{data.netSalary.toLocaleString('en-IN')}
-            </div>
-            <div className="text-sm text-gray-600 bg-white p-2 rounded border border-blue-200 print:text-xs print:border-black print:p-1">
-              <span className="font-medium">In Words:</span> {numberToWords(data.netSalary)} Rupees Only
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* CALDIM Address Footer */}
-      <div className="mt-8 pt-6 border-t-2 border-gray-300 print:mt-6 print:pt-4 print:border-black">
-        <div className="text-center text-sm text-gray-700 mb-4 print:text-xs print:text-black">
-          <div className="font-bold text-base mb-2 text-blue-900 print:text-sm print:text-black">CALDIM ENGINEERING PVT LTD</div>
-          <div className="mb-1">CIN: U74999TN2016PTC110683 | Email: support@caldimengg.in</div>
-          
-          {/* Head Office */}
-          <div className="mt-4 mb-2">
-            <div className="font-semibold text-blue-800 mb-1 print:text-black">Head Office:</div>
-            <div className="text-gray-600 print:text-black">
-              No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087
-            </div>
-          </div>
-          
-          {/* Branch Office */}
-          <div className="mt-2">
-            <div className="font-semibold text-blue-800 mb-1 print:text-black">Branch Office:</div>
-            <div className="text-gray-600 print:text-black">
-              2nd Floor, Plot No. 23,24 &25, Near check post , N.H – 207, 
-              <br />
-              Bagalur Road, Nallur Panchayat, Hosur – 635103
-            </div>
-          </div>
-        </div>
-
-        {/* Final Footer with disclaimer */}
-        <div className="mt-6 pt-4 border-t border-gray-200 print:mt-4 print:pt-3 print:border-black">
-          <div className="flex flex-col md:flex-row justify-between items-center text-xs text-gray-500 print:text-xxs print:text-black">
-            <div className="text-left mb-2 md:mb-0 print:mb-1">
-              <p>This is a computer-generated document and does not require a signature.</p>
+      <div className="relative z-10 flex flex-col h-full justify-between min-h-[1120px] print:min-h-0">
+        {/* Header */}
+        <div className="w-full flex h-32 relative overflow-hidden">
+            {/* Left Part: Blue Background */}
+            <div className="relative w-[60%] bg-[#1e2b58] flex items-center pl-8 pr-12" style={{ clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}>
+                <div className="flex items-center gap-4">
+                    <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" />
+                    <div className="text-white">
+                        <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
+                        <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">ENGINEERING PRIVATE LIMITED</p>
+                    </div>
+                </div>
             </div>
             
-          </div>
+            {/* Orange Accent */}
+            <div className="absolute left-[50%] top-0 h-32 w-16 bg-[#f37021] z-[-1]" style={{ clipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)' }}></div>
+
+            {/* Right Part: Address */}
+            <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2">
+                 <div className="flex items-center mb-2">
+                     <span className="font-bold text-gray-800 mr-3 text-lg">044-47860455</span>
+                     <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                        </svg>
+                     </div>
+                 </div>
+                 <div className="flex items-start justify-end text-right">
+                     <span className="text-sm font-semibold text-gray-700 w-64 leading-tight">No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
+                     <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                        </svg>
+                     </div>
+                 </div>
+            </div>
+        </div>
+
+        {/* Content Body */}
+        <div className="px-12 mb-2  py-6 flex-grow">
+            
+          
+            
+            <div className="text-center mb-4 bg-blue-50 py-0 rounded border border-blue-100">
+               <p className="text-gray-800 font-medium">
+                  Payslip for the period of: <span className="font-bold text-[#1e2b58] text-lg ml-2">{data.month} {data.year}</span>
+               </p>
+            </div>
+
+            {/* Employee Details & Bank Details */}
+            <div className="grid grid-cols-2 gap-8 mb-8">
+              <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-[#1e2b58]">
+                <h3 className="text-[#1e2b58] font-bold text-lg mb-4 border-b pb-2 border-gray-200">Employee Details</h3>
+                <div className="space-y-2 text-sm">
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Employee ID:</span> <span className="font-bold text-gray-800">{data.employeeId}</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Name:</span> <span className="font-bold text-gray-800">{data.employeeName}</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Designation:</span> <span className="font-bold text-gray-800">{data.designation}</span></div>
+                   {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">Department:</span> <span className="font-bold text-gray-800">{data.department}</span></div> */}
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">PAN Number:</span> <span className="font-bold text-gray-800">ABCD1234E</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">UAN:</span> <span className="font-bold text-gray-800">100123456789</span></div>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-[#f37021]">
+                <h3 className="text-[#1e2b58] font-bold text-lg mb-4 border-b pb-2 border-gray-200">Bank Details</h3>
+                <div className="space-y-2 text-sm">
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Bank Name:</span> <span className="font-bold text-gray-800">{data.bankName}</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Account No:</span> <span className="font-bold text-gray-800">{data.accountNumber}</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">IFSC Code:</span> <span className="font-bold text-gray-800">{data.ifscCode}</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Payment Date:</span> <span className="font-bold text-gray-800">{data.paidDate}</span></div>
+                   {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">Paid Days:</span> <span className="font-bold text-gray-800">{data.paidDays}</span></div> */}
+                   {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">LOP Days:</span> <span className="font-bold text-gray-800">{data.leaveDays}</span></div> */}
+                </div>
+              </div>
+            </div>
+
+            {/* Salary Table */}
+            <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden">
+                <div className="grid grid-cols-2 bg-[#1e2b58] text-white text-center font-bold py-2">
+                    <div>EARNINGS</div>
+                    <div>DEDUCTIONS</div>
+                </div>
+                <div className="grid grid-cols-2">
+                    {/* Earnings Column */}
+                    <div className="border-r border-gray-200">
+                        <div className="p-4 space-y-3">
+                            <div className="flex justify-between text-sm"><span className="text-gray-600">Basic Salary</span> <span className="font-bold text-gray-800">{data.basicSalary.toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between text-sm"><span className="text-gray-600">HRA</span> <span className="font-bold text-gray-800">{data.hra.toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between text-sm"><span className="text-gray-600">Special Allowance</span> <span className="font-bold text-gray-800">{data.specialAllowance.toLocaleString('en-IN')}</span></div>
+                            
+                            <div className="pt-4 mt-4 border-t border-gray-200 flex justify-between font-bold text-[#1e2b58] text-lg">
+                                <span>Total Earnings</span>
+                                <span>₹{data.totalEarnings.toLocaleString('en-IN')}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Deductions Column */}
+                    <div>
+                        <div className="p-4 space-y-3">
+                            <div className="flex justify-between text-sm"><span className="text-gray-600">Provident Fund</span> <span className="font-bold text-gray-800">{data.pfDeduction.toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between text-sm"><span className="text-gray-600">Professional Tax</span> <span className="font-bold text-gray-800">{data.professionalTax.toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between text-sm"><span className="text-gray-600">TDS</span> <span className="font-bold text-gray-800">{data.tds.toLocaleString('en-IN')}</span></div>
+                            <div className="flex justify-between text-sm"><span className="text-gray-600">ESI</span> <span className="font-bold text-gray-800">{data.esi.toLocaleString('en-IN')}</span></div>
+                            {data.lopDeduction > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Loss of Pay</span> <span className="font-bold text-gray-800">{data.lopDeduction.toLocaleString('en-IN')}</span></div>}
+                            {(data.loanDeduction > 0) && (
+                                <>
+                                    {data.loanDeduction > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Loan</span> <span className="font-bold text-gray-800">{data.loanDeduction.toLocaleString('en-IN')}</span></div>}
+                                </>
+                            )}
+
+                            <div className="pt-4 mt-4 border-t border-gray-200 flex justify-between font-bold text-red-600 text-lg">
+                                <span>Total Deductions</span>
+                                <span>₹{data.totalDeductions.toLocaleString('en-IN')}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Net Salary */}
+            <div className="bg-[#1e2b58] text-white p-6 rounded-lg shadow-md mb-8">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <p className="text-gray-300 text-sm mb-1 uppercase tracking-wider">Net Salary Payable</p>
+                        <p className="text-2xl font-bold">₹{data.netSalary.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-gray-300 text-xs mb-1">Amount in words</p>
+                        <p className="font-medium text-lg italic">{numberToWords(data.netSalary)} Rupees Only</p>
+                    </div>
+                </div>
+            </div>
+            
+            <p className="text-center text-xs text-gray-500 mt-8">This is a computer-generated document and does not require a signature.</p>
+        </div>
+
+        {/* Footer */}
+        <div className="w-full flex items-end mt-auto">
+            {/* Orange Line */}
+            <div className="h-3 bg-[#f37021] flex-1 mb-0"></div>
+            
+            {/* Blue Block */}
+            <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center" style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', minWidth: '450px' }}>
+                <div className="text-sm font-medium tracking-wide">Website : www.caldimengg.com</div>
+                <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
+            </div>
         </div>
       </div>
     </div>

@@ -29,10 +29,12 @@ import {
   // NEW ICONS FOR EXIT MANAGEMENT
   ArrowRightOnRectangleIcon,
   ClipboardDocumentCheckIcon as ApprovalIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon
 } from "@heroicons/react/24/outline";
 
-const Sidebar = ({ isOpen, onClose }) => {
+const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }) => {
   const location = useLocation();
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const permissions = user.permissions || [];
@@ -43,6 +45,9 @@ const Sidebar = ({ isOpen, onClose }) => {
   const [openDropdown, setOpenDropdown] = useState(null);
 
   const toggleDropdown = (name) => {
+    if (!isDesktopOpen && toggleDesktopSidebar) {
+      toggleDesktopSidebar();
+    }
     setOpenDropdown(openDropdown === name ? null : name);
   };
 
@@ -76,6 +81,7 @@ const Sidebar = ({ isOpen, onClose }) => {
     "Gratuity Summary": BanknotesIcon,
     "Monthly Payroll": BanknotesIcon,
     "Announcements": DocumentTextIcon,
+    "Intern Reference": DocumentTextIcon,
     // NEW ICONS FOR EXIT MANAGEMENT
     "Employee Exit Form": ArrowRightOnRectangleIcon,
     "Exit Approval": ApprovalIcon,
@@ -132,8 +138,8 @@ const Sidebar = ({ isOpen, onClose }) => {
       name: "Project Allocation",
       path: "/project-allocation",
       icon: getIconForMenu("Project Allocation"),
-      permission: "project_access",
-      showForRoles: ["admin", "projectmanager", "manager"],
+      showForRoles: ["admin", "projectmanager", "manager", "employees"],
+      allowEmployeeRole: true,
     },
     // LEAVE MANAGEMENT MODULE
     {
@@ -245,29 +251,36 @@ const Sidebar = ({ isOpen, onClose }) => {
       showForRoles: ["admin", "hr", "manager"],
       allowEmployeeRole: false,
     },
+    // INTERN REFERENCE
+    {
+      name: "Intern Reference",
+      path: "/admin/interns",
+      icon: getIconForMenu("Intern Reference"),
+      showForRoles: ["admin", "hr", "manager"],
+    },
     // EXIT MANAGEMENT - NEW MODULE
-    // {
-    //   name: "Exit Management",
-    //   hasDropdown: true,
-    //   icon: getIconForMenu("Exit Management"),
-    //   permission: "exit_access",
-    //   showForRoles: ["admin", "hr", "manager", "employee"],
-    //   children: [
-    //     { 
-    //       name: "Employee Exit Form", 
-    //       path: "/employee-exit/form",
-    //       permission: "exit_form_access",
-    //       allowEmployeeRole: true,
-    //       showForRoles: ["employee"]
-    //     },
-    //     { 
-    //       name: "Exit Approval", 
-    //       path: "/employee-exit/approval",
-    //       permission: "exit_approval_access",
-    //       showForRoles: ["admin", "hr", "manager"]
-    //     }
-    //   ],
-    // },
+    {
+      name: "Exit Management",
+      hasDropdown: true,
+      icon: getIconForMenu("Exit Management"),
+      permission: "exit_access",
+      showForRoles: ["admin", "hr", "manager", "employee"],
+      children: [
+        { 
+          name: "Employee Exit Form", 
+          path: "/employee-exit/form",
+          permission: "exit_form_access",
+          allowEmployeeRole: true,
+          showForRoles: ["employee"]
+        },
+        { 
+          name: "Exit Approval", 
+          path: "/employee-exit/approval",
+          permission: "exit_approval_access",
+          showForRoles: ["admin", "hr", "manager"]
+        }
+      ],
+    },
     // EMPLOYEE REWARD TRACKER
     {
       name: "Employee Reward Tracker",
@@ -450,13 +463,14 @@ const Sidebar = ({ isOpen, onClose }) => {
 
       {/* Sidebar */}
       <div
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-[#262760] shadow-lg flex flex-col transform transition-transform duration-300 ease-in-out
+        className={`fixed inset-y-0 left-0 z-50 bg-[#262760] shadow-lg flex flex-col transform transition-all duration-300 ease-in-out
         lg:relative lg:translate-x-0 lg:z-auto lg:h-screen
-        ${isOpen ? "translate-x-0" : "-translate-x-full"}`}
+        ${isOpen ? "translate-x-0" : "-translate-x-full"}
+        ${isDesktopOpen ? "w-64" : "w-64 lg:w-20"}`}
       >
         {/* Logo */}
-        <div className="flex items-center justify-between p-4 border-b border-[#1e2050]">
-          <div className="text-center w-full px-2">
+        <div className="flex items-center justify-between p-4 border-b border-[#1e2050] relative min-h-[64px]">
+          <div className={`text-center w-full px-2 transition-all duration-200 ${!isDesktopOpen ? 'lg:opacity-0 lg:hidden' : 'opacity-100'}`}>
             <img
               src="/images/steel-logo.png"
               alt="caldim"
@@ -465,9 +479,18 @@ const Sidebar = ({ isOpen, onClose }) => {
           </div>
           <button
             onClick={onClose}
-            className="lg:hidden text-white p-1 rounded-md hover:bg-[#1e2050] transition-colors duration-200"
+            className="lg:hidden text-white p-1 rounded-md hover:bg-[#1e2050] transition-colors duration-200 absolute right-4"
           >
             <X size={24} />
+          </button>
+          
+          {/* Desktop Toggle Button */}
+          <button
+             onClick={toggleDesktopSidebar}
+             className={`hidden lg:flex items-center justify-center text-white p-1 rounded-md hover:bg-[#1e2050] transition-colors duration-200 
+             ${!isDesktopOpen ? 'w-full' : 'absolute right-2'}`}
+          >
+             {isDesktopOpen ? <ChevronDoubleLeftIcon className="h-5 w-5" /> : <ChevronDoubleRightIcon className="h-6 w-6" />}
           </button>
         </div>
 
@@ -479,24 +502,25 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <>
                   <button
                     onClick={() => toggleDropdown(item.name)}
-                    className={`w-full flex items-center justify-between px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                    className={`w-full flex items-center ${!isDesktopOpen ? 'justify-center' : 'justify-between'} px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
                       isItemActive(item)
                         ? "bg-[#1e2050] text-white shadow-sm"
                         : "text-violet-100 hover:bg-[#1e2050] hover:text-white"
                     }`}
+                    title={!isDesktopOpen ? item.name : ''}
                   >
-                    <div className="flex items-center">
-                      <item.icon className="mr-3 h-5 w-5" />
-                      <span>{item.name}</span>
+                    <div className={`flex items-center ${!isDesktopOpen ? 'justify-center' : ''}`}>
+                      <item.icon className={`${isDesktopOpen ? 'mr-3' : ''} h-5 w-5`} />
+                      {isDesktopOpen && <span>{item.name}</span>}
                     </div>
-                    {openDropdown === item.name ? (
+                    {isDesktopOpen && (openDropdown === item.name ? (
                       <ChevronDown className="h-4 w-4" />
                     ) : (
                       <ChevronRight className="h-4 w-4" />
-                    )}
+                    ))}
                   </button>
 
-                  {openDropdown === item.name && (
+                  {openDropdown === item.name && isDesktopOpen && (
                     <div className="ml-4 mt-1 mb-2 space-y-1 bg-[#1e2050]/70 rounded-lg py-2 border-l-2 border-[#3730a3]">
                       {getFilteredChildren(item.children).map((child) => (
                         <Link
@@ -520,14 +544,15 @@ const Sidebar = ({ isOpen, onClose }) => {
                 <Link
                   to={item.path}
                   onClick={onClose}
-                  className={`flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
+                  className={`flex items-center ${!isDesktopOpen ? 'justify-center' : ''} px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
                     isItemActive(item)
                       ? "bg-[#1e2050] text-white shadow-sm"
                       : "text-violet-100 hover:bg-[#1e2050] hover:text-white"
                   }`}
+                  title={!isDesktopOpen ? item.name : ''}
                 >
-                  <item.icon className="mr-3 h-5 w-5" />
-                  <span>{item.name}</span>
+                  <item.icon className={`${isDesktopOpen ? 'mr-3' : ''} h-5 w-5`} />
+                  {isDesktopOpen && <span>{item.name}</span>}
                 </Link>
               )}
             </div>
