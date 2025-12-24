@@ -17,8 +17,10 @@ const AttendanceRegularization = () => {
   const [editingRecord, setEditingRecord] = useState(null);
   const [inDate, setInDate] = useState("");
   const [inTime, setInTime] = useState("");
+  const [inPeriod, setInPeriod] = useState("AM");
   const [outDate, setOutDate] = useState("");
   const [outTime, setOutTime] = useState("");
+  const [outPeriod, setOutPeriod] = useState("PM");
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
 
   const monthRange = useMemo(() => {
@@ -103,6 +105,10 @@ const AttendanceRegularization = () => {
     setOutDate(baseDateKey);
     setInTime(rec.punchIn ? new Date(rec.punchIn).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
     setOutTime(rec.punchOut ? new Date(rec.punchOut).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
+    const inLabel = rec.punchIn ? new Date(rec.punchIn).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
+    const outLabel = rec.punchOut ? new Date(rec.punchOut).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true }) : "";
+    setInPeriod(inLabel.includes("PM") ? "PM" : "AM");
+    setOutPeriod(outLabel.includes("AM") ? "AM" : "PM");
     setShowEditModal(true);
   };
 
@@ -111,22 +117,33 @@ const AttendanceRegularization = () => {
     setEditingRecord(null);
     setInDate("");
     setInTime("");
+    setInPeriod("AM");
     setOutDate("");
     setOutTime("");
+    setOutPeriod("PM");
   };
 
-  const combineDateAndTime = (dateISO, timeStr) => {
+  const combineDateAndTime = (dateISO, timeStr, period) => {
     if (!timeStr) return null;
     const dateKey = new Date(dateISO).toISOString().split("T")[0];
-    const dt = new Date(`${dateKey}T${timeStr}`);
+    const [hStr, mStr] = timeStr.split(":");
+    let h = parseInt(hStr || "0", 10);
+    const m = parseInt(mStr || "0", 10);
+    if (period === "PM" && h < 12) h += 12;
+    if (period === "AM" && h === 12) h = 0;
+    const hh = String(h).padStart(2, "0");
+    const mm = String(m).padStart(2, "0");
+    const dt = new Date(`${dateKey}T${hh}:${mm}`);
     return dt.toISOString();
   };
 
   const computePreview = () => {
     try {
       if (!inDate || !inTime || !outDate || !outTime) return null;
-      const inDt = new Date(`${inDate}T${inTime}`);
-      const outDt = new Date(`${outDate}T${outTime}`);
+      const inISO = combineDateAndTime(inDate, inTime, inPeriod);
+      const outISO = combineDateAndTime(outDate, outTime, outPeriod);
+      const inDt = new Date(inISO);
+      const outDt = new Date(outISO);
       if (outDt <= inDt) return null;
       const diffMs = outDt - inDt;
       const hours = diffMs / (1000 * 60 * 60);
@@ -156,8 +173,8 @@ const AttendanceRegularization = () => {
       return;
     }
 
-    const inISO = combineDateAndTime(inDate, inTime);
-    const outISO = combineDateAndTime(outDate, outTime);
+    const inISO = combineDateAndTime(inDate, inTime, inPeriod);
+    const outISO = combineDateAndTime(outDate, outTime, outPeriod);
 
     const inDt = new Date(inISO);
     const outDt = new Date(outISO);
@@ -420,6 +437,10 @@ const AttendanceRegularization = () => {
                   onChange={(e) => setInTime(e.target.value)}
                   style={styles.input}
                 />
+                <select value={inPeriod} onChange={(e) => setInPeriod(e.target.value)} style={styles.input}>
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
               </div>
               <div style={styles.field}>
                 <div style={styles.label}>OUT Date</div>
@@ -438,6 +459,10 @@ const AttendanceRegularization = () => {
                   onChange={(e) => setOutTime(e.target.value)}
                   style={styles.input}
                 />
+                <select value={outPeriod} onChange={(e) => setOutPeriod(e.target.value)} style={styles.input}>
+                  <option value="AM">AM</option>
+                  <option value="PM">PM</option>
+                </select>
               </div>
               <div style={styles.field}>
                 <div style={styles.label}>Calculated Total</div>

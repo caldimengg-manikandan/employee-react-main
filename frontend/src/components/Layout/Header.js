@@ -32,7 +32,7 @@ const Header = ({ onMenuClick }) => {
   // Map routes to page titles
   const getPageTitle = () => {
     const routeTitles = {
-      '/dashboard': 'Project Dashboard',
+      '/dashboard': 'Home',
       '/user-access': 'User Access',
       '/employee-management': 'Employee Management',
       '/announcements': 'Announcement Management',

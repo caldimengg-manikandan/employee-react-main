@@ -1,12 +1,19 @@
 // Dashboard --> Home
-
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { UsersIcon, ClockIcon, CalendarIcon, BanknotesIcon, KeyIcon, FolderIcon, ShieldCheckIcon, DocumentTextIcon, CurrencyDollarIcon, DocumentChartBarIcon, ClipboardDocumentCheckIcon, ChartBarIcon, ClipboardDocumentListIcon, CurrencyRupeeIcon, BriefcaseIcon, UserGroupIcon } from '@heroicons/react/24/outline';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import {
+    UsersIcon, ClockIcon, CalendarIcon, BanknotesIcon, KeyIcon, 
+    FolderIcon, ShieldCheckIcon, DocumentTextIcon, CurrencyDollarIcon, 
+    DocumentChartBarIcon, ClipboardDocumentCheckIcon, ChartBarIcon, 
+    ClipboardDocumentListIcon, CurrencyRupeeIcon, BriefcaseIcon, 
+    UserGroupIcon, BellIcon, ChevronRightIcon, ArrowRightIcon,
+    MagnifyingGlassIcon, ArrowRightOnRectangleIcon, BuildingOfficeIcon, UserIcon
+} from '@heroicons/react/24/outline';
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip,
     BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
+import { employeeAPI, authAPI } from '../services/api';
 
 // --- Custom hook to get window size ---
 const useWindowSize = () => {
@@ -31,7 +38,6 @@ const useWindowSize = () => {
 
     return windowSize;
 };
-
 
 // --- Custom component for Y-Axis ticks with word wrapping ---
 const CustomizedYAxisTick = (props) => {
@@ -73,116 +79,187 @@ const CustomizedYAxisTick = (props) => {
 
 // --- Main Dashboard Component ---
 const ProjectDashboard = () => {
+    const navigate = useNavigate();
+    
     // --- STATE MANAGEMENT ---
-    const [kpis, setKpis] = React.useState({ totalProjects: 0, completedProjects: 0, inProgressProjects: 0 });
-    const [dropdowns, setDropdowns] = React.useState({ projects: [], items: [] });
-    const [selectedProject, setSelectedProject] = React.useState('');
-    const [selectedItem, setSelectedItem] = React.useState('');
-    const [chartData, setChartData] = React.useState([]);
-    const [infoData, setInfoData] = React.useState(null);
-    const [chartTitle, setChartTitle] = React.useState('Overview');
-    const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState('');
-    const [initialLoading, setInitialLoading] = React.useState(true);
-    const [showHistoryModal, setShowHistoryModal] = React.useState(false);
-    const [projectHistory, setProjectHistory] = React.useState([]);
-    const [historyLoading, setHistoryLoading] = React.useState(false);
-
+    const [kpis, setKpis] = useState({ 
+        totalProjects: 0, 
+        completedProjects: 0, 
+        inProgressProjects: 0,
+        pendingTasks: 0,
+        pendingApprovals: 0,
+        notifications: 0,
+        leavesTaken: 0
+    });
+    const [dropdowns, setDropdowns] = useState({ projects: [], items: [] });
+    const [selectedProject, setSelectedProject] = useState('');
+    const [selectedItem, setSelectedItem] = useState('');
+    const [chartData, setChartData] = useState([]);
+    const [infoData, setInfoData] = useState(null);
+    const [chartTitle, setChartTitle] = useState('Overview');
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [initialLoading, setInitialLoading] = useState(true);
+    const [showHistoryModal, setShowHistoryModal] = useState(false);
+    const [projectHistory, setProjectHistory] = useState([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
+    const [greeting, setGreeting] = useState('');
+    const [profile, setProfile] = useState(null);
+    const [announcements, setAnnouncements] = useState([]);
+    const [showAnnouncementsModal, setShowAnnouncementsModal] = useState(false);
+    
     const user = JSON.parse(sessionStorage.getItem('user') || '{}');
     const permissions = user.permissions || [];
     const role = user.role || 'employees';
 
+    // Set greeting based on time
+    useEffect(() => {
+        const hour = new Date().getHours();
+        if (hour < 12) setGreeting('Good Morning');
+        else if (hour < 18) setGreeting('Good Afternoon');
+        else setGreeting('Good Evening');
+    }, []);
+
+    // Fetch dashboard stats
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const [profileRes, announcements] = await Promise.all([
+                    employeeAPI.getMyProfile().catch(() => ({ data: null })),
+                    authAPI.announcement.getActive().catch(() => [])
+                ]);
+                if (profileRes && profileRes.data) {
+                    setProfile(profileRes.data);
+                }
+                const notifCount = Array.isArray(announcements) ? announcements.length : 0;
+                setAnnouncements(Array.isArray(announcements) ? announcements : []);
+                setKpis(prev => ({
+                    ...prev,
+                    notifications: notifCount
+                }));
+            } catch (error) {
+                console.error("Error fetching dashboard stats", error);
+            }
+        };
+        fetchStats();
+    }, []);
+
     const policyModuleName = role === 'admin' ? 'Policy Portal' : 'Policy';
     const modules = [
         // Timesheet
-        { name: 'Timesheet', description: 'Log work hours', path: '/timesheet', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true },
-        { name: 'Timesheet History', description: 'View past timesheets', path: '/timesheet/history', icon: DocumentChartBarIcon, permission: 'timesheet_access', allowEmployeeRole: true },
-        { name: 'Attendance Regularization', description: 'Regularize attendance', path: '/timesheet/regularization', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true },
-        { name: 'Employee Attendance', description: 'Attendance tracking', path: '/timesheet/attendance', icon: ClockIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager'] },
-        { name: 'Attendance Approval', description: 'Approve attendance', path: '/timesheet/attendance-approval', icon: ClipboardDocumentCheckIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager'] },
+        { name: 'Timesheet', description: 'Log work hours', path: '/timesheet', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true, category: 'Work & Productivity' },
+        { name: 'Timesheet History', description: 'View past timesheets', path: '/timesheet/history', icon: DocumentChartBarIcon, permission: 'timesheet_access', allowEmployeeRole: true, category: 'Work & Productivity' },
+        { name: 'Attendance Regularization', description: 'Regularize attendance', path: '/timesheet/regularization', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true, category: 'Work & Productivity' },
+        { name: 'Employee Attendance', description: 'Attendance tracking', path: '/timesheet/attendance', icon: ClockIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
+        { name: 'Attendance Approval', description: 'Approve attendance', path: '/timesheet/attendance-approval', icon: ClipboardDocumentCheckIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
         
         // Admin Timesheet
-        { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'] },
-        { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentChartBarIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'] },
+        { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
+        { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentChartBarIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
         
         // Project
-        { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, permission: 'project_access', showForRoles: ['admin', 'projectmanager', 'manager'] },
+        { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, permission: 'project_access', showForRoles: ['admin', 'projectmanager', 'manager'], category: 'Work & Productivity' },
         
         // Leave Management
-        { name: 'Leave Summary', description: 'View leave summary', path: '/leave-management/summary', icon: ChartBarIcon, permission: 'leave_view', showForRoles: ['admin', 'hr', 'manager'] },
-        { name: 'Leave Balance', description: 'Check leave balance', path: '/leave-management/balance', icon: ClipboardDocumentListIcon, permission: 'leave_view', allowEmployeeRole: true },
-        { name: 'Leave Applications', description: 'Apply & track leaves', path: '/leave-applications', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true },
+        { name: 'Leave Summary', description: 'View leave summary', path: '/leave-management/summary', icon: ChartBarIcon, permission: 'leave_view', showForRoles: ['admin', 'hr', 'manager'], category: 'Leave Management' },
+        { name: 'Leave Balance', description: 'Check leave balance', path: '/leave-management/balance', icon: ClipboardDocumentListIcon, permission: 'leave_view', allowEmployeeRole: true, category: 'Leave Management' },
+        { name: 'Leave Applications', description: 'Apply & track leaves', path: '/leave-applications', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true, category: 'Leave Management' },
         
         // Insurance & Policy
-        { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'insurance_access', allowEmployeeRole: true },
-        { name: policyModuleName, description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, allowEmployeeRole: true },
+        { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'insurance_access', allowEmployeeRole: true, category: 'Company & Resources' },
+        { name: policyModuleName, description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, allowEmployeeRole: true, category: 'Company & Resources' },
         
         // Payroll
-        { name: 'Salary Slips', description: 'View payslips', path: '/salaryslips', icon: BanknotesIcon, allowEmployeeRole: true },
-        { name: 'Payroll Details', description: 'Manage payroll details', path: '/payroll/details', icon: CurrencyRupeeIcon, permission: 'payroll_manage', showForRoles: ['admin', 'hr', 'finance'] },
-        { name: 'Cost to the Company', description: 'View CTC', path: '/payroll/cost-to-the-company', icon: CurrencyRupeeIcon, permission: 'payroll_view', showForRoles: ['admin', 'hr', 'finance'] },
-        { name: 'Loan Summary', description: 'View loans', path: '/payroll/loan-summary', icon: BanknotesIcon, permission: 'loan_view', showForRoles: ['admin', 'hr', 'finance'] },
-        { name: 'Gratuity Summary', description: 'View gratuity', path: '/payroll/gratuity-summary', icon: BanknotesIcon, permission: 'gratuity_view', showForRoles: ['admin', 'hr', 'finance'] },
-        { name: 'Monthly Payroll', description: 'Process monthly payroll', path: '/payroll/monthly', icon: BanknotesIcon, permission: 'payroll_access', showForRoles: ['admin', 'hr', 'finance'] },
+        { name: 'Salary Slips', description: 'View payslips', path: '/salaryslips', icon: BanknotesIcon, allowEmployeeRole: true, category: 'Finance & Payroll' },
+        { name: 'Payroll Details', description: 'Manage payroll details', path: '/payroll/details', icon: CurrencyRupeeIcon, permission: 'payroll_manage', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Cost to the Company', description: 'View CTC', path: '/payroll/cost-to-the-company', icon: CurrencyRupeeIcon, permission: 'payroll_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Loan Summary', description: 'View loans', path: '/payroll/loan-summary', icon: BanknotesIcon, permission: 'loan_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Gratuity Summary', description: 'View gratuity', path: '/payroll/gratuity-summary', icon: BanknotesIcon, permission: 'gratuity_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Monthly Payroll', description: 'Process monthly payroll', path: '/payroll/monthly', icon: BanknotesIcon, permission: 'payroll_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         
         // Expenditure
-        { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance'] },
+        { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         
         // Other
-        { name: 'Employee Reward Tracker', description: 'Track rewards', path: '/employee-reward-tracker', icon: BriefcaseIcon, permission: 'reward_access', showForRoles: ['admin', 'hr', 'manager'] },
-        { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access', showForRoles: ['admin', 'hr'] },
-        { name: 'User Access', description: 'Manage user roles & permissions', path: '/user-access', icon: KeyIcon, permission: 'user_access', showForRoles: ['admin'] },
-        { name: 'Team Management', description: 'Manage teams', path: '/admin/team-management', icon: UserGroupIcon, permission: 'team_access', showForRoles: ['admin', 'manager'] },
-        { name: 'Internships', description: 'Manage interns & references', path: '/admin/interns', icon: BriefcaseIcon, showForRoles: ['admin', 'hr', 'manager'] },
+        { name: 'Employee Reward Tracker', description: 'Track rewards', path: '/employee-reward-tracker', icon: BriefcaseIcon, permission: 'reward_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
+        { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access', showForRoles: ['admin', 'hr'], category: 'Company & Resources' },
+        { name: 'User Access', description: 'Manage user roles & permissions', path: '/user-access', icon: KeyIcon, permission: 'user_access', showForRoles: ['admin'], category: 'Company & Resources' },
+        { name: 'Team Management', description: 'Manage teams', path: '/admin/team-management', icon: UserGroupIcon, permission: 'team_access', showForRoles: ['admin', 'manager'], category: 'Company & Resources' },
+        { name: 'Internships', description: 'Manage interns & references', path: '/admin/interns', icon: BriefcaseIcon, showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
     ];
 
-    const visibleModules = modules.filter((m) => {
-        // Admin sees everything
-        if (role === 'admin') return true;
+    const visibleModules = useMemo(() => {
+        let filtered = modules.filter((m) => {
+            // Admin sees everything
+            if (role === 'admin') return true;
 
-        // Project Manager should see the same modules as Sidebar allows
-        if (role === 'projectmanager') {
-            const pmAllowed = [
-                'Timesheet',
-                'Timesheet History',
-                'Attendance Regularization',
-                'Admin Timesheet',
-                'Timesheet Summary',
-                'Project Allocation',
-                'Leave Applications',
-                'Policy',
-                'Policy Portal',
-                'Salary Slips'
-            ];
-            return pmAllowed.includes(m.name);
+            // Project Manager should see the same modules as Sidebar allows
+            if (role === 'projectmanager') {
+                const pmAllowed = [
+                    'Timesheet',
+                    'Timesheet History',
+                    'Attendance Regularization',
+                    'Admin Timesheet',
+                    'Timesheet Summary',
+                    'Project Allocation',
+                    'Leave Applications',
+                    'Policy',
+                    'Policy Portal',
+                    'Salary Slips'
+                ];
+                return pmAllowed.includes(m.name);
+            }
+
+            // Check showForRoles restriction if it exists
+            if (m.showForRoles && !m.showForRoles.includes(role)) {
+                return false;
+            }
+
+            // Check permission if it exists
+            if (m.permission && !permissions.includes(m.permission)) {
+                return false;
+            }
+
+            // For employees, check allowEmployeeRole
+            if (role === 'employees' && !m.allowEmployeeRole) {
+                return false;
+            }
+
+            return true;
+        });
+
+        // Filter by search term if exists
+        if (searchTerm) {
+            const term = searchTerm.toLowerCase().trim();
+            filtered = filtered.filter(m => 
+                m.name.toLowerCase().includes(term) || 
+                m.description.toLowerCase().includes(term) ||
+                m.category.toLowerCase().includes(term)
+            );
         }
 
-        // Check showForRoles restriction if it exists
-        if (m.showForRoles && !m.showForRoles.includes(role)) {
-            return false;
-        }
+        return filtered;
+    }, [role, permissions, searchTerm]);
 
-        // Check permission if it exists
-        if (m.permission && !permissions.includes(m.permission)) {
-            return false;
-        }
-
-        // For employees, check allowEmployeeRole
-        if (role === 'employees' && !m.allowEmployeeRole) {
-            return false;
-        }
-
-        return true;
-    });
-
+    // Group modules by category
+    const groupedModules = useMemo(() => {
+        return visibleModules.reduce((acc, module) => {
+            if (!acc[module.category]) {
+                acc[module.category] = [];
+            }
+            acc[module.category].push(module);
+            return acc;
+        }, {});
+    }, [visibleModules]);
 
     // --- CONSTANTS ---
     const API_BASE_URL = 'http://localhost:5003/api/dashboard';
     const ENABLE_DASHBOARD_DATA = false;
     const COLORS = [
-    '#93c5fd', '#fdba74', '#86efac', '#fca5a5', '#d8b4fe', '#f9a8d4', '#67e8f9', '#fde047',
-    '#a5b4fc', '#fb923c', '#6ee7b7', '#f87171', '#c4b5fd', '#f0abfc', '#67e8f9', '#fcd34d'
-];
+        '#93c5fd', '#fdba74', '#86efac', '#fca5a5', '#d8b4fe', '#f9a8d4', '#67e8f9', '#fde047',
+        '#a5b4fc', '#fb923c', '#6ee7b7', '#f87171', '#c4b5fd', '#f0abfc', '#67e8f9', '#fcd34d'
+    ];
     const PIE_CHART_LIMIT = 100;
 
     // Special colors for Quantity Comparison
@@ -191,8 +268,16 @@ const ProjectDashboard = () => {
         'Remaining Quantity': '#2563eb'
     };
 
+    // Category Images
+    const categoryImages = {
+        'Work & Productivity': 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=1000',
+        'Leave Management': 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=1000',
+        'Finance & Payroll': 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=1000',
+        'Company & Resources': 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000'
+    };
+
     // --- DATA FETCHING HOOKS ---
-    React.useEffect(() => {
+    useEffect(() => {
         if (!ENABLE_DASHBOARD_DATA) {
             setInitialLoading(false);
             return;
@@ -209,7 +294,7 @@ const ProjectDashboard = () => {
                 if (!kpisRes.ok || !dropdownsRes.ok) throw new Error('Failed to fetch initial data');
                 const kpisData = await kpisRes.json();
                 const dropdownsData = await dropdownsRes.json();
-                setKpis(kpisData);
+                setKpis(prev => ({ ...prev, ...kpisData }));
                 setDropdowns(dropdownsData);
             } catch (err) {
                 setError('');
@@ -220,7 +305,7 @@ const ProjectDashboard = () => {
         fetchInitialData();
     }, []);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (!ENABLE_DASHBOARD_DATA) return;
         const fetchDashboardData = async () => {
             if (initialLoading) return;
@@ -267,24 +352,103 @@ const ProjectDashboard = () => {
             setProjectHistory(data);
         } catch (err) {
             console.error("Error fetching project history:", err);
-            setProjectHistory([]); // Clear previous data on error
+            setProjectHistory([]);
         } finally {
             setHistoryLoading(false);
         }
     };
 
+    const handleLogout = () => {
+        sessionStorage.clear();
+        navigate('/login');
+    };
+
     // --- CHILD COMPONENTS & HELPERS ---
-    const KpiCard = React.memo(({ title, value, color, icon, onClick }) => (
-        <div onClick={onClick} className={`bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 flex-1 transform hover:-translate-y-1 ${onClick ? 'cursor-pointer' : ''}`}>
-            <div className="flex items-center">
-                <div className={`p-3 rounded-full mr-4 ${color.bg}`}>{icon}</div>
+    const KpiCard = React.memo(({ title, value, color, icon, onClick, description }) => (
+        <div 
+            onClick={onClick} 
+            className={`bg-white rounded-xl shadow-lg p-6 border-l-4 ${color.border} transform hover:-translate-y-1 transition-all duration-300 flex-1 ${onClick ? 'cursor-pointer' : ''}`}
+        >
+            <div className="flex justify-between items-start">
                 <div>
-                    <h3 className="text-lg font-semibold text-gray-500">{title}</h3>
-                    <p className={`text-3xl font-bold ${color.text}`}>{value}</p>
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">{title}</p>
+                    <h3 className={`text-2xl font-bold mt-1 ${color.text}`}>{value}</h3>
+                </div>
+                <div className={`p-2 rounded-lg ${color.bg}`}>
+                    {icon}
+                </div>
+            </div>
+            {description && <p className="text-sm text-gray-500 mt-4">{description}</p>}
+        </div>
+    ));
+
+    const ModuleCard = ({ module }) => (
+        <Link 
+            to={module.path} 
+            className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 flex flex-col h-full"
+        >
+            <div className="flex items-start mb-4">
+                <div className="p-3 rounded-full bg-indigo-50 mr-4">
+                    <module.icon className="h-6 w-6 text-indigo-600" />
+                </div>
+                <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-1">{module.name}</h3>
+                    <p className="text-sm text-gray-600">{module.description}</p>
+                </div>
+                <ChevronRightIcon className="h-5 w-5 text-gray-400 ml-2" />
+            </div>
+            <div className="mt-auto pt-4 border-t border-gray-100">
+                <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
+                    {module.category}
+                </span>
+            </div>
+        </Link>
+    );
+
+    const CategoryCard = ({ category, modules }) => (
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
+            <div className="h-40 overflow-hidden relative group">
+                <div className="absolute inset-0 bg-blue-900/20 group-hover:bg-transparent transition-colors z-10" />
+                <img 
+                    src={categoryImages[category] || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000'} 
+                    alt={category} 
+                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-20">
+                    <h3 className="text-white font-bold text-lg">{category}</h3>
+                </div>
+            </div>
+            <div className="p-5 flex-1 flex flex-col">
+                <ul className="space-y-3 flex-1">
+                    {modules.slice(0, 4).map((mod, mIdx) => (
+                        <li key={mIdx}>
+                            <Link 
+                                to={mod.path}
+                                className="flex items-center text-gray-600 hover:text-blue-600 transition-colors group"
+                            >
+                                <mod.icon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-blue-500" />
+                                <span className="text-sm font-medium">{mod.name}</span>
+                            </Link>
+                        </li>
+                    ))}
+                    {modules.length > 4 && (
+                        <li className="text-xs text-blue-500 font-medium pt-2">
+                            + {modules.length - 4} more items
+                        </li>
+                    )}
+                </ul>
+                <div className="mt-4 w-full">
+                    <button 
+                        onClick={() => setSearchTerm(category)}
+                        className="w-full py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg transition-colors flex items-center justify-center"
+                    >
+                        View Details
+                        <ArrowRightIcon className="h-4 w-4 ml-1" />
+                    </button>
                 </div>
             </div>
         </div>
-    ));
+    );
 
     const CustomTooltipContent = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
@@ -401,11 +565,9 @@ const ProjectDashboard = () => {
     // --- Chart rendering component ---
     const RenderChart = () => {
         const { width } = useWindowSize();
-        const isMobile = width < 768; // Mobile breakpoint
-
+        const isMobile = width < 768;
         const isComparison = isQuantityComparison();
         
-        // Use bar chart for large datasets (except for quantity comparison)
         if (chartData.length > PIE_CHART_LIMIT && !isComparison) {
             const barHeight = 60;
             const chartHeight = barHeight * chartData.length;
@@ -436,7 +598,6 @@ const ProjectDashboard = () => {
             );
         }
 
-        // Use pie chart for smaller datasets and quantity comparison
         return (
             <ResponsiveContainer width="100%" height={isMobile ? 500 : 400}>
                 <PieChart>
@@ -444,7 +605,7 @@ const ProjectDashboard = () => {
                         data={chartData}
                         dataKey="value"
                         nameKey="name"
-                        cx={isMobile ? "50%" : "40%"} // Center pie on mobile
+                        cx={isMobile ? "50%" : "40%"}
                         cy="50%"
                         outerRadius={120}
                         innerRadius={50}
@@ -476,7 +637,6 @@ const ProjectDashboard = () => {
                             const { value: quantity } = entry.payload;
                             const label = `${value}: ${quantity}`;
                             
-                            // Truncate long labels on mobile
                             if (isMobile && label.length > 30) {
                                 return (
                                     <span className="text-gray-700 text-sm">
@@ -496,86 +656,278 @@ const ProjectDashboard = () => {
 
     // --- RENDER ---
     return (
-        <div className="bg-gray-50 min-h-screen p-4 sm:p-8 font-sans h-full">
-            <div className="max-w-7xl mx-auto h-full">
-                {initialLoading ? (
-                    <div className="flex justify-center items-center h-64">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
-                    </div>
-                ) : (
-                    <>
-                        {error && (
-                            <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-                                <p className="text-red-700">{error}</p>
+        <div className="min-h-screen bg-gray-50 font-sans">
+            {/* Hero Section */}
+            <div className="relative h-[400px] w-full overflow-hidden">
+                <div className="absolute inset-0">
+                    <img 
+                        src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=2000" 
+                        alt="Hero Background" 
+                        className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-blue-800/80 to-transparent" />
+                </div>
+
+                <div className="relative z-10 container mx-auto px-6 h-full flex flex-col justify-center">
+                    <div className="max-w-3xl animate-fade-in-up">
+                        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
+                            {greeting}, {user.name?.split(' ')[0] || 'Employee'}!
+                        </h1>
+                        <p className="text-xl text-blue-100 mb-8">
+                            Welcome to the Employee Portal. Find everything you need to manage your work, benefits, and more.
+                        </p>
+
+                        {/* Search Bar */}
+                        <div className="relative max-w-xl mb-8">
+                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
                             </div>
-                        )}
-                        <div className="mb-8">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                                {visibleModules.map((m) => (
-                                    <Link key={`${m.path}-${m.name}`} to={m.path} className="bg-white p-5 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1">
-                                        <div className="flex items-center">
-                                            <div className="p-3 rounded-full bg-indigo-50 mr-4">
-                                                <m.icon className="h-6 w-6 text-indigo-600" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-sm font-semibold text-gray-900 uppercase">{m.name}</h3>
-                                                <p className="text-xs text-gray-600 mt-1">{m.description}</p>
-                                            </div>
-                                        </div>
-                                    </Link>
+                            <input
+                                type="text"
+                                className="block w-full pl-11 pr-4 py-4 bg-white/95 backdrop-blur rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-xl transition-all"
+                                placeholder="Search for tools, forms, or policies..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Main Content */}
+            <div className="container mx-auto px-6 py-8 -mt-10 relative z-20">
+                {error && (
+                    <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <p className="text-red-700">{error}</p>
+                    </div>
+                )}
+
+                {/* Stats Grid */}
+                {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <KpiCard 
+                        title="Pending Tasks" 
+                        value={kpis.pendingTasks} 
+                        color={{ border: 'border-blue-500', text: 'text-gray-800', bg: 'bg-blue-50' }}
+                        icon={<ClipboardDocumentCheckIcon className="h-6 w-6 text-blue-600" />}
+                        description="Timesheets & Leaves"
+                    />
+                    
+                    {['admin', 'manager', 'hr'].includes(role) && (
+                        <KpiCard 
+                            title="Pending Approvals" 
+                            value={kpis.pendingApprovals} 
+                            color={{ border: 'border-purple-500', text: 'text-gray-800', bg: 'bg-purple-50' }}
+                            icon={<UsersIcon className="h-6 w-6 text-purple-600" />}
+                            description="Requires Action"
+                        />
+                    )}
+
+                    <KpiCard 
+                        title="Notifications" 
+                        value={kpis.notifications} 
+                        color={{ border: 'border-orange-500', text: 'text-gray-800', bg: 'bg-orange-50' }}
+                        icon={<BellIcon className="h-6 w-6 text-orange-600" />}
+                        description="Unread Updates"
+                        onClick={() => navigate('/notifications')}
+                    />
+                    
+                    <KpiCard 
+                        title="Leaves Taken" 
+                        value={kpis.leavesTaken} 
+                        color={{ border: 'border-green-500', text: 'text-gray-800', bg: 'bg-green-50' }}
+                        icon={<CalendarIcon className="h-6 w-6 text-green-600" />}
+                        description="Approved Leaves"
+                    />
+                </div> */}
+
+                {/* User Profile Summary */}
+                <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+                    {/* <div className="flex flex-col md:flex-row items-center justify-between mb-8">
+                        <h2 className="text-2xl font-bold text-gray-800">Your Profile Overview</h2>
+                        <Link to="/employee-management" className="text-blue-600 hover:text-blue-800 text-sm font-semibold flex items-center mt-2 md:mt-0">
+                            Manage Profile <ArrowRightIcon className="h-4 w-4 ml-1" />
+                        </Link>
+                    </div> */}
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                        <div className="flex items-center p-4 bg-blue-50 rounded-xl border border-blue-100">
+                            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-4">
+                                <UserIcon className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase font-semibold">Employee ID</p>
+                                <p className="text-lg font-bold text-gray-900">{profile?.employeeId || user.employeeId || '-'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center p-4 bg-purple-50 rounded-xl border border-purple-100">
+                            <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 mr-4">
+                                <BuildingOfficeIcon className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase font-semibold">Department</p>
+                                <p className="text-lg font-bold text-gray-900">{profile?.department || profile?.division || user.department || '-'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center p-4 bg-green-50 rounded-xl border border-green-100">
+                            <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-4">
+                                <UserGroupIcon className="h-6 w-6" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-gray-500 uppercase font-semibold">Role</p>
+                                <p className="text-lg font-bold text-gray-900 capitalize">{role || 'Employee'}</p>
+                            </div>
+                        </div>
+                        <div className="flex items-center p-4 bg-orange-50 rounded-xl border border-orange-100">
+                            <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 mr-4">
+                                <BellIcon className="h-6 w-6" />
+                            </div>
+                            <div onClick={() => setShowAnnouncementsModal(true)} className="cursor-pointer">
+                                <p className="text-xs text-gray-500 uppercase font-semibold">Notifications</p>
+                                <p className="text-lg font-bold text-gray-900">{kpis.notifications} Pending</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {searchTerm ? (
+                    // Search Results View
+                    <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
+                        <h2 className="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                            <MagnifyingGlassIcon className="h-6 w-6 mr-2 text-blue-600" />
+                            Search Results
+                        </h2>
+                        {visibleModules.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                                {visibleModules.map((module, idx) => (
+                                    <ModuleCard key={`${module.path}-${module.name}`} module={module} />
                                 ))}
                             </div>
-                        </div>
-                        {ENABLE_DASHBOARD_DATA && (
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                <KpiCard title="Total Projects" value={kpis.totalProjects} color={{ bg: 'bg-blue-50', text: 'text-blue-600' }} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m-1 4h1m5-8h1m-1 4h1m-1 4h1M5 21V5a2 2 0 012-2h10a2 2 0 012 2v16" /></svg>} onClick={handleTotalProjectsClick} />
-                                <KpiCard title="Completed" value={kpis.completedProjects} color={{ bg: 'bg-green-50', text: 'text-green-600' }} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
-                                <KpiCard title="In Progress" value={kpis.inProgressProjects} color={{ bg: 'bg-yellow-50', text: 'text-yellow-600' }} icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-yellow-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} />
+                        ) : (
+                            <div className="text-center py-12">
+                                <p className="text-gray-500 text-lg">No modules found matching "{searchTerm}"</p>
                             </div>
                         )}
-                        {ENABLE_DASHBOARD_DATA && (
-                        <div className="bg-white p-6 rounded-xl shadow-md mb-8 flex flex-wrap items-center gap-4">
-                            <h3 className="text-xl font-bold text-gray-800 mr-4">Filters</h3>
-                            <div className="flex-grow">
-                                <select value={selectedProject} onChange={handleProjectChange} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                                    <option value="">-- Select a Project --</option>
-                                    {dropdowns.projects.map(p => <option key={p} value={p}>{p}</option>)}
-                                </select>
-                            </div>
-                            <div className="flex-grow">
-                                <select value={selectedItem} onChange={handleItemChange} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
-                                    <option value="">-- Select an Item --</option>
-                                    {dropdowns.items.map(i => <option key={i} value={i}>{i}</option>)}
-                                </select>
-                            </div>
-                            <button onClick={clearFilters} className="bg-gray-700 text-white px-5 py-2 rounded-lg hover:bg-gray-800 font-semibold shadow-sm">Clear Filters</button>
+                    </div>
+                ) : (
+                    // Categorized View
+                    <div className="space-y-8">
+                        {/* Categorized Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                            {Object.entries(groupedModules).map(([category, modules], idx) => (
+                                <CategoryCard key={category} category={category} modules={modules} />
+                            ))}
                         </div>
-                        )}
+
+                        {/* Dashboard Data Section */}
                         {ENABLE_DASHBOARD_DATA && (
-                            <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
-                                <div className={`${infoData && !loading ? 'lg:col-span-3' : 'lg:col-span-5'} bg-white p-6 rounded-xl shadow-md`}>
-                                    <h2 className="text-2xl font-bold text-gray-800 mb-4">{chartTitle}</h2>
-                                    {loading ? (
-                                        <div className="flex justify-center items-center h-full"><p>Loading...</p></div>
-                                    ) : chartData.length > 0 ? (
-                                        <RenderChart />
-                                    ) : (
-                                        <div className="flex justify-center items-center h-full"><p>No data available.</p></div>
+                            <>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                                    <KpiCard 
+                                        title="Total Projects" 
+                                        value={kpis.totalProjects} 
+                                        color={{ border: 'border-blue-500', text: 'text-blue-600', bg: 'bg-blue-50' }} 
+                                        icon={<FolderIcon className="h-6 w-6 text-blue-600" />} 
+                                        onClick={handleTotalProjectsClick} 
+                                        description="Active Projects"
+                                    />
+                                    <KpiCard 
+                                        title="Completed" 
+                                        value={kpis.completedProjects} 
+                                        color={{ border: 'border-green-500', text: 'text-green-600', bg: 'bg-green-50' }} 
+                                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} 
+                                    />
+                                    <KpiCard 
+                                        title="In Progress" 
+                                        value={kpis.inProgressProjects} 
+                                        color={{ border: 'border-yellow-500', text: 'text-yellow-600', bg: 'bg-yellow-50' }} 
+                                        icon={<ClockIcon className="h-6 w-6 text-yellow-600" />} 
+                                    />
+                                </div>
+
+                                <div className="bg-white p-6 rounded-xl shadow-md mb-8 flex flex-wrap items-center gap-4">
+                                    <h3 className="text-xl font-bold text-gray-800 mr-4">Filters</h3>
+                                    <div className="flex-grow">
+                                        <select value={selectedProject} onChange={handleProjectChange} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                            <option value="">-- Select a Project --</option>
+                                            {dropdowns.projects.map(p => <option key={p} value={p}>{p}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="flex-grow">
+                                        <select value={selectedItem} onChange={handleItemChange} className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                            <option value="">-- Select an Item --</option>
+                                            {dropdowns.items.map(i => <option key={i} value={i}>{i}</option>)}
+                                        </select>
+                                    </div>
+                                    <button onClick={clearFilters} className="bg-gray-700 text-white px-5 py-2 rounded-lg hover:bg-gray-800 font-semibold shadow-sm">Clear Filters</button>
+                                </div>
+
+                                <div className="grid grid-cols-1 lg:grid-cols-5 gap-8">
+                                    <div className={`${infoData && !loading ? 'lg:col-span-3' : 'lg:col-span-5'} bg-white p-6 rounded-xl shadow-md`}>
+                                        <h2 className="text-2xl font-bold text-gray-800 mb-4">{chartTitle}</h2>
+                                        {loading ? (
+                                            <div className="flex justify-center items-center h-full"><p>Loading...</p></div>
+                                        ) : chartData.length > 0 ? (
+                                            <RenderChart />
+                                        ) : (
+                                            <div className="flex justify-center items-center h-full"><p>No data available.</p></div>
+                                        )}
+                                    </div>
+                                    
+                                    {infoData && !loading && (
+                                        <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
+                                            <h2 className="text-2xl font-bold text-gray-800 mb-4">Information</h2>
+                                            <InfoBoxContent />
+                                        </div>
                                     )}
                                 </div>
-                                
-                                {infoData && !loading && (
-                                    <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
-                                        <h2 className="text-2xl font-bold text-gray-800 mb-4">Information</h2>
-                                        <InfoBoxContent />
-                                    </div>
-                                )}
-                            </div>
+                            </>
                         )}
-                    </>
+                    </div>
                 )}
+
+                {/* Footer */}
+                <div className="mt-8 border-t border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
+                    <p>© {new Date().getFullYear()} Caldim Engineering Pvt. Ltd. All rights reserved.</p>
+                    
+                </div>
             </div>
             {showHistoryModal && <ProjectHistoryModal />}
+            {showAnnouncementsModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] flex flex-col">
+                        <div className="flex justify-between items-center mb-4 pb-4 border-b">
+                            <h2 className="text-2xl font-bold text-gray-800">Notifications</h2>
+                            <button
+                                onClick={() => setShowAnnouncementsModal(false)}
+                                className="text-gray-500 hover:text-gray-800 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                            >
+                                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                        <div className="flex-grow overflow-y-auto">
+                            {announcements.length === 0 ? (
+                                <p className="text-center text-gray-500 mt-8">No active notifications.</p>
+                            ) : (
+                                <div className="space-y-4">
+                                    {announcements.map((a) => (
+                                        <div key={a._id || a.id} className="border border-gray-200 rounded-lg p-4">
+                                            <h3 className="text-lg font-semibold text-gray-900">{a.title || 'Announcement'}</h3>
+                                            <p className="text-sm text-gray-700 mt-2">{a.message || a.description || ''}</p>
+                                            {a.createdAt && (
+                                                <p className="text-xs text-gray-500 mt-2">
+                                                    {new Date(a.createdAt).toLocaleString()}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

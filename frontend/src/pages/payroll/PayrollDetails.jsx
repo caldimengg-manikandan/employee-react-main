@@ -871,7 +871,7 @@ const PayrollDetails = () => {
                       </div>
                     ))}
                   </div>
-                  {lopPreview && formData.employeeId && (
+                  {/* {lopPreview && formData.employeeId && (
                     <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
@@ -901,7 +901,7 @@ const PayrollDetails = () => {
                         <div className="text-xl font-bold text-blue-700">{formatCurrency(lopPreview.adjustedNet)}</div>
                       </div>
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 {/* Bank Details */}
