@@ -402,7 +402,7 @@ const Login = () => {
         {/* Header */}
         <div className="relative p-6 border-b border-white/20">
           <h2 className="text-2xl font-bold text-white text-center">
-            HOLIDAY LIST 2026-2027
+           CALDIM HOLIDAY LIST 2026
           </h2>
           <button
             onClick={() => setShowHolidays(false)}
@@ -413,28 +413,26 @@ const Login = () => {
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[60vh]">
-          <div className="mb-6 overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-blue-900/40">
-                  <th className="border border-white/20 p-3 text-left text-white font-semibold">S.No</th>
-                  <th className="border border-white/20 p-3 text-left text-white font-semibold">DATE</th>
-                  <th className="border border-white/20 p-3 text-left text-white font-semibold">DAY</th>
-                  <th className="border border-white/20 p-3 text-left text-white font-semibold">LIST OF HOLIDAYS</th>
-                </tr>
-              </thead>
-              <tbody>
-                {holidays2026.map((holiday, index) => (
-                  <tr key={index} className="hover:bg-white/10 transition-colors">
-                    <td className="border border-white/20 p-3 text-white font-medium">{index + 1}</td>
-                    <td className="border border-white/20 p-3 text-white font-medium">{holiday.date}</td>
-                    <td className="border border-white/20 p-3 text-blue-200">{holiday.day}</td>
-                    <td className="border border-white/20 p-3 text-white">{holiday.occasion}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {holidays2026.map((holiday, index) => (
+              <div 
+                key={index} 
+                className="bg-white/10 border border-white/10 rounded-xl p-4 hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1"
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <span className="text-3xl font-bold text-white/20">{(index + 1).toString().padStart(2, '0')}</span>
+                  <span className="px-3 py-1 bg-blue-500/20 text-blue-200 text-xs rounded-full border border-blue-500/30">
+                    {holiday.day}
+                  </span>
+                </div>
+                
+                <h3 className="text-xl font-bold text-white mb-1">{holiday.date}</h3>
+                <p className="text-blue-100 font-medium border-t border-white/10 pt-2 mt-2">
+                  {holiday.occasion}
+                </p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
@@ -448,13 +446,13 @@ const Login = () => {
         {/* Header */}
         <div className="relative p-6 border-b border-white/20">
           <h2 className="text-2xl font-bold text-white">
-            Upcomming Events
+            UPCOMING EVENTS
           </h2>
           <button
             onClick={() => setShowUpdates(false)}
             className="absolute right-6 top-6 text-white hover:text-blue-300 text-xl"
           >
-            ✕
+            x
           </button>
         </div>
 
@@ -776,8 +774,8 @@ const Login = () => {
                     <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
                   </svg>
                   <div className="text-left">
-                    <div className="text-xs text-blue-200">Official</div>
-                    <div className="font-medium">Holidays 2026</div>
+                   
+                    <div className="font-medium">CALDIM HOLIDAY'S</div>
                   </div>
                 </button>
 
@@ -792,20 +790,13 @@ const Login = () => {
                     </svg>
                     <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   </div>
-                  <div className="text-left">
-                    <div className="text-xs text-blue-200"></div>
-                    <div className="font-medium">Upcomming Events</div>
+                  <div className="text-centre">
+                    <div className="text-xs text-blue-100"></div>
+                    <div className="font-small">UPCOMING EVENTS</div>
                   </div>
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* Footer at Bottom Left */}
-          <div className="absolute bottom-12 left-0 p-4 lg:p-6 z-20">
-            <p className="text-white/60 text-xs">
-              © 2026 CALDIM Engineering Pvt. Ltd. All rights reserved.
-            </p>
           </div>
 
           <div className="absolute bottom-0 left-0 right-0 z-50">
@@ -814,7 +805,20 @@ const Login = () => {
         </div>
 
         {/* Right Side - Photo Gallery */}
-        <div className="hidden lg:block lg:w-1/2 relative overflow-hidden">
+        <div 
+          className="hidden lg:block lg:w-1/2 relative overflow-hidden"
+          style={{ 
+            maskImage: 'linear-gradient(to right, transparent, white 100px)',
+            WebkitMaskImage: 'linear-gradient(to right, transparent, white 100px)'
+          }}
+        >
+          {/* Footer at Bottom Right (moved from left) */}
+          <div className="absolute bottom-12 right-0 p-4 lg:p-6 z-20 text-right">
+            <p className="text-white/60 text-xs">
+              © 2026 CALDIM Engineering Pvt. Ltd. All rights reserved.
+            </p>
+          </div>
+
           {/* About Us Button */}
           <div className="absolute top-10 right-10 z-30">
             <button

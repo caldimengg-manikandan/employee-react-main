@@ -85,6 +85,8 @@ const PayrollDetails = () => {
   const [formData, setFormData] = useState(initialSalaryData);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterLocation, setFilterLocation] = useState('all');
+  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [filterDesignation, setFilterDesignation] = useState('all');
   const [errors, setErrors] = useState({});
   const [successMessage, setSuccessMessage] = useState('');
   const [viewRecord, setViewRecord] = useState(null);
@@ -430,8 +432,14 @@ const PayrollDetails = () => {
     // Location filter
     const effectiveLocation = employeeList.find(e => e.employeeId === record.employeeId)?.location || record.location;
     const matchesLocation = filterLocation === 'all' || effectiveLocation === filterLocation;
+
+    // Department filter
+    const matchesDepartment = filterDepartment === 'all' || record.department === filterDepartment;
+
+    // Designation filter
+    const matchesDesignation = filterDesignation === 'all' || record.designation === filterDesignation;
     
-    return matchesSearch && matchesLocation;
+    return matchesSearch && matchesLocation && matchesDepartment && matchesDesignation;
   });
 
   const formatCurrency = (amount) => {
@@ -447,6 +455,10 @@ const PayrollDetails = () => {
     { value: 'Chennai', label: 'Chennai' },
     { value: 'Hosur', label: 'Hosur' }
   ];
+
+  const departments = ['all', ...new Set(payrollRecords.map(item => item.department).filter(Boolean))];
+  const designations = ['all', ...new Set(payrollRecords.map(item => item.designation).filter(Boolean))];
+
 
   return (
     <div className="p-6">
@@ -474,7 +486,7 @@ const PayrollDetails = () => {
 
       {/* Filters Section */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           {/* Filter by Location */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -489,6 +501,44 @@ const PayrollDetails = () => {
               {locations.map(location => (
                 <option key={location.value} value={location.value}>
                   {location.label}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filter by Department */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Division
+            </label>
+            <select
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Division</option>
+              {departments.filter(d => d !== 'all').map(dept => (
+                <option key={dept} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Filter by Designation */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Designation
+            </label>
+            <select
+              value={filterDesignation}
+              onChange={(e) => setFilterDesignation(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Designations</option>
+              {designations.filter(d => d !== 'all').map(desig => (
+                <option key={desig} value={desig}>
+                  {desig}
                 </option>
               ))}
             </select>
@@ -691,7 +741,7 @@ const PayrollDetails = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Department *
+                        Division *
                       </label>
                       <input
                         type="text"
@@ -1008,7 +1058,7 @@ const PayrollDetails = () => {
                     <p>{viewRecord.designation}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500">Department</label>
+                    <label className="text-sm font-medium text-gray-500">Division</label>
                     <p>{viewRecord.department}</p>
                   </div>
                   <div>

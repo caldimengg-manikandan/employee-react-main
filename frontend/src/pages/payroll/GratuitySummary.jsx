@@ -7,6 +7,9 @@ export default function GratuitySummary() {
   const [loading, setLoading] = useState(false);
   const [expandedRows, setExpandedRows] = useState(new Set());
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [filterDesignation, setFilterDesignation] = useState('all');
 
   useEffect(() => {
     fetchGratuityData();
@@ -95,6 +98,18 @@ export default function GratuitySummary() {
     document.body.removeChild(link);
   };
 
+  const departments = ['all', ...new Set(gratuityData.map(item => item.department).filter(Boolean))];
+  const designations = ['all', ...new Set(gratuityData.map(item => item.designation).filter(Boolean))];
+
+  const filteredData = gratuityData.filter(item => {
+    const matchesSearch = 
+      item.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDepartment = filterDepartment === 'all' || item.department === filterDepartment;
+    const matchesDesignation = filterDesignation === 'all' || item.designation === filterDesignation;
+    return matchesSearch && matchesDepartment && matchesDesignation;
+  });
+
   if (loading) return <div className="p-6">Loading gratuity data...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
 
@@ -115,6 +130,53 @@ export default function GratuitySummary() {
           </button>
         </div>
 
+        {/* Filters */}
+        <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Search */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Search Employee</label>
+              <input
+                type="text"
+                placeholder="Search by name or ID"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            {/* Department Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
+              <select
+                value={filterDepartment}
+                onChange={(e) => setFilterDepartment(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Departments</option>
+                {departments.filter(d => d !== 'all').map(dept => (
+                  <option key={dept} value={dept}>{dept}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Designation Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+              <select
+                value={filterDesignation}
+                onChange={(e) => setFilterDesignation(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Designations</option>
+                {designations.filter(d => d !== 'all').map(desig => (
+                  <option key={desig} value={desig}>{desig}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -128,14 +190,14 @@ export default function GratuitySummary() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {gratuityData.length === 0 ? (
+                {filteredData.length === 0 ? (
                   <tr>
                     <td colSpan="5" className="px-6 py-8 text-center text-gray-500">
                       No gratuity records found.
                     </td>
                   </tr>
                 ) : (
-                  gratuityData.map((emp) => (
+                  filteredData.map((emp) => (
                     <React.Fragment key={emp.employeeId}>
                       <tr 
                         className={`hover:bg-gray-50 cursor-pointer transition-colors ${expandedRows.has(emp.employeeId) ? 'bg-blue-50/30' : ''}`}

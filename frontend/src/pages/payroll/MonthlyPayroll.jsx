@@ -54,6 +54,9 @@ export default function MonthlyPayroll() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [filterBank, setFilterBank] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [filterDesignation, setFilterDesignation] = useState('all');
 
   useEffect(() => {
     fetchEmployees();
@@ -94,6 +97,8 @@ export default function MonthlyPayroll() {
           employeeId: emp.employeeId,
           employeeName: emp.name,
           designation: emp.designation,
+          department: emp.department || emp.division,
+          division: emp.division,
           location: emp.location || emp.address || emp.currentAddress || 'Unknown',
           
           // Use payroll record if available, else fallback to employee record
@@ -417,17 +422,32 @@ Payroll Department
       minimumFractionDigits: 0 
     }).format(amount || 0);
 
+  const departments = ['all', ...new Set(salaryRecords.map(r => r.department || '').filter(Boolean))];
+  const designations = ['all', ...new Set(salaryRecords.map(r => r.designation || '').filter(Boolean))];
+
   const filteredRecords = salaryRecords.filter(record => {
-    if (filterBank === 'all') return true;
-    if (filterBank === 'hdfc') return record.bankName?.includes('HDFC');
-    if (filterBank === 'sbi') return record.bankName?.includes('SBI');
-    if (filterBank === 'axis') return record.bankName?.includes('Axis');
-    if (filterBank === 'indian') return record.bankName?.includes('Indian');
-    if (filterBank === 'icici') return record.bankName?.includes('ICICI');
-    if (filterBank === 'other') return !['HDFC', 'SBI', 'Axis', 'Indian', 'ICICI'].some(bank => 
+    // Search
+    const matchesSearch = 
+      (record.employeeName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (record.employeeId || '').toLowerCase().includes(searchTerm.toLowerCase());
+    
+    // Department
+    const matchesDept = filterDepartment === 'all' || record.department === filterDepartment;
+
+    // Designation
+    const matchesDesig = filterDesignation === 'all' || record.designation === filterDesignation;
+
+    // Bank
+    if (filterBank === 'all') return matchesSearch && matchesDept && matchesDesig;
+    if (filterBank === 'hdfc') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('HDFC');
+    if (filterBank === 'sbi') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('SBI');
+    if (filterBank === 'axis') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('Axis');
+    if (filterBank === 'indian') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('Indian');
+    if (filterBank === 'icici') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('ICICI');
+    if (filterBank === 'other') return (matchesSearch && matchesDept && matchesDesig) && !['HDFC', 'SBI', 'Axis', 'Indian', 'ICICI'].some(bank => 
       record.bankName?.includes(bank)
     );
-    return true;
+    return matchesSearch && matchesDept && matchesDesig;
   });
 
   const getBankFilterLabel = () => {
@@ -460,6 +480,72 @@ Payroll Department
 
       {/* Controls */}
       <div className="bg-white p-5 rounded-lg shadow mb-3 border border-gray-200">
+        {/* Filters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-4 border-b pb-4">
+          {/* Search */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Search</label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Name or ID"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full px-3 py-2 pl-8 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <Filter className="w-4 h-4 text-gray-400 absolute left-2.5 top-2.5" />
+            </div>
+          </div>
+
+          {/* Department */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Department</label>
+            <select
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Departments</option>
+              {departments.filter(d => d !== 'all').map(dept => (
+                <option key={dept} value={dept}>{dept}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Designation */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Designation</label>
+            <select
+              value={filterDesignation}
+              onChange={(e) => setFilterDesignation(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Designations</option>
+              {designations.filter(d => d !== 'all').map(desig => (
+                <option key={desig} value={desig}>{desig}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Bank Filter */}
+          {/* <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Bank</label>
+            <select
+              value={filterBank}
+              onChange={(e) => setFilterBank(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Banks</option>
+              <option value="hdfc">HDFC Bank</option>
+              <option value="sbi">SBI</option>
+              <option value="axis">Axis Bank</option>
+              <option value="indian">Indian Bank</option>
+              <option value="icici">ICICI Bank</option>
+              <option value="other">Other Banks</option>
+            </select>
+          </div> */}
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Salary Month</label>
@@ -471,13 +557,11 @@ Payroll Department
             />
           </div>
 
-        
-
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Selected Employees</label>
             <div className="px-3 py-2 border border-gray-300 rounded bg-gray-50 text-center">
               <span className="font-medium text-blue-600">{selectedEmployees.length}</span>
-              <span className="text-gray-600"> / {salaryRecords.length} employees</span>
+              <span className="text-gray-600"> / {filteredRecords.length} filtered</span>
             </div>
             
           </div>

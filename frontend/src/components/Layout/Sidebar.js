@@ -98,6 +98,12 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       allowEmployeeRole: true,
     },
     {
+      name: "My Profile",
+      path: "/my-profile",
+      icon: getIconForMenu("My Profile"),
+      allowEmployeeRole: true,
+    },
+    {
       name: "Timesheet",
       hasDropdown: true,
       icon: getIconForMenu("Timesheet"),

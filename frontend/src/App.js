@@ -6,6 +6,7 @@ import ProtectedRoute from "./components/Layout/ProtectedRoute";
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
 import UserAccess from "./pages/UserAccess";
+import MyProfile from "./pages/MyProfile";
 import EmployeeManagement from "./pages/EmployeeManagement";
 
 // Timesheet Pages
@@ -325,6 +326,15 @@ function App() {
         
 
             {/* ---------------- User & Employee Management ---------------- */}
+            <Route
+              path="my-profile"
+              element={
+                <ProtectedRoute>
+                  <MyProfile />
+                </ProtectedRoute>
+              }
+            />
+
             <Route
               path="user-access"
               element={

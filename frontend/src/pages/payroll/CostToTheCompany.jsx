@@ -1,14 +1,37 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Calendar, Filter } from "lucide-react";
-import { monthlyPayrollAPI } from "../../services/api";
+import { monthlyPayrollAPI, employeeAPI } from "../../services/api";
 
 const CostToTheCompany = () => {
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
   const [location, setLocation] = useState(""); // New state for location
+  const [filterDepartment, setFilterDepartment] = useState("");
+  const [filterDesignation, setFilterDesignation] = useState("");
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [departments, setDepartments] = useState([]);
+  const [designations, setDesignations] = useState([]);
+
+  useEffect(() => {
+    fetchFilterOptions();
+  }, []);
+
+  const fetchFilterOptions = async () => {
+    try {
+      const res = await employeeAPI.getAllEmployees();
+      const data = Array.isArray(res.data) ? res.data : [];
+      
+      const uniqueDepts = [...new Set(data.map(e => e.department || e.division).filter(Boolean))];
+      const uniqueDesigs = [...new Set(data.map(e => e.designation).filter(Boolean))];
+      
+      setDepartments(uniqueDepts);
+      setDesignations(uniqueDesigs);
+    } catch (error) {
+      console.error("Error fetching filter options", error);
+    }
+  };
 
   // Example locations data
   const mockData = [
@@ -39,18 +62,36 @@ const CostToTheCompany = () => {
   ];
 
   const fetchCTCSummary = async () => {
-    if (!month || !year) {
-      alert("Please select month and year");
-      return;
-    }
     try {
       setLoading(true);
-      const monthStr = String(month).padStart(2, "0");
-      const salaryMonth = `${year}-${monthStr}`;
-      const res = await monthlyPayrollAPI.list({ month: salaryMonth });
+      
+      let params = {};
+      if (year && month) {
+        const monthStr = String(month).padStart(2, "0");
+        params.month = `${year}-${monthStr}`;
+      }
+
+      const res = await monthlyPayrollAPI.list(params);
       let records = Array.isArray(res.data) ? res.data : [];
+
+      // Filter by Year if selected but Month is not
+      if (year && !month) {
+        records = records.filter(r => r.salaryMonth?.startsWith(`${year}-`));
+      }
+      // Filter by Month if selected but Year is not
+      if (!year && month) {
+        const monthStr = String(month).padStart(2, "0");
+        records = records.filter(r => r.salaryMonth?.endsWith(`-${monthStr}`));
+      }
+
       if (location) {
         records = records.filter((r) => (r.location || "").toLowerCase() === location.toLowerCase());
+      }
+      if (filterDepartment) {
+        records = records.filter((r) => (r.department || "") === filterDepartment);
+      }
+      if (filterDesignation) {
+        records = records.filter((r) => (r.designation || "") === filterDesignation);
       }
       const group = new Map();
       for (const r of records) {
@@ -77,10 +118,16 @@ const CostToTheCompany = () => {
     }
   };
 
+  useEffect(() => {
+    fetchCTCSummary();
+  }, []);
+
   const handleClearFilters = () => {
     setMonth("");
     setYear("");
     setLocation("");
+    setFilterDepartment("");
+    setFilterDesignation("");
     setSummary([]);
     setEmployees([]);
   };
@@ -91,6 +138,22 @@ const CostToTheCompany = () => {
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-end">
+        {/* Year Selector */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Year</label>
+          <select
+            className="border rounded px-3 py-2 w-32 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={year}
+            onChange={(e) => setYear(e.target.value)}
+          >
+            <option value="">All Years</option>
+            {[2023, 2024, 2025, 2026].map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </div>
         {/* Month Selector */}
         <div>
           <label className="block text-sm font-medium mb-1">Month</label>
@@ -99,7 +162,7 @@ const CostToTheCompany = () => {
             value={month}
             onChange={(e) => setMonth(e.target.value)}
           >
-            <option value="">Select Month</option>
+            <option value="">All Months</option>
             {[
               "January", "February", "March", "April", "May", "June",
               "July", "August", "September", "October", "November", "December"
@@ -111,22 +174,7 @@ const CostToTheCompany = () => {
           </select>
         </div>
 
-        {/* Year Selector */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Year</label>
-          <select
-            className="border rounded px-3 py-2 w-32 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-          >
-            <option value="">Select Year</option>
-            {[2023, 2024, 2025, 2026].map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
+        
 
         {/* Location Selector - NEW */}
         <div>
@@ -140,6 +188,40 @@ const CostToTheCompany = () => {
             <option value="Hosur">Hosur</option>
             <option value="Chennai">Chennai</option>
             
+          </select>
+        </div>
+
+        {/* Department Selector */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Department</label>
+          <select
+            className="border rounded px-3 py-2 w-40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={filterDepartment}
+            onChange={(e) => setFilterDepartment(e.target.value)}
+          >
+            <option value="">All Departments</option>
+            {departments.map((dept, index) => (
+              <option key={index} value={dept}>
+                {dept}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Designation Selector */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Designation</label>
+          <select
+            className="border rounded px-3 py-2 w-40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            value={filterDesignation}
+            onChange={(e) => setFilterDesignation(e.target.value)}
+          >
+            <option value="">All Designations</option>
+            {designations.map((desig, index) => (
+              <option key={index} value={desig}>
+                {desig}
+              </option>
+            ))}
           </select>
         </div>
 

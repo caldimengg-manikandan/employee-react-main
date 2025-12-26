@@ -668,9 +668,9 @@ const ProjectDashboard = () => {
                     <div className="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-blue-800/80 to-transparent" />
                 </div>
 
-                <div className="relative z-10 container mx-auto px-6 h-full flex flex-col justify-center">
-                    <div className="max-w-3xl animate-fade-in-up">
-                        <h1 className="text-4xl md:text-5xl font-bold text-white mb-4 tracking-tight">
+                <div className="relative z-10 container mx-auto px-6 h-full flex flex-col md:flex-row items-center justify-between py-10 md:py-0">
+                    <div className="max-w-2xl animate-fade-in-up w-full md:w-7/12">
+                        <h1 className="text-3xl md:text-4xl font-stylish text-white mb-5 tracking-tight">
                             {greeting}, {user.name?.split(' ')[0] || 'Employee'}!
                         </h1>
                         <p className="text-xl text-blue-100 mb-8">
@@ -689,6 +689,36 @@ const ProjectDashboard = () => {
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
+                        </div>
+                    </div>
+
+                    {/* Profile Details Card */}
+                    <div className="w-full md:w-4/12 mt-8 md:mt-0 animate-fade-in-up delay-200">
+                        <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 shadow-xl text-white transform hover:scale-105 transition-all duration-300">
+                            <div className="flex items-center mb-6 border-b border-white/10 pb-4">
+                                <div className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center text-xl font-bold border-2 border-white/30 mr-4 shadow-lg">
+                                    {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="h-8 w-8 text-white" />}
+                                </div>
+                                <div>
+                                    <h3 className="font-serif font-bold text-xl text-white tracking-wide">{user.name || 'Employee'}</h3>
+                                    <p className="text-blue-200 text-sm font-medium">{profile?.designation || user.designation || 'Designation'}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/5">
+                                    <span className="text-blue-200 text-sm">Employee ID</span>
+                                    <span className="font-semibold">{profile?.employeeId || user.employeeId || 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/5">
+                                    <span className="text-blue-200 text-sm">Division</span>
+                                    <span className="font-semibold">{profile?.division || user.division || 'N/A'}</span>
+                                </div>
+                                <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/5">
+                                    <span className="text-blue-200 text-sm">Location</span>
+                                    <span className="font-semibold">{profile?.location || user.location || 'N/A'}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
