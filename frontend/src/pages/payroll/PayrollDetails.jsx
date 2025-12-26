@@ -93,6 +93,7 @@ const PayrollDetails = () => {
   const [employeeLookupError, setEmployeeLookupError] = useState('');
   const [employeeList, setEmployeeList] = useState([]);
   const [lopPreview, setLopPreview] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('all');
 
   // Load payroll data on mount (fallback to empty if API fails)
   useEffect(() => {
@@ -438,8 +439,10 @@ const PayrollDetails = () => {
 
     // Designation filter
     const matchesDesignation = filterDesignation === 'all' || record.designation === filterDesignation;
+
+    const matchesStatus = filterStatus === 'all' || String(record.status || '').toLowerCase() === String(filterStatus).toLowerCase();
     
-    return matchesSearch && matchesLocation && matchesDepartment && matchesDesignation;
+    return matchesSearch && matchesLocation && matchesDepartment && matchesDesignation && matchesStatus;
   });
 
   const formatCurrency = (amount) => {
@@ -458,6 +461,15 @@ const PayrollDetails = () => {
 
   const departments = ['all', ...new Set(payrollRecords.map(item => item.department).filter(Boolean))];
   const designations = ['all', ...new Set(payrollRecords.map(item => item.designation).filter(Boolean))];
+  const statuses = ['all', ...new Set(payrollRecords.map(item => item.status).filter(Boolean))];
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setFilterLocation('all');
+    setFilterDepartment('all');
+    setFilterDesignation('all');
+    setFilterStatus('all');
+  };
 
 
   return (
@@ -486,7 +498,7 @@ const PayrollDetails = () => {
 
       {/* Filters Section */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-7 gap-4">
           {/* Filter by Location */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -544,6 +556,25 @@ const PayrollDetails = () => {
             </select>
           </div>
 
+          {/* Filter by Status */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Status
+            </label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Status</option>
+              {statuses.filter(s => s !== 'all').map(status => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Add Salary Record Box */}
           <div className="flex items-end">
             <button
@@ -565,6 +596,15 @@ const PayrollDetails = () => {
               Download All as PDF
             </button>
           </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={resetFilters}
+              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Reset Filters
+            </button>
+          </div>
         </div>
         
         <div className="mt-4 text-sm text-gray-500">
@@ -574,14 +614,14 @@ const PayrollDetails = () => {
 
       {/* Payroll Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-[#262760]">
+        <div className="overflow-auto max-h-[70vh]">
+          <table className="min-w-[980px] w-full divide-y divide-gray-200">
+            <thead className="bg-[#262760] sticky top-0 z-30">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-0 z-40 bg-[#262760] w-[140px] min-w-[140px] max-w-[140px]">
                   Employee ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-[140px] z-40 bg-[#262760] w-[240px] min-w-[240px] max-w-[240px]">
                   Employee Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -603,11 +643,11 @@ const PayrollDetails = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRecords.map((record, index) => (
-                <tr key={record.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap">
+                <tr key={record.id} className="group hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap sticky left-0 z-20 bg-white group-hover:bg-gray-50 w-[140px] min-w-[140px] max-w-[140px]">
                     <div className="font-medium text-gray-900">{record.employeeId}</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 whitespace-nowrap sticky left-[140px] z-20 bg-white group-hover:bg-gray-50 w-[240px] min-w-[240px] max-w-[240px]">
                     <div className="font-medium text-gray-900">{record.employeeName}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

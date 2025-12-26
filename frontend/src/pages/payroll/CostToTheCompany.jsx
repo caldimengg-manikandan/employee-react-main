@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from "react";
-import { Calendar, Filter } from "lucide-react";
+import { Filter, Search } from "lucide-react";
 import { monthlyPayrollAPI, employeeAPI } from "../../services/api";
 
 const CostToTheCompany = () => {
   const [month, setMonth] = useState("");
   const [year, setYear] = useState("");
-  const [location, setLocation] = useState(""); // New state for location
+  const [location, setLocation] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("");
   const [filterDesignation, setFilterDesignation] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(false);
   const [summary, setSummary] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [records, setRecords] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
+  const [locations, setLocations] = useState([]);
 
   useEffect(() => {
     fetchFilterOptions();
@@ -25,41 +28,15 @@ const CostToTheCompany = () => {
       
       const uniqueDepts = [...new Set(data.map(e => e.department || e.division).filter(Boolean))];
       const uniqueDesigs = [...new Set(data.map(e => e.designation).filter(Boolean))];
+      const uniqueLocs = [...new Set(data.map(e => e.location || e.address || e.currentAddress).filter(Boolean))];
       
       setDepartments(uniqueDepts);
       setDesignations(uniqueDesigs);
+      setLocations(uniqueLocs);
     } catch (error) {
       console.error("Error fetching filter options", error);
     }
   };
-
-  // Example locations data
-  const mockData = [
-    {
-      location: "Chennai",
-      totalPF: 125000,
-      totalTax: 98000,
-      totalCTC: 1250000,
-    },
-    {
-      location: "Bangalore",
-      totalPF: 98000,
-      totalTax: 76000,
-      totalCTC: 980000,
-    },
-    {
-      location: "Hyderabad",
-      totalPF: 87000,
-      totalTax: 65000,
-      totalCTC: 870000,
-    },
-    {
-      location: "Hosur", // Added Hosur to mock data
-      totalPF: 75000,
-      totalTax: 62000,
-      totalCTC: 850000,
-    },
-  ];
 
   const fetchCTCSummary = async () => {
     try {
@@ -84,33 +61,7 @@ const CostToTheCompany = () => {
         records = records.filter(r => r.salaryMonth?.endsWith(`-${monthStr}`));
       }
 
-      if (location) {
-        records = records.filter((r) => (r.location || "").toLowerCase() === location.toLowerCase());
-      }
-      if (filterDepartment) {
-        records = records.filter((r) => (r.department || "") === filterDepartment);
-      }
-      if (filterDesignation) {
-        records = records.filter((r) => (r.designation || "") === filterDesignation);
-      }
-      const group = new Map();
-      for (const r of records) {
-        const loc = r.location || "Unknown";
-        const pf = Number(r.pf || 0);
-        const tax = Number(r.tax || 0);
-        const gratuity = Number(r.gratuity || 0);
-        const totalEarnings = Number(r.totalEarnings || 0);
-        const ctc = r.ctc != null ? Number(r.ctc || 0) : totalEarnings + gratuity;
-        if (!group.has(loc)) {
-          group.set(loc, { location: loc, totalPF: 0, totalTax: 0, totalCTC: 0 });
-        }
-        const agg = group.get(loc);
-        agg.totalPF += pf;
-        agg.totalTax += tax;
-        agg.totalCTC += ctc;
-      }
-      setSummary(Array.from(group.values()));
-      setEmployees(records);
+      setRecords(records);
     } catch (error) {
       console.error("Error fetching CTC summary", error);
     } finally {
@@ -122,12 +73,56 @@ const CostToTheCompany = () => {
     fetchCTCSummary();
   }, []);
 
+  useEffect(() => {
+    let filtered = Array.isArray(records) ? records : [];
+
+    if (location) {
+      filtered = filtered.filter((r) => String(r.location || "").toLowerCase() === String(location).toLowerCase());
+    }
+    if (filterDepartment) {
+      filtered = filtered.filter((r) => String(r.department || "") === String(filterDepartment));
+    }
+    if (filterDesignation) {
+      filtered = filtered.filter((r) => String(r.designation || "") === String(filterDesignation));
+    }
+    if (searchTerm.trim()) {
+      const q = searchTerm.trim().toLowerCase();
+      filtered = filtered.filter((r) => {
+        const name = String(r.employeeName || "").toLowerCase();
+        const id = String(r.employeeId || "").toLowerCase();
+        return name.includes(q) || id.includes(q);
+      });
+    }
+
+    const group = new Map();
+    for (const r of filtered) {
+      const loc = r.location || "Unknown";
+      const pf = Number(r.pf || 0);
+      const tax = Number(r.tax || 0);
+      const gratuity = Number(r.gratuity || 0);
+      const totalEarnings = Number(r.totalEarnings || 0);
+      const ctc = r.ctc != null ? Number(r.ctc || 0) : totalEarnings + gratuity;
+      if (!group.has(loc)) {
+        group.set(loc, { location: loc, totalPF: 0, totalTax: 0, totalCTC: 0 });
+      }
+      const agg = group.get(loc);
+      agg.totalPF += pf;
+      agg.totalTax += tax;
+      agg.totalCTC += ctc;
+    }
+
+    setEmployees(filtered);
+    setSummary(Array.from(group.values()));
+  }, [records, location, filterDepartment, filterDesignation, searchTerm]);
+
   const handleClearFilters = () => {
     setMonth("");
     setYear("");
     setLocation("");
     setFilterDepartment("");
     setFilterDesignation("");
+    setSearchTerm("");
+    setRecords([]);
     setSummary([]);
     setEmployees([]);
   };
@@ -135,6 +130,18 @@ const CostToTheCompany = () => {
   return (
     <div className="p-6">
       
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        {/* <div className="relative w-full md:w-72">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+          <input
+            type="text"
+            placeholder="Search by Employee Name, ID"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+        </div> */}
+      </div>
 
       {/* Filters */}
       <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-end">
@@ -185,9 +192,11 @@ const CostToTheCompany = () => {
             onChange={(e) => setLocation(e.target.value)}
           >
             <option value="">All Locations</option>
-            <option value="Hosur">Hosur</option>
-            <option value="Chennai">Chennai</option>
-            
+            {locations.map((loc) => (
+              <option key={loc} value={loc}>
+                {loc}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -247,11 +256,11 @@ const CostToTheCompany = () => {
      
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-[#262760]">
+        <div className="overflow-auto max-h-[45vh]">
+          <table className="min-w-[720px] w-full divide-y divide-gray-200 table-fixed">
+            <thead className="bg-[#262760] sticky top-0 z-30">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-0 z-40 bg-[#262760] w-[220px] min-w-[220px] max-w-[220px]">
                   Location
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
@@ -283,8 +292,10 @@ const CostToTheCompany = () => {
                 </tr>
               ) : (
                 summary.map((row, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap font-medium">{row.location}</td>
+                  <tr key={index} className="group hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap font-medium sticky left-0 z-20 bg-white group-hover:bg-gray-50 w-[220px] min-w-[220px] max-w-[220px]">
+                      {row.location}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right">
                       ₹{row.totalPF.toLocaleString()}
                     </td>
@@ -299,9 +310,11 @@ const CostToTheCompany = () => {
               )}
             </tbody>
             {summary.length > 0 && (
-              <tfoot className="bg-gray-50">
+              <tfoot className="bg-gray-50 sticky bottom-0 z-20">
                 <tr>
-                  <td className="px-6 py-4 whitespace-nowrap font-bold">Total</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-bold sticky left-0 z-30 bg-gray-50 w-[220px] min-w-[220px] max-w-[220px]">
+                    Total
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right font-bold">
                     ₹{summary.reduce((sum, row) => sum + row.totalPF, 0).toLocaleString()}
                   </td>
@@ -320,16 +333,17 @@ const CostToTheCompany = () => {
 
       {employees.length > 0 && (
         <div className="bg-white rounded-lg shadow overflow-hidden mt-6">
-          <div className="px-6 py-4 border-b">
-            <div className="text-lg font-semibold">Employee CTC Details</div>
-            <div className="text-sm text-gray-500">Based on monthly payroll data</div>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-[#262760]">
+          
+          <div className="overflow-auto max-h-[70vh]">
+            <table className="min-w-[1200px] w-full divide-y divide-gray-200">
+              <thead className="bg-[#262760] sticky top-0 z-30">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Designation</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-0 z-40 bg-[#262760] w-[260px] min-w-[260px] max-w-[260px]">
+                    Employee
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-[260px] z-40 bg-[#262760] w-[200px] min-w-[200px] max-w-[200px]">
+                    Designation
+                  </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Location</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Total Earnings</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">PF</th>
@@ -345,9 +359,13 @@ const CostToTheCompany = () => {
                   const gratuity = Number(e.gratuity || 0);
                   const ctc = e.ctc != null ? Number(e.ctc || 0) : totalEarnings + gratuity;
                   return (
-                    <tr key={`${e.employeeId}-${e.salaryMonth}`} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap font-medium">{e.employeeName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{e.designation || "-"}</td>
+                    <tr key={`${e.employeeId}-${e.salaryMonth}`} className="group hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap font-medium sticky left-0 z-20 bg-white group-hover:bg-gray-50 w-[260px] min-w-[260px] max-w-[260px]">
+                        {e.employeeName}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap sticky left-[260px] z-20 bg-white group-hover:bg-gray-50 w-[200px] min-w-[200px] max-w-[200px]">
+                        {e.designation || "-"}
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">{e.location || "-"}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">₹{totalEarnings.toLocaleString()}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">₹{Number(e.pf || 0).toLocaleString()}</td>
@@ -359,9 +377,15 @@ const CostToTheCompany = () => {
                   );
                 })}
               </tbody>
-              <tfoot className="bg-gray-50">
+              <tfoot className="bg-gray-50 sticky bottom-0 z-20">
                 <tr>
-                  <td className="px-6 py-4 whitespace-nowrap font-bold" colSpan={3}>Totals</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-bold sticky left-0 z-30 bg-gray-50 w-[260px] min-w-[260px] max-w-[260px]">
+                    Totals
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap font-bold sticky left-[260px] z-30 bg-gray-50 w-[200px] min-w-[200px] max-w-[200px]">
+                    —
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap font-bold">—</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right font-bold">
                     ₹{employees.reduce((sum, e) => sum + Number(e.totalEarnings || 0), 0).toLocaleString()}
                   </td>
