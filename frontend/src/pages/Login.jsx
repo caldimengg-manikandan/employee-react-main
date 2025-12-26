@@ -638,8 +638,12 @@ const Login = () => {
 
           {/* Login Box Container */}
           <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-4 lg:p-8">
+            <h1 className="text-8xl font-bold text-white mt-2 tracking-tight">
+                  CALDIM
+                </h1>
             {/* Logo at Top Left */}
             <div className="absolute top-0 left-0 p-4 lg:p-6 z-20">
+              
               <div className="flex flex-col items-start">
                 <img
                   src="/images/steel-logo.png"
@@ -649,10 +653,9 @@ const Login = () => {
                   
                 />
 
-                <h1 className="text-2xl font-bold text-white mt-2 tracking-tight">
-                  CALDIM Engineering Pvt. Ltd.
-                </h1>
+                
               </div>
+              
             </div>
 
               <div className="w-full max-w-md mt-20">
@@ -663,6 +666,7 @@ const Login = () => {
 
                 {/* Login Box */}
                 <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/30 hover:border-white/50 transition-all duration-300">
+                
                   <div className="text-center mb-6">
                     <h2 className="text-2xl font-bold text-gray-800">
                       EMPLOYEE PORTAL
