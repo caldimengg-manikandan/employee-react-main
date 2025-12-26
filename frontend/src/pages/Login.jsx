@@ -74,6 +74,8 @@ const Login = () => {
     { date: 'REGIONAL', day: 'CHOOSE ONE', occasion: 'REGIONAL HOLIDAY (TELUGU NEW YEAR / GOOD FRIDAY / BAKRID / CHRISTMAS)' }
   ];
 
+  
+
   // Today's Updates data
   const todaysUpdates = [
     
@@ -350,19 +352,6 @@ const Login = () => {
 
         {/* Content */}
         <div className="p-6 overflow-y-auto max-h-[65vh]">
-          {/* Company History */}
-          <div className="mb-8">
-            <h3 className="text-xl font-bold text-white mb-4">Our Company History</h3>
-            <div className="space-y-4 text-blue-100">
-              <p className="leading-relaxed">
-                <span className="font-bold text-white">CALDIM Engineering Pvt. Ltd.</span> was founded with a vision to revolutionize the engineering and detailing services in the construction industry.
-              </p>
-              <p className="leading-relaxed">
-                We are your premier partner for comprehensive engineering and detailing services tailored to the construction industry. With a dedicated team of skilled professionals and a commitment to excellence.
-              </p>
-            </div>
-          </div>
-
           {/* Services */}
           <div className="mb-8">
             <h3 className="text-xl font-bold text-white mb-4">Our Services</h3>
@@ -384,6 +373,21 @@ const Login = () => {
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 rounded-xl p-6 border border-white/10">
+              <h3 className="text-xl font-bold text-white mb-2">Our Vision</h3>
+              <p className="text-blue-100">
+                To be a pioneering global engineering solutions organization, driving innovation and excellence in construction, manufacturing and automotive industries.
+              </p>
+            </div>
+            <div className="bg-gradient-to-r from-blue-900/40 to-purple-900/40 rounded-xl p-6 border border-white/10">
+              <h3 className="text-xl font-bold text-white mb-2">Our Mission</h3>
+              <p className="text-blue-100">
+                To be the premium partner of choice, delivering innovative and reliable engineering solutions that empower all industries to achieve excellence.
+              </p>
             </div>
           </div>
         </div>
@@ -473,6 +477,13 @@ const Login = () => {
           
           <div className="mt-6">
             <LoginAnnouncements />
+          </div>
+          
+          {/* Footer at Bottom Left */}
+          <div className="absolute bottom-12 left-0 p-4 lg:p-6 z-20">
+            <p className="text-white/60 text-xs">
+              © 2026 CALDIM Engineering Pvt. Ltd. All rights reserved.
+            </p>
           </div>
         </div>
       </div>
@@ -627,27 +638,24 @@ const Login = () => {
 
           {/* Login Box Container */}
           <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-4 lg:p-8">
-            {/* Logo at Top */}
-            <div className="absolute top-0 left-0 right-0 p-4 lg:p-6">
-              <div className="flex items-center justify-center">
+            {/* Logo at Top Left */}
+            <div className="absolute top-0 left-0 p-4 lg:p-6 z-20">
+              <div className="flex flex-col items-start">
                 <img
                   src="/images/steel-logo.png"
                   alt="caldim"
-                  className="h-auto w-full max-w-[140px] object-contain mx-auto"
+                  className="h-auto w-full max-w-[180px] object-contain"
+              
+                  
                 />
-                
-              </div>
-              <br />
 
-              <div className="text-center mb-8">
-                  <h1 className="text-2xl font-bold text-white mb-2 tracking-tight">
-                    CALDIM Engineering
-                  </h1>
-                   
-                </div>
+                <h1 className="text-2xl font-bold text-white mt-2 tracking-tight">
+                  CALDIM Engineering Pvt. Ltd.
+                </h1>
+              </div>
             </div>
 
-              <div className="w-full max-w-md">
+              <div className="w-full max-w-md mt-20">
                 {/* Header */}
                 
 
@@ -751,13 +759,6 @@ const Login = () => {
                     )}
                   </button>
                 </form>
-
-                {/* Footer */}
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <p className="text-center text-gray-500 text-xs">
-                    © 2026 CALDIM Engineering Pvt. Ltd. All rights reserved.
-                  </p>
-                </div>
               </div>
 
               {/* Bottom Buttons */}
@@ -795,6 +796,17 @@ const Login = () => {
               </div>
             </div>
           </div>
+
+          {/* Footer at Bottom Left */}
+          <div className="absolute bottom-12 left-0 p-4 lg:p-6 z-20">
+            <p className="text-white/60 text-xs">
+              © 2026 CALDIM Engineering Pvt. Ltd. All rights reserved.
+            </p>
+          </div>
+
+          <div className="absolute bottom-0 left-0 right-0 z-50">
+            <LoginAnnouncements title="📢 Company Announcements" mode="ticker" />
+          </div>
         </div>
 
         {/* Right Side - Photo Gallery */}
@@ -812,17 +824,8 @@ const Login = () => {
             </button>
           </div>
 
-          {/* Company Vision */}
-          <div className="absolute top-10 left-10 text-left z-20">
-            <div className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm rounded-2xl p-6 border border-white/20">
-              <h3 className="text-2xl font-bold text-white mb-2">
-                OUR VISION
-              </h3>
-              <p className="text-blue-100">
-                To be a pioneering global engineering solutions organization
-              </p>
-            </div>
-          </div>
+          
+
 
           <div className="absolute inset-0 bg-gradient-to-l from-black/40 to-transparent z-10"></div>
           
@@ -874,6 +877,20 @@ const Login = () => {
 
       {/* CSS Animations */}
       <style jsx>{`
+        @keyframes marquee {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        
+        .animate-marquee {
+          animation: marquee 60s linear infinite;
+          display: inline-flex;
+        }
+        
+        .animate-marquee:hover {
+          animation-play-state: paused;
+        }
+
         @keyframes float {
           0%, 100% {
             transform: translateY(0) rotate(0deg);

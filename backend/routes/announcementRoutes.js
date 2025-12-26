@@ -7,7 +7,14 @@ const router = express.Router();
 // Public: get active announcements (for login page)
 router.get('/active', async (req, res) => {
   try {
-    const items = await Announcement.find({ isActive: true })
+    const now = new Date();
+    const items = await Announcement.find({
+      isActive: true,
+      $and: [
+        { $or: [{ startDate: { $lte: now } }, { startDate: { $exists: false } }] },
+        { $or: [{ endDate: { $gte: now } }, { endDate: { $exists: false } }] }
+      ]
+    })
       .sort({ createdAt: -1 })
       .lean();
     res.json(items);
@@ -45,6 +52,8 @@ router.post('/', auth, async (req, res) => {
       title,
       message,
       isActive,
+      startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
+      endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
       createdBy: { id: req.user._id, name: req.user.name }
     });
     res.status(201).json(item);
@@ -65,9 +74,11 @@ router.put('/:id', auth, async (req, res) => {
 
     const { id } = req.params;
     const update = {};
-    ['title', 'message', 'isActive'].forEach((key) => {
+    ['title', 'message', 'isActive', 'startDate', 'endDate'].forEach((key) => {
       if (req.body[key] !== undefined) update[key] = req.body[key];
     });
+    if (update.startDate) update.startDate = new Date(update.startDate);
+    if (update.endDate) update.endDate = new Date(update.endDate);
 
     const item = await Announcement.findByIdAndUpdate(id, update, {
       new: true
@@ -99,4 +110,3 @@ router.delete('/:id', auth, async (req, res) => {
 });
 
 module.exports = router;
-

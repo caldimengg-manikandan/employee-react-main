@@ -53,6 +53,8 @@ import Notification from '../../components/Notifications/Notification';
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [notification, setNotification] = useState({ message: '', type: 'success', isVisible: false });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, leaveId: null });
+  const [submitModal, setSubmitModal] = useState({ isOpen: false, leave: null });
+  const [submitting, setSubmitting] = useState(false);
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type, isVisible: true });
@@ -291,27 +293,33 @@ import Notification from '../../components/Notifications/Notification';
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (submitting) return;
+    setSubmitting(true);
 
     // Validation
     if (!leaveData.startDate || !leaveData.endDate || !leaveData.leaveType) {
       showNotification('Please fill in all required fields', 'error');
+      setSubmitting(false);
       return;
     }
 
     if (leaveData.leaveType === 'BEREAVEMENT' && !leaveData.bereavementRelation) {
       showNotification('Please specify relationship for bereavement leave', 'error');
+      setSubmitting(false);
       return;
     }
 
     // Check leave balance (allow negative for CL/SL/PL; keep bereavement strict)
     if (leaveData.leaveType === 'BEREAVEMENT' && totalLeaveDays > getAvailableBalance('BEREAVEMENT')) {
       showNotification(`Insufficient Bereavement Leave balance. Available: ${getAvailableBalance('BEREAVEMENT')} days`, 'error');
+      setSubmitting(false);
       return;
     }
 
     // Medical certificate check for sick leave > 3 days
     if (leaveData.leaveType === 'SL' && totalLeaveDays > 3 && !leaveData.supportingDocuments) {
       showNotification('Medical certificate is required for sick leave exceeding 3 days', 'error');
+      setSubmitting(false);
       return;
     }
 
@@ -325,7 +333,7 @@ import Notification from '../../components/Notifications/Notification';
           startDate: leaveData.startDate,
           endDate: leaveData.endDate,
           dayType: leaveData.dayType,
-        
+          
           bereavementRelation: leaveData.bereavementRelation || '',
           totalDays: totalLeaveDays
         });
@@ -340,7 +348,7 @@ import Notification from '../../components/Notifications/Notification';
           totalDays: l.totalDays,
           status: l.status,
           appliedDate: l.appliedDate,
-        
+           
         } : x));
         setEditingLeaveId(null);
       } else {
@@ -349,7 +357,7 @@ import Notification from '../../components/Notifications/Notification';
           startDate: leaveData.startDate,
           endDate: leaveData.endDate,
           dayType: leaveData.dayType,
-        
+          
           bereavementRelation: leaveData.bereavementRelation || '',
           totalDays: totalLeaveDays
         });
@@ -364,9 +372,10 @@ import Notification from '../../components/Notifications/Notification';
           totalDays: l.totalDays,
           status: l.status,
           appliedDate: l.appliedDate,
-         
+           
         };
         setLeaveHistory(prev => [newLeave, ...prev]);
+        setSubmitModal({ isOpen: true, leave: newLeave });
       }
     } catch { }
 
@@ -382,6 +391,7 @@ import Notification from '../../components/Notifications/Notification';
     });
     setTotalLeaveDays(0);
     setIsEditModalOpen(false);
+    setSubmitting(false);
 
     showNotification(editingLeaveId ? 'Leave application updated successfully.' : 'Leave application submitted successfully! Awaiting approval.', 'success');
   };
@@ -648,9 +658,10 @@ import Notification from '../../components/Notifications/Notification';
       {/* Submit Button */}
       <button
         type="submit"
-        className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-lg transition duration-200"
+        disabled={submitting}
+        className={`w-full text-white font-medium py-3 rounded-lg transition duration-200 ${submitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
       >
-        {editingLeaveId ? 'Update Leave Application' : 'Submit Leave Application'}
+        {submitting ? (editingLeaveId ? 'Updating...' : 'Submitting...') : (editingLeaveId ? 'Update Leave Application' : 'Submit Leave Application')}
       </button>
     </form>
   );
@@ -892,6 +903,33 @@ import Notification from '../../components/Notifications/Notification';
               className="px-4 py-2 text-white bg-red-600 hover:bg-red-700 rounded-lg transition"
             >
               Delete
+            </button>
+          </div>
+        </div>
+      </Modal>
+      
+      <Modal
+        isOpen={submitModal.isOpen}
+        onClose={() => setSubmitModal({ isOpen: false, leave: null })}
+        title="Leave Submitted"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="text-gray-700">
+            <div className="font-semibold text-gray-900 mb-1">Your leave request has been submitted.</div>
+            <div className="text-sm">
+              <div>Type: {submitModal.leave?.leaveTypeName || submitModal.leave?.leaveType}</div>
+              <div>Period: {new Date(submitModal.leave?.startDate).toLocaleDateString()} to {new Date(submitModal.leave?.endDate).toLocaleDateString()}</div>
+              <div>Total Days: {submitModal.leave?.totalDays}</div>
+              <div>Status: {submitModal.leave?.status}</div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setSubmitModal({ isOpen: false, leave: null })}
+              className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition"
+            >
+              OK
             </button>
           </div>
         </div>

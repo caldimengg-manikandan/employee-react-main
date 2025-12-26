@@ -138,7 +138,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Project Allocation",
       path: "/project-allocation",
       icon: getIconForMenu("Project Allocation"),
-      showForRoles: ["admin", "projectmanager", "manager", "employees"],
+      showForRoles: ["admin", "projectmanager", "manager", ],
       allowEmployeeRole: true,
     },
     // LEAVE MANAGEMENT MODULE

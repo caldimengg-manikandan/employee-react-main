@@ -4,8 +4,148 @@ const LeaveApplication = require('../models/LeaveApplication');
 const Employee = require('../models/Employee');
 const Timesheet = require('../models/Timesheet');
 const User = require('../models/User');
+const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
 
 const router = express.Router();
+
+const mailer = nodemailer.createTransport({
+  host: process.env.EMAIL_HOST,
+  port: Number(process.env.EMAIL_PORT) || 465,
+  secure: (Number(process.env.EMAIL_PORT) || 465) === 465,
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
+
+async function getProjectManagerRecipients(division, location) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const roleRegex = /project\s*manager/i;
+  const empPMs = await Employee.find({
+    division: division || '',
+    location: location || '',
+    $or: [
+      { role: { $regex: roleRegex } },
+      { designation: { $regex: roleRegex } },
+      { position: { $regex: roleRegex } }
+    ]
+  }).select('email employeeId');
+  const empEmails = empPMs.map(e => e?.email).filter(e => e && emailRegex.test(e));
+  const empIds = empPMs.map(e => e.employeeId).filter(Boolean);
+  const userPMs = await User.find({ role: 'projectmanager', employeeId: { $in: empIds } }).select('email');
+  const userEmails = userPMs.map(u => u?.email).filter(e => e && emailRegex.test(e));
+  return Array.from(new Set([...empEmails, ...userEmails]));
+}
+
+async function getHrRecipients(employeeProfile) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const isHosur = String(employeeProfile?.location || '').trim().toLowerCase() === 'hosur';
+  if (isHosur) {
+    const admin = await User.findOne({ role: 'admin', employeeId: 'CDE025' }).select('email');
+    const email = admin?.email;
+    return email && emailRegex.test(email) ? [email] : [];
+  }
+  const admins = await User.find({ role: 'admin' }).select('email');
+  const emails = admins.map(u => u.email).filter(e => e && emailRegex.test(e));
+  return Array.from(new Set(emails));
+}
+
+async function sendLeaveSubmissionEmail(createdDoc, user, employeeProfile) {
+  try {
+    const pmRecipients = await getProjectManagerRecipients(employeeProfile?.division, employeeProfile?.location);
+    const hrRecipients = await getHrRecipients(employeeProfile || {});
+    const recipients = Array.from(new Set([...(pmRecipients || []), ...(hrRecipients || [])]));
+    if (!recipients.length) return { success: false, error: 'No recipients' };
+    const from = process.env.EMAIL_USER;
+    const subject = `Leave Request Submitted: ${createdDoc.employeeName} (${employeeProfile?.division || '-'})`;
+    const start = new Date(createdDoc.startDate).toISOString().split('T')[0];
+    const end = new Date(createdDoc.endDate).toISOString().split('T')[0];
+    const baseUrl = process.env.BACKEND_URL || `http://localhost:${process.env.PORT || 5003}`;
+    const results = [];
+    for (const to of recipients) {
+      const approveToken = jwt.sign({ leaveId: createdDoc._id, action: 'Approved', email: to }, process.env.JWT_SECRET, { expiresIn: '48h' });
+      const rejectToken = jwt.sign({ leaveId: createdDoc._id, action: 'Rejected', email: to }, process.env.JWT_SECRET, { expiresIn: '48h' });
+      const approveLink = `${baseUrl}/api/leaves/email-action?token=${approveToken}`;
+      const rejectLink = `${baseUrl}/api/leaves/email-action?token=${rejectToken}`;
+      const html = `
+        <div style="font-family:Arial,sans-serif;line-height:1.6;padding:20px;max-width:700px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;">
+          <h2 style="color:#333;margin:0 0 16px 0;padding-bottom:8px;border-bottom:2px solid #4F46E5;">Leave Request Submitted</h2>
+          <table style="width:100%;border-collapse:collapse;">
+            <tr><td style="padding:8px 0;color:#666;"><strong>Employee:</strong></td><td style="padding:8px 0;color:#333;">${createdDoc.employeeName} (${createdDoc.employeeId || '-'})</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Division:</strong></td><td style="padding:8px 0;color:#333;">${employeeProfile?.division || '-'}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Location:</strong></td><td style="padding:8px 0;color:#333;">${employeeProfile?.location || createdDoc.location || '-'}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Leave Type:</strong></td><td style="padding:8px 0;color:#333;">${createdDoc.leaveType}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Day Type:</strong></td><td style="padding:8px 0;color:#333;">${createdDoc.dayType}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Period:</strong></td><td style="padding:8px 0;color:#333;">${start} to ${end}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Total Days:</strong></td><td style="padding:8px 0;color:#333;">${createdDoc.totalDays}</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Reason:</strong></td><td style="padding:8px 0;color:#333;">${createdDoc.reason || '-'}</td></tr>
+          </table>
+          <div style="margin-top:16px;">
+            <a href="${approveLink}" style="display:inline-block;margin-right:10px;background:#16a34a;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Approve</a>
+            <a href="${rejectLink}" style="display:inline-block;background:#dc2626;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;">Reject</a>
+          </div>
+          <div style="margin-top:10px;color:#6b7280;font-size:12px;">Links expire in 48 hours</div>
+        </div>
+      `;
+      const info = await mailer.sendMail({ from: `"Leave System" <${from}>`, to, subject, html });
+      results.push({ to, messageId: info.messageId });
+    }
+    return { success: true, sent: results };
+  } catch (e) {
+    return { success: false, error: e?.message || String(e) };
+  }
+}
+
+async function getEmployeeEmailForLeave(leaveDoc) {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (leaveDoc?.employeeId) {
+    const emp = await Employee.findOne({ employeeId: leaveDoc.employeeId }).select('email');
+    if (emp?.email && emailRegex.test(emp.email)) return emp.email;
+  }
+  if (leaveDoc?.userId) {
+    const user = await User.findOne({ _id: leaveDoc.userId }).select('email');
+    if (user?.email && emailRegex.test(user.email)) return user.email;
+  }
+  return '';
+}
+
+async function sendLeaveStatusEmail(updatedDoc) {
+  try {
+    const to = await getEmployeeEmailForLeave(updatedDoc);
+    if (!to) return { success: false, error: 'No employee email' };
+    const from = process.env.EMAIL_USER;
+    const status = updatedDoc.status;
+    const subject = `Leave ${status}: ${updatedDoc.employeeName}`;
+    const start = new Date(updatedDoc.startDate).toISOString().split('T')[0];
+    const end = new Date(updatedDoc.endDate).toISOString().split('T')[0];
+    let empProfile = null;
+    if (updatedDoc.employeeId) {
+      empProfile = await Employee.findOne({ employeeId: updatedDoc.employeeId }).select('division location');
+    }
+    const division = empProfile?.division || '-';
+    const location = updatedDoc.location || empProfile?.location || '-';
+    const html = `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;padding:20px;max-width:700px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;">
+        <h2 style="color:#333;margin:0 0 16px 0;padding-bottom:8px;border-bottom:2px solid #4F46E5;">Leave ${status}</h2>
+        ${status === 'Rejected' ? `<p style="color:#b91c1c;"><strong>Reason:</strong> ${updatedDoc.rejectionReason || '-'}</p>` : ''}
+        <table style="width:100%;border-collapse:collapse;margin-top:12px;">
+          <tr><td style="padding:8px 0;color:#666;"><strong>Employee:</strong></td><td style="padding:8px 0;color:#333;">${updatedDoc.employeeName} (${updatedDoc.employeeId || '-'})</td></tr>
+          <tr><td style="padding:8px 0;color:#666;"><strong>Division:</strong></td><td style="padding:8px 0;color:#333;">${division}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;"><strong>Location:</strong></td><td style="padding:8px 0;color:#333;">${location}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;"><strong>Leave Type:</strong></td><td style="padding:8px 0;color:#333;">${updatedDoc.leaveType}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;"><strong>Day Type:</strong></td><td style="padding:8px 0;color:#333;">${updatedDoc.dayType}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;"><strong>Period:</strong></td><td style="padding:8px 0;color:#333;">${start} to ${end}</td></tr>
+          <tr><td style="padding:8px 0;color:#666;"><strong>Total Days:</strong></td><td style="padding:8px 0;color:#333;">${updatedDoc.totalDays}</td></tr>
+        </table>
+      </div>
+    `;
+    const info = await mailer.sendMail({ from: `"Leave System" <${from}>`, to, subject, html });
+    return { success: true, messageId: info.messageId };
+  } catch (e) {
+    return { success: false, error: e?.message || String(e) };
+  }
+}
 
 function getMonday(d) {
   const date = new Date(d);
@@ -535,6 +675,7 @@ router.put('/:id/status', auth, async (req, res) => {
     );
     if (updated) {
        await syncTimesheetWithLeave(updated);
+       try { await sendLeaveStatusEmail(updated); } catch (_) {}
     }
     if (!updated) return res.status(404).json({ error: 'Leave application not found' });
     res.json(updated);
@@ -612,9 +753,61 @@ router.post('/', auth, async (req, res) => {
       reason: reason || '',
       bereavementRelation: bereavementRelation || ''
     });
+    try {
+      await sendLeaveSubmissionEmail(created, req.user, emp || {});
+    } catch (_) {}
     res.status(201).json(created);
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+router.get('/email-action', async (req, res) => {
+  try {
+    const { token } = req.query;
+    if (!token) return res.status(400).send('<h3>Invalid request</h3>');
+    let payload = null;
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (e) {
+      return res.status(400).send('<h3>Invalid or expired link</h3>');
+    }
+    const { leaveId, action, email } = payload || {};
+    if (!leaveId || !action || !email) return res.status(400).send('<h3>Malformed link</h3>');
+    const allowed = ['Approved', 'Rejected'];
+    if (!allowed.includes(action)) return res.status(400).send('<h3>Invalid action</h3>');
+    const leave = await LeaveApplication.findById(leaveId);
+    if (!leave) return res.status(404).send('<h3>Leave application not found</h3>');
+    // Authorization via email: must be admin or project manager
+    const user = await User.findOne({ email }).select('role employeeId email');
+    let isAuthorized = false;
+    if (user && (user.role === 'admin' || user.role === 'projectmanager' || user.role === 'project_manager')) {
+      isAuthorized = true;
+    } else {
+      const roleRegex = /project\s*manager/i;
+      const emp = await Employee.findOne({ email }).select('role designation position division location');
+      if (emp && (roleRegex.test(emp.role || '') || roleRegex.test(emp.designation || '') || roleRegex.test(emp.position || ''))) {
+        // Optional: ensure same division
+        const applicant = await Employee.findOne({ employeeId: leave.employeeId }).select('division location');
+        if (!applicant || !emp.division || emp.division === applicant.division) {
+          isAuthorized = true;
+        }
+      }
+    }
+    if (!isAuthorized) return res.status(403).send('<h3>Not authorized to perform this action</h3>');
+    // Only allow transition from Pending
+    if (leave.status !== 'Pending' && action === 'Approved') {
+      return res.status(400).send('<h3>Only Pending applications can be approved</h3>');
+    }
+    const updated = await LeaveApplication.findByIdAndUpdate(leaveId, { status: action, rejectionReason: action === 'Rejected' ? '' : leave.rejectionReason }, { new: true });
+    if (updated && action === 'Approved') {
+      try { await syncTimesheetWithLeave(updated); } catch (_) {}
+    }
+    try { if (updated) await sendLeaveStatusEmail(updated); } catch (_) {}
+    const msg = action === 'Approved' ? 'Leave approved successfully.' : 'Leave rejected successfully.';
+    return res.send(`<div style="font-family:Arial;padding:20px;"><h3>${msg}</h3><p>Employee: ${updated.employeeName}</p><p>Type: ${updated.leaveType}</p><p>Days: ${updated.totalDays}</p></div>`);
+  } catch (err) {
+    return res.status(500).send(`<h3>Server error</h3><p>${err?.message || err}</p>`);
   }
 });
 

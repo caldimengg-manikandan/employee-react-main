@@ -159,7 +159,7 @@ const ProjectDashboard = () => {
         { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentChartBarIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
         
         // Project
-        { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, showForRoles: ['admin', 'projectmanager', 'manager', 'employees'], allowEmployeeRole: true, category: 'Work & Productivity' },
+        { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, showForRoles: ['admin', 'projectmanager', 'manager',], allowEmployeeRole: true, category: 'Work & Productivity' },
         
         // Leave Management
         { name: 'Leave Summary', description: 'View leave summary', path: '/leave-management/summary', icon: ChartBarIcon, permission: 'leave_view', showForRoles: ['admin', 'hr', 'manager'], category: 'Leave Management' },
@@ -741,53 +741,7 @@ const ProjectDashboard = () => {
                 </div> */}
 
                 {/* User Profile Summary */}
-                <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
-                    {/* <div className="flex flex-col md:flex-row items-center justify-between mb-8">
-                        <h2 className="text-2xl font-bold text-gray-800">Your Profile Overview</h2>
-                        <Link to="/employee-management" className="text-blue-600 hover:text-blue-800 text-sm font-semibold flex items-center mt-2 md:mt-0">
-                            Manage Profile <ArrowRightIcon className="h-4 w-4 ml-1" />
-                        </Link>
-                    </div> */}
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        <div className="flex items-center p-4 bg-blue-50 rounded-xl border border-blue-100">
-                            <div className="h-12 w-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 mr-4">
-                                <UserIcon className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 uppercase font-semibold">Employee ID</p>
-                                <p className="text-lg font-bold text-gray-900">{profile?.employeeId || user.employeeId || '-'}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center p-4 bg-purple-50 rounded-xl border border-purple-100">
-                            <div className="h-12 w-12 rounded-full bg-purple-100 flex items-center justify-center text-purple-600 mr-4">
-                                <BuildingOfficeIcon className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 uppercase font-semibold">Department</p>
-                                <p className="text-lg font-bold text-gray-900">{profile?.department || profile?.division || user.department || '-'}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center p-4 bg-green-50 rounded-xl border border-green-100">
-                            <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 mr-4">
-                                <UserGroupIcon className="h-6 w-6" />
-                            </div>
-                            <div>
-                                <p className="text-xs text-gray-500 uppercase font-semibold">Role</p>
-                                <p className="text-lg font-bold text-gray-900 capitalize">{role || 'Employee'}</p>
-                            </div>
-                        </div>
-                        <div className="flex items-center p-4 bg-orange-50 rounded-xl border border-orange-100">
-                            <div className="h-12 w-12 rounded-full bg-orange-100 flex items-center justify-center text-orange-600 mr-4">
-                                <BellIcon className="h-6 w-6" />
-                            </div>
-                            <div onClick={() => setShowAnnouncementsModal(true)} className="cursor-pointer">
-                                <p className="text-xs text-gray-500 uppercase font-semibold">Notifications</p>
-                                <p className="text-lg font-bold text-gray-900">{kpis.notifications} Events</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+              <br />
 
                 {searchTerm ? (
                     // Search Results View

@@ -27,6 +27,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   const [organizations, setOrganizations] = useState([
     { organization: '', designation: '', startDate: '', endDate: '' }
   ]);
+  const [sameAsPermanent, setSameAsPermanent] = useState(false);
 
   const toInputDate = (d) => {
     if (!d) return '';
@@ -59,6 +60,14 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     spouseContact: '',
     permanentAddress: '',
     currentAddress: '',
+    permanentAddressLine: '',
+    permanentCity: '',
+    permanentState: '',
+    permanentPincode: '',
+    currentAddressLine: '',
+    currentCity: '',
+    currentState: '',
+    currentPincode: '',
     emergencyContact: '',
     nationality: 'Indian',
     contactNumber: '',
@@ -107,7 +116,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       if (!v.includes('@')) return 'Email must include @';
     }
     if (field === 'emergencyContact') {
-      if (v && !/^\d{10}$/.test(v)) return 'Must be 10 digits';
+      if (!/^\d{10}$/.test(v)) return 'Must be 10 digits';
     }
     if (field === 'location') {
       if (!v) return 'Location is required';
@@ -116,10 +125,13 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       if (v && !/^[A-Za-z\s]+$/.test(v)) return 'Only alphabetic characters allowed';
     }
     if (field === 'pan') {
-      if (v && !/^[A-Z]{5}\d{4}[A-Z]$/.test(v)) return 'Format: 5 letters + 4 digits + 1 letter';
+      if (!/^[A-Z]{5}\d{4}[A-Z]$/.test(v)) return 'Format: 5 letters + 4 digits + 1 letter';
     }
     if (field === 'aadhaar') {
-      if (v && !/^\d{12}$/.test(v)) return 'Must be exactly 12 digits';
+      if (!/^\d{12}$/.test(v)) return 'Must be exactly 12 digits';
+    }
+    if (field === 'permanentPincode' || field === 'currentPincode') {
+      if (!/^\d{6}$/.test(v)) return 'Must be 6 digits';
     }
     return '';
   };
@@ -140,6 +152,53 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       if (!e[k]) delete e[k];
     });
     return e;
+  };
+  const validateStep = (step) => {
+    const e = {};
+    if (step === 1) {
+      e.employeeId = validateField('employeeId', formData.employeeId);
+      e.name = validateField('name', formData.name || formData.employeename);
+      if (!formData.gender) e.gender = 'Gender is required';
+      if (!formData.nationality) e.nationality = 'Nationality is required';
+      if (!formData.dateOfBirth) e.dateOfBirth = 'Date of birth is required';
+      e.qualification = formData.qualification ? '' : 'Qualification is required';
+      if (!formData.bloodGroup) e.bloodGroup = 'Blood group is required';
+      e.contactNumber = validateField('contactNumber', formData.contactNumber);
+      e.email = validateField('email', formData.email);
+      e.emergencyContact = validateField('emergencyContact', formData.emergencyContact);
+      if (!formData.permanentAddressLine) e.permanentAddressLine = 'Address line is required';
+      if (!formData.permanentCity) e.permanentCity = 'City is required';
+      if (!formData.permanentState) e.permanentState = 'State is required';
+      e.permanentPincode = validateField('permanentPincode', formData.permanentPincode);
+      if (!sameAsPermanent) {
+        if (!formData.currentAddressLine) e.currentAddressLine = 'Address line is required';
+        if (!formData.currentCity) e.currentCity = 'City is required';
+        if (!formData.currentState) e.currentState = 'State is required';
+        e.currentPincode = validateField('currentPincode', formData.currentPincode);
+      }
+      e.pan = validateField('pan', formData.pan);
+      e.aadhaar = validateField('aadhaar', formData.aadhaar);
+      if (!formData.passportNumber) e.passportNumber = 'Passport is required';
+      if (!formData.uan) e.uan = 'UAN is required';
+    }
+    if (step === 2) {
+      if (!formData.designation) e.designation = 'Designation is required';
+      if (!formData.division) e.division = 'Division is required';
+      if (!formData.location) e.location = 'Location is required';
+      if (!formData.dateOfJoining) e.dateOfJoining = 'Date of joining is required';
+    }
+    if (step === 3) {
+      if (!formData.bankName) e.bankName = 'Bank name is required';
+      if (!formData.bankAccount) e.bankAccount = 'Bank account is required';
+      if (!formData.branch) e.branch = 'Branch is required';
+      if (!formData.ifsc) e.ifsc = 'IFSC is required';
+    }
+    const cleaned = {};
+    Object.keys(e).forEach((k) => {
+      if (e[k]) cleaned[k] = e[k];
+    });
+    setErrors((prev) => ({ ...prev, ...cleaned }));
+    return Object.keys(cleaned).length === 0;
   };
 
   // Designation options - CORRECTED NAME
@@ -207,12 +266,15 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: '', label: 'Select Gender' },
     { value: 'male', label: 'Male' },
     { value: 'female', label: 'Female' },
-    { value: 'other', label: 'Other' }
+    { value: 'transgender', label: 'Transgender' }
   ];
 
   // Nationality options
   const nationalityOptions = [
     { value: 'Indian', label: 'Indian' }
+  ];
+  const indiaStates = [
+    'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Andaman and Nicobar Islands','Chandigarh','Dadra and Nagar Haveli and Daman and Diu','Delhi','Jammu and Kashmir','Ladakh','Lakshadweep','Puducherry'
   ];
 
   // Status options
@@ -221,6 +283,45 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: 'Inactive', label: 'Inactive' },
     { value: 'Suspended', label: 'Suspended' }
   ];
+
+  const sectionColors = {
+    personal: {
+      bg: 'bg-blue-50',
+      border: 'border-blue-100',
+      icon: 'text-blue-500',
+      title: 'text-blue-700'
+    },
+    contact: {
+      bg: 'bg-green-50',
+      border: 'border-green-100',
+      icon: 'text-green-500',
+      title: 'text-green-700'
+    },
+    address: {
+      bg: 'bg-purple-50',
+      border: 'border-purple-100',
+      icon: 'text-purple-500',
+      title: 'text-purple-700'
+    },
+    identification: {
+      bg: 'bg-amber-50',
+      border: 'border-amber-100',
+      icon: 'text-amber-500',
+      title: 'text-amber-700'
+    },
+    professional: {
+      bg: 'bg-cyan-50',
+      border: 'border-cyan-100',
+      icon: 'text-cyan-500',
+      title: 'text-cyan-700'
+    },
+    bank: {
+      bg: 'bg-pink-50',
+      border: 'border-pink-100',
+      icon: 'text-pink-500',
+      title: 'text-pink-700'
+    }
+  };
 
   useEffect(() => {
     if (employee) {
@@ -430,6 +531,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   };
 
   const handleNext = () => {
+    const ok = validateStep(currentStep);
+    if (!ok) return;
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     }
@@ -531,43 +634,23 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   );
 
   const renderStepLabels = () => (
-    <div className="grid grid-cols-3 mb-8 gap-2">
-      <button
-        type="button"
-        onClick={() => handleStepClick(1)}
-        className={`text-center py-3 rounded-lg transition ${
-          currentStep === 1
-            ? 'text-blue-600 font-semibold bg-blue-50'
-            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-        }`}
-      >
-        <UserIcon className="h-6 w-6 mx-auto mb-2" />
-        <span className="text-sm">Personal Info</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => handleStepClick(2)}
-        className={`text-center py-3 rounded-lg transition ${
-          currentStep === 2
-            ? 'text-blue-600 font-semibold bg-blue-50'
-            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-        }`}
-      >
-        <BriefcaseIcon className="h-6 w-6 mx-auto mb-2" />
-        <span className="text-sm">Professional</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => handleStepClick(3)}
-        className={`text-center py-3 rounded-lg transition ${
-          currentStep === 3
-            ? 'text-blue-600 font-semibold bg-blue-50'
-            : 'text-gray-500 hover:text-gray-700 hover:bg-gray-50'
-        }`}
-      >
-        <BanknotesIcon className="h-6 w-6 mx-auto mb-2" />
-        <span className="text-sm">Bank Details</span>
-      </button>
+    <div className="flex items-center justify-center mb-6 space-x-8">
+      {['Personal Info', 'Professional', 'Bank Details'].map((section, index) => (
+        <div key={section} className="flex items-center">
+          <button
+            type="button"
+            onClick={() => handleStepClick(index + 1)}
+            className={`text-center ${currentStep === index + 1 ? 'text-blue-600' : 'text-gray-400'}`}
+          >
+            <div className={`text-sm font-medium px-4 py-2 rounded-lg ${currentStep === index + 1 ? 'bg-blue-100 text-blue-600' : 'bg-gray-100'}`}>
+              {section}
+            </div>
+          </button>
+          {index < 2 && (
+            <div className="w-4 h-0.5 bg-gray-300 mx-2"></div>
+          )}
+        </div>
+      ))}
     </div>
   );
 
@@ -585,13 +668,14 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
             </h3>
             
             {/* Basic Information */}
-            <div className="border border-gray-200 rounded-lg p-4 lg:p-6 bg-white shadow-sm">
-              <h4 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide">Basic Information</h4>
+            <div className={`rounded-lg p-5 ${sectionColors.personal.bg} border ${sectionColors.personal.border}`}>
+              <div className="flex items-center mb-4">
+                <UserIcon className={`h-5 w-5 ${sectionColors.personal.icon} mr-2`} />
+                <h4 className={`font-medium ${sectionColors.personal.title}`}>Basic Information</h4>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Employee ID *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID <span className="text-red-600">*</span></label>
                   <input
                     type="text"
                     value={formData.employeeId}
@@ -605,9 +689,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Employee Name *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Employee Name <span className="text-red-600">*</span></label>
                   <input
                     type="text"
                     value={formData.name || formData.employeename}
@@ -624,9 +706,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Gender *
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Gender <span className="text-red-600">*</span></label>
                   <select
                     value={formData.gender}
                     onChange={(e) => handleInputChange('gender', e.target.value)}
@@ -642,42 +722,47 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date of Birth
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth <span className="text-red-600">*</span></label>
                   <input
                     type="date"
                     value={formData.dateOfBirth}
                     onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    required
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.dateOfBirth ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   />
+                  {errors.dateOfBirth && <p className="text-xs text-red-600 mt-1">{errors.dateOfBirth}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Qualification
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Qualification <span className="text-red-600">*</span></label>
                   <input
                     type="text"
-                    value={formData.qualification || formData.highestQualification}
+                    value={formData.qualification}
                     onChange={(e) => {
-                      handleInputChange('qualification', e.target.value);
-                      handleInputChange('highestQualification', e.target.value);
+                      const v = e.target.value.toUpperCase();
+                      handleInputChange('qualification', v);
+                      handleInputChange('highestQualification', v);
                     }}
-                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.qualification ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
-                    placeholder="e.g., B.E (CIVIL)"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.currentTarget.blur();
+                      }
+                    }}
+                    required
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white uppercase ${errors.qualification ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                    placeholder="E.G., B.E / M.TECH / B.SC"
                   />
                   {errors.qualification && <p className="text-xs text-red-600 mt-1">{errors.qualification}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Blood Group
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group <span className="text-red-600">*</span></label>
                   <select
                     value={formData.bloodGroup}
                     onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    required
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.bloodGroup ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   >
                     {bloodGroupOptions.map(option => (
                       <option key={option.value} value={option.value}>
@@ -685,6 +770,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       </option>
                     ))}
                   </select>
+                  {errors.bloodGroup && <p className="text-xs text-red-600 mt-1">{errors.bloodGroup}</p>}
                 </div>
 
                 <div>
@@ -755,15 +841,15 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
             </div>
 
             {/* Contact Information */}
-            <div className="border border-gray-200 rounded-lg p-4 lg:p-6 bg-white shadow-sm">
-              <h4 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide flex items-center gap-2">
-                <PhoneIcon className="h-4 w-4" />
-                Contact Information
-              </h4>
+            <div className={`rounded-lg p-5 ${sectionColors.contact.bg} border ${sectionColors.contact.border}`}>
+              <div className="flex items-center mb-4">
+                <PhoneIcon className={`h-5 w-5 ${sectionColors.contact.icon} mr-2`} />
+                <h4 className={`font-medium ${sectionColors.contact.title}`}>Contact Information</h4>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Mobile Number *
+                    Mobile Number <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="tel"
@@ -779,7 +865,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Email Address *
+                    Email Address <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="email"
@@ -793,14 +879,13 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Emergency Contact
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Emergency Contact <span className="text-red-600">*</span></label>
                   <input
                     type="tel"
                     value={formData.emergencyContact}
                     onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
                     inputMode="numeric"
+                    required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.emergencyContact ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="Emergency contact number"
                   />
@@ -822,12 +907,11 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Nationality
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Nationality <span className="text-red-600">*</span></label>
                   <select
                     value={formData.nationality}
                     onChange={(e) => handleInputChange('nationality', e.target.value)}
+                    required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                   >
                     {nationalityOptions.map(option => (
@@ -842,57 +926,161 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
               </div>
             </div>
 
-            {/* Address Information */}
-            <div className="border border-gray-200 rounded-lg p-4 lg:p-6 bg-white shadow-sm">
-              <h4 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide flex items-center gap-2">
-                <MapPinIcon className="h-4 w-4" />
-                Address Information
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className={`rounded-lg p-5 ${sectionColors.address.bg} border ${sectionColors.address.border}`}>
+              <div className="flex items-center mb-4">
+                <MapPinIcon className={`h-5 w-5 ${sectionColors.address.icon} mr-2`} />
+                <h4 className={`font-medium ${sectionColors.address.title}`}>Address Information</h4>
+              </div>
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Permanent Address
-                  </label>
-                  <textarea
-                    value={formData.permanentAddress}
-                    onChange={(e) => handleInputChange('permanentAddress', e.target.value)}
-                    rows="3"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
-                    placeholder="Permanent address"
-                  />
+                  <h5 className="text-sm font-semibold text-gray-700 mb-3">Permanent Address</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="lg:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Address Line <span className="text-red-600">*</span></label>
+                      <input
+                        type="text"
+                        value={formData.permanentAddressLine}
+                        onChange={(e) => handleInputChange('permanentAddressLine', e.target.value)}
+                        required
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.permanentAddressLine ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        placeholder="Street, house number"
+                      />
+                      {errors.permanentAddressLine && <p className="text-xs text-red-600 mt-1">{errors.permanentAddressLine}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">City <span className="text-red-600">*</span></label>
+                      <input
+                        type="text"
+                        value={formData.permanentCity}
+                        onChange={(e) => handleInputChange('permanentCity', e.target.value)}
+                        required
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.permanentCity ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        placeholder="City"
+                      />
+                      {errors.permanentCity && <p className="text-xs text-red-600 mt-1">{errors.permanentCity}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">State <span className="text-red-600">*</span></label>
+                      <select
+                        value={formData.permanentState}
+                        onChange={(e) => handleInputChange('permanentState', e.target.value)}
+                        required
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.permanentState ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                      >
+                        <option value="">Select State</option>
+                        {indiaStates.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {errors.permanentState && <p className="text-xs text-red-600 mt-1">{errors.permanentState}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Pincode <span className="text-red-600">*</span></label>
+                      <input
+                        type="text"
+                        value={formData.permanentPincode}
+                        onChange={(e) => handleInputChange('permanentPincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        required
+                        inputMode="numeric"
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.permanentPincode ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        placeholder="600001"
+                      />
+                      {errors.permanentPincode && <p className="text-xs text-red-600 mt-1">{errors.permanentPincode}</p>}
+                    </div>
+                  </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Current Address
-                  </label>
-                  <textarea
-                    value={formData.currentAddress}
-                    onChange={(e) => handleInputChange('currentAddress', e.target.value)}
-                    rows="3"
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
-                    placeholder="Current address"
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={sameAsPermanent}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setSameAsPermanent(checked);
+                      if (checked) {
+                        setFormData(prev => ({
+                          ...prev,
+                          currentAddressLine: prev.permanentAddressLine,
+                          currentCity: prev.permanentCity,
+                          currentState: prev.permanentState,
+                          currentPincode: prev.permanentPincode
+                        }));
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-gray-300"
                   />
+                  <span className="text-sm text-gray-700">Same as Permanent Address</span>
+                </div>
+                <div>
+                  <h5 className="text-sm font-semibold text-gray-700 mb-3">Current Address</h5>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="lg:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Address Line {sameAsPermanent ? '' : <span className="text-red-600">*</span>}</label>
+                      <input
+                        type="text"
+                        value={formData.currentAddressLine}
+                        onChange={(e) => handleInputChange('currentAddressLine', e.target.value)}
+                        required={!sameAsPermanent}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.currentAddressLine ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        placeholder="Street, house number"
+                      />
+                      {errors.currentAddressLine && <p className="text-xs text-red-600 mt-1">{errors.currentAddressLine}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">City {sameAsPermanent ? '' : <span className="text-red-600">*</span>}</label>
+                      <input
+                        type="text"
+                        value={formData.currentCity}
+                        onChange={(e) => handleInputChange('currentCity', e.target.value)}
+                        required={!sameAsPermanent}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.currentCity ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        placeholder="City"
+                      />
+                      {errors.currentCity && <p className="text-xs text-red-600 mt-1">{errors.currentCity}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">State {sameAsPermanent ? '' : <span className="text-red-600">*</span>}</label>
+                      <select
+                        value={formData.currentState}
+                        onChange={(e) => handleInputChange('currentState', e.target.value)}
+                        required={!sameAsPermanent}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.currentState ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                      >
+                        <option value="">Select State</option>
+                        {indiaStates.map(s => <option key={s} value={s}>{s}</option>)}
+                      </select>
+                      {errors.currentState && <p className="text-xs text-red-600 mt-1">{errors.currentState}</p>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Pincode {sameAsPermanent ? '' : <span className="text-red-600">*</span>}</label>
+                      <input
+                        type="text"
+                        value={formData.currentPincode}
+                        onChange={(e) => handleInputChange('currentPincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                        required={!sameAsPermanent}
+                        inputMode="numeric"
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.currentPincode ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        placeholder="600001"
+                      />
+                      {errors.currentPincode && <p className="text-xs text-red-600 mt-1">{errors.currentPincode}</p>}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Identification Details */}
-            <div className="border border-gray-200 rounded-lg p-4 lg:p-6 bg-white shadow-sm">
-              <h4 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide flex items-center gap-2">
-                <IdentificationIcon className="h-4 w-4" />
-                Identification Details
-              </h4>
+            <div className={`rounded-lg p-5 ${sectionColors.identification.bg} border ${sectionColors.identification.border}`}>
+              <div className="flex items-center mb-4">
+                <IdentificationIcon className={`h-5 w-5 ${sectionColors.identification.icon} mr-2`} />
+                <h4 className={`font-medium ${sectionColors.identification.title}`}>Identification Details</h4>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    PAN Number
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">PAN Number <span className="text-red-600">*</span></label>
                   <input
                     type="text"
                     value={formData.pan}
                     onChange={(e) => handleInputChange('pan', e.target.value.toUpperCase())}
                     maxLength={10}
+                    required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.pan ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="ABCDE1234F"
                   />
@@ -900,15 +1088,14 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Aadhaar Number
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Aadhaar Number <span className="text-red-600">*</span></label>
                   <input
                     type="text"
                     value={formData.aadhaar}
                     onChange={(e) => handleInputChange('aadhaar', e.target.value)}
                     inputMode="numeric"
                     maxLength={12}
+                    required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.aadhaar ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="123456789012"
                   />
@@ -916,25 +1103,23 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Passport Number
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number <span className="text-red-600">*</span></label>
                   <input
                     type="text"
                     value={formData.passportNumber}
                     onChange={(e) => handleInputChange('passportNumber', e.target.value.toUpperCase())}
+                    required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                     placeholder="Passport number"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    UAN Number
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">UAN Number <span className="text-red-600">*</span></label>
                   <input
                     type="text"
                     value={formData.uan}
                     onChange={(e) => handleInputChange('uan', e.target.value)}
+                    required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                     placeholder="101147215588"
                   />
@@ -953,15 +1138,15 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
             </h3>
             
             {/* Employment Details */}
-            <div className="border border-gray-200 rounded-lg p-4 lg:p-6 bg-white shadow-sm">
-              <h4 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide flex items-center gap-2">
-                <BuildingLibraryIcon className="h-4 w-4" />
-                Current Employment Details
-              </h4>
+            <div className={`rounded-lg p-5 ${sectionColors.professional.bg} border ${sectionColors.professional.border}`}>
+              <div className="flex items-center mb-4">
+                <BuildingLibraryIcon className={`h-5 w-5 ${sectionColors.professional.icon} mr-2`} />
+                <h4 className={`font-medium ${sectionColors.professional.title}`}>Current Employment Details</h4>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Designation *
+                    Designation <span className="text-red-600">*</span>
                   </label>
                   <select
                     value={formData.designation}
@@ -978,12 +1163,11 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Division
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Division <span className="text-red-600">*</span></label>
                   <select
                     value={formData.division}
                     onChange={(e) => handleInputChange('division', e.target.value)}
+                    required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                   >
                     {divisionOptions.map(option => (
@@ -996,7 +1180,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Date of Joining *
+                    Date of Joining <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="date"
@@ -1039,7 +1223,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Location *
+                    Location <span className="text-red-600">*</span>
                   </label>
                   <select
                     value={formData.location}
@@ -1059,23 +1243,23 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
             </div>
 
             {/* Previous Organizations - Now includes Previous Experience field */}
-            <div className="border border-gray-200 rounded-lg p-4 lg:p-6 bg-white shadow-sm">
+            <div className={`rounded-lg p-5 ${sectionColors.professional.bg} border ${sectionColors.professional.border}`}>
               <div className="flex justify-between items-center mb-4">
-                <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide flex items-center gap-2">
-                  <DocumentTextIcon className="h-4 w-4" />
-                  Previous Organizations & Experience
-                </h4>
+                <div className="flex items-center">
+                  <DocumentTextIcon className={`h-5 w-5 ${sectionColors.professional.icon} mr-2`} />
+                  <h4 className={`font-medium ${sectionColors.professional.title}`}>Previous Organizations & Experience</h4>
+                </div>
                 <button
                   type="button"
                   onClick={addOrganization}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors duration-200"
+                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-cyan-600 bg-cyan-50 rounded-lg hover:bg-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors duration-200"
                 >
                   <PlusIcon className="h-4 w-4" />
                   Add Organization
                 </button>
               </div>
               
-              <div className="mb-6 p-4 border border-gray-200 rounded-lg bg-gray-50">
+              <div className="mb-6 p-4 border border-cyan-200 rounded-lg bg-cyan-50/50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1085,10 +1269,10 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       type="text"
                       value={formData.previousExperience}
                       readOnly
-                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm font-medium"
+                      className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-white text-gray-600 text-sm font-medium"
                       placeholder="Calculated from organizations below"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Auto-calculated total from all organizations</p>
+                    <p className="text-xs text-cyan-600 mt-1">Auto-calculated total from all organizations</p>
                   </div>
                 </div>
               </div>
@@ -1180,62 +1364,70 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
             </h3>
 
             {/* Bank Details */}
-            <div className="border border-gray-200 rounded-lg p-4 lg:p-6 bg-white shadow-sm">
-              <h4 className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wide flex items-center gap-2">
-                <CreditCardIcon className="h-4 w-4" />
-                Bank Details
-              </h4>
+            <div className={`rounded-lg p-5 ${sectionColors.bank.bg} border ${sectionColors.bank.border}`}>
+              <div className="flex items-center mb-4">
+                <CreditCardIcon className={`h-5 w-5 ${sectionColors.bank.icon} mr-2`} />
+                <h4 className={`font-medium ${sectionColors.bank.title}`}>Bank Details</h4>
+              </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bank Name
+                    Bank Name <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.bankName}
                     onChange={(e) => handleInputChange('bankName', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    required
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.bankName ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="HDFC Bank"
                   />
+                  {errors.bankName && <p className="text-xs text-red-600 mt-1">{errors.bankName}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bank Account Number
+                    Bank Account Number <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.bankAccount}
                     onChange={(e) => handleInputChange('bankAccount', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    required
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.bankAccount ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="123456789012"
                   />
+                  {errors.bankAccount && <p className="text-xs text-red-600 mt-1">{errors.bankAccount}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Branch
+                    Branch <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.branch}
                     onChange={(e) => handleInputChange('branch', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    required
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.branch ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="Ramapuram"
                   />
+                  {errors.branch && <p className="text-xs text-red-600 mt-1">{errors.branch}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    IFSC Code
+                    IFSC Code <span className="text-red-600">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.ifsc}
                     onChange={(e) => handleInputChange('ifsc', e.target.value)}
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    required
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.ifsc ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="IFSC code"
                   />
+                  {errors.ifsc && <p className="text-xs text-red-600 mt-1">{errors.ifsc}</p>}
                 </div>
               </div>
             </div>

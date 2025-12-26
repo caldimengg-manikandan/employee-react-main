@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { authAPI } from '../services/api';
 
-const LoginAnnouncements = () => {
+const LoginAnnouncements = ({ title = '📢 Company Announcements', mode = 'list' }) => {
   const [announcements, setAnnouncements] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchAnnouncements();
-    
-    // Refresh announcements every 60 seconds
     const interval = setInterval(fetchAnnouncements, 60000);
     return () => clearInterval(interval);
   }, []);
@@ -24,8 +22,55 @@ const LoginAnnouncements = () => {
     }
   };
 
-  if (isLoading) return null;
-  if (!announcements.length) return null;
+  if (isLoading || !announcements.length) return null;
+
+  if (mode === 'ticker') {
+    return (
+      <div>
+        <div className="bg-blue-950/80 backdrop-blur-md text-white py-3 overflow-hidden border-t border-white/10">
+          <div className="ticker overflow-hidden">
+            <div className="ticker-track flex items-center whitespace-nowrap">
+              <div className="flex items-center gap-8 pr-8">
+                {announcements.map((a) => (
+                  <div key={`t1-${a._id}`} className="flex items-center">
+                    <span className="text-blue-200 text-sm">
+                      <span className="text-white font-semibold">{a.title}</span>: {a.message}
+                    </span>
+                    <span className="ml-3 text-blue-300">•</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-8 pr-8">
+                {announcements.map((a) => (
+                  <div key={`t2-${a._id}`} className="flex items-center">
+                    <span className="text-blue-200 text-sm">
+                      <span className="text-white font-semibold">{a.title}</span>: {a.message}
+                    </span>
+                    <span className="ml-3 text-blue-300">•</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+        <style>
+          {`
+            .ticker-track {
+              animation: ticker-scroll 9s linear infinite;
+              will-change: transform;
+            }
+            .ticker:hover .ticker-track {
+              animation-play-state: paused;
+            }
+            @keyframes ticker-scroll {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+          `}
+        </style>
+      </div>
+    );
+  }
 
   return (
     <div className="mb-6">
@@ -33,11 +78,8 @@ const LoginAnnouncements = () => {
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center">
             <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse mr-3"></div>
-            <h3 className="text-lg font-bold text-white">📢 Company Announcements</h3>
+            <h3 className="text-lg font-bold text-white">{title}</h3>
           </div>
-          {/* <span className="text-blue-300 text-sm font-medium">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long' })}
-          </span> */}
         </div>
         
         <div className="space-y-3">
@@ -60,6 +102,11 @@ const LoginAnnouncements = () => {
                     </span>
                   </div>
                   <p className="text-blue-100 text-sm">{announcement.message}</p>
+                  <div className="mt-1 text-[11px] text-blue-300">
+                    {announcement.startDate ? `From: ${new Date(announcement.startDate).toLocaleDateString()}` : 'From: —'}
+                    {'  •  '}
+                    {announcement.endDate ? `To: ${new Date(announcement.endDate).toLocaleDateString()}` : 'To: —'}
+                  </div>
                 </div>
               </div>
             </div>

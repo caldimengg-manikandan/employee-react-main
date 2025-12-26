@@ -32,7 +32,7 @@ const Header = ({ onMenuClick }) => {
   // Map routes to page titles
   const getPageTitle = () => {
     const routeTitles = {
-      '/dashboard': 'Caldim Engineering ',
+      '/home': 'Home',
       '/user-access': 'User Access',
       '/employee-management': 'Employee Management',
       '/announcements': 'Announcement Management',
@@ -60,10 +60,10 @@ const Header = ({ onMenuClick }) => {
       '/payroll/loan-summary': 'Loan Summary',
       '/payroll/gratuity-summary': 'Gratuity Summary',
       '/payroll/monthly': 'Monthly Payroll',
-      '/admin/interns': 'Internships',
+      '/employee-exit/form': 'Employee Exit Form',
     };
     
-    return routeTitles[location.pathname] || 'Dashboard';
+    return routeTitles[location.pathname] || 'Caldim Employee Portal';
   };
 
   // Get the first letter of the user's name for the avatar
@@ -176,7 +176,9 @@ const Header = ({ onMenuClick }) => {
   ]);
   const [currentStep, setCurrentStep] = useState(1);
   const [maritalStatus, setMaritalStatus] = useState('single');
+  const [sameAsPermanent, setSameAsPermanent] = useState(false);
   const [employeeDoc, setEmployeeDoc] = useState(null);
+  const [errors, setErrors] = useState({});
 
   // Populate form data when modal opens
   useEffect(() => {
@@ -327,27 +329,48 @@ const Header = ({ onMenuClick }) => {
   }, [organizations]);
 
   const handleInputChange = (field, value) => {
+    let newValue = value;
+    if (field === 'employeeId') {
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    }
+    if (field === 'name') {
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Za-z\s]/g, '');
+    }
+    if (field === 'qualification') {
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z\s()./&-]/g, '');
+    }
+    if (field === 'contactNumber' || field === 'spouseContact' || field === 'emergencyContact') {
+      newValue = String(newValue || '').replace(/\D/g, '');
+      if (field === 'contactNumber' || field === 'emergencyContact') {
+        newValue = newValue.slice(0, 10);
+      }
+    }
+    if (field === 'guardianName') {
+      newValue = String(newValue || '').replace(/[^A-Za-z\s]/g, '');
+    }
+    if (field === 'pan') {
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+    }
+    if (field === 'aadhaar') {
+      newValue = String(newValue || '').replace(/\D/g, '').slice(0, 12);
+    }
     const updatedData = {
       ...formData,
-      [field]: value
+      [field]: newValue
     };
-
     if (field === 'name') {
-      const uppercaseValue = value.toUpperCase();
+      const uppercaseValue = newValue.toUpperCase();
       updatedData.name = uppercaseValue;
     }
-
     if (field === 'dateOfJoining' && value) {
       const joiningDate = new Date(value);
       const today = new Date();
       const experienceInMilliseconds = today - joiningDate;
       const experienceInYears = experienceInMilliseconds / (1000 * 60 * 60 * 24 * 365.25);
-      
       if (experienceInYears > 0) {
         const years = Math.floor(experienceInYears);
         const months = Math.floor((experienceInYears - years) * 12);
         let experienceText = '';
-        
         if (years > 0) {
           experienceText += `${years} year${years > 1 ? 's' : ''}`;
         }
@@ -357,18 +380,17 @@ const Header = ({ onMenuClick }) => {
         if (!experienceText) {
           experienceText = 'Less than 1 month';
         }
-        
         updatedData.currentExperience = experienceText;
       } else {
         updatedData.currentExperience = '0 years';
       }
     }
-
     if (field === 'maritalStatus') {
       setMaritalStatus(value);
     }
-
     setFormData(updatedData);
+    const err = validateField(field, updatedData[field]);
+    setErrors((prev) => ({ ...prev, [field]: err }));
   };
 
   const handleOrganizationChange = (index, field, value) => {
@@ -391,6 +413,8 @@ const Header = ({ onMenuClick }) => {
   };
 
   const handleNext = () => {
+    const ok = validateStep(currentStep);
+    if (!ok) return;
     if (currentStep < 3) {
       setCurrentStep(currentStep + 1);
     }
@@ -514,7 +538,7 @@ const Header = ({ onMenuClick }) => {
     { value: '', label: 'Select Gender' },
     { value: 'male', label: 'Male' },
     { value: 'female', label: 'Female' },
-    { value: 'other', label: 'Other' }
+    { value: 'transgender', label: 'Transgender' }
   ];
 
   const statusOptions = [
@@ -526,6 +550,90 @@ const Header = ({ onMenuClick }) => {
   const nationalityOptions = [
     { value: 'Indian', label: 'Indian' }
   ];
+  const indiaStates = [
+    'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Andaman and Nicobar Islands','Chandigarh','Dadra and Nagar Haveli and Daman and Diu','Delhi','Jammu and Kashmir','Ladakh','Lakshadweep','Puducherry'
+  ];
+
+  const validateField = (field, value) => {
+    const v = String(value || '').trim();
+    if (field === 'employeeId') {
+      if (!/^CDE\d{3}$/.test(v)) return 'Must be CDE followed by exactly 3 digits';
+    }
+    if (field === 'name') {
+      if (!v) return 'Employee name is required';
+      if (!/^[A-Za-z\s]+$/.test(v)) return 'Only alphabetic characters allowed';
+    }
+    if (field === 'contactNumber') {
+      if (!/^\d{10}$/.test(v)) return 'Must be exactly 10 digits';
+    }
+    if (field === 'email') {
+      if (!v.includes('@')) return 'Email must include @';
+    }
+    if (field === 'emergencyContact') {
+      if (!/^\d{10}$/.test(v)) return 'Must be 10 digits';
+    }
+    if (field === 'guardianName') {
+      if (v && !/^[A-Za-z\s]+$/.test(v)) return 'Only alphabetic characters allowed';
+    }
+    if (field === 'pan') {
+      if (!/^[A-Z]{5}\d{4}[A-Z]$/.test(v)) return 'Format: 5 letters + 4 digits + 1 letter';
+    }
+    if (field === 'aadhaar') {
+      if (!/^\d{12}$/.test(v)) return 'Must be exactly 12 digits';
+    }
+    if (field === 'permanentPincode' || field === 'currentPincode') {
+      if (!/^\d{6}$/.test(v)) return 'Must be 6 digits';
+    }
+    return '';
+  };
+
+  const validateStep = (step) => {
+    const e = {};
+    if (step === 1) {
+      e.employeeId = validateField('employeeId', formData.employeeId);
+      e.name = validateField('name', formData.name);
+      if (!formData.gender) e.gender = 'Gender is required';
+      if (!formData.nationality) e.nationality = 'Nationality is required';
+      if (!formData.dateOfBirth) e.dateOfBirth = 'Date of birth is required';
+      if (!formData.qualification) e.qualification = 'Qualification is required';
+      if (!formData.bloodGroup) e.bloodGroup = 'Blood group is required';
+      e.contactNumber = validateField('contactNumber', formData.contactNumber);
+      e.email = validateField('email', formData.email);
+      e.emergencyContact = validateField('emergencyContact', formData.emergencyContact);
+      if (!formData.permanentAddressLine) e.permanentAddressLine = 'Address line is required';
+      if (!formData.permanentCity) e.permanentCity = 'City is required';
+      if (!formData.permanentState) e.permanentState = 'State is required';
+      e.permanentPincode = validateField('permanentPincode', formData.permanentPincode);
+      if (!sameAsPermanent) {
+        if (!formData.currentAddressLine) e.currentAddressLine = 'Address line is required';
+        if (!formData.currentCity) e.currentCity = 'City is required';
+        if (!formData.currentState) e.currentState = 'State is required';
+        e.currentPincode = validateField('currentPincode', formData.currentPincode);
+      }
+      e.pan = validateField('pan', formData.pan);
+      e.aadhaar = validateField('aadhaar', formData.aadhaar);
+      if (!formData.passportNumber) e.passportNumber = 'Passport is required';
+      if (!formData.uan) e.uan = 'UAN is required';
+    }
+    if (step === 2) {
+      if (!formData.designation) e.designation = 'Designation is required';
+      if (!formData.division) e.division = 'Division is required';
+      if (!formData.location) e.location = 'Location is required';
+      if (!formData.dateOfJoining) e.dateOfJoining = 'Date of joining is required';
+    }
+    if (step === 3) {
+      if (!formData.bankName) e.bankName = 'Bank name is required';
+      if (!formData.bankAccount) e.bankAccount = 'Bank account is required';
+      if (!formData.branch) e.branch = 'Branch is required';
+      if (!formData.ifsc) e.ifsc = 'IFSC is required';
+    }
+    const cleaned = {};
+    Object.keys(e).forEach((k) => {
+      if (e[k]) cleaned[k] = e[k];
+    });
+    setErrors((prev) => ({ ...prev, ...cleaned }));
+    return Object.keys(cleaned).length === 0;
+  };
 
   // Lite color themes for each section
   const sectionColors = {
@@ -597,6 +705,14 @@ const Header = ({ onMenuClick }) => {
               className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
             >
               <Bars3Icon className="h-5 w-5" />
+            </button>
+            <button
+              onClick={() => navigate(-1)}
+              className="ml-2 p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 inline-flex items-center gap-1"
+              aria-label="Go Back"
+            >
+              <ArrowLeftIcon className="h-5 w-5" />
+              <span className="hidden sm:inline text-sm">Back</span>
             </button>
           </div>
           
@@ -705,41 +821,40 @@ const Header = ({ onMenuClick }) => {
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Employee ID */}
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Employee ID *
+                          Employee ID <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.employeeId}
                           onChange={(e) => handleInputChange('employeeId', e.target.value)}
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
+                          maxLength={6}
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.employeeId ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                           placeholder="EMP001"
                         />
+                        {errors.employeeId && <p className="text-xs text-red-600 mt-1">{errors.employeeId}</p>}
                       </div>
 
-                      {/* Full Name */}
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Full Name *
+                          Full Name <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.name}
                           onChange={(e) => handleInputChange('name', e.target.value.toUpperCase())}
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm uppercase"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm uppercase ${errors.name ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                           placeholder="JOHN DOE"
                         />
-                        <p className="text-xs text-gray-500 mt-1">Name will be converted to uppercase</p>
+                        {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
                       </div>
 
-                      {/* Gender */}
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Gender *
+                          Gender <span className="text-red-600">*</span>
                         </label>
                         <select
                           value={formData.gender}
@@ -755,28 +870,29 @@ const Header = ({ onMenuClick }) => {
                         </select>
                       </div>
 
-                      {/* Date of Birth */}
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Date of Birth
+                          Date of Birth <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="date"
                           value={formData.dateOfBirth}
                           onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.dateOfBirth ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                         />
+                        {errors.dateOfBirth && <p className="text-xs text-red-600 mt-1">{errors.dateOfBirth}</p>}
                       </div>
 
-                      {/* Blood Group */}
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Blood Group
+                          Blood Group <span className="text-red-600">*</span>
                         </label>
                         <select
                           value={formData.bloodGroup}
                           onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.bloodGroup ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                         >
                           {bloodGroupOptions.map(option => (
                             <option key={option.value} value={option.value}>
@@ -784,9 +900,9 @@ const Header = ({ onMenuClick }) => {
                             </option>
                           ))}
                         </select>
+                        {errors.bloodGroup && <p className="text-xs text-red-600 mt-1">{errors.bloodGroup}</p>}
                       </div>
 
-                      {/* Marital Status */}
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
                           Marital Status
@@ -805,7 +921,6 @@ const Header = ({ onMenuClick }) => {
                       </div>
                     </div>
 
-                    {/* Spouse Details (if married) */}
                     {maritalStatus === 'married' && (
                       <div className="mt-4 pt-4 border-t border-blue-200">
                         <h4 className="text-sm font-medium text-blue-700 mb-2">Spouse Information</h4>
@@ -849,43 +964,47 @@ const Header = ({ onMenuClick }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Mobile Number *
+                          Mobile Number <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="tel"
                           value={formData.contactNumber}
                           onChange={(e) => handleInputChange('contactNumber', e.target.value)}
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none text-sm"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.contactNumber ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                           placeholder="9876543210"
                         />
+                        {errors.contactNumber && <p className="text-xs text-red-600 mt-1">{errors.contactNumber}</p>}
                       </div>
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Email Address *
+                          Email Address <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="email"
                           value={formData.email}
                           onChange={(e) => handleInputChange('email', e.target.value)}
                           required
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none text-sm"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.email ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                           placeholder="john.doe@example.com"
                         />
+                        {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
                       </div>
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Emergency Contact
+                          Emergency Contact <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="tel"
                           value={formData.emergencyContact}
                           onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none text-sm"
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.emergencyContact ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                           placeholder="Emergency contact number"
                         />
+                        {errors.emergencyContact && <p className="text-xs text-red-600 mt-1">{errors.emergencyContact}</p>}
                       </div>
 
                       <div>
@@ -896,18 +1015,20 @@ const Header = ({ onMenuClick }) => {
                           type="text"
                           value={formData.guardianName}
                           onChange={(e) => handleInputChange('guardianName', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none text-sm"
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.guardianName ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                           placeholder="Father/Mother/Spouse Name"
                         />
+                        {errors.guardianName && <p className="text-xs text-red-600 mt-1">{errors.guardianName}</p>}
                       </div>
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Nationality
+                          Nationality <span className="text-red-600">*</span>
                         </label>
                         <select
                           value={formData.nationality}
                           onChange={(e) => handleInputChange('nationality', e.target.value)}
+                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none text-sm"
                         >
                           {nationalityOptions.map(option => (
@@ -920,12 +1041,13 @@ const Header = ({ onMenuClick }) => {
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Location
+                          Location <span className="text-red-600">*</span>
                         </label>
                         <select
                           value={formData.location}
                           onChange={(e) => handleInputChange('location', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none text-sm"
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.location ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                         >
                           {locationOptions.map(option => (
                             <option key={option.value} value={option.value}>
@@ -933,6 +1055,7 @@ const Header = ({ onMenuClick }) => {
                             </option>
                           ))}
                         </select>
+                        {errors.location && <p className="text-xs text-red-600 mt-1">{errors.location}</p>}
                       </div>
                     </div>
                   </div>
@@ -943,32 +1066,141 @@ const Header = ({ onMenuClick }) => {
                       <MapPinIcon className={`h-5 w-5 ${sectionColors.address.icon} mr-2`} />
                       <h3 className={`font-medium ${sectionColors.address.title}`}>Address Information</h3>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-6">
                       <div>
-                        <label className="block text-sm text-gray-700 mb-1">
-                          Permanent Address
-                        </label>
-                        <textarea
-                          value={formData.permanentAddress}
-                          onChange={(e) => handleInputChange('permanentAddress', e.target.value)}
-                          rows="3"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-purple-500 focus:outline-none text-sm"
-                          placeholder="Permanent address"
-                        />
+                        <div className="flex items-center mb-2">
+                          <h4 className="text-sm font-medium text-purple-700">Permanent Address</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="lg:col-span-2">
+                            <label className="block text-sm text-gray-700 mb-1">Address Line <span className="text-red-600">*</span></label>
+                            <input
+                              type="text"
+                              value={formData.permanentAddressLine || ''}
+                              onChange={(e) => handleInputChange('permanentAddressLine', e.target.value)}
+                              required
+                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.permanentAddressLine ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-purple-500 focus:border-purple-500'}`}
+                              placeholder="Street, house number"
+                            />
+                            {errors.permanentAddressLine && <p className="text-xs text-red-600 mt-1">{errors.permanentAddressLine}</p>}
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-700 mb-1">City <span className="text-red-600">*</span></label>
+                            <input
+                              type="text"
+                              value={formData.permanentCity || ''}
+                              onChange={(e) => handleInputChange('permanentCity', e.target.value)}
+                              required
+                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.permanentCity ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-purple-500 focus:border-purple-500'}`}
+                              placeholder="City"
+                            />
+                            {errors.permanentCity && <p className="text-xs text-red-600 mt-1">{errors.permanentCity}</p>}
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-700 mb-1">State <span className="text-red-600">*</span></label>
+                            <select
+                              value={formData.permanentState || ''}
+                              onChange={(e) => handleInputChange('permanentState', e.target.value)}
+                              required
+                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.permanentState ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-purple-500 focus:border-purple-500'}`}
+                            >
+                              <option value="">Select State</option>
+                              {indiaStates.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            {errors.permanentState && <p className="text-xs text-red-600 mt-1">{errors.permanentState}</p>}
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-700 mb-1">Pincode <span className="text-red-600">*</span></label>
+                            <input
+                              type="text"
+                              value={formData.permanentPincode || ''}
+                              onChange={(e) => handleInputChange('permanentPincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                              required
+                              inputMode="numeric"
+                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.permanentPincode ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-purple-500 focus:border-purple-500'}`}
+                              placeholder="600001"
+                            />
+                            {errors.permanentPincode && <p className="text-xs text-red-600 mt-1">{errors.permanentPincode}</p>}
+                          </div>
+                        </div>
                       </div>
-
-                      <div>
-                        <label className="block text-sm text-gray-700 mb-1">
-                          Current Address
-                        </label>
-                        <textarea
-                          value={formData.currentAddress}
-                          onChange={(e) => handleInputChange('currentAddress', e.target.value)}
-                          rows="3"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-purple-500 focus:border-purple-500 focus:outline-none text-sm"
-                          placeholder="Current address"
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={sameAsPermanent}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setSameAsPermanent(checked);
+                            if (checked) {
+                              setFormData(prev => ({
+                                ...prev,
+                                currentAddressLine: prev.permanentAddressLine || '',
+                                currentCity: prev.permanentCity || '',
+                                currentState: prev.permanentState || '',
+                                currentPincode: prev.permanentPincode || ''
+                              }));
+                            }
+                          }}
+                          className="w-4 h-4 rounded border-gray-300"
                         />
+                        <span className="text-sm text-gray-700">Same as Permanent Address</span>
+                      </div>
+                      <div>
+                        <div className="flex items-center mb-2">
+                          <h4 className="text-sm font-medium text-purple-700">Current Address</h4>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                          <div className="lg:col-span-2">
+                            <label className="block text-sm text-gray-700 mb-1">Address Line {sameAsPermanent ? '' : <span className="text-red-600">*</span>}</label>
+                            <input
+                              type="text"
+                              value={formData.currentAddressLine || ''}
+                              onChange={(e) => handleInputChange('currentAddressLine', e.target.value)}
+                              required={!sameAsPermanent}
+                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.currentAddressLine ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-purple-500 focus:border-purple-500'}`}
+                              placeholder="Street, house number"
+                            />
+                            {errors.currentAddressLine && <p className="text-xs text-red-600 mt-1">{errors.currentAddressLine}</p>}
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-700 mb-1">City {sameAsPermanent ? '' : <span className="text-red-600">*</span>}</label>
+                            <input
+                              type="text"
+                              value={formData.currentCity || ''}
+                              onChange={(e) => handleInputChange('currentCity', e.target.value)}
+                              required={!sameAsPermanent}
+                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.currentCity ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-purple-500 focus:border-purple-500'}`}
+                              placeholder="City"
+                            />
+                            {errors.currentCity && <p className="text-xs text-red-600 mt-1">{errors.currentCity}</p>}
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-700 mb-1">State {sameAsPermanent ? '' : <span className="text-red-600">*</span>}</label>
+                            <select
+                              value={formData.currentState || ''}
+                              onChange={(e) => handleInputChange('currentState', e.target.value)}
+                              required={!sameAsPermanent}
+                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.currentState ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-purple-500 focus:border-purple-500'}`}
+                            >
+                              <option value="">Select State</option>
+                              {indiaStates.map(s => <option key={s} value={s}>{s}</option>)}
+                            </select>
+                            {errors.currentState && <p className="text-xs text-red-600 mt-1">{errors.currentState}</p>}
+                          </div>
+                          <div>
+                            <label className="block text-sm text-gray-700 mb-1">Pincode {sameAsPermanent ? '' : <span className="text-red-600">*</span>}</label>
+                            <input
+                              type="text"
+                              value={formData.currentPincode || ''}
+                              onChange={(e) => handleInputChange('currentPincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
+                              required={!sameAsPermanent}
+                              inputMode="numeric"
+                              className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.currentPincode ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-purple-500 focus:border-purple-500'}`}
+                              placeholder="600001"
+                            />
+                            {errors.currentPincode && <p className="text-xs text-red-600 mt-1">{errors.currentPincode}</p>}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -983,38 +1215,46 @@ const Header = ({ onMenuClick }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          PAN Number
+                          PAN Number <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.pan}
                           onChange={(e) => handleInputChange('pan', e.target.value.toUpperCase())}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-none text-sm"
+                          maxLength={10}
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.pan ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-amber-500 focus:border-amber-500'}`}
                           placeholder="ABCDE1234F"
                         />
+                        {errors.pan && <p className="text-xs text-red-600 mt-1">{errors.pan}</p>}
                       </div>
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Aadhaar Number
+                          Aadhaar Number <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.aadhaar}
                           onChange={(e) => handleInputChange('aadhaar', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-none text-sm"
+                          inputMode="numeric"
+                          maxLength={12}
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.aadhaar ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-amber-500 focus:border-amber-500'}`}
                           placeholder="123456789012"
                         />
+                        {errors.aadhaar && <p className="text-xs text-red-600 mt-1">{errors.aadhaar}</p>}
                       </div>
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Passport Number
+                          Passport Number <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.passportNumber}
                           onChange={(e) => handleInputChange('passportNumber', e.target.value.toUpperCase())}
+                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-none text-sm"
                           placeholder="Passport number"
                         />
@@ -1022,12 +1262,13 @@ const Header = ({ onMenuClick }) => {
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          UAN Number
+                          UAN Number <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.uan}
                           onChange={(e) => handleInputChange('uan', e.target.value)}
+                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-none text-sm"
                           placeholder="101147215588"
                         />
@@ -1050,7 +1291,7 @@ const Header = ({ onMenuClick }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Designation *
+                          Designation <span className="text-red-600">*</span>
                         </label>
                         <select
                           value={formData.designation}
@@ -1068,11 +1309,12 @@ const Header = ({ onMenuClick }) => {
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Division
+                          Division <span className="text-red-600">*</span>
                         </label>
                         <select
                           value={formData.division}
                           onChange={(e) => handleInputChange('division', e.target.value)}
+                          required
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm"
                         >
                           {divisionOptions.map(option => (
@@ -1085,7 +1327,7 @@ const Header = ({ onMenuClick }) => {
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Date of Joining *
+                          Date of Joining <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="date"
@@ -1128,17 +1370,25 @@ const Header = ({ onMenuClick }) => {
                       </div>
 
                       <div>
-                        <label className="block text-sm text-gray-700 mb-1">
-                          Qualification
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.qualification}
-                          onChange={(e) => handleInputChange('qualification', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm"
-                          placeholder="e.g., B.E (CIVIL)"
-                        />
-                      </div>
+                      <label className="block text-sm text-gray-700 mb-1">
+                        Qualification <span className="text-red-600">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.qualification}
+                        onChange={(e) => handleInputChange('qualification', e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
+                        required
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-white uppercase ${errors.qualification ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500'}`}
+                        placeholder="E.G., B.E / M.TECH / B.SC"
+                      />
+                      {errors.qualification && <p className="text-xs text-red-600 mt-1">{errors.qualification}</p>}
+                    </div>
                     </div>
                   </div>
 
@@ -1266,54 +1516,62 @@ const Header = ({ onMenuClick }) => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Bank Name
+                          Bank Name <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.bankName}
                           onChange={(e) => handleInputChange('bankName', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-pink-500 focus:border-pink-500 focus:outline-none text-sm"
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.bankName ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
                           placeholder="HDFC Bank"
                         />
+                        {errors.bankName && <p className="text-xs text-red-600 mt-1">{errors.bankName}</p>}
                       </div>
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Bank Account Number
+                          Bank Account Number <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.bankAccount}
                           onChange={(e) => handleInputChange('bankAccount', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-pink-500 focus:border-pink-500 focus:outline-none text-sm"
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.bankAccount ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
                           placeholder="123456789012"
                         />
+                        {errors.bankAccount && <p className="text-xs text-red-600 mt-1">{errors.bankAccount}</p>}
                       </div>
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          Branch
+                          Branch <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.branch}
                           onChange={(e) => handleInputChange('branch', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-pink-500 focus:border-pink-500 focus:outline-none text-sm"
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.branch ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
                           placeholder="Ramapuram"
                         />
+                        {errors.branch && <p className="text-xs text-red-600 mt-1">{errors.branch}</p>}
                       </div>
 
                       <div>
                         <label className="block text-sm text-gray-700 mb-1">
-                          IFSC Code
+                          IFSC Code <span className="text-red-600">*</span>
                         </label>
                         <input
                           type="text"
                           value={formData.ifsc}
                           onChange={(e) => handleInputChange('ifsc', e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-pink-500 focus:border-pink-500 focus:outline-none text-sm"
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.ifsc ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
                           placeholder="IFSC code"
                         />
+                        {errors.ifsc && <p className="text-xs text-red-600 mt-1">{errors.ifsc}</p>}
                       </div>
                     </div>
                   </div>
