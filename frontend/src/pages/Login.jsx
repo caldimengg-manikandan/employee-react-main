@@ -637,7 +637,7 @@ const Login = () => {
           </div>
 
           {/* Login Box Container */}
-          <div className="relative z-10 w-full h-full flex flex-col items-center justify-center p-4 lg:p-8">
+          <div className="relative z-10 w-full h-full flex flex-col items-center justify-top p-4 lg:p-8">
             <h1 className="text-8xl font-bold text-white mt-2 tracking-tight">
                   CALDIM
                 </h1>
