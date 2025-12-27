@@ -135,7 +135,8 @@ const Timesheet = () => {
             (sheet.status || "").toLowerCase() === "approved"
           );
           const hasApprovedLeaveEntry = rows.some(r => (r.project || "") === "Leave" && (r.task || "") === "Leave Approved");
-          setIsLeaveAutoDraft(((sheet.status || "").toLowerCase() === "draft") && hasApprovedLeaveEntry);
+          // Disable auto-draft blocking so users can edit other rows and submit manually
+          setIsLeaveAutoDraft(false);
         }
 
         // --- Process Attendance Data ---

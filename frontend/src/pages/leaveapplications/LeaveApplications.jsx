@@ -431,8 +431,8 @@ import Notification from '../../components/Notifications/Notification';
   };
 
   const handleDelete = (leave) => {
-    if (leave.status !== 'Pending') {
-      showNotification('Only Pending applications can be deleted.', 'error');
+    if (leave.status !== 'Pending' && leave.status !== 'Approved') {
+      showNotification('Only Pending or Approved applications can be deleted.', 'error');
       return;
     }
     setDeleteModal({ isOpen: true, leaveId: leave.id });
@@ -752,8 +752,8 @@ import Notification from '../../components/Notifications/Notification';
                             </button>
                             <button
                               onClick={() => handleDelete(leave)}
-                              disabled={leave.status !== 'Pending'}
-                              className={`hover:text-red-700 ${leave.status === 'Pending' ? 'text-red-600' : 'text-gray-300 cursor-not-allowed'}`}
+                              disabled={leave.status !== 'Pending' && leave.status !== 'Approved'}
+                              className={`hover:text-red-700 ${(leave.status === 'Pending' || leave.status === 'Approved') ? 'text-red-600' : 'text-gray-300 cursor-not-allowed'}`}
                               title="Delete"
                             >
                               <Trash className="w-5 h-5" />

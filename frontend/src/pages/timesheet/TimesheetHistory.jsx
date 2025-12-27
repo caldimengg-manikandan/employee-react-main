@@ -636,8 +636,8 @@ const TimesheetHistory = () => {
                             <Eye className="w-4 h-4" />
                           </button>
                           
-                          {/* Show Edit and Delete only for drafts */}
-                          {isDraftTimesheet && !isAutoLeaveDraft && (
+                          {/* Show Edit and Delete for all drafts */}
+                          {isDraftTimesheet && (
                             <>
                               <button 
                                 onClick={() => handleEdit(t)}
