@@ -220,7 +220,11 @@ const ProjectAllocation = () => {
   };
 
   const getUniqueEmployeeIds = () => {
-    return [...new Set(allocations.map(a => a.employeeCode))].filter(Boolean);
+    return [...new Set(allocations.map(a => a.employeeCode))]
+      .filter(Boolean)
+      .sort((a, b) =>
+        String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' })
+      );
   };
 
   // Filter functions

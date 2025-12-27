@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Eye, Download, Trash2, Plus, Edit2, Check, X, User, Calendar, Building, CreditCard, DollarSign, Clock, AlertCircle, Power } from "lucide-react";
 import { employeeAPI, loanAPI } from "../../services/api";
 
@@ -6,6 +6,13 @@ export default function LoanSummary() {
   const [loans, setLoans] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
+  const noticeTimerRef = useRef(null);
+  const [notice, setNotice] = useState({
+    open: false,
+    variant: "info",
+    title: "",
+    message: ""
+  });
   // Loan counter not needed if we generate based on count or backend handles it, 
   // but we'll keep it simple and generate on frontend for now.
   const [loanCounter, setLoanCounter] = useState(1);
@@ -41,9 +48,44 @@ export default function LoanSummary() {
 
   const [form, setForm] = useState(initialForm);
 
+  const closeNotice = () => {
+    if (noticeTimerRef.current) {
+      clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = null;
+    }
+    setNotice((s) => ({ ...s, open: false }));
+  };
+
+  const showNotice = ({ variant = "info", title, message, autoCloseMs = 3500 }) => {
+    if (noticeTimerRef.current) {
+      clearTimeout(noticeTimerRef.current);
+      noticeTimerRef.current = null;
+    }
+    setNotice({
+      open: true,
+      variant,
+      title: title || (variant === "success" ? "Success" : variant === "error" ? "Error" : "Notice"),
+      message: message || ""
+    });
+    if (autoCloseMs && autoCloseMs > 0) {
+      noticeTimerRef.current = setTimeout(() => {
+        setNotice((s) => ({ ...s, open: false }));
+        noticeTimerRef.current = null;
+      }, autoCloseMs);
+    }
+  };
+
   useEffect(() => {
     fetchLoans();
     fetchEmployees();
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) {
+        clearTimeout(noticeTimerRef.current);
+      }
+    };
   }, []);
 
   const fetchEmployees = async () => {
@@ -54,6 +96,7 @@ export default function LoanSummary() {
       }
     } catch (error) {
       console.error("Error fetching employees:", error);
+      showNotice({ variant: "error", title: "Employees", message: "Failed to load employees." });
     }
   };
 
@@ -77,6 +120,7 @@ export default function LoanSummary() {
       }
     } catch (error) {
       console.error("Error fetching loans:", error);
+      showNotice({ variant: "error", title: "Loans", message: "Failed to load loan summary." });
     } finally {
       setLoading(false);
     }
@@ -126,12 +170,19 @@ export default function LoanSummary() {
     try {
       const response = await loanAPI.togglePayment(loanId);
       if (response.data && response.data.success) {
+        const isEnabled = Boolean(response.data.loan?.paymentEnabled);
         setLoans(prev => prev.map(loan => 
           loan._id === loanId ? response.data.loan : loan
         ));
+        showNotice({
+          variant: "success",
+          title: "Payment",
+          message: isEnabled ? "Payment enabled." : "Payment disabled."
+        });
       }
     } catch (error) {
       console.error("Error toggling payment:", error);
+      showNotice({ variant: "error", title: "Payment", message: "Failed to update payment status." });
     }
   }
 
@@ -167,7 +218,11 @@ export default function LoanSummary() {
     const missingFields = requiredFields.filter(field => !form[field]);
 
     if (missingFields.length > 0) {
-      alert(`Please fill all required fields: ${missingFields.join(', ')}`);
+      showNotice({
+        variant: "error",
+        title: "Missing fields",
+        message: `Please fill: ${missingFields.join(", ")}.`
+      });
       return;
     }
 
@@ -193,10 +248,11 @@ export default function LoanSummary() {
         setLoanCounter(prev => prev + 1);
         setForm(initialForm);
         setShowAddModal(false);
+        showNotice({ variant: "success", title: "Loan", message: "Loan created successfully." });
       }
     } catch (error) {
       console.error("Error creating loan:", error);
-      alert("Failed to create loan");
+      showNotice({ variant: "error", title: "Loan", message: "Failed to create loan." });
     }
   }
 
@@ -242,10 +298,11 @@ export default function LoanSummary() {
         setShowEditModal(false);
         setSelectedLoan(null);
         setForm(initialForm);
+        showNotice({ variant: "success", title: "Loan", message: "Loan updated successfully." });
       }
     } catch (error) {
       console.error("Error updating loan:", error);
-      alert("Failed to update loan");
+      showNotice({ variant: "error", title: "Loan", message: "Failed to update loan." });
     }
   }
 
@@ -288,10 +345,11 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
       const response = await loanAPI.delete(id);
       if (response.data && response.data.success) {
         setLoans((prev) => prev.filter((l) => l._id !== id));
+        showNotice({ variant: "success", title: "Loan", message: "Loan deleted successfully." });
       }
     } catch (error) {
       console.error("Error deleting loan:", error);
-      alert("Failed to delete loan");
+      showNotice({ variant: "error", title: "Loan", message: "Failed to delete loan." });
     }
   }
 
@@ -307,6 +365,51 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
   /* -------- UI -------- */
   return (
     <div className="p-6">
+      {notice.open && (
+        <div className="fixed top-5 right-5 z-[60] w-full max-w-sm">
+          <div
+            className={`rounded-lg shadow-xl border p-4 bg-white ${
+              notice.variant === "success"
+                ? "border-green-200"
+                : notice.variant === "error"
+                  ? "border-red-200"
+                  : "border-blue-200"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            <div className="flex items-start gap-3">
+              <div
+                className={`mt-0.5 ${
+                  notice.variant === "success"
+                    ? "text-green-600"
+                    : notice.variant === "error"
+                      ? "text-red-600"
+                      : "text-blue-600"
+                }`}
+              >
+                {notice.variant === "success" ? <Check size={18} /> : <AlertCircle size={18} />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="font-semibold text-gray-900 truncate">{notice.title}</div>
+                  <button
+                    type="button"
+                    onClick={closeNotice}
+                    className="text-gray-500 hover:text-gray-700"
+                    aria-label="Close notification"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+                {notice.message ? (
+                  <div className="mt-1 text-sm text-gray-600 break-words">{notice.message}</div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex justify-between mb-6">
         <div>
           

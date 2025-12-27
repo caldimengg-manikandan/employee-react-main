@@ -4,6 +4,9 @@ import { leaveAPI, employeeAPI } from '../../services/api';
 
 const LeaveBalance = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [divisionFilter, setDivisionFilter] = useState('');
+  const [designationFilter, setDesignationFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,7 +43,7 @@ const LeaveBalance = () => {
         monthsOfService: e.monthsOfService || 0,
         email: e.email || '',
         phone: e.mobileNo || '',
-        location: e.location || '',
+        location: e.location || e.branch || '',
         basicSalary: e.basicSalary || 0,
         balances: e.balances
       }));
@@ -156,10 +159,51 @@ const LeaveBalance = () => {
     return { ...emp, balances: calculateLeaveBalances(emp) };
   });
 
+  const divisions = Array.from(
+    new Set(
+      employeesWithBalances
+        .map(e => String(e.department || '').trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  const designations = Array.from(
+    new Set(
+      employeesWithBalances
+        .map(e => String(e.designation || e.position || '').trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  const locations = Array.from(
+    new Set(
+      employeesWithBalances
+        .map(e => String(e.location || '').trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
   const filteredEmployees = employeesWithBalances.filter(emp => {
-    const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         String(emp.empId || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+    const q = searchTerm.trim().toLowerCase();
+    const matchesSearch =
+      !q ||
+      String(emp.name || '').toLowerCase().includes(q) ||
+      String(emp.empId || '').toLowerCase().includes(q);
+
+    const matchesDivision =
+      !divisionFilter ||
+      String(emp.department || '').trim().toLowerCase() === divisionFilter.trim().toLowerCase();
+
+    const matchesDesignation =
+      !designationFilter ||
+      String(emp.designation || emp.position || '').trim().toLowerCase() ===
+        designationFilter.trim().toLowerCase();
+
+    const matchesLocation =
+      !locationFilter ||
+      String(emp.location || '').trim().toLowerCase() === locationFilter.trim().toLowerCase();
+
+    return matchesSearch && matchesDivision && matchesDesignation && matchesLocation;
   });
 
   const formatDate = (dateString) => {
@@ -174,7 +218,17 @@ const LeaveBalance = () => {
   // Handle refresh
   const handleRefresh = () => {
     setSearchTerm('');
+    setDivisionFilter('');
+    setDesignationFilter('');
+    setLocationFilter('');
     loadBalances();
+  };
+
+  const handleClearFilters = () => {
+    setSearchTerm('');
+    setDivisionFilter('');
+    setDesignationFilter('');
+    setLocationFilter('');
   };
   
   const getAvailableBalance = (emp, type) => {
@@ -199,7 +253,7 @@ const LeaveBalance = () => {
       </div> */}
 
       {/* Search Box and Refresh Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         {/* Search Box */}
         <div className="flex items-center gap-2 border rounded-lg px-3 py-2 bg-white w-full max-w-md">
           <Search size={20} className="text-gray-400" />
@@ -212,13 +266,64 @@ const LeaveBalance = () => {
           />
         </div>
         
-        {/* Refresh Button */}
-        <button
-          onClick={handleRefresh}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-        >
-          <span className="rotate-45">↻</span> Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleClearFilters}
+            className="flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+          >
+            Clear Filters
+          </button>
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          >
+            <span className="rotate-45">↻</span> Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+          <select
+            value={divisionFilter}
+            onChange={(e) => setDivisionFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Divisions</option>
+            {divisions.map(div => (
+              <option key={div} value={div}>{div}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+          <select
+            value={designationFilter}
+            onChange={(e) => setDesignationFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Designations</option>
+            {designations.map(des => (
+              <option key={des} value={des}>{des}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="">All Locations</option>
+            {locations.map(loc => (
+              <option key={loc} value={loc}>{loc}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Table */}
@@ -247,7 +352,7 @@ const LeaveBalance = () => {
             ) : filteredEmployees.length === 0 ? (
               <tr>
                 <td colSpan="6" className="p-8 text-center text-gray-500">
-                  No employees found. {searchTerm && 'Try a different search term.'}
+                  No employees found. {(searchTerm || divisionFilter || designationFilter || locationFilter) && 'Try clearing filters.'}
                 </td>
               </tr>
             ) : (

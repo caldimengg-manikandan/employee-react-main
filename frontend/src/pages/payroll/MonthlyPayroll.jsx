@@ -57,6 +57,8 @@ export default function MonthlyPayroll() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [filterDesignation, setFilterDesignation] = useState('all');
+  const [filterLocation, setFilterLocation] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
 
   useEffect(() => {
     fetchEmployees();
@@ -424,6 +426,8 @@ Payroll Department
 
   const departments = ['all', ...new Set(salaryRecords.map(r => r.department || '').filter(Boolean))];
   const designations = ['all', ...new Set(salaryRecords.map(r => r.designation || '').filter(Boolean))];
+  const locations = ['all', ...new Set(salaryRecords.map(r => r.location || '').filter(Boolean))];
+  const statuses = ['all', ...new Set(salaryRecords.map(r => r.status || '').filter(Boolean))];
 
   const filteredRecords = salaryRecords.filter(record => {
     // Search
@@ -437,17 +441,22 @@ Payroll Department
     // Designation
     const matchesDesig = filterDesignation === 'all' || record.designation === filterDesignation;
 
+    const matchesLocation = filterLocation === 'all' || record.location === filterLocation;
+
+    const matchesStatus = filterStatus === 'all' || String(record.status || '').toLowerCase() === String(filterStatus).toLowerCase();
+
+    const baseMatches = matchesSearch && matchesDept && matchesDesig && matchesLocation && matchesStatus;
+
     // Bank
-    if (filterBank === 'all') return matchesSearch && matchesDept && matchesDesig;
-    if (filterBank === 'hdfc') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('HDFC');
-    if (filterBank === 'sbi') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('SBI');
-    if (filterBank === 'axis') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('Axis');
-    if (filterBank === 'indian') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('Indian');
-    if (filterBank === 'icici') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('ICICI');
-    if (filterBank === 'other') return (matchesSearch && matchesDept && matchesDesig) && !['HDFC', 'SBI', 'Axis', 'Indian', 'ICICI'].some(bank => 
-      record.bankName?.includes(bank)
-    );
-    return matchesSearch && matchesDept && matchesDesig;
+    const bankName = String(record.bankName || '');
+    if (filterBank === 'all') return baseMatches;
+    if (filterBank === 'hdfc') return baseMatches && bankName.toLowerCase().includes('hdfc');
+    if (filterBank === 'sbi') return baseMatches && bankName.toLowerCase().includes('sbi');
+    if (filterBank === 'axis') return baseMatches && bankName.toLowerCase().includes('axis');
+    if (filterBank === 'indian') return baseMatches && bankName.toLowerCase().includes('indian');
+    if (filterBank === 'icici') return baseMatches && bankName.toLowerCase().includes('icici');
+    if (filterBank === 'other') return baseMatches && !['hdfc', 'sbi', 'axis', 'indian', 'icici'].some(bank => bankName.toLowerCase().includes(bank));
+    return baseMatches;
   });
 
   const getBankFilterLabel = () => {
@@ -461,6 +470,15 @@ Payroll Department
       case 'other': return 'Other Banks';
       default: return 'All Banks';
     }
+  };
+
+  const resetFilters = () => {
+    setSearchTerm('');
+    setFilterDepartment('all');
+    setFilterDesignation('all');
+    setFilterLocation('all');
+    setFilterStatus('all');
+    setFilterBank('all');
   };
 
   return (
@@ -481,7 +499,7 @@ Payroll Department
       {/* Controls */}
       <div className="bg-white p-5 rounded-lg shadow mb-3 border border-gray-200">
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-4 border-b pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-4 items-end mb-4 border-b pb-4">
           {/* Search */}
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Search</label>
@@ -527,8 +545,35 @@ Payroll Department
             </select>
           </div>
 
-          {/* Bank Filter */}
-          {/* <div>
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Location</label>
+            <select
+              value={filterLocation}
+              onChange={(e) => setFilterLocation(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Locations</option>
+              {locations.filter(l => l !== 'all').map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Status</label>
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Status</option>
+              {statuses.filter(s => s !== 'all').map(status => (
+                <option key={status} value={status}>{status}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Bank</label>
             <select
               value={filterBank}
@@ -543,7 +588,7 @@ Payroll Department
               <option value="icici">ICICI Bank</option>
               <option value="other">Other Banks</option>
             </select>
-          </div> */}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
@@ -578,6 +623,12 @@ Payroll Department
           >
             Clear
           </button>
+          <button
+            onClick={resetFilters}
+            className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+          >
+            Reset Filters
+          </button>
           <button 
             onClick={runSimulation} 
             className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors flex items-center gap-2"
@@ -591,7 +642,7 @@ Payroll Department
             ) : (
               <>
                 <Play className="w-4 h-4" />
-                Simulation
+                simulate
               </>
             )}
           </button>
@@ -601,14 +652,14 @@ Payroll Department
 
       {/* Employee/Salary Records Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-[#262760]">
+        <div className="overflow-auto max-h-[70vh]">
+          <table className="min-w-[1200px] w-full divide-y divide-gray-200">
+            <thead className="bg-[#262760] sticky top-0 z-30">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-0 z-40 bg-[#262760] w-[90px] min-w-[90px] max-w-[90px]">
                   Select
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-[90px] z-40 bg-[#262760] w-[280px] min-w-[280px] max-w-[280px]">
                   Employee
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -654,8 +705,8 @@ Payroll Department
                 filteredRecords.map(record => {
                   const salary = calculateSalaryFields(record);
                   return (
-                    <tr key={record.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
+                    <tr key={record.id} className="group hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap sticky left-0 z-20 bg-white group-hover:bg-gray-50 w-[90px] min-w-[90px] max-w-[90px]">
                       <input 
                         type="checkbox" 
                         checked={selectedEmployees.includes(record.id)} 
@@ -663,7 +714,7 @@ Payroll Department
                         className="w-4 h-4 text-blue-600"
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 whitespace-nowrap sticky left-[90px] z-20 bg-white group-hover:bg-gray-50 w-[280px] min-w-[280px] max-w-[280px]">
                       <div className="font-medium text-gray-900">{record.employeeName}</div>
                       <div className="text-xs text-gray-500">{record.employeeId}</div>
                     </td>
@@ -782,10 +833,10 @@ Payroll Department
             {/* Scrollable Content */}
             <div className="overflow-auto flex-1 p-5">
               <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-[1100px] w-full divide-y divide-gray-200">
                   <thead className="bg-[#262760] sticky top-0 z-10">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-0 z-20 bg-[#262760] w-[280px] min-w-[280px] max-w-[280px]">
                         Employee
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -813,8 +864,8 @@ Payroll Department
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {simulation.results.map(result => (
-                      <tr key={result.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                      <tr key={result.id} className="group hover:bg-gray-50">
+                        <td className="px-6 py-4 whitespace-nowrap sticky left-0 z-10 bg-white group-hover:bg-gray-50 w-[280px] min-w-[280px] max-w-[280px]">
                           <div className="font-medium text-gray-900">{result.employeeName}</div>
                           <div className="text-xs text-gray-500">{result.employeeId}</div>
                         </td>
@@ -918,13 +969,7 @@ Payroll Department
       {/* Empty state */}
       {!simulation && selectedEmployees.length === 0 && (
         <div className="text-center py-8 text-gray-500">
-          <div className="mb-4">
-            <svg className="w-12 h-12 text-gray-300 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-            </svg>
-          </div>
-          <p className="text-lg font-medium text-gray-600">No employees selected</p>
-          <p className="text-gray-500 mt-1">Select employees and click <strong>Simulation</strong> to preview monthly payroll</p>
+          
         </div>
       )}
     </div>
