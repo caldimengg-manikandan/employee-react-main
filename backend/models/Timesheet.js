@@ -17,6 +17,7 @@ const TimesheetSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+    employeeName: { type: String, default: "" },
 
     weekStartDate: { type: Date, required: true },
     weekEndDate: { type: Date, required: true },

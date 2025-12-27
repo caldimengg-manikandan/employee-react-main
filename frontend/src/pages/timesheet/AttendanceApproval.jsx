@@ -169,22 +169,26 @@ const AttendanceApproval = () => {
                   <span style={styles.statusBadge(r.status)}>{r.status}</span>
                 </td>
                 <td style={styles.td}>
-                  <div style={styles.actions}>
-                    <button
-                      style={{ ...styles.btn, ...styles.approveBtn }}
-                      onClick={() => approve(r._id)}
-                      disabled={loading || r.status !== "Pending"}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      style={{ ...styles.btn, ...styles.rejectBtn }}
-                      onClick={() => { setRejectId(r._id); setRejectReason(""); }}
-                      disabled={loading || r.status !== "Pending"}
-                    >
-                      Reject
-                    </button>
-                  </div>
+                  {r.status !== "Pending" ? (
+                    <span style={{ color: "#718096", fontWeight: "500" }}>Completed</span>
+                  ) : (
+                    <div style={styles.actions}>
+                      <button
+                        style={{ ...styles.btn, ...styles.approveBtn }}
+                        onClick={() => approve(r._id)}
+                        disabled={loading}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        style={{ ...styles.btn, ...styles.rejectBtn }}
+                        onClick={() => { setRejectId(r._id); setRejectReason(""); }}
+                        disabled={loading}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
                 </td>
               </tr>
             ))

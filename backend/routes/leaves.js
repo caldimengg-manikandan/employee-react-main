@@ -204,6 +204,16 @@ async function syncTimesheetWithLeave(leaveApp) {
   const endDate = new Date(leaveApp.endDate);
   const userId = leaveApp.userId;
 
+  let employeeName = leaveApp.employeeName;
+  if (!employeeName) {
+    try {
+      const user = await User.findById(userId).select('name');
+      if (user) employeeName = user.name;
+    } catch (e) {
+      console.error("Error fetching user name for timesheet sync:", e);
+    }
+  }
+
   // Initialize loopDate to UTC midnight
   let loopDate = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate()));
   
@@ -241,6 +251,7 @@ async function syncTimesheetWithLeave(leaveApp) {
               }
               timesheet = new Timesheet({
                   userId: userId,
+                  employeeName: employeeName || "",
                   weekStartDate: weekStart,
                   weekEndDate: weekEnd,
                   entries: [],
@@ -248,6 +259,10 @@ async function syncTimesheetWithLeave(leaveApp) {
               });
           } else {
              console.log("Timesheet found:", timesheet._id);
+             // Ensure employeeName is set if missing
+             if (!timesheet.employeeName && employeeName) {
+                 timesheet.employeeName = employeeName;
+             }
           }
           timesheetCache[weekStartStr] = timesheet;
       }
@@ -845,7 +860,7 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// Delete own leave application (only when Pending)
+// Delete own leave application (Pending or Approved)
 router.delete('/:id', auth, async (req, res) => {
   try {
     const existing = await LeaveApplication.findById(req.params.id).lean();
@@ -853,9 +868,19 @@ router.delete('/:id', auth, async (req, res) => {
     if (String(existing.userId) !== String(req.user._id)) {
       return res.status(403).json({ error: 'Not allowed to delete this application' });
     }
-    if (existing.status !== 'Pending') {
-      return res.status(400).json({ error: 'Only Pending applications can be deleted' });
+    
+    // If it's Approved, we need to revert the timesheet changes first
+    if (existing.status === 'Approved') {
+        try {
+            // Treat as rejected to clear from timesheet
+            await syncTimesheetWithLeave({ ...existing, status: 'Rejected' });
+        } catch (e) {
+            console.error("Error syncing timesheet on leave delete:", e);
+        }
+    } else if (existing.status !== 'Pending') {
+      return res.status(400).json({ error: 'Only Pending or Approved applications can be deleted' });
     }
+
     await LeaveApplication.findByIdAndDelete(req.params.id);
     res.json({ success: true });
   } catch (err) {

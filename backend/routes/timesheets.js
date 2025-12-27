@@ -726,6 +726,7 @@ router.post("/", auth, async (req, res) => {
 
     if (sheet) {
       // Update existing timesheet
+      sheet.employeeName = req.user.name || "";
       sheet.entries = entries;
       sheet.totalHours = totalHours;
       sheet.status = status || "Draft";
@@ -769,6 +770,7 @@ router.post("/", auth, async (req, res) => {
     // Create brand new timesheet
     sheet = await Timesheet.create({
       userId,
+      employeeName: req.user.name || "",
       weekStartDate: weekStart,
       weekEndDate: weekEnd,
       entries,
@@ -1091,15 +1093,9 @@ router.delete("/:id", auth, async (req, res) => {
       });
     }
 
-    const hasApprovedLeave = (timesheet.entries || []).some(
-      (e) => (e.project || "") === "Leave" && (e.task || "") === "Leave Approved"
-    );
-    if (hasApprovedLeave) {
-      return res.status(400).json({
-        success: false,
-        message: "Leave-approved draft timesheets cannot be deleted"
-      });
-    }
+    // Allow deleting timesheets even with approved leaves to handle cleanup scenarios
+    // The previous check for hasApprovedLeave is removed to allow users to reset their timesheet
+    // if the underlying leave data has been modified/deleted directly.
 
     await Timesheet.findByIdAndDelete(id);
 

@@ -24,7 +24,16 @@ const Login = () => {
   const [showAboutUs, setShowAboutUs] = useState(false);
   const [showHolidays, setShowHolidays] = useState(false);
   const [showUpdates, setShowUpdates] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   
+  const [isForgotPasswordLoading, setIsForgotPasswordLoading] = useState(false);
+  
+  // Lockout state
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockoutTimer, setLockoutTimer] = useState(0);
+  const [showLockoutModal, setShowLockoutModal] = useState(false);
+
   // Slideshow state
   const [currentSlide, setCurrentSlide] = useState(0);
   
@@ -261,6 +270,41 @@ const Login = () => {
     };
   }, []);
 
+  // Check for existing lockout on mount
+  useEffect(() => {
+    const lockoutTimestamp = localStorage.getItem('loginLockoutTimestamp');
+    if (lockoutTimestamp) {
+      const remainingTime = Math.ceil((parseInt(lockoutTimestamp) - Date.now()) / 1000);
+      if (remainingTime > 0) {
+        setIsLocked(true);
+        setLockoutTimer(remainingTime);
+        setShowLockoutModal(true);
+      } else {
+        localStorage.removeItem('loginLockoutTimestamp');
+      }
+    }
+  }, []);
+
+  // Lockout timer effect
+  useEffect(() => {
+    let interval;
+    if (isLocked && lockoutTimer > 0) {
+      interval = setInterval(() => {
+        setLockoutTimer((prev) => {
+          if (prev <= 1) {
+            setIsLocked(false);
+            setFailedAttempts(0);
+            setShowLockoutModal(false);
+            localStorage.removeItem('loginLockoutTimestamp');
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isLocked, lockoutTimer]);
+
   // Slideshow auto-rotate
   useEffect(() => {
     const interval = setInterval(() => {
@@ -285,18 +329,40 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (isLocked) {
+      setShowLockoutModal(true);
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
     try {
       const payload = { ...formData };
       const response = await authAPI.login(payload);
+      
+      // Successful login - reset failed attempts
+      setFailedAttempts(0);
+      localStorage.removeItem('loginLockoutTimestamp');
+      
       sessionStorage.setItem('token', response.data.token);
       sessionStorage.setItem('user', JSON.stringify(response.data.user));
       window.history.replaceState(null, '', '/dashboard');
       navigate('/dashboard', { replace: true });
     } catch (error) {
-      setError(error.response?.data?.message || 'Login failed');
+      const newFailedAttempts = failedAttempts + 1;
+      setFailedAttempts(newFailedAttempts);
+      
+      if (newFailedAttempts >= 5) {
+        setIsLocked(true);
+        setLockoutTimer(30);
+        setShowLockoutModal(true);
+        localStorage.setItem('loginLockoutTimestamp', (Date.now() + 30000).toString());
+        setError('Too many failed attempts. Account locked.');
+      } else {
+        setError(error.response?.data?.message || 'Login failed');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -304,34 +370,90 @@ const Login = () => {
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
+    setIsForgotPasswordLoading(true);
+    setForgotPasswordMessage('');
     try {
       await authAPI.forgotPassword({ employeeId: forgotPasswordData.employeeId });
       setForgotPasswordStep(2);
       setForgotPasswordMessage('OTP sent to your email');
     } catch (error) {
       setForgotPasswordMessage(error.response?.data?.message || 'Failed to send OTP');
+    } finally {
+      setIsForgotPasswordLoading(false);
     }
   };
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
+    setIsForgotPasswordLoading(true);
+    setForgotPasswordMessage('');
     try {
       await authAPI.resetPassword({
         employeeId: forgotPasswordData.employeeId,
         otp: forgotPasswordData.otp,
         newPassword: forgotPasswordData.newPassword
       });
-      setForgotPasswordMessage('Password reset successfully');
-      setTimeout(() => {
-        setShowForgotPassword(false);
-        setForgotPasswordStep(1);
-        setForgotPasswordData({ employeeId: '', otp: '', newPassword: '' });
-        setForgotPasswordMessage('');
-      }, 2000);
+      setShowForgotPassword(false);
+      setShowSuccessModal(true);
+      setForgotPasswordStep(1);
+      setForgotPasswordData({ employeeId: '', otp: '', newPassword: '' });
+      setForgotPasswordMessage('');
     } catch (error) {
       setForgotPasswordMessage(error.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setIsForgotPasswordLoading(false);
     }
   };
+
+  // Lockout Modal
+  const LockoutModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
+        <div className="p-6 text-center">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-6">
+            <svg className="h-10 w-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Locked</h2>
+          <p className="text-gray-600 mb-6">
+            Too many failed attempts. Account locked for 30 seconds.
+            <br />
+            <span className="font-bold text-red-600">Please wait {lockoutTimer} seconds before trying again.</span>
+          </p>
+          <button
+            onClick={() => setShowLockoutModal(false)}
+            className="w-full bg-gray-200 text-gray-800 py-3 px-4 rounded-lg font-medium hover:bg-gray-300 transition-all duration-200"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // Success Modal
+  const SuccessModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
+        <div className="p-6 text-center">
+          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
+            <svg className="h-10 w-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Success!</h2>
+          <p className="text-gray-600 mb-6">Password reset successfully.</p>
+          <button
+            onClick={() => setShowSuccessModal(false)}
+            className="w-full bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-3 px-4 rounded-lg font-medium hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-200"
+          >
+            Back to Login
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   // About Us Modal
   const AboutUsModal = () => (
@@ -518,6 +640,15 @@ const Login = () => {
             {forgotPasswordStep === 2 && (
               <>
                 <div className="space-y-2">
+                  <label className="text-sm font-medium text-gray-700">Employee ID</label>
+                  <input
+                    type="text"
+                    value={forgotPasswordData.employeeId}
+                    disabled
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                  />
+                </div>
+                <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">OTP</label>
                   <input
                     type="text"
@@ -560,14 +691,23 @@ const Login = () => {
             <div className="flex space-x-3">
               <button
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-2 px-4 rounded-lg font-medium hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-200"
+                disabled={isForgotPasswordLoading}
+                className="flex-1 bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-2 px-4 rounded-lg font-medium hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
               >
-                {forgotPasswordStep === 1 ? 'Send OTP' : 'Reset'}
+                {isForgotPasswordLoading ? (
+                  <svg className="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                ) : (
+                  forgotPasswordStep === 1 ? 'Send OTP' : 'Reset'
+                )}
               </button>
               <button
                 type="button"
                 onClick={() => setShowForgotPassword(false)}
-                className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200"
+                disabled={isForgotPasswordLoading}
+                className="flex-1 border border-gray-300 text-gray-700 py-2 px-4 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
@@ -581,6 +721,8 @@ const Login = () => {
   return (
     <>
       {/* Modals */}
+      {showLockoutModal && <LockoutModal />}
+      {showSuccessModal && <SuccessModal />}
       {showAboutUs && <AboutUsModal />}
       {showHolidays && <HolidaysModal />}
       {showUpdates && <UpdatesModal />}
