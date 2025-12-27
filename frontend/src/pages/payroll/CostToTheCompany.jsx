@@ -126,6 +126,7 @@ const CostToTheCompany = () => {
     setSummary([]);
     setEmployees([]);
   };
+  
 
   return (
     <div className="p-6">
