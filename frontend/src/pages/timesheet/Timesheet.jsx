@@ -50,8 +50,6 @@ const Timesheet = () => {
 
   const leaveTypes = [
     "Office Holiday",
-    "Full Day Leave",
-    "Half Day Leave",
     "Permission"
   ];
 
@@ -1072,8 +1070,8 @@ const Timesheet = () => {
       const breakHours = computeBreakForDay(i);
       const totalWithBreak = workTotal + breakHours;
 
-      if (op > totalWithBreak) {
-        alert(`On-Premises Time for ${days[i]} cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(op)}\nTotal: ${formatHoursHHMM(totalWithBreak)}`);
+      if (totalWithBreak > op) {
+        alert(`Total (Work + Break) for ${days[i]} cannot exceed On-Premises Time.\n\nTotal: ${formatHoursHHMM(totalWithBreak)}\nOn-Premises: ${formatHoursHHMM(op)}`);
         return;
       }
 
