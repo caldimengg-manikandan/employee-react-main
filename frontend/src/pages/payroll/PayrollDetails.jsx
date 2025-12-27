@@ -10,6 +10,7 @@ import {
   Calculator,
   MapPin
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import { employeeAPI, payrollAPI, leaveAPI } from '../../services/api';
 
 // Salary Calculation Functions
@@ -350,6 +351,44 @@ const PayrollDetails = () => {
     setViewRecord(null);
   };
 
+  const handleDownloadExcel = () => {
+    if (filteredRecords.length === 0) {
+      setSuccessMessage('No records to download');
+      setTimeout(() => setSuccessMessage(''), 3000);
+      return;
+    }
+
+    const worksheet = XLSX.utils.json_to_sheet(filteredRecords.map(record => ({
+      'Employee ID': record.employeeId,
+      'Employee Name': record.employeeName,
+      'Designation': record.designation,
+      'Department': record.department,
+      'Location': employeeList.find(e => e.employeeId === record.employeeId)?.location || record.location || 'N/A',
+      'Basic + DA': record.basicDA,
+      'HRA': record.hra,
+      'Special Allowance': record.specialAllowance,
+      'Total Earnings': record.totalEarnings,
+      'PF Contribution': record.pf,
+      'ESI Contribution': record.esi,
+      'Income Tax': record.tax,
+      'Professional Tax': record.professionalTax,
+      'Loan Deduction': record.loanDeduction,
+      'LOP': record.lop,
+      'Total Deductions': record.totalDeductions,
+      'Gratuity': record.gratuity,
+      'Net Salary': record.netSalary,
+      'CTC': record.ctc,
+      'Status': record.status
+    })));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Payroll Details");
+    XLSX.writeFile(workbook, `Payroll_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    
+    setSuccessMessage(`Excel report downloaded with ${filteredRecords.length} records`);
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
   const handleDownloadAllPDF = () => {
     if (filteredRecords.length === 0) {
       setSuccessMessage('No records to download');
@@ -480,17 +519,8 @@ const PayrollDetails = () => {
     <div className="p-6">
       {/* Header with Search Box */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        {/* Search Box in Header */}
-        <div className="relative w-full md:w-64">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-          <input
-            type="text"
-            placeholder="Search by Employee Name, ID"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
+       
+     
       </div>
 
       {/* Success Message */}
@@ -590,14 +620,16 @@ const PayrollDetails = () => {
             </button>
           </div>
 
-          {/* Download All PDF Button */}
+         
+
+          {/* Download Excel Button */}
           <div className="flex items-end">
             <button
-              onClick={handleDownloadAllPDF}
-              className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              onClick={handleDownloadExcel}
+              className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               <Download className="w-4 h-4 mr-2" />
-              Download PDF
+              Download Excel
             </button>
           </div>
 

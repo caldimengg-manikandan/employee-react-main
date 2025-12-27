@@ -14,6 +14,7 @@ const SalarySlips = () => {
   const [payslipData, setPayslipData] = useState(null);
   const [showPayslip, setShowPayslip] = useState(false);
   const [availableYears, setAvailableYears] = useState([]);
+  const [employeeProfile, setEmployeeProfile] = useState(null);
 
   const months = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -31,6 +32,7 @@ const SalarySlips = () => {
         const me = await employeeAPI.getMyProfile();
         const empId = me?.data?.employeeId || user.employeeId || user.username || user.id;
         setEmployeeId(empId);
+        setEmployeeProfile(me?.data);
       } catch (err) {
         const fallbackId = user.employeeId || user.username || user.id;
         setEmployeeId(fallbackId);
@@ -108,9 +110,9 @@ const SalarySlips = () => {
         otherDeductions: 0,
         totalDeductions: Number(rec.totalDeductions || 0),
         netSalary: Number(rec.netSalary || 0),
-        bankName: rec.bankName || '',
-        accountNumber: rec.accountNumber || '',
-        ifscCode: rec.ifscCode || '',
+        bankName: employeeProfile?.bankName || rec.bankName || '',
+        accountNumber: employeeProfile?.bankAccount || rec.accountNumber || '',
+        panNumber: employeeProfile?.pan || 'N/A',
         workingDays,
         paidDays,
         leaveDays: lopDays,
@@ -149,7 +151,7 @@ const SalarySlips = () => {
       netSalary: 77000,
       bankName: "ABC Bank",
       accountNumber: "XXXXXX7890",
-      ifscCode: "ABC1234567",
+      panNumber: employeeProfile?.pan || 'N/A',
       workingDays: 22,
       paidDays: 21,
       leaveDays: 1,
@@ -356,7 +358,7 @@ const SalarySlips = () => {
                    <div className="flex"><span className="w-32 text-gray-500 font-medium">Name:</span> <span className="font-bold text-gray-800">{data.employeeName}</span></div>
                    <div className="flex"><span className="w-32 text-gray-500 font-medium">Designation:</span> <span className="font-bold text-gray-800">{data.designation}</span></div>
                    {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">Department:</span> <span className="font-bold text-gray-800">{data.department}</span></div> */}
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">PAN Number:</span> <span className="font-bold text-gray-800">ABCD1234E</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">PAN Number:</span> <span className="font-bold text-gray-800">{data.panNumber}</span></div>
                    <div className="flex"><span className="w-32 text-gray-500 font-medium">UAN:</span> <span className="font-bold text-gray-800">100123456789</span></div>
                 </div>
               </div>
@@ -366,10 +368,9 @@ const SalarySlips = () => {
                 <div className="space-y-2 text-sm">
                    <div className="flex"><span className="w-32 text-gray-500 font-medium">Bank Name:</span> <span className="font-bold text-gray-800">{data.bankName}</span></div>
                    <div className="flex"><span className="w-32 text-gray-500 font-medium">Account No:</span> <span className="font-bold text-gray-800">{data.accountNumber}</span></div>
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">IFSC Code:</span> <span className="font-bold text-gray-800">{data.ifscCode}</span></div>
                    <div className="flex"><span className="w-32 text-gray-500 font-medium">Payment Date:</span> <span className="font-bold text-gray-800">{data.paidDate}</span></div>
-                   {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">Paid Days:</span> <span className="font-bold text-gray-800">{data.paidDays}</span></div> */}
-                   {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">LOP Days:</span> <span className="font-bold text-gray-800">{data.leaveDays}</span></div> */}
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Total Paid Days:</span> <span className="font-bold text-gray-800">{data.paidDays}</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">LOP Days:</span> <span className="font-bold text-gray-800">{data.leaveDays}</span></div>
                 </div>
               </div>
             </div>
