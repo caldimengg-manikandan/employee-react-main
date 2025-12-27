@@ -46,6 +46,7 @@ const Header = ({ onMenuClick }) => {
       '/payroll/monthly': 'Monthly Payroll',
       '/employee-exit/form': 'Employee Exit Form',
       '/my-profile': 'My Profile',
+      '/admin/interns': 'Intern Reference',
     };
     
     return routeTitles[location.pathname] || 'Caldim Employee Portal';
@@ -133,7 +134,7 @@ const Header = ({ onMenuClick }) => {
           
           {/* Center Section */}
           <div className="flex-1 text-center">
-              <h1 className="text-lg font-medium text-gray-800">{getPageTitle()}</h1>
+              <h1 className="text-2xl font-bold text-gray-800">{getPageTitle()}</h1>
           </div>
           
           {/* Right Section */}

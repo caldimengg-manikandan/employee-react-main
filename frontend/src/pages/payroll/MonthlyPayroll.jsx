@@ -457,6 +457,10 @@ Payroll Department
     if (filterBank === 'icici') return baseMatches && bankName.toLowerCase().includes('icici');
     if (filterBank === 'other') return baseMatches && !['hdfc', 'sbi', 'axis', 'indian', 'icici'].some(bank => bankName.toLowerCase().includes(bank));
     return baseMatches;
+  }).sort((a, b) => {
+    const idA = a.employeeId || '';
+    const idB = b.employeeId || '';
+    return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
   });
 
   const getBankFilterLabel = () => {
@@ -659,8 +663,11 @@ Payroll Department
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-0 z-40 bg-[#262760] w-[90px] min-w-[90px] max-w-[90px]">
                   Select
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-[90px] z-40 bg-[#262760] w-[280px] min-w-[280px] max-w-[280px]">
-                  Employee
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-[90px] z-40 bg-[#262760] w-[140px] min-w-[140px] max-w-[140px]">
+                  Employee ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-[230px] z-40 bg-[#262760] w-[240px] min-w-[240px] max-w-[240px]">
+                  Employee Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Designation
@@ -675,12 +682,6 @@ Payroll Department
                   Account No.
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                  IFSC Code
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                  Bank Name
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Status
                 </th>
               </tr>
@@ -688,7 +689,7 @@ Payroll Department
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
                       Loading employees...
@@ -697,7 +698,7 @@ Payroll Department
                 </tr>
               ) : filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="8" className="px-6 py-4 text-center text-gray-500">
                     No employees found matching the criteria.
                   </td>
                 </tr>
@@ -714,9 +715,11 @@ Payroll Department
                         className="w-4 h-4 text-blue-600"
                       />
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap sticky left-[90px] z-20 bg-white group-hover:bg-gray-50 w-[280px] min-w-[280px] max-w-[280px]">
+                    <td className="px-6 py-4 whitespace-nowrap sticky left-[90px] z-20 bg-white group-hover:bg-gray-50 w-[140px] min-w-[140px] max-w-[140px]">
+                      <div className="text-sm font-medium text-gray-900">{record.employeeId}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap sticky left-[230px] z-20 bg-white group-hover:bg-gray-50 w-[240px] min-w-[240px] max-w-[240px]">
                       <div className="font-medium text-gray-900">{record.employeeName}</div>
-                      <div className="text-xs text-gray-500">{record.employeeId}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-gray-900">{record.designation}</div>
@@ -731,26 +734,6 @@ Payroll Department
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
                       {record.accountNumber || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                      {record.ifscCode || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        record.bankName?.includes('HDFC') 
-                          ? 'bg-green-100 text-green-800' 
-                          : record.bankName?.includes('SBI')
-                          ? 'bg-blue-100 text-blue-800'
-                          : record.bankName?.includes('Axis')
-                          ? 'bg-purple-100 text-purple-800'
-                          : record.bankName?.includes('Indian')
-                          ? 'bg-indigo-100 text-indigo-800'
-                          : record.bankName?.includes('ICICI')
-                          ? 'bg-orange-100 text-orange-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {record.bankName || 'Not Set'}
-                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${

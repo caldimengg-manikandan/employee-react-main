@@ -443,6 +443,10 @@ const PayrollDetails = () => {
     const matchesStatus = filterStatus === 'all' || String(record.status || '').toLowerCase() === String(filterStatus).toLowerCase();
     
     return matchesSearch && matchesLocation && matchesDepartment && matchesDesignation && matchesStatus;
+  }).sort((a, b) => {
+    const idA = a.employeeId || '';
+    const idB = b.employeeId || '';
+    return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
   });
 
   const formatCurrency = (amount) => {
@@ -593,7 +597,7 @@ const PayrollDetails = () => {
               className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               <Download className="w-4 h-4 mr-2" />
-              Download All as PDF
+              Download PDF
             </button>
           </div>
 

@@ -1,6 +1,12 @@
 const mongoose = require('mongoose');
 
 const internshipSchema = new mongoose.Schema({
+  internID: {
+    type: String,
+    required: [true, 'Intern ID is required'],
+    unique: true,
+    trim: true
+  },
   fullName: {
     type: String,
     required: [true, 'Full name is required'],
@@ -83,6 +89,7 @@ const internshipSchema = new mongoose.Schema({
 });
 
 // Indexes for better query performance
+internshipSchema.index({ internID: 1 });
 internshipSchema.index({ fullName: 1 });
 internshipSchema.index({ collegeName: 1 });
 internshipSchema.index({ internshipType: 1 });

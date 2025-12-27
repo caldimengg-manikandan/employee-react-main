@@ -33,6 +33,7 @@ const InternReference = () => {
   const [showModal, setShowModal] = useState(false);
 
   const [form, setForm] = useState({
+    internID: "",
     fullName: "",
     collegeName: "",
     degree: "",
@@ -92,6 +93,7 @@ const InternReference = () => {
   const validateForm = () => {
     const newErrors = {};
     
+    if (!form.internID.trim()) newErrors.internID = "Intern ID is required";
     if (!form.fullName.trim()) newErrors.fullName = "Full Name is required";
     if (!form.collegeName.trim()) newErrors.collegeName = "College Name is required";
     if (!form.degree.trim()) newErrors.degree = "Degree is required";
@@ -142,6 +144,7 @@ const InternReference = () => {
   const handleEdit = (intern) => {
     setEditingId(intern._id || intern.id);
     setForm({
+      internID: intern.internID || "",
       fullName: intern.fullName || "",
       collegeName: intern.collegeName || "",
       degree: intern.degree || "",
@@ -173,6 +176,7 @@ const InternReference = () => {
 
   const resetForm = () => {
     setForm({
+      internID: "",
       fullName: "",
       collegeName: "",
       degree: "",
@@ -296,7 +300,9 @@ const InternReference = () => {
           
         </div>
         
-        
+        <div className="flex gap-3 mt-4 md:mt-0">
+          
+        </div>
       </div>
 
       {/* Debug info (remove in production) */}
@@ -348,6 +354,22 @@ const InternReference = () => {
                       </h4>
                       
                       <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Intern ID *
+                          </label>
+                          <input
+                            placeholder="Enter Intern ID"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${errors.internID ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.internID}
+                            onChange={e => {
+                              setForm({ ...form, internID: e.target.value });
+                              if (errors.internID) setErrors({...errors, internID: null});
+                            }}
+                          />
+                          {errors.internID && <p className="text-red-500 text-sm mt-1">{errors.internID}</p>}
+                        </div>
+
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
                             Full Name *
@@ -636,6 +658,20 @@ const InternReference = () => {
               <option value="Ongoing">Ongoing</option>
               <option value="Terminated">Terminated</option>
             </select>
+            <button
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-medium hover:bg-gray-50 transition-all duration-200 shadow-sm"
+          >
+            <ArrowDownTrayIcon className="h-5 w-5 text-gray-500" />
+            Download PDF
+          </button>
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-2.5 rounded-lg font-medium shadow-md hover:shadow-lg transition-all duration-200"
+          >
+            <PlusIcon className="h-5 w-5" />
+            Add New Intern
+          </button>
             
             {(searchTerm || filterType !== 'all' || filterStatus !== 'all') && (
               <button
@@ -652,20 +688,7 @@ const InternReference = () => {
             )}
           </div>
           <div className="flex gap-3 mt-4 md:mt-0">
-          <button
-            onClick={handleDownloadPDF}
-            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium transition-all duration-200"
-          >
-            <ArrowDownTrayIcon className="h-5 w-5" />
-            Download PDF
-          </button>
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
-          >
-            <PlusIcon className="h-5 w-5" />
-            Add New Intern
-          </button>
+          
         </div>
         </div>
       </div>
@@ -702,6 +725,7 @@ const InternReference = () => {
               <thead className="bg-blue-900 text-white">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">S.No</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Intern ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Full Name</th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Degree</th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Internship Type</th>
@@ -716,6 +740,9 @@ const InternReference = () => {
                   <tr key={intern._id || intern.id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {index + 1}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {intern.internID || 'N/A'}
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{intern.fullName || 'N/A'}</div>
