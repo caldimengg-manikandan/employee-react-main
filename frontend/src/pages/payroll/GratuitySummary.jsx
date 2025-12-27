@@ -113,6 +113,10 @@ export default function GratuitySummary() {
     const matchesDesignation = filterDesignation === 'all' || item.designation === filterDesignation;
     const matchesLocation = filterLocation === 'all' || item.location === filterLocation;
     return matchesSearch && matchesDepartment && matchesDesignation && matchesLocation;
+  }).sort((a, b) => {
+    const idA = a.employeeId || '';
+    const idB = b.employeeId || '';
+    return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
   });
 
   const resetFilters = () => {
@@ -129,19 +133,7 @@ export default function GratuitySummary() {
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="w-full">
 
-        <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gratuity Summary</h1>
-            <p className="text-gray-500 mt-1">Monthly gratuity additions per employee</p>
-          </div>
-          <button
-            onClick={exportCSV}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </button>
-        </div>
+       
 
         {/* Filters */}
         <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
@@ -203,6 +195,15 @@ export default function GratuitySummary() {
             </div>
 
             <div className="md:col-span-4 flex justify-end">
+              <button
+            onClick={exportCSV}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </button>
+
+
               <button
                 onClick={resetFilters}
                 className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
