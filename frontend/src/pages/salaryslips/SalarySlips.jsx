@@ -119,6 +119,7 @@ const SalarySlips = () => {
         paidDate,
         monthYear: formattedMonth
       };
+      
       setPayslipData(mapped);
       setShowPayslip(true);
     } catch (error) {
