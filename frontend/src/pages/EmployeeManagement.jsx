@@ -42,7 +42,9 @@ const EmployeeManagement = () => {
     location: ''
   });
   const [showFilters, setShowFilters] = useState(false);
-  const { notification, showSuccess, hideNotification } = useNotification();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [employeeToDelete, setEmployeeToDelete] = useState(null);
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -60,8 +62,14 @@ const EmployeeManagement = () => {
   const fetchEmployees = async () => {
     try {
       const response = await employeeAPI.getAllEmployees();
-      setEmployees(response.data);
-      setFilteredEmployees(response.data);
+      // Sort employees by employeeId
+      const sortedEmployees = response.data.sort((a, b) => {
+        const idA = a.employeeId || '';
+        const idB = b.employeeId || '';
+        return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+      });
+      setEmployees(sortedEmployees);
+      setFilteredEmployees(sortedEmployees);
     } catch (error) {
       console.error('Error fetching employees:', error);
 
@@ -78,10 +86,7 @@ const EmployeeManagement = () => {
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
       filtered = filtered.filter(emp =>
-        emp.name.toLowerCase().includes(searchTerm) ||
-        emp.employeeId.toLowerCase().includes(searchTerm) ||
-        (emp.email && emp.email.toLowerCase().includes(searchTerm)) ||
-        (emp.mobileNo && emp.mobileNo.toString().includes(searchTerm))
+        emp.employeeId.toLowerCase().includes(searchTerm)
       );
     }
 
@@ -217,16 +222,22 @@ const EmployeeManagement = () => {
     setViewingEmployee(employee);
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this employee?')) {
-      try {
-        await employeeAPI.deleteEmployee(id);
-        fetchEmployees();
-        showSuccess('Employee deleted successfully');
-      } catch (error) {
-        console.error('Error deleting employee:', error);
-        alert('Error deleting employee. Please try again.');
-      }
+  const handleDelete = (id) => {
+    setEmployeeToDelete(id);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!employeeToDelete) return;
+    try {
+      await employeeAPI.deleteEmployee(employeeToDelete);
+      fetchEmployees();
+      showSuccess('Employee deleted successfully');
+      setShowDeleteModal(false);
+      setEmployeeToDelete(null);
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      showError('Error deleting employee. Please try again.');
     }
   };
 
@@ -275,13 +286,14 @@ const EmployeeManagement = () => {
     // Add MD and GM if not already present
     const allDesignations = [...designationsFromEmployees];
     if (!allDesignations.includes('Managing Director (MD)')) {
-      allDesignations.unshift('Managing Director (MD)');
+      allDesignations.push('Managing Director (MD)');
     }
     if (!allDesignations.includes('General Manager (GM)')) {
-      allDesignations.unshift('General Manager (GM)');
+      allDesignations.push('General Manager (GM)');
     }
     
-    return allDesignations;
+    // Sort alphabetically
+    return allDesignations.sort((a, b) => a.localeCompare(b));
   }, [employees]);
 
   const locationOptions = useMemo(() => (
@@ -310,7 +322,7 @@ const EmployeeManagement = () => {
                     {viewingEmployee.designation || viewingEmployee.role || viewingEmployee.position}
                   </span>
                   <span className="text-base font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">
-                    {viewingEmployee.employeeId}
+                    {viewingEmployee.displayId}
                   </span>
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(viewingEmployee.status)}`}>
                     {viewingEmployee.status}
@@ -679,13 +691,13 @@ const EmployeeManagement = () => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
                   <input
                     type="text"
                     value={filters.search}
                     onChange={(e) => handleFilterChange('search', e.target.value)}
                     className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
-                    placeholder="Filter by name"
+                    placeholder="Filter by employee id"
                   />
                 </div>
                 <div>
@@ -1028,6 +1040,45 @@ const EmployeeManagement = () => {
 
       {/* View Employee Modal - Showing only Add Employee fields */}
       {renderViewEmployeeModal()}
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setEmployeeToDelete(null);
+        }}
+        title="Delete Employee"
+        size="md"
+      >
+        <div className="p-6">
+          <div className="flex items-center justify-center mb-6">
+            <div className="w-12 h-12 rounded-full bg-red-100 flex items-center justify-center">
+              <TrashIcon className="h-6 w-6 text-red-600" />
+            </div>
+          </div>
+          <p className="text-center text-gray-700 text-lg mb-8">
+            Are you sure you want to delete this employee? This action cannot be undone.
+          </p>
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={() => {
+                setShowDeleteModal(false);
+                setEmployeeToDelete(null);
+              }}
+              className="px-6 py-2.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors duration-200"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="px-6 py-2.5 text-sm font-medium text-white bg-red-600 rounded-xl hover:bg-red-700 transition-colors duration-200 shadow-lg shadow-red-200"
+            >
+              Delete Employee
+            </button>
+          </div>
+        </div>
+      </Modal>
 
       {/* Notification */}
       <Notification

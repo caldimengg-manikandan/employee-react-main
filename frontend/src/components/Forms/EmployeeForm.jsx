@@ -444,7 +444,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       newValue = String(newValue || '').toUpperCase().replace(/[^A-Za-z\s]/g, '');
     }
     if (field === 'qualification' || field === 'highestQualification') {
-      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z\s()./&-]/g, '');
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9\s()./&,-]/g, '');
     }
     if (field === 'contactNumber' || field === 'spouseContact' || field === 'emergencyContact') {
       newValue = String(newValue || '').replace(/\D/g, '');
@@ -472,6 +472,12 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       const uppercaseValue = newValue.toUpperCase();
       updatedData.name = uppercaseValue;
       updatedData.employeename = uppercaseValue;
+    }
+
+    // Sync qualification and highestQualification
+    if (field === 'qualification' || field === 'highestQualification') {
+      updatedData.qualification = newValue;
+      updatedData.highestQualification = newValue;
     }
 
     // Auto-calculate current experience when date of joining changes
@@ -701,7 +707,6 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     onChange={(e) => {
                       const uppercaseValue = e.target.value.toUpperCase();
                       handleInputChange('name', uppercaseValue);
-                      handleInputChange('employeename', uppercaseValue);
                     }}
                     required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white uppercase ${errors.name ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
@@ -751,7 +756,6 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        e.currentTarget.blur();
                       }
                     }}
                     required
