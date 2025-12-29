@@ -128,6 +128,17 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     setShowEmployeeIdDropdown(false);
   };
 
+  const handleEmployeeIdChange = (e) => {
+    let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    setFormData(prev => ({ ...prev, employeeId: value }));
+    
+    if (value && !/^CDE\d{3}$/.test(value)) {
+        setErrors(prev => ({ ...prev, employeeId: 'Must be CDE followed by exactly 3 digits' }));
+    } else {
+        setErrors(prev => ({ ...prev, employeeId: '' }));
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => {
@@ -298,7 +309,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
           label="Employee ID"
           name="employeeId"
           value={formData.employeeId}
-          onChange={handleChange}
+          onChange={handleEmployeeIdChange}
         />
         <button
           type="button"

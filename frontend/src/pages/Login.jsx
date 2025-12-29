@@ -275,16 +275,24 @@ const Login = () => {
   }, [slides.length]);
 
   const handleChange = (e) => {
+    let value = e.target.value;
+    if (e.target.name === 'employeeId') {
+      value = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    }
     setFormData({
       ...formData,
-      [e.target.name]: e.target.value
+      [e.target.name]: value
     });
   };
 
   const handleForgotPasswordChange = (e) => {
+    let value = e.target.value;
+    if (e.target.name === 'employeeId') {
+      value = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    }
     setForgotPasswordData({
       ...forgotPasswordData,
-      [e.target.name]: e.target.value
+      [e.target.name]: value
     });
   };
 

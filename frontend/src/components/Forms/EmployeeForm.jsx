@@ -434,6 +434,11 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     let newValue = value;
     if (field === 'employeeId') {
       newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      if (newValue.length === 6 && !/^CDE\d{3}$/.test(newValue)) {
+         // Optionally you could force it or just let the validation handle it.
+         // For now, I'll let validation handle the error message, 
+         // but I'm enforcing uppercase and length 6 in the slice above.
+      }
     }
     if (field === 'name' || field === 'employeename') {
       newValue = String(newValue || '').toUpperCase().replace(/[^A-Za-z\s]/g, '');
