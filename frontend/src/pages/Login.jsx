@@ -19,6 +19,11 @@ const Login = () => {
   });
   const [forgotPasswordStep, setForgotPasswordStep] = useState(1);
   const [forgotPasswordMessage, setForgotPasswordMessage] = useState('');
+  const OTP_VALIDITY_SECONDS = 300;
+  const [otpSecondsLeft, setOtpSecondsLeft] = useState(0);
+  const [canResendOtp, setCanResendOtp] = useState(false);
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   
   // Modal states
   const [showAboutUs, setShowAboutUs] = useState(false);
@@ -283,10 +288,22 @@ const Login = () => {
     });
   };
 
+  const validatePassword = (password) => {
+    const specialCharRegex = /[!@#$%^&*(),.?":{}|<>]/;
+    return specialCharRegex.test(password);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setError('');
+
+    // Password validation
+    if (!validatePassword(formData.password)) {
+      setError('Password must contain at least one special character');
+      setIsLoading(false);
+      return;
+    }
 
     try {
       const payload = { ...formData };
@@ -305,17 +322,23 @@ const Login = () => {
   const handleSendOtp = async (e) => {
     e.preventDefault();
     try {
+      setIsSendingOtp(true);
       await authAPI.forgotPassword({ employeeId: forgotPasswordData.employeeId });
       setForgotPasswordStep(2);
       setForgotPasswordMessage('OTP sent to your email');
+      setOtpSecondsLeft(OTP_VALIDITY_SECONDS);
+      setCanResendOtp(false);
     } catch (error) {
       setForgotPasswordMessage(error.response?.data?.message || 'Failed to send OTP');
+    } finally {
+      setIsSendingOtp(false);
     }
   };
 
   const handleResetPassword = async (e) => {
     e.preventDefault();
     try {
+      setIsResetting(true);
       await authAPI.resetPassword({
         employeeId: forgotPasswordData.employeeId,
         otp: forgotPasswordData.otp,
@@ -330,6 +353,44 @@ const Login = () => {
       }, 2000);
     } catch (error) {
       setForgotPasswordMessage(error.response?.data?.message || 'Failed to reset password');
+    } finally {
+      setIsResetting(false);
+    }
+  };
+
+  const formatTime = (s) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+  };
+
+  useEffect(() => {
+    let intervalId;
+    if (showForgotPassword && forgotPasswordStep === 2 && otpSecondsLeft > 0) {
+      intervalId = setInterval(() => {
+        setOtpSecondsLeft((prev) => {
+          const next = prev - 1;
+          if (next <= 0) {
+            setCanResendOtp(true);
+            return 0;
+          }
+          return next;
+        });
+      }, 1000);
+    }
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [showForgotPassword, forgotPasswordStep, otpSecondsLeft]);
+
+  const handleResendOtp = async () => {
+    try {
+      await authAPI.forgotPassword({ employeeId: forgotPasswordData.employeeId });
+      setForgotPasswordMessage('OTP resent to your email');
+      setOtpSecondsLeft(OTP_VALIDITY_SECONDS);
+      setCanResendOtp(false);
+    } catch (error) {
+      setForgotPasswordMessage(error.response?.data?.message || 'Failed to resend OTP');
     }
   };
 
@@ -527,6 +588,21 @@ const Login = () => {
                     required
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
+                  <div className="flex items-center justify-between text-xs text-gray-600 mt-1">
+                    {otpSecondsLeft > 0 ? (
+                      <span>OTP expires in {formatTime(otpSecondsLeft)}</span>
+                    ) : (
+                      <span>OTP expired</span>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={!canResendOtp}
+                      className={`font-medium ${canResendOtp ? 'text-blue-600 hover:text-blue-800' : 'text-gray-400 cursor-not-allowed'}`}
+                    >
+                      Resend OTP
+                    </button>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-medium text-gray-700">New Password</label>
@@ -560,9 +636,34 @@ const Login = () => {
             <div className="flex space-x-3">
               <button
                 type="submit"
-                className="flex-1 bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-2 px-4 rounded-lg font-medium hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-200"
+                disabled={forgotPasswordStep === 1 ? isSendingOtp : isResetting}
+                className="flex-1 bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-2 px-4 rounded-lg font-medium hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-200 disabled:opacity-50 flex items-center justify-center"
               >
-                {forgotPasswordStep === 1 ? 'Send OTP' : 'Reset'}
+                {forgotPasswordStep === 1 ? (
+                  isSendingOtp ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Sending...
+                    </>
+                  ) : (
+                    'Send OTP'
+                  )
+                ) : (
+                  isResetting ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Resetting...
+                    </>
+                  ) : (
+                    'Reset'
+                  )
+                )}
               </button>
               <button
                 type="button"
@@ -676,7 +777,7 @@ const Login = () => {
                   {/* Employee ID Field */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Employee ID
+                      Employee ID *
                     </label>
                     <input
                       type="text"
@@ -697,20 +798,23 @@ const Login = () => {
                     <div className="relative">
                       <input
                         type={showPassword ? "text" : "password"}
-                        name="password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        required
-                        className="w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400 pr-10"
-                        placeholder="Enter your password"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors duration-200"
-                      >
-                        {showPassword ? '👁️' : '👁️‍🗨️'}
-                      </button>
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      required
+                      maxLength={16}
+                      className="w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400 pr-10"
+                      placeholder="Enter your password"
+                    />
+                      {formData.password.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                        >
+                          {'👁️‍🗨️'}
+                        </button>
+                      )}
                     </div>
                   </div>
 

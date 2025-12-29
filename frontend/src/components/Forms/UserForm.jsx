@@ -175,11 +175,15 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     if (!formData.role) newErrors.role = 'Role is required';
     
     // Password validation
+    const specialCharRegex = /[!@#$%^&*(),.?":{}|<>]/;
+
     if (!user) {
       if (!formData.password) newErrors.password = 'Password is required';
       else if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
-    } else if (formData.password && formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
+      else if (!specialCharRegex.test(formData.password)) newErrors.password = 'Password must contain at least one special character';
+    } else if (formData.password) {
+      if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
+      else if (!specialCharRegex.test(formData.password)) newErrors.password = 'Password must contain at least one special character';
     }
     
     // Confirm password validation

@@ -687,7 +687,12 @@ const ProjectDashboard = () => {
                                 className="block w-full pl-11 pr-4 py-4 bg-white/95 backdrop-blur rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-xl transition-all"
                                 placeholder="Search for tools, forms, or policies..."
                                 value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
+                                maxLength={16}
+                                onChange={(e) => {
+                                    if (e.target.value.length <= 16) {
+                                        setSearchTerm(e.target.value);
+                                    }
+                                }}
                             />
                         </div>
                     </div>
