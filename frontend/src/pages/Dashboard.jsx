@@ -669,7 +669,7 @@ const ProjectDashboard = () => {
                         alt="Hero Background" 
                         className="w-full h-full object-cover"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-900/90 via-blue-800/80 to-transparent" />
+                    <div className="absolute inset-0 bg-[#262760] opacity-65" />
                 </div>
 
                 <div className="relative z-10 container mx-auto px-6 h-full flex flex-col md:flex-row items-center justify-between py-10 md:py-0">

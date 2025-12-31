@@ -45,13 +45,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'leave_access',
       'leave_view'
     ],
-    teamlead: [
-      'dashboard',
-      'timesheet_access',
-      'project_access',
-      'leave_access',
-      'leave_view'
-    ],
+  
     employees: [
       'dashboard',
       'timesheet_access',
@@ -64,7 +58,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     { value: 'projectmanager', label: 'Project Manager' },
     { value: 'admin', label: 'ADMIN' },
     { value: 'employees', label: 'employees' },
-    { value: 'teamlead', label: 'Team Lead' }
+    
   ];
 
   useEffect(() => {

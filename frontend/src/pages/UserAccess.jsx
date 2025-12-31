@@ -31,7 +31,10 @@ const UserAccess = () => {
   const [filters, setFilters] = useState({
     name: '',
     email: '',
-    role: ''
+    role: '',
+    employeeId: '',
+    division: '',
+    location: ''
   });
   const [showFilters, setShowFilters] = useState(false);
   const { notification, showSuccess, hideNotification } = useNotification();
@@ -41,6 +44,39 @@ const UserAccess = () => {
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const [uniqueOptions, setUniqueOptions] = useState({
+    names: [],
+    employeeIds: [],
+    divisions: [],
+    locations: []
+  });
+
+  useEffect(() => {
+    // Extract unique values for dropdowns
+    const names = new Set();
+    const employeeIds = new Set();
+    const divisions = new Set();
+    const locations = new Set();
+
+    users.forEach(user => {
+      if (user.name) names.add(user.name);
+      
+      const emp = getEmployeeRecord(user);
+      const empId = getDisplayEmployeeId(user);
+      
+      if (empId && empId !== '—') employeeIds.add(empId);
+      if (emp && emp.division) divisions.add(emp.division);
+      if (emp && (emp.location || emp.branch)) locations.add(emp.location || emp.branch);
+    });
+
+    setUniqueOptions({
+      names: Array.from(names).sort(),
+      employeeIds: Array.from(employeeIds).sort(),
+      divisions: Array.from(divisions).sort(),
+      locations: Array.from(locations).sort()
+    });
+  }, [users, employees]);
 
   useEffect(() => {
     checkCurrentUserPermissions();
@@ -196,13 +232,7 @@ const UserAccess = () => {
 
     if (filters.name) {
       filtered = filtered.filter(user => 
-        user.name.toLowerCase().includes(filters.name.toLowerCase())
-      );
-    }
-
-    if (filters.email) {
-      filtered = filtered.filter(user => 
-        user.email.toLowerCase().includes(filters.email.toLowerCase())
+        user.name === filters.name
       );
     }
 
@@ -210,6 +240,28 @@ const UserAccess = () => {
       filtered = filtered.filter(user => 
         user.role === filters.role
       );
+    }
+
+    if (filters.employeeId) {
+      filtered = filtered.filter(user => {
+        const empId = getDisplayEmployeeId(user);
+        return empId && empId === filters.employeeId;
+      });
+    }
+
+    if (filters.division) {
+      filtered = filtered.filter(user => {
+        const emp = getEmployeeRecord(user);
+        return emp && emp.division === filters.division;
+      });
+    }
+
+    if (filters.location) {
+      filtered = filtered.filter(user => {
+        const emp = getEmployeeRecord(user);
+        const location = emp ? (emp.location || emp.branch) : '';
+        return location && location === filters.location;
+      });
     }
 
     setFilteredUsers(filtered);
@@ -226,21 +278,30 @@ const UserAccess = () => {
     setFilters({
       name: '',
       email: '',
-      role: ''
+      role: '',
+      employeeId: '',
+      division: '',
+      location: ''
     });
     setFilteredUsers(users); // Reset to all users
   };
 
   // Export CSV functions
   const exportToCSV = (dataToExport, filename) => {
-    const headers = ['Name', 'Email', 'Role', 'Last Login', 'Permissions'];
-    const csvData = dataToExport.map(user => [
-      `"${user.name}"`,
-      `"${user.email}"`,
-      user.role,
-      formatLastLogin(user.lastLogin),
-      `"${user.permissions.join(', ')}"`
-    ]);
+    const headers = ['Name', 'Employee ID', 'Email', 'Role', 'Division', 'Location', 'Last Login', 'Permissions'];
+    const csvData = dataToExport.map(user => {
+      const emp = getEmployeeRecord(user);
+      return [
+        `"${user.name}"`,
+        `"${getDisplayEmployeeId(user)}"`,
+        `"${user.email}"`,
+        user.role,
+        `"${(emp && emp.division) || ''}"`,
+        `"${(emp && (emp.location || emp.branch)) || ''}"`,
+        formatLastLogin(user.lastLogin),
+        `"${user.permissions.join(', ')}"`
+      ];
+    });
 
     const csvContent = [
       headers.join(','),
@@ -435,24 +496,30 @@ const UserAccess = () => {
             <div className="px-4 py-5 sm:p-6 bg-gray-50 border-b border-gray-200">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
-                  <input
-                    type="text"
+                  <label className="block text-sm font-medium text-gray-700 mb-1">User (Name)</label>
+                  <select
                     value={filters.name}
                     onChange={(e) => handleFilterChange('name', e.target.value)}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3"
-                    placeholder="Search by name"
-                  />
+                  >
+                    <option value="">All Users</option>
+                    {uniqueOptions.names.map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                  <input
-                    type="text"
-                    value={filters.email}
-                    onChange={(e) => handleFilterChange('email', e.target.value)}
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
+                  <select
+                    value={filters.employeeId}
+                    onChange={(e) => handleFilterChange('employeeId', e.target.value)}
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3"
-                    placeholder="Search by email"
-                  />
+                  >
+                    <option value="">All Employee IDs</option>
+                    {uniqueOptions.employeeIds.map(id => (
+                      <option key={id} value={id}>{id}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
@@ -469,6 +536,32 @@ const UserAccess = () => {
                     <option value="3d_model">3D Model</option>
                     <option value="artist">Artist</option>
                     <option value="content_manager">Content Manager</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                  <select
+                    value={filters.division}
+                    onChange={(e) => handleFilterChange('division', e.target.value)}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3"
+                  >
+                    <option value="">All Divisions</option>
+                    {uniqueOptions.divisions.map(division => (
+                      <option key={division} value={division}>{division}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                  <select
+                    value={filters.location}
+                    onChange={(e) => handleFilterChange('location', e.target.value)}
+                    className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3"
+                  >
+                    <option value="">All Locations</option>
+                    {uniqueOptions.locations.map(location => (
+                      <option key={location} value={location}>{location}</option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -497,6 +590,7 @@ const UserAccess = () => {
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Division</th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
                       <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
                       <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
@@ -528,6 +622,9 @@ const UserAccess = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <div className="text-sm text-gray-900">{(emp && emp.division) || '—'}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{(emp && (emp.location || emp.branch)) || '—'}</div>
                           </td>
                          
                           <td className="px-6 py-4 whitespace-nowrap">
@@ -606,6 +703,9 @@ const UserAccess = () => {
                     </div>
                     <div>
                       <span className="font-medium">Division:</span> {(emp && emp.division) || '—'}
+                    </div>
+                    <div>
+                      <span className="font-medium">Location:</span> {(emp && (emp.location || emp.branch)) || '—'}
                     </div>
                     <div>
                       <span className="font-medium">Qualification:</span> {(emp && emp.qualification) || '—'}
