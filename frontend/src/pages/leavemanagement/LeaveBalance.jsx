@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Eye } from 'lucide-react';
+import { Search, Eye, Edit, Save, X } from 'lucide-react';
 import { leaveAPI, employeeAPI } from '../../services/api';
 
 const LeaveBalance = () => {
@@ -8,6 +8,9 @@ const LeaveBalance = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
   const [pendingMap, setPendingMap] = useState({});
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+  const [editBalances, setEditBalances] = useState({ casual: 0, sick: 0, privilege: 0 });
 
   const monthsBetween = (dateString) => {
     if (!dateString) return 0;
@@ -176,6 +179,57 @@ const LeaveBalance = () => {
     setSearchTerm('');
     loadBalances();
   };
+
+  const handleEdit = (employee) => {
+    setEditingEmployee(employee);
+    setEditBalances({
+      casual: employee.balances?.casual?.balance || 0,
+      sick: employee.balances?.sick?.balance || 0,
+      privilege: employee.balances?.privilege?.balance || 0
+    });
+    setShowEditModal(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingEmployee) return;
+    try {
+      await leaveAPI.saveBalance({
+        employeeId: editingEmployee.empId || editingEmployee.id,
+        balances: editBalances
+      });
+      alert('Leave balance updated successfully');
+      setShowEditModal(false);
+      handleRefresh();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to update leave balance');
+    }
+  };
+  
+  const handleSave = async (employee) => {
+    try {
+      const employeeId = employee.empId || employee.id;
+      await leaveAPI.saveBalance({ employeeId });
+      alert('Leave balance saved to database');
+      handleRefresh();
+    } catch (err) {
+      alert('Failed to save leave balance');
+    }
+  };
+
+  const handleSyncAll = async () => {
+    if (!window.confirm('Are you sure you want to save all employee balances to the database?')) return;
+    setLoading(true);
+    try {
+      const res = await leaveAPI.syncAllBalances();
+      alert(res.data.message || 'Saved all balances successfully');
+      loadBalances();
+    } catch (err) {
+      console.error(err);
+      alert('Failed to save balances');
+      setLoading(false);
+    }
+  };
   
   const getAvailableBalance = (emp, type) => {
     const id = String(emp.empId || emp.id || '').toLowerCase();
@@ -212,13 +266,21 @@ const LeaveBalance = () => {
           />
         </div>
         
-        {/* Refresh Button */}
-        <button
-          onClick={handleRefresh}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-        >
-          <span className="rotate-45">↻</span> Refresh
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={handleSyncAll}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+          >
+            <Save size={16} /> Save All
+          </button>
+          {/* Refresh Button */}
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+          >
+            <span className="rotate-45">↻</span> Refresh
+          </button>
+        </div>
       </div>
 
       {/* Table */}
@@ -299,13 +361,29 @@ const LeaveBalance = () => {
                   
                   {/* Actions Column */}
                   <td className="p-4">
-                    <button
-                      onClick={() => setSelectedEmployee(employee)}
-                      className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
-                    >
-                      <Eye size={16} />
-                      View
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setSelectedEmployee(employee)}
+                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                      >
+                        <Eye size={16} />
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleEdit(employee)}
+                        className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                      >
+                        <Edit size={16} />
+                        Edit
+                      </button>
+                      <button
+                        onClick={() => handleSave(employee)}
+                        className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+                      >
+                        <Save size={16} />
+                        Save
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -437,6 +515,72 @@ const LeaveBalance = () => {
                   Close
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Edit Modal */}
+      {showEditModal && editingEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Edit Leave Balance</h3>
+              <button onClick={() => setShowEditModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="mb-4">
+              <p className="text-sm text-gray-600 mb-2">Employee: <span className="font-semibold">{editingEmployee.name}</span></p>
+              <p className="text-xs text-gray-500">Note: Editing balance will adjust the allocation.</p>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Casual Leave Balance</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  className="w-full border rounded p-2"
+                  value={editBalances.casual}
+                  onChange={(e) => setEditBalances({ ...editBalances, casual: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Sick Leave Balance</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  className="w-full border rounded p-2"
+                  value={editBalances.sick}
+                  onChange={(e) => setEditBalances({ ...editBalances, sick: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Privilege Leave Balance</label>
+                <input
+                  type="number"
+                  step="0.5"
+                  className="w-full border rounded p-2"
+                  value={editBalances.privilege}
+                  onChange={(e) => setEditBalances({ ...editBalances, privilege: parseFloat(e.target.value) || 0 })}
+                />
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 text-gray-600 border rounded hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Save Changes
+              </button>
             </div>
           </div>
         </div>

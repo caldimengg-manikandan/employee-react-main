@@ -2,6 +2,7 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const LeaveApplication = require('../models/LeaveApplication');
 const Employee = require('../models/Employee');
+const LeaveBalance = require('../models/LeaveBalance');
 const Timesheet = require('../models/Timesheet');
 const User = require('../models/User');
 const nodemailer = require('nodemailer');
@@ -506,20 +507,198 @@ router.get('/balance', auth, async (req, res) => {
     // Aggregate used leaves per employeeId
     const empIds = employees.map(e => e.employeeId).filter(Boolean);
     const usedMap = {};
+    const storedBalancesMap = {};
+
     try {
       if (empIds.length > 0) {
-        const approvals = await LeaveApplication.find({ employeeId: { $in: empIds }, status: 'Approved' }).lean();
+        const [approvals, storedBalances] = await Promise.all([
+          LeaveApplication.find({ employeeId: { $in: empIds }, status: 'Approved' }).lean(),
+          LeaveBalance.find({ employeeId: { $in: empIds } }).lean()
+        ]);
+
         for (const rec of approvals) {
           const id = rec.employeeId;
           if (!usedMap[id]) usedMap[id] = [];
           usedMap[id].push(rec);
         }
+
+        for (const bal of storedBalances) {
+          storedBalancesMap[bal.employeeId] = bal;
+        }
       }
     } catch (_) {
-      // If usage aggregation fails, continue with zero used
+      // If usage aggregation fails, continue
     }
-    const result = employees.map(emp => calcBalanceForEmployee(emp, usedMap[emp.employeeId] || []));
+    
+    const result = employees.map(emp => {
+      // If persisted leaveBalances exist in separate collection, use them
+      const stored = storedBalancesMap[emp.employeeId];
+      if (stored && stored.balances && stored.balances.totalBalance !== undefined) {
+        return {
+          employeeId: emp.employeeId || '',
+          name: emp.name || emp.employeename || '',
+          position: emp.position || emp.role || '',
+          division: emp.division || '',
+          monthsOfService: emp.monthsOfService || 0,
+          balances: stored.balances
+        };
+      }
+      return calcBalanceForEmployee(emp, usedMap[emp.employeeId] || []);
+    });
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Save leave balance snapshot to LeaveBalance collection
+router.put('/balance/save', auth, async (req, res) => {
+  try {
+    if (!hasPermission(req.user, 'leave_manage')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const { employeeId, balances: manualBalances } = req.body || {};
+    if (!employeeId) {
+      return res.status(400).json({ error: 'employeeId is required' });
+    }
+    const emp = await Employee.findOne({ employeeId }).lean();
+    if (!emp) {
+      return res.status(404).json({ error: 'Employee not found' });
+    }
+    const approvals = await LeaveApplication.find({ employeeId, status: 'Approved' }).lean();
+    
+    let finalBalances;
+
+    if (manualBalances) {
+      // If manual balances provided, use them but respect used counts from system
+      const systemCalc = calcBalanceForEmployee(emp, approvals);
+      
+      const makeBalanceObj = (type, manualVal) => {
+        const used = systemCalc.balances[type]?.used || 0;
+        const bal = Number(manualVal) || 0;
+        return {
+          allocated: bal + used,
+          used: used,
+          balance: bal
+        };
+      };
+
+      finalBalances = {
+        casual: makeBalanceObj('casual', manualBalances.casual),
+        sick: makeBalanceObj('sick', manualBalances.sick),
+        privilege: {
+          ...makeBalanceObj('privilege', manualBalances.privilege),
+          nonCarryAllocated: systemCalc.balances.privilege.nonCarryAllocated,
+          carryAllocated: systemCalc.balances.privilege.carryAllocated,
+          carryForwardEligibleBalance: Number(manualBalances.privilege) || 0
+        },
+        totalBalance: (Number(manualBalances.casual)||0) + (Number(manualBalances.sick)||0) + (Number(manualBalances.privilege)||0)
+      };
+    } else {
+      // Default: System calculation
+      finalBalances = calcBalanceForEmployee(emp, approvals).balances;
+    }
+
+    const updated = await LeaveBalance.findOneAndUpdate(
+      { employeeId },
+      { 
+        employeeId,
+        employeeName: emp.name,
+        balances: finalBalances,
+        lastUpdated: new Date()
+      },
+      { new: true, upsert: true }
+    );
+    res.json({ employeeId, balances: updated.balances, updatedAt: updated.lastUpdated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Sync/Save all employee balances to DB
+router.post('/balance/sync-all', auth, async (req, res) => {
+  try {
+    if (!hasPermission(req.user, 'leave_manage')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const employees = await Employee.find({}).lean();
+    const empIds = employees.map(e => e.employeeId).filter(Boolean);
+    
+    // Get all approvals
+    const approvals = await LeaveApplication.find({ 
+      employeeId: { $in: empIds }, 
+      status: 'Approved' 
+    }).lean();
+
+    const usedMap = {};
+    for (const rec of approvals) {
+      const id = rec.employeeId;
+      if (!usedMap[id]) usedMap[id] = [];
+      usedMap[id].push(rec);
+    }
+
+    const updates = [];
+    const timestamp = new Date();
+
+    for (const emp of employees) {
+      if (!emp.employeeId) continue;
+      
+      const usedLeaves = usedMap[emp.employeeId] || [];
+      const calc = calcBalanceForEmployee(emp, usedLeaves);
+      
+      // We want to preserve existing balances if they have manual adjustments, 
+      // OR we just overwrite everything with the system calculation?
+      // "Save all employee automatically" usually means "Calculate and Persist".
+      // If we want to preserve manual edits, we should check if a record exists and maybe merge?
+      // For now, let's assume "Sync" means "Update DB with latest system calculation", 
+      // but if we want to respect manual overrides, it gets complicated.
+      // However, the user said "leave balance data i want to save all employee automaticaly".
+      // I will implement a "Smart Sync" which tries to preserve manual "Allocated" overrides if possible,
+      // but simpler is just to save the current calculated state.
+      // Given the previous "Save" logic which respects system used count but allows manual allocated,
+      // a bulk sync usually implies "Run calculation for everyone and save it".
+      
+      // Let's just save the system calculation for now. 
+      // If a user manually edited a balance, it's already in the DB.
+      // If we re-run this, we might overwrite their manual edit if we don't fetch the existing one.
+      
+      // OPTION: Fetch existing balance first.
+      const existing = await LeaveBalance.findOne({ employeeId: emp.employeeId }).lean();
+      
+      let finalBalances;
+      if (existing && existing.balances) {
+         // If existing, we might want to keep the "allocated" values if they differ from system?
+         // But maybe the user WANTS to refresh everything based on new logic/months of service.
+         // Let's stick to: "Update with latest system calculation based on current service/approvals".
+         // This resets manual edits if the system logic produces different results. 
+         // But usually "Auto Save" implies "Make sure DB matches the rules".
+         finalBalances = calc.balances;
+      } else {
+         finalBalances = calc.balances;
+      }
+
+      updates.push({
+        updateOne: {
+          filter: { employeeId: emp.employeeId },
+          update: {
+            $set: {
+              employeeId: emp.employeeId,
+              employeeName: emp.name,
+              balances: finalBalances,
+              lastUpdated: timestamp
+            }
+          },
+          upsert: true
+        }
+      });
+    }
+
+    if (updates.length > 0) {
+      await LeaveBalance.bulkWrite(updates);
+    }
+
+    res.json({ message: `Synced ${updates.length} employee balances`, count: updates.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

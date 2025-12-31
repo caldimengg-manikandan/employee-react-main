@@ -69,6 +69,28 @@ const employeeSchema = new mongoose.Schema({
   totalDeductions: Number,
   netSalary: Number,
   ctc: Number,
+  leaveBalances: {
+    casual: {
+      allocated: Number,
+      used: Number,
+      balance: Number
+    },
+    sick: {
+      allocated: Number,
+      used: Number,
+      balance: Number
+    },
+    privilege: {
+      allocated: Number,
+      used: Number,
+      balance: Number,
+      nonCarryAllocated: Number,
+      carryAllocated: Number,
+      carryForwardEligibleBalance: Number
+    },
+    totalBalance: Number
+  },
+  leaveBalanceUpdatedAt: Date,
   status: {
     type: String,
     enum: ['Active', 'Inactive', 'Suspended'],

@@ -51,10 +51,10 @@ const EmployeeRewardTracker = () => {
     nominatedBy: ''
   });
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000';
+  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5003';
 
   // Predefined nominators
-  const predefinedNominators = ['Arun', 'P. Hari'];
+  const predefinedNominators = ['Arunkumar.P', 'Arunkumar.D', 'Harishankar', 'Gopinath'];
 
   // Helper function to get employee name
   const getEmployeeName = (employee) => {
@@ -192,6 +192,15 @@ const EmployeeRewardTracker = () => {
       result = result.filter(reward => reward.division === filters.division);
     }
 
+    if (filters.location) {
+      result = result.filter(reward => {
+        // Try to find location from employee details if not directly on reward
+        const employee = employees.find(e => e.employeeId === reward.employeeId);
+        const location = employee ? (employee.location || employee.branch) : '';
+        return location === filters.location;
+      });
+    }
+
     if (filters.nominatedBy) {
       result = result.filter(reward => reward.nominatedBy === filters.nominatedBy);
     }
@@ -206,21 +215,22 @@ const EmployeeRewardTracker = () => {
       employee: '',
       designation: '',
       division: '',
+      location: '',
       nominatedBy: ''
     });
   };
 
   const handleEmployeeChange = (e) => {
     const selectedEmployeeId = e.target.value;
-    const selectedEmployee = employees.find(emp => emp.employee_id === selectedEmployeeId);
+    const selectedEmployee = employees.find(emp => emp.employeeId === selectedEmployeeId);
     
     if (selectedEmployee) {
       setEditingReward(prev => ({
         ...prev,
         employeeName: getEmployeeName(selectedEmployee),
-        employeeId: selectedEmployee.employee_id,
+        employeeId: selectedEmployee.employeeId,
         designation: selectedEmployee.designation,
-        division: selectedEmployee.department
+        division: selectedEmployee.division || selectedEmployee.department
       }));
     }
   };
@@ -233,11 +243,11 @@ const EmployeeRewardTracker = () => {
     
     try {
       const token = getToken();
-      const url = editingReward.id ? 
-        `${API_BASE_URL}/api/rewards/${editingReward.id}` : 
+      const url = editingReward._id ? 
+        `${API_BASE_URL}/api/rewards/${editingReward._id}` : 
         `${API_BASE_URL}/api/rewards`;
       
-      const method = editingReward.id ? 'PUT' : 'POST';
+      const method = editingReward._id ? 'PUT' : 'POST';
       
       const response = await fetch(url, {
         method,
@@ -250,14 +260,23 @@ const EmployeeRewardTracker = () => {
       
       if (response.ok) {
         const result = await response.json();
-        setSuccess(editingReward.id ? 'Reward updated successfully' : 'Reward added successfully');
+        setSuccess(editingReward._id ? 'Reward updated successfully' : 'Reward added successfully');
         
-        if (editingReward.id) {
-          setRewards(prev => prev.map(r => r.id === editingReward.id ? result : r));
-        } else {
-          setRewards(prev => [...prev, result]);
+        // Refresh rewards list from server to ensure sync
+        const rewardsResponse = await fetch(`${API_BASE_URL}/api/rewards`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (rewardsResponse.ok) {
+          const rewardsData = await rewardsResponse.json();
+          const rewardsList = rewardsData.rewards || rewardsData;
+          setRewards(Array.isArray(rewardsList) ? rewardsList : []);
+          setFilteredRewards(Array.isArray(rewardsList) ? rewardsList : []);
         }
-        
+
         setShowAddModal(false);
         setEditingReward(null);
         setTimeout(() => setSuccess(''), 3000);
@@ -282,6 +301,9 @@ const EmployeeRewardTracker = () => {
   const handleDelete = async (id) => {
     if (!checkAuth()) return;
     
+    // Fallback to _id if id is missing (MongoDB uses _id)
+    const rewardId = id || (editingReward && editingReward._id);
+    
     if (window.confirm('Are you sure you want to delete this reward?')) {
       try {
         const token = getToken();
@@ -293,7 +315,21 @@ const EmployeeRewardTracker = () => {
         });
         
         if (response.ok) {
-          setRewards(prev => prev.filter(reward => reward.id !== id));
+          // Refresh rewards list from server
+          const rewardsResponse = await fetch(`${API_BASE_URL}/api/rewards`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (rewardsResponse.ok) {
+            const rewardsData = await rewardsResponse.json();
+            const rewardsList = rewardsData.rewards || rewardsData;
+            setRewards(Array.isArray(rewardsList) ? rewardsList : []);
+            setFilteredRewards(Array.isArray(rewardsList) ? rewardsList : []);
+          }
+
           setSuccess('Reward deleted successfully');
           setTimeout(() => setSuccess(''), 3000);
         } else {
@@ -344,9 +380,11 @@ const EmployeeRewardTracker = () => {
   ])].sort();
   
   const divisions = [...new Set([
-    ...employees.map(emp => emp.department).filter(Boolean),
+    ...employees.map(emp => emp.division || emp.department).filter(Boolean),
     ...rewards.map(reward => reward.division).filter(Boolean)
   ])].sort();
+  
+  const locations = ['Chennai', 'Hosur'];
   
   // Use predefined nominators instead of extracting from rewards
   const nominators = predefinedNominators;
@@ -354,7 +392,7 @@ const EmployeeRewardTracker = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#262760]"></div>
       </div>
     );
   }
@@ -378,21 +416,34 @@ const EmployeeRewardTracker = () => {
         )}
 
         <div className="bg-white shadow-md rounded-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
             <h2 className="text-2xl font-semibold text-gray-800">Employee Reward & Recognition Tracker</h2>
-            
+            <div className="flex space-x-3">
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 border border-[#262760] rounded-md text-[#262760] hover:bg-[#262760]/10 focus:outline-none focus:ring-2 focus:ring-[#262760] transition-colors"
+              >
+                Clear Filters
+              </button>
+              <button
+                onClick={handleAddNew}
+                className="px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] focus:outline-none focus:ring-2 focus:ring-[#262760] transition-colors"
+              >
+                Add Reward
+              </button>
+            </div>
           </div>
 
           {/* Filters */}
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Month</label>
                 <select
                   name="month"
                   value={filters.month}
                   onChange={handleFilterChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#262760]"
                 >
                   <option value="">All Months</option>
                   {months.map(month => (
@@ -402,12 +453,12 @@ const EmployeeRewardTracker = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Year</label>
                 <select
                   name="year"
                   value={filters.year}
                   onChange={handleFilterChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#262760]"
                 >
                   <option value="">All Years</option>
                   {years.map(year => (
@@ -417,16 +468,16 @@ const EmployeeRewardTracker = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Employee</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Employee</label>
                 <select
                   name="employee"
                   value={filters.employee}
                   onChange={handleFilterChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#262760]"
                 >
                   <option value="">All Employees</option>
                   {employees.map(emp => (
-                    <option key={emp.employee_id} value={getEmployeeName(emp)}>
+                    <option key={emp.employeeId} value={getEmployeeName(emp)}>
                       {getEmployeeName(emp)}
                     </option>
                   ))}
@@ -434,12 +485,12 @@ const EmployeeRewardTracker = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Designation</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Designation</label>
                 <select
                   name="designation"
                   value={filters.designation}
                   onChange={handleFilterChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#262760]"
                 >
                   <option value="">All Designations</option>
                   {designations.map(des => (
@@ -449,12 +500,12 @@ const EmployeeRewardTracker = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Division</label>
                 <select
                   name="division"
                   value={filters.division}
                   onChange={handleFilterChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#262760]"
                 >
                   <option value="">All Divisions</option>
                   {divisions.map(div => (
@@ -462,14 +513,29 @@ const EmployeeRewardTracker = () => {
                   ))}
                 </select>
               </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Location</label>
+                <select
+                  name="location"
+                  value={filters.location}
+                  onChange={handleFilterChange}
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#262760]"
+                >
+                  <option value="">All Locations</option>
+                  {locations.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Nominated By</label>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Nominated By</label>
                 <select
                   name="nominatedBy"
                   value={filters.nominatedBy}
                   onChange={handleFilterChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-[#262760]"
                 >
                   <option value="">All Nominators</option>
                   {nominators.map(nom => (
@@ -478,42 +544,29 @@ const EmployeeRewardTracker = () => {
                 </select>
               </div>
             </div>
-            
-            <div className="flex justify-end mt-4 space-x-3">
-              <button
-                onClick={clearFilters}
-                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                Clear Filters
-              </button>
-              <button
-                onClick={handleAddNew}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-              >
-                Add Reward
-              </button>
-            </div>
           </div>
 
           {/* Rewards Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">S.No</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Month/Year</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Designation</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Division</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nominated By</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
+          <div className="overflow-x-auto max-h-[calc(100vh-300px)] overflow-y-auto">
+            <table className="min-w-full divide-y divide-gray-200 relative">
+              {!showAddModal && (
+                <thead className="bg-[#262760] sticky top-0 z-10">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">S.No</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Month/Year</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Designation</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Division</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Nominated By</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+              )}
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredRewards.length > 0 ? (
                   filteredRewards.map((reward, index) => (
-                    <tr key={reward.id || index} className="hover:bg-gray-50">
+                    <tr key={reward._id || reward.id || index} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{reward.month} {reward.year}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{reward.employeeName}</td>
@@ -525,7 +578,7 @@ const EmployeeRewardTracker = () => {
                         <div className="flex space-x-2">
                           <button
                             onClick={() => handleView(reward)}
-                            className="text-indigo-600 hover:text-indigo-900 p-1 rounded hover:bg-indigo-50"
+                            className="text-indigo-600 hover:text-[#1e2050] p-1 rounded hover:bg-[#262760]/10"
                             title="View Details"
                           >
                             <ViewIcon />
@@ -538,7 +591,7 @@ const EmployeeRewardTracker = () => {
                             <EditIcon />
                           </button>
                           <button
-                            onClick={() => handleDelete(reward.id)}
+                            onClick={() => handleDelete(reward._id || reward.id)}
                             className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
                             title="Delete"
                           >
@@ -566,7 +619,7 @@ const EmployeeRewardTracker = () => {
           <div className="relative bg-white rounded-lg shadow-xl max-w-2xl w-full mx-auto">
             <div className="flex items-center justify-between p-4 border-b">
               <h3 className="text-xl font-semibold text-gray-900">
-                {editingReward.id ? 'Edit Reward' : 'Add New Reward'}
+                {editingReward._id ? 'Edit Reward' : 'Add New Reward'}
               </h3>
               <button
                 onClick={() => setShowAddModal(false)}
@@ -586,7 +639,7 @@ const EmployeeRewardTracker = () => {
                     required
                     value={editingReward.month}
                     onChange={(e) => setEditingReward({...editingReward, month: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760]"
                   >
                     {months.map(month => (
                       <option key={month} value={month}>{month}</option>
@@ -600,7 +653,7 @@ const EmployeeRewardTracker = () => {
                     required
                     value={editingReward.year}
                     onChange={(e) => setEditingReward({...editingReward, year: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760]"
                   >
                     {years.map(year => (
                       <option key={year} value={year}>{year}</option>
@@ -614,12 +667,12 @@ const EmployeeRewardTracker = () => {
                     required
                     value={editingReward.employeeId}
                     onChange={handleEmployeeChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760]"
                   >
                     <option value="">Select Employee</option>
                     {employees.map(emp => (
-                      <option key={emp.employee_id} value={emp.employee_id}>
-                        {getEmployeeName(emp)} ({emp.employee_id})
+                      <option key={emp.employeeId} value={emp.employeeId}>
+                        {getEmployeeName(emp)}
                       </option>
                     ))}
                   </select>
@@ -631,7 +684,7 @@ const EmployeeRewardTracker = () => {
                     type="text"
                     readOnly
                     value={editingReward.employeeId}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#262760]"
                   />
                 </div>
                 
@@ -641,7 +694,7 @@ const EmployeeRewardTracker = () => {
                     type="text"
                     readOnly
                     value={editingReward.designation}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#262760]"
                   />
                 </div>
                 
@@ -651,7 +704,7 @@ const EmployeeRewardTracker = () => {
                     type="text"
                     readOnly
                     value={editingReward.division}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#262760]"
                   />
                 </div>
                 
@@ -661,7 +714,7 @@ const EmployeeRewardTracker = () => {
                     required
                     value={editingReward.nominatedBy}
                     onChange={(e) => setEditingReward({...editingReward, nominatedBy: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760]"
                   >
                     <option value="">Select Nominator</option>
                     {nominators.map(nom => (
@@ -678,24 +731,24 @@ const EmployeeRewardTracker = () => {
                   rows={4}
                   value={editingReward.achievement}
                   onChange={(e) => setEditingReward({...editingReward, achievement: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760]"
                   placeholder="Describe the achievement or justification for this reward..."
                 ></textarea>
               </div>
               
-              <div className="flex justify-end pt-4 space-x-3">
+              <div className="flex justify-end space-x-3 pt-4 border-t">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#262760]"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  className="px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] focus:outline-none focus:ring-2 focus:ring-[#262760]"
                 >
-                  {editingReward.id ? 'Update Reward' : 'Add Reward'}
+                  {editingReward._id ? 'Update Reward' : 'Add Reward'}
                 </button>
               </div>
             </form>
@@ -749,7 +802,7 @@ const EmployeeRewardTracker = () => {
               <div className="flex justify-end">
                 <button
                   onClick={() => setShowViewModal(false)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-colors"
+                  className="px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] focus:outline-none focus:ring-2 focus:ring-[#262760] transition-colors"
                 >
                   Close
                 </button>
