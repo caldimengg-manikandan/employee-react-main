@@ -24,6 +24,8 @@ const Login = () => {
   const [canResendOtp, setCanResendOtp] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);
   
   // Modal states
   const [showAboutUs, setShowAboutUs] = useState(false);
@@ -105,6 +107,18 @@ const Login = () => {
   ];
 
   // Animated background particles
+  useEffect(() => {
+    if (lockoutTimeLeft > 0) {
+      const timer = setInterval(() => {
+        setLockoutTimeLeft((prev) => prev - 1);
+      }, 1000);
+      return () => clearInterval(timer);
+    } else if (failedAttempts >= 5) {
+      setFailedAttempts(0);
+      setError('');
+    }
+  }, [lockoutTimeLeft, failedAttempts]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -303,6 +317,11 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (lockoutTimeLeft > 0) {
+      return;
+    }
+
     setIsLoading(true);
     setError('');
 
@@ -316,12 +335,21 @@ const Login = () => {
     try {
       const payload = { ...formData };
       const response = await authAPI.login(payload);
+      setFailedAttempts(0); // Reset failed attempts on success
       sessionStorage.setItem('token', response.data.token);
       sessionStorage.setItem('user', JSON.stringify(response.data.user));
       window.history.replaceState(null, '', '/dashboard');
       navigate('/dashboard', { replace: true });
     } catch (error) {
-      setError(error.response?.data?.message || 'Login failed');
+      const newAttempts = failedAttempts + 1;
+      setFailedAttempts(newAttempts);
+      
+      if (newAttempts >= 5) {
+        setLockoutTimeLeft(30);
+        setError('Too many failed attempts. Please wait 30 seconds.');
+      } else {
+        setError(error.response?.data?.message || 'Login failed');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -744,26 +772,21 @@ const Login = () => {
           </div>
 
           {/* Login Box Container */}
-          <div className="relative z-10 w-full h-full flex flex-col items-center justify-top p-4 lg:p-8">
-            <h1 className="text-8xl font-bold text-white mt-2 tracking-tight">
-                  CALDIM
-                </h1>
+          <div className="relative z-10 w-full h-full flex flex-col items-center justify-start p-4 lg:p-8">
             {/* Logo at Top Left */}
-            <div className="absolute top-0 left-0 p-4 lg:p-6 z-20">
-              
-              <div className="flex flex-col items-start">
+            <div className="relative lg:absolute top-0 left-0 p-4 lg:p-6 z-20 w-full lg:w-auto flex justify-center lg:block">
+              <div className="flex flex-col items-center lg:items-start">
                 <img
                   src="/images/steel-logo.png"
                   alt="caldim"
-                  className="h-auto w-full max-w-[180px] object-contain"
-              
-                  
+                  className="h-auto w-full max-w-[150px] lg:max-w-[180px] object-contain"
                 />
-
-                
               </div>
-              
             </div>
+
+            <h1 className="text-5xl lg:text-8xl font-bold text-white mt-4 lg:mt-2 tracking-tight text-center">
+                  CALDIM
+            </h1>
 
               <div className="w-full max-w-md mt-20">
                 {/* Header */}
@@ -857,8 +880,8 @@ const Login = () => {
                   {/* Login Button */}
                   <button
                     type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-3.5 rounded-lg font-bold hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-[1.02] transform"
+                    disabled={isLoading || lockoutTimeLeft > 0}
+                    className={`w-full bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-3.5 rounded-lg font-bold hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-[1.02] transform ${lockoutTimeLeft > 0 ? 'cursor-not-allowed' : ''}`}
                   >
                     {isLoading ? (
                       <>
@@ -868,6 +891,8 @@ const Login = () => {
                         </svg>
                         Signing in...
                       </>
+                    ) : lockoutTimeLeft > 0 ? (
+                      `Try again in ${lockoutTimeLeft}s`
                     ) : (
                       'Sign In'
                     )}
@@ -900,9 +925,9 @@ const Login = () => {
                     <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                     </svg>
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full"></div>
                   </div>
-                  <div className="text-centre">
+                  <div className="text-center">
                     <div className="text-xs text-blue-100"></div>
                     <div className="font-small">UPCOMING EVENTS</div>
                   </div>

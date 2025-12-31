@@ -77,7 +77,7 @@ const LoginAnnouncements = ({ title = '📢 Company Announcements', mode = 'list
       <div className="bg-gradient-to-r from-blue-900/30 to-purple-900/30 backdrop-blur-sm rounded-xl p-4 border border-white/20">
         <div className="flex items-center justify-between mb-3">
           <div className="flex items-center">
-            <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse mr-3"></div>
+            <div className="w-3 h-3 bg-green-400 rounded-full mr-3"></div>
             <h3 className="text-lg font-bold text-white">{title}</h3>
           </div>
         </div>

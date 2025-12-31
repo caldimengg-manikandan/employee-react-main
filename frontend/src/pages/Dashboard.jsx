@@ -77,6 +77,59 @@ const CustomizedYAxisTick = (props) => {
     );
 };
 
+// --- Constants ---
+const categoryImages = {
+    'Work & Productivity': 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=1000',
+    'Leave Management': 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=1000',
+    'Finance & Payroll': 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=1000',
+    'Company & Resources': 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000'
+};
+
+const CategoryCard = ({ category, modules, onViewDetails, images }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
+    const displayModules = isExpanded ? modules : modules.slice(0, 4);
+
+    return (
+        <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
+            <div className="h-40 overflow-hidden relative group">
+                <div className="absolute inset-0 bg-blue-900/20 group-hover:bg-transparent transition-colors z-10" />
+                <img 
+                    src={images[category] || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000'} 
+                    alt={category} 
+                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                />
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-20">
+                    <h3 className="text-white font-bold text-lg">{category}</h3>
+                </div>
+            </div>
+            <div className="p-5 flex-1 flex flex-col">
+                <ul className="space-y-3 flex-1">
+                    {displayModules.map((mod, mIdx) => (
+                        <li key={mIdx}>
+                            <Link 
+                                to={mod.path}
+                                className="flex items-center text-gray-600 hover:text-blue-600 transition-colors group"
+                            >
+                                <mod.icon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-blue-500" />
+                                <span className="text-sm font-medium">{mod.name}</span>
+                            </Link>
+                        </li>
+                    ))}
+                    {modules.length > 4 && (
+                        <li 
+                            className="text-xs text-blue-500 font-medium pt-2 cursor-pointer hover:text-blue-700 hover:underline"
+                            onClick={() => setIsExpanded(!isExpanded)}
+                        >
+                            {isExpanded ? 'Show less' : `+ ${modules.length - 4} more items`}
+                        </li>
+                    )}
+                </ul>
+                
+            </div>
+        </div>
+    );
+};
+
 // --- Main Dashboard Component ---
 const ProjectDashboard = () => {
     const navigate = useNavigate();
@@ -268,13 +321,7 @@ const ProjectDashboard = () => {
         'Remaining Quantity': '#2563eb'
     };
 
-    // Category Images
-    const categoryImages = {
-        'Work & Productivity': 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=1000',
-        'Leave Management': 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=1000',
-        'Finance & Payroll': 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=1000',
-        'Company & Resources': 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000'
-    };
+
 
     // --- DATA FETCHING HOOKS ---
     useEffect(() => {
@@ -405,50 +452,7 @@ const ProjectDashboard = () => {
         </Link>
     );
 
-    const CategoryCard = ({ category, modules }) => (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
-            <div className="h-40 overflow-hidden relative group">
-                <div className="absolute inset-0 bg-blue-900/20 group-hover:bg-transparent transition-colors z-10" />
-                <img 
-                    src={categoryImages[category] || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000'} 
-                    alt={category} 
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
-                />
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-20">
-                    <h3 className="text-white font-bold text-lg">{category}</h3>
-                </div>
-            </div>
-            <div className="p-5 flex-1 flex flex-col">
-                <ul className="space-y-3 flex-1">
-                    {modules.slice(0, 4).map((mod, mIdx) => (
-                        <li key={mIdx}>
-                            <Link 
-                                to={mod.path}
-                                className="flex items-center text-gray-600 hover:text-blue-600 transition-colors group"
-                            >
-                                <mod.icon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-blue-500" />
-                                <span className="text-sm font-medium">{mod.name}</span>
-                            </Link>
-                        </li>
-                    ))}
-                    {modules.length > 4 && (
-                        <li className="text-xs text-blue-500 font-medium pt-2">
-                            + {modules.length - 4} more items
-                        </li>
-                    )}
-                </ul>
-                <div className="mt-4 w-full">
-                    <button 
-                        onClick={() => setSearchTerm(category)}
-                        className="w-full py-2 bg-gray-50 hover:bg-gray-100 text-gray-700 text-sm font-semibold rounded-lg transition-colors flex items-center justify-center"
-                    >
-                        View Details
-                        <ArrowRightIcon className="h-4 w-4 ml-1" />
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
+
 
     const CustomTooltipContent = ({ active, payload, label }) => {
         if (active && payload && payload.length) {
@@ -687,11 +691,9 @@ const ProjectDashboard = () => {
                                 className="block w-full pl-11 pr-4 py-4 bg-white/95 backdrop-blur rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-xl transition-all"
                                 placeholder="Search for tools, forms, or policies..."
                                 value={searchTerm}
-                                maxLength={16}
+                                maxLength={30}
                                 onChange={(e) => {
-                                    if (e.target.value.length <= 16) {
-                                        setSearchTerm(e.target.value);
-                                    }
+                                    setSearchTerm(e.target.value);
                                 }}
                             />
                         </div>
@@ -803,7 +805,13 @@ const ProjectDashboard = () => {
                         {/* Categorized Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                             {Object.entries(groupedModules).map(([category, modules], idx) => (
-                                <CategoryCard key={category} category={category} modules={modules} />
+                                <CategoryCard 
+                                    key={category} 
+                                    category={category} 
+                                    modules={modules} 
+                                    images={categoryImages}
+                                    onViewDetails={(cat) => setSearchTerm(cat)}
+                                />
                             ))}
                         </div>
 
