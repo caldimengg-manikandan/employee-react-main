@@ -121,3 +121,9 @@ code {
 .peer:not(:placeholder-shown) ~ label {
   transform: translateY(-1rem) scale(0.75);
 }
+
+/* Hide time picker indicator (clock icon) for input type="time" */
+input[type="time"]::-webkit-calendar-picker-indicator {
+  display: none !important;
+  -webkit-appearance: none;
+}

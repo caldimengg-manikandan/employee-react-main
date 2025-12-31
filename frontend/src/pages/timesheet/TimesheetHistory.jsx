@@ -3,7 +3,7 @@ import { timesheetAPI } from '../../services/api';
 import { Eye, Filter, Calendar, FileText, X, Download, Edit, Trash2 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const TimesheetHistory = () => {
   const [timesheets, setTimesheets] = useState([]);
@@ -215,7 +215,7 @@ const TimesheetHistory = () => {
       timesheet.entries.forEach(entry => {
         const row = [
           entry.project,
-          getProjectCode(entry.project),
+          getProjectCode(entry),
           entry.task,
           entry.hours[0] || 0,
           entry.hours[1] || 0,
@@ -325,7 +325,7 @@ const TimesheetHistory = () => {
       // Table data
       const tableData = timesheet.entries.map(entry => [
         entry.project,
-        getProjectCode(entry.project),
+        getProjectCode(entry),
         entry.task,
         entry.hours[0] || 0,
         entry.hours[1] || 0,
@@ -338,7 +338,7 @@ const TimesheetHistory = () => {
       ]);
       
       // Add table
-      pdf.autoTable({
+      autoTable(pdf, {
         startY: 40,
         head: [['Project', 'Project Code', 'Task', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun', 'Total']],
         body: tableData,
@@ -392,7 +392,7 @@ const TimesheetHistory = () => {
       // Monthly total
       const monthlyTotal = monthTimesheets.reduce((sum, t) => sum + t.totalHours, 0);
       
-      pdf.autoTable({
+      autoTable(pdf, {
         startY: 25,
         head: [['Week', 'Projects', 'Project Codes', 'Total Hours', 'Status', 'Submitted Date']],
         body: tableData,
@@ -430,29 +430,29 @@ const TimesheetHistory = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       {/* <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Timesheet History</h1>
         <p className="text-gray-600">View your submitted timesheets and drafts</p>
       </div> */}
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex items-center gap-2">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 md:p-6 mb-6">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+          <div className="flex items-center gap-2 w-full md:w-auto">
             <Filter className="w-5 h-5 text-gray-600" />
             <h3 className="text-lg font-semibold text-gray-800">Filter Timesheets</h3>
           </div>
-          <div className="flex gap-3">
+          <div className="flex flex-wrap justify-center gap-3 w-full md:w-auto">
             <button
               onClick={clearFilters}
-              className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors duration-200 font-medium flex items-center gap-2"
+              className="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors duration-200 font-medium flex items-center justify-center gap-2 flex-1 md:flex-none"
             >
               Clear Filters
             </button>
             <button
               onClick={() => setShowDownloadModal(true)}
-              className="px-4 py-2 bg-blue-700 text-white rounded text-sm font-medium hover:bg-blue-800 transition-colors flex items-center gap-2"
+              className="px-4 py-2 bg-blue-700 text-white rounded text-sm font-medium hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 flex-1 md:flex-none"
             >
               <Download className="w-4 h-4" />
               Download Report
@@ -523,14 +523,14 @@ const TimesheetHistory = () => {
 
       {/* Timesheet History Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-4 md:p-6 border-b border-gray-200">
           <div className="flex items-center gap-2">
             <FileText className="w-5 h-5 text-gray-600" />
             <h2 className="text-xl font-semibold text-gray-800">Timesheets & Drafts</h2>
           </div>
         </div>
         {isLoading && (
-          <div className="p-6 text-sm text-gray-600">Loading timesheets…</div>
+          <div className="p-6 text-sm text-gray-600">Loading timesheets...</div>
         )}
         {error && (
           <div className="p-6 text-sm text-red-600">{error}</div>
@@ -538,7 +538,7 @@ const TimesheetHistory = () => {
         
         {filteredTimesheets.length > 0 ? (
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full min-w-max">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Week</th>
@@ -637,7 +637,7 @@ const TimesheetHistory = () => {
                           </button>
                           
                           {/* Show Edit and Delete only for drafts */}
-                          {isDraftTimesheet && !isAutoLeaveDraft && (
+                          {isDraftTimesheet && (
                             <>
                               <button 
                                 onClick={() => handleEdit(t)}
@@ -682,11 +682,11 @@ const TimesheetHistory = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
             <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center gap-4">
                 <h2 className="text-xl font-semibold text-gray-800">Download Report</h2>
                 <button
                   onClick={handleCloseDownloadModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                  className="text-gray-400 hover:text-gray-600 transition-colors duration-200 shrink-0"
                   title="Close"
                 >
                   <X className="w-6 h-6" />
@@ -795,13 +795,13 @@ const TimesheetHistory = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <div className="flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-gray-600" />
-                  <h2 className="text-xl font-semibold text-gray-800">
+              <div className="flex justify-between items-start gap-4">
+                <div className="flex items-start gap-2">
+                  <FileText className="w-5 h-5 text-gray-600 mt-1" />
+                  <h2 className="text-xl font-semibold text-gray-800 break-words">
                     Timesheet Details - {formatWeekRange(selectedTimesheet.weekStartDate, selectedTimesheet.weekEndDate)}
                     {selectedTimesheet.isSessionDraft && (
-                      <span className="ml-2 text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded">
+                      <span className="ml-2 text-sm text-blue-600 bg-blue-100 px-2 py-1 rounded inline-block">
                         Session Draft
                       </span>
                     )}
@@ -809,7 +809,7 @@ const TimesheetHistory = () => {
                 </div>
                 <button
                   onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                  className="text-gray-400 hover:text-gray-600 transition-colors duration-200 shrink-0"
                   title="Close"
                 >
                   <X className="w-6 h-6" />
@@ -858,7 +858,7 @@ const TimesheetHistory = () => {
               {/* Time Entries (Project/Task with Mon–Sun hours) */}
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Time Entries</h3>
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full min-w-max">
                   <thead className="bg-gray-50">
                     <tr>
                       <th className="p-3 text-left text-sm font-semibold text-gray-700">Project</th>
@@ -949,7 +949,7 @@ const TimesheetHistory = () => {
 
               {/* Summary */}
               <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-              <div className="flex justify-between items-center">
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
                 <span className="text-lg font-semibold text-gray-800">Total Hours (Work + Break):</span>
                 <span className="text-lg font-bold text-gray-900">
                   {(() => {

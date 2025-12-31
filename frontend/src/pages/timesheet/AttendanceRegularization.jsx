@@ -19,6 +19,7 @@ const AttendanceRegularization = () => {
   const [inTime, setInTime] = useState("");
   const [outDate, setOutDate] = useState("");
   const [outTime, setOutTime] = useState("");
+  const [modalError, setModalError] = useState("");
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
 
   const monthRange = useMemo(() => {
@@ -69,6 +70,15 @@ const AttendanceRegularization = () => {
   const nextMonth = () => {
     const d = new Date(month);
     d.setMonth(d.getMonth() + 1);
+    
+    // Prevent navigating to future months
+    const today = new Date();
+    const currentMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    
+    if (d > currentMonth) {
+      return;
+    }
+    
     setMonth(d);
   };
 
@@ -103,6 +113,7 @@ const AttendanceRegularization = () => {
     setOutDate(baseDateKey);
     setInTime(rec.punchIn ? new Date(rec.punchIn).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
     setOutTime(rec.punchOut ? new Date(rec.punchOut).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
+    setModalError("");
     setShowEditModal(true);
   };
 
@@ -113,6 +124,7 @@ const AttendanceRegularization = () => {
     setInTime("");
     setOutDate("");
     setOutTime("");
+    setModalError("");
   };
 
   const combineDateAndTime = (dateISO, timeStr) => {
@@ -161,13 +173,42 @@ const AttendanceRegularization = () => {
 
     const inDt = new Date(inISO);
     const outDt = new Date(outISO);
-    if (!(outDt > inDt)) {
+    if (outDt <= inDt) {
+      setModalError("In Time must be less than Out Time");
       return;
     }
+
+    // Check if there are any changes
+    const originalInDate = new Date(editingRecord.punchIn || editingRecord.date).toISOString().split("T")[0];
+    const originalOutDate = new Date(editingRecord.punchOut || editingRecord.date).toISOString().split("T")[0];
+    const originalInTime = editingRecord.punchIn ? new Date(editingRecord.punchIn).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+    const originalOutTime = editingRecord.punchOut ? new Date(editingRecord.punchOut).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "";
+
+    const originalInISO = combineDateAndTime(originalInDate, originalInTime);
+    const originalOutISO = combineDateAndTime(originalOutDate, originalOutTime);
+
+    // Normalize milliseconds to 0 for comparison as input type="time" doesn't handle milliseconds
+    const normalizeDate = (iso) => {
+      if (!iso) return null;
+      const d = new Date(iso);
+      d.setMilliseconds(0);
+      d.setSeconds(0);
+      return d.getTime();
+    };
+
+    const isChanged = normalizeDate(inISO) !== normalizeDate(originalInISO) || 
+                      normalizeDate(outISO) !== normalizeDate(originalOutISO);
+
+    if (!isChanged) {
+      setModalError("No changes detected");
+      return;
+    }
+
     const durationSeconds = Math.round((outDt - inDt) / 1000);
 
     try {
       setLoading(true);
+      setModalError("");
       await attendanceApprovalAPI.request({
         employeeId,
         email: user.email,
@@ -180,7 +221,7 @@ const AttendanceRegularization = () => {
     } catch (error) {
       console.error("Save error:", error);
       const msg = error.response?.data?.message || "Failed to save request";
-      showError(msg);
+      setModalError(msg);
     } finally {
       setLoading(false);
     }
@@ -216,13 +257,19 @@ const AttendanceRegularization = () => {
       fontWeight: 600,
       color: "#2d3748",
     },
-    table: {
+    tableContainer: {
       width: "100%",
-      borderCollapse: "collapse",
+      maxHeight: "calc(100vh - 200px)",
+      overflowY: "auto",
       backgroundColor: "#fff",
       borderRadius: "8px",
-      overflow: "hidden",
       boxShadow: "0 1px 3px rgba(0,0,0,0.08)",
+      border: "1px solid #e2e8f0",
+    },
+    table: {
+      width: "100%",
+      borderCollapse: "separate",
+      borderSpacing: 0,
     },
     th: {
       backgroundColor: "#f7fafc",
@@ -231,6 +278,9 @@ const AttendanceRegularization = () => {
       fontSize: "12px",
       color: "#4a5568",
       borderBottom: "1px solid #e2e8f0",
+      position: "sticky",
+      top: 0,
+      zIndex: 1,
     },
     td: {
       padding: "12px",
@@ -353,43 +403,45 @@ const AttendanceRegularization = () => {
         </div>
       </div>
 
-      <table style={styles.table}>
-        <thead>
-          <tr>
-            <th style={styles.th}>Date</th>
-            <th style={styles.th}>IN Time</th>
-            <th style={styles.th}>OUT Time</th>
-            <th style={styles.th}>Total Hours</th>
-            <th style={{ ...styles.th, textAlign: "right" }}>Action</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
+      <div style={styles.tableContainer}>
+        <table style={styles.table}>
+          <thead>
             <tr>
-              <td colSpan={5} style={{ ...styles.td, textAlign: "center" }}>Loading...</td>
+              <th style={styles.th}>Date</th>
+              <th style={styles.th}>IN Time</th>
+              <th style={styles.th}>OUT Time</th>
+              <th style={styles.th}>Total Hours</th>
+              <th style={{ ...styles.th, textAlign: "right" }}>Action</th>
             </tr>
-          ) : records.length === 0 ? (
-            <tr>
-              <td colSpan={5} style={{ ...styles.td, textAlign: "center" }}>No attendance records</td>
-            </tr>
-          ) : (
-            records.map((rec, idx) => (
-
-              <tr key={`${rec.date}|${idx}`} style={styles.row}>
-                <td style={styles.td}>{formatDate(rec.date)}</td>
-                <td style={styles.td}>{formatTime(rec.punchIn)}</td>
-                <td style={styles.td}>{formatTime(rec.punchOut)}</td>
-                <td style={styles.td}>{formatHours(rec.hours || 0)}</td>
-                <td style={{ ...styles.td, ...styles.actionsCell }}>
-                  <button style={styles.editButton} onClick={() => openEdit(rec)}>
-                    <Edit size={14} /> Edit
-                  </button>
-                </td>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr>
+                <td colSpan={5} style={{ ...styles.td, textAlign: "center" }}>Loading...</td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            ) : records.length === 0 ? (
+              <tr>
+                <td colSpan={5} style={{ ...styles.td, textAlign: "center" }}>No attendance records</td>
+              </tr>
+            ) : (
+              records.map((rec, idx) => (
+
+                <tr key={`${rec.date}|${idx}`} style={styles.row}>
+                  <td style={styles.td}>{formatDate(rec.date)}</td>
+                  <td style={styles.td}>{formatTime(rec.punchIn)}</td>
+                  <td style={styles.td}>{formatTime(rec.punchOut)}</td>
+                  <td style={styles.td}>{formatHours(rec.hours || 0)}</td>
+                  <td style={{ ...styles.td, ...styles.actionsCell }}>
+                    <button style={styles.editButton} onClick={() => openEdit(rec)}>
+                      <Edit size={14} /> Edit
+                    </button>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
 
       <div style={styles.summary}>
         Total Hours (month range): {formatHours(weeklyHours || 0)}
@@ -400,7 +452,7 @@ const AttendanceRegularization = () => {
           <div style={styles.modalContent}>
             <div style={styles.modalHeader}>
               <div style={styles.modalTitle}>Edit Day</div>
-              <button style={styles.btnSecondary} onClick={closeEdit}>Close</button>
+              {/* <button style={styles.btnSecondary} onClick={closeEdit}>Closes</button> */}
             </div>
             <div style={styles.modalBody}>
               <div style={styles.field}>
@@ -443,6 +495,11 @@ const AttendanceRegularization = () => {
                 <div style={styles.label}>Calculated Total</div>
                 <div>{computePreview() || "-"}</div>
               </div>
+              {modalError && (
+                <div style={{ color: "#e53e3e", fontSize: "14px", marginTop: "8px" }}>
+                  {modalError}
+                </div>
+              )}
             </div>
             <div style={styles.modalFooter}>
               <button style={styles.btnSecondary} onClick={closeEdit}>Cancel</button>

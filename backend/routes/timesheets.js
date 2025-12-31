@@ -1091,15 +1091,15 @@ router.delete("/:id", auth, async (req, res) => {
       });
     }
 
-    const hasApprovedLeave = (timesheet.entries || []).some(
-      (e) => (e.project || "") === "Leave" && (e.task || "") === "Leave Approved"
-    );
-    if (hasApprovedLeave) {
-      return res.status(400).json({
-        success: false,
-        message: "Leave-approved draft timesheets cannot be deleted"
-      });
-    }
+    // const hasApprovedLeave = (timesheet.entries || []).some(
+    //   (e) => (e.project || "") === "Leave" && (e.task || "") === "Leave Approved"
+    // );
+    // if (hasApprovedLeave) {
+    //   return res.status(400).json({
+    //     success: false,
+    //     message: "Leave-approved draft timesheets cannot be deleted"
+    //   });
+    // }
 
     await Timesheet.findByIdAndDelete(id);
 

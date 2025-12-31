@@ -1158,33 +1158,7 @@ const PayrollDetails = () => {
                     </div>
                   </div>
                 </div>
-                {lopPreview && viewRecord?.employeeId && (
-                  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h3 className="text-lg font-medium text-gray-900 mb-3">Monthly LOP Impact</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Standard Month Days</label>
-                        <p className="font-medium">30</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Per Day Salary</label>
-                        <p className="font-medium">{formatCurrency(lopPreview.perDay)}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Negative Leave Days</label>
-                        <p className="font-medium text-red-600">{lopPreview.days}</p>
-                      </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">LOP Deduction</label>
-                        <p className="font-medium text-red-600">{formatCurrency(lopPreview.amount)}</p>
-                      </div>
-                    </div>
-                    <div className="mt-3">
-                      <label className="text-sm font-medium text-gray-700">Net Salary (Adjusted for LOP)</label>
-                      <p className="text-xl font-bold text-blue-700">{formatCurrency(lopPreview.adjustedNet)}</p>
-                    </div>
-                  </div>
-                )}
+               
 
                 {/* Bank Details */}
                 {viewRecord.bankName && (
