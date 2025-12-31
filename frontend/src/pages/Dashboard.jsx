@@ -216,7 +216,7 @@ const ProjectDashboard = () => {
         
         // Leave Management
         { name: 'Leave Summary', description: 'View leave summary', path: '/leave-management/summary', icon: ChartBarIcon, permission: 'leave_view', showForRoles: ['admin', 'hr', 'manager'], category: 'Leave Management' },
-        { name: 'Leave Balance', description: 'Check leave balance', path: '/leave-management/balance', icon: ClipboardDocumentListIcon, permission: 'leave_view', allowEmployeeRole: true, category: 'Leave Management' },
+        { name: 'Leave Balance', description: 'Check leave balance', path: '/leave-management/balance', icon: ClipboardDocumentListIcon, permission: 'leave_view', category: 'Leave Management' },
         { name: 'Leave Applications', description: 'Apply & track leaves', path: '/leave-applications', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true, category: 'Leave Management' },
         
         // Insurance & Policy
@@ -235,6 +235,7 @@ const ProjectDashboard = () => {
         { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         
         // Other
+        { name: 'Exit Form', description: 'Submit exit form', path: '/employee-exit/form', icon: ArrowRightOnRectangleIcon, allowEmployeeRole: true, category: 'Company & Resources' },
         { name: 'Employee Reward Tracker', description: 'Track rewards', path: '/employee-reward-tracker', icon: BriefcaseIcon, permission: 'reward_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
         { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access', showForRoles: ['admin', 'hr'], category: 'Company & Resources' },
         { name: 'User Access', description: 'Manage user roles & permissions', path: '/user-access', icon: KeyIcon, permission: 'user_access', showForRoles: ['admin'], category: 'Company & Resources' },

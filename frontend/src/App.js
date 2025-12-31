@@ -37,6 +37,7 @@ import PolicyPortal from './pages/PolicyPortal';
 import TeamManagement from './pages/admin/TeamManagement';
 
 import SalarySlips from "./pages/salaryslips/SalarySlips";
+import PFGratuitySummary from "./pages/salaryslips/PFGratuitySummary";
 import ExpenditureManagement from "./pages/expenditure/ExpenditureManagement"
 import EmployeeRewardTracker from "./pages/rewards/EmployeeRewardTracker";
 
@@ -48,6 +49,10 @@ import GratuitySummary from "./pages/payroll/GratuitySummary";
 import MonthlyPayroll from "./pages/payroll/MonthlyPayroll";
 import AnnouncementManagement from "./pages/announcements/AnnouncementManagement";
 import InternReference from "./pages/internship/InternReference";
+
+// Exit Management
+import ExitForm from "./pages/EmployeeExitForms";
+import ExitApproval from "./pages/ExitApprovals";
 
 
 
@@ -144,6 +149,32 @@ function App() {
               }
             />
 
+
+              {/* ---------------- Exit Management ---------------- */}
+            <Route 
+              path="employee-exit/form" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["exit_form_access"]} 
+                  allowEmployeeRole
+                  roles={["employees"]}
+                >
+                  <ExitForm />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="employee-exit/approval" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["exit_approval_access"]} 
+                  roles={["admin", "hr", "manager"]}
+                >
+                  <ExitApproval />
+                </ProtectedRoute>
+              } 
+            />
+
             {/* ---------------- Project Allocation ---------------- */}
             <Route 
               path="project-allocation" 
@@ -182,6 +213,19 @@ function App() {
                   allowEmployeeRole
                 >
                   <SalarySlips />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="salaryslips/pf-gratuity" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["payroll_view"]} 
+                  roles={["admin", "hr", "employees", "projectmanager", "project_manager"]}
+                  allowEmployeeRole
+                >
+                  <PFGratuitySummary />
                 </ProtectedRoute>
               } 
             />

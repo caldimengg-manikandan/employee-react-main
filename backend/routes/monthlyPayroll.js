@@ -52,6 +52,18 @@ router.get("/", async (req, res) => {
 });
 
 
+// 📜 GET EMPLOYEE PAYROLL HISTORY
+router.get("/history/:employeeId", async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const records = await MonthlyPayroll.find({ employeeId }).sort({ salaryMonth: -1 });
+    res.json(records);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+
 // 📤 MARK PAYMENT EMAIL SENT
 router.put("/mark-email-sent", async (req, res) => {
   try {

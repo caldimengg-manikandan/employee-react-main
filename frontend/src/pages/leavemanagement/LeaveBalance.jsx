@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Eye, Edit, Save, X } from 'lucide-react';
+import { Search, Eye, Edit, Save, X, History } from 'lucide-react';
 import { leaveAPI, employeeAPI } from '../../services/api';
 
 const LeaveBalance = () => {
@@ -11,6 +11,9 @@ const LeaveBalance = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [editBalances, setEditBalances] = useState({ casual: 0, sick: 0, privilege: 0 });
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [historyLeaves, setHistoryLeaves] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const monthsBetween = (dateString) => {
     if (!dateString) return 0;
@@ -20,6 +23,8 @@ const LeaveBalance = () => {
     const years = now.getFullYear() - start.getFullYear();
     const months = now.getMonth() - start.getMonth();
     const total = years * 12 + months;
+
+    
     return Math.max(0, total);  
   };
 
@@ -230,6 +235,21 @@ const LeaveBalance = () => {
       setLoading(false);
     }
   };
+
+  const handleViewHistory = async (employee) => {
+    setSelectedEmployee(employee);
+    setShowHistoryModal(true);
+    setHistoryLoading(true);
+    try {
+      const res = await leaveAPI.list({ employeeId: employee.empId || employee.id });
+      setHistoryLeaves(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
+      setHistoryLeaves([]);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
   
   const getAvailableBalance = (emp, type) => {
     const id = String(emp.empId || emp.id || '').toLowerCase();
@@ -361,27 +381,27 @@ const LeaveBalance = () => {
                   
                   {/* Actions Column */}
                   <td className="p-4">
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-2">
                       <button
-                        onClick={() => setSelectedEmployee(employee)}
-                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                        onClick={() => handleViewHistory(employee)}
+                        className="p-1 text-purple-600 hover:bg-purple-50 rounded"
+                        title="View Leave History"
                       >
-                        <Eye size={16} />
-                        View
+                        <History size={16} />
                       </button>
                       <button
                         onClick={() => handleEdit(employee)}
-                        className="flex items-center gap-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                        className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+                        title="Edit Balance"
                       >
                         <Edit size={16} />
-                        Edit
                       </button>
                       <button
                         onClick={() => handleSave(employee)}
-                        className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+                        className="p-1 text-green-600 hover:bg-green-50 rounded"
+                        title="Save Balance"
                       >
                         <Save size={16} />
-                        Save
                       </button>
                     </div>
                   </td>
@@ -519,6 +539,73 @@ const LeaveBalance = () => {
           </div>
         </div>
       )}
+      {/* History Modal */}
+      {showHistoryModal && selectedEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold">Leave History: {selectedEmployee.name}</h3>
+              <button onClick={() => setShowHistoryModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              {historyLoading ? (
+                <div className="flex justify-center p-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                </div>
+              ) : historyLeaves.length === 0 ? (
+                <p className="text-center text-gray-500 p-8">No leave applications found.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="p-3 text-left font-medium text-gray-600">Type</th>
+                      <th className="p-3 text-left font-medium text-gray-600">Start Date</th>
+                      <th className="p-3 text-left font-medium text-gray-600">End Date</th>
+                      <th className="p-3 text-left font-medium text-gray-600">Days</th>
+                      <th className="p-3 text-left font-medium text-gray-600">Status</th>
+                      <th className="p-3 text-left font-medium text-gray-600">Reason</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {historyLeaves.map((leave, idx) => (
+                      <tr key={leave._id || idx} className="hover:bg-gray-50">
+                        <td className="p-3 font-medium">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            leave.leaveType === 'CL' ? 'bg-blue-100 text-blue-800' :
+                            leave.leaveType === 'SL' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {leave.leaveType}
+                          </span>
+                        </td>
+                        <td className="p-3">{formatDate(leave.startDate)}</td>
+                        <td className="p-3">{formatDate(leave.endDate)}</td>
+                        <td className="p-3">{leave.totalDays}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            leave.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                            leave.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {leave.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-gray-600 max-w-xs truncate" title={leave.reason}>
+                          {leave.reason}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Edit Modal */}
       {showEditModal && editingEmployee && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

@@ -73,6 +73,12 @@ app.use("/api/expenditure", require("./routes/expenditureRoutes"));
 // Internship Routes
 app.use("/api/interns", require("./routes/internship"));
 
+// Exit Formalities Routes
+app.use("/api/exit-formalities", require("./routes/exitFormalities"));
+
+// Rewards Routes
+app.use("/api/rewards", require("./routes/rewards"));
+
 // Base Route
 app.get("/", (req, res) => {
   res.json({ message: "Caldim Employees API is running successfully 🚀" });

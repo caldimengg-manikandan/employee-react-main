@@ -219,6 +219,12 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
           showForRoles: ["admin", "hr", "finance"]
         },
         {
+          name: "Compensation Master",
+          path: "/payroll/compensation-master",
+          permission: "payroll_manage",
+          showForRoles: ["admin", "hr", "finance"]
+        },
+        {
           name: "Loan Summary",
           path: "/payroll/loan-summary",
           permission: "loan_view",
@@ -264,21 +270,22 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Intern Reference"),
       showForRoles: ["admin", "hr", "manager"],
     },
-    // EXIT MANAGEMENT - NEW MODULE
+    // EMPLOYEE EXIT FORM - Top level for employees
+    {
+      name: "Employee Exit Form",
+      path: "/employee-exit/form",
+      icon: getIconForMenu("Employee Exit Form"),
+      allowEmployeeRole: true,
+      showForRoles: ["employees"],
+    },
+    // EXIT MANAGEMENT - Admin/HR/Manager
     {
       name: "Exit Management",
       hasDropdown: true,
       icon: getIconForMenu("Exit Management"),
       permission: "exit_access",
-      showForRoles: ["admin", "hr", "manager", "employee"],
+      showForRoles: ["admin", "hr", "manager"],
       children: [
-        { 
-          name: "Employee Exit Form", 
-          path: "/employee-exit/form",
-          permission: "exit_form_access",
-          allowEmployeeRole: true,
-          showForRoles: ["employee"]
-        },
         { 
           name: "Exit Approval", 
           path: "/employee-exit/approval",
@@ -447,6 +454,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Loan Summary": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Gratuity Summary": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Monthly Payroll": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Compensation Master": <CurrencyRupeeIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     // NEW ICONS FOR EXIT MANAGEMENT
     "Employee Exit Form": <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Exit Approval": <ApprovalIcon className="mr-3 h-4 w-4 flex-shrink-0" />,

@@ -36,6 +36,7 @@ const Header = ({ onMenuClick }) => {
       '/insurance': 'Insurance',
       '/policies': 'Policy Portal',
       '/salaryslips': 'Salary Slips',
+      '/salaryslips/pf-gratuity': 'PF & Gratuity Summary',
       '/expenditure-management': 'Expenditure Management',
       '/employee-reward-tracker': 'Employee Reward Tracker',
       '/admin/team-management': 'Team Management',

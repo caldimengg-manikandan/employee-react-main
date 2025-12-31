@@ -212,6 +212,7 @@ export const payrollAPI = {
 export const monthlyPayrollAPI = {
   save: (data) => api.post('/monthly-payroll/run', data),
   list: (params) => api.get('/monthly-payroll', { params }),
+  getEmployeeHistory: (employeeId) => api.get(`/monthly-payroll/history/${employeeId}`),
   markEmailSent: (data) => api.put('/monthly-payroll/mark-email-sent', data),
   markPaid: (data) => api.put('/monthly-payroll/mark-paid', data),
   delete: (month) => api.delete(`/monthly-payroll/${month}`)
@@ -233,6 +234,26 @@ export const expenditureAPI = {
   getSummary: (params) => api.get('/expenditure/summary', { params }),
   getRecordById: (id) => api.get(`/expenditure/record/${id}`),
   deleteRecord: (id) => api.delete(`/expenditure/record/${id}`)
+};
+
+export const exitFormalityAPI = {
+  getAll: (params) => api.get('/exit-formalities', { params }),
+  getPending: (params) => api.get('/exit-formalities/pending', { params }),
+  getCompleted: (params) => api.get('/exit-formalities/completed', { params }),
+  getDrafts: (params) => api.get('/exit-formalities/drafts', { params }),
+  getMyExit: () => api.get('/exit-formalities/me'),
+  getExitById: (id) => api.get(`/exit-formalities/${id}`),
+  createExit: (data) => api.post('/exit-formalities', data),
+  updateExit: (id, data) => api.put(`/exit-formalities/${id}`, data),
+  submitExit: (id) => api.post(`/exit-formalities/${id}/submit`),
+  getClearance: (id) => api.get(`/exit-formalities/${id}/clearance`),
+  updateClearance: (id, department, status, remarks) => api.put(`/exit-formalities/${id}/clearance/${department}`, { status, remarks }),
+  reject: (id, reason) => api.post(`/exit-formalities/${id}/reject`, { reason }),
+  managerApprove: (id) => api.post(`/exit-formalities/${id}/manager-approve`),
+  approve: (id) => api.post(`/exit-formalities/${id}/approve`),
+  hrApprove: (id) => api.post(`/exit-formalities/${id}/hr-approve`),
+  cancel: (id) => api.post(`/exit-formalities/${id}/cancel`),
+  remove: (id) => api.delete(`/exit-formalities/${id}`),
 };
 
 // Announcements (management + public active list)
