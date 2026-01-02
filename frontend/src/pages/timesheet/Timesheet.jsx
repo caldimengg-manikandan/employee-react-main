@@ -2,6 +2,41 @@ import React, { useState, useEffect } from "react";
 import { timesheetAPI, allocationAPI, employeeAPI } from "../../services/api";
 import { ChevronLeft, ChevronRight, Calendar, Plus, Trash2, Save, Send, ChevronUp, ChevronDown } from "lucide-react";
 
+// Holiday Calendar 2026 data
+const holidays2026 = [
+  { date: '01-Jan-26', day: 'THURSDAY', occasion: 'NEW YEAR' },
+  { date: '15-Jan-26', day: 'THURSDAY', occasion: 'THAI PONGAL' },
+  { date: '16-Jan-26', day: 'FRIDAY', occasion: 'MATTU PONGAL' },
+  { date: '26-Jan-26', day: 'MONDAY', occasion: 'REPUBLIC DAY' },
+  { date: '14-Apr-26', day: 'TUESDAY', occasion: 'TAMIL NEW YEAR' },
+  { date: '01-May-26', day: 'FRIDAY', occasion: 'LABOUR DAY' },
+  { date: '14-Sep-26', day: 'MONDAY', occasion: 'VINAYAGAR CHATHURTHI' },
+  { date: '02-Oct-26', day: 'FRIDAY', occasion: 'GANDHI JAYANTHI' },
+  { date: '19-Oct-26', day: 'MONDAY', occasion: 'AYUDHA POOJA' },
+  { date: 'REGIONAL', day: 'CHOOSE ONE', occasion: 'REGIONAL HOLIDAY (TELUGU NEW YEAR / GOOD FRIDAY / BAKRID / CHRISTMAS)' }
+];
+
+const isHoliday = (date) => {
+  if (!date) return false;
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = date.toLocaleDateString('en-US', { month: 'short' });
+  const year = String(date.getFullYear()).slice(-2);
+  const formattedDate = `${day}-${month}-${year}`;
+  
+  return holidays2026.some(h => h.date === formattedDate);
+};
+
+const getHolidayOccasion = (date) => {
+  if (!date) return "";
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = date.toLocaleDateString('en-US', { month: 'short' });
+  const year = String(date.getFullYear()).slice(-2);
+  const formattedDate = `${day}-${month}-${year}`;
+  
+  const holiday = holidays2026.find(h => h.date === formattedDate);
+  return holiday ? holiday.occasion : "";
+};
+
 const Timesheet = () => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [timesheetRows, setTimesheetRows] = useState([]);
@@ -197,24 +232,61 @@ const Timesheet = () => {
           });
         }
 
-        // --- Set Timesheet Rows ---
-        if (rows.length === 0) {
-          const newRow = {
-            id: Date.now() + Math.random(),
-            project: "",
-            task: "",
-            hours: [0, 0, 0, 0, 0, 0, 0],
-            type: "project",
-            shiftType: ""
-          };
-          setTimesheetRows([newRow]);
-          setOriginalData(JSON.stringify([newRow]));
-          setHasUnsavedChanges(false);
-        } else {
-          setTimesheetRows(rows);
-          setOriginalData(JSON.stringify(rows));
-          setHasUnsavedChanges(false);
-        }
+          // --- Set Timesheet Rows ---
+          if (rows.length === 0) {
+            const weekDates = getWeekDates(currentWeek);
+            const holidayHours = weekDates.map(date => isHoliday(date) ? 9.5 : 0);
+            const hasHoliday = holidayHours.some(h => h > 0);
+
+            const initialRows = [];
+            
+            if (hasHoliday) {
+              initialRows.push({
+                id: Date.now() + Math.random(),
+                project: "Office Holiday",
+                task: "Office Holiday",
+                hours: holidayHours,
+                type: "project",
+                shiftType: "",
+                locked: true // Lock this row to prevent editing
+              });
+            }
+
+            initialRows.push({
+              id: Date.now() + Math.random() + 1,
+              project: "",
+              task: "",
+              hours: [0, 0, 0, 0, 0, 0, 0],
+              type: "project",
+              shiftType: ""
+            });
+
+            setTimesheetRows(initialRows);
+            setOriginalData(JSON.stringify(initialRows));
+            setHasUnsavedChanges(false);
+          } else {
+            // Check if we need to add holiday row for existing timesheet
+            const weekDates = getWeekDates(currentWeek);
+            const holidayHours = weekDates.map(date => isHoliday(date) ? 9.5 : 0);
+            const hasHoliday = holidayHours.some(h => h > 0);
+            const hasHolidayRow = rows.some(r => r.project === "Office Holiday" || r.task === "Office Holiday");
+
+            if (hasHoliday && !hasHolidayRow) {
+               rows.unshift({
+                id: Date.now() + Math.random(),
+                project: "Office Holiday",
+                task: "Office Holiday",
+                hours: holidayHours,
+                type: "project",
+                shiftType: "",
+                locked: true
+              });
+            }
+
+            setTimesheetRows(rows);
+            setOriginalData(JSON.stringify(rows));
+            setHasUnsavedChanges(false);
+          }
         
       } catch (err) {
         console.error("❌ Error loading week data:", err);
@@ -1165,6 +1237,7 @@ const Timesheet = () => {
   };
 
   const isShiftSelectedForDay = (idx) => {
+    if (idx === 5 || idx === 6) return true;
     const s = dailyShiftTypes?.[idx];
     return !!s && s !== "Select Shift";
   };
@@ -1412,7 +1485,7 @@ const Timesheet = () => {
                 {days.map((day, index) => (
                   <th
                     key={day}
-                    className="p-3 text-center text-sm font-semibold text-gray-700 border border-gray-200 w-32"
+                    className={`p-3 text-center text-sm font-semibold text-gray-700 border border-gray-200 w-32 ${isHoliday(weekDates[index]) ? 'bg-green-100' : ''}`}
                   >
                     <div>{day}</div>
                     <div className="text-xs text-gray-500 font-normal">
@@ -1422,19 +1495,27 @@ const Timesheet = () => {
                       })}
                     </div>
                     <div className="mt-2">
-                      <select
-                        value={dailyShiftTypes[index]}
-                        onChange={(e) => updateDailyShift(index, e.target.value)}
-                        className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        disabled={isSubmitted || isLeaveAutoDraft}
-                      >
-                        <option value="">Select Shift</option>
-                        {shiftTypes.map((shift) => (
-                          <option key={shift} value={shift}>
-                            {shift}
-                          </option>
-                        ))}
-                      </select>
+                      {index !== 5 && index !== 6 && (
+                        isHoliday(weekDates[index]) ? (
+                          <div className="text-xs font-bold text-green-800 break-words whitespace-normal px-1">
+                            {getHolidayOccasion(weekDates[index])}
+                          </div>
+                        ) : (
+                          <select
+                            value={dailyShiftTypes[index]}
+                            onChange={(e) => updateDailyShift(index, e.target.value)}
+                            className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            disabled={isSubmitted || isLeaveAutoDraft}
+                          >
+                            <option value="">Select Shift</option>
+                            {shiftTypes.map((shift) => (
+                              <option key={shift} value={shift}>
+                                {shift}
+                              </option>
+                            ))}
+                          </select>
+                        )
+                      )}
                     </div>
                   </th>
                 ))}
@@ -1459,6 +1540,10 @@ const Timesheet = () => {
                       <div className="w-full p-2 text-blue-800 rounded text-sm font-semibold text-center">
                         Leave
                       </div>
+                    ) : row.project === "Office Holiday" ? (
+                      <div className="w-full p-2 text-green-800 rounded text-sm font-semibold text-center">
+                        Office Holiday
+                      </div>
                     ) : (
                       <select
                         value={row.project}
@@ -1477,26 +1562,32 @@ const Timesheet = () => {
                   </td>
 
                   <td className="p-2 border border-gray-200">
-                    <select
-                      value={row.task}
-                      onChange={(e) => updateRow(row.id, "task", e.target.value)}
-                      className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      disabled={isSubmitted || isLeaveAutoDraft || row.locked}
-                    >
-                      <option value="">Select {row.type === "leave" ? "Leave Type" : "Task"}</option>
-                      {(row.type === "leave" ? leaveTypes : tasks).map((item) => (
-                        <option key={item} value={item}>
-                          {item}
-                        </option>
-                      ))}
-                      {row.task === "Leave Approved" && (
-                        <option value="Leave Approved">Leave Approved</option>
-                      )}
-                    </select>
+                    {row.task === "Office Holiday" ? (
+                      <div className="w-full p-2 text-green-800 rounded text-sm font-semibold text-center">
+                        Office Holiday
+                      </div>
+                    ) : (
+                      <select
+                        value={row.task}
+                        onChange={(e) => updateRow(row.id, "task", e.target.value)}
+                        className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        disabled={isSubmitted || isLeaveAutoDraft || row.locked}
+                      >
+                        <option value="">Select {row.type === "leave" ? "Leave Type" : "Task"}</option>
+                        {(row.type === "leave" ? leaveTypes : tasks).map((item) => (
+                          <option key={item} value={item}>
+                            {item}
+                          </option>
+                        ))}
+                        {row.task === "Leave Approved" && (
+                          <option value="Leave Approved">Leave Approved</option>
+                        )}
+                      </select>
+                    )}
                   </td>
 
                   {row.hours.map((hours, dayIndex) => (
-                    <td key={dayIndex} className="p-2 text-center border border-gray-200 w-32">
+                    <td key={dayIndex} className={`p-2 text-center border border-gray-200 w-32 ${isHoliday(weekDates[dayIndex]) ? 'bg-green-100' : ''}`}>
                       <div className="relative inline-flex items-center">
                         <input
                           type="time"
@@ -1582,19 +1673,22 @@ const Timesheet = () => {
                           }}
                           className={`w-20 p-2 ${row.type !== "project" ? "pr-6" : ""} border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${(row.type === "project" ? (!row.project || !row.task) : (!row.task))
                               ? "bg-gray-100 cursor-not-allowed"
-                              : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
+                              : (row.type === "project" && (dayIndex === 5 || dayIndex === 6))
                                 ? "bg-gray-100 cursor-not-allowed"
-                                : isSubmitted || row.locked
+                                : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
                                   ? "bg-gray-100 cursor-not-allowed"
-                                  : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
+                                  : isSubmitted || row.locked
                                     ? "bg-gray-100 cursor-not-allowed"
-                                    : !isShiftSelectedForDay(dayIndex)
+                                    : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
                                       ? "bg-gray-100 cursor-not-allowed"
-                                      : ""
+                                      : !isShiftSelectedForDay(dayIndex)
+                                        ? "bg-gray-100 cursor-not-allowed"
+                                        : ""
                             }`}
                           disabled={
                             isSubmitted || isLeaveAutoDraft ||
                             row.locked ||
+                            (row.type === "project" && (dayIndex === 5 || dayIndex === 6)) ||
                             (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
                             (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
@@ -1605,17 +1699,19 @@ const Timesheet = () => {
                               ? "Timesheet already submitted"
                               : row.locked
                                 ? "Locked due to approved leave"
-                                : (row.type === "project" ? (!row.project || !row.task) : (!row.task))
-                                  ? (row.type === "project" ? "Please select project and task first" : "Please select a leave type or task")
-                                  : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
-                                    ? "Permission not allowed for this day"
-                                    : (monthlyPermissionCount >= 3 && Number(hours) === 0)
-                                      ? "Monthly permission limit reached"
-                                      : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
-                                        ? "Full Day Leave applied on this day"
-                                        : !isShiftSelectedForDay(dayIndex)
-                                          ? "Please select a shift for this day"
-                                          : ""
+                                : (row.type === "project" && (dayIndex === 5 || dayIndex === 6))
+                                  ? "Project hours not allowed on weekends"
+                                  : (row.type === "project" ? (!row.project || !row.task) : (!row.task))
+                                    ? (row.type === "project" ? "Please select project and task first" : "Please select a leave type or task")
+                                    : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
+                                      ? "Permission not allowed for this day"
+                                      : (monthlyPermissionCount >= 3 && Number(hours) === 0)
+                                        ? "Monthly permission limit reached"
+                                        : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
+                                          ? "Full Day Leave applied on this day"
+                                          : !isShiftSelectedForDay(dayIndex)
+                                            ? "Please select a shift for this day"
+                                            : ""
                           }
                         />
                         {/* Hide arrows for Leave Approved and other specific leave types */}
@@ -1642,6 +1738,7 @@ const Timesheet = () => {
                                 disabled={
                                   isSubmitted || isLeaveAutoDraft ||
                                   row.locked ||
+                                  (row.type === "project" && (dayIndex === 5 || dayIndex === 6)) ||
                                   (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                                   (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
                                   (!isShiftSelectedForDay(dayIndex))
@@ -1667,6 +1764,7 @@ const Timesheet = () => {
                                 disabled={
                                   isSubmitted || isLeaveAutoDraft ||
                                   row.locked ||
+                                  (row.type === "project" && (dayIndex === 5 || dayIndex === 6)) ||
                                   (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                                   (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
                                   (!isShiftSelectedForDay(dayIndex))

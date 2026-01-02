@@ -127,7 +127,11 @@ const TimesheetHistory = () => {
     return `${s.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${e.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   };
   const toHHMM = (h) => {
-    const m = Math.round(Number(h || 0) * 60);
+    const val = Number(h || 0);
+    if (val === 0) return '0';
+    const m = Math.round(val * 60);
+    if (m === 0) return '0';
+    
     const sign = m < 0 ? '-' : '';
     const abs = Math.abs(m);
     const hh = String(Math.floor(abs / 60)).padStart(2, '0');
@@ -889,7 +893,7 @@ const TimesheetHistory = () => {
                           </td>
                           <td className="p-3 text-sm text-gray-700">{entry.task}</td>
                           {hours.map((h, i) => (
-                          <td key={i} className="p-3 text-sm text-gray-700">{Number(h) || 0}</td>
+                          <td key={i} className="p-3 text-sm text-gray-700">{toHHMM(h)}</td>
                           ))}
                           <td className="p-3 text-sm font-semibold text-gray-900">{toHHMM(rowTotal)}</td>
                         </tr>
@@ -906,16 +910,16 @@ const TimesheetHistory = () => {
                         );
                         const breakHours = hasWork ? 1.25 : 0;
                         return (
-                          <td key={i} className="p-3 text-sm text-blue-700 text-center">{breakHours}</td>
+                          <td key={i} className="p-3 text-sm text-blue-700 text-center">{toHHMM(breakHours)}</td>
                         );
                       })}
                       <td className="p-3 text-sm font-semibold text-blue-700 text-center">
-                        {Array.from({ length: 7 }, (_, i) => {
+                        {toHHMM(Array.from({ length: 7 }, (_, i) => {
                           const hasWork = (selectedTimesheet.entries || []).some(
                             (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
                           );
                           return hasWork ? 1.25 : 0;
-                        }).reduce((sum, b) => sum + b, 0).toFixed(2)}
+                        }).reduce((sum, b) => sum + b, 0))}
                       </td>
                     </tr>
                     {/* Total Hours (Work + Break) */}
@@ -928,7 +932,7 @@ const TimesheetHistory = () => {
                         );
                         const breakHours = hasWork ? 1.25 : 0;
                         return (
-                          <td key={i} className={`p-3 text-sm text-center ${dayWork + breakHours >= 20 ? 'text-yellow-800 font-semibold' : 'text-blue-700 font-semibold'}`}>{(dayWork + breakHours).toFixed(2)}</td>
+                          <td key={i} className={`p-3 text-sm text-center ${dayWork + breakHours >= 20 ? 'text-yellow-800 font-semibold' : 'text-blue-700 font-semibold'}`}>{toHHMM(dayWork + breakHours)}</td>
                         );
                       })}
                       <td className="p-3 text-sm font-bold text-blue-700 text-center">
