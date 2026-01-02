@@ -1,11 +1,65 @@
-import React, { useState, useEffect } from 'react';
-import { Outlet } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import { Outlet, useNavigate } from 'react-router-dom';
 import Header from './Header';
 import Sidebar from './Sidebar';
 
 const Layout = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isDesktopSidebarOpen, setIsDesktopSidebarOpen] = useState(true);
+  const navigate = useNavigate();
+  const logoutTimerRef = useRef(null);
+
+  // Auto-logout after 5 minutes of inactivity
+  useEffect(() => {
+    const TIMEOUT_DURATION = 5 * 60 * 1000; // 5 minutes
+
+    const handleLogout = () => {
+      sessionStorage.clear();
+      navigate('/login');
+    };
+
+    const resetTimer = () => {
+      if (logoutTimerRef.current) {
+        clearTimeout(logoutTimerRef.current);
+      }
+      logoutTimerRef.current = setTimeout(handleLogout, TIMEOUT_DURATION);
+    };
+
+    // Events that reset the timer
+    const events = ['mousedown', 'keypress', 'scroll', 'mousemove', 'touchstart', 'click'];
+    
+    // Throttle mousemove to avoid excessive resetting
+    let lastReset = 0;
+    const handleActivity = (e) => {
+        const now = Date.now();
+        if (e.type === 'mousemove') {
+            if (now - lastReset > 1000) { // Only reset once per second for mousemove
+                resetTimer();
+                lastReset = now;
+            }
+        } else {
+            resetTimer();
+            lastReset = now;
+        }
+    };
+
+    // Set initial timer
+    resetTimer();
+
+    // Add listeners
+    events.forEach(event => {
+      document.addEventListener(event, handleActivity);
+    });
+
+    return () => {
+      if (logoutTimerRef.current) {
+        clearTimeout(logoutTimerRef.current);
+      }
+      events.forEach(event => {
+        document.removeEventListener(event, handleActivity);
+      });
+    };
+  }, [navigate]);
 
   // Close sidebar when window is resized to desktop size
   useEffect(() => {

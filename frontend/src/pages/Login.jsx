@@ -42,26 +42,12 @@ const Login = () => {
   const slides = [
     { url: "/images/12.jpeg", title: "Hosur Office", desc: "" },
     { url: "/images/13.jpeg", title: "Chennai Office", desc: "" },
-    {
-      url: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-      title: "Engineering Excellence",
-      desc: "State-of-the-art engineering solutions"
-    },
-    {
-      url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-      title: "Team Collaboration",
-      desc: "Our expert team working together"
-    },
-    {
-      url: "https://images.unsplash.com/photo-1507206130118-b5907f817163?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-      title: "Innovation Hub",
-      desc: "Driving innovation in construction"
-    },
-    {
-      url: "https://images.unsplash.com/photo-1542744095-fcf48d80b0fd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
-      title: "Project Success",
-      desc: "Successful project delivery"
-    },
+    { url: "/images/pic1.jpeg", title: "", desc: "" },
+    { url: "/images/pic2.jpeg", title: "", desc: "" },
+    { url: "/images/pic3.jpeg", title: "", desc: "" },
+    { url: "/images/pic4.jpeg", title: "", desc: "" }
+
+
     
    
   ];
@@ -885,10 +871,10 @@ const Login = () => {
                   >
                     {isLoading ? (
                       <>
-                        <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        {/* <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
+                        </svg> */}
                         Signing in...
                       </>
                     ) : lockoutTimeLeft > 0 ? (

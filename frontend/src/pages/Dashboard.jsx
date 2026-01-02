@@ -174,6 +174,23 @@ const ProjectDashboard = () => {
         else setGreeting('Good Evening');
     }, []);
 
+    // Disable back button
+    useEffect(() => {
+        // Push a new state to history to create a forward entry
+        window.history.pushState(null, document.title, window.location.href);
+
+        const handlePopState = (event) => {
+            // When back button is pressed, push state again to keep user on current page
+            window.history.pushState(null, document.title, window.location.href);
+        };
+
+        window.addEventListener('popstate', handlePopState);
+
+        return () => {
+            window.removeEventListener('popstate', handlePopState);
+        };
+    }, []);
+
     // Fetch dashboard stats
     useEffect(() => {
         const fetchStats = async () => {

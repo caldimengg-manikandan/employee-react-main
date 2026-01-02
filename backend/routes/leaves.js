@@ -378,6 +378,7 @@ function toLower(s) {
 
 function calcBalanceForEmployee(emp, approvedLeaves = [], calculationDate = new Date()) {
   const currentDate = new Date(calculationDate);
+  const currentYear = currentDate.getFullYear();
   const position = emp.position || emp.role || '';
   const doj = emp.dateOfJoining || emp.hireDate || emp.createdAt;
   
@@ -402,26 +403,67 @@ function calcBalanceForEmployee(emp, approvedLeaves = [], calculationDate = new 
   const postTraineeMonths = Math.max(0, mos - traineeMonths);
 
   let casual = 0, sick = 0;
+  let usedCL = 0, usedSL = 0;
+  
   // CL/SL Rule: After 6 months of regular service (post-trainee)?
-  // Preserving original logic for CL/SL:
   const afterSix = Math.max(postTraineeMonths - 6, 0);
-  casual += afterSix * 0.5;
-  sick += afterSix * 0.5;
+
+  if (currentYear >= 2026) {
+    // RESTART LOGIC FOR 2026 ONWARDS (Yearly Reset)
+    const yearStart = new Date(currentYear, 0, 1);
+    const dojDate = new Date(doj);
+
+    if (dojDate < yearStart) {
+      // Joined before current year
+      // Check if they have completed 6 months service
+      if (afterSix > 0) {
+        // Accrue based on months passed in CURRENT YEAR
+        // (currentMonth + 1) gives credit for current month
+        const monthsInYear = currentDate.getMonth() + 1;
+        casual = monthsInYear * 0.5;
+        sick = monthsInYear * 0.5;
+      } else {
+        // Still in probation
+        casual = 0;
+        sick = 0;
+      }
+    } else {
+      // Joined in current year
+      // Use standard accumulation logic (0 for first 6 months, then 0.5/month)
+      casual = afterSix * 0.5;
+      sick = afterSix * 0.5;
+    }
+
+    // Filter usage for CURRENT YEAR only
+    usedCL = approvedLeaves
+      .filter(l => l.leaveType === 'CL')
+      .filter(l => new Date(l.startDate).getFullYear() === currentYear)
+      .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+
+    usedSL = approvedLeaves
+      .filter(l => l.leaveType === 'SL')
+      .filter(l => new Date(l.startDate).getFullYear() === currentYear)
+      .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+
+  } else {
+    // OLD CUMULATIVE LOGIC (Pre-2026)
+    casual += afterSix * 0.5;
+    sick += afterSix * 0.5;
+
+    usedCL = approvedLeaves
+      .filter(l => l.leaveType === 'CL')
+      .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+      
+    usedSL = approvedLeaves
+      .filter(l => l.leaveType === 'SL')
+      .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+  }
 
   const allocated = {
-    casual: Math.round(casual * 10) / 10,
-    sick: Math.round(sick * 10) / 10,
+    casual: casual,
+    sick: sick,
     privilege: 0
   };
-
-  // Calculate Used totals for CL/SL
-  const usedCL = approvedLeaves
-    .filter(l => l.leaveType === 'CL')
-    .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
-    
-  const usedSL = approvedLeaves
-    .filter(l => l.leaveType === 'SL')
-    .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
 
   // PL Logic
   let plAllocated = 0;
@@ -461,14 +503,14 @@ function calcBalanceForEmployee(emp, approvedLeaves = [], calculationDate = new 
        plBalance = (plAllocated - plUsed);
    }
    
-   allocated.privilege = Math.round(plAllocated * 10) / 10;
+   allocated.privilege = plAllocated;
    
    const balance = {
-     casual: Math.round((allocated.casual - usedCL) * 10) / 10,
-     sick: Math.round((allocated.sick - usedSL) * 10) / 10,
-     privilege: Math.round(plBalance * 10) / 10
+     casual: (allocated.casual - usedCL),
+     sick: (allocated.sick - usedSL),
+     privilege: plBalance
    };
-   const totalBalance = Math.round((balance.casual + balance.sick + balance.privilege) * 10) / 10;
+   const totalBalance = (balance.casual + balance.sick + balance.privilege);
 
   return {
     employeeId: emp.employeeId || '',
@@ -533,7 +575,10 @@ router.get('/balance', auth, async (req, res) => {
     const result = employees.map(emp => {
       // If persisted leaveBalances exist in separate collection, use them
       const stored = storedBalancesMap[emp.employeeId];
-      if (stored && stored.balances && stored.balances.totalBalance !== undefined) {
+      const currentYear = new Date().getFullYear();
+      const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
+
+      if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
         return {
           employeeId: emp.employeeId || '',
           name: emp.name || emp.employeename || '',
@@ -605,7 +650,8 @@ router.put('/balance/save', auth, async (req, res) => {
         employeeId,
         employeeName: emp.name,
         balances: finalBalances,
-        lastUpdated: new Date()
+        lastUpdated: new Date(),
+        year: new Date().getFullYear()
       },
       { new: true, upsert: true }
     );
@@ -723,6 +769,24 @@ router.get('/my-balance', auth, async (req, res) => {
     }
     if (!emp) {
       return res.status(404).json({ message: 'Employee profile not found' });
+    }
+
+    // Check for stored balance
+    if (emp.employeeId) {
+      const stored = await LeaveBalance.findOne({ employeeId: emp.employeeId }).lean();
+      const currentYear = new Date().getFullYear();
+      const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
+
+      if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
+        return res.json({
+          employeeId: emp.employeeId || '',
+          name: emp.name || emp.employeename || '',
+          position: emp.position || emp.role || '',
+          division: emp.division || '',
+          monthsOfService: emp.monthsOfService || 0,
+          balances: stored.balances
+        });
+      }
     }
 
     // Aggregate approved leaves for this user

@@ -121,9 +121,9 @@ import Notification from '../../components/Notifications/Notification';
         sick = afterSix * 0.5;
       }
       return {
-        CL: Math.round(casual * 10) / 10,
-        SL: Math.round(sick * 10) / 10,
-        PL: Math.round(privilege * 10) / 10
+        CL: casual,
+        SL: sick,
+        PL: privilege
       };
     };
     const loadBalanceForMe = async () => {
@@ -209,9 +209,9 @@ import Notification from '../../components/Notifications/Notification';
             return acc;
           }, { CL: 0, SL: 0, PL: 0 });
           setLeaveBalance({
-            CL: Math.round((Number(alloc.CL || 0) - Number(used.CL || 0)) * 10) / 10,
-            SL: Math.round((Number(alloc.SL || 0) - Number(used.SL || 0)) * 10) / 10,
-            PL: Math.round((Number(alloc.PL || 0) - Number(used.PL || 0)) * 10) / 10,
+            CL: (Number(alloc.CL || 0) - Number(used.CL || 0)),
+            SL: (Number(alloc.SL || 0) - Number(used.SL || 0)),
+            PL: (Number(alloc.PL || 0) - Number(used.PL || 0)),
             BEREAVEMENT: 2
           });
         } catch { }
@@ -528,7 +528,7 @@ import Notification from '../../components/Notifications/Notification';
   const getAvailableBalance = (type) => {
     const base = Number(leaveBalance[type] || 0);
     const pending = Number(pendingLeaves[type] || 0);
-    return Math.round((base - pending) * 10) / 10;
+    return base - pending;
   };
 
   const leaveFormContent = (

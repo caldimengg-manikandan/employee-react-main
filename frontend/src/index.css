@@ -127,3 +127,11 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   display: none !important;
   -webkit-appearance: none;
 }
+
+/* Hide default password reveal button in Edge/IE */
+::-ms-reveal {
+  display: none;
+}
+::-ms-clear {
+  display: none;
+}

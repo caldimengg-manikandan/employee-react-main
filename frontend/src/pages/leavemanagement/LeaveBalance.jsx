@@ -133,21 +133,21 @@ const LeaveBalance = () => {
     
     const base = {
       casual: { 
-        allocated: Math.round(casual * 10) / 10, 
+        allocated: casual, 
         used: usedCasual, 
-        balance: Math.round((casual - usedCasual) * 10) / 10
+        balance: (casual - usedCasual)
       },
       sick: { 
-        allocated: Math.round(sick * 10) / 10, 
+        allocated: sick, 
         used: usedSick, 
-        balance: Math.round((sick - usedSick) * 10) / 10
+        balance: (sick - usedSick)
       },
       privilege: { 
-        allocated: Math.round(privilege * 10) / 10, 
+        allocated: privilege, 
         used: usedPrivilege, 
-        balance: Math.round((privilege - usedPrivilege) * 10) / 10
+        balance: (privilege - usedPrivilege)
       },
-      totalBalance: Math.round((casual + sick + privilege - (usedCasual + usedSick + usedPrivilege)) * 10) / 10
+      totalBalance: (casual + sick + privilege - (usedCasual + usedSick + usedPrivilege))
     };
     return base;
   };
@@ -259,7 +259,7 @@ const LeaveBalance = () => {
       type === 'SL' ? (emp.balances.sick.balance || 0) :
       (emp.balances.privilege.balance || 0);
     const cut = type === 'CL' ? pending.CL : type === 'SL' ? pending.SL : pending.PL;
-    return Math.round((Number(base) - Number(cut)) * 10) / 10;
+    return Number(base) - Number(cut);
   };
 
   return (
