@@ -50,8 +50,6 @@ const Timesheet = () => {
 
   const leaveTypes = [
     "Office Holiday",
-    "Full Day Leave",
-    "Half Day Leave",
     "Permission"
   ];
 
@@ -1106,6 +1104,8 @@ const Timesheet = () => {
       }),
     }));
 
+    const user = JSON.parse(sessionStorage.getItem("user") || "{}");
+
     const payload = {
       weekStartDate: normalizeToUTCDateOnly(weekDates[0]),
       weekEndDate: normalizeToUTCDateOnly(weekDates[6]),
@@ -1114,6 +1114,8 @@ const Timesheet = () => {
       status: "Submitted",
       shiftType: shiftType,
       dailyShiftTypes: dailyShiftTypes,
+      employeeId: user.employeeId || "",
+      employeeName: user.name || "",
       onPremisesTime: {
         daily: (onPremisesTime?.daily || []).map((n) => Number(n) || 0),
         weekly: Number(onPremisesTime?.weekly) || 0

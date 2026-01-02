@@ -14,7 +14,7 @@ const TimesheetHistory = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [filter, setFilter] = useState({
-    year: new Date().getFullYear().toString(),
+    year: '',
     month: '',
     status: ''
   });
@@ -184,7 +184,7 @@ const TimesheetHistory = () => {
 
   const clearFilters = () => {
     setFilter({
-      year: new Date().getFullYear().toString(),
+      year: '',
       month: '',
       status: ''
     });
@@ -468,6 +468,7 @@ const TimesheetHistory = () => {
               onChange={(e) => setFilter({...filter, year: e.target.value})}
               className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
+              <option value="">All Years</option>
               <option value="2026">2026</option>
               <option value="2025">2025</option>
               <option value="2024">2024</option>

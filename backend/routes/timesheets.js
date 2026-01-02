@@ -638,6 +638,8 @@ router.post("/", auth, async (req, res) => {
   try {
     const { weekStartDate, weekEndDate, entries, totalHours, status, shiftType, dailyShiftTypes, onPremisesTime } = req.body;
     const userId = req.user._id;
+    const employeeId = req.user.employeeId;
+    const employeeName = req.user.name;
 
     const weekStart = new Date(weekStartDate);
     const weekEnd = new Date(weekEndDate);
@@ -727,6 +729,8 @@ router.post("/", auth, async (req, res) => {
     if (sheet) {
       // Update existing timesheet
       sheet.entries = entries;
+      if (!sheet.employeeId && employeeId) sheet.employeeId = employeeId;
+      if (!sheet.employeeName && employeeName) sheet.employeeName = employeeName;
       sheet.totalHours = totalHours;
       sheet.status = status || "Draft";
       if (typeof shiftType !== "undefined") sheet.shiftType = shiftType || "";
@@ -773,6 +777,8 @@ router.post("/", auth, async (req, res) => {
       weekEndDate: weekEnd,
       entries,
       totalHours,
+      employeeId,
+      employeeName,
       status: status || "Draft",
       submittedAt: status === "Submitted" ? new Date() : null,
       shiftType: shiftType || "",
