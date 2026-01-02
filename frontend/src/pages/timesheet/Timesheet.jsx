@@ -4,16 +4,16 @@ import { ChevronLeft, ChevronRight, Calendar, Plus, Trash2, Save, Send, ChevronU
 
 // Holiday Calendar 2026 data
 const holidays2026 = [
-  { date: '01-Jan-26', day: 'THURSDAY', occasion: 'NEW YEAR' },
-  { date: '15-Jan-26', day: 'THURSDAY', occasion: 'THAI PONGAL' },
-  { date: '16-Jan-26', day: 'FRIDAY', occasion: 'MATTU PONGAL' },
-  { date: '26-Jan-26', day: 'MONDAY', occasion: 'REPUBLIC DAY' },
-  { date: '14-Apr-26', day: 'TUESDAY', occasion: 'TAMIL NEW YEAR' },
-  { date: '01-May-26', day: 'FRIDAY', occasion: 'LABOUR DAY' },
-  { date: '14-Sep-26', day: 'MONDAY', occasion: 'VINAYAGAR CHATHURTHI' },
-  { date: '02-Oct-26', day: 'FRIDAY', occasion: 'GANDHI JAYANTHI' },
-  { date: '19-Oct-26', day: 'MONDAY', occasion: 'AYUDHA POOJA' },
-  { date: 'REGIONAL', day: 'CHOOSE ONE', occasion: 'REGIONAL HOLIDAY (TELUGU NEW YEAR / GOOD FRIDAY / BAKRID / CHRISTMAS)' }
+  { date: '01-Jan-26', day: 'THURSDAY', occasion: '' },
+  { date: '15-Jan-26', day: 'THURSDAY', occasion: '' },
+  { date: '16-Jan-26', day: 'FRIDAY', occasion: '' },
+  { date: '26-Jan-26', day: 'MONDAY', occasion: '' },
+  { date: '14-Apr-26', day: 'TUESDAY', occasion: '' },
+  { date: '01-May-26', day: 'FRIDAY', occasion: '' },
+  { date: '14-Sep-26', day: 'MONDAY', occasion: '' },
+  { date: '02-Oct-26', day: 'FRIDAY', occasion: '' },
+  { date: '19-Oct-26', day: 'MONDAY', occasion: '' },
+  { date: 'REGIONAL', day: 'CHOOSE ONE', occasion: '' }
 ];
 
 const isHoliday = (date) => {
@@ -866,12 +866,12 @@ const Timesheet = () => {
 
     // Break after update depends on whether there is any project work on that day
     const hasWorkAfterUpdate = timesheetRows.some(
-      (r) => r.type === "project" && ((r.id === id ? numValue : (r.hours?.[dayIndex] || 0)) > 0)
+      (r) => r.type === "project" && r.task !== "Office Holiday" && ((r.id === id ? numValue : (r.hours?.[dayIndex] || 0)) > 0)
     );
     const breakAfterUpdate = hasWorkAfterUpdate ? 1.25 : 0;
 
     // Enforce daily cap: Total (Work + Break) must not exceed On-Premises Time
-    {
+    if (row.task !== "Permission") {
       const opHoursCap = Number(onPremisesTime?.daily?.[dayIndex] || 0);
       const allowedAdditional = Math.max(0, opHoursCap - breakAfterUpdate - currentDailyAllTotal);
       if (numValue > allowedAdditional) {
@@ -1296,7 +1296,7 @@ const Timesheet = () => {
   // Calculate break for a specific day (1.25 hours if there's any project work)
   const computeBreakForDay = (dayIndex) => {
     const hasWork = timesheetRows.some(
-      (row) => row.type === "project" && (row.hours?.[dayIndex] || 0) > 0
+      (row) => row.type === "project" && row.task !== "Office Holiday" && (row.hours?.[dayIndex] || 0) > 0
     );
     // No break for approved leave days
     const hasApprovedLeave = timesheetRows.some(

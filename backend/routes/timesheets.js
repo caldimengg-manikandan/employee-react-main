@@ -64,7 +64,7 @@ async function sendTimesheetApprovalRequestEmail(user, sheet) {
     const entries = Array.isArray(sheet.entries) ? sheet.entries : [];
     const toHHMM = (n) => { const totalMin = Math.round(Number(n || 0) * 60); const h = Math.floor(totalMin / 60); const m = totalMin % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; };
     const workWeeklyTotal = entries.reduce((sum, e) => { const hrs = Array.isArray(e.hours) ? e.hours : []; return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0); }, 0);
-    const computeBreakForDay = (dayIndex) => { const hasProjectWork = entries.some((e) => (e.type || 'project') === 'project' && ((e.hours?.[dayIndex] || 0) > 0)); const isFullDayLeaveOrHoliday = entries.some((e) => { const val = Number(e.hours?.[dayIndex] || 0); const t = (e.task || '').toLowerCase(); const isHoliday = t.includes('holiday'); const isFullDayLeave = t.includes('full day'); return ((e.type || 'project') === 'leave' || isHoliday) && (val >= 8) && (isHoliday || isFullDayLeave); }); return hasProjectWork && !isFullDayLeaveOrHoliday ? 1.25 : 0; };
+    const computeBreakForDay = (dayIndex) => { const hasProjectWork = entries.some((e) => (e.type || 'project') === 'project' && e.task !== 'Office Holiday' && ((e.hours?.[dayIndex] || 0) > 0)); const isFullDayLeaveOrHoliday = entries.some((e) => { const val = Number(e.hours?.[dayIndex] || 0); const t = (e.task || '').toLowerCase(); const isHoliday = t.includes('holiday'); const isFullDayLeave = t.includes('full day'); return ((e.type || 'project') === 'leave' || isHoliday) && (val >= 8) && (isHoliday || isFullDayLeave); }); return hasProjectWork && !isFullDayLeaveOrHoliday ? 1.25 : 0; };
     const breakDaily = [0, 1, 2, 3, 4, 5, 6].map((i) => computeBreakForDay(i));
     const breakWeekly = breakDaily.reduce((s, v) => s + v, 0);
     const totalWithBreak = workWeeklyTotal + breakWeekly;
@@ -240,7 +240,7 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
       return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0);
     }, 0);
     const computeBreakForDay = (dayIndex) => {
-      const hasProjectWork = entries.some((e) => (e.type || 'project') === 'project' && ((e.hours?.[dayIndex] || 0) > 0));
+      const hasProjectWork = entries.some((e) => (e.type || 'project') === 'project' && e.task !== 'Office Holiday' && ((e.hours?.[dayIndex] || 0) > 0));
       const isFullDayLeaveOrHoliday = entries.some((e) => {
         const val = Number(e.hours?.[dayIndex] || 0);
         const t = (e.task || '').toLowerCase();

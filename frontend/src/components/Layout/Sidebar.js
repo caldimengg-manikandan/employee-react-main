@@ -82,6 +82,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Monthly Payroll": BanknotesIcon,
     "Announcements": DocumentTextIcon,
     "Intern Reference": DocumentTextIcon,
+    "Holidays Allowance": CurrencyDollarIcon,
     // NEW ICONS FOR EXIT MANAGEMENT
     "Employee Exit Form": ArrowRightOnRectangleIcon,
     "Exit Approval": ApprovalIcon,
@@ -301,6 +302,15 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Employee Reward Tracker"),
       permission: "reward_access",
       showForRoles: ["admin", "hr", "manager"],
+    },
+    // HOLIDAY 
+     {
+      name: "Holidays Allowance",
+      path: "/holidays-allowance",
+      icon: getIconForMenu("Holidays Allowance"),
+      permission: "payroll_view",
+      allowEmployeeRole: true,
+      showForRoles: ["admin", "hr", "manager", "employees"],
     },
     // EMPLOYEE MANAGEMENT
     {

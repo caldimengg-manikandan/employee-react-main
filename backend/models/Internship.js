@@ -58,6 +58,22 @@ const internshipSchema = new mongoose.Schema({
     trim: true,
     match: [/^[0-9]{10}$/, 'Phone number must be 10 digits']
   },
+  // Bank Details
+  bankName: {
+    type: String,
+    required: [true, 'Bank Name is required'],
+    trim: true
+  },
+  accountNumber: {
+    type: String,
+    required: [true, 'Account Number is required'],
+    trim: true
+  },
+  ifscCode: {
+    type: String,
+    required: [true, 'IFSC Code is required'],
+    trim: true
+  },
   // Metadata
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,

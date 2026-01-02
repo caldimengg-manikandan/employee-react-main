@@ -19,7 +19,8 @@ import {
   BriefcaseIcon,
   PhoneIcon,
   EnvelopeIcon,
-  ArrowDownTrayIcon
+  ArrowDownTrayIcon,
+  BuildingLibraryIcon
 } from "@heroicons/react/24/outline";
 
 const InternReference = () => {
@@ -44,7 +45,10 @@ const InternReference = () => {
     endDate: "",
     status: "Completed",
     contactEmail: "",
-    contactPhone: ""
+    contactPhone: "",
+    bankName: "",
+    accountNumber: "",
+    ifscCode: ""
   });
 
   const [errors, setErrors] = useState({});
@@ -97,6 +101,9 @@ const InternReference = () => {
     if (!form.degree.trim()) newErrors.degree = "Degree is required";
     if (!form.department.trim()) newErrors.department = "Department is required";
     if (!form.mentor.trim()) newErrors.mentor = "Mentor is required";
+    if (!form.bankName.trim()) newErrors.bankName = "Bank Name is required";
+    if (!form.accountNumber.trim()) newErrors.accountNumber = "Account Number is required";
+    if (!form.ifscCode.trim()) newErrors.ifscCode = "IFSC Code is required";
     if (form.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) {
       newErrors.contactEmail = "Invalid email format";
     }
@@ -153,7 +160,10 @@ const InternReference = () => {
       endDate: intern.endDate ? new Date(intern.endDate).toISOString().split('T')[0] : "",
       status: intern.status || "Completed",
       contactEmail: intern.contactEmail || "",
-      contactPhone: intern.contactPhone || ""
+      contactPhone: intern.contactPhone || "",
+      bankName: intern.bankName || "",
+      accountNumber: intern.accountNumber || "",
+      ifscCode: intern.ifscCode || ""
     });
     setShowModal(true);
   };
@@ -184,7 +194,10 @@ const InternReference = () => {
       endDate: "",
       status: "Completed",
       contactEmail: "",
-      contactPhone: ""
+      contactPhone: "",
+      bankName: "",
+      accountNumber: "",
+      ifscCode: ""
     });
     setEditingId(null);
     setErrors({});
@@ -463,6 +476,21 @@ const InternReference = () => {
                         </div>
                       </div>
                     </div>
+
+                    {/* Reference Notes */}
+                    <div className="bg-pink-50 p-4 rounded-xl border border-pink-200">
+                      <h4 className="flex items-center gap-2 text-pink-800 font-semibold mb-4">
+                        <DocumentTextIcon className="h-5 w-5" />
+                        Reference Notes / Remarks
+                      </h4>
+                      
+                      <textarea
+                        placeholder="Enter any notes, feedback, or remarks about the intern..."
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all min-h-[120px] resize-y"
+                        value={form.referenceNote}
+                        onChange={e => setForm({ ...form, referenceNote: e.target.value })}
+                      />
+                    </div>
                   </div>
 
                   {/* Right Column */}
@@ -561,20 +589,65 @@ const InternReference = () => {
                       </div>
                     </div>
 
-                    {/* Reference Notes */}
-                    <div className="bg-pink-50 p-4 rounded-xl border border-pink-200">
-                      <h4 className="flex items-center gap-2 text-pink-800 font-semibold mb-4">
-                        <DocumentTextIcon className="h-5 w-5" />
-                        Reference Notes / Remarks
+                    {/* Bank Details */}
+                    <div className="bg-teal-50 p-4 rounded-xl border border-teal-200">
+                      <h4 className="flex items-center gap-2 text-teal-800 font-semibold mb-4">
+                        <BuildingLibraryIcon className="h-5 w-5" />
+                        Bank Details
                       </h4>
                       
-                      <textarea
-                        placeholder="Enter any notes, feedback, or remarks about the intern..."
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all min-h-[120px] resize-y"
-                        value={form.referenceNote}
-                        onChange={e => setForm({ ...form, referenceNote: e.target.value })}
-                      />
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Bank Name *
+                          </label>
+                          <input
+                            placeholder="e.g. HDFC Bank"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all ${errors.bankName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.bankName}
+                            onChange={e => {
+                              setForm({ ...form, bankName: e.target.value });
+                              if (errors.bankName) setErrors({...errors, bankName: null});
+                            }}
+                          />
+                          {errors.bankName && <p className="text-red-500 text-sm mt-1">{errors.bankName}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Account Number *
+                          </label>
+                          <input
+                            placeholder="Enter account number"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all ${errors.accountNumber ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.accountNumber}
+                            onChange={e => {
+                              setForm({ ...form, accountNumber: e.target.value });
+                              if (errors.accountNumber) setErrors({...errors, accountNumber: null});
+                            }}
+                          />
+                          {errors.accountNumber && <p className="text-red-500 text-sm mt-1">{errors.accountNumber}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            IFSC Code *
+                          </label>
+                          <input
+                            placeholder="Enter IFSC code"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all uppercase ${errors.ifscCode ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.ifscCode}
+                            onChange={e => {
+                              setForm({ ...form, ifscCode: e.target.value.toUpperCase() });
+                              if (errors.ifscCode) setErrors({...errors, ifscCode: null});
+                            }}
+                          />
+                          {errors.ifscCode && <p className="text-red-500 text-sm mt-1">{errors.ifscCode}</p>}
+                        </div>
+                      </div>
                     </div>
+
+
                   </div>
                 </div>
 
@@ -707,6 +780,7 @@ const InternReference = () => {
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Internship Type</th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Company Mentor</th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Contact No</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Account No</th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Action</th>
                 </tr>
@@ -719,9 +793,6 @@ const InternReference = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{intern.fullName || 'N/A'}</div>
-                      {intern.referenceNote && (
-                        <p className="text-xs text-gray-500 italic mt-1">"{intern.referenceNote}"</p>
-                      )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {intern.degree || 'N/A'}
@@ -734,6 +805,9 @@ const InternReference = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {intern.contactPhone || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {intern.accountNumber || 'N/A'}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`text-xs px-2 py-1 rounded-full inline-block font-medium ${

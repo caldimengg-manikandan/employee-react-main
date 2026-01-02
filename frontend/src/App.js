@@ -53,6 +53,7 @@ import InternReference from "./pages/internship/InternReference";
 // Exit Management
 import ExitForm from "./pages/EmployeeExitForms";
 import ExitApproval from "./pages/ExitApprovals";
+import HolidaysAllowance from "./pages/HolidaysAllowance";
 
 
 
@@ -321,6 +322,20 @@ function App() {
                   roles={["admin", "hr", "manager"]}
                 >
                   <EmployeeRewardTracker />
+                </ProtectedRoute>
+              } 
+            />
+
+              {/* ---------------- Holidays Allowance ---------------- */}
+            <Route 
+              path="holidays-allowance" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["payroll_view"]} 
+                  roles={["admin", "hr", "manager"]}
+                  allowEmployeeRole
+                >
+                  <HolidaysAllowance />
                 </ProtectedRoute>
               } 
             />

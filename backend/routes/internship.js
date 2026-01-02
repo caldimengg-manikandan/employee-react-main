@@ -193,7 +193,7 @@ router.delete('/:id', auth, async (req, res) => {
     
     // Soft delete by setting isActive to false
     intern.isActive = false;
-    await intern.save();
+    await intern.save({ validateBeforeSave: false });
     
     res.status(200).json({
       success: true,
