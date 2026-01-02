@@ -19,7 +19,8 @@ import {
   Eye,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 
 const AdminTimesheet = () => {
@@ -960,7 +961,7 @@ const AdminTimesheet = () => {
                       })()}
                     </td>
                     <td style={styles.tableCell}>
-                      <div style={{fontWeight: '600'}}>{timesheet.weeklyTotal}h</div>
+                      <div style={{fontWeight: '600'}}>{Number(timesheet.weeklyTotal || 0).toFixed(2)}h</div>
                     </td>
                     <td style={styles.tableCell}>
                       <span style={getStatusBadge(timesheet.status)}>
@@ -984,7 +985,11 @@ const AdminTimesheet = () => {
                               disabled={!!actionLoading[getTimesheetId(timesheet)]}
                               title="Reject"
                             >
-                              <XCircle size={12} />
+                              {actionLoading[getTimesheetId(timesheet)] ? (
+                                <Loader2 className="animate-spin" size={12} />
+                              ) : (
+                                <XCircle size={12} />
+                              )}
                             </button>
                             <button 
                               style={styles.approveBtn}
@@ -992,7 +997,11 @@ const AdminTimesheet = () => {
                               disabled={!!actionLoading[getTimesheetId(timesheet)]}
                               title="Approve"
                             >
-                              <CheckCircle size={12} />
+                              {actionLoading[getTimesheetId(timesheet)] ? (
+                                <Loader2 className="animate-spin" size={12} />
+                              ) : (
+                                <CheckCircle size={12} />
+                              )}
                             </button>
                           </>
                         )}
@@ -1138,16 +1147,36 @@ const AdminTimesheet = () => {
                   <button 
                     style={styles.rejectBtn}
                     onClick={() => handleReject(selectedTimesheet._id)}
+                    disabled={!!actionLoading[selectedTimesheet._id]}
                   >
-                    <XCircle size={14} />
-                    Reject
+                    {actionLoading[selectedTimesheet._id] ? (
+                      <>
+                        <Loader2 className="animate-spin" size={14} />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <XCircle size={14} />
+                        Reject
+                      </>
+                    )}
                   </button>
                   <button 
                     style={styles.approveBtn}
                     onClick={() => handleApprove(selectedTimesheet._id)}
+                    disabled={!!actionLoading[selectedTimesheet._id]}
                   >
-                    <CheckCircle size={14} />
-                    Approve
+                    {actionLoading[selectedTimesheet._id] ? (
+                      <>
+                        <Loader2 className="animate-spin" size={14} />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle size={14} />
+                        Approve
+                      </>
+                    )}
                   </button>
                 </>
               )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { timesheetAPI, allocationAPI, employeeAPI } from "../../services/api";
 import { ChevronLeft, ChevronRight, Calendar, Plus, Trash2, Save, Send, ChevronUp, ChevronDown } from "lucide-react";
 
@@ -584,7 +584,7 @@ const Timesheet = () => {
     }
   };
 
-  const updateMonthlyPermissionCount = () => {
+  const updateMonthlyPermissionCount = useCallback(() => {
     const currentMonth = currentWeek.getMonth();
     const currentYear = currentWeek.getFullYear();
 
@@ -619,7 +619,12 @@ const Timesheet = () => {
 
     setPermissionCounts(newPermissionCounts);
     setMonthlyPermissionCount(monthlyBasePermissionCount + count);
-  };
+  }, [currentWeek, timesheetRows, monthlyBasePermissionCount]);
+
+  // Update permission count whenever relevant data changes
+  useEffect(() => {
+    updateMonthlyPermissionCount();
+  }, [updateMonthlyPermissionCount]);
 
   useEffect(() => {
     const loadMonthlyBasePermissionCount = async () => {
@@ -628,9 +633,24 @@ const Timesheet = () => {
         const sheets = Array.isArray(res.data) ? res.data : [];
         const currentMonth = currentWeek.getMonth();
         const currentYear = currentWeek.getFullYear();
+        
+        // Calculate current week Monday to exclude it from base count
+        const currentBase = new Date(currentWeek);
+        const day = currentBase.getDay();
+        const diff = (day + 6) % 7;
+        const currentMonday = new Date(currentBase);
+        currentMonday.setDate(currentBase.getDate() - diff);
+        currentMonday.setHours(0, 0, 0, 0);
+
         let baseCount = 0;
         sheets.forEach((sheet) => {
           const weekStart = new Date(sheet.weekStartDate);
+          const sheetMonday = new Date(weekStart);
+          sheetMonday.setHours(0, 0, 0, 0);
+          
+          // Skip if this sheet is for the current week (to avoid double counting)
+          if (Math.abs(sheetMonday - currentMonday) < 86400000) return;
+
           (sheet.entries || []).forEach((entry) => {
             if (entry.task === "Permission" && Array.isArray(entry.hours)) {
               entry.hours.forEach((h, idx) => {
@@ -651,9 +671,8 @@ const Timesheet = () => {
         setMonthlyBasePermissionCount(baseCount);
       } catch (e) {
         setMonthlyBasePermissionCount(0);
-      } finally {
-        updateMonthlyPermissionCount();
       }
+      // updateMonthlyPermissionCount will be triggered by useEffect when monthlyBasePermissionCount changes
     };
     loadMonthlyBasePermissionCount();
   }, [currentWeek]);
@@ -815,17 +834,14 @@ const Timesheet = () => {
         numValue = 4.75; // Force to 4.75 for positive values
       }
     } else if (row.task === "Permission") {
-      // Only allow 01:00, 02:00, or 03:00 (and 00:00 to clear)
+      // Allow specific duration input, but validate max limits
       if (numValue <= 0) {
         numValue = 0;
-      } else if (numValue <= 1) {
-        numValue = 1;
-      } else if (numValue <= 2) {
-        numValue = 2;
-      } else {
-        numValue = 3;
+      } else if (numValue > 3) {
+        alert("Maximum duration for a single permission is 3 hours.");
+        return;
       }
-
+      
       const getPermissionCountForHours = (h) => {
         const val = Number(h) || 0;
         if (val <= 0) return 0;
@@ -917,13 +933,6 @@ const Timesheet = () => {
       prev.map((r) => {
         if (r.id === id) {
           const newHours = [...r.hours];
-
-          // If Permission, ensure only one column has data
-          if (r.task === "Permission" && numValue > 0) {
-            for (let i = 0; i < 7; i++) {
-              if (i !== dayIndex) newHours[i] = 0;
-            }
-          }
 
           const rounded = Math.round(numValue * 100) / 100;
           newHours[dayIndex] = rounded;
@@ -1141,7 +1150,7 @@ const Timesheet = () => {
     for (let i = 0; i < 7; i++) {
       const op = Number(onPremisesTime?.daily?.[i] || 0);
       const hasProjectHours = timesheetRows.some(
-        (row) => row.type === "project" && ((row.hours?.[i] || 0) > 0)
+        (row) => row.type === "project" && row.task !== "Office Holiday" && ((row.hours?.[i] || 0) > 0)
       );
 
       let workTotal = 0;
@@ -1450,18 +1459,23 @@ const Timesheet = () => {
               ADD PROJECT
             </button>
 
-            <button
-              onClick={addLeaveRow}
-              disabled={isAddLeaveDisabled()}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isAddLeaveDisabled()
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-700 hover:bg-blue-800 text-white"
-                }`}
-              title={isAddLeaveDisabled() ? "Cannot add leave row (Limit reached or Permission active)" : "Add Leave Row"}
-            >
-              <Plus className="w-4 h-4" />
-              ADD PERMISSION 
-            </button>
+            <div className="flex flex-col items-center">
+              <button
+                onClick={addLeaveRow}
+                disabled={isAddLeaveDisabled()}
+                className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isAddLeaveDisabled()
+                    ? "bg-gray-400 cursor-not-allowed"
+                    : "bg-blue-700 hover:bg-blue-800 text-white"
+                  }`}
+                title={isAddLeaveDisabled() ? "Cannot add leave row (Limit reached or Permission active)" : "Add Leave Row"}
+              >
+                <Plus className="w-4 h-4" />
+                ADD PERMISSION 
+              </button>
+              <span className={`text-[10px] font-bold mt-1 ${monthlyPermissionCount > 3 ? 'text-red-600' : 'text-gray-500'}`}>
+                Used: {monthlyPermissionCount}/3
+              </span>
+            </div>
 
             <button
               onClick={saveAsDraft}
