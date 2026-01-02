@@ -84,7 +84,6 @@ const Timesheet = () => {
   ];
 
   const leaveTypes = [
-    "Office Holiday",
     "Permission"
   ];
 
@@ -95,7 +94,8 @@ const Timesheet = () => {
 
   // ✅ Check if add leave button should be disabled
   const isAddLeaveDisabled = () => {
-    return getLeaveRowCount() >= 4 || isSubmitted || isLeaveAutoDraft;
+    const hasPermission = timesheetRows.some(row => row.task === "Permission");
+    return getLeaveRowCount() >= 1 || isSubmitted || isLeaveAutoDraft || hasPermission;
   };
 
   // ✅ Load existing week data from backend AND attendance data
@@ -679,7 +679,7 @@ const Timesheet = () => {
     const newRow = {
       id: Date.now() + Math.random(),
       project: "Leave",
-      task: "",
+      task: "Permission",
       hours: [0, 0, 0, 0, 0, 0, 0],
       type: "leave",
       shiftType: ""
@@ -917,6 +917,14 @@ const Timesheet = () => {
       prev.map((r) => {
         if (r.id === id) {
           const newHours = [...r.hours];
+
+          // If Permission, ensure only one column has data
+          if (r.task === "Permission" && numValue > 0) {
+            for (let i = 0; i < 7; i++) {
+              if (i !== dayIndex) newHours[i] = 0;
+            }
+          }
+
           const rounded = Math.round(numValue * 100) / 100;
           newHours[dayIndex] = rounded;
           return { ...r, hours: newHours };
@@ -1449,10 +1457,10 @@ const Timesheet = () => {
                   ? "bg-gray-400 cursor-not-allowed"
                   : "bg-blue-700 hover:bg-blue-800 text-white"
                 }`}
-              title={isAddLeaveDisabled() ? "Maximum 4 leave rows allowed" : "Add Leave Row"}
+              title={isAddLeaveDisabled() ? "Cannot add leave row (Limit reached or Permission active)" : "Add Leave Row"}
             >
               <Plus className="w-4 h-4" />
-              ADD LEAVE ({getLeaveRowCount()}/4)
+              ADD PERMISSION 
             </button>
 
             <button
@@ -1562,9 +1570,9 @@ const Timesheet = () => {
                   </td>
 
                   <td className="p-2 border border-gray-200">
-                    {row.task === "Office Holiday" ? (
-                      <div className="w-full p-2 text-green-800 rounded text-sm font-semibold text-center">
-                        Office Holiday
+                    {row.task === "Office Holiday" || row.task === "Permission" ? (
+                      <div className={`w-full p-2 ${row.task === "Office Holiday" ? "text-green-800" : "text-blue-800"} rounded text-sm font-semibold text-center`}>
+                        {row.task}
                       </div>
                     ) : (
                       <select
