@@ -24,8 +24,6 @@ const Login = () => {
   const [canResendOtp, setCanResendOtp] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
-  const [failedAttempts, setFailedAttempts] = useState(0);
-  const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);
   
   // Modal states
   const [showAboutUs, setShowAboutUs] = useState(false);
@@ -42,12 +40,26 @@ const Login = () => {
   const slides = [
     { url: "/images/12.jpeg", title: "Hosur Office", desc: "" },
     { url: "/images/13.jpeg", title: "Chennai Office", desc: "" },
-    { url: "/images/pic1.jpeg", title: "", desc: "" },
-    { url: "/images/pic2.jpeg", title: "", desc: "" },
-    { url: "/images/pic3.jpeg", title: "", desc: "" },
-    { url: "/images/pic4.jpeg", title: "", desc: "" }
-
-
+    {
+      url: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      title: "Engineering Excellence",
+      desc: "State-of-the-art engineering solutions"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      title: "Team Collaboration",
+      desc: "Our expert team working together"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1507206130118-b5907f817163?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      title: "Innovation Hub",
+      desc: "Driving innovation in construction"
+    },
+    {
+      url: "https://images.unsplash.com/photo-1542744095-fcf48d80b0fd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
+      title: "Project Success",
+      desc: "Successful project delivery"
+    },
     
    
   ];
@@ -69,10 +81,26 @@ const Login = () => {
 
   
 
-  // Today's Updates data
-  const todaysUpdates = [
-    
-  ];
+  const [todaysUpdates, setTodaysUpdates] = useState([]);
+
+  useEffect(() => {
+    const loadUpdates = async () => {
+      try {
+        const active = await authAPI.announcement.getActive();
+        const mapped = (active || []).map((a) => ({
+          id: a._id || String(Math.random()),
+          title: a.title || 'Update',
+          description: a.message || '',
+          time: a.startDate ? new Date(a.startDate).toLocaleDateString() : '',
+          priority: 'high'
+        }));
+        setTodaysUpdates(mapped);
+      } catch {
+        setTodaysUpdates([]);
+      }
+    };
+    loadUpdates();
+  }, []);
 
 
 
@@ -93,18 +121,6 @@ const Login = () => {
   ];
 
   // Animated background particles
-  useEffect(() => {
-    if (lockoutTimeLeft > 0) {
-      const timer = setInterval(() => {
-        setLockoutTimeLeft((prev) => prev - 1);
-      }, 1000);
-      return () => clearInterval(timer);
-    } else if (failedAttempts >= 5) {
-      setFailedAttempts(0);
-      setError('');
-    }
-  }, [lockoutTimeLeft, failedAttempts]);
-
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -303,11 +319,6 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (lockoutTimeLeft > 0) {
-      return;
-    }
-
     setIsLoading(true);
     setError('');
 
@@ -321,21 +332,12 @@ const Login = () => {
     try {
       const payload = { ...formData };
       const response = await authAPI.login(payload);
-      setFailedAttempts(0); // Reset failed attempts on success
       sessionStorage.setItem('token', response.data.token);
       sessionStorage.setItem('user', JSON.stringify(response.data.user));
       window.history.replaceState(null, '', '/dashboard');
       navigate('/dashboard', { replace: true });
     } catch (error) {
-      const newAttempts = failedAttempts + 1;
-      setFailedAttempts(newAttempts);
-      
-      if (newAttempts >= 5) {
-        setLockoutTimeLeft(30);
-        setError('Too many failed attempts. Please wait 30 seconds.');
-      } else {
-        setError(error.response?.data?.message || 'Login failed');
-      }
+      setError(error.response?.data?.message || 'Login failed');
     } finally {
       setIsLoading(false);
     }
@@ -525,7 +527,7 @@ const Login = () => {
   // Updates Modal
   const UpdatesModal = () => (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-      <div className="bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C] rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] overflow-hidden">
+      <div className="bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C] rounded-2xl shadow-2xl w-full max-w-lg md:max-w-2xl lg:max-w-3xl max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="relative p-6 border-b border-white/20">
           <h2 className="text-2xl font-bold text-white">
@@ -540,32 +542,34 @@ const Login = () => {
         </div>
 
         {/* Content */}
-        <div className="p-6">
-          <div className="space-y-4">
+        <div className="p-4 md:p-6 flex-1 overflow-y-auto">
+          <div className="space-y-3 md:space-y-4">
+            {todaysUpdates.length === 0 && (
+              <div className="bg-white/10 rounded-xl p-5 border border-white/10 text-center text-blue-100">
+                No upcoming events
+              </div>
+            )}
             {todaysUpdates.map((update) => (
               <div key={update.id} className="bg-gradient-to-r from-blue-900/30 to-blue-800/20 rounded-xl p-5 border border-white/10">
                 <div className="flex items-start">
                   <div className={`mr-4 mt-1 w-3 h-3 rounded-full ${update.priority === 'high' ? 'bg-green-400' : 'bg-yellow-400'}`}></div>
                   <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-white mb-2">{update.title}</h3>
-                    <p className="text-blue-100 mb-3">{update.description}</p>
-                    <span className="text-sm text-blue-300">{update.time}</span>
+                    <h3 className="text-base md:text-lg font-semibold text-white mb-1 md:mb-2">{update.title}</h3>
+                    <p className="text-sm md:text-base text-blue-100 mb-2 md:mb-3">{update.description}</p>
+                    <span className="text-xs md:text-sm text-blue-300">{update.time}</span>
                   </div>
                 </div>
               </div>
             ))}
           </div>
           
-          <div className="mt-6">
-            <LoginAnnouncements />
-          </div>
           
-          {/* Footer at Bottom Left */}
-          <div className="absolute bottom-12 left-0 p-4 lg:p-6 z-20">
-            <p className="text-white/60 text-xs">
-              © 2026 CALDIM Engineering Pvt. Ltd. All rights reserved.
-            </p>
-          </div>
+        </div>
+
+        <div className="p-4 md:p-6 border-t border-white/20">
+          <p className="text-center text-white/60 text-xs md:text-sm">
+            © 2026 CALDIM Engineering Pvt. Ltd. All rights reserved.
+          </p>
         </div>
       </div>
     </div>
@@ -757,22 +761,11 @@ const Login = () => {
             {/* <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-blue-400 to-transparent animate-scan" /> */}
           </div>
 
-          {/* Login Box Container */}
-          <div className="relative z-10 w-full h-full flex flex-col items-center justify-start p-4 lg:p-8">
-            {/* Logo at Top Left */}
-            <div className="relative lg:absolute top-0 left-0 p-4 lg:p-6 z-20 w-full lg:w-auto flex justify-center lg:block">
-              <div className="flex flex-col items-center lg:items-start">
-                <img
-                  src="/images/steel-logo.png"
-                  alt="caldim"
-                  className="h-auto w-full max-w-[150px] lg:max-w-[180px] object-contain"
-                />
-              </div>
+          <div className="relative z-10 w-full h-full flex flex-col items-center justify-top p-4 lg:p-8">
+            <div className="mt-4 mb-2 flex justify-center items-center gap-3 z-20">
+              <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto object-contain" />
+              <span className="text-white font-extrabold text-5xl tracking-tight">CALDIM</span>
             </div>
-
-            <h1 className="text-5xl lg:text-8xl font-bold text-white mt-4 lg:mt-2 tracking-tight text-center">
-                  CALDIM
-            </h1>
 
               <div className="w-full max-w-md mt-20">
                 {/* Header */}
@@ -829,7 +822,16 @@ const Login = () => {
                           onClick={() => setShowPassword(!showPassword)}
                           className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors duration-200"
                         >
-                          {'👁️‍🗨️'}
+                          {showPassword ? (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                          ) : (
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                            </svg>
+                          )}
                         </button>
                       )}
                     </div>
@@ -866,19 +868,17 @@ const Login = () => {
                   {/* Login Button */}
                   <button
                     type="submit"
-                    disabled={isLoading || lockoutTimeLeft > 0}
-                    className={`w-full bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-3.5 rounded-lg font-bold hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-[1.02] transform ${lockoutTimeLeft > 0 ? 'cursor-not-allowed' : ''}`}
+                    disabled={isLoading}
+                    className="w-full bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-3.5 rounded-lg font-bold hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-[1.02] transform"
                   >
                     {isLoading ? (
                       <>
-                        {/* <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                           <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                           <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg> */}
+                        </svg>
                         Signing in...
                       </>
-                    ) : lockoutTimeLeft > 0 ? (
-                      `Try again in ${lockoutTimeLeft}s`
                     ) : (
                       'Sign In'
                     )}
@@ -911,9 +911,9 @@ const Login = () => {
                     <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
                     </svg>
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full"></div>
+                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
                   </div>
-                  <div className="text-center">
+                  <div className="text-centre">
                     <div className="text-xs text-blue-100"></div>
                     <div className="font-small">UPCOMING EVENTS</div>
                   </div>
@@ -1078,6 +1078,11 @@ const Login = () => {
             transform: scale(2);
             opacity: 0;
           }
+        }
+        
+        input[type="password"]::-ms-reveal,
+        input[type="password"]::-ms-clear {
+          display: none;
         }
       `}</style>
     </>

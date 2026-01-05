@@ -584,7 +584,7 @@ router.get('/balance', auth, async (req, res) => {
           name: emp.name || emp.employeename || '',
           position: emp.position || emp.role || '',
           division: emp.division || '',
-          monthsOfService: emp.monthsOfService || 0,
+          monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt),
           balances: stored.balances
         };
       }
@@ -783,7 +783,7 @@ router.get('/my-balance', auth, async (req, res) => {
           name: emp.name || emp.employeename || '',
           position: emp.position || emp.role || '',
           division: emp.division || '',
-          monthsOfService: emp.monthsOfService || 0,
+          monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt),
           balances: stored.balances
         });
       }

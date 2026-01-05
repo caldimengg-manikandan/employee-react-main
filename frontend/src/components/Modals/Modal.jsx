@@ -1,7 +1,7 @@
 import React from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 
-const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
+const Modal = ({ isOpen, onClose, title, children, size = 'md', zIndex = 50 }) => {
   if (!isOpen) return null;
 
   const sizeClasses = {
@@ -13,7 +13,7 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 overflow-y-auto" style={{ zIndex }}>
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:p-0">
         {/* Background overlay */}
         <div className="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true"></div>

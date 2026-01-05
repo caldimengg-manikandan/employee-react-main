@@ -7,8 +7,8 @@ const AttendanceApproval = () => {
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState([]);
   const [statusFilter, setStatusFilter] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
-  const [rejectId, setRejectId] = useState(null);
+  const [updatingIds, setUpdatingIds] = useState([]);
+  const [confirmAction, setConfirmAction] = useState(null);
   const { notification, showSuccess, showError, hideNotification } = useNotification();
 
   const load = async () => {
@@ -33,7 +33,8 @@ const AttendanceApproval = () => {
   }, [statusFilter]);
 
   const approve = async (id) => {
-    setLoading(true);
+    setUpdatingIds((prev) => [...prev, id]);
+    setRequests((prev) => prev.map((r) => (r._id === id ? { ...r, status: "Approved" } : r)));
     try {
       await attendanceApprovalAPI.approve(id);
       showSuccess("Request approved");
@@ -41,25 +42,25 @@ const AttendanceApproval = () => {
     } catch (error) {
       const msg = error.response?.data?.message || "Failed to approve request";
       showError(msg);
+      await load();
     } finally {
-      setLoading(false);
+      setUpdatingIds((prev) => prev.filter((x) => x !== id));
     }
   };
 
-  const reject = async () => {
-    if (!rejectId) return;
-    setLoading(true);
+  const reject = async (id) => {
+    setUpdatingIds((prev) => [...prev, id]);
+    setRequests((prev) => prev.map((r) => (r._id === id ? { ...r, status: "Rejected" } : r)));
     try {
-      await attendanceApprovalAPI.reject(rejectId, rejectReason || "");
-      setRejectId(null);
-      setRejectReason("");
+      await attendanceApprovalAPI.reject(id, "");
       showSuccess("Request rejected");
       await load();
     } catch (error) {
       const msg = error.response?.data?.message || "Failed to reject request";
       showError(msg);
+      await load();
     } finally {
-      setLoading(false);
+      setUpdatingIds((prev) => prev.filter((x) => x !== id));
     }
   };
 
@@ -96,15 +97,15 @@ const AttendanceApproval = () => {
     btn: { padding: "6px 10px", borderRadius: "6px", fontSize: "12px", cursor: "pointer" },
     approveBtn: { backgroundColor: "#16a34a", color: "#fff", border: "none" },
     rejectBtn: { backgroundColor: "#ef4444", color: "#fff", border: "none" },
+    btnSecondary: { padding: "8px 12px", borderRadius: "6px", border: "1px solid #e2e8f0", backgroundColor: "#fff", cursor: "pointer" },
+    btnPrimary: { padding: "8px 12px", borderRadius: "6px", backgroundColor: "#3182ce", color: "#fff", border: "none", cursor: "pointer" },
+    completedText: { fontSize: "12px", color: "#4a5568" },
     modalOverlay: { position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
     modalContent: { width: "420px", backgroundColor: "#fff", borderRadius: "10px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", overflow: "hidden" },
     modalHeader: { padding: "14px 16px", borderBottom: "1px solid #edf2f7", display: "flex", alignItems: "center", justifyContent: "space-between" },
     modalTitle: { fontSize: "16px", fontWeight: 700, color: "#2d3748" },
-    modalBody: { padding: "16px", display: "grid", gap: "12px" },
-    input: { padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px", fontSize: "14px" },
+    modalBody: { padding: "16px" },
     modalFooter: { padding: "12px 16px", borderTop: "1px solid #edf2f7", display: "flex", justifyContent: "flex-end", gap: "8px" },
-    btnSecondary: { padding: "8px 12px", borderRadius: "6px", border: "1px solid #e2e8f0", backgroundColor: "#fff", cursor: "pointer" },
-    btnPrimary: { padding: "8px 12px", borderRadius: "6px", backgroundColor: "#3182ce", color: "#fff", border: "none", cursor: "pointer" },
     statusBadge: (status) => {
       const colors = {
         Pending: { bg: "#fff7ed", text: "#c05621" },
@@ -169,22 +170,24 @@ const AttendanceApproval = () => {
                   <span style={styles.statusBadge(r.status)}>{r.status}</span>
                 </td>
                 <td style={styles.td}>
-                  <div style={styles.actions}>
-                    <button
-                      style={{ ...styles.btn, ...styles.approveBtn }}
-                      onClick={() => approve(r._id)}
-                      disabled={loading || r.status !== "Pending"}
-                    >
-                      Approve
-                    </button>
-                    <button
-                      style={{ ...styles.btn, ...styles.rejectBtn }}
-                      onClick={() => { setRejectId(r._id); setRejectReason(""); }}
-                      disabled={loading || r.status !== "Pending"}
-                    >
-                      Reject
-                    </button>
-                  </div>
+                  {r.status === "Pending" && !updatingIds.includes(r._id) ? (
+                    <div style={styles.actions}>
+                      <button
+                        style={{ ...styles.btn, ...styles.approveBtn }}
+                        onClick={() => setConfirmAction({ id: r._id, type: "approve" })}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        style={{ ...styles.btn, ...styles.rejectBtn }}
+                        onClick={() => setConfirmAction({ id: r._id, type: "reject" })}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  ) : (
+                    <span style={styles.completedText}>Completed</span>
+                  )}
                 </td>
               </tr>
             ))
@@ -192,29 +195,40 @@ const AttendanceApproval = () => {
         </tbody>
       </table>
 
-      {rejectId && (
+      {confirmAction && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             <div style={styles.modalHeader}>
-              <div style={styles.modalTitle}>Reject Request</div>
-              <button style={styles.btnSecondary} onClick={() => { setRejectId(null); setRejectReason(""); }}>Close</button>
+              <div style={styles.modalTitle}>
+                {confirmAction.type === "approve" ? "Confirm Approval" : "Confirm Rejection"}
+              </div>
+              <button style={styles.btnSecondary} onClick={() => setConfirmAction(null)}>Close</button>
             </div>
             <div style={styles.modalBody}>
-              <input
-                type="text"
-                placeholder="Reason"
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
-                style={styles.input}
-              />
+              {confirmAction.type === "approve" ? "Are you sure you want to approve this request?" : "Are you sure you want to reject this request?"}
             </div>
             <div style={styles.modalFooter}>
-              <button style={styles.btnSecondary} onClick={() => { setRejectId(null); setRejectReason(""); }}>Cancel</button>
-              <button style={styles.btnPrimary} onClick={reject}>Submit</button>
+              <button style={styles.btnSecondary} onClick={() => setConfirmAction(null)}>Cancel</button>
+              <button
+                style={styles.btnPrimary}
+                onClick={async () => {
+                  const id = confirmAction.id;
+                  const type = confirmAction.type;
+                  setConfirmAction(null);
+                  if (type === "approve") {
+                    await approve(id);
+                  } else {
+                    await reject(id);
+                  }
+                }}
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>
       )}
+
       <Notification
         message={notification.message}
         type={notification.type}

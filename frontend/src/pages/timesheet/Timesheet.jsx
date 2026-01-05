@@ -443,12 +443,23 @@ const Timesheet = () => {
   useEffect(() => {
     const loadAllocatedProjects = async () => {
       try {
-        const [meRes, allocRes] = await Promise.all([
+        // Use Promise.allSettled to ensure failure in getMyProfile doesn't block loading allocations
+        const [meResult, allocResult] = await Promise.allSettled([
           employeeAPI.getMyProfile(),
           allocationAPI.getAllAllocations()
         ]);
-        const me = meRes?.data || {};
-        const allocations = Array.isArray(allocRes?.data) ? allocRes.data : [];
+
+        const me = meResult.status === 'fulfilled' ? meResult.value?.data || {} : {};
+        const allocations = allocResult.status === 'fulfilled' && Array.isArray(allocResult.value?.data) 
+          ? allocResult.value.data 
+          : [];
+
+        if (meResult.status === 'rejected') {
+          console.warn("Could not fetch profile, falling back to session data for matching:", meResult.reason);
+        }
+        if (allocResult.status === 'rejected') {
+          console.error("Could not fetch allocations:", allocResult.reason);
+        }
 
         const weekDates = getWeekDates();
         const weekStart = new Date(weekDates[0]);
@@ -457,10 +468,30 @@ const Timesheet = () => {
 
         const inSelectedWeek = (alloc) => {
           try {
-            const sd = new Date(alloc.startDate);
-            const ed = new Date(alloc.endDate);
-            if (isNaN(sd.getTime()) || isNaN(ed.getTime())) return true;
-            return sd <= weekEnd && ed >= weekStart;
+            if (!alloc.startDate || !alloc.endDate) return true;
+            
+            // robust date parsing to avoid timezone issues
+            const parseDate = (dateStr) => {
+              if (!dateStr) return null;
+              const parts = String(dateStr).split("T")[0].split("-");
+              if (parts.length !== 3) return new Date(dateStr);
+              return new Date(parts[0], parts[1] - 1, parts[2]); // Local midnight
+            };
+
+            const sd = parseDate(alloc.startDate);
+            const ed = parseDate(alloc.endDate);
+            
+            if (!sd || !ed || isNaN(sd.getTime()) || isNaN(ed.getTime())) return true;
+            if (sd > ed) return true;
+
+            // Normalize week boundaries to local midnight for comparison
+            const ws = new Date(weekStart);
+            ws.setHours(0, 0, 0, 0);
+            
+            const we = new Date(weekEnd);
+            we.setHours(23, 59, 59, 999);
+
+            return sd <= we && ed >= ws;
           } catch (_) {
             return true;
           }
@@ -474,21 +505,20 @@ const Timesheet = () => {
         const empMongoId = String(me._id || "").trim();
         const empName = String(me.name || userSession.name || "").trim().toLowerCase();
 
-        const mine = allocations.filter(a => {
+        const mineByMatch = allocations.filter(a => {
           const code = normalizeId(a.employeeCode);
           const eid = String(a.employeeId || "").trim();
           const ename = String(a.employeeName || "").trim().toLowerCase();
-          
           const matchesEmployee =
             (code && empId && code === empId) ||
             (eid && empMongoId && eid === empMongoId) ||
             (ename && empName && ename === empName);
-            
           const statusVal = String(a.status || "").trim().toLowerCase();
           const statusAllowed = statusVal === "active" || statusVal === "completed";
-          
-          return matchesEmployee && statusAllowed && inSelectedWeek(a);
+          return matchesEmployee && statusAllowed;
         });
+        const mineWeek = mineByMatch.filter(inSelectedWeek);
+        const mine = mineWeek.length ? mineWeek : mineByMatch;
 
         const unique = [];
         const seen = new Set();
@@ -723,6 +753,12 @@ const Timesheet = () => {
           // Reset hours when task type changes
           if (field === "task") {
             updatedRow.hours = [0, 0, 0, 0, 0, 0, 0];
+          }
+
+          // Auto-update project code when project name is selected
+          if (field === "project") {
+            const p = projects.find((proj) => proj.name === value);
+            updatedRow.projectCode = p ? p.code : "";
           }
 
           return updatedRow;
@@ -1025,6 +1061,23 @@ const Timesheet = () => {
       return d;
     });
   };
+  const getWeekMonday = (date) => {
+    const base = new Date(date);
+    const day = base.getDay();
+    const diff = (day + 6) % 7;
+    const monday = new Date(base);
+    monday.setHours(0, 0, 0, 0);
+    monday.setDate(base.getDate() - diff);
+    monday.setHours(0, 0, 0, 0);
+    return monday;
+  };
+  const canNavigateNextWeek = () => {
+    const next = new Date(currentWeek);
+    next.setDate(next.getDate() + 7);
+    const nextMonday = getWeekMonday(next).getTime();
+    const todayMonday = getWeekMonday(new Date()).getTime();
+    return nextMonday <= todayMonday;
+  };
 
   const previousWeek = () => {
     handleNavigation(() => {
@@ -1038,6 +1091,7 @@ const Timesheet = () => {
   };
 
   const nextWeek = () => {
+    if (!canNavigateNextWeek()) return;
     handleNavigation(() => {
       const newWeek = new Date(currentWeek);
       newWeek.setDate(newWeek.getDate() + 7);
@@ -1417,7 +1471,8 @@ const Timesheet = () => {
 
               <button
                 onClick={nextWeek}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                disabled={!canNavigateNextWeek()}
+                className={`p-1 rounded transition-colors ${!canNavigateNextWeek() ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100"}`}
               >
                 <ChevronRight className="w-5 h-5 text-gray-600" />
               </button>
@@ -1446,7 +1501,7 @@ const Timesheet = () => {
         {/* Header with action buttons */}
         <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
           <h2 className="text-xl font-semibold text-gray-800">
-            Current Week Entry
+            Week Entry
           </h2>
 
           <div className="flex flex-wrap justify-center gap-3 w-full md:w-auto">
@@ -1472,9 +1527,9 @@ const Timesheet = () => {
                 <Plus className="w-4 h-4" />
                 ADD PERMISSION 
               </button>
-              <span className={`text-[10px] font-bold mt-1 ${monthlyPermissionCount > 3 ? 'text-red-600' : 'text-gray-500'}`}>
+              {/* <span className={`text-[10px] font-bold mt-1 ${monthlyPermissionCount > 3 ? 'text-red-600' : 'text-gray-500'}`}>
                 Used: {monthlyPermissionCount}/3
-              </span>
+              </span> */}
             </div>
 
             <button
@@ -1826,9 +1881,9 @@ const Timesheet = () => {
                 <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
                   On-Premises Time
                 </td>
-                {onPremisesTime.daily.map((time, index) => (
+                {days.map((_, index) => (
                   <td key={index} className="p-3 border border-gray-200 text-green-700 text-center">
-                    {formatHoursHHMM(time)}
+                    {formatHoursHHMM(onPremisesTime?.daily?.[index] ?? 0)}
                   </td>
                 ))}
                 <td className="p-3 border border-gray-200 text-green-700 font-bold text-center">

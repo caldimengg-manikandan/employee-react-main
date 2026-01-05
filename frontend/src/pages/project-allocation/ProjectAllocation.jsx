@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { Edit, Trash2, Eye, Building2, Users, Target, Filter, X, ChevronDown } from 'lucide-react';
 import { employeeAPI, projectAPI, allocationAPI } from '../../services/api';
+import Modal from '../../components/Modals/Modal';
 
 const ProjectAllocation = () => {
   // Get user from sessionStorage
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const isProjectManager = user.role === 'projectmanager' || user.role === 'project_manager' || user.role === 'admin';
   const canEdit = isProjectManager;
+  const [deleteProjectModal, setDeleteProjectModal] = useState({ isOpen: false, projectId: null, projectName: '' });
+  const [deleteAllocationModal, setDeleteAllocationModal] = useState({ isOpen: false, allocationId: null });
+  const [successModal, setSuccessModal] = useState({ isOpen: false, message: '' });
+  const [messageModal, setMessageModal] = useState({ isOpen: false, title: '', message: '' });
 
   // UI state
   const [activeTab, setActiveTab] = useState(isProjectManager ? 'projects' : 'myAllocations');
@@ -216,11 +221,15 @@ const ProjectAllocation = () => {
   };
 
   const getUniqueProjectNames = () => {
-    return [...new Set(projects.map(p => p.name))].filter(Boolean);
+    return [...new Set(projects.map(p => p.name))]
+      .filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base' }));
   };
 
   const getUniqueEmployeeIds = () => {
-    return [...new Set(allocations.map(a => a.employeeCode))].filter(Boolean);
+    return [...new Set(allocations.map(a => a.employeeCode))]
+      .filter(Boolean)
+      .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
   };
 
   // Filter functions
@@ -263,7 +272,9 @@ const ProjectAllocation = () => {
   // Filtered projects based on selected division
   const getFilteredProjectsByDivision = () => {
     if (!allocationForm.division) return [];
-    return projects.filter(project => project.division === allocationForm.division);
+    return projects
+      .filter(project => project.division === allocationForm.division)
+      .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
   };
 
   // Filtered employees based on selected division
@@ -325,23 +336,22 @@ const ProjectAllocation = () => {
 
   // Generate project code based on division
   const generateProjectCode = (division) => {
-    const prefixMap = {
-      'SDS': 'CDE-SDS',
-      'TEKLA': 'CDE-TEK',
-      'DAS': 'CDE-DAS',
-      'Mechanical': 'CDE-MEC'
-    };
-    
-    const prefix = prefixMap[division] || 'PROJ';
+    const d = String(division || '').trim().toUpperCase();
+    let prefix = 'PROJ';
+    if (d.includes('SDS')) prefix = 'CDE-SDS';
+    else if (d.includes('TEK')) prefix = 'CDE-TEK';
+    else if (d.includes('DAS')) prefix = 'CDE-DAS';
+    else if (d.includes('MEC') || d.includes('MECHANICAL')) prefix = 'CDE-MEC';
+
     const existingCodes = projects
       .filter(p => p.division === division)
       .map(p => {
         const match = p.code.match(new RegExp(`^${prefix}-(\\d+)$`));
-        return match ? parseInt(match[1]) : 0;
+        return match ? parseInt(match[1]) : null;
       })
-      .filter(num => num > 0);
+      .filter(num => num !== null && !Number.isNaN(num));
     
-    const nextNumber = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 1;
+    const nextNumber = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 0;
     return `${prefix}-${nextNumber.toString().padStart(3, '0')}`;
   };
 
@@ -355,7 +365,8 @@ const ProjectAllocation = () => {
     }
     
     // Apply other filters
-    return filterProjects(filtered);
+    const result = filterProjects(filtered);
+    return result.sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
   };
 
   const getFilteredAllocations = () => {
@@ -481,7 +492,7 @@ const ProjectAllocation = () => {
     }
     
     if (!canEdit) {
-      alert("You don't have permission to manage projects. Please contact Project Manager or Admin.");
+      setMessageModal({ isOpen: true, title: 'Access Denied', message: "You don't have permission to manage projects. Please contact Project Manager or Admin." });
       return;
     }
     
@@ -516,7 +527,25 @@ const ProjectAllocation = () => {
 
   const handleProjectSave = async () => {
     if (!projectForm.name || !projectForm.division || !projectForm.branch || !projectForm.startDate || !projectForm.endDate) {
-      alert("Please fill all required fields.");
+      setMessageModal({ isOpen: true, title: 'Missing Fields', message: 'Please fill all required fields.' });
+      return;
+    }
+
+    const s = new Date(projectForm.startDate);
+    const e = new Date(projectForm.endDate);
+    if (isFinite(s) && isFinite(e) && e < s) {
+      setMessageModal({ isOpen: true, title: 'Invalid Dates', message: 'End Date must be on or after Start Date.' });
+      return;
+    }
+
+    // Prevent duplicate project by name + division (exclude current when editing)
+    const duplicateProject = projects.some(p => 
+      String(p.name).trim().toLowerCase() === String(projectForm.name).trim().toLowerCase() &&
+      String(p.division).trim().toLowerCase() === String(projectForm.division).trim().toLowerCase() &&
+      String(p._id || p.id) !== String(editingProject?._id || editingProject?.id || '')
+    );
+    if (duplicateProject) {
+      setMessageModal({ isOpen: true, title: 'Duplicate Project', message: 'A project with the same name and division already exists.' });
       return;
     }
 
@@ -533,6 +562,15 @@ const ProjectAllocation = () => {
       description: editingProject ? editingProject.description || `${projectForm.name} project` : `${projectForm.name} project`,
     };
 
+    if (editingProject) {
+      const keys = ['name', 'division', 'branch', 'startDate', 'endDate', 'status'];
+      const unchanged = keys.every(k => String(editingProject[k] || '') === String(payload[k] || ''));
+      if (unchanged) {
+        setMessageModal({ isOpen: true, title: 'No Changes', message: 'No changes detected.' });
+        return;
+      }
+    }
+
     try {
       if (editingProject && editingProject._id) {
         await projectAPI.updateProject(editingProject._id, payload);
@@ -542,26 +580,35 @@ const ProjectAllocation = () => {
       await refreshData();
       closeProjectModal();
     } catch (e) {
-      alert(e?.response?.data?.error || 'Failed to save project');
+      setMessageModal({ isOpen: true, title: 'Error', message: e?.response?.data?.error || 'Failed to save project' });
     }
   };
 
-  const handleDeleteProject = async (projectId) => {
+  const openDeleteProjectModal = (project) => {
     if (!canEdit) {
       alert("You don't have permission to delete projects.");
       return;
     }
+    setDeleteProjectModal({
+      isOpen: true,
+      projectId: project._id || project.id,
+      projectName: project.name || ''
+    });
+  };
 
-    if (!confirm("Are you sure you want to delete this project? This will also remove all associated allocations.")) {
-      return;
-    }
-
+  const confirmDeleteProject = async () => {
+    const projectId = deleteProjectModal.projectId;
+    if (!projectId) return;
     try {
+      const removedCount = allocations.filter(a => String(a.projectId) === String(projectId)).length;
       await projectAPI.deleteProject(projectId);
       setProjects(prev => prev.filter(p => p._id !== projectId));
       setAllocations(prev => prev.filter(a => String(a.projectId) !== String(projectId)));
+      setDeleteProjectModal({ isOpen: false, projectId: null, projectName: '' });
+      setSuccessModal({ isOpen: true, message: `Project deleted${removedCount > 0 ? ` with ${removedCount} allocation(s) removed` : ''}.` });
     } catch (e) {
       alert(e?.response?.data?.error || 'Failed to delete project');
+      setDeleteProjectModal({ isOpen: false, projectId: null, projectName: '' });
     }
   };
 
@@ -573,7 +620,7 @@ const ProjectAllocation = () => {
     }
     
     if (!canEdit) {
-      alert("You don't have permission to edit allocations. Please contact Project Manager or Admin.");
+      setMessageModal({ isOpen: true, title: 'Access Denied', message: "You don't have permission to edit allocations. Please contact Project Manager or Admin." });
       return;
     }
     
@@ -623,7 +670,7 @@ const ProjectAllocation = () => {
 
   const handleAllocate = async () => {
     if (!allocationForm.division || !allocationForm.projectName || !allocationForm.employeeName) {
-      alert("Please fill all required fields.");
+      setMessageModal({ isOpen: true, title: 'Missing Fields', message: 'Please fill all required fields.' });
       return;
     }
 
@@ -639,13 +686,34 @@ const ProjectAllocation = () => {
     );
 
     if (!project) {
-      alert("Project not found. Please check the project name and division.");
+      setMessageModal({ isOpen: true, title: 'Not Found', message: 'Project not found. Please check the project name and division.' });
       return;
     }
 
     if (!employee) {
-      alert("Employee not found. Please check the employee name.");
+      setMessageModal({ isOpen: true, title: 'Not Found', message: 'Employee not found. Please check the employee name.' });
       return;
+    }
+
+    // Prevent duplicate allocation (same project + employee)
+    const isDuplicateAllocation = allocations.some(a => 
+      String(a.projectName).trim().toLowerCase() === String(project.name).trim().toLowerCase() &&
+      String(a.employeeCode).trim().toLowerCase() === String(allocationForm.employeeId).trim().toLowerCase()
+    );
+    if (!editingAllocation && isDuplicateAllocation) {
+      setMessageModal({ isOpen: true, title: 'Duplicate Allocation', message: 'This employee is already allocated to the selected project.' });
+      return;
+    }
+    if (editingAllocation) {
+      const dupOnEdit = allocations.some(a => 
+        String(a._id || a.id) !== String(editingAllocation._id || editingAllocation.id) &&
+        String(a.projectName).trim().toLowerCase() === String(project.name).trim().toLowerCase() &&
+        String(a.employeeCode).trim().toLowerCase() === String(allocationForm.employeeId).trim().toLowerCase()
+      );
+      if (dupOnEdit) {
+        setMessageModal({ isOpen: true, title: 'Duplicate Allocation', message: 'Another allocation for this employee and project already exists.' });
+        return;
+      }
     }
 
     const payload = {
@@ -665,6 +733,16 @@ const ProjectAllocation = () => {
       role: editingAllocation ? (editingAllocation.role || '') : ''
     };
 
+    if (editingAllocation) {
+      const unchanged =
+        String(editingAllocation.projectName || '').trim().toLowerCase() === String(payload.projectName || '').trim().toLowerCase() &&
+        String(editingAllocation.employeeCode || '').trim().toLowerCase() === String(payload.employeeCode || '').trim().toLowerCase();
+      if (unchanged) {
+        setMessageModal({ isOpen: true, title: 'No Changes', message: 'No changes detected.' });
+        return;
+      }
+    }
+
     try {
       if (editingAllocation && editingAllocation._id) {
         await allocationAPI.updateAllocation(editingAllocation._id, payload);
@@ -674,25 +752,29 @@ const ProjectAllocation = () => {
       await refreshData();
       closeAllocationModal();
     } catch (e) {
-      alert(e?.response?.data?.error || 'Failed to save allocation');
+      setMessageModal({ isOpen: true, title: 'Error', message: e?.response?.data?.error || 'Failed to save allocation' });
     }
   };
 
-  const handleDeleteAllocation = async (allocationId) => {
+  const openDeleteAllocationModal = (allocation) => {
     if (!canEdit) {
       alert("You don't have permission to delete allocations.");
       return;
     }
+    setDeleteAllocationModal({ isOpen: true, allocationId: allocation._id || allocation.id });
+  };
 
-    if (!confirm("Are you sure you want to delete this allocation?")) {
-      return;
-    }
-
+  const confirmDeleteAllocation = async () => {
+    const allocationId = deleteAllocationModal.allocationId;
+    if (!allocationId) return;
     try {
       await allocationAPI.deleteAllocation(allocationId);
       setAllocations(prev => prev.filter(a => a._id !== allocationId));
+      setDeleteAllocationModal({ isOpen: false, allocationId: null });
+      setSuccessModal({ isOpen: true, message: 'Allocation deleted.' });
     } catch (e) {
       alert(e?.response?.data?.error || 'Failed to delete allocation');
+      setDeleteAllocationModal({ isOpen: false, allocationId: null });
     }
   };
 
@@ -709,6 +791,99 @@ const ProjectAllocation = () => {
       
       {!loading && (
         <>
+          <Modal
+            isOpen={deleteProjectModal.isOpen}
+            onClose={() => setDeleteProjectModal({ isOpen: false, projectId: null, projectName: '' })}
+            title="Confirm Project Deletion"
+            size="sm"
+          >
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                Are you sure you want to delete the project{deleteProjectModal.projectName ? ` "${deleteProjectModal.projectName}"` : ''}?
+                This will also remove all associated allocations.
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setDeleteProjectModal({ isOpen: false, projectId: null, projectName: '' })}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteProject}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </Modal>
+
+          <Modal
+            isOpen={deleteAllocationModal.isOpen}
+            onClose={() => setDeleteAllocationModal({ isOpen: false, allocationId: null })}
+            title="Confirm Allocation Deletion"
+            size="sm"
+          >
+            <div className="space-y-4">
+              <p className="text-gray-700">
+                Are you sure you want to delete this allocation?
+              </p>
+              <div className="flex justify-end gap-3">
+                <button
+                  onClick={() => setDeleteAllocationModal({ isOpen: false, allocationId: null })}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDeleteAllocation}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </Modal>
+
+          <Modal
+            isOpen={successModal.isOpen}
+            onClose={() => setSuccessModal({ isOpen: false, message: '' })}
+            title="Success"
+            size="sm"
+          >
+            <div className="space-y-4">
+              <p className="text-gray-700">{successModal.message}</p>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setSuccessModal({ isOpen: false, message: '' })}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </Modal>
+
+          <Modal
+            isOpen={messageModal.isOpen}
+            onClose={() => setMessageModal({ isOpen: false, title: '', message: '' })}
+            title={messageModal.title || 'Message'}
+            size="sm"
+            zIndex={100}
+          >
+            <div className="space-y-4">
+              <p className="text-gray-700">{messageModal.message}</p>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setMessageModal({ isOpen: false, title: '', message: '' })}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </Modal>
           
 
           {/* Controls */}
@@ -1069,7 +1244,7 @@ const ProjectAllocation = () => {
                                       <Edit size={14} />
                                     </button>
                                     <button 
-                                      onClick={() => handleDeleteProject(project._id || project.id)} 
+                                      onClick={() => openDeleteProjectModal(project)} 
                                       className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors" 
                                       title="Delete"
                                     >
@@ -1189,7 +1364,7 @@ const ProjectAllocation = () => {
                                       <Edit size={14} />
                                     </button>
                                     <button 
-                                      onClick={() => handleDeleteAllocation(allocation._id || allocation.id)} 
+                                      onClick={() => openDeleteAllocationModal(allocation)} 
                                       className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors" 
                                       title="Delete"
                                     >
@@ -1452,7 +1627,7 @@ const ProjectAllocation = () => {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">End Date *</label>
-                      <input type="date" value={projectForm.endDate} onChange={(e) => setProjectForm(prev => ({ ...prev, endDate: e.target.value }))} className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
+                      <input type="date" value={projectForm.endDate} min={projectForm.startDate || undefined} onChange={(e) => setProjectForm(prev => ({ ...prev, endDate: e.target.value }))} className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" />
                     </div>
                   </div>
 

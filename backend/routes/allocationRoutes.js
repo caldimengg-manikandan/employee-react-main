@@ -21,6 +21,15 @@ router.post("/", async (req, res) => {
     if (!project) return res.status(400).json({ error: "Project not found" });
     if (!employee) return res.status(400).json({ error: "Employee not found" });
 
+    // Prevent duplicate allocation (same project + employee)
+    const existing = await Allocation.findOne({
+      projectId: project._id,
+      employeeId: employee._id
+    }).lean();
+    if (existing) {
+      return res.status(400).json({ error: "Duplicate allocation detected for this project and employee" });
+    }
+
     req.body.projectId = project._id;
     req.body.projectCode = project.code;
     req.body.projectDivision = project.division;
@@ -80,6 +89,16 @@ router.put("/:id", async (req, res) => {
     const existingAllocation = await Allocation.findById(req.params.id);
     if (!existingAllocation) {
       return res.status(404).json({ error: "Allocation not found" });
+    }
+
+    // Prevent duplicate allocation on update (same project + employee, different record)
+    const dup = await Allocation.findOne({
+      projectId: project._id,
+      employeeId: employee._id,
+      _id: { $ne: existingAllocation._id }
+    }).lean();
+    if (dup) {
+      return res.status(400).json({ error: "Duplicate allocation detected for this project and employee" });
     }
 
     // Update the allocation with new data, preserving role if not provided
