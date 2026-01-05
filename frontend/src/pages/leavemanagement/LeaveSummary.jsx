@@ -104,7 +104,9 @@ const LeaveSummary = () => {
 
   // Filter leave applications based on all filter criteria
   const filteredApplications = leaveApplications.filter(app => {
-    const matchesMonthWindow = overlapsSelectedMonth(app.startDateRaw, app.endDateRaw, selectedYear, selectedMonth);
+    // Always show Pending applications regardless of date filter, so they don't get missed
+    const isPending = app.status === 'Pending';
+    const matchesMonthWindow = isPending || overlapsSelectedMonth(app.startDateRaw, app.endDateRaw, selectedYear, selectedMonth);
 
     const matchesEmployeeId = selectedEmployeeId === '' ||
       (app.employeeId || '').toLowerCase().includes(selectedEmployeeId.toLowerCase());

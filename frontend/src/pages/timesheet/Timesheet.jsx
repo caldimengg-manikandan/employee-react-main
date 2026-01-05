@@ -95,7 +95,8 @@ const Timesheet = () => {
   // ✅ Check if add leave button should be disabled
   const isAddLeaveDisabled = () => {
     const hasPermission = timesheetRows.some(row => row.task === "Permission");
-    return getLeaveRowCount() >= 1 || isSubmitted || isLeaveAutoDraft || hasPermission;
+    // Allow up to 4 leave rows, but only 1 Permission row
+    return getLeaveRowCount() >= 4 || isSubmitted || isLeaveAutoDraft || hasPermission;
   };
 
   // ✅ Load existing week data from backend AND attendance data
@@ -779,8 +780,8 @@ const Timesheet = () => {
     // Block editing other entries on a day with Full Day Leave/Office Holiday/Leave Approved (Full Day)
     const isFullDayMarked = timesheetRows.some(
       (r) =>
-        (r.task === "Full Day Leave" || r.task === "Office Holiday" || (r.task === "Leave Approved" && (r.hours?.[dayIndex] || 0) >= 9)) &&
-        ((r.hours?.[dayIndex] || 0) > 0)
+        (r.task === "Full Day Leave" || r.task === "Office Holiday" || (r.task === "Leave Approved" && Number(r.hours?.[dayIndex] || 0) >= 9)) &&
+        (Number(r.hours?.[dayIndex] || 0) > 0)
     );
     if (
       isFullDayMarked &&
@@ -920,16 +921,14 @@ const Timesheet = () => {
     const hasWorkAfterUpdate = timesheetRows.some(
       (r) => r.type === "project" && r.task !== "Office Holiday" && ((r.id === id ? numValue : (r.hours?.[dayIndex] || 0)) > 0)
     );
-    const breakAfterUpdate = hasWorkAfterUpdate ? 1.25 : 0;
+    
+    // Check if there is approved leave (use current state + current row update if applicable)
+    // Note: If we are editing the "Leave Approved" row itself, we should use numValue
+    const hasApprovedLeave = timesheetRows.some(
+      (r) => r.task === "Leave Approved" && (r.id === id ? numValue : Number(r.hours?.[dayIndex] || 0)) > 0
+    );
 
-    // Enforce daily cap: Total (Work + Break) must not exceed On-Premises Time
-    if (row.task !== "Permission") {
-      const opHoursCap = Number(onPremisesTime?.daily?.[dayIndex] || 0);
-      const allowedAdditional = Math.max(0, opHoursCap - breakAfterUpdate - currentDailyAllTotal);
-      if (numValue > allowedAdditional) {
-        numValue = allowedAdditional;
-      }
-    }
+    const breakAfterUpdate = hasWorkAfterUpdate && !hasApprovedLeave ? 1.25 : 0;
 
     // Shift-based caps removed in favor of on-premises enforcement
 
@@ -937,19 +936,19 @@ const Timesheet = () => {
     // WE RELAX THIS CHECK if there is a Half Day Leave / Leave Approved (Partial), 
     // to allow entering project hours even if biometric data is missing/short.
     const hasPartialLeave = timesheetRows.some(
-      (r) => (r.task === "Half Day Leave" || (r.task === "Leave Approved" && (r.hours?.[dayIndex] || 0) < 9)) &&
-        (r.hours?.[dayIndex] || 0) > 0
+      (r) => (r.task === "Half Day Leave" || (r.task === "Leave Approved" && Number(r.hours?.[dayIndex] || 0) < 9)) &&
+        Number(r.hours?.[dayIndex] || 0) > 0
     );
 
-    if (row.type === "project" && !hasPartialLeave) {
+    if (row.type === "project") {
       const opHours = Number(onPremisesTime?.daily?.[dayIndex] || 0);
-      if (opHours <= 0) {
-        numValue = 0;
-      } else {
+      if (opHours > 0) {
         const remainingAllowed = Math.max(0, opHours - breakAfterUpdate - currentDailyProjectTotal);
         if (numValue > remainingAllowed) {
           numValue = remainingAllowed;
         }
+      } else if (!hasPartialLeave) {
+        numValue = 0;
       }
     }
 
@@ -989,8 +988,8 @@ const Timesheet = () => {
 
   const hasFullDayLeave = (dayIndex) => {
     return timesheetRows.some(row =>
-      (row.task === 'Full Day Leave' || row.task === 'Office Holiday' || (row.task === 'Leave Approved' && row.hours[dayIndex] >= 9)) &&
-      row.hours[dayIndex] > 0
+      (row.task === 'Full Day Leave' || row.task === 'Office Holiday' || (row.task === 'Leave Approved' && Number(row.hours[dayIndex] || 0) >= 9)) &&
+      Number(row.hours[dayIndex] || 0) > 0
     );
   };
 
@@ -1000,7 +999,7 @@ const Timesheet = () => {
     const nextRows = timesheetRows.map(r => ({ ...r, hours: [...r.hours] }));
     for (let d = 0; d < daysCount; d++) {
       const hasFull = nextRows.some(
-        (r) => (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || (r.task === 'Leave Approved' && (r.hours?.[d] || 0) >= 9)) && ((r.hours?.[d] || 0) > 0)
+        (r) => (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || (r.task === 'Leave Approved' && Number(r.hours?.[d] || 0) >= 9)) && (Number(r.hours?.[d] || 0) > 0)
       );
       if (!hasFull) continue;
       nextRows.forEach((r) => {
@@ -1359,11 +1358,11 @@ const Timesheet = () => {
   // Calculate break for a specific day (1.25 hours if there's any project work)
   const computeBreakForDay = (dayIndex) => {
     const hasWork = timesheetRows.some(
-      (row) => row.type === "project" && row.task !== "Office Holiday" && (row.hours?.[dayIndex] || 0) > 0
+      (row) => row.type === "project" && row.task !== "Office Holiday" && Number(row.hours?.[dayIndex] || 0) > 0
     );
     // No break for approved leave days
     const hasApprovedLeave = timesheetRows.some(
-      (row) => row.task === "Leave Approved" && (row.hours?.[dayIndex] || 0) > 0
+      (row) => row.task === "Leave Approved" && Number(row.hours?.[dayIndex] || 0) > 0
     );
     return hasWork && !hasApprovedLeave ? 1.25 : 0;
   };
