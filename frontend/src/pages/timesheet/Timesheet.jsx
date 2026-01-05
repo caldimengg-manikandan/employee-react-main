@@ -63,7 +63,7 @@ const Timesheet = () => {
 
   const shiftTypes = [
     "First Shift",
-    "Secend Shift",
+    "Second Shift",
     "General Shift"
   ];
 

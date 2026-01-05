@@ -35,15 +35,33 @@ router.post("/request", auth, async (req, res) => {
       return res.status(404).json({ success: false, message: "Employee not found" });
     }
     const durationSecs = typeof workDurationSeconds === "number" ? workDurationSeconds : Math.round((outDt - inDt) / 1000);
-    const created = await AttendanceRegularizationRequest.create({
+    const startWindow = new Date(inDt.getFullYear(), inDt.getMonth(), inDt.getDate(), 0, 0, 0, 0);
+    const endWindow = new Date(inDt.getFullYear(), inDt.getMonth(), inDt.getDate(), 23, 59, 59, 999);
+    const existing = await AttendanceRegularizationRequest.findOne({
       employeeId: employee.employeeId,
-      employeeName: employee.name,
-      inTime: inDt,
-      outTime: outDt,
-      workDurationSeconds: durationSecs,
-      submittedBy: req.user._id
-    });
-    res.json({ success: true, request: created });
+      status: "Pending",
+      inTime: { $gte: startWindow, $lte: endWindow }
+    }).sort({ updatedAt: -1 });
+    if (existing) {
+      existing.inTime = inDt;
+      existing.outTime = outDt;
+      existing.workDurationSeconds = durationSecs;
+      existing.employeeName = employee.name;
+      existing.submittedBy = req.user._id;
+      existing.submittedAt = new Date();
+      await existing.save();
+      res.json({ success: true, request: existing });
+    } else {
+      const created = await AttendanceRegularizationRequest.create({
+        employeeId: employee.employeeId,
+        employeeName: employee.name,
+        inTime: inDt,
+        outTime: outDt,
+        workDurationSeconds: durationSecs,
+        submittedBy: req.user._id
+      });
+      res.json({ success: true, request: created });
+    }
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to create request", error: error.message });
   }
@@ -55,6 +73,26 @@ router.get("/list", auth, async (req, res) => {
     const query = {};
     if (status) query.status = status;
     
+    // PROJECT MANAGER FILTERING
+    if (req.user.role === 'projectmanager') {
+      const pmEmp = await Employee.findOne({ employeeId: req.user.employeeId });
+      if (!pmEmp) {
+        return res.json({ success: true, requests: [] });
+      }
+
+      const division = pmEmp.division;
+      const location = pmEmp.location;
+      
+      const empFilter = {};
+      if (division) empFilter.division = division;
+      if (location) empFilter.location = location;
+      
+      const authorizedEmployees = await Employee.find(empFilter).select('employeeId');
+      const authorizedEmpIds = authorizedEmployees.map(e => e.employeeId).filter(Boolean);
+      
+      query.employeeId = { $in: authorizedEmpIds };
+    }
+
     // Find requests
     const items = await AttendanceRegularizationRequest.find(query).sort({ createdAt: -1 }).limit(500);
     

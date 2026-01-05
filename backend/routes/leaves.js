@@ -811,6 +811,38 @@ router.get('/', auth, async (req, res) => {
     if (status && status !== 'all') filter.status = status;
     if (leaveType && leaveType !== 'all') filter.leaveType = leaveType;
     
+    // PROJECT MANAGER FILTERING
+    if (req.user.role === 'projectmanager') {
+      const pmEmp = await Employee.findOne({ employeeId: req.user.employeeId });
+      if (!pmEmp) {
+        // If Project Manager has no linked employee record, they shouldn't see any data
+        return res.json([]);
+      }
+      
+      // Find all employees in same division and location
+      const division = pmEmp.division;
+      const location = pmEmp.location;
+      
+      // Find employees with matching division and location
+      // Note: We use case-insensitive matching just in case
+      const empFilter = {};
+      if (division) empFilter.division = division;
+      if (location) empFilter.location = location;
+      
+      const authorizedEmployees = await Employee.find(empFilter).select('employeeId');
+      const authorizedEmpIds = authorizedEmployees.map(e => e.employeeId).filter(Boolean);
+      
+      // Restrict query to these employee IDs
+      if (filter.employeeId) {
+          // If specific employee requested, verify they are in the list
+          if (!authorizedEmpIds.includes(filter.employeeId)) {
+              return res.json([]); // Not authorized to view this employee
+          }
+      } else {
+          filter.employeeId = { $in: authorizedEmpIds };
+      }
+    }
+
     if (req.query.overlap === 'true' && startDate && endDate) {
       const sDate = new Date(startDate);
       const eDate = new Date(endDate);

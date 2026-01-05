@@ -20,6 +20,7 @@ const AttendanceRegularization = () => {
   const [outDate, setOutDate] = useState("");
   const [outTime, setOutTime] = useState("");
   const [modalError, setModalError] = useState("");
+  const [myRequestsByDate, setMyRequestsByDate] = useState({});
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
 
   const monthRange = useMemo(() => {
@@ -138,8 +139,59 @@ const AttendanceRegularization = () => {
 
   useEffect(() => {
     loadAttendance();
+    loadMyRequests();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [monthRange.startISO, monthRange.endISO]);
+
+  const loadMyRequests = async () => {
+    try {
+      const employeeId =
+        user.employeeId ||
+        user.employeeCode ||
+        user.empId ||
+        user.id ||
+        "";
+      const userId = user.id || user._id;
+
+      console.log("Loading requests for Employee ID:", employeeId);
+
+      const res = await attendanceApprovalAPI.list();
+      const list = Array.isArray(res.data?.requests) ? res.data.requests : [];
+      
+      console.log("All requests fetched:", list.length);
+
+      const mine = list.filter((r) => {
+        const matchesEmpId = String(r.employeeId) === String(employeeId);
+        const matchesSubmitted = userId && String(r.submittedBy) === String(userId);
+        return matchesEmpId || matchesSubmitted;
+      });
+      
+      console.log("My requests found:", mine.length);
+
+      const byDate = {};
+      for (const r of mine) {
+        // Convert ISO time to local YYYY-MM-DD to match the table rows
+        const d = new Date(r.inTime);
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        const dateKey = `${year}-${month}-${day}`;
+
+        const existing = byDate[dateKey];
+        const existingUpdated = existing ? new Date(existing.updatedAt || existing.reviewedAt || existing.submittedAt || existing.createdAt || 0).getTime() : -1;
+        const currentUpdated = new Date(r.updatedAt || r.reviewedAt || r.submittedAt || r.createdAt || 0).getTime();
+        
+        if (!existing || currentUpdated >= existingUpdated) {
+          byDate[dateKey] = r;
+        }
+      }
+      console.log("Mapped by date:", Object.keys(byDate));
+      setMyRequestsByDate(byDate);
+    } catch (err) {
+      console.error("Error loading my requests:", err);
+      setMyRequestsByDate({});
+    }
+  };
 
   const openEdit = (rec) => {
     setEditingRecord(rec);
@@ -253,6 +305,7 @@ const AttendanceRegularization = () => {
       });
       showSuccess("Request sent successfully");
       closeEdit();
+      await loadMyRequests();
     } catch (error) {
       console.error("Save error:", error);
       const msg = error.response?.data?.message || "Failed to save request";
@@ -328,6 +381,23 @@ const AttendanceRegularization = () => {
     },
     actionsCell: {
       textAlign: "right",
+    },
+    statusBadge: (status) => {
+      const colors = {
+        Pending: { bg: "#fff7ed", text: "#c05621" },
+        Approved: { bg: "#f0fdf4", text: "#15803d" },
+        Rejected: { bg: "#fef2f2", text: "#b91c1c" },
+      };
+      const c = colors[status] || { bg: "#f7fafc", text: "#4a5568" };
+      return {
+        backgroundColor: c.bg,
+        color: c.text,
+        padding: "4px 8px",
+        borderRadius: "9999px",
+        fontSize: "12px",
+        fontWeight: "600",
+        display: "inline-block",
+      };
     },
     editButton: {
       display: "inline-flex",
@@ -446,6 +516,7 @@ const AttendanceRegularization = () => {
               <th style={styles.th}>IN Time</th>
               <th style={styles.th}>OUT Time</th>
               <th style={styles.th}>Total Hours</th>
+              <th style={styles.th}>Request.Status</th>
               <th style={{ ...styles.th, textAlign: "right" }}>Action</th>
             </tr>
           </thead>
@@ -466,6 +537,15 @@ const AttendanceRegularization = () => {
                   <td style={styles.td}>{formatTime(rec.punchIn)}</td>
                   <td style={styles.td}>{formatTime(rec.punchOut)}</td>
                   <td style={styles.td}>{formatHours(rec.hours || 0)}</td>
+                  <td style={styles.td}>
+                    {myRequestsByDate[rec.date] ? (
+                      <span style={styles.statusBadge(myRequestsByDate[rec.date].status)}>
+                        {myRequestsByDate[rec.date].status}
+                      </span>
+                    ) : (
+                      "-"
+                    )}
+                  </td>
                   <td style={{ ...styles.td, ...styles.actionsCell }}>
                     <button style={styles.editButton} onClick={() => openEdit(rec)}>
                       <Edit size={14} /> Edit

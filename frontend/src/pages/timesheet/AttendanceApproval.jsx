@@ -6,7 +6,7 @@ import Notification from "../../components/Notifications/Notification";
 const AttendanceApproval = () => {
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState([]);
-  const [statusFilter, setStatusFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("Pending");
   const [updatingIds, setUpdatingIds] = useState([]);
   const [confirmAction, setConfirmAction] = useState(null);
   const { notification, showSuccess, showError, hideNotification } = useNotification();
@@ -18,7 +18,21 @@ const AttendanceApproval = () => {
         statusFilter ? { status: statusFilter } : undefined
       );
       const list = Array.isArray(res.data?.requests) ? res.data.requests : [];
-      setRequests(list);
+      const grouped = (() => {
+        const map = new Map();
+        for (const r of list) {
+          const dateKey = new Date(r.inTime).toISOString().split("T")[0];
+          const key = `${r.employeeId}|${dateKey}`;
+          const currentUpdated = new Date(r.updatedAt || r.reviewedAt || r.submittedAt || r.createdAt || 0).getTime();
+          const existing = map.get(key);
+          const existingUpdated = existing ? new Date(existing.updatedAt || existing.reviewedAt || existing.submittedAt || existing.createdAt || 0).getTime() : -1;
+          if (!existing || currentUpdated >= existingUpdated) {
+            map.set(key, r);
+          }
+        }
+        return Array.from(map.values());
+      })();
+      setRequests(grouped);
     } catch (error) {
       setRequests([]);
       const msg = error.response?.data?.message || "Failed to load requests";

@@ -355,7 +355,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         "Project Allocation",
         "Leave Applications",
         "Policy Portal",
-        "Salary Slips"
+        "Salary Slips",
+        "Leave Management",
+        "Attendance Approval"
       ];
       return allowedModules.includes(item.name);
     }
