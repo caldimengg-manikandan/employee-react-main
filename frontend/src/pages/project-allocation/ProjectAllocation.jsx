@@ -17,7 +17,7 @@ const ProjectAllocation = () => {
   const [activeTab, setActiveTab] = useState(isProjectManager ? 'projects' : 'myAllocations');
   const [selectedLocation, setSelectedLocation] = useState('All');
   const [branches] = useState(['Hosur', 'Chennai', 'Outside Det.']);
-  const [divisions] = useState(['SDS', 'TEKLA', 'DAS(Software)', 'Mechanical']);
+  const [divisions] = useState(['SDS', 'TEKLA', 'DAS(Software)', 'Mechanical', "Electrical"]);
   const [roles] = useState(['Modeler', 'Editor', 'Backdrafting', 'Checker', 'Estimator', 'Documentation', 'Project Lead']);
   const [statuses] = useState(['Active', 'Completed']);
 
@@ -342,6 +342,7 @@ const ProjectAllocation = () => {
     else if (d.includes('TEK')) prefix = 'CDE-TEK';
     else if (d.includes('DAS')) prefix = 'CDE-DAS';
     else if (d.includes('MEC') || d.includes('MECHANICAL')) prefix = 'CDE-MEC';
+    else if (d.includes('ELEC')) prefix = 'CDE-ELEC';
 
     const existingCodes = projects
       .filter(p => p.division === division)

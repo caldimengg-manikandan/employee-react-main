@@ -277,7 +277,9 @@ const ProjectDashboard = () => {
                     'Leave Applications',
                     'Policy',
                     'Policy Portal',
-                    'Salary Slips'
+                    'Salary Slips',
+                    'Leave Summary',
+                    'Attendance Approval'
                 ];
                 return pmAllowed.includes(m.name);
             }

@@ -117,7 +117,7 @@ function App() {
             <Route
               path="timesheet/attendance-approval"
               element={
-                <ProtectedRoute requiredPermissions={["attendance_access"]} roles={["admin", "hr", "manager"]}>
+                <ProtectedRoute requiredPermissions={["attendance_access"]} roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
                   <AttendanceApproval />
                 </ProtectedRoute>
               }
@@ -135,7 +135,7 @@ function App() {
             <Route 
               path="admin/timesheet/approval"
               element={
-                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin", "projectmanager", "project_manager"]}>
+                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin"]}>
                   <TimesheetSummary />
                 </ProtectedRoute>
               }
@@ -265,7 +265,7 @@ function App() {
               element={
                 <ProtectedRoute 
                   requiredPermissions={["leave_view"]} 
-                  roles={["admin", "hr", "manager"]}
+                  roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}
                 >
                   <LeaveSummary />
                 </ProtectedRoute>
@@ -435,8 +435,6 @@ function App() {
         </Routes>
       </div>
     </Router>
-    
   );
 }
-
 export default App;

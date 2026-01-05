@@ -64,8 +64,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Leave Applications": ClipboardDocumentCheckIcon,
     "Salary Slips": BanknotesIcon,
     "Admin Timesheet": ClockIcon,
-    "Insurance": ShieldCheckIcon,
-    "Policy Portal": DocumentIcon,
+    "licy Portal": DocumentIcon,
     "Edit Leave Eligibility": AdjustmentsHorizontalIcon,
     "Leave Summary": ChartBarIcon,
     "Leave Balance": ClipboardDocumentListIcon,
@@ -155,6 +154,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Leave Management"),
       permission: "leave_access",
       allowEmployeeRole: false,
+      showForRoles: ["admin", "hr", "manager"],
       children: [
         { 
           name: "Leave Summary", 
@@ -169,6 +169,14 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
           allowEmployeeRole: true
         }
       ],
+    },
+    // PROJECT MANAGER: LEAVE SUMMARY (Top Level)
+    { 
+      name: "Leave Summary", 
+      path: "/leave-management/summary",
+      permission: "leave_view",
+      icon: getIconForMenu("Leave Summary"),
+      showForRoles: ["projectmanager", "project_manager"]
     },
     // LEAVE APPLICATIONS
     {
@@ -356,7 +364,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         "Leave Applications",
         "Policy Portal",
         "Salary Slips",
-        "Leave Management",
+        "Leave Summary",
         "Attendance Approval"
       ];
       return allowedModules.includes(item.name);
@@ -458,6 +466,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Timesheet": <DocumentTextIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Timesheet History": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Admin Timesheet": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Admin Timesheet Management": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Timesheet Summary": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Leave Summary": <ChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Leave Balance": <ClipboardDocumentListIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
