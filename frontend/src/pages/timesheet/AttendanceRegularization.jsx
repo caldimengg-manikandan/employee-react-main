@@ -91,7 +91,42 @@ const AttendanceRegularization = () => {
         _t: Date.now(),
       });
       const recs = Array.isArray(res.data?.records) ? res.data.records : [];
-      setRecords(recs);
+      
+      // Generate all days for the month
+      const start = new Date(Date.UTC(month.getFullYear(), month.getMonth(), 1));
+      const end = new Date(Date.UTC(month.getFullYear(), month.getMonth() + 1, 0));
+      
+      // If viewing current month, stop at today
+      const now = new Date();
+      const isCurrentMonth = now.getFullYear() === month.getFullYear() && now.getMonth() === month.getMonth();
+      let finalEnd = end;
+      
+      if (isCurrentMonth) {
+        const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+        if (todayUTC < end) {
+          finalEnd = todayUTC;
+        }
+      }
+
+      const allDays = [];
+      const current = new Date(start);
+      while (current <= finalEnd) {
+        allDays.push(current.toISOString().split("T")[0]);
+        current.setUTCDate(current.getUTCDate() + 1);
+      }
+
+      // Merge records with all days
+      const fullRecords = allDays.map(dateKey => {
+        const found = recs.find(r => r.date === dateKey);
+        return found || {
+          date: dateKey,
+          punchIn: null,
+          punchOut: null,
+          hours: 0
+        };
+      });
+
+      setRecords(fullRecords);
       setWeeklyHours(Number(res.data?.weeklyHours || 0));
     } catch {
       setRecords([]);
