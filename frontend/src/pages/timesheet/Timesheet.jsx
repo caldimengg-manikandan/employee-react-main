@@ -441,104 +441,87 @@ const Timesheet = () => {
   }, [timesheetRows, currentWeek]);
 
   // Load allocated projects for the logged-in employee
-  useEffect(() => {
-    const loadAllocatedProjects = async () => {
-      try {
-        // Use Promise.allSettled to ensure failure in getMyProfile doesn't block loading allocations
-        const [meResult, allocResult] = await Promise.allSettled([
-          employeeAPI.getMyProfile(),
-          allocationAPI.getAllAllocations()
-        ]);
-
-        const me = meResult.status === 'fulfilled' ? meResult.value?.data || {} : {};
-        const allocations = allocResult.status === 'fulfilled' && Array.isArray(allocResult.value?.data) 
-          ? allocResult.value.data 
-          : [];
-
-        if (meResult.status === 'rejected') {
-          console.warn("Could not fetch profile, falling back to session data for matching:", meResult.reason);
+  const loadAllocatedProjects = useCallback(async () => {
+    try {
+      const [meResult, allocResult] = await Promise.allSettled([
+        employeeAPI.getMyProfile(),
+        allocationAPI.getAllAllocations()
+      ]);
+      const me = meResult.status === 'fulfilled' ? meResult.value?.data || {} : {};
+      const allocations = allocResult.status === 'fulfilled' && Array.isArray(allocResult.value?.data) 
+        ? allocResult.value.data 
+        : [];
+      const weekDates = getWeekDates();
+      const weekStart = new Date(weekDates[0]);
+      const weekEnd = new Date(weekDates[6]);
+      weekEnd.setHours(23, 59, 59, 999);
+      const inSelectedWeek = (alloc) => {
+        try {
+          if (!alloc.startDate || !alloc.endDate) return true;
+          const parseDate = (dateStr) => {
+            if (!dateStr) return null;
+            const parts = String(dateStr).split("T")[0].split("-");
+            if (parts.length !== 3) return new Date(dateStr);
+            return new Date(parts[0], parts[1] - 1, parts[2]);
+          };
+          const sd = parseDate(alloc.startDate);
+          const ed = parseDate(alloc.endDate);
+          if (!sd || !ed || isNaN(sd.getTime()) || isNaN(ed.getTime())) return true;
+          if (sd > ed) return true;
+          const ws = new Date(weekStart);
+          ws.setHours(0, 0, 0, 0);
+          const we = new Date(weekEnd);
+          we.setHours(23, 59, 59, 999);
+          return sd <= we && ed >= ws;
+        } catch (_) {
+          return true;
         }
-        if (allocResult.status === 'rejected') {
-          console.error("Could not fetch allocations:", allocResult.reason);
+      };
+      const normalizeId = (id) => String(id || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+      const userSession = JSON.parse(sessionStorage.getItem("user") || "{}");
+      const empId = normalizeId(me.employeeId || userSession.employeeId);
+      const empMongoId = String(me._id || "").trim();
+      const empName = String(me.name || userSession.name || "").trim().toLowerCase();
+      const mineByMatch = allocations.filter(a => {
+        const code = normalizeId(a.employeeCode);
+        const eid = String(a.employeeId || "").trim();
+        const ename = String(a.employeeName || "").trim().toLowerCase();
+        const matchesEmployee =
+          (code && empId && code === empId) ||
+          (eid && empMongoId && eid === empMongoId) ||
+          (ename && empName && ename === empName);
+        const statusVal = String(a.status || "").trim().toLowerCase();
+        const statusAllowed = statusVal === "active" || statusVal === "completed";
+        return matchesEmployee && statusAllowed;
+      });
+      const mineWeek = mineByMatch.filter(inSelectedWeek);
+      const mine = mineWeek.length ? mineWeek : mineByMatch;
+      const unique = [];
+      const seen = new Set();
+      for (const a of mine) {
+        const key = `${a.projectName}|${a.projectCode}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          unique.push({ name: a.projectName, code: a.projectCode });
         }
-
-        const weekDates = getWeekDates();
-        const weekStart = new Date(weekDates[0]);
-        const weekEnd = new Date(weekDates[6]);
-        weekEnd.setHours(23, 59, 59, 999);
-
-        const inSelectedWeek = (alloc) => {
-          try {
-            if (!alloc.startDate || !alloc.endDate) return true;
-            
-            // robust date parsing to avoid timezone issues
-            const parseDate = (dateStr) => {
-              if (!dateStr) return null;
-              const parts = String(dateStr).split("T")[0].split("-");
-              if (parts.length !== 3) return new Date(dateStr);
-              return new Date(parts[0], parts[1] - 1, parts[2]); // Local midnight
-            };
-
-            const sd = parseDate(alloc.startDate);
-            const ed = parseDate(alloc.endDate);
-            
-            if (!sd || !ed || isNaN(sd.getTime()) || isNaN(ed.getTime())) return true;
-            if (sd > ed) return true;
-
-            // Normalize week boundaries to local midnight for comparison
-            const ws = new Date(weekStart);
-            ws.setHours(0, 0, 0, 0);
-            
-            const we = new Date(weekEnd);
-            we.setHours(23, 59, 59, 999);
-
-            return sd <= we && ed >= ws;
-          } catch (_) {
-            return true;
-          }
-        };
-
-        const normalizeId = (id) => String(id || "").replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-
-        const userSession = JSON.parse(sessionStorage.getItem("user") || "{}");
-        // Normalize employee ID for comparison (removes spaces, special chars, and lowercases)
-        const empId = normalizeId(me.employeeId || userSession.employeeId);
-        const empMongoId = String(me._id || "").trim();
-        const empName = String(me.name || userSession.name || "").trim().toLowerCase();
-
-        const mineByMatch = allocations.filter(a => {
-          const code = normalizeId(a.employeeCode);
-          const eid = String(a.employeeId || "").trim();
-          const ename = String(a.employeeName || "").trim().toLowerCase();
-          const matchesEmployee =
-            (code && empId && code === empId) ||
-            (eid && empMongoId && eid === empMongoId) ||
-            (ename && empName && ename === empName);
-          const statusVal = String(a.status || "").trim().toLowerCase();
-          const statusAllowed = statusVal === "active" || statusVal === "completed";
-          return matchesEmployee && statusAllowed;
-        });
-        const mineWeek = mineByMatch.filter(inSelectedWeek);
-        const mine = mineWeek.length ? mineWeek : mineByMatch;
-
-        const unique = [];
-        const seen = new Set();
-        for (const a of mine) {
-          const key = `${a.projectName}|${a.projectCode}`;
-          if (!seen.has(key)) {
-            seen.add(key);
-            unique.push({ name: a.projectName, code: a.projectCode });
-          }
-        }
-
-        setProjects(unique);
-      } catch (error) {
-        console.error("❌ Error loading allocated projects:", error);
-        setProjects([]);
       }
-    };
-    loadAllocatedProjects();
+      setProjects(unique);
+    } catch (error) {
+      setProjects([]);
+    }
   }, [currentWeek]);
+
+  useEffect(() => {
+    loadAllocatedProjects();
+  }, [loadAllocatedProjects]);
+
+  useEffect(() => {
+    const handler = () => { loadAllocatedProjects(); };
+    window.addEventListener('project-allocations-updated', handler);
+    return () => {
+      window.removeEventListener('project-allocations-updated', handler);
+    };
+  }, [loadAllocatedProjects]);
 
   // ✅ Save draft to sessionStorage
   const saveDraftToSession = () => {
@@ -1506,8 +1489,9 @@ const Timesheet = () => {
           <div className="flex flex-wrap justify-center gap-3 w-full md:w-auto">
             <button
               onClick={addProjectRow}
-              disabled={isLeaveAutoDraft}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isLeaveAutoDraft ? "bg-gray-400 cursor-not-allowed text-white" : "bg-blue-700 hover:bg-blue-800 text-white"}`}
+              disabled={isLeaveAutoDraft || isSubmitted}
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isLeaveAutoDraft || isSubmitted ? "bg-gray-400 cursor-not-allowed text-white" : "bg-blue-700 hover:bg-blue-800 text-white"}`}
+              title={isSubmitted ? "Timesheet already submitted" : "Add Project Row"}
             >
               <Plus className="w-4 h-4" />
               ADD PROJECT

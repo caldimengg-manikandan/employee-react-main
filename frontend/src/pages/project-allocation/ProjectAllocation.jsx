@@ -216,18 +216,34 @@ const ProjectAllocation = () => {
   };
 
   // Get unique values for filter options
-  const getUniqueProjectCodes = () => {
-    return [...new Set(projects.map(p => p.code))].filter(Boolean);
+  const getUniqueProjectCodes = (divisionFilters = []) => {
+    let filteredProjects = projects;
+    
+    if (divisionFilters && divisionFilters.length > 0) {
+      filteredProjects = filteredProjects.filter(p => divisionFilters.includes(p.division));
+    }
+    return [...new Set(filteredProjects.map(p => p.code))].filter(Boolean);
   };
 
-  const getUniqueProjectNames = () => {
-    return [...new Set(projects.map(p => p.name))]
+  const getUniqueProjectNames = (divisionFilters = []) => {
+    let filteredProjects = projects;
+    
+    if (divisionFilters && divisionFilters.length > 0) {
+      filteredProjects = filteredProjects.filter(p => divisionFilters.includes(p.division));
+    }
+
+    return [...new Set(filteredProjects.map(p => p.name))]
       .filter(Boolean)
       .sort((a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base' }));
   };
 
-  const getUniqueEmployeeIds = () => {
-    return [...new Set(allocations.map(a => a.employeeCode))]
+  const getUniqueEmployeeIds = (divisionFilters = []) => {
+    let filteredAllocations = allocations;
+    
+    if (divisionFilters && divisionFilters.length > 0) {
+      filteredAllocations = filteredAllocations.filter(a => divisionFilters.includes(a.projectDivision || a.division));
+    }
+    return [...new Set(filteredAllocations.map(a => a.employeeCode))]
       .filter(Boolean)
       .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
   };
@@ -579,6 +595,7 @@ const ProjectAllocation = () => {
         await projectAPI.createProject(payload);
       }
       await refreshData();
+      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) {}
       closeProjectModal();
     } catch (e) {
       setMessageModal({ isOpen: true, title: 'Error', message: e?.response?.data?.error || 'Failed to save project' });
@@ -751,6 +768,7 @@ const ProjectAllocation = () => {
         await allocationAPI.createAllocation(payload);
       }
       await refreshData();
+      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) {}
       closeAllocationModal();
     } catch (e) {
       setMessageModal({ isOpen: true, title: 'Error', message: e?.response?.data?.error || 'Failed to save allocation' });
@@ -773,6 +791,7 @@ const ProjectAllocation = () => {
       setAllocations(prev => prev.filter(a => a._id !== allocationId));
       setDeleteAllocationModal({ isOpen: false, allocationId: null });
       setSuccessModal({ isOpen: true, message: 'Allocation deleted.' });
+      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) {}
     } catch (e) {
       alert(e?.response?.data?.error || 'Failed to delete allocation');
       setDeleteAllocationModal({ isOpen: false, allocationId: null });
@@ -979,7 +998,7 @@ const ProjectAllocation = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <MultiSelectDropdown
                       label="Project Code"
-                      options={getUniqueProjectCodes()}
+                      options={getUniqueProjectCodes(projectFilters.division)}
                       selectedValues={projectFilters.projectCode}
                       onChange={(value) => handleProjectFilterChange('projectCode', value)}
                       onSelectAll={(options) => selectAllProjectFilters('projectCode', options)}
@@ -994,7 +1013,7 @@ const ProjectAllocation = () => {
 
                     <MultiSelectDropdown
                       label="Project Name"
-                      options={getUniqueProjectNames()}
+                      options={getUniqueProjectNames(projectFilters.division)}
                       selectedValues={projectFilters.projectName}
                       onChange={(value) => handleProjectFilterChange('projectName', value)}
                       onSelectAll={(options) => selectAllProjectFilters('projectName', options)}
@@ -1054,7 +1073,7 @@ const ProjectAllocation = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                     <MultiSelectDropdown
                       label="Project Code"
-                      options={getUniqueProjectCodes()}
+                      options={getUniqueProjectCodes(allocationFilters.division)}
                       selectedValues={allocationFilters.projectCode}
                       onChange={(value) => handleAllocationFilterChange('projectCode', value)}
                       onSelectAll={(options) => selectAllAllocationFilters('projectCode', options)}
@@ -1069,7 +1088,7 @@ const ProjectAllocation = () => {
 
                     <MultiSelectDropdown
                       label="Project Name"
-                      options={getUniqueProjectNames()}
+                      options={getUniqueProjectNames(allocationFilters.division)}
                       selectedValues={allocationFilters.projectName}
                       onChange={(value) => handleAllocationFilterChange('projectName', value)}
                       onSelectAll={(options) => selectAllAllocationFilters('projectName', options)}
@@ -1083,7 +1102,7 @@ const ProjectAllocation = () => {
 
                     <MultiSelectDropdown
                       label="Employee ID"
-                      options={getUniqueEmployeeIds()}
+                      options={getUniqueEmployeeIds(allocationFilters.division)}
                       selectedValues={allocationFilters.employeeId}
                       onChange={(value) => handleAllocationFilterChange('employeeId', value)}
                       onSelectAll={(options) => selectAllAllocationFilters('employeeId', options)}
@@ -1601,7 +1620,8 @@ const ProjectAllocation = () => {
                     <select 
                       value={projectForm.division} 
                       onChange={(e) => setProjectForm(prev => ({ ...prev, division: e.target.value }))} 
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className={`w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${editingProject ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      disabled={!!editingProject}
                     >
                       <option value="">Select Division</option>
                       {divisions.map(division => (
@@ -1679,7 +1699,8 @@ const ProjectAllocation = () => {
                     <select 
                       value={allocationForm.division} 
                       onChange={(e) => setAllocationForm(prev => ({ ...prev, division: e.target.value, projectName: '', employeeName: '', employeeId: '' }))} 
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className={`w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${editingAllocation ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      disabled={!!editingAllocation}
                     >
                       <option value="">Select Division</option>
                       {divisions.map(division => (
