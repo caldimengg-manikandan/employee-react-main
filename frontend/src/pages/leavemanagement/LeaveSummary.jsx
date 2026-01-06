@@ -47,6 +47,7 @@ const LeaveSummary = () => {
   const statusOptions = ['Approved', 'Pending', 'Rejected'];
 
   const [leaveApplications, setLeaveApplications] = useState([]);
+  const [actionLoading, setActionLoading] = useState({});
 
   const loadLeaves = async () => {
     try {
@@ -175,18 +176,34 @@ const LeaveSummary = () => {
   // Handle approve/reject actions
   const handleApprove = async (id) => {
     try {
+      setActionLoading(prev => ({ ...prev, [id]: 'approve' }));
       const res = await leaveAPI.updateStatus(id, 'Approved');
       const updated = res.data;
       setLeaveApplications(prev => prev.map(a => a.id === id ? { ...a, status: updated.status } : a));
-    } catch { }
+    } catch { 
+    } finally {
+      setActionLoading(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
   };
 
   const handleReject = async (id) => {
     try {
+      setActionLoading(prev => ({ ...prev, [id]: 'reject' }));
       const res = await leaveAPI.updateStatus(id, 'Rejected');
       const updated = res.data;
       setLeaveApplications(prev => prev.map(a => a.id === id ? { ...a, status: updated.status } : a));
-    } catch { }
+    } catch { 
+    } finally {
+      setActionLoading(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }
   };
 
   // Handle Excel download
@@ -408,6 +425,15 @@ const LeaveSummary = () => {
     color: '#2c3e50',
     borderLeft: '4px solid #3498db'
   };
+ 
+  const Spinner = ({ color = '#fff' }) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" style={{ display: 'inline-block' }}>
+      <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="3" fill="none" opacity="0.25" />
+      <path d="M12 2 A10 10 0 0 1 22 12" stroke={color} strokeWidth="3" fill="none">
+        <animateTransform attributeName="transform" type="rotate" from="0 12 12" to="360 12 12" dur="0.8s" repeatCount="indefinite" />
+      </path>
+    </svg>
+  );
 
   const filterHeaderStyle = {
     display: 'flex',
@@ -663,20 +689,36 @@ const LeaveSummary = () => {
                       {app.status === 'Pending' && (
                         <div>
                           <button
-                            style={approveButtonStyle}
+                            style={{
+                              ...approveButtonStyle,
+                              opacity: actionLoading[app.id] ? 0.8 : 1,
+                              cursor: actionLoading[app.id] ? 'wait' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}
+                            disabled={!!actionLoading[app.id]}
                             onClick={() => handleApprove(app.id)}
                             onMouseOver={(e) => e.target.style.backgroundColor = '#219653'}
                             onMouseOut={(e) => e.target.style.backgroundColor = '#27ae60'}
                           >
-                            Approve
+                            {actionLoading[app.id] === 'approve' ? (<><Spinner /><span>Approving...</span></>) : 'Approve'}
                           </button>
                           <button
-                            style={rejectButtonStyle}
+                            style={{
+                              ...rejectButtonStyle,
+                              opacity: actionLoading[app.id] ? 0.8 : 1,
+                              cursor: actionLoading[app.id] ? 'wait' : 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}
+                            disabled={!!actionLoading[app.id]}
                             onClick={() => handleReject(app.id)}
                             onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
                             onMouseOut={(e) => e.target.style.backgroundColor = '#e74c3c'}
                           >
-                            Reject
+                            {actionLoading[app.id] === 'reject' ? (<><Spinner /><span>Rejecting...</span></>) : 'Reject'}
                           </button>
                         </div>
                       )}
