@@ -480,33 +480,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       updatedData.highestQualification = newValue;
     }
 
-    // Auto-calculate current experience when date of joining changes
-    if (field === 'dateOfJoining' && value) {
-      const joiningDate = new Date(value);
-      const today = new Date();
-      const experienceInMilliseconds = today - joiningDate;
-      const experienceInYears = experienceInMilliseconds / (1000 * 60 * 60 * 24 * 365.25);
-      
-      if (experienceInYears > 0) {
-        const years = Math.floor(experienceInYears);
-        const months = Math.floor((experienceInYears - years) * 12);
-        let experienceText = '';
-        
-        if (years > 0) {
-          experienceText += `${years} year${years > 1 ? 's' : ''}`;
-        }
-        if (months > 0) {
-          experienceText += `${years > 0 ? ' ' : ''}${months} month${months > 1 ? 's' : ''}`;
-        }
-        if (!experienceText) {
-          experienceText = 'Less than 1 month';
-        }
-        
-        updatedData.currentExperience = experienceText;
-      } else {
-        updatedData.currentExperience = '0 years';
-      }
-    }
+    
 
     // Update marital status in state when formData changes
     if (field === 'maritalStatus') {
@@ -1200,19 +1174,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Current Experience
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.currentExperience}
-                    readOnly
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm"
-                    placeholder="Auto-calculated from date of joining"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">Calculated based on date of joining</p>
-                </div>
+             
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">

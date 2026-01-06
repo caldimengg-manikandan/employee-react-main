@@ -216,7 +216,7 @@ const AttendanceApproval = () => {
               <div style={styles.modalTitle}>
                 {confirmAction.type === "approve" ? "Confirm Approval" : "Confirm Rejection"}
               </div>
-              <button style={styles.btnSecondary} onClick={() => setConfirmAction(null)}>Close</button>
+              
             </div>
             <div style={styles.modalBody}>
               {confirmAction.type === "approve" ? "Are you sure you want to approve this request?" : "Are you sure you want to reject this request?"}

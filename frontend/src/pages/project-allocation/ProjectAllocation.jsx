@@ -1184,7 +1184,7 @@ const ProjectAllocation = () => {
                         {hasActiveProjectFilters && <span className="ml-2 text-green-600">• With active filters</span>}
                       </p>
                     </div>
-                    {hasActiveProjectFilters && (
+                    {/* {hasActiveProjectFilters && (
                       <button
                         onClick={clearProjectFilters}
                         className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors flex items-center gap-1"
@@ -1192,7 +1192,7 @@ const ProjectAllocation = () => {
                         <X size={14} />
                         Clear Filters
                       </button>
-                    )}
+                    )} */}
                   </div>
                 </div>
 
@@ -1298,7 +1298,7 @@ const ProjectAllocation = () => {
                         {hasActiveAllocationFilters && <span className="ml-2 text-green-600">• With active filters</span>}
                       </p>
                     </div>
-                    {hasActiveAllocationFilters && (
+                    {/* {hasActiveAllocationFilters && (
                       <button
                         onClick={clearAllocationFilters}
                         className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors flex items-center gap-1"
@@ -1306,7 +1306,7 @@ const ProjectAllocation = () => {
                         <X size={14} />
                         Clear Filters
                       </button>
-                    )}
+                    )} */}
                   </div>
                 </div>
 

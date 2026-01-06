@@ -12,6 +12,9 @@ import {
 } from '@heroicons/react/24/outline';
 import { employeeAPI } from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import useNotification from '../hooks/useNotification';
+import Notification from '../components/Notifications/Notification';
+import Modal from '../components/Modals/Modal';
 
 const MyProfile = () => {
   const navigate = useNavigate();
@@ -79,6 +82,9 @@ const MyProfile = () => {
   const [employeeDoc, setEmployeeDoc] = useState(null);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(true);
+  const [allowSubmit, setAllowSubmit] = useState(false);
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
 
   // Populate form data
   useEffect(() => {
@@ -256,10 +262,10 @@ const MyProfile = () => {
       newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
     }
     if (field === 'name') {
-      newValue = String(newValue || '').toUpperCase().replace(/[^A-Za-z\s]/g, '');
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Za-z\s]/g, '').slice(0, 25);
     }
     if (field === 'qualification') {
-      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z\s()./&-]/g, '');
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z\s()./&-]/g, '').slice(0, 10);
     }
     if (field === 'contactNumber' || field === 'spouseContact' || field === 'emergencyContact') {
       newValue = String(newValue || '').replace(/\D/g, '');
@@ -275,6 +281,12 @@ const MyProfile = () => {
     }
     if (field === 'aadhaar') {
       newValue = String(newValue || '').replace(/\D/g, '').slice(0, 12);
+    }
+    if (field === 'email') {
+      newValue = String(newValue || '').slice(0, 40);
+    }
+    if (field === 'uan') {
+      newValue = String(newValue || '').slice(0, 12);
     }
     const updatedData = {
       ...formData,
@@ -316,8 +328,15 @@ const MyProfile = () => {
   };
 
   const handleOrganizationChange = (index, field, value) => {
+    let newValue = value;
+    if (field === 'organization') {
+      newValue = String(newValue || '').slice(0, 50);
+    }
+    if (field === 'designation') {
+      newValue = String(newValue || '').slice(0, 50);
+    }
     const updatedOrganizations = [...organizations];
-    updatedOrganizations[index][field] = value;
+    updatedOrganizations[index][field] = newValue;
     setOrganizations(updatedOrganizations);
   };
 
@@ -352,9 +371,16 @@ const MyProfile = () => {
 
   const handleProfileSubmit = async (e) => {
     e.preventDefault();
+    if (!allowSubmit) {
+      return;
+    }
     const finalData = {
       ...formData,
+      // Ensure compatibility with different backend field names by including aliases
+      name: formData.name,
+      employeename: formData.name,
       qualification: formData.qualification,
+      highestQualification: formData.qualification,
       previousOrganizations: organizations
     };
     try {
@@ -377,7 +403,8 @@ const MyProfile = () => {
       };
       sessionStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
-      alert('Profile updated successfully!');
+      showSuccess('Profile updated successfully!');
+      setSaveModalOpen(true);
       
       // Refresh the employee data
       try {
@@ -388,8 +415,9 @@ const MyProfile = () => {
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert('Failed to update profile. Please try again.');
+      showError('Failed to update profile. Please try again.');
     }
+    setAllowSubmit(false);
   };
 
   // Options for dropdowns
@@ -523,8 +551,6 @@ const MyProfile = () => {
       }
       e.pan = validateField('pan', formData.pan);
       e.aadhaar = validateField('aadhaar', formData.aadhaar);
-      if (!formData.passportNumber) e.passportNumber = 'Passport is required';
-      if (!formData.uan) e.uan = 'UAN is required';
     }
     if (step === 2) {
       if (!formData.designation) e.designation = 'Designation is required';
@@ -613,6 +639,7 @@ const MyProfile = () => {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto">
        
@@ -649,7 +676,8 @@ const MyProfile = () => {
                         onChange={(e) => handleInputChange('employeeId', e.target.value)}
                         required
                         maxLength={6}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.employeeId ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed ${errors.employeeId ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                         placeholder="EMP001"
                       />
                       {errors.employeeId && <p className="text-xs text-red-600 mt-1">{errors.employeeId}</p>}
@@ -664,6 +692,7 @@ const MyProfile = () => {
                         value={formData.name}
                         onChange={(e) => handleInputChange('name', e.target.value.toUpperCase())}
                         required
+                        maxLength={25}
                         className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm uppercase ${errors.name ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                         placeholder="JOHN DOE"
                       />
@@ -678,7 +707,7 @@ const MyProfile = () => {
                         value={formData.gender}
                         onChange={(e) => handleInputChange('gender', e.target.value)}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.gender ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                       >
                         {genderOptions.map(option => (
                           <option key={option.value} value={option.value}>
@@ -697,6 +726,7 @@ const MyProfile = () => {
                         value={formData.dateOfBirth}
                         onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
                         required
+                        max={new Date().toISOString().split('T')[0]}
                         className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.dateOfBirth ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                       />
                       {errors.dateOfBirth && <p className="text-xs text-red-600 mt-1">{errors.dateOfBirth}</p>}
@@ -747,6 +777,7 @@ const MyProfile = () => {
                         value={formData.qualification}
                         onChange={(e) => handleInputChange('qualification', e.target.value)}
                         required
+                        maxLength={10}
                         className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.qualification ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                         placeholder="Highest Qualification"
                       />
@@ -819,6 +850,7 @@ const MyProfile = () => {
                         value={formData.email}
                         onChange={(e) => handleInputChange('email', e.target.value)}
                         required
+                        maxLength={40}
                         className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.email ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                         placeholder="john.doe@example.com"
                       />
@@ -862,7 +894,7 @@ const MyProfile = () => {
                         value={formData.nationality}
                         onChange={(e) => handleInputChange('nationality', e.target.value)}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-500 focus:border-green-500 focus:outline-none text-sm"
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.nationality ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                       >
                         {nationalityOptions.map(option => (
                           <option key={option.value} value={option.value}>
@@ -1081,13 +1113,12 @@ const MyProfile = () => {
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Passport Number <span className="text-red-600">*</span>
+                        Passport Number
                       </label>
                       <input
                         type="text"
                         value={formData.passportNumber}
                         onChange={(e) => handleInputChange('passportNumber', e.target.value.toUpperCase())}
-                        required
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-none text-sm"
                         placeholder="Passport number"
                       />
@@ -1095,14 +1126,14 @@ const MyProfile = () => {
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        UAN Number <span className="text-red-600">*</span>
+                        UAN Number
                       </label>
                       <input
                         type="text"
                         value={formData.uan}
                         onChange={(e) => handleInputChange('uan', e.target.value)}
-                        required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-amber-500 focus:border-amber-500 focus:outline-none text-sm"
+                        maxLength={12}
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.uan ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-amber-500 focus:border-amber-500'}`}
                         placeholder="101147215588"
                       />
                     </div>
@@ -1130,7 +1161,8 @@ const MyProfile = () => {
                         value={formData.designation}
                         onChange={(e) => handleInputChange('designation', e.target.value)}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
                       >
                         {designationOptions.map(option => (
                           <option key={option.value} value={option.value}>
@@ -1148,7 +1180,8 @@ const MyProfile = () => {
                         value={formData.division}
                         onChange={(e) => handleInputChange('division', e.target.value)}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
                       >
                         {divisionOptions.map(option => (
                           <option key={option.value} value={option.value}>
@@ -1167,11 +1200,12 @@ const MyProfile = () => {
                         value={formData.dateOfJoining}
                         onChange={(e) => handleInputChange('dateOfJoining', e.target.value)}
                         required
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
                       />
                     </div>
 
-                    <div>
+                    {/* <div>
                       <label className="block text-sm text-gray-700 mb-1">
                         Current Experience
                       </label>
@@ -1181,7 +1215,7 @@ const MyProfile = () => {
                         readOnly
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm"
                       />
-                    </div>
+                    </div> */}
                   </div>
                 </div>
 
@@ -1219,6 +1253,7 @@ const MyProfile = () => {
                             type="text"
                             value={org.organization}
                             onChange={(e) => handleOrganizationChange(index, 'organization', e.target.value)}
+                            maxLength={50}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm"
                             placeholder="Previous company"
                           />
@@ -1231,6 +1266,7 @@ const MyProfile = () => {
                             type="text"
                             value={org.designation}
                             onChange={(e) => handleOrganizationChange(index, 'designation', e.target.value)}
+                            maxLength={50}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm"
                             placeholder="Role held"
                           />
@@ -1305,7 +1341,8 @@ const MyProfile = () => {
                         value={formData.bankAccount}
                         onChange={(e) => handleInputChange('bankAccount', e.target.value)}
                         required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.bankAccount ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed ${errors.bankAccount ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
                         placeholder="Account number"
                       />
                       {errors.bankAccount && <p className="text-xs text-red-600 mt-1">{errors.bankAccount}</p>}
@@ -1366,6 +1403,7 @@ const MyProfile = () => {
               ) : (
                 <button
                   type="submit"
+                  onClick={() => setAllowSubmit(true)}
                   className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors shadow-sm"
                 >
                   Save Profile
@@ -1376,6 +1414,39 @@ const MyProfile = () => {
         </div>
       </div>
     </div>
+    <Notification
+      message={notification.message}
+      type={notification.type}
+      isVisible={notification.isVisible}
+      onClose={hideNotification}
+    />
+    <Modal
+      isOpen={saveModalOpen}
+      onClose={() => setSaveModalOpen(false)}
+      title="Profile Saved"
+      size="sm"
+      zIndex={60}
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-gray-700">
+          Profile updated successfully!
+        </p>
+        <div className="flex justify-end">
+          <button
+            onClick={() => {
+              setSaveModalOpen(false);
+              setCurrentStep(1);
+              window.scrollTo(0, 0);
+              navigate('/my-profile');
+            }}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </Modal>
+    </>
   );
 };
 

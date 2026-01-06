@@ -518,10 +518,7 @@ const EmployeeManagement = () => {
                     <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin)}</div>
                   </div>
                   
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Current Experience</div>
-                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.currentExperience || calculateServiceYears(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin) || '-'}</div>
-                  </div>
+                 
                   
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Previous Experience</div>
