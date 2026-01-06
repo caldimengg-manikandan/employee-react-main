@@ -4,6 +4,7 @@ const cors = require("cors");
 const multer = require("multer");
 const dotenv = require("dotenv");
 const connectDB = require("./config/database");
+const Attendance = require("./models/Attendance");
 const crypto = require("crypto");
 const { v4: uuidv4 } = require("uuid");
 const https = require("https");
@@ -152,6 +153,71 @@ app.post("/api/hikvision/attendance", async (req, res) => {
     console.log("HIK REQUEST BODY:", JSON.stringify(body, null, 2));
 
     const data = await hikProxy(body);
+
+    // --- AUTO-SAVE / REWRITE TO DB LOGIC ---
+    try {
+      if (data && data.data && data.data.record) {
+        const records = data.data.record;
+        console.log(`Processing ${records.length} records for auto-save...`);
+        
+        let savedCount = 0;
+
+        for (const item of records) {
+          const personInfo = item.personInfo || {};
+          const attendanceInfo = item.attendanceBaseInfo || {};
+          
+          if (!personInfo.personCode) continue;
+
+          // 1. Process Check-IN
+          if (attendanceInfo.beginTime) {
+             const checkInTime = new Date(attendanceInfo.beginTime);
+             await Attendance.findOneAndUpdate(
+               {
+                 employeeId: personInfo.personCode,
+                 punchTime: checkInTime
+               },
+               {
+                 $set: {
+                   name: personInfo.name || "Unknown",
+                   direction: "in",
+                   source: "hikvision_sync",
+                   correspondingInTime: null
+                 }
+               },
+               { upsert: true, new: true }
+             );
+             savedCount++;
+          }
+
+          // 2. Process Check-OUT
+          if (attendanceInfo.endTime) {
+             const checkOutTime = new Date(attendanceInfo.endTime);
+             await Attendance.findOneAndUpdate(
+               {
+                 employeeId: personInfo.personCode,
+                 punchTime: checkOutTime
+               },
+               {
+                 $set: {
+                   name: personInfo.name || "Unknown",
+                   direction: "out",
+                   source: "hikvision_sync",
+                   correspondingInTime: null
+                 }
+               },
+               { upsert: true, new: true }
+             );
+             savedCount++;
+          }
+        }
+        console.log(`✅ Auto-saved/Rewrote ${savedCount} punch records to DB.`);
+      }
+    } catch (dbError) {
+      console.error("Error auto-saving attendance to DB:", dbError.message);
+      // Don't fail the request if DB save fails, just log it
+    }
+    // ---------------------------------------
+
     res.json({ ok: true, data });
 
   } catch (err) {

@@ -214,6 +214,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: 'System Engineer', label: 'System Engineer' },
     { value: 'Sr.Engineer', label: 'Sr.Engineer' },
     { value: 'Jr.Engineer', label: 'Jr.Engineer' },
+
     { value: 'Project Manager', label: 'Project Manager' },
     { value: 'Sr Project Manager', label: 'Sr Project Manager' },
     { value: 'Asst Project Manager', label: 'Asst Project Manager' },
