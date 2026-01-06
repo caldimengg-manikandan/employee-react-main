@@ -1,24 +1,22 @@
 import React, { useState, useEffect } from "react";
 
 export default function AttendanceFetcher() {
-  const [fromDate, setFromDate] = useState(() => {
+  const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     return today.toISOString().split('T')[0];
   });
   const [resp, setResp] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [saveLoading, setSaveLoading] = useState(false);
-  const [saveResult, setSaveResult] = useState(null);
 
   // Auto-fetch data when component mounts
   useEffect(() => {
     fetchData();
   }, []);
 
-  function formatDateRange(singleDate) {
+  function formatDateRange(date) {
     return {
-      begin: `${singleDate}T00:00:00 08:00`,
-      end: `${singleDate}T23:59:59 08:00`
+      begin: `${date}T00:00:00 08:00`,
+      end: `${date}T23:59:59 08:00`
     };
   }
 
@@ -26,7 +24,7 @@ export default function AttendanceFetcher() {
     setLoading(true);
 
     try {
-      const { begin, end } = formatDateRange(fromDate);
+      const { begin, end } = formatDateRange(selectedDate);
 
       const r = await fetch("/api/hikvision/attendance", {
         method: "POST",
@@ -34,7 +32,7 @@ export default function AttendanceFetcher() {
         body: JSON.stringify({
           attendanceReportRequest: {
             pageNo: 1,
-            pageSize: 100,
+            pageSize: 300,
             queryInfo: {
               personID: [],
               beginTime: begin,
@@ -47,91 +45,62 @@ export default function AttendanceFetcher() {
 
       const json = await r.json();
       setResp(json);
-      try {
-        const records = json?.data?.data?.record || [];
-        if (records.length > 0) {
-          await saveToDB(json);
-        }
-      } catch (e) {}
     } catch (err) {
       // Show demo data if API fails
-      const demo = generateDemoData();
-      setResp(demo);
+      setResp(generateDemoData());
     } finally {
       setLoading(false);
     }
   }
 
-  async function saveToDB(payload = resp) {
-    if (!payload) return;
-    if (payload?.meta?.demo) return;
-    setSaveLoading(true);
-    setSaveResult(null);
-    try {
-      const r = await fetch('/api/attendance/save-hikvision-attendance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const json = await r.json();
-      setSaveResult(json);
-    } catch (e) {
-      setSaveResult({ success: false, message: e.message });
-    } finally {
-      setSaveLoading(false);
-    }
-  }
-
   // Generate demo data for date range
   const generateDemoData = () => {
-    const generateRecordsForDateRange = () => {
-      const records = [];
-      const currentDate = fromDate;
-      const dailyRecords = [
-          {
-            personInfo: {
-              personCode: "EMP001",
-              givenName: "John Smith",
-              orgName: "Engineering"
-            },
-            date: currentDate,
-            attendanceBaseInfo: {
-              beginTime: `${currentDate}T08:55:00+08:00`,
-              endTime: `${currentDate}T17:05:00+08:00`,
-              attendanceStatus: "1"
-            },
-            allDurationTime: 29400
+    const generateRecordsForDate = () => {
+      const currentDate = selectedDate;
+      const records = [
+        {
+          personInfo: {
+            personCode: "EMP001",
+            givenName: "John Smith",
+            orgName: "Engineering"
           },
-          {
-            personInfo: {
-              personCode: "EMP002",
-              givenName: "Sarah Johnson",
-              orgName: "Marketing"
-            },
-            date: currentDate,
-            attendanceBaseInfo: {
-              beginTime: `${currentDate}T09:15:00+08:00`,
-              endTime: `${currentDate}T17:00:00+08:00`,
-              attendanceStatus: "2"
-            },
-            allDurationTime: 27900
+          date: currentDate,
+          attendanceBaseInfo: {
+            beginTime: `${currentDate}T08:55:00+08:00`,
+            endTime: `${currentDate}T17:05:00+08:00`,
+            attendanceStatus: "1"
           },
-          {
-            personInfo: {
-              personCode: "EMP003",
-              givenName: "Mike Chen",
-              orgName: "Sales"
-            },
-            date: currentDate,
-            attendanceBaseInfo: {
-              beginTime: `${currentDate}T09:00:00+08:00`,
-              endTime: `${currentDate}T16:30:00+08:00`,
-              attendanceStatus: "3"
-            },
-            allDurationTime: 27000
-          }
-        ];
-      records.push(...dailyRecords);
+          allDurationTime: 29400
+        },
+        {
+          personInfo: {
+            personCode: "EMP002",
+            givenName: "Sarah Johnson",
+            orgName: "Marketing"
+          },
+          date: currentDate,
+          attendanceBaseInfo: {
+            beginTime: `${currentDate}T09:15:00+08:00`,
+            endTime: `${currentDate}T17:00:00+08:00`,
+            attendanceStatus: "2"
+          },
+          allDurationTime: 27900
+        },
+        {
+          personInfo: {
+            personCode: "EMP003",
+            givenName: "Mike Chen",
+            orgName: "Sales"
+          },
+          date: currentDate,
+          attendanceBaseInfo: {
+            beginTime: `${currentDate}T09:00:00+08:00`,
+            endTime: `${currentDate}T16:30:00+08:00`,
+            attendanceStatus: "3"
+          },
+          allDurationTime: 27000
+        }
+      ];
       return records;
     };
 
@@ -139,16 +108,14 @@ export default function AttendanceFetcher() {
       ok: true,
       data: {
         data: {
-          record: generateRecordsForDateRange()
+          record: generateRecordsForDate()
         }
-      },
-      meta: { demo: true }
+      }
     };
   };
 
   const testWithDemoDate = () => {
-    setFromDate("2025-11-24");
-    setToDate("2025-11-26");
+    setSelectedDate("2025-11-25");
     setTimeout(() => fetchData(), 100);
   };
 
@@ -158,8 +125,7 @@ export default function AttendanceFetcher() {
 
   const resetFilters = () => {
     const today = new Date().toISOString().split('T')[0];
-    setFromDate(today);
-    setToDate(today);
+    setSelectedDate(today);
     setTimeout(() => fetchData(), 100);
   };
 
@@ -177,9 +143,9 @@ export default function AttendanceFetcher() {
     return dateString;
   };
 
-  const handleFromDateChange = (e) => {
+  const handleSelectedDateChange = (e) => {
     const newDate = e.target.value;
-    setFromDate(newDate);
+    setSelectedDate(newDate);
   };
 
   const renderTable = () => {
@@ -199,7 +165,7 @@ export default function AttendanceFetcher() {
     if (records.length === 0) {
       return (
         <div className="empty-state">
-          <p>No attendance records found for the selected date range.</p>
+          <p>No attendance records found for the selected date.</p>
           <button onClick={testWithDemoDate} className="demo-button">
             Load Demo Data
           </button>
@@ -210,8 +176,8 @@ export default function AttendanceFetcher() {
     return (
       <div className="table-container">
         <div className="table-header">
-          <span>Showing records for {formatDisplayDate(fromDate)}</span>
-          <span className="record-count">{records.length} records found{saveResult?.success ? ` • saved ${saveResult.savedCount || 0}` : ''}</span>
+          <span>Showing records for {formatDisplayDate(selectedDate)}</span>
+          <span className="record-count">{records.length} records found</span>
         </div>
         <table className="attendance-table">
           <thead>
@@ -243,21 +209,6 @@ export default function AttendanceFetcher() {
             ))}
           </tbody>
         </table>
-        
-        <div className="action-buttons" style={{ marginTop: 12 }}>
-          <button 
-            onClick={saveToDB} 
-            className="btn btn-primary" 
-            disabled={saveLoading || records.length === 0}
-          >
-            {saveLoading ? 'Saving...' : 'Save to MongoDB'}
-          </button>
-          {saveResult && (
-            <span style={{ marginLeft: 12, fontSize: 12, color: saveResult.success ? '#166534' : '#991b1b' }}>
-              {saveResult.success ? `Saved ${saveResult.savedCount || 0} new record(s)` : (saveResult.message || 'Save failed')}
-            </span>
-          )}
-        </div>
       </div>
     );
   };
@@ -266,10 +217,10 @@ export default function AttendanceFetcher() {
     if (!timeString) return "N/A";
     try {
       const date = new Date(timeString);
-      return date.toLocaleTimeString('en-US', { 
-        hour: '2-digit', 
+      return date.toLocaleTimeString('en-US', {
+        hour: '2-digit',
         minute: '2-digit',
-        hour12: true 
+        hour12: true
       });
     } catch (e) {
       return "N/A";
@@ -285,12 +236,12 @@ export default function AttendanceFetcher() {
 
   const getStatusText = (statusCode) => {
     const statusMap = {
-      "1": "Normal",
-      "2": "Late",
-      "3": "Early Leave",
+      // "1": "Normal",
+      // "2": "Late",
+      // "3": "Early Leave",
       "4": "Absent",
       "5": "Leave",
-      "6": "Overtime"
+      // "6": "Overtime"
     };
     return statusMap[statusCode] || "Unknown";
   };
@@ -310,9 +261,9 @@ export default function AttendanceFetcher() {
             <span className="status-indicator connected"></span>
             <span>Hikvision: Connected</span>
           </div>
-          <div className="status-item">
+          {/* <div className="status-item">
             <span>Last sync: {new Date().toLocaleString()}</span>
-          </div>
+          </div> */}
         </div>
 
         <div className="separator"></div>
@@ -320,21 +271,13 @@ export default function AttendanceFetcher() {
         {/* Filters */}
         <div className="filters-section">
           <div className="filter-row">
+
             <div className="filter-group">
-              <label>Employee ID</label>
-              <select className="filter-select">
-                <option>All Employee IDs</option>
-                <option>EMP001</option>
-                <option>EMP002</option>
-                <option>EMP003</option>
-              </select>
-            </div>
-            <div className="filter-group">
-              <label>Date</label>
-              <input 
-                type="date" 
-                value={formatInputDate(fromDate)} 
-                onChange={handleFromDateChange}
+              <label>Select Date</label>
+              <input
+                type="date"
+                value={formatInputDate(selectedDate)}
+                onChange={handleSelectedDateChange}
                 className="date-input"
               />
             </div>
@@ -344,11 +287,7 @@ export default function AttendanceFetcher() {
           </div>
         </div>
 
-        <div className="separator"></div>
 
-        {/* Action Buttons */}
-
-        <div className="separator"></div>
 
         {/* Results Section */}
         <div className="results-section">

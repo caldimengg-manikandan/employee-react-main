@@ -29,7 +29,7 @@ router.get("/sync", auth, async (req, res) => {
       // For v2, use standard pagination
       requestBody = {
         pageNo: 1,
-        pageSize: 100
+        pageSize: 300
       };
     }
 

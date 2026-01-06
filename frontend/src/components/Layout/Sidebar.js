@@ -358,6 +358,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     if (role === "projectmanager") {
       const allowedModules = [
         "Home",
+        "My Profile",
         "Timesheet",
         "Admin Timesheet",
         "Project Allocation",

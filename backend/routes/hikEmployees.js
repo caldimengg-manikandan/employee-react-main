@@ -292,7 +292,7 @@ router.post("/attendance-report", auth, async (req, res) => {
     const requestBody = {
       attendanceReportRequest: {
         pageNo: 1,
-        pageSize: 100,
+        pageSize: 300,
         queryInfo: {
           personID: [],
           beginTime: "2025-11-25T00:00:00+08:00",

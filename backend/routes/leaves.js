@@ -935,7 +935,9 @@ router.get('/', auth, async (req, res) => {
 // Admin: approve/reject leave
 router.put('/:id/status', auth, async (req, res) => {
   try {
-    if (!hasPermission(req.user, 'leave_manage')) {
+    const roleAllowed = ['admin', 'projectmanager', 'project_manager', 'hr'].includes(req.user.role);
+    const permAllowed = hasPermission(req.user, 'leave_manage');
+    if (!roleAllowed && !permAllowed) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const { status, rejectionReason } = req.body || {};

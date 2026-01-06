@@ -19,7 +19,7 @@ router.get('/attendance-data', async (req, res) => {
     const requestBody = {
       attendanceReportRequest: {
         pageNo: 1,
-        pageSize: 100,
+        pageSize: 300,
         queryInfo: {
           personID: employeeId ? [employeeId] : [],
           beginTime: `${dateToUse}T00:00:00+08:00`,
@@ -119,7 +119,7 @@ router.get('/status', async (req, res) => {
     const testBody = {
       attendanceReportRequest: {
         pageNo: 1, 
-        pageSize: 100
+        pageSize: 300
       }
     };
     
@@ -159,7 +159,7 @@ router.post('/pull-events', async (req, res) => {
     const requestBody = {
       attendanceReportRequest: {
         pageNo: 1,
-        pageSize: 100,
+        pageSize: 300,
         queryInfo: {
           personID: [],
           beginTime: `${dateToUse}T00:00:00+08:00`,
@@ -230,7 +230,7 @@ router.get('/test-working-api', async (req, res) => {
     const requestBody = {
       attendanceReportRequest: {
         pageNo: 1,
-        pageSize: 100,
+        pageSize: 300,
         queryInfo: {
           beginTime: `${date}T00:00:00+08:00`,
           endTime: `${date}T23:59:59+08:00`
