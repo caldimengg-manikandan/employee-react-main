@@ -159,9 +159,9 @@ import Notification from '../../components/Notifications/Notification';
         if (data && data.balances) {
           applyVisibilityRules(data.position || data.designation, data.monthsOfService || 0);
           setLeaveBalance({
-            CL: data.balances.casual?.balance || 0,
-            SL: data.balances.sick?.balance || 0,
-            PL: data.balances.privilege?.balance || 0,
+            CL: data.balances.casual?.allocated || 0,
+            SL: data.balances.sick?.allocated || 0,
+            PL: data.balances.privilege?.allocated || 0,
             BEREAVEMENT: 2
           });
           return;
@@ -177,9 +177,9 @@ import Notification from '../../components/Notifications/Notification';
         if (mine && mine.balances) {
           applyVisibilityRules(mine.position || mine.designation, mine.monthsOfService || 0);
           setLeaveBalance({
-            CL: mine.balances.casual?.balance || 0,
-            SL: mine.balances.sick?.balance || 0,
-            PL: mine.balances.privilege?.balance || 0,
+            CL: mine.balances.casual?.allocated || 0,
+            SL: mine.balances.sick?.allocated || 0,
+            PL: mine.balances.privilege?.allocated || 0,
             BEREAVEMENT: 2
           });
           return;
@@ -209,9 +209,9 @@ import Notification from '../../components/Notifications/Notification';
             return acc;
           }, { CL: 0, SL: 0, PL: 0 });
           setLeaveBalance({
-            CL: (Number(alloc.CL || 0) - Number(used.CL || 0)),
-            SL: (Number(alloc.SL || 0) - Number(used.SL || 0)),
-            PL: (Number(alloc.PL || 0) - Number(used.PL || 0)),
+            CL: Number(alloc.CL || 0),
+            SL: Number(alloc.SL || 0),
+            PL: Number(alloc.PL || 0),
             BEREAVEMENT: 2
           });
         } catch { }
@@ -528,7 +528,8 @@ import Notification from '../../components/Notifications/Notification';
   const getAvailableBalance = (type) => {
     const base = Number(leaveBalance[type] || 0);
     const pending = Number(pendingLeaves[type] || 0);
-    return base - pending;
+    const used = Number(usedLeaves[type] || 0);
+    return base - pending - used;
   };
 
   const leaveFormContent = (

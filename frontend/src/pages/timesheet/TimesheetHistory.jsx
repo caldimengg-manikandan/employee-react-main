@@ -199,7 +199,7 @@ const TimesheetHistory = () => {
     return (timesheet.status || '').toLowerCase() === 'draft';
   };
   const hasApprovedLeave = (timesheet) => {
-    return (timesheet.entries || []).some(e => (e.project || '') === 'Leave' && (e.task || '') === 'Leave Approved');
+    return (timesheet.entries || []).some(e => (e.project || '') === 'Leave' && (e.task || '').startsWith('Leave Approved'));
   };
 
   // Download Functions (keep the same as your original code)
@@ -838,7 +838,10 @@ const TimesheetHistory = () => {
                       const hasWork = (selectedTimesheet.entries || []).some(
                         (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
                       );
-                      return hasWork ? 1.25 : 0;
+                      const hasApprovedLeave = (selectedTimesheet.entries || []).some(
+                        (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
+                      );
+                      return hasWork && !hasApprovedLeave ? 1.25 : 0;
                     }).reduce((sum, b) => sum + b, 0);
                     return toHHMM(weeklyWork + weeklyBreak);
                   })()}
@@ -908,7 +911,10 @@ const TimesheetHistory = () => {
                         const hasWork = (selectedTimesheet.entries || []).some(
                           (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
                         );
-                        const breakHours = hasWork ? 1.25 : 0;
+                        const hasApprovedLeave = (selectedTimesheet.entries || []).some(
+                          (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
+                        );
+                        const breakHours = hasWork && !hasApprovedLeave ? 1.25 : 0;
                         return (
                           <td key={i} className="p-3 text-sm text-blue-700 text-center">{toHHMM(breakHours)}</td>
                         );
@@ -918,7 +924,10 @@ const TimesheetHistory = () => {
                           const hasWork = (selectedTimesheet.entries || []).some(
                             (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
                           );
-                          return hasWork ? 1.25 : 0;
+                          const hasApprovedLeave = (selectedTimesheet.entries || []).some(
+                            (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
+                          );
+                          return hasWork && !hasApprovedLeave ? 1.25 : 0;
                         }).reduce((sum, b) => sum + b, 0))}
                       </td>
                     </tr>
@@ -930,7 +939,10 @@ const TimesheetHistory = () => {
                         const hasWork = (selectedTimesheet.entries || []).some(
                           (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
                         );
-                        const breakHours = hasWork ? 1.25 : 0;
+                        const hasApprovedLeave = (selectedTimesheet.entries || []).some(
+                          (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
+                        );
+                        const breakHours = hasWork && !hasApprovedLeave ? 1.25 : 0;
                         return (
                           <td key={i} className={`p-3 text-sm text-center ${dayWork + breakHours >= 20 ? 'text-yellow-800 font-semibold' : 'text-blue-700 font-semibold'}`}>{toHHMM(dayWork + breakHours)}</td>
                         );
@@ -942,7 +954,10 @@ const TimesheetHistory = () => {
                             const hasWork = (selectedTimesheet.entries || []).some(
                               (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
                             );
-                            return hasWork ? 1.25 : 0;
+                            const hasApprovedLeave = (selectedTimesheet.entries || []).some(
+                              (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
+                            );
+                            return hasWork && !hasApprovedLeave ? 1.25 : 0;
                           }).reduce((sum, b) => sum + b, 0);
                           return toHHMM(weeklyWork + weeklyBreak);
                         })()}
@@ -966,7 +981,10 @@ const TimesheetHistory = () => {
                       const hasWork = (selectedTimesheet.entries || []).some(
                         (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
                       );
-                      return hasWork ? 1.25 : 0;
+                      const hasApprovedLeave = (selectedTimesheet.entries || []).some(
+                        (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
+                      );
+                      return hasWork && !hasApprovedLeave ? 1.25 : 0;
                     }).reduce((sum, b) => sum + b, 0);
                     return toHHMM(weeklyWork + weeklyBreak);
                   })()}

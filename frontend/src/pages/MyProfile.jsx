@@ -286,7 +286,7 @@ const MyProfile = () => {
       newValue = String(newValue || '').slice(0, 40);
     }
     if (field === 'uan') {
-      newValue = String(newValue || '').slice(0, 12);
+      newValue = String(newValue || '').replace(/\D/g, '').slice(0, 12);
     }
     const updatedData = {
       ...formData,
@@ -523,6 +523,9 @@ const MyProfile = () => {
     if (field === 'permanentPincode' || field === 'currentPincode') {
       if (!/^\d{6}$/.test(v)) return 'Must be 6 digits';
     }
+    if (field === 'uan') {
+      if (!/^\d{12}$/.test(v)) return 'Must be exactly 12 digits';
+    }
     return '';
   };
 
@@ -532,7 +535,7 @@ const MyProfile = () => {
       e.employeeId = validateField('employeeId', formData.employeeId);
       e.name = validateField('name', formData.name);
       if (!formData.gender) e.gender = 'Gender is required';
-      if (!formData.nationality) e.nationality = 'Nationality is required';
+      if (!formData.currentState) e.currentState = 'State is required';
       if (!formData.dateOfBirth) e.dateOfBirth = 'Date of birth is required';
       if (!formData.qualification) e.qualification = 'Qualification is required';
       if (!formData.bloodGroup) e.bloodGroup = 'Blood group is required';
@@ -551,6 +554,8 @@ const MyProfile = () => {
       }
       e.pan = validateField('pan', formData.pan);
       e.aadhaar = validateField('aadhaar', formData.aadhaar);
+      if (!formData.passportNumber) e.passportNumber = 'Passport is required';
+      e.uan = validateField('uan', formData.uan);
     }
     if (step === 2) {
       if (!formData.designation) e.designation = 'Designation is required';
@@ -888,18 +893,17 @@ const MyProfile = () => {
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Nationality <span className="text-red-600">*</span>
+                        State <span className="text-red-600">*</span>
                       </label>
                       <select
-                        value={formData.nationality}
-                        onChange={(e) => handleInputChange('nationality', e.target.value)}
+                        value={formData.currentState}
+                        onChange={(e) => handleInputChange('currentState', e.target.value)}
                         required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.nationality ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.currentState ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                       >
-                        {nationalityOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
+                        <option value="">Select State</option>
+                        {indiaStates.map(s => (
+                          <option key={s} value={s}>{s}</option>
                         ))}
                       </select>
                     </div>

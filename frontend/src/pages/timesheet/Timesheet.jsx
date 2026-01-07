@@ -146,6 +146,7 @@ const Timesheet = () => {
             type: e.type || (e.project === "Leave" ? "leave" : "project"),
             shiftType: e.shiftType || "",
             locked: e.locked || false,
+            lockedDays: e.lockedDays || [false, false, false, false, false, false, false],
           }));
 
           loadedShiftType = sheet.shiftType || "";
@@ -170,7 +171,7 @@ const Timesheet = () => {
             (sheet.status || "").toLowerCase() === "submitted" ||
             (sheet.status || "").toLowerCase() === "approved"
           );
-          const hasApprovedLeaveEntry = rows.some(r => (r.project || "") === "Leave" && (r.task || "") === "Leave Approved");
+          const hasApprovedLeaveEntry = rows.some(r => (r.project || "") === "Leave" && (r.task || "").startsWith("Leave Approved"));
           // Disable auto-draft lock so users can edit timesheet even with approved leave
           setIsLeaveAutoDraft(false);
         }
@@ -692,15 +693,32 @@ const Timesheet = () => {
   }, [currentWeek]);
 
   const addProjectRow = () => {
-    const newRow = {
-      id: Date.now() + Math.random(),
-      project: "",
-      task: "",
-      hours: [0, 0, 0, 0, 0, 0, 0],
-      type: "project",
-      shiftType: ""
-    };
-    setTimesheetRows((prev) => [...prev, newRow]);
+    setTimesheetRows((prev) => {
+      // Calculate locked days based on existing approved leaves
+      const lockedDays = [false, false, false, false, false, false, false];
+      for (let i = 0; i < 7; i++) {
+        const totalLeaveHours = prev.reduce((sum, row) => {
+          if (row.type === 'leave' && (row.task || '').startsWith('Leave Approved')) {
+            return sum + (Number(row.hours[i]) || 0);
+          }
+          return sum;
+        }, 0);
+        if (totalLeaveHours >= 8) {
+          lockedDays[i] = true;
+        }
+      }
+
+      const newRow = {
+        id: Date.now() + Math.random(),
+        project: "",
+        task: "",
+        hours: [0, 0, 0, 0, 0, 0, 0],
+        type: "project",
+        shiftType: "",
+        lockedDays: lockedDays
+      };
+      return [...prev, newRow];
+    });
   };
 
   const addLeaveRow = () => {
@@ -908,18 +926,17 @@ const Timesheet = () => {
     // Check if there is approved leave (use current state + current row update if applicable)
     // Note: If we are editing the "Leave Approved" row itself, we should use numValue
     const hasApprovedLeave = timesheetRows.some(
-      (r) => r.task === "Leave Approved" && (r.id === id ? numValue : Number(r.hours?.[dayIndex] || 0)) > 0
+      (r) => (r.task || "").startsWith("Leave Approved") && (r.id === id ? numValue : Number(r.hours?.[dayIndex] || 0)) > 0
     );
 
     const breakAfterUpdate = hasWorkAfterUpdate && !hasApprovedLeave ? 1.25 : 0;
 
     // Shift-based caps removed in favor of on-premises enforcement
-
     // Enforce on-premises cap: project work + auto break must not exceed on-premises time
     // WE RELAX THIS CHECK if there is a Half Day Leave / Leave Approved (Partial), 
     // to allow entering project hours even if biometric data is missing/short.
     const hasPartialLeave = timesheetRows.some(
-      (r) => (r.task === "Half Day Leave" || (r.task === "Leave Approved" && Number(r.hours?.[dayIndex] || 0) < 9)) &&
+      (r) => (r.task === "Half Day Leave" || ((r.task || "").startsWith("Leave Approved") && Number(r.hours?.[dayIndex] || 0) < 9)) &&
         Number(r.hours?.[dayIndex] || 0) > 0
     );
 
@@ -971,7 +988,7 @@ const Timesheet = () => {
 
   const hasFullDayLeave = (dayIndex) => {
     return timesheetRows.some(row =>
-      (row.task === 'Full Day Leave' || row.task === 'Office Holiday' || (row.task === 'Leave Approved' && Number(row.hours[dayIndex] || 0) >= 9)) &&
+      (row.task === 'Full Day Leave' || row.task === 'Office Holiday' || ((row.task || "").startsWith('Leave Approved') && Number(row.hours[dayIndex] || 0) >= 9)) &&
       Number(row.hours[dayIndex] || 0) > 0
     );
   };
@@ -982,11 +999,11 @@ const Timesheet = () => {
     const nextRows = timesheetRows.map(r => ({ ...r, hours: [...r.hours] }));
     for (let d = 0; d < daysCount; d++) {
       const hasFull = nextRows.some(
-        (r) => (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || (r.task === 'Leave Approved' && Number(r.hours?.[d] || 0) >= 9)) && (Number(r.hours?.[d] || 0) > 0)
+        (r) => (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || ((r.task || "").startsWith('Leave Approved') && Number(r.hours?.[d] || 0) >= 9)) && (Number(r.hours?.[d] || 0) > 0)
       );
       if (!hasFull) continue;
       nextRows.forEach((r) => {
-        if (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || r.task === 'Leave Approved') return;
+        if (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || (r.task || "").startsWith('Leave Approved')) return;
         if ((r.hours?.[d] || 0) > 0) {
           r.hours[d] = 0;
           updated = true;
@@ -1343,9 +1360,9 @@ const Timesheet = () => {
     const hasWork = timesheetRows.some(
       (row) => row.type === "project" && row.task !== "Office Holiday" && Number(row.hours?.[dayIndex] || 0) > 0
     );
-    // No break for approved leave days
+    // No break for approved leave days (Full or Half)
     const hasApprovedLeave = timesheetRows.some(
-      (row) => row.task === "Leave Approved" && Number(row.hours?.[dayIndex] || 0) > 0
+      (row) => (row.task || "").startsWith("Leave Approved") && Number(row.hours?.[dayIndex] || 0) > 0
     );
     return hasWork && !hasApprovedLeave ? 1.25 : 0;
   };
@@ -1639,8 +1656,8 @@ const Timesheet = () => {
                             {item}
                           </option>
                         ))}
-                        {row.task === "Leave Approved" && (
-                          <option value="Leave Approved">Leave Approved</option>
+                        {row.task.startsWith("Leave Approved") && (
+                          <option value={row.task}>{row.task}</option>
                         )}
                       </select>
                     )}
@@ -1677,7 +1694,7 @@ const Timesheet = () => {
                                 row.task !== "Full Day Leave" &&
                                 row.task !== "Office Holiday" &&
                                 row.task !== "Half Day Leave" &&
-                                row.task !== "Leave Approved"  // Added this condition
+                                !row.task.startsWith("Leave Approved")  // Added this condition
                               ) {
                                 const key = `${row.id}_${dayIndex}`;
                                 const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
@@ -1700,7 +1717,7 @@ const Timesheet = () => {
                                 row.task !== "Full Day Leave" &&
                                 row.task !== "Office Holiday" &&
                                 row.task !== "Half Day Leave" &&
-                                row.task !== "Leave Approved"  // Added this condition
+                                !row.task.startsWith("Leave Approved")  // Added this condition
                               ) {
                                 const key = `${row.id}_${dayIndex}`;
                                 const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
@@ -1748,6 +1765,7 @@ const Timesheet = () => {
                           disabled={
                             isSubmitted || isLeaveAutoDraft ||
                             row.locked ||
+                            (row.lockedDays && row.lockedDays[dayIndex]) ||
                             (row.type === "project" && (dayIndex === 5 || dayIndex === 6)) ||
                             (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
@@ -1759,8 +1777,10 @@ const Timesheet = () => {
                               ? "Timesheet already submitted"
                               : row.locked
                                 ? "Locked due to approved leave"
-                                : (row.type === "project" && (dayIndex === 5 || dayIndex === 6))
-                                  ? "Project hours not allowed on weekends"
+                                : (row.lockedDays && row.lockedDays[dayIndex])
+                                  ? "Locked due to full day leave"
+                                  : (row.type === "project" && (dayIndex === 5 || dayIndex === 6))
+                                    ? "Project hours not allowed on weekends"
                                   : (row.type === "project" ? (!row.project || !row.task) : (!row.task))
                                     ? (row.type === "project" ? "Please select project and task first" : "Please select a leave type or task")
                                     : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
@@ -1780,7 +1800,7 @@ const Timesheet = () => {
                           row.task !== "Full Day Leave" &&
                           row.task !== "Office Holiday" &&
                           row.task !== "Half Day Leave" &&
-                          row.task !== "Leave Approved" && (  // Added this condition
+                          !row.task.startsWith("Leave Approved") && (  // Added this condition
                             <div className="absolute right-1 inset-y-1 flex flex-col justify-between">
                               <button
                                 onClick={() => {

@@ -823,7 +823,7 @@ const AdminTimesheet = () => {
               <option>All Division</option>
               <option>SDS</option>
               <option>TEKLA</option>
-              <option>DAS</option>
+              <option>"DAS(Software)"</option>
               <option>Mechanical</option>
             </select>
           </div>

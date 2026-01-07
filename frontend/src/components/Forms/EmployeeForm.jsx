@@ -133,6 +133,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     if (field === 'permanentPincode' || field === 'currentPincode') {
       if (!/^\d{6}$/.test(v)) return 'Must be 6 digits';
     }
+    if (field === 'uan') {
+      if (!/^\d{12}$/.test(v)) return 'Must be exactly 12 digits';
+    }
     return '';
   };
 
@@ -159,7 +162,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       e.employeeId = validateField('employeeId', formData.employeeId);
       e.name = validateField('name', formData.name || formData.employeename);
       if (!formData.gender) e.gender = 'Gender is required';
-      if (!formData.nationality) e.nationality = 'Nationality is required';
+      if (!formData.currentState) e.currentState = 'State is required';
       if (!formData.dateOfBirth) e.dateOfBirth = 'Date of birth is required';
       e.qualification = formData.qualification ? '' : 'Qualification is required';
       if (!formData.bloodGroup) e.bloodGroup = 'Blood group is required';
@@ -179,7 +182,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       e.pan = validateField('pan', formData.pan);
       e.aadhaar = validateField('aadhaar', formData.aadhaar);
       if (!formData.passportNumber) e.passportNumber = 'Passport is required';
-      if (!formData.uan) e.uan = 'UAN is required';
+      e.uan = validateField('uan', formData.uan);
     }
     if (step === 2) {
       if (!formData.designation) e.designation = 'Designation is required';
@@ -460,6 +463,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
     }
     if (field === 'aadhaar') {
+      newValue = String(newValue || '').replace(/\D/g, '').slice(0, 12);
+    }
+    if (field === 'uan') {
       newValue = String(newValue || '').replace(/\D/g, '').slice(0, 12);
     }
 
@@ -891,17 +897,16 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Nationality <span className="text-red-600">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">State <span className="text-red-600">*</span></label>
                   <select
-                    value={formData.nationality}
-                    onChange={(e) => handleInputChange('nationality', e.target.value)}
+                    value={formData.currentState}
+                    onChange={(e) => handleInputChange('currentState', e.target.value)}
                     required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                   >
-                    {nationalityOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
+                    <option value="">Select State</option>
+                    {indiaStates.map(s => (
+                      <option key={s} value={s}>{s}</option>
                     ))}
                   </select>
                 </div>
@@ -1092,6 +1097,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     type="text"
                     value={formData.passportNumber}
                     onChange={(e) => handleInputChange('passportNumber', e.target.value.toUpperCase())}
+                    maxLength={15}
                     required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                     placeholder="Passport number"
@@ -1103,6 +1109,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     type="text"
                     value={formData.uan}
                     onChange={(e) => handleInputChange('uan', e.target.value)}
+                    inputMode="numeric"
+                    maxLength={12}
                     required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                     placeholder="101147215588"

@@ -69,17 +69,15 @@ function calculateTotalHoursWithBreak(sheet) {
       return (Number(hrs[dayIndex] || 0) > 0);
     });
     
-    const hasFullDayLeaveOrHoliday = entries.some((entry) => {
+    const hasApprovedLeaveOrHoliday = entries.some((entry) => {
       const hrs = Array.isArray(entry.hours) ? entry.hours : [];
       const val = Number(hrs[dayIndex] || 0);
       const task = (entry.task || '').toLowerCase();
-      const isHoliday = task.includes('holiday');
-      const isFullDayLeave = task.includes('full day') || val >= 8;
-      
-      return ((entry.type === 'leave' || isHoliday) && (val >= 8) && (isHoliday || isFullDayLeave));
+      // Check for Holiday or ANY Approved Leave (Full or Half)
+      return ((task.includes('leave approved') || task.includes('holiday')) && val > 0);
     });
     
-    return hasProjectWork && !hasFullDayLeaveOrHoliday ? 1.25 : 0;
+    return hasProjectWork && !hasApprovedLeaveOrHoliday ? 1.25 : 0;
   };
   
   const breakDaily = [0, 1, 2, 3, 4, 5, 6].map(computeBreakForDay);

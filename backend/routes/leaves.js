@@ -242,6 +242,8 @@ async function syncTimesheetWithLeave(leaveApp) {
               }
               timesheet = new Timesheet({
                   userId: userId,
+                  employeeId: leaveApp.employeeId,
+                  employeeName: leaveApp.employeeName,
                   weekStartDate: weekStart,
                   weekEndDate: weekEnd,
                   entries: [],
@@ -249,6 +251,9 @@ async function syncTimesheetWithLeave(leaveApp) {
               });
           } else {
              console.log("Timesheet found:", timesheet._id);
+             // Ensure employee details are present
+             if (!timesheet.employeeId && leaveApp.employeeId) timesheet.employeeId = leaveApp.employeeId;
+             if (!timesheet.employeeName && leaveApp.employeeName) timesheet.employeeName = leaveApp.employeeName;
           }
           timesheetCache[weekStartStr] = timesheet;
       }
@@ -257,14 +262,15 @@ async function syncTimesheetWithLeave(leaveApp) {
       console.log(`Processing date: ${loopDate.toISOString()}, dayIndex: ${dayIndex}`);
 
       if (dayIndex >= 0 && dayIndex <= 6) {
-          let leaveEntry = timesheet.entries.find(e => e.project === 'Leave' && e.task === 'Leave Approved');
+          const taskName = `Leave Approved (${leaveApp.leaveType})`;
+          let leaveEntry = timesheet.entries.find(e => e.project === 'Leave' && e.task === taskName);
           
           if (leaveApp.status === 'Approved') {
               if (!leaveEntry) {
                   console.log("Adding new Leave Approved entry.");
                   timesheet.entries.push({
                       project: 'Leave',
-                      task: 'Leave Approved',
+                      task: taskName,
                       type: 'leave',
                       hours: [0, 0, 0, 0, 0, 0, 0],
                       locked: true
@@ -280,9 +286,18 @@ async function syncTimesheetWithLeave(leaveApp) {
               console.log(`Setting ${leaveHours} hours for dayIndex ${dayIndex}`);
               leaveEntry.hours.set(dayIndex, leaveHours);
               
-              // Mark all project entries for this day as locked
-              // BUT: if it's a Half Day leave, do NOT lock the day
-              const isHalfDay = leaveApp.dayType === 'Half Day';
+              // Mark all project entries for this day as locked if total leave hours >= 8
+              // This handles "Full Day" leave (9.5h) and "Half Day" + "Half Day" (4.75h + 4.75h = 9.5h)
+              
+              // Calculate total leave hours for this day
+              const totalLeaveHours = timesheet.entries.reduce((sum, e) => {
+                  if (e.type === 'leave' && (e.task || '').startsWith('Leave Approved')) {
+                      return sum + (Number(e.hours[dayIndex]) || 0);
+                  }
+                  return sum;
+              }, 0);
+              
+              const shouldLock = totalLeaveHours >= 8;
               
               timesheet.entries.forEach(entry => {
                   if (entry.type === 'project') {
@@ -290,13 +305,8 @@ async function syncTimesheetWithLeave(leaveApp) {
                       if (!entry.lockedDays) {
                           entry.lockedDays = [false, false, false, false, false, false, false];
                       }
-                      // Mark this day as locked ONLY if it's NOT a half day
-                      if (!isHalfDay) {
-                        entry.lockedDays[dayIndex] = true;
-                      } else {
-                        // Ensure it's unlocked if it was previously locked (e.g. if updated from Full to Half)
-                        entry.lockedDays[dayIndex] = false;
-                      }
+                      // Mark this day as locked if total leave hours cover the full day
+                      entry.lockedDays[dayIndex] = shouldLock;
                   }
               });
           } else {
@@ -306,10 +316,18 @@ async function syncTimesheetWithLeave(leaveApp) {
                   // Reset hours to 0
                   leaveEntry.hours.set(dayIndex, 0);
                   
-                  // Unlock project entries for this day
+                  // Unlock project entries for this day if no longer fully covered by leave
+                  const totalLeaveHours = timesheet.entries.reduce((sum, e) => {
+                      if (e.type === 'leave' && (e.task || '').startsWith('Leave Approved')) {
+                          return sum + (Number(e.hours[dayIndex]) || 0);
+                      }
+                      return sum;
+                  }, 0);
+                  const shouldLock = totalLeaveHours >= 8;
+
                   timesheet.entries.forEach(entry => {
                       if (entry.type === 'project' && entry.lockedDays) {
-                          entry.lockedDays[dayIndex] = false;
+                          entry.lockedDays[dayIndex] = shouldLock;
                       }
                   });
                   
