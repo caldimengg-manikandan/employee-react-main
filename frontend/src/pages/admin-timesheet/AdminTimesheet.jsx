@@ -32,16 +32,35 @@ const AdminTimesheet = () => {
     location: 'All Locations',
     status: 'All Status',
     week: 'All Weeks',
-    project: 'All Projects'
+    project: 'All Projects',
+    year: 'All Years'
   });
+
+  // Get user role
+  const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+  const role = user.role || '';
+  const isProjectManager = role === 'projectmanager' || role === 'project_manager';
+
   const [hoverStates, setHoverStates] = useState({
     statCards: {},
     refreshButton: false,
     tableRows: {}
   });
   const [projectOptions, setProjectOptions] = useState(["All Projects"]);
+  const [weekOptions, setWeekOptions] = useState(["All Weeks"]);
+  const [yearOptions, setYearOptions] = useState(["All Years"]);
+  const [employeeIdOptions, setEmployeeIdOptions] = useState(['']);
   const [selectedTimesheet, setSelectedTimesheet] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Define styles as constants
   const glassCard = {
@@ -53,23 +72,28 @@ const AdminTimesheet = () => {
 
   const styles = {
     adminTimesheet: {
-      padding: '24px',
+      padding: '16px',
       backgroundColor: '#f8fafc',
-      minHeight: '100vh',
+      height: isMobile ? 'auto' : '100vh',
+      minHeight: isMobile ? '100vh' : 0,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: isMobile ? 'visible' : 'hidden',
       fontFamily: 'system-ui, -apple-system, sans-serif'
     },
     timesheetHeader: {
       display: 'flex',
       justifyContent: 'space-between',
       alignItems: 'center',
-      marginBottom: '24px',
-      padding: '24px',
-      ...glassCard
+      marginBottom: '12px',
+      padding: '12px',
+      ...glassCard,
+      flexShrink: 0
     },
     headerTitle: {
       margin: 0,
       color: '#1a202c',
-      fontSize: '24px',
+      fontSize: '20px',
       fontWeight: '700'
     },
     adminInfo: {
@@ -87,12 +111,13 @@ const AdminTimesheet = () => {
     },
     statsGrid: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
-      gap: '20px',
-      marginBottom: '24px'
+      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+      gap: '10px',
+      marginBottom: '12px',
+      flexShrink: 0
     },
     statCard: {
-      padding: '20px',
+      padding: '12px',
       ...glassCard,
       transition: 'all 0.2s ease'
     },
@@ -104,11 +129,11 @@ const AdminTimesheet = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: '12px'
+      marginBottom: '8px'
     },
     statIconContainer: {
-      width: '40px',
-      height: '40px',
+      width: '32px',
+      height: '32px',
       borderRadius: '8px',
       display: 'flex',
       alignItems: 'center',
@@ -117,27 +142,28 @@ const AdminTimesheet = () => {
     statTitle: {
       margin: 0,
       color: '#718096',
-      fontSize: '14px',
+      fontSize: '11px',
       fontWeight: '500',
       textTransform: 'uppercase',
       letterSpacing: '0.5px'
     },
     statNumber: {
-      fontSize: '28px',
+      fontSize: '20px',
       fontWeight: '700',
       color: '#2d3748',
       margin: 0
     },
     filtersSection: {
-      padding: '24px',
-      marginBottom: '24px',
-      ...glassCard
+      padding: '12px',
+      marginBottom: '12px',
+      ...glassCard,
+      flexShrink: 0
     },
     sectionHeader: {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: '20px'
+      marginBottom: '12px'
     },
     sectionTitle: {
       display: 'flex',
@@ -145,14 +171,14 @@ const AdminTimesheet = () => {
       gap: '8px',
       margin: 0,
       color: '#2d3748',
-      fontSize: '18px',
+      fontSize: '16px',
       fontWeight: '600'
     },
     filtersGrid: {
       display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '16px',
-      marginBottom: '20px'
+      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+      gap: '12px',
+      marginBottom: '12px'
     },
     filterGroup: {
       display: 'flex',
@@ -162,16 +188,16 @@ const AdminTimesheet = () => {
       display: 'flex',
       alignItems: 'center',
       gap: '6px',
-      marginBottom: '6px',
+      marginBottom: '4px',
       fontWeight: '500',
       color: '#4a5568',
-      fontSize: '14px'
+      fontSize: '13px'
     },
     filterInput: {
-      padding: '10px 12px',
+      padding: '8px 10px',
       border: '1px solid #cbd5e0',
       borderRadius: '6px',
-      fontSize: '14px',
+      fontSize: '13px',
       transition: 'all 0.2s ease',
       backgroundColor: 'white'
     },
@@ -220,19 +246,27 @@ const AdminTimesheet = () => {
       backgroundColor: '#cbd5e0'
     },
     timesheetsTableSection: {
-      padding: '24px',
-      ...glassCard
+      padding: '16px',
+      ...glassCard,
+      flex: isMobile ? 'none' : 1,
+      display: 'flex',
+      flexDirection: 'column',
+      overflow: isMobile ? 'visible' : 'hidden',
+      minHeight: 0
     },
     tableHeader: {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'space-between',
-      marginBottom: '20px'
+      marginBottom: '12px',
+      flexShrink: 0
     },
     tableContainer: {
       overflowX: 'auto',
+      overflowY: isMobile ? 'visible' : 'auto',
       borderRadius: '8px',
-      border: '1px solid #e2e8f0'
+      border: '1px solid #e2e8f0',
+      flex: isMobile ? 'none' : 1
     },
     timesheetsTable: {
       width: '100%',
@@ -240,7 +274,7 @@ const AdminTimesheet = () => {
       backgroundColor: 'white'
     },
     tableHeaderCell: {
-      padding: '16px',
+      padding: '12px',
       textAlign: 'left',
       backgroundColor: '#1976d2',
       fontWeight: '600',
@@ -250,7 +284,7 @@ const AdminTimesheet = () => {
       borderRight: '1px solid #1565c0'
     },
     tableCell: {
-      padding: '16px',
+      padding: '12px',
       textAlign: 'left',
       borderBottom: '1px solid #e2e8f0',
       fontSize: '14px'
@@ -464,6 +498,17 @@ const AdminTimesheet = () => {
     projectHours: 0
   });
 
+  const formatDuration = (decimalHours) => {
+    if (!decimalHours) return '00:00';
+    let hours = Math.floor(decimalHours);
+    let minutes = Math.round((decimalHours - hours) * 60);
+    if (minutes === 60) {
+      hours += 1;
+      minutes = 0;
+    }
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  };
+
   const statConfigs = [
     { 
       title: 'Total Timesheets', 
@@ -497,7 +542,7 @@ const AdminTimesheet = () => {
     },
     { 
       title: 'Project Hours', 
-      value: stats.projectHours.toLocaleString(), 
+      value: formatDuration(stats.projectHours), 
       icon: Calendar, 
       color: '#ed64a6'
     }
@@ -508,7 +553,28 @@ const AdminTimesheet = () => {
       setLoading(true);
       const params = { ...filters };
       const res = await adminTimesheetAPI.list(params);
-      const data = res.data?.data || [];
+      let data = res.data?.data || [];
+
+      if (filters.year === 'All Years') {
+        const uniqueYears = Array.from(new Set(data.map(r => {
+          if (!r.submittedDate) return null;
+          return new Date(r.submittedDate).getFullYear();
+        }).filter(Boolean))).sort().reverse();
+        setYearOptions(["All Years", ...uniqueYears]);
+      }
+
+      if (filters.year !== 'All Years') {
+        data = data.filter(ts => {
+          if (!ts.submittedDate) return false;
+          return String(new Date(ts.submittedDate).getFullYear()) === String(filters.year);
+        });
+      }
+
+      if (filters.employeeId === '') {
+        const uniqueIds = Array.from(new Set(data.map(r => r.employeeId).filter(Boolean))).sort();
+        setEmployeeIdOptions(['', ...uniqueIds]);
+      }
+
       setTimesheets(data);
       const setProjects = new Set();
       data.forEach(ts => {
@@ -523,7 +589,15 @@ const AdminTimesheet = () => {
           if (looksLikeProject && p) setProjects.add(p);
         });
       });
-      setProjectOptions(["All Projects", ...Array.from(setProjects).sort()]);
+      
+      if (filters.project === 'All Projects') {
+        setProjectOptions(["All Projects", ...Array.from(setProjects).sort()]);
+      }
+
+      if (filters.week === 'All Weeks') {
+        const uniqueWeeks = Array.from(new Set(data.map(r => r.week).filter(Boolean))).sort().reverse();
+        setWeekOptions(["All Weeks", ...uniqueWeeks]);
+      }
 
       const totalTimesheets = data.length;
       const statusCounts = data.reduce((acc, r) => {
@@ -626,12 +700,90 @@ const AdminTimesheet = () => {
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
       ...prev,
-      [filterName]: value
+      [filterName]: value,
+      ...(['division', 'location', 'week', 'year', 'employeeId'].includes(filterName) ? { project: 'All Projects' } : {})
     }));
+  };
+
+  const isFilterApplied = () => {
+    return (
+      filters.employeeId !== '' ||
+      filters.division !== 'All Division' ||
+      filters.location !== 'All Locations' ||
+      filters.status !== 'All Status' ||
+      filters.week !== 'All Weeks' ||
+      filters.project !== 'All Projects' ||
+      filters.year !== 'All Years'
+    );
+  };
+
+  const handleClearFilters = () => {
+    setFilters({
+      employeeId: '',
+      division: 'All Division',
+      location: 'All Locations',
+      status: 'All Status',
+      week: 'All Weeks',
+      project: 'All Projects',
+      year: 'All Years'
+    });
   };
 
   const handleRefresh = () => {
     fetchTimesheets();
+  };
+
+  const handleExport = () => {
+    if (!timesheets.length) {
+      alert('No data to export');
+      return;
+    }
+
+    // Define CSV headers
+    const headers = [
+      'Employee ID',
+      'Name',
+      'Division',
+      'Location',
+      'Week',
+      'Projects',
+      'Total Hours',
+      'Status',
+      'Submitted Date'
+    ];
+
+    // Format data rows
+    const rows = timesheets.map(ts => {
+      const projects = (ts.timeEntries || []).map(entry => entry.project).filter(Boolean).join('; ');
+      return [
+        ts.employeeId || '',
+        ts.employeeName || '',
+        ts.division || '',
+        ts.location || '',
+        ts.week || '',
+        `"${projects}"`, // Wrap in quotes to handle commas/semicolons
+        formatDuration(ts.weeklyTotal || 0),
+        ts.status || '',
+        ts.submittedDate || ''
+      ];
+    });
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    // Create download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `timesheets_export_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleApprove = async (timesheetId) => {
@@ -776,19 +928,39 @@ const AdminTimesheet = () => {
             Timesheet Filters
           </h2>
           <div style={styles.actionButtons}>
+            {isFilterApplied() && (
+              <button
+                style={{
+                  ...styles.secondaryButton,
+                  color: '#e53e3e',
+                  borderColor: '#e53e3e',
+                  backgroundColor: '#fff5f5'
+                }}
+                onClick={handleClearFilters}
+              >
+                <X size={16} />
+                Clear Filters
+              </button>
+            )}
             <button 
               style={{
                 ...styles.secondaryButton,
-                ...(hoverStates.refreshButton ? styles.secondaryButtonHover : {})
+                ...(hoverStates.refreshButton?.refresh ? styles.secondaryButtonHover : {}),
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? 'not-allowed' : 'pointer'
               }}
               onMouseEnter={() => handleMouseEnter('refreshButton', 'refresh')}
               onMouseLeave={() => handleMouseLeave('refreshButton', 'refresh')}
               onClick={handleRefresh}
+              disabled={loading}
             >
-              <RefreshCw size={16} />
-              Refresh
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              {loading ? 'Refreshing...' : 'Refresh'}
             </button>
-            <button style={styles.primaryButton}>
+            <button 
+              style={styles.primaryButton}
+              onClick={handleExport}
+            >
               <Download size={16} />
               Export
             </button>
@@ -801,48 +973,56 @@ const AdminTimesheet = () => {
               <Search size={14} />
               Employee ID
             </label>
-            <input
-              type="text"
-              placeholder="Search by ID..."
+            <select
+              style={styles.filterInput}
               value={filters.employeeId}
               onChange={(e) => handleFilterChange('employeeId', e.target.value)}
-              style={styles.filterInput}
-            />
+            >
+              {employeeIdOptions.map(id => (
+                <option key={id} value={id}>
+                  {id === '' ? 'All Employees' : id}
+                </option>
+              ))}
+            </select>
           </div>
           
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>
-              <Building size={14} />
-              Division
-            </label>
-            <select
-              value={filters.division}
-              onChange={(e) => handleFilterChange('division', e.target.value)}
-              style={styles.filterInput}
-            >
-              <option>All Division</option>
-              <option>SDS</option>
-              <option>TEKLA</option>
-              <option>"DAS(Software)"</option>
-              <option>Mechanical</option>
-            </select>
-          </div>
+          {!isProjectManager && (
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>
+                <Building size={14} />
+                Division
+              </label>
+              <select
+                value={filters.division}
+                onChange={(e) => handleFilterChange('division', e.target.value)}
+                style={styles.filterInput}
+              >
+                <option>All Division</option>
+                <option>SDS</option>
+                <option>TEKLA</option>
+                <option>DAS(Software)</option>
+                <option>Mechanical</option>
+              </select>
+            </div>
+          )}
 
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>
-              <MapPin size={14} />
-              Location
-            </label>
-            <select
-              value={filters.location}
-              onChange={(e) => handleFilterChange('location', e.target.value)}
-              style={styles.filterInput}
-            >
-              <option>All Locations</option>
-              <option>Chennai</option>
-              <option>Hosur</option>
-            </select>
-          </div>
+          {!isProjectManager && (
+            <div style={styles.filterGroup}>
+              <label style={styles.filterLabel}>
+                <MapPin size={14} />
+                Location
+              </label>
+              <select
+                value={filters.location}
+                onChange={(e) => handleFilterChange('location', e.target.value)}
+                style={styles.filterInput}
+              >
+                <option>All Locations</option>
+                <option>Chennai</option>
+                <option>Hosur</option>
+              </select>
+            </div>
+          )}
 
           <div style={styles.filterGroup}>
             <label style={styles.filterLabel}>
@@ -862,19 +1042,34 @@ const AdminTimesheet = () => {
           </div>
 
           <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>
-              <Calendar size={14} />
-              Week
-            </label>
+                <label style={styles.filterLabel}>
+                  <Calendar size={14} />
+                  Year
+                </label>
+                <select
+                  style={styles.filterInput}
+                  value={filters.year}
+                  onChange={(e) => handleFilterChange('year', e.target.value)}
+                >
+                  {yearOptions.map(year => (
+                    <option key={year} value={year}>{year}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={styles.filterGroup}>
+                <label style={styles.filterLabel}>
+                  <Calendar size={14} />
+                  Week
+                </label>
             <select
               value={filters.week}
               onChange={(e) => handleFilterChange('week', e.target.value)}
               style={styles.filterInput}
             >
-              <option>All Weeks</option>
-              <option>2024-W01</option>
-              <option>2024-W02</option>
-              <option>2024-W03</option>
+              {weekOptions.map(week => (
+                <option key={week} value={week}>{week}</option>
+              ))}
             </select>
           </div>
 
@@ -961,7 +1156,7 @@ const AdminTimesheet = () => {
                       })()}
                     </td>
                     <td style={styles.tableCell}>
-                      <div style={{fontWeight: '600'}}>{Number(timesheet.weeklyTotal || 0).toFixed(2)}h</div>
+                      <div style={{fontWeight: '600'}}>{formatDuration(timesheet.weeklyTotal || 0)}</div>
                     </td>
                     <td style={styles.tableCell}>
                       <span style={getStatusBadge(timesheet.status)}>
@@ -1088,15 +1283,15 @@ const AdminTimesheet = () => {
                       <tr key={index}>
                         <td style={{...styles.timeEntriesCell, textAlign: 'left'}}>{entry.project}</td>
                         <td style={{...styles.timeEntriesCell, textAlign: 'left'}}>{entry.task}</td>
-                        <td style={styles.timeEntriesCell}>{entry.monday > 0 ? `${entry.monday}h` : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.tuesday > 0 ? `${entry.tuesday}h` : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.wednesday > 0 ? `${entry.wednesday}h` : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.thursday > 0 ? `${entry.thursday}h` : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.friday > 0 ? `${entry.friday}h` : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.saturday > 0 ? `${entry.saturday}h` : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.sunday > 0 ? `${entry.sunday}h` : '-'}</td>
+                        <td style={styles.timeEntriesCell}>{entry.monday > 0 ? formatDuration(entry.monday) : '-'}</td>
+                        <td style={styles.timeEntriesCell}>{entry.tuesday > 0 ? formatDuration(entry.tuesday) : '-'}</td>
+                        <td style={styles.timeEntriesCell}>{entry.wednesday > 0 ? formatDuration(entry.wednesday) : '-'}</td>
+                        <td style={styles.timeEntriesCell}>{entry.thursday > 0 ? formatDuration(entry.thursday) : '-'}</td>
+                        <td style={styles.timeEntriesCell}>{entry.friday > 0 ? formatDuration(entry.friday) : '-'}</td>
+                        <td style={styles.timeEntriesCell}>{entry.saturday > 0 ? formatDuration(entry.saturday) : '-'}</td>
+                        <td style={styles.timeEntriesCell}>{entry.sunday > 0 ? formatDuration(entry.sunday) : '-'}</td>
                         <td style={styles.timeEntriesCell}>
-                          <div style={{fontWeight: '600'}}>{entry.total}h</div>
+                          <div style={{fontWeight: '600'}}>{formatDuration(entry.total)}</div>
                         </td>
                       </tr>
                     ))}
@@ -1115,7 +1310,7 @@ const AdminTimesheet = () => {
                       </td>
                       <td style={styles.totalHoursCell}>
                         <div style={{fontWeight: '700', color: '#2d3748'}}>
-                          {selectedTimesheet.weeklyTotal}h
+                          {formatDuration(selectedTimesheet.weeklyTotal)}
                         </div>
                       </td>
                     </tr>

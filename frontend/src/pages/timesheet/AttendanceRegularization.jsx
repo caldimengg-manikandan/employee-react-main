@@ -411,6 +411,21 @@ const AttendanceRegularization = () => {
       cursor: "pointer",
       fontSize: "12px",
     },
+    editButtonDisabled: {
+      backgroundColor: "#a0aec0",
+      cursor: "not-allowed",
+      opacity: 0.7,
+    },
+    invalidInput: {
+      borderColor: "#e53e3e",
+      backgroundColor: "#fff5f5",
+      boxShadow: "0 0 0 1px #e53e3e inset",
+    },
+    btnPrimaryDisabled: {
+      backgroundColor: "#a0aec0",
+      cursor: "not-allowed",
+      opacity: 0.7,
+    },
     modalOverlay: {
       position: "fixed",
       inset: 0,
@@ -516,7 +531,7 @@ const AttendanceRegularization = () => {
               <th style={styles.th}>IN Time</th>
               <th style={styles.th}>OUT Time</th>
               <th style={styles.th}>Total Hours</th>
-              <th style={styles.th}>Request.Status</th>
+              <th style={styles.th}>Request Status</th>
               <th style={{ ...styles.th, textAlign: "right" }}>Action</th>
             </tr>
           </thead>
@@ -547,9 +562,22 @@ const AttendanceRegularization = () => {
                     )}
                   </td>
                   <td style={{ ...styles.td, ...styles.actionsCell }}>
-                    <button style={styles.editButton} onClick={() => openEdit(rec)}>
-                      <Edit size={14} /> Edit
-                    </button>
+                    {(() => {
+                      const status = myRequestsByDate[rec.date]?.status;
+                      const isApproved = status === "Approved";
+                      return (
+                        <button
+                          style={{ 
+                            ...styles.editButton,
+                            ...(isApproved ? styles.editButtonDisabled : {})
+                          }}
+                          disabled={isApproved}
+                          onClick={() => openEdit(rec)}
+                        >
+                          <Edit size={14} /> Edit
+                        </button>
+                      );
+                    })()}
                   </td>
                 </tr>
               ))
@@ -576,7 +604,10 @@ const AttendanceRegularization = () => {
                   type="date"
                   value={inDate}
                   onChange={(e) => setInDate(e.target.value)}
-                  style={styles.input}
+                  style={{ 
+                    ...styles.input,
+                    ...(inDate ? {} : styles.invalidInput)
+                  }}
                 />
               </div>
               <div style={styles.field}>
@@ -585,7 +616,10 @@ const AttendanceRegularization = () => {
                   type="time"
                   value={inTime}
                   onChange={(e) => setInTime(e.target.value)}
-                  style={styles.input}
+                  style={{ 
+                    ...styles.input,
+                    ...(inTime ? {} : styles.invalidInput)
+                  }}
                 />
               </div>
               <div style={styles.field}>
@@ -594,7 +628,10 @@ const AttendanceRegularization = () => {
                   type="date"
                   value={outDate}
                   onChange={(e) => setOutDate(e.target.value)}
-                  style={styles.input}
+                  style={{ 
+                    ...styles.input,
+                    ...(outDate ? {} : styles.invalidInput)
+                  }}
                 />
               </div>
               <div style={styles.field}>
@@ -603,7 +640,10 @@ const AttendanceRegularization = () => {
                   type="time"
                   value={outTime}
                   onChange={(e) => setOutTime(e.target.value)}
-                  style={styles.input}
+                  style={{ 
+                    ...styles.input,
+                    ...(outTime ? {} : styles.invalidInput)
+                  }}
                 />
               </div>
               <div style={styles.field}>
@@ -618,7 +658,16 @@ const AttendanceRegularization = () => {
             </div>
             <div style={styles.modalFooter}>
               <button style={styles.btnSecondary} onClick={closeEdit}>Cancel</button>
-              <button style={styles.btnPrimary} onClick={saveEdit}>Save</button>
+              <button
+                style={{
+                  ...styles.btnPrimary,
+                  ...((!inDate || !inTime || !outDate || !outTime) ? styles.btnPrimaryDisabled : {})
+                }}
+                disabled={!inDate || !inTime || !outDate || !outTime}
+                onClick={saveEdit}
+              >
+                Save
+              </button>
             </div>
           </div>
         </div>
