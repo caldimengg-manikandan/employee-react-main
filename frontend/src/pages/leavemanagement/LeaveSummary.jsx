@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { leaveAPI } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const LeaveSummary = () => {
   // Get current year and month
@@ -17,6 +18,8 @@ const LeaveSummary = () => {
 
   // State to track if any filter is applied
   const [isFilterApplied, setIsFilterApplied] = useState(false);
+  // State for refresh loading
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Generate years (current year and previous 5 years)
   const years = Array.from({ length: 6 }, (_, i) => currentYear - i);
@@ -83,14 +86,15 @@ const LeaveSummary = () => {
   }, []);
 
   // Check if any filter is applied
-  const checkIfFilterApplied = () => {
-    return selectedYear !== currentYear ||
+  useEffect(() => {
+    const isApplied = selectedYear !== currentYear ||
       selectedMonth !== currentMonth ||
       selectedEmployeeId !== '' ||
       selectedLeaveType !== 'all' ||
       selectedLocation !== 'all' ||
       selectedStatus !== 'all';
-  };
+    setIsFilterApplied(isApplied);
+  }, [selectedYear, selectedMonth, selectedEmployeeId, selectedLeaveType, selectedLocation, selectedStatus, currentYear, currentMonth]);
 
   // Helper: does leave overlap selected month/year?
   const overlapsSelectedMonth = (startISO, endISO, year, month) => {
@@ -105,9 +109,7 @@ const LeaveSummary = () => {
 
   // Filter leave applications based on all filter criteria
   const filteredApplications = leaveApplications.filter(app => {
-    // Always show Pending applications regardless of date filter, so they don't get missed
-    const isPending = app.status === 'Pending';
-    const matchesMonthWindow = isPending || overlapsSelectedMonth(app.startDateRaw, app.endDateRaw, selectedYear, selectedMonth);
+    const matchesMonthWindow = overlapsSelectedMonth(app.startDateRaw, app.endDateRaw, selectedYear, selectedMonth);
 
     const matchesEmployeeId = selectedEmployeeId === '' ||
       (app.employeeId || '').toLowerCase().includes(selectedEmployeeId.toLowerCase());
@@ -144,25 +146,9 @@ const LeaveSummary = () => {
       default:
         break;
     }
-
-    // Check if any filter is applied after the change
-    const isApplied = checkIfFilterApplied();
-    setIsFilterApplied(isApplied);
+    
   };
-
-  // Handle refresh (reset all filters)
-  const handleRefresh = () => {
-    setSelectedYear(currentYear);
-    setSelectedMonth(currentMonth);
-    setSelectedEmployeeId('');
-    setSelectedLeaveType('all');
-    setSelectedLocation('all');
-    setSelectedStatus('all');
-    setIsFilterApplied(false);
-    loadLeaves();
-  };
-
-  // Handle clear all filters
+    // Handle clear all filters
   const handleClearAllFilters = () => {
     setSelectedYear(currentYear);
     setSelectedMonth(currentMonth);
@@ -172,6 +158,15 @@ const LeaveSummary = () => {
     setSelectedStatus('all');
     setIsFilterApplied(false);
   };
+
+  // Handle refresh (reload data without resetting filters)
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await loadLeaves();
+    setIsRefreshing(false);
+  };
+
+
 
   // Handle approve/reject actions
   const handleApprove = async (id) => {
@@ -216,14 +211,34 @@ const LeaveSummary = () => {
       'Leave Type': app.leaveType,
       'Start Date': app.fromDate,
       'End Date': app.toDate,
-      'Days Count': app.days,
       'Total Leave Days': app.totalLeaveDays,
       'Status': app.status,
       'Location': app.location
     }));
 
-    alert(`Downloading Excel report for ${selectedMonthName} ${selectedYear} (${data.length} records)`);
-    console.log('Excel data:', data);
+    // Create a new workbook and a worksheet
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.json_to_sheet(data);
+
+    // Adjust column widths
+    const colWidths = [
+      { wch: 6 },  // S.No
+      { wch: 12 }, // Employee ID
+      { wch: 20 }, // Employee Name
+      { wch: 15 }, // Leave Type
+      { wch: 12 }, // Start Date
+      { wch: 12 }, // End Date
+      { wch: 15 }, // Total Leave Days
+      { wch: 12 }, // Status
+      { wch: 15 }  // Location
+    ];
+    ws['!cols'] = colWidths;
+
+    // Append the worksheet to the workbook
+    XLSX.utils.book_append_sheet(wb, ws, 'Leave Summary');
+
+    // Generate Excel file and trigger download
+    XLSX.writeFile(wb, `Leave_Summary_${selectedMonthName}_${selectedYear}.xlsx`);
   };
 
   const containerStyle = {
@@ -331,7 +346,8 @@ const LeaveSummary = () => {
     color: 'white',
     position: 'sticky',
     top: '0',
-    backgroundColor: '#3498db' // Single blue color for all headers
+    backgroundColor: '#3498db', // Single blue color for all headers
+    zIndex: 10
   };
 
   const tdStyle = {
@@ -498,7 +514,7 @@ const LeaveSummary = () => {
             <select
               style={selectStyle}
               value={selectedYear}
-              onChange={(e) => handleFilterChange('year', Number(e.target.value))}
+              onChange={(e) => handleFilterChange('year', e.target.value === 'all' ? 'all' : Number(e.target.value))}
             >
               <option value="all">All Years</option>
               {years.map(year => (
@@ -512,7 +528,7 @@ const LeaveSummary = () => {
             <select
               style={selectStyle}
               value={selectedMonth}
-              onChange={(e) => handleFilterChange('month', Number(e.target.value))}
+              onChange={(e) => handleFilterChange('month', e.target.value === 'all' ? 'all' : Number(e.target.value))}
             >
               <option value="all">All Months</option>
               {months.map(month => (
@@ -573,40 +589,61 @@ const LeaveSummary = () => {
               ))}
             </select>
           </div>
-        </div>
 
-        {/* Show Clear All button only when filters are applied */}
-        {isFilterApplied && (
-          <div style={filterButtonsStyle}>
-            <button
-              style={clearAllButtonStyle}
-              onClick={handleClearAllFilters}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#e74c3c'}
-            >
-              <span>✕</span> Clear All Filters
-            </button>
-          </div>
-        )}
+          {/* Show Clear All button only when filters are applied */}
+          {isFilterApplied && (
+            <div style={{ ...filterGroupStyle, display: 'flex', alignItems: 'flex-end' }}>
+              <button
+                style={{ ...clearAllButtonStyle, width: '100%', justifyContent: 'center' }}
+                onClick={handleClearAllFilters}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
+                onMouseOut={(e) => e.target.style.backgroundColor = '#e74c3c'}
+              >
+                <span>✕</span> Clear Filters
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Leave Applications Card */}
       <div style={cardStyle}>
-        {/* Table Header with Refresh Button */}
+        {/* Table Header with Refresh Button and Download Button */}
         <div style={tableHeaderStyle}>
+          <button
+            style={{
+              ...refreshButtonStyle,
+              opacity: isRefreshing ? 0.7 : 1,
+              cursor: isRefreshing ? 'not-allowed' : 'pointer'
+            }}
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            onMouseOver={(e) => !isRefreshing && (e.target.style.backgroundColor = '#2980b9')}
+            onMouseOut={(e) => !isRefreshing && (e.target.style.backgroundColor = '#3498db')}
+          >
+            {isRefreshing ? (
+              <>
+                <Spinner color="white" /> Refreshing...
+              </>
+            ) : (
+              <>
+                <span>↻</span> Refresh
+              </>
+            )}
+          </button>
 
           <button
-            style={refreshButtonStyle}
-            onClick={handleRefresh}
+            style={downloadButtonStyle}
+            onClick={handleDownloadExcel}
             onMouseOver={(e) => e.target.style.backgroundColor = '#2980b9'}
             onMouseOut={(e) => e.target.style.backgroundColor = '#3498db'}
           >
-            <span>↻</span> Refresh
+            Download Excel Report
           </button>
         </div>
 
         {/* Leave Applications Table */}
-        <div style={{ overflowX: 'auto' }}>
+        <div style={{ overflowX: 'auto', maxHeight: '600px', overflowY: 'auto' }}>
           <table style={tableStyle}>
             <thead>
               <tr>
@@ -615,8 +652,8 @@ const LeaveSummary = () => {
                 <th style={thStyle}>Employee Name</th>
                 <th style={thStyle}>Leave Type</th>
                 <th style={thStyle}>Location</th>
-                <th style={thStyle}>Leave Dates</th>
-                <th style={thStyle}>Days Count</th>
+                <th style={thStyle}>Start Date</th>
+                <th style={thStyle}>End Date</th>
                 <th style={thStyle}>Total Leave Days ({selectedYear})</th>
                 <th style={thStyle}>Status</th>
                 <th style={thStyle}>Actions</th>
@@ -648,26 +685,9 @@ const LeaveSummary = () => {
                         {app.location}
                       </span>
                     </td>
-                    <td style={tdStyle}>
-                      <div style={{ fontSize: '13px' }}>
-                        <div><strong>From:</strong> {app.fromDate}</div>
-                        <div><strong>To:</strong> {app.toDate}</div>
-                      </div>
-                    </td>
-                    <td style={tdStyle}>
-                      <span style={{
-                        fontWeight: 'bold',
-                        color: '#2c3e50',
-                        backgroundColor: '#f8f9fa',
-                        padding: '5px 10px',
-                        borderRadius: '4px',
-                        display: 'inline-block',
-                        minWidth: '40px',
-                        textAlign: 'center'
-                      }}>
-                        {app.days}
-                      </span>
-                    </td>
+                    <td style={tdStyle}>{app.fromDate}</td>
+                    <td style={tdStyle}>{app.toDate}</td>
+                    
                     <td style={tdStyle}>
                       <span style={{
                         fontWeight: 'bold',
@@ -749,16 +769,7 @@ const LeaveSummary = () => {
         )}
 
         {/* Download Excel Button */}
-        <div style={{ textAlign: 'right', marginTop: '30px' }}>
-          <button
-            style={downloadButtonStyle}
-            onClick={handleDownloadExcel}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#2980b9'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#3498db'}
-          >
-            Download Excel Report
-          </button>
-        </div>
+        
       </div>
     </div>
   );

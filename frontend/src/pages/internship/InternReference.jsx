@@ -1,2494 +1,888 @@
-// src/pages/InsuranceManagement.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from "react";
+import { internAPI } from "../../services/api";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import {
-  PlusIcon,
-  DocumentTextIcon,
-  ArrowLeftIcon,
-  EyeIcon,
   PencilIcon,
   TrashIcon,
+  MagnifyingGlassIcon,
   XMarkIcon,
+  CalendarDaysIcon,
   UserCircleIcon,
-  DocumentArrowUpIcon,
-  CloudArrowDownIcon,
-  PaperAirplaneIcon,
-  MinusIcon,
-  ExclamationCircleIcon,
+  AcademicCapIcon,
+  DocumentTextIcon,
   CheckCircleIcon,
-  ClockIcon,
-  BanknotesIcon,
+  ExclamationCircleIcon,
+  InformationCircleIcon,
+  PlusIcon,
   UserIcon,
-  BuildingLibraryIcon,
-  BuildingOfficeIcon,
-  DocumentArrowDownIcon
-} from '@heroicons/react/24/outline';
-import { employeeAPI } from '../../services/api';
+  BriefcaseIcon,
+  PhoneIcon,
+  EnvelopeIcon,
+  ArrowDownTrayIcon,
+  BuildingLibraryIcon
+} from "@heroicons/react/24/outline";
 
-const InsuranceManagement = () => {
-  const [currentView, setCurrentView] = useState('main'); // 'main', 'newClaim', 'claimHistory'
-  const [currentStep, setCurrentStep] = useState(1);
-  const [viewingClaim, setViewingClaim] = useState(null);
-  const [editingClaim, setEditingClaim] = useState(null);
+const InternReference = () => {
+  const [interns, setInterns] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterType, setFilterType] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const [notification, setNotification] = useState({ show: false, message: "", type: "" });
+  const [showModal, setShowModal] = useState(false);
+
+  const [form, setForm] = useState({
+    fullName: "",
+    collegeName: "",
+    degree: "",
+    department: "",
+    internshipType: "Internship",
+    mentor: "",
+    referenceNote: "",
+    startDate: "",
+    endDate: "",
+    status: "Completed",
+    contactEmail: "",
+    contactPhone: "",
+    bankName: "",
+    accountNumber: "",
+    ifscCode: ""
+  });
+
   const [errors, setErrors] = useState({});
-  const [employees, setEmployees] = useState([]);
+
+  // Show notification
+  const showNotification = (message, type = "success") => {
+    setNotification({ show: true, message, type });
+    setTimeout(() => {
+      setNotification({ show: false, message: "", type: "" });
+    }, 3000);
+  };
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const response = await internAPI.getAll();
+      
+      // Handle different response formats
+      let internsData = [];
+      
+      if (Array.isArray(response.data)) {
+        internsData = response.data;
+      } else if (response.data && Array.isArray(response.data.data)) {
+        internsData = response.data.data;
+      } else if (Array.isArray(response)) {
+        internsData = response;
+      } else if (response && response.data && typeof response.data === 'object') {
+        internsData = [response.data];
+      }
+      
+      setInterns(internsData);
+    } catch (error) {
+      console.error('Error loading interns:', error);
+      showNotification("Failed to load intern data", "error");
+      setInterns([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchEmployees = async () => {
-      try {
-        const response = await employeeAPI.getAllEmployees();
-        setEmployees(response.data);
-      } catch (error) {
-        console.error("Error fetching employees:", error);
-      }
-    };
-    fetchEmployees();
+    loadData();
   }, []);
 
-  const [editFormData, setEditFormData] = useState({
-    employeeName: '',
-    employeeId: '',
-    mobile: '',
-    bankName: '',
-    accountNumber: '',
-    relationship: 'Single',
-    spouseName: '',
-    children: [{ name: '', age: '' }],
-    memberName: '',
-    claimNumber: '',
-    treatment: '',
-    sumInsured: '',
-    dateOfAdmission: '',
-    dateOfDischarge: '',
-    requestedAmount: '',
-    claimDate: '',
-    closeDate: '',
-    claimStatus: 'Pending',
-    paymentStatus: 'Unpaid',
-    hospitalAddress: '',
-    typeOfIllness: '',
-    otherIllness: '',
-    documents: {
-      employeePhoto: null,
-      dischargeBill: null,
-      pharmacyBill: null,
-      paymentReceipt: null
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!form.fullName.trim()) newErrors.fullName = "Full Name is required";
+    if (!form.collegeName.trim()) newErrors.collegeName = "College Name is required";
+    if (!form.degree.trim()) newErrors.degree = "Degree is required";
+    if (!form.department.trim()) newErrors.department = "Department is required";
+    if (!form.mentor.trim()) newErrors.mentor = "Mentor is required";
+    if (!form.bankName.trim()) newErrors.bankName = "Bank Name is required";
+    if (!form.accountNumber.trim()) newErrors.accountNumber = "Account Number is required";
+    if (!form.ifscCode.trim()) newErrors.ifscCode = "IFSC Code is required";
+    if (form.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) {
+      newErrors.contactEmail = "Invalid email format";
     }
-  });
-
-  // Form Data for New Claim
-  const [formData, setFormData] = useState({
-    employeeName: '',
-    employeeId: '',
-    mobile: '',
-    bankName: '',
-    accountNumber: '',
-    relationship: 'Single',
-    spouseName: '',
-    children: [{ name: '', age: '' }],
-    memberName: '',
-    claimNumber: '',
-    treatment: '',
-    sumInsured: '',
-    dateOfAdmission: '',
-    dateOfDischarge: '',
-    requestedAmount: '',
-    claimDate: '',
-    closeDate: '',
-    claimStatus: 'Pending',
-    paymentStatus: 'Unpaid',
-    hospitalAddress: '',
-    typeOfIllness: '',
-    otherIllness: '',
-    documents: {
-      employeePhoto: null,
-      dischargeBill: null,
-      pharmacyBill: null,
-      paymentReceipt: null
-    }
-  });
-
-  // Illness types
-  const illnessTypes = [
-    "Fever",
-    "Flu / Viral Infection",
-    "Food Poisoning",
-    "Allergy",
-    "Migraine",
-    "Asthma Attack",
-    "Pneumonia",
-    "COVID-19",
-    "Gastric Pain",
-    "Ulcer",
-    "Jaundice",
-    "Diabetes Complication",
-    "High Blood Pressure",
-    "Heart Disease",
-    "Kidney Stone",
-    "Arthritis",
-    "Slip / Fall Injury",
-    "Back Pain",
-    "Fracture",
-    "Dengue",
-    "Malaria",
-    "Chickenpox",
-    "Typhoid",
-    "Surgery",
-    "Hospital Admission",
-    "Emergency Treatment",
-    "Other"
-  ];
-
-  // Claims data state
-  const [claims, setClaims] = useState([
-    {
-      id: 'CLM-001',
-      employeeName: 'John Doe',
-      employeeId: 'EMP001',
-      claimNumber: 'IC-2024-001',
-      memberName: 'John Doe',
-      treatment: 'Dental Surgery',
-      sumInsured: 50000,
-      requestedAmount: 45000,
-      claimDate: '2024-01-15',
-      closeDate: '2024-02-01',
-      status: 'Approved',
-      paymentStatus: 'Paid',
-      dateOfAdmission: '2024-01-10',
-      dateOfDischarge: '2024-01-14',
-      bankName: 'HDFC Bank',
-      accountNumber: 'XXXXXX1234',
-      relationship: 'Single',
-      mobile: '+91 9876543210',
-      hospitalAddress: 'Apollo Hospital, Chennai',
-      typeOfIllness: 'Surgery',
-      otherIllness: '',
-      documents: {
-        employeePhoto: { name: 'john_photo.jpg' },
-        dischargeBill: { name: 'discharge_bill.pdf' },
-        pharmacyBill: { name: 'pharmacy_bill.pdf' },
-        paymentReceipt: { name: 'payment_receipt.pdf' }
-      }
-    },
-    {
-      id: 'CLM-002',
-      employeeName: 'Jane Smith',
-      employeeId: 'EMP002',
-      claimNumber: 'IC-2024-002',
-      memberName: 'Jane Smith',
-      treatment: 'Eye Checkup',
-      sumInsured: 30000,
-      requestedAmount: 12000,
-      claimDate: '2024-01-20',
-      closeDate: '2024-02-05',
-      status: 'Approved',
-      paymentStatus: 'Paid',
-      dateOfAdmission: '2024-01-18',
-      dateOfDischarge: '2024-01-18',
-      bankName: 'ICICI Bank',
-      accountNumber: 'XXXXXX5678',
-      relationship: 'Married',
-      mobile: '+91 9876543211',
-      spouseName: 'Mike Smith',
-      hospitalAddress: 'Fortis Hospital, Mumbai',
-      typeOfIllness: 'Allergy',
-      otherIllness: '',
-      children: [
-        { name: 'Emma Smith', age: '8' },
-        { name: 'Noah Smith', age: '5' }
-      ],
-      documents: {
-        employeePhoto: { name: 'jane_photo.jpg' },
-        dischargeBill: { name: 'discharge_bill.pdf' },
-        pharmacyBill: { name: 'pharmacy_bill.pdf' },
-        paymentReceipt: { name: 'payment_receipt.pdf' }
-      }
-    },
-    {
-      id: 'CLM-003',
-      employeeName: 'Robert Wilson',
-      employeeId: 'EMP003',
-      claimNumber: 'IC-2024-003',
-      memberName: 'Robert Wilson',
-      treatment: 'Heart Surgery',
-      sumInsured: 200000,
-      requestedAmount: 185000,
-      claimDate: '2024-02-01',
-      closeDate: '',
-      status: 'Pending',
-      paymentStatus: 'Pending',
-      dateOfAdmission: '2024-01-28',
-      dateOfDischarge: '2024-02-05',
-      bankName: 'SBI',
-      accountNumber: 'XXXXXX9012',
-      relationship: 'Married',
-      mobile: '+91 9876543212',
-      spouseName: 'Sarah Wilson',
-      hospitalAddress: 'Manipal Hospital, Bangalore',
-      typeOfIllness: 'Heart Disease',
-      otherIllness: '',
-      children: [
-        { name: 'Liam Wilson', age: '12' }
-      ],
-      documents: {
-        employeePhoto: { name: 'robert_photo.jpg' },
-        dischargeBill: { name: 'discharge_bill.pdf' },
-        pharmacyBill: { name: 'pharmacy_bill.pdf' },
-        paymentReceipt: { name: 'payment_receipt.pdf' }
-      }
-    }
-  ]);
-
-  // Multi-step Form Components for New Claim
-  const steps = [
-    { number: 1, title: 'EMPLOYEE DETAILS', icon: UserCircleIcon },
-    { number: 2, title: 'UPLOAD DOCUMENTS', icon: DocumentArrowUpIcon },
-    { number: 3, title: 'TREATMENT DETAILS', icon: DocumentTextIcon }
-  ];
-
-  // Helper Functions
-  const getStatusColor = (status) => {
-    switch (status) {
-      case 'Approved': return 'bg-green-100 text-green-800';
-      case 'Pending': return 'bg-yellow-100 text-yellow-800';
-      case 'Rejected': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getPaymentStatusColor = (status) => {
-    switch (status) {
-      case 'Paid': return 'bg-green-100 text-green-800';
-      case 'Pending': return 'bg-yellow-100 text-yellow-800';
-      case 'Rejected': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  // Form Handlers for New Claim
-  const handleInputChange = (field, value) => {
-    // Validation for specific fields
-    if (field === 'mobile') {
-      if (!/^\d*$/.test(value)) return;
-      if (value.length > 10) return;
-    }
-    if (field === 'accountNumber') {
-      if (!/^\d*$/.test(value)) return;
-      if (value.length > 18) return;
+    if (form.contactPhone && !/^[0-9]{10}$/.test(form.contactPhone)) {
+      newErrors.contactPhone = "Phone must be 10 digits";
     }
 
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
-    // Clear error if exists
-    if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
+  const handleSubmit = async () => {
+    if (!validateForm()) {
+      showNotification("Please fix the errors in the form", "error");
+      return;
     }
-  };
 
-  const handleEmployeeSelect = (employeeId) => {
-    const employee = employees.find(emp => emp.employeeId === employeeId);
-
-    if (employee) {
-      setFormData(prev => ({
-        ...prev,
-        employeeName: employee.name,
-        employeeId: employee.employeeId,
-        mobile: employee.mobileNo || employee.contactNumber || employee.mobile || '',
-        bankName: employee.bankName || '',
-        accountNumber: employee.bankAccount || employee.accountNumber || '',
-        relationship: employee.maritalStatus || 'Single',
-        spouseName: employee.spouseName || ''
-      }));
-
-      // Clear errors
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors.employeeId;
-        delete newErrors.employeeName;
-        delete newErrors.mobile;
-        delete newErrors.bankName;
-        delete newErrors.accountNumber;
-        delete newErrors.relationship;
-        return newErrors;
-      });
-    } else {
-      // Handle reset if needed, or just set ID
-      setFormData(prev => ({
-        ...prev,
-        employeeId: employeeId
-      }));
-    }
-  };
-
-  const handleRemoveFile = (field) => {
-    setFormData(prev => ({
-      ...prev,
-      documents: {
-        ...prev.documents,
-        [field]: null
-      }
-    }));
-  };
-
-  const handleNameBlur = (field) => {
-    const value = formData[field];
-    if (value && value.length > 0) {
-      const capitalized = value.charAt(0).toUpperCase() + value.slice(1);
-      setFormData(prev => ({ ...prev, [field]: capitalized }));
-    }
-  };
-
-  const handleFileUpload = (field, file) => {
-    setFormData(prev => ({
-      ...prev,
-      documents: {
-        ...prev.documents,
-        [field]: file
-      }
-    }));
-
-    // Clear error
-    if (errors[field] || errors.documents) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        // Re-check generic documents error if needed, but for now simple clear
-        return newErrors;
-      });
-    }
-  };
-
-  // Edit form file upload
-  const handleEditFileUpload = (field, file) => {
-    setEditFormData(prev => ({
-      ...prev,
-      documents: {
-        ...prev.documents,
-        [field]: file
-      }
-    }));
-  };
-
-  // Children management functions
-  const addChild = () => {
-    setFormData(prev => ({
-      ...prev,
-      children: [...prev.children, { name: '', age: '' }]
-    }));
-  };
-
-  const removeChild = (index) => {
-    setFormData(prev => ({
-      ...prev,
-      children: prev.children.filter((_, i) => i !== index)
-    }));
-  };
-
-  const updateChild = (index, field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      children: prev.children.map((child, i) =>
-        i === index ? { ...child, [field]: value } : child
-      )
-    }));
-  };
-
-  // Edit children management
-  const addEditChild = () => {
-    setEditFormData(prev => ({
-      ...prev,
-      children: [...prev.children, { name: '', age: '' }]
-    }));
-  };
-
-  const removeEditChild = (index) => {
-    setEditFormData(prev => ({
-      ...prev,
-      children: prev.children.filter((_, i) => i !== index)
-    }));
-  };
-
-  const updateEditChild = (index, field, value) => {
-    setEditFormData(prev => ({
-      ...prev,
-      children: prev.children.map((child, i) =>
-        i === index ? { ...child, [field]: value } : child
-      )
-    }));
-  };
-
-  // Edit form handlers
-  const handleEditInputChange = (field, value) => {
-    setEditFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  // Enhanced PDF Download Function
-  const handleDownloadPDF = (claim) => {
-    // Create a new window with the claim details
-    const printWindow = window.open('', '_blank');
-
-    // HTML content for the PDF
-    const htmlContent = `
-  < !DOCTYPE html >
-    <html>
-      <head>
-        <title>Insurance Claim - ${claim.claimNumber}</title>
-        <style>
-          body {
-            font - family: Arial, sans-serif;
-          margin: 40px;
-          color: #333;
-          }
-          .header {
-            text - align: center;
-          margin-bottom: 30px;
-          border-bottom: 2px solid #333;
-          padding-bottom: 20px;
-          }
-          .header h1 {
-            color: #2c3e50;
-          margin: 0;
-          }
-          .header h2 {
-            color: #3498db;
-          margin: 10px 0;
-          }
-          .section {
-            margin - bottom: 25px;
-          padding: 15px;
-          border: 1px solid #ddd;
-          border-radius: 5px;
-          background-color: #f9f9f9;
-          }
-          .section h3 {
-            color: #2c3e50;
-          border-bottom: 1px solid #ddd;
-          padding-bottom: 8px;
-          margin-top: 0;
-          }
-          .row {
-            display: flex;
-          justify-content: space-between;
-          margin-bottom: 10px;
-          }
-          .label {
-            font - weight: bold;
-          color: #555;
-          min-width: 200px;
-          }
-          .value {
-            flex: 1;
-          color: #333;
-          }
-          .status {
-            display: inline-block;
-          padding: 4px 12px;
-          border-radius: 20px;
-          font-size: 14px;
-          font-weight: bold;
-          }
-          .status-approved {
-            background - color: #d4edda;
-          color: #155724;
-          }
-          .status-pending {
-            background - color: #fff3cd;
-          color: #856404;
-          }
-          .status-rejected {
-            background - color: #f8d7da;
-          color: #721c24;
-          }
-          .amount {
-            font - size: 20px;
-          font-weight: bold;
-          color: #2ecc71;
-          }
-          .footer {
-            text - align: center;
-          margin-top: 40px;
-          padding-top: 20px;
-          border-top: 1px solid #ddd;
-          color: #777;
-          font-size: 12px;
-          }
-          .timestamp {
-            font - size: 11px;
-          color: #999;
-          text-align: right;
-          margin-bottom: 20px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="timestamp">Generated on: ${new Date().toLocaleString()}</div>
-
-        <div class="header">
-          <h1>INSURANCE CLAIM DETAILS</h1>
-          <h2>Claim Number: ${claim.claimNumber}</h2>
-        </div>
-
-        <div class="section">
-          <h3>Basic Information</h3>
-          <div class="row">
-            <span class="label">Claim Number:</span>
-            <span class="value">${claim.claimNumber}</span>
-          </div>
-          <div class="row">
-            <span class="label">Employee Name:</span>
-            <span class="value">${claim.employeeName}</span>
-          </div>
-          <div class="row">
-            <span class="label">Employee ID:</span>
-            <span class="value">${claim.employeeId}</span>
-          </div>
-          <div class="row">
-            <span class="label">Member Name:</span>
-            <span class="value">${claim.memberName}</span>
-          </div>
-          <div class="row">
-            <span class="label">Treatment:</span>
-            <span class="value">${claim.treatment}</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <h3>Financial Details</h3>
-          <div class="row">
-            <span class="label">Sum Insured:</span>
-            <span class="value amount">₹${claim.sumInsured?.toLocaleString()}</span>
-          </div>
-          <div class="row">
-            <span class="label">Requested Amount:</span>
-            <span class="value amount">₹${claim.requestedAmount?.toLocaleString()}</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <h3>Treatment Details</h3>
-          <div class="row">
-            <span class="label">Hospital Address:</span>
-            <span class="value">${claim.hospitalAddress}</span>
-          </div>
-          <div class="row">
-            <span class="label">Type of Illness:</span>
-            <span class="value">${claim.typeOfIllness}</span>
-          </div>
-          <div class="row">
-            <span class="label">Admission Date:</span>
-            <span class="value">${new Date(claim.dateOfAdmission).toLocaleDateString()}</span>
-          </div>
-          <div class="row">
-            <span class="label">Discharge Date:</span>
-            <span class="value">${new Date(claim.dateOfDischarge).toLocaleDateString()}</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <h3>Status Information</h3>
-          <div class="row">
-            <span class="label">Claim Status:</span>
-            <span class="value">
-              <span class="status status-${claim.status.toLowerCase()}">${claim.status}</span>
-            </span>
-          </div>
-          <div class="row">
-            <span class="label">Payment Status:</span>
-            <span class="value">
-              <span class="status status-${claim.paymentStatus.toLowerCase()}">${claim.paymentStatus}</span>
-            </span>
-          </div>
-          <div class="row">
-            <span class="label">Claim Date:</span>
-            <span class="value">${new Date(claim.claimDate).toLocaleDateString()}</span>
-          </div>
-          <div class="row">
-            <span class="label">Close Date:</span>
-            <span class="value">${claim.closeDate ? new Date(claim.closeDate).toLocaleDateString() : 'Open'}</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <h3>Employee Information</h3>
-          <div class="row">
-            <span class="label">Mobile Number:</span>
-            <span class="value">${claim.mobile}</span>
-          </div>
-          <div class="row">
-            <span class="label">Relationship:</span>
-            <span class="value">${claim.relationship}</span>
-          </div>
-          ${claim.spouseName ? `
-            <div class="row">
-              <span class="label">Spouse Name:</span>
-              <span class="value">${claim.spouseName}</span>
-            </div>
-          ` : ''}
-        </div>
-
-        <div class="section">
-          <h3>Bank Information</h3>
-          <div class="row">
-            <span class="label">Bank Name:</span>
-            <span class="value">${claim.bankName}</span>
-          </div>
-          <div class="row">
-            <span class="label">Account Number:</span>
-            <span class="value">${claim.accountNumber}</span>
-          </div>
-        </div>
-
-        ${claim.children && claim.children.length > 0 ? `
-          <div class="section">
-            <h3>Children Details</h3>
-            ${claim.children.map((child, index) => `
-              <div class="row">
-                <span class="label">Child ${index + 1}:</span>
-                <span class="value">${child.name} (Age: ${child.age} years)</span>
-              </div>
-            `).join('')}
-          </div>
-        ` : ''}
-
-        ${claim.documents ? `
-          <div class="section">
-            <h3>Uploaded Documents</h3>
-            <div class="row">
-              <span class="label">Employee Photo:</span>
-              <span class="value">${claim.documents.employeePhoto?.name || 'Not uploaded'}</span>
-            </div>
-            <div class="row">
-              <span class="label">Discharge Bill:</span>
-              <span class="value">${claim.documents.dischargeBill?.name || 'Not uploaded'}</span>
-            </div>
-            <div class="row">
-              <span class="label">Pharmacy Bill:</span>
-              <span class="value">${claim.documents.pharmacyBill?.name || 'Not uploaded'}</span>
-            </div>
-            <div class="row">
-              <span class="label">Payment Receipt:</span>
-              <span class="value">${claim.documents.paymentReceipt?.name || 'Not uploaded'}</span>
-            </div>
-          </div>
-        ` : ''}
-
-        <div class="footer">
-          <p>This is an official document generated by Insurance Management System</p>
-          <p>Document ID: ${claim.id} | Generated on: ${new Date().toLocaleDateString()}</p>
-        </div>
-      </body>
-    </html>
-`;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-
-    // Give the content time to load before printing
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.onafterprint = () => {
-        printWindow.close();
+    try {
+      const internData = {
+        ...form,
+        startDate: form.startDate || new Date().toISOString().split('T')[0],
+        endDate: form.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
       };
-    }, 500);
+
+      if (editingId) {
+        await internAPI.update(editingId, internData);
+        showNotification("Intern details updated successfully!");
+      } else {
+        await internAPI.create(internData);
+        showNotification("Intern added successfully!");
+      }
+      
+      loadData();
+      resetForm();
+      setShowModal(false);
+    } catch (error) {
+      console.error('Error saving intern:', error);
+      const errorMessage = error.response?.data?.message || error.response?.data?.error || "Failed to save intern details";
+      showNotification(errorMessage, "error");
+    }
   };
 
-  // Form Submission Handlers
-  const handleSubmitClaim = (e) => {
-    e.preventDefault();
+  const handleEdit = (intern) => {
+    setEditingId(intern._id || intern.id);
+    setForm({
+      fullName: intern.fullName || "",
+      collegeName: intern.collegeName || "",
+      degree: intern.degree || "",
+      department: intern.department || "",
+      internshipType: intern.internshipType || "Internship",
+      mentor: intern.mentor || "",
+      referenceNote: intern.referenceNote || "",
+      startDate: intern.startDate ? new Date(intern.startDate).toISOString().split('T')[0] : "",
+      endDate: intern.endDate ? new Date(intern.endDate).toISOString().split('T')[0] : "",
+      status: intern.status || "Completed",
+      contactEmail: intern.contactEmail || "",
+      contactPhone: intern.contactPhone || "",
+      bankName: intern.bankName || "",
+      accountNumber: intern.accountNumber || "",
+      ifscCode: intern.ifscCode || ""
+    });
+    setShowModal(true);
+  };
 
-    const newErrors = {};
-    const requiredFields = [
-      'employeeName', 'employeeId', 'mobile', 'bankName',
-      'accountNumber', 'memberName', 'claimNumber', 'treatment',
-      'sumInsured', 'requestedAmount', 'dateOfAdmission', 'dateOfDischarge',
-      'claimDate', 'hospitalAddress', 'typeOfIllness', 'claimStatus', 'paymentStatus'
-    ];
+  const handleDelete = async (id, name) => {
+    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
+      try {
+        await internAPI.remove(id);
+        showNotification("Intern deleted successfully!");
+        loadData();
+      } catch (error) {
+        console.error('Error deleting intern:', error);
+        showNotification("Failed to delete intern", "error");
+      }
+    }
+  };
 
-    requiredFields.forEach(field => {
-      if (!formData[field]) newErrors[field] = true;
+  const resetForm = () => {
+    setForm({
+      fullName: "",
+      collegeName: "",
+      degree: "",
+      department: "",
+      internshipType: "Internship",
+      mentor: "",
+      referenceNote: "",
+      startDate: "",
+      endDate: "",
+      status: "Completed",
+      contactEmail: "",
+      contactPhone: "",
+      bankName: "",
+      accountNumber: "",
+      ifscCode: ""
+    });
+    setEditingId(null);
+    setErrors({});
+  };
+
+  const openAddModal = () => {
+    resetForm();
+    setShowModal(true);
+  };
+
+  // Ensure interns is always an array before filtering
+  const safeInterns = Array.isArray(interns) ? interns : [];
+  
+  const filteredInterns = safeInterns.filter(intern => {
+    if (!intern) return false;
+    
+    const matchesSearch = 
+      (intern.fullName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (intern.collegeName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (intern.department?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+      (intern.mentor?.toLowerCase() || '').includes(searchTerm.toLowerCase());
+    
+    const matchesFilter = filterType === "all" || intern.internshipType === filterType;
+    const matchesStatus = filterStatus === "all" || intern.status === filterStatus;
+    
+    return matchesSearch && matchesFilter && matchesStatus;
+  });
+
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF();
+    
+    // Add title
+    doc.setFontSize(18);
+    doc.text("Intern Reference List", 14, 20);
+    
+    // Add date
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 28);
+
+    const tableColumn = ["S.No", "Full Name", "Degree", "Internship Type", "Company Mentor", "Contact No", "Status"];
+    const tableRows = [];
+
+    filteredInterns.forEach((intern, index) => {
+      const internData = [
+        index + 1,
+        intern.fullName || "N/A",
+        intern.degree || "N/A",
+        intern.internshipType || "N/A",
+        intern.mentor || "N/A",
+        intern.contactPhone || "N/A",
+        intern.status || "N/A"
+      ];
+      tableRows.push(internData);
     });
 
-    if (formData.typeOfIllness === 'Other' && !formData.otherIllness) {
-      newErrors.otherIllness = true;
-    }
-
-    setErrors(newErrors);
-
-    if (Object.keys(newErrors).length > 0) {
-      // alert('Please fill all required fields marked with *'); // Removed alert
-      return;
-    }
-
-    const newClaim = {
-      id: `CLM - ${String(claims.length + 1).padStart(3, '0')} `,
-      employeeName: formData.employeeName,
-      employeeId: formData.employeeId,
-      claimNumber: formData.claimNumber,
-      memberName: formData.memberName,
-      treatment: formData.treatment,
-      sumInsured: parseFloat(formData.sumInsured) || 0,
-      requestedAmount: parseFloat(formData.requestedAmount) || 0,
-      claimDate: formData.claimDate,
-      closeDate: formData.closeDate,
-      status: formData.claimStatus,
-      paymentStatus: formData.paymentStatus,
-      dateOfAdmission: formData.dateOfAdmission,
-      dateOfDischarge: formData.dateOfDischarge,
-      bankName: formData.bankName,
-      accountNumber: formData.accountNumber,
-      relationship: formData.relationship,
-      mobile: formData.mobile,
-      spouseName: formData.spouseName || '',
-      hospitalAddress: formData.hospitalAddress,
-      typeOfIllness: formData.typeOfIllness === 'Other' ? formData.otherIllness : formData.typeOfIllness,
-      otherIllness: formData.typeOfIllness === 'Other' ? formData.otherIllness : '',
-      children: formData.children || [],
-      documents: formData.documents || {
-        employeePhoto: null,
-        dischargeBill: null,
-        pharmacyBill: null,
-        paymentReceipt: null
-      }
-    };
-
-    setClaims(prev => [newClaim, ...prev]);
-
-    // Reset form
-    setFormData({
-      employeeName: '',
-      employeeId: '',
-      mobile: '',
-      bankName: '',
-      accountNumber: '',
-      relationship: 'Single',
-      spouseName: '',
-      children: [{ name: '', age: '' }],
-      memberName: '',
-      claimNumber: '',
-      treatment: '',
-      sumInsured: '',
-      dateOfAdmission: '',
-      dateOfDischarge: '',
-      requestedAmount: '',
-      claimDate: '',
-      closeDate: '',
-      claimStatus: 'Pending',
-      paymentStatus: 'Unpaid',
-      hospitalAddress: '',
-      typeOfIllness: '',
-      otherIllness: '',
-      documents: {
-        employeePhoto: null,
-        dischargeBill: null,
-        pharmacyBill: null,
-        paymentReceipt: null
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 35,
+      headStyles: { fillColor: [30, 58, 138] }, // Dark Blue (blue-900)
+      styles: { fontSize: 9 },
+      columnStyles: {
+        0: { cellWidth: 15 }, // S.No
+        // Adjust other widths if necessary, autoTable does a decent job usually
       }
     });
-    setCurrentStep(1);
-    setCurrentView('claimHistory');
 
-    alert('Claim submitted successfully!');
+    doc.save("intern_reference_list.pdf");
   };
 
-  const handleUpdateClaim = (e) => {
-    e.preventDefault();
+  // Notification component
+  const Notification = () => {
+    if (!notification.show) return null;
+
+    const bgColor = notification.type === "error" ? "bg-red-50 border-red-200" : "bg-green-50 border-green-200";
+    const textColor = notification.type === "error" ? "text-red-800" : "text-green-800";
+    const iconColor = notification.type === "error" ? "text-red-500" : "text-green-500";
+    const Icon = notification.type === "error" ? ExclamationCircleIcon : InformationCircleIcon;
 
-    // Validate required fields
-    if (!editFormData.employeeName || !editFormData.employeeId || !editFormData.mobile ||
-      !editFormData.bankName || !editFormData.accountNumber || !editFormData.memberName ||
-      !editFormData.claimNumber || !editFormData.treatment || !editFormData.sumInsured ||
-      !editFormData.requestedAmount || !editFormData.dateOfAdmission || !editFormData.dateOfDischarge ||
-      !editFormData.claimDate || !editFormData.hospitalAddress || !editFormData.typeOfIllness) {
-      alert('Please fill all required fields marked with *');
-      return;
-    }
-
-    // Validate illness type if "Other" is selected
-    if (editFormData.typeOfIllness === 'Other' && !editFormData.otherIllness) {
-      alert('Please specify the illness type in "Other Illness" field');
-      return;
-    }
-
-    setClaims(prev => prev.map(claim =>
-      claim.id === editingClaim.id
-        ? {
-          ...claim,
-          employeeName: editFormData.employeeName,
-          employeeId: editFormData.employeeId,
-          mobile: editFormData.mobile,
-          bankName: editFormData.bankName,
-          accountNumber: editFormData.accountNumber,
-          relationship: editFormData.relationship,
-          spouseName: editFormData.spouseName || '',
-          children: editFormData.children || [],
-          memberName: editFormData.memberName,
-          claimNumber: editFormData.claimNumber,
-          treatment: editFormData.treatment,
-          sumInsured: parseFloat(editFormData.sumInsured) || 0,
-          requestedAmount: parseFloat(editFormData.requestedAmount) || 0,
-          dateOfAdmission: editFormData.dateOfAdmission,
-          dateOfDischarge: editFormData.dateOfDischarge,
-          claimDate: editFormData.claimDate,
-          closeDate: editFormData.closeDate,
-          status: editFormData.claimStatus,
-          paymentStatus: editFormData.paymentStatus,
-          hospitalAddress: editFormData.hospitalAddress,
-          typeOfIllness: editFormData.typeOfIllness === 'Other' ? editFormData.otherIllness : editFormData.typeOfIllness,
-          otherIllness: editFormData.typeOfIllness === 'Other' ? editFormData.otherIllness : '',
-          documents: editFormData.documents || claim.documents
-        }
-        : claim
-    ));
-    setEditingClaim(null);
-    alert('Claim updated successfully!');
-  };
-
-  const handleDeleteClaim = (claimId) => {
-    if (window.confirm('Are you sure you want to delete this claim?')) {
-      setClaims(prev => prev.filter(claim => claim.id !== claimId));
-    }
-  };
-
-  // Navigation between steps
-  const handleNextStep = () => {
-    let isValid = true;
-    let errorMessage = '';
-    const newErrors = {};
-
-    switch (currentStep) {
-      case 1:
-        // Validate employee details
-        if (!formData.employeeId) newErrors.employeeId = true;
-        if (!formData.employeeName) newErrors.employeeName = true; // Still check name even if auto-filled
-        if (!formData.mobile || formData.mobile.length < 10) newErrors.mobile = true;
-        if (!formData.bankName) newErrors.bankName = true;
-        if (!formData.accountNumber || formData.accountNumber.length < 12) newErrors.accountNumber = true;
-
-        if (formData.relationship === 'Married' && !formData.spouseName) {
-          newErrors.spouseName = true;
-          errorMessage = 'Please enter spouse name for married relationship';
-        }
-
-        if (Object.keys(newErrors).length > 0) {
-          isValid = false;
-          // errorMessage = 'Please fill all required employee details'; // Removed generic error
-        }
-        break;
-      case 2:
-        // Validate document uploads
-        if (!formData.documents.employeePhoto) newErrors.employeePhoto = true;
-        if (!formData.documents.dischargeBill) newErrors.dischargeBill = true;
-        if (!formData.documents.pharmacyBill) newErrors.pharmacyBill = true;
-        if (!formData.documents.paymentReceipt) newErrors.paymentReceipt = true;
-
-        if (Object.keys(newErrors).length > 0) {
-          isValid = false;
-          // errorMessage = 'Please upload all required documents'; // Removed generic error
-        }
-        break;
-    }
-
-    setErrors(newErrors);
-
-    if (!isValid) {
-      if (errorMessage) alert(errorMessage);
-      return;
-    }
-
-    setCurrentStep(currentStep + 1);
-  };
-
-  const handlePreviousStep = () => {
-    setCurrentStep(currentStep - 1);
-  };
-
-  // UI Components for edit form
-  const renderEditEmployeeDetails = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Employee Name *
-          </label>
-          <input
-            type="text"
-            value={editFormData.employeeName}
-            onChange={(e) => handleEditInputChange('employeeName', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter employee name"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Employee ID *
-          </label>
-          <input
-            type="text"
-            value={editFormData.employeeId}
-            onChange={(e) => handleEditInputChange('employeeId', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter employee ID"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mobile Number *
-          </label>
-          <input
-            type="tel"
-            value={editFormData.mobile}
-            onChange={(e) => handleEditInputChange('mobile', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter mobile number"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Bank Name *
-          </label>
-          <input
-            type="text"
-            value={editFormData.bankName}
-            onChange={(e) => handleEditInputChange('bankName', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter bank name"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Account Number *
-          </label>
-          <input
-            type="text"
-            value={editFormData.accountNumber}
-            onChange={(e) => handleEditInputChange('accountNumber', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter account number"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Relationship Status *
-          </label>
-          <select
-            value={editFormData.relationship}
-            onChange={(e) => handleEditInputChange('relationship', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          >
-            <option value="Single">Single</option>
-            <option value="Married">Married</option>
-            <option value="Divorced">Divorced</option>
-            <option value="Widowed">Widowed</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Spouse Details - Only show if Married */}
-      {editFormData.relationship === 'Married' && (
-        <div className="border-t pt-6 mt-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Spouse Details</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Spouse Name *
-              </label>
-              <input
-                type="text"
-                value={editFormData.spouseName}
-                onChange={(e) => handleEditInputChange('spouseName', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Enter spouse name"
-                required
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Children Details */}
-      {(editFormData.relationship === 'Married' || editFormData.relationship === 'Divorced' || editFormData.relationship === 'Widowed') && (
-        <div className="border-t pt-6 mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Children Details</h3>
-            <button
-              type="button"
-              onClick={addEditChild}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <PlusIcon className="h-4 w-4 mr-1" />
-              Add Child
-            </button>
-          </div>
-
-          {editFormData.children.map((child, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-gray-200 rounded-lg">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Child {index + 1} Name *
-                </label>
-                <input
-                  type="text"
-                  value={child.name}
-                  onChange={(e) => updateEditChild(index, 'name', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter child name"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Age *
-                </label>
-                <input
-                  type="number"
-                  value={child.age}
-                  onChange={(e) => updateEditChild(index, 'age', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter age"
-                  min="0"
-                  max="25"
-                  required
-                />
-              </div>
-              <div className="flex items-end">
-                {editFormData.children.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeEditChild(index)}
-                    className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    <MinusIcon className="h-4 w-4 mr-1" />
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderEditUploadDocuments = () => (
-    <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-800 mb-2">Uploaded Documents</h3>
-        <p className="text-sm text-blue-700">
-          You can update the documents if needed. Maximum file size: 5MB per file.
-        </p>
-      </div>
-
-      {[
-        { key: 'employeePhoto', label: 'Employee Photo', required: true, accept: 'image/*' },
-        { key: 'dischargeBill', label: 'Discharge Bill/Summary', required: true, accept: '.pdf,.jpg,.jpeg,.png' },
-        { key: 'pharmacyBill', label: 'Pharmacy Bills', required: true, accept: '.pdf,.jpg,.jpeg,.png' },
-        { key: 'paymentReceipt', label: 'Payment Receipts', required: true, accept: '.pdf,.jpg,.jpeg,.png' }
-      ].map((doc) => (
-        <div key={doc.key} className="border border-gray-200 rounded-lg p-4">
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            {doc.label} {doc.required && <span className="text-red-500">*</span>}
-          </label>
-          <div className="flex items-center space-x-4">
-            <label className="flex-1">
-              <input
-                type="file"
-                onChange={(e) => handleEditFileUpload(doc.key, e.target.files[0])}
-                className="hidden"
-                accept={doc.accept}
-              />
-              <div className="px-4 py-2 border border-gray-300 rounded-md text-center cursor-pointer hover:bg-gray-50 transition-colors">
-                Update File
-              </div>
-            </label>
-            <span className="text-sm text-gray-500 flex-1">
-              {editFormData.documents[doc.key]?.name || 'No file chosen'}
-            </span>
-          </div>
-          {editFormData.documents[doc.key] && (
-            <div className="mt-2 text-sm text-green-600">
-              ✓ File selected: {editFormData.documents[doc.key].name}
-            </div>
-          )}
-          <p className="text-xs text-gray-500 mt-2">
-            Accepted formats: {doc.accept === 'image/*' ? 'JPG, JPEG, PNG' : 'PDF, JPG, JPEG, PNG'}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderEditTreatmentDetails = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Member Name *
-          </label>
-          <input
-            type="text"
-            value={editFormData.memberName}
-            onChange={(e) => handleEditInputChange('memberName', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter member name"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Claim Number *
-          </label>
-          <input
-            type="text"
-            value={editFormData.claimNumber}
-            onChange={(e) => handleEditInputChange('claimNumber', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter claim number"
-            required
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Treatment/Medical Procedure *
-          </label>
-          <textarea
-            value={editFormData.treatment}
-            onChange={(e) => handleEditInputChange('treatment', e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Describe the treatment received or medical procedure"
-            required
-          />
-        </div>
-
-        <div className="md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Hospital Address *
-          </label>
-          <textarea
-            value={editFormData.hospitalAddress}
-            onChange={(e) => handleEditInputChange('hospitalAddress', e.target.value)}
-            rows={2}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter hospital name and complete address"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Type of Illness *
-          </label>
-          <select
-            value={editFormData.typeOfIllness}
-            onChange={(e) => handleEditInputChange('typeOfIllness', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          >
-            <option value="">Select Illness Type</option>
-            {illnessTypes.map((illness, index) => (
-              <option key={index} value={illness}>{illness}</option>
-            ))}
-          </select>
-        </div>
-
-        {editFormData.typeOfIllness === 'Other' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Other Illness *
-            </label>
-            <input
-              type="text"
-              value={editFormData.otherIllness}
-              onChange={(e) => handleEditInputChange('otherIllness', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Please specify illness"
-              required={editFormData.typeOfIllness === 'Other'}
-            />
-          </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Sum Insured Amount *
-          </label>
-          <input
-            type="number"
-            value={editFormData.sumInsured}
-            onChange={(e) => handleEditInputChange('sumInsured', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter sum insured amount"
-            min="0"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Requested Amount *
-          </label>
-          <input
-            type="number"
-            value={editFormData.requestedAmount}
-            onChange={(e) => handleEditInputChange('requestedAmount', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            placeholder="Enter requested amount"
-            min="0"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Date of Admission *
-          </label>
-          <input
-            type="date"
-            value={editFormData.dateOfAdmission}
-            onChange={(e) => handleEditInputChange('dateOfAdmission', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Date of Discharge *
-          </label>
-          <input
-            type="date"
-            value={editFormData.dateOfDischarge}
-            onChange={(e) => handleEditInputChange('dateOfDischarge', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Claim Date *
-          </label>
-          <input
-            type="date"
-            value={editFormData.claimDate}
-            onChange={(e) => handleEditInputChange('claimDate', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Close Date
-          </label>
-          <input
-            type="date"
-            value={editFormData.closeDate}
-            onChange={(e) => handleEditInputChange('closeDate', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Claim Status *
-          </label>
-          <select
-            value={editFormData.claimStatus}
-            onChange={(e) => handleEditInputChange('claimStatus', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          >
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Payment Status *
-          </label>
-          <select
-            value={editFormData.paymentStatus}
-            onChange={(e) => handleEditInputChange('paymentStatus', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          >
-            <option value="Unpaid">Unpaid</option>
-            <option value="Paid">Paid</option>
-            <option value="Rejected">Rejected</option>
-          </select>
-        </div>
-      </div>
-    </div>
-  );
-
-  // UI Components
-  const renderStepIndicator = () => (
-    <div className="flex justify-center mb-8">
-      <div className="flex items-center space-x-4">
-        {steps.map((step, index) => (
-          <React.Fragment key={step.number}>
-            <div className="flex flex-col items-center">
-              <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 ${currentStep >= step.number
-                ? 'bg-blue-600 border-blue-600 text-white'
-                : 'border-gray-300 text-gray-500'
-                }`}>
-                <step.icon className="w-6 h-6" />
-              </div>
-              <span className={`mt-2 text-sm font-medium ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-500'
-                }`}>
-                {step.title}
-              </span>
-            </div>
-            {index < steps.length - 1 && (
-              <div className={`w-16 h-0.5 ${currentStep > step.number ? 'bg-blue-600' : 'bg-gray-300'
-                }`} />
-            )}
-          </React.Fragment>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderEmployeeDetails = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="col-span-1 md:col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Select Employee *
-          </label>
-          <select
-            value={formData.employeeId}
-            onChange={(e) => handleEmployeeSelect(e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.employeeId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-          >
-            <option value="">Select an employee</option>
-            {employees.map(emp => (
-              <option key={emp.employeeId} value={emp.employeeId}>{emp.name} - {emp.employeeId}</option>
-            ))}
-          </select>
-          {errors.employeeId && <p className="mt-1 text-xs text-red-500">Employee is required</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Employee Name *
-          </label>
-          <input
-            type="text"
-            value={formData.employeeName}
-            onChange={(e) => handleInputChange('employeeName', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.employeeName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Enter employee name"
-            readOnly
-          />
-          {errors.employeeName && <p className="mt-1 text-xs text-red-500">Employee Name is required</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Employee ID *
-          </label>
-          <input
-            type="text"
-            value={formData.employeeId}
-            onChange={(e) => handleInputChange('employeeId', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.employeeId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Enter employee ID"
-            readOnly
-          />
-          {errors.employeeId && <p className="mt-1 text-xs text-red-500">Employee ID is required</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Mobile Number *
-          </label>
-          <input
-            type="tel"
-            value={formData.mobile}
-            onChange={(e) => handleInputChange('mobile', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.mobile ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Enter mobile number"
-          />
-          {errors.mobile && <p className="mt-1 text-xs text-red-500">Mobile Number must be at least 10 digits</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Bank Name *
-          </label>
-          <input
-            type="text"
-            value={formData.bankName}
-            onChange={(e) => handleInputChange('bankName', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.bankName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Enter bank name"
-          />
-          {errors.bankName && <p className="mt-1 text-xs text-red-500">Bank Name is required</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Account Number *
-          </label>
-          <input
-            type="text"
-            value={formData.accountNumber}
-            onChange={(e) => handleInputChange('accountNumber', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.accountNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Enter account number"
-          />
-          {errors.accountNumber && <p className="mt-1 text-xs text-red-500">Account Number must be at least 12 digits</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Relationship Status *
-          </label>
-          <select
-            value={formData.relationship}
-            onChange={(e) => handleInputChange('relationship', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.relationship ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-          >
-            <option value="Single">Single</option>
-            <option value="Married">Married</option>
-            <option value="Divorced">Divorced</option>
-            <option value="Widowed">Widowed</option>
-          </select>
-          {errors.relationship && <p className="mt-1 text-xs text-red-500">Relationship is required</p>}
-        </div>
-      </div>
-
-      {/* Spouse Details - Only show if Married */}
-      {formData.relationship === 'Married' && (
-        <div className="border-t pt-6 mt-6">
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Spouse Details</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Spouse Name *
-              </label>
-              <input
-                type="text"
-                value={formData.spouseName}
-                onChange={(e) => handleInputChange('spouseName', e.target.value)}
-                className={`w-full px-3 py-2 border ${errors.spouseName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-                placeholder="Enter spouse name"
-              />
-              {errors.spouseName && <p className="mt-1 text-xs text-red-500">Spouse Name is required</p>}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Children Details */}
-      {(formData.relationship === 'Married' || formData.relationship === 'Divorced' || formData.relationship === 'Widowed') && (
-        <div className="border-t pt-6 mt-6">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-medium text-gray-900">Children Details</h3>
-            <button
-              type="button"
-              onClick={addChild}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-            >
-              <PlusIcon className="h-4 w-4 mr-1" />
-              Add Child
-            </button>
-          </div>
-
-          {formData.children.map((child, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-gray-200 rounded-lg">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Child {index + 1} Name *
-                </label>
-                <input
-                  type="text"
-                  value={child.name}
-                  onChange={(e) => updateChild(index, 'name', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter child name"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Age *
-                </label>
-                <input
-                  type="number"
-                  value={child.age}
-                  onChange={(e) => updateChild(index, 'age', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter age"
-                  min="0"
-                  max="25"
-                />
-              </div>
-              <div className="flex items-end">
-                {formData.children.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeChild(index)}
-                    className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    <MinusIcon className="h-4 w-4 mr-1" />
-                    Remove
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-
-  const renderUploadDocuments = () => (
-    <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-800 mb-2">Required Documents</h3>
-        <p className="text-sm text-blue-700">
-          Please upload clear and legible copies of all required documents. Maximum file size: 5MB per file.
-        </p>
-      </div>
-
-      {[
-        { key: 'employeePhoto', label: 'Employee Photo', required: true, accept: 'image/*' },
-        { key: 'dischargeBill', label: 'Discharge Bill/Summary', required: true, accept: '.pdf,.jpg,.jpeg,.png' },
-        { key: 'pharmacyBill', label: 'Pharmacy Bills', required: true, accept: '.pdf,.jpg,.jpeg,.png' },
-        { key: 'paymentReceipt', label: 'Payment Receipts', required: true, accept: '.pdf,.jpg,.jpeg,.png' }
-      ].map((doc) => (
-        <div key={doc.key} className={`border ${errors[doc.key] ? 'border-red-500' : 'border-gray-200'} rounded-lg p-4`}>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            {doc.label} {doc.required && <span className="text-red-500">*</span>}
-          </label>
-          <div className="flex items-center space-x-4">
-            <label className="flex-1">
-              <input
-                type="file"
-                onChange={(e) => handleFileUpload(doc.key, e.target.files[0])}
-                className="hidden"
-                accept={doc.accept}
-              />
-              <div className={`px-4 py-2 border ${errors[doc.key] ? 'border-red-300 text-red-700' : 'border-gray-300'} rounded-md text-center cursor-pointer hover:bg-gray-50 transition-colors`}>
-                Choose File
-              </div>
-            </label>
-            <div className="flex-1 flex items-center space-x-2">
-              <span className="text-sm text-gray-500 truncate">
-                {formData.documents[doc.key]?.name || 'No file chosen'}
-              </span>
-              {formData.documents[doc.key] && (
-                <button
-                  type="button"
-                  onClick={() => handleRemoveFile(doc.key)}
-                  className="text-gray-400 hover:text-red-500 p-1"
-                  title="Remove file"
-                >
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
-              )}
-            </div>
-          </div>
-          {errors[doc.key] && <p className="mt-1 text-xs text-red-500">{doc.label} is required</p>}
-          {formData.documents[doc.key] && (
-            <div className="mt-2 text-sm text-green-600">
-              ✓ File selected: {formData.documents[doc.key].name}
-            </div>
-          )}
-          <p className="text-xs text-gray-500 mt-2">
-            Accepted formats: {doc.accept === 'image/*' ? 'JPG, JPEG, PNG' : 'PDF, JPG, JPEG, PNG'}
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-
-  const renderTreatmentDetails = () => (
-    <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Member Name *
-          </label>
-          <input
-            type="text"
-            value={formData.memberName}
-            onChange={(e) => handleInputChange('memberName', e.target.value)}
-            onBlur={() => handleNameBlur('memberName')}
-            className={`w-full px-3 py-2 border ${errors.memberName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Enter member name"
-          />
-          {errors.memberName && <p className="mt-1 text-xs text-red-500">Member Name is required</p>}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Claim Number *
-          </label>
-          <input
-            type="text"
-            value={formData.claimNumber}
-            onChange={(e) => handleInputChange('claimNumber', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.claimNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Enter claim number"
-          />
-          {errors.claimNumber && <p className="mt-1 text-xs text-red-500">Claim Number is required</p>}
-        </div>
-
-        <div className="md:col-span-3">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Treatment/Medical Procedure *
-          </label>
-          <textarea
-            value={formData.treatment}
-            onChange={(e) => handleInputChange('treatment', e.target.value)}
-            rows={3}
-            className={`w-full px-3 py-2 border ${errors.treatment ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Describe the treatment received or medical procedure"
-          />
-          {errors.treatment && <p className="mt-1 text-xs text-red-500">Treatment details are required</p>}
-        </div>
-
-        <div className="md:col-span-3">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Hospital Address *
-          </label>
-          <textarea
-            value={formData.hospitalAddress}
-            onChange={(e) => handleInputChange('hospitalAddress', e.target.value)}
-            rows={2}
-            className={`w-full px-3 py-2 border ${errors.hospitalAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Enter hospital name and complete address"
-          />
-          {errors.hospitalAddress && <p className="mt-1 text-xs text-red-500">Hospital Address is required</p>}
-        </div>
-
-
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Type of Illness *
-          </label>
-          <select
-            value={formData.typeOfIllness}
-            onChange={(e) => handleInputChange('typeOfIllness', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.typeOfIllness ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-          >
-            <option value="">Select Illness Type</option>
-            {illnessTypes.map((illness, index) => (
-              <option key={index} value={illness}>{illness}</option>
-            ))}
-          </select>
-          {errors.typeOfIllness && <p className="mt-1 text-xs text-red-500">Type of Illness is required</p>}
-        </div>
-
-        {formData.typeOfIllness === 'Other' && (
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Other Illness *
-            </label>
-            <input
-              type="text"
-              value={formData.otherIllness}
-              onChange={(e) => handleInputChange('otherIllness', e.target.value)}
-              className={`w-full px-3 py-2 border ${errors.otherIllness ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-              placeholder="Please specify illness"
-            />
-            {errors.otherIllness && <p className="mt-1 text-xs text-red-500">Please specify the illness</p>}
-          </div>
-        )}
-
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Sum Insured Amount *
-          </label>
-          <input
-            type="number"
-            value={formData.sumInsured}
-            onChange={(e) => handleInputChange('sumInsured', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.sumInsured ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Enter sum insured amount"
-            min="0"
-          />
-          {errors.sumInsured && <p className="mt-1 text-xs text-red-500">Sum Insured Amount is required</p>}
-        </div>
-
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Requested Amount *
-          </label>
-          <input
-            type="number"
-            value={formData.requestedAmount}
-            onChange={(e) => handleInputChange('requestedAmount', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.requestedAmount ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-            placeholder="Enter requested amount"
-            min="0"
-          />
-          {errors.requestedAmount && <p className="mt-1 text-xs text-red-500">Requested Amount is required</p>}
-        </div>
-
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Claim Date *
-          </label>
-          <input
-            type="date"
-            value={formData.claimDate}
-            onChange={(e) => handleInputChange('claimDate', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.claimDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-          />
-          {errors.claimDate && <p className="mt-1 text-xs text-red-500">Claim Date is required</p>}
-        </div>
-
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Date of Admission *
-          </label>
-          <input
-            type="date"
-            value={formData.dateOfAdmission}
-            onChange={(e) => handleInputChange('dateOfAdmission', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.dateOfAdmission ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-          />
-          {errors.dateOfAdmission && <p className="mt-1 text-xs text-red-500">Admission Date is required</p>}
-        </div>
-
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Date of Discharge *
-          </label>
-          <input
-            type="date"
-            value={formData.dateOfDischarge}
-            onChange={(e) => handleInputChange('dateOfDischarge', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.dateOfDischarge ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-          />
-          {errors.dateOfDischarge && <p className="mt-1 text-xs text-red-500">Discharge Date is required</p>}
-        </div>
-
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Close Date
-          </label>
-          <input
-            type="date"
-            value={formData.closeDate}
-            onChange={(e) => handleInputChange('closeDate', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-          />
-        </div>
-
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Claim Status *
-          </label>
-          <select
-            value={formData.claimStatus}
-            onChange={(e) => handleInputChange('claimStatus', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.claimStatus ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-          >
-            <option value="Pending">Pending</option>
-            <option value="Approved">Approved</option>
-            <option value="Rejected">Rejected</option>
-          </select>
-          {errors.claimStatus && <p className="mt-1 text-xs text-red-500">Claim Status is required</p>}
-        </div>
-
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Payment Status *
-          </label>
-          <select
-            value={formData.paymentStatus}
-            onChange={(e) => handleInputChange('paymentStatus', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.paymentStatus ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
-          >
-            <option value="Unpaid">Unpaid</option>
-            <option value="Paid">Paid</option>
-            <option value="Rejected">Rejected</option>
-          </select>
-          {errors.paymentStatus && <p className="mt-1 text-xs text-red-500">Payment Status is required</p>}
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderCurrentStep = () => {
-    switch (currentStep) {
-      case 1:
-        return renderEmployeeDetails();
-      case 2:
-        return renderUploadDocuments();
-      case 3:
-        return renderTreatmentDetails();
-      default:
-        return null;
-    }
-  };
-
-  // Main Landing Page
-  if (currentView === 'main') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Removed the header text and paragraph */}
-
-          {/* Action Cards - Increased height */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-            {/* New Insurance Claim Card - Increased height */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 md:p-10 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 min-h-[320px] flex flex-col justify-center">
-              <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 mb-8 shadow-inner">
-                  <PlusIcon className="h-12 w-12 text-blue-600" />
-                </div>
-                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">New Insurance Claim</h3>
-                <button
-                  onClick={() => setCurrentView('newClaim')}
-                  className="w-full inline-flex items-center justify-center px-8 py-5 border border-transparent text-lg font-medium rounded-xl text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                >
-                  <PlusIcon className="h-6 w-6 mr-3" />
-                  Create New Claim
-                </button>
-              </div>
-            </div>
-
-            {/* Claim History Card - Increased height */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 md:p-10 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 min-h-[320px] flex flex-col justify-center">
-              <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-gradient-to-r from-green-100 to-green-200 mb-8 shadow-inner">
-                  <DocumentTextIcon className="h-12 w-12 text-green-600" />
-                </div>
-                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Claim History</h3>
-                <button
-                  onClick={() => setCurrentView('claimHistory')}
-                  className="w-full inline-flex items-center justify-center px-8 py-5 border border-transparent text-lg font-medium rounded-xl text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 shadow-md hover:shadow-lg"
-                >
-                  <DocumentTextIcon className="h-6 w-6 mr-3" />
-                  View Claim History
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div className={`fixed top-4 right-4 z-50 border rounded-lg p-4 ${bgColor} shadow-lg flex items-center gap-3 max-w-md animate-fade-in`}>
+        <Icon className={`h-6 w-6 ${iconColor}`} />
+        <p className={`font-medium ${textColor}`}>{notification.message}</p>
+        <button
+          onClick={() => setNotification({ show: false, message: "", type: "" })}
+          className="ml-auto text-gray-400 hover:text-gray-600"
+        >
+          <XMarkIcon className="h-5 w-5" />
+        </button>
       </div>
     );
-  }
+  };
 
-  // New Claim Form
-  if (currentView === 'newClaim') {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Header with Back Button */}
-          <div className="flex items-center mb-6 md:mb-8">
-            <button
-              onClick={() => {
-                setCurrentView('main');
-                setCurrentStep(1);
-                setFormData({
-                  employeeName: '',
-                  employeeId: '',
-                  mobile: '',
-                  bankName: '',
-                  accountNumber: '',
-                  relationship: 'Single',
-                  spouseName: '',
-                  children: [{ name: '', age: '' }],
-                  memberName: '',
-                  claimNumber: '',
-                  treatment: '',
-                  sumInsured: '',
-                  dateOfAdmission: '',
-                  dateOfDischarge: '',
-                  requestedAmount: '',
-                  claimDate: '',
-                  closeDate: '',
-                  claimStatus: 'Pending',
-                  paymentStatus: 'Unpaid',
-                  hospitalAddress: '',
-                  typeOfIllness: '',
-                  otherIllness: '',
-                  documents: {
-                    employeePhoto: null,
-                    dischargeBill: null,
-                    pharmacyBill: null,
-                    paymentReceipt: null
-                  }
-                });
-              }}
-              className="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 mr-4 shadow-sm"
-            >
-              <ArrowLeftIcon className="h-5 w-5 mr-2" />
-              Back to Insurance
-            </button>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">New Insurance Claim</h1>
-              {/* Removed paragraph text */}
+  return (
+    <div className="p-6">
+      {/* Notification Component */}
+      <Notification />
+      
+      {/* Header with Add Button */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <div>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-20"></div>
+             
             </div>
+           
           </div>
+          
+        </div>
+        
+        
+      </div>
 
-          {/* Form Container - Increased height */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px]">
-            {/* Step Indicator */}
-            {renderStepIndicator()}
-
-            <div className="p-6 md:p-8">
-              <form onSubmit={handleSubmitClaim}>
-                {/* Current Step Content */}
-                <div className="mb-8">
-                  <div className="max-h-[600px] overflow-y-auto pr-2">
-                    {renderCurrentStep()}
-                  </div>
-                </div>
-
-                {/* Navigation Buttons - Removed Download ZIP button */}
-                <div className="flex flex-col md:flex-row justify-between items-center mt-8 pt-8 border-t border-gray-200 space-y-4 md:space-y-0">
-                  <div>
-                    {currentStep > 1 && (
-                      <button
-                        type="button"
-                        onClick={handlePreviousStep}
-                        className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200 shadow-sm"
-                      >
-                        Previous
-                      </button>
-                    )}
-                  </div>
-
-                  <div>
-                    {currentStep < 3 ? (
-                      <button
-                        type="button"
-                        onClick={handleNextStep}
-                        className="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md text-lg"
-                      >
-                        Next Step
-                      </button>
-                    ) : (
-                      <button
-                        type="submit"
-                        className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-md text-lg"
-                      >
-                        <PaperAirplaneIcon className="w-6 h-6 mr-3" />
-                        Submit Claim
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Progress Info */}
-                <div className="text-center text-sm text-gray-500 mt-6">
-                  Step {currentStep} of {steps.length} • Complete all sections to submit your claim
-                </div>
-              </form>
-            </div>
-          </div>
+      {/* Debug info (remove in production) */}
+      <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-gray-600 hidden">
+        <div className="flex items-center gap-2">
+          <InformationCircleIcon className="h-4 w-4 text-yellow-600" />
+          <span>Loaded {safeInterns.length} interns</span>
         </div>
       </div>
-    );
-  }
 
-  // Claim History View
-  if (currentView === 'claimHistory') {
-    return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-        <div className="max-w-7xl mx-auto">
-          {/* Header with Back Button */}
-          <div className="flex items-center mb-6 md:mb-8">
-            <button
-              onClick={() => setCurrentView('main')}
-              className="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 mr-4 shadow-sm"
-            >
-              <ArrowLeftIcon className="h-5 w-5 mr-2" />
-              Back
-            </button>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Claim History</h1>
-              {/* Removed paragraph text */}
-            </div>
-          </div>
-
-          {/* Claims Table - Increased height */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px]">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                      Claim Details
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                      Treatment & Member
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                      Dates
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {claims.map((claim) => (
-                    <tr key={claim.id} className="hover:bg-blue-50 transition-colors duration-150">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                            <UserIcon className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-semibold text-gray-900">{claim.claimNumber}</div>
-                            <div className="text-sm text-gray-600">{claim.employeeName}</div>
-                            <div className="text-xs text-gray-500">{claim.employeeId}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{claim.treatment}</div>
-                        <div className="text-sm text-gray-600">{claim.memberName}</div>
-                        <div className="text-xs text-gray-500">{claim.typeOfIllness}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-lg font-bold text-gray-900">₹{claim.requestedAmount?.toLocaleString()}</div>
-                        <div className="text-sm text-gray-500">Insured: ₹{claim.sumInsured?.toLocaleString()}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {new Date(claim.claimDate).toLocaleDateString()}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {claim.closeDate ? `Closed: ${new Date(claim.closeDate).toLocaleDateString()} ` : 'Open'}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+      {/* Modal */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            {/* Background overlay */}
+            <div 
+              className="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-75 backdrop-blur-sm" 
+              onClick={() => setShowModal(false)}
+            />
+            
+            {/* Modal panel */}
+            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
+              <div className="bg-gradient-to-r from-blue-600 to-purple-700 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <AcademicCapIcon className="h-8 w-8 text-white" />
+                    <h3 className="text-xl font-bold text-white">
+                      {editingId ? "Edit Intern Details" : "Add New Intern"}
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowModal(false)}
+                    className="text-white hover:text-blue-100 transition-colors"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="px-6 py-6 max-h-[80vh] overflow-y-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Column */}
+                  <div className="space-y-6">
+                    {/* Personal Information */}
+                    <div className="bg-blue-50 p-4 rounded-xl border border-blue-200">
+                      <h4 className="flex items-center gap-2 text-blue-800 font-semibold mb-4">
+                        <UserIcon className="h-5 w-5" />
+                        Personal Information
+                      </h4>
+                      
+                      <div className="space-y-4">
                         <div className="space-y-2">
-                          <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getStatusColor(claim.status)} `}>
-                            {claim.status}
-                          </span>
-                          <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getPaymentStatusColor(claim.paymentStatus)} `}>
-                            {claim.paymentStatus}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => setViewingClaim(claim)}
-                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors duration-150"
-                            title="View Claim Details"
-                          >
-                            <EyeIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDownloadPDF(claim)}
-                            className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-100 rounded-lg transition-colors duration-150"
-                            title="Download PDF"
-                          >
-                            <DocumentArrowDownIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingClaim(claim);
-                              // Set all form data for editing
-                              setEditFormData({
-                                employeeName: claim.employeeName || '',
-                                employeeId: claim.employeeId || '',
-                                mobile: claim.mobile || '',
-                                bankName: claim.bankName || '',
-                                accountNumber: claim.accountNumber || '',
-                                relationship: claim.relationship || 'Single',
-                                spouseName: claim.spouseName || '',
-                                children: claim.children || [{ name: '', age: '' }],
-                                memberName: claim.memberName || '',
-                                claimNumber: claim.claimNumber || '',
-                                treatment: claim.treatment || '',
-                                sumInsured: claim.sumInsured || '',
-                                dateOfAdmission: claim.dateOfAdmission || '',
-                                dateOfDischarge: claim.dateOfDischarge || '',
-                                requestedAmount: claim.requestedAmount || '',
-                                claimDate: claim.claimDate || '',
-                                closeDate: claim.closeDate || '',
-                                claimStatus: claim.status || 'Pending',
-                                paymentStatus: claim.paymentStatus || 'Unpaid',
-                                hospitalAddress: claim.hospitalAddress || '',
-                                typeOfIllness: claim.typeOfIllness || '',
-                                otherIllness: claim.otherIllness || '',
-                                documents: claim.documents || {
-                                  employeePhoto: null,
-                                  dischargeBill: null,
-                                  pharmacyBill: null,
-                                  paymentReceipt: null
-                                }
-                              });
+                          <label className="block text-sm font-medium text-gray-700">
+                            Full Name *
+                          </label>
+                          <input
+                            placeholder="Enter full name"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${errors.fullName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.fullName}
+                            onChange={e => {
+                              setForm({ ...form, fullName: e.target.value });
+                              if (errors.fullName) setErrors({...errors, fullName: null});
                             }}
-                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-lg transition-colors duration-150"
-                            title="Edit Claim"
-                          >
-                            <PencilIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClaim(claim.id)}
-                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-lg transition-colors duration-150"
-                            title="Delete Claim"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
+                          />
+                          {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
 
-              {claims.length === 0 && (
-                <div className="text-center py-16">
-                  <div className="text-gray-400 mb-4">
-                    <DocumentTextIcon className="h-16 w-16 mx-auto" />
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            College Name *
+                          </label>
+                          <input
+                            placeholder="Enter college name"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${errors.collegeName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.collegeName}
+                            onChange={e => {
+                              setForm({ ...form, collegeName: e.target.value });
+                              if (errors.collegeName) setErrors({...errors, collegeName: null});
+                            }}
+                          />
+                          {errors.collegeName && <p className="text-red-500 text-sm mt-1">{errors.collegeName}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Degree *
+                          </label>
+                          <input
+                            placeholder="e.g., B.Tech, B.Sc, MCA"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${errors.degree ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.degree}
+                            onChange={e => {
+                              setForm({ ...form, degree: e.target.value });
+                              if (errors.degree) setErrors({...errors, degree: null});
+                            }}
+                          />
+                          {errors.degree && <p className="text-red-500 text-sm mt-1">{errors.degree}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Department *
+                          </label>
+                          <input
+                            placeholder="e.g., Computer Science, Mechanical"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all ${errors.department ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.department}
+                            onChange={e => {
+                              setForm({ ...form, department: e.target.value });
+                              if (errors.department) setErrors({...errors, department: null});
+                            }}
+                          />
+                          {errors.department && <p className="text-red-500 text-sm mt-1">{errors.department}</p>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Contact Information */}
+                    <div className="bg-purple-50 p-4 rounded-xl border border-purple-200">
+                      <h4 className="flex items-center gap-2 text-purple-800 font-semibold mb-4">
+                        <PhoneIcon className="h-5 w-5" />
+                        Contact Information
+                      </h4>
+                      
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Contact Email
+                          </label>
+                          <div className="relative">
+                            <EnvelopeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                              type="email"
+                              placeholder="student@college.edu"
+                              className={`w-full border rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all ${errors.contactEmail ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                              value={form.contactEmail}
+                              onChange={e => {
+                                setForm({ ...form, contactEmail: e.target.value });
+                                if (errors.contactEmail) setErrors({...errors, contactEmail: null});
+                              }}
+                            />
+                          </div>
+                          {errors.contactEmail && <p className="text-red-500 text-sm mt-1">{errors.contactEmail}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Contact Phone
+                          </label>
+                          <div className="relative">
+                            <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                              type="tel"
+                              placeholder="10-digit mobile number"
+                              className={`w-full border rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all ${errors.contactPhone ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                              value={form.contactPhone}
+                              onChange={e => {
+                                setForm({ ...form, contactPhone: e.target.value });
+                                if (errors.contactPhone) setErrors({...errors, contactPhone: null});
+                              }}
+                            />
+                          </div>
+                          {errors.contactPhone && <p className="text-red-500 text-sm mt-1">{errors.contactPhone}</p>}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Reference Notes */}
+                    <div className="bg-pink-50 p-4 rounded-xl border border-pink-200">
+                      <h4 className="flex items-center gap-2 text-pink-800 font-semibold mb-4">
+                        <DocumentTextIcon className="h-5 w-5" />
+                        Reference Notes / Remarks
+                      </h4>
+                      
+                      <textarea
+                        placeholder="Enter any notes, feedback, or remarks about the intern..."
+                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all min-h-[120px] resize-y"
+                        value={form.referenceNote}
+                        onChange={e => setForm({ ...form, referenceNote: e.target.value })}
+                      />
+                    </div>
                   </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No claim history</h3>
-                  <p className="text-gray-600 mb-6">Start by submitting your first insurance claim.</p>
+
+                  {/* Right Column */}
+                  <div className="space-y-6">
+                    {/* Internship Details */}
+                    <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-200">
+                      <h4 className="flex items-center gap-2 text-indigo-800 font-semibold mb-4">
+                        <BriefcaseIcon className="h-5 w-5" />
+                        Internship Details
+                      </h4>
+                      
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Internship Type
+                          </label>
+                          <select
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white"
+                            value={form.internshipType}
+                            onChange={e => setForm({ ...form, internshipType: e.target.value })}
+                          >
+                            <option value="Internship">Internship</option>
+                            <option value="Inplant Training">Inplant Training</option>
+                            <option value="Project Internship">Project Internship</option>
+                            <option value="Summer Internship">Summer Internship</option>
+                            <option value="Winter Internship">Winter Internship</option>
+                          </select>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Company Mentor *
+                          </label>
+                          <input
+                            placeholder="Enter mentor name"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${errors.mentor ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.mentor}
+                            onChange={e => {
+                              setForm({ ...form, mentor: e.target.value });
+                              if (errors.mentor) setErrors({...errors, mentor: null});
+                            }}
+                          />
+                          {errors.mentor && <p className="text-red-500 text-sm mt-1">{errors.mentor}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Status
+                          </label>
+                          <select
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white"
+                            value={form.status}
+                            onChange={e => setForm({ ...form, status: e.target.value })}
+                          >
+                            <option value="Completed">Completed</option>
+                            <option value="Ongoing">Ongoing</option>
+                            <option value="Terminated">Terminated</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Duration & Dates */}
+                    <div className="bg-cyan-50 p-4 rounded-xl border border-cyan-200">
+                      <h4 className="flex items-center gap-2 text-cyan-800 font-semibold mb-4">
+                        <CalendarDaysIcon className="h-5 w-5" />
+                        Duration & Dates
+                      </h4>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Start Date *
+                          </label>
+                          <input
+                            type="date"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"
+                            value={form.startDate}
+                            onChange={e => setForm({ ...form, startDate: e.target.value })}
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            End Date *
+                          </label>
+                          <input
+                            type="date"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"
+                            value={form.endDate}
+                            onChange={e => setForm({ ...form, endDate: e.target.value })}
+                            required
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Bank Details */}
+                    <div className="bg-teal-50 p-4 rounded-xl border border-teal-200">
+                      <h4 className="flex items-center gap-2 text-teal-800 font-semibold mb-4">
+                        <BuildingLibraryIcon className="h-5 w-5" />
+                        Bank Details
+                      </h4>
+                      
+                      <div className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Bank Name *
+                          </label>
+                          <input
+                            placeholder="e.g. HDFC Bank"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all ${errors.bankName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.bankName}
+                            onChange={e => {
+                              setForm({ ...form, bankName: e.target.value });
+                              if (errors.bankName) setErrors({...errors, bankName: null});
+                            }}
+                          />
+                          {errors.bankName && <p className="text-red-500 text-sm mt-1">{errors.bankName}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Account Number *
+                          </label>
+                          <input
+                            placeholder="Enter account number"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all ${errors.accountNumber ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.accountNumber}
+                            onChange={e => {
+                              setForm({ ...form, accountNumber: e.target.value });
+                              if (errors.accountNumber) setErrors({...errors, accountNumber: null});
+                            }}
+                          />
+                          {errors.accountNumber && <p className="text-red-500 text-sm mt-1">{errors.accountNumber}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            IFSC Code *
+                          </label>
+                          <input
+                            placeholder="Enter IFSC code"
+                            className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all uppercase ${errors.ifscCode ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                            value={form.ifscCode}
+                            onChange={e => {
+                              setForm({ ...form, ifscCode: e.target.value.toUpperCase() });
+                              if (errors.ifscCode) setErrors({...errors, ifscCode: null});
+                            }}
+                          />
+                          {errors.ifscCode && <p className="text-red-500 text-sm mt-1">{errors.ifscCode}</p>}
+                        </div>
+                      </div>
+                    </div>
+
+
+                  </div>
+                </div>
+
+                {/* Modal Actions */}
+                <div className="flex flex-col sm:flex-row gap-3 justify-end mt-8 pt-6 border-t border-gray-200">
                   <button
-                    onClick={() => setCurrentView('newClaim')}
-                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md"
+                    onClick={() => setShowModal(false)}
+                    className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors duration-200"
                   >
-                    <PlusIcon className="h-5 w-5 mr-2" />
-                    Create First Claim
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSubmit}
+                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+                  >
+                    <CheckCircleIcon className="h-5 w-5" />
+                    {editingId ? "Update Intern" : "Save Intern"}
                   </button>
                 </div>
-              )}
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* View Claim Modal */}
-        {viewingClaim && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-800">Claim Details - {viewingClaim.claimNumber}</h2>
-                  <button
-                    onClick={() => setViewingClaim(null)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                  >
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Claim Information */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <DocumentTextIcon className="h-5 w-5 mr-2 text-blue-600" />
-                      Claim Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Claim Number:</span>
-                        <span className="text-sm font-semibold text-gray-900">{viewingClaim.claimNumber}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Member Name:</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.memberName}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-700">Treatment:</span>
-                        <p className="text-sm text-gray-900 mt-1">{viewingClaim.treatment}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Financial Details */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <BanknotesIcon className="h-5 w-5 mr-2 text-green-600" />
-                      Financial Details
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Sum Insured:</span>
-                        <span className="text-lg font-bold text-gray-900">₹{viewingClaim.sumInsured?.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Requested Amount:</span>
-                        <span className="text-lg font-bold text-gray-900">₹{viewingClaim.requestedAmount?.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Treatment Dates */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <ClockIcon className="h-5 w-5 mr-2 text-purple-600" />
-                      Treatment Dates
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Admission Date:</span>
-                        <span className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.dateOfAdmission).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Discharge Date:</span>
-                        <span className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.dateOfDischarge).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Claim Status */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <ExclamationCircleIcon className="h-5 w-5 mr-2 text-yellow-600" />
-                      Claim Status
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Claim Status:</span>
-                        <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getStatusColor(viewingClaim.status)} `}>
-                          {viewingClaim.status}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Payment Status:</span>
-                        <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getPaymentStatusColor(viewingClaim.paymentStatus)} `}>
-                          {viewingClaim.paymentStatus}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Claim Date:</span>
-                        <span className="text-sm text-gray-900">{new Date(viewingClaim.claimDate).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Close Date:</span>
-                        <span className="text-sm text-gray-900">
-                          {viewingClaim.closeDate ? new Date(viewingClaim.closeDate).toLocaleDateString() : 'Open'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Medical Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Hospital Information */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <BuildingOfficeIcon className="h-5 w-5 mr-2 text-blue-600" />
-                      Hospital Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Hospital Address:</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.hospitalAddress}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Type of Illness:</span>
-                        <span className="text-sm font-semibold text-gray-900">{viewingClaim.typeOfIllness}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Employee Information */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <UserIcon className="h-5 w-5 mr-2 text-blue-600" />
-                      Employee Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Employee Name:</span>
-                        <span className="text-sm font-semibold text-gray-900">{viewingClaim.employeeName}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Employee ID:</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.employeeId}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Mobile:</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.mobile}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Relationship:</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.relationship}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Additional Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Bank Information */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <BuildingLibraryIcon className="h-5 w-5 mr-2 text-green-600" />
-                      Bank Information
-                    </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Bank Name:</span>
-                        <span className="text-sm font-semibold text-gray-900">{viewingClaim.bankName}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Account Number:</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.accountNumber}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Family Details */}
-                {(viewingClaim.spouseName || (viewingClaim.children && viewingClaim.children.length > 0)) && (
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4">Family Details</h4>
-                    <div className="space-y-4">
-                      {viewingClaim.spouseName && (
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium text-gray-700">Spouse Name:</span>
-                          <span className="text-sm font-semibold text-gray-900">{viewingClaim.spouseName}</span>
-                        </div>
-                      )}
-                      {viewingClaim.children && viewingClaim.children.length > 0 && (
-                        <div>
-                          <span className="text-sm font-medium text-gray-700">Children:</span>
-                          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-                            {viewingClaim.children.map((child, index) => (
-                              <div key={index} className="bg-white p-3 rounded-lg border border-gray-200">
-                                <div className="font-medium text-gray-900">{child.name}</div>
-                                <div className="text-sm text-gray-600">Age: {child.age} years</div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-between">
-                <button
-                  onClick={() => handleDownloadPDF(viewingClaim)}
-                  className="inline-flex items-center px-6 py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-200"
-                >
-                  <DocumentArrowDownIcon className="w-5 h-5 mr-2" />
-                  Download as PDF
-                </button>
-                <button
-                  onClick={() => setViewingClaim(null)}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-150 shadow-md"
-                >
-                  Close Details
-                </button>
-              </div>
-            </div>
+      {/* Search and Filter */}
+      <div className="bg-white rounded-xl shadow-md p-2 mb-2 border border-gray-200">
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Search by name, college, department, or mentor..."
+              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
           </div>
-        )}
+          
+          <div className="flex gap-3">
+            <select
+              className="border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              value={filterType}
+              onChange={e => setFilterType(e.target.value)}
+            >
+              <option value="all">All Types</option>
+              <option value="Internship">Internship</option>
+              <option value="Inplant Training">Inplant Training</option>
+              <option value="Project Internship">Project Internship</option>
+            </select>
 
-        {/* Edit Claim Modal - Now shows full form */}
-        {editingClaim && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-800">Edit Claim - {editingClaim.claimNumber}</h2>
-                  <button
-                    onClick={() => setEditingClaim(null)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
-                  >
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
-                </div>
+            <select
+              className="border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              value={filterStatus}
+              onChange={e => setFilterStatus(e.target.value)}
+            >
+              <option value="all">All Status</option>
+              <option value="Completed">Completed</option>
+              <option value="Ongoing">Ongoing</option>
+              <option value="Terminated">Terminated</option>
+            </select>
+            
+            {(searchTerm || filterType !== 'all' || filterStatus !== 'all') && (
+              <button
+                onClick={() => {
+                  setSearchTerm("");
+                  setFilterType("all");
+                  setFilterStatus("all");
+                }}
+                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-medium transition-colors duration-200"
+              >
+                <XMarkIcon className="h-4 w-4" />
+                Clear
+              </button>
+            )}
+          </div>
+          <div className="flex gap-3 mt-4 md:mt-0">
+          <button
+            onClick={handleDownloadPDF}
+            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium transition-all duration-200"
+          >
+            <ArrowDownTrayIcon className="h-5 w-5" />
+            Download PDF
+          </button>
+          <button
+            onClick={openAddModal}
+            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+          >
+            <PlusIcon className="h-5 w-5" />
+            Add New Intern
+          </button>
+        </div>
+        </div>
+      </div>
+
+      {/* Interns Table */}
+      <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-800">
+              Internship List ({filteredInterns.length})
+            </h3>
+            {loading && (
+              <div className="flex items-center gap-2 text-blue-600">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                <span className="text-sm">Loading...</span>
               </div>
-
-              <div className="p-6">
-                <form onSubmit={handleUpdateClaim}>
-                  {/* Multi-step form similar to new claim form */}
-                  <div className="space-y-8">
-                    {/* Employee Details Section */}
-                    <div className="border-b pb-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                        <UserCircleIcon className="h-5 w-5 mr-2 text-blue-600" />
-                        Employee Details
-                      </h3>
-                      {renderEditEmployeeDetails()}
-                    </div>
-
-                    {/* Upload Documents Section */}
-                    <div className="border-b pb-6">
-                      <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                        <DocumentArrowUpIcon className="h-5 w-5 mr-2 text-blue-600" />
-                        Upload Documents
-                      </h3>
-                      {renderEditUploadDocuments()}
-                    </div>
-
-                    {/* Treatment Details Section */}
-                    <div>
-                      <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                        <DocumentTextIcon className="h-5 w-5 mr-2 text-blue-600" />
-                        Treatment Details
-                      </h3>
-                      {renderEditTreatmentDetails()}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end space-x-4 mt-8 pt-8 border-t border-gray-200">
-                    <button
-                      type="button"
-                      onClick={() => setEditingClaim(null)}
-                      className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md"
-                    >
-                      Update Claim
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
+            )}
+          </div>
+        </div>
+        
+        {loading ? (
+          <div className="p-8 text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <p className="mt-2 text-gray-600">Loading intern data...</p>
+          </div>
+        ) : filteredInterns.length === 0 ? (
+          <div className="p-8 text-center">
+            <AcademicCapIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
+            <p className="text-gray-600">No interns found. Add your first intern using the button above!</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-blue-900 text-white">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">S.No</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Full Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Degree</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Internship Type</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Company Mentor</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Contact No</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Account No</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Action</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {filteredInterns.map((intern, index) => (
+                  <tr key={intern._id || intern.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 text-sm text-gray-900">
+                      {index + 1}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-medium text-gray-900">{intern.fullName || 'N/A'}</div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {intern.degree || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {intern.internshipType || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {intern.mentor || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {intern.contactPhone || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {intern.accountNumber || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`text-xs px-2 py-1 rounded-full inline-block font-medium ${
+                        intern.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                        intern.status === 'Ongoing' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {intern.status || 'N/A'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEdit(intern)}
+                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                          title="Edit"
+                        >
+                          <PencilIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(intern._id || intern.id, intern.fullName)}
+                          className="text-red-600 hover:text-red-800 transition-colors"
+                          title="Delete"
+                        >
+                          <TrashIcon className="h-5 w-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
-    );
-  }
 
-  return null;
+      {/* Stats Summary */}
+      {/* <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+          <p className="text-sm text-blue-700">Total Interns</p>
+          <p className="text-2xl font-bold text-blue-900">{safeInterns.length}</p>
+        </div>
+        <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+          <p className="text-sm text-green-700">Completed</p>
+          <p className="text-2xl font-bold text-green-900">
+            {safeInterns.filter(i => i?.status === 'Completed').length}
+          </p>
+        </div>
+        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
+          <p className="text-sm text-yellow-700">Ongoing</p>
+          <p className="text-2xl font-bold text-yellow-900">
+            {safeInterns.filter(i => i?.status === 'Ongoing').length}
+          </p>
+        </div>
+        <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+          <p className="text-sm text-purple-700">Unique Colleges</p>
+          <p className="text-2xl font-bold text-purple-900">
+            {[...new Set(safeInterns.map(i => i?.collegeName).filter(Boolean))].length}
+          </p>
+        </div>
+      </div> */}
+
+      {/* Add CSS animation for notification */}
+      <style jsx>{`
+        @keyframes fadeIn {
+          from { opacity: 0; transform: translateY(-10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .animate-fade-in {
+          animation: fadeIn 0.3s ease-out;
+        }
+      `}</style>
+    </div>
+  );
 };
 
-export default InsuranceManagement;
+export default InternReference;

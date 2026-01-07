@@ -823,6 +823,7 @@ const MyProfile = () => {
                           <input
                             type="text"
                             value={formData.spouseName}
+                            maxLength={25}
                             onChange={(e) => handleInputChange('spouseName', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
                             placeholder="Spouse name"
@@ -835,6 +836,7 @@ const MyProfile = () => {
                           <input
                             type="tel"
                             value={formData.spouseContact}
+                            maxLength={10}
                             onChange={(e) => handleInputChange('spouseContact', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none text-sm"
                             placeholder="Spouse contact number"

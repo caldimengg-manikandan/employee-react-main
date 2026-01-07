@@ -1,6 +1,6 @@
 // src/pages/InsuranceManagement.jsx
-import React, { useState } from 'react';
-import { 
+import React, { useState, useEffect } from 'react';
+import {
   PlusIcon,
   DocumentTextIcon,
   ArrowLeftIcon,
@@ -22,12 +22,28 @@ import {
   BuildingOfficeIcon,
   DocumentArrowDownIcon
 } from '@heroicons/react/24/outline';
+import { employeeAPI } from '../../services/api';
 
 const InsuranceManagement = () => {
   const [currentView, setCurrentView] = useState('main'); // 'main', 'newClaim', 'claimHistory'
   const [currentStep, setCurrentStep] = useState(1);
   const [viewingClaim, setViewingClaim] = useState(null);
   const [editingClaim, setEditingClaim] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [employees, setEmployees] = useState([]);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const response = await employeeAPI.getAllEmployees();
+        setEmployees(response.data);
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
   const [editFormData, setEditFormData] = useState({
     employeeName: '',
     employeeId: '',
@@ -58,7 +74,7 @@ const InsuranceManagement = () => {
       paymentReceipt: null
     }
   });
-  
+
   // Form Data for New Claim
   const [formData, setFormData] = useState({
     employeeName: '',
@@ -250,10 +266,82 @@ const InsuranceManagement = () => {
 
   // Form Handlers for New Claim
   const handleInputChange = (field, value) => {
+    // Validation for specific fields
+    if (field === 'mobile') {
+      if (!/^\d*$/.test(value)) return;
+      if (value.length > 10) return;
+    }
+    if (field === 'accountNumber') {
+      if (!/^\d*$/.test(value)) return;
+      if (value.length > 18) return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+
+    // Clear error if exists
+    if (errors[field]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleEmployeeSelect = (employeeId) => {
+    const employee = employees.find(emp => emp.employeeId === employeeId);
+
+    if (employee) {
+      setFormData(prev => ({
+        ...prev,
+        employeeName: employee.name,
+        employeeId: employee.employeeId,
+        mobile: employee.mobileNo || employee.contactNumber || employee.mobile || '',
+        bankName: employee.bankName || '',
+        accountNumber: employee.bankAccount || employee.accountNumber || '',
+        relationship: employee.maritalStatus || 'Single',
+        spouseName: employee.spouseName || ''
+      }));
+
+      // Clear errors
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors.employeeId;
+        delete newErrors.employeeName;
+        delete newErrors.mobile;
+        delete newErrors.bankName;
+        delete newErrors.accountNumber;
+        delete newErrors.relationship;
+        return newErrors;
+      });
+    } else {
+      // Handle reset if needed, or just set ID
+      setFormData(prev => ({
+        ...prev,
+        employeeId: employeeId
+      }));
+    }
+  };
+
+  const handleRemoveFile = (field) => {
+    setFormData(prev => ({
+      ...prev,
+      documents: {
+        ...prev.documents,
+        [field]: null
+      }
+    }));
+  };
+
+  const handleNameBlur = (field) => {
+    const value = formData[field];
+    if (value && value.length > 0) {
+      const capitalized = value.charAt(0).toUpperCase() + value.slice(1);
+      setFormData(prev => ({ ...prev, [field]: capitalized }));
+    }
   };
 
   const handleFileUpload = (field, file) => {
@@ -264,6 +352,16 @@ const InsuranceManagement = () => {
         [field]: file
       }
     }));
+
+    // Clear error
+    if (errors[field] || errors.documents) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        // Re-check generic documents error if needed, but for now simple clear
+        return newErrors;
+      });
+    }
   };
 
   // Edit form file upload
@@ -295,7 +393,7 @@ const InsuranceManagement = () => {
   const updateChild = (index, field, value) => {
     setFormData(prev => ({
       ...prev,
-      children: prev.children.map((child, i) => 
+      children: prev.children.map((child, i) =>
         i === index ? { ...child, [field]: value } : child
       )
     }));
@@ -319,7 +417,7 @@ const InsuranceManagement = () => {
   const updateEditChild = (index, field, value) => {
     setEditFormData(prev => ({
       ...prev,
-      children: prev.children.map((child, i) => 
+      children: prev.children.map((child, i) =>
         i === index ? { ...child, [field]: value } : child
       )
     }));
@@ -337,103 +435,103 @@ const InsuranceManagement = () => {
   const handleDownloadPDF = (claim) => {
     // Create a new window with the claim details
     const printWindow = window.open('', '_blank');
-    
+
     // HTML content for the PDF
     const htmlContent = `
-      <!DOCTYPE html>
-      <html>
+  < !DOCTYPE html >
+    <html>
       <head>
         <title>Insurance Claim - ${claim.claimNumber}</title>
         <style>
           body {
-            font-family: Arial, sans-serif;
-            margin: 40px;
-            color: #333;
+            font - family: Arial, sans-serif;
+          margin: 40px;
+          color: #333;
           }
           .header {
-            text-align: center;
-            margin-bottom: 30px;
-            border-bottom: 2px solid #333;
-            padding-bottom: 20px;
+            text - align: center;
+          margin-bottom: 30px;
+          border-bottom: 2px solid #333;
+          padding-bottom: 20px;
           }
           .header h1 {
             color: #2c3e50;
-            margin: 0;
+          margin: 0;
           }
           .header h2 {
             color: #3498db;
-            margin: 10px 0;
+          margin: 10px 0;
           }
           .section {
-            margin-bottom: 25px;
-            padding: 15px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            background-color: #f9f9f9;
+            margin - bottom: 25px;
+          padding: 15px;
+          border: 1px solid #ddd;
+          border-radius: 5px;
+          background-color: #f9f9f9;
           }
           .section h3 {
             color: #2c3e50;
-            border-bottom: 1px solid #ddd;
-            padding-bottom: 8px;
-            margin-top: 0;
+          border-bottom: 1px solid #ddd;
+          padding-bottom: 8px;
+          margin-top: 0;
           }
           .row {
             display: flex;
-            justify-content: space-between;
-            margin-bottom: 10px;
+          justify-content: space-between;
+          margin-bottom: 10px;
           }
           .label {
-            font-weight: bold;
-            color: #555;
-            min-width: 200px;
+            font - weight: bold;
+          color: #555;
+          min-width: 200px;
           }
           .value {
             flex: 1;
-            color: #333;
+          color: #333;
           }
           .status {
             display: inline-block;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 14px;
-            font-weight: bold;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 14px;
+          font-weight: bold;
           }
           .status-approved {
-            background-color: #d4edda;
-            color: #155724;
+            background - color: #d4edda;
+          color: #155724;
           }
           .status-pending {
-            background-color: #fff3cd;
-            color: #856404;
+            background - color: #fff3cd;
+          color: #856404;
           }
           .status-rejected {
-            background-color: #f8d7da;
-            color: #721c24;
+            background - color: #f8d7da;
+          color: #721c24;
           }
           .amount {
-            font-size: 20px;
-            font-weight: bold;
-            color: #2ecc71;
+            font - size: 20px;
+          font-weight: bold;
+          color: #2ecc71;
           }
           .footer {
-            text-align: center;
-            margin-top: 40px;
-            padding-top: 20px;
-            border-top: 1px solid #ddd;
-            color: #777;
-            font-size: 12px;
+            text - align: center;
+          margin-top: 40px;
+          padding-top: 20px;
+          border-top: 1px solid #ddd;
+          color: #777;
+          font-size: 12px;
           }
           .timestamp {
-            font-size: 11px;
-            color: #999;
-            text-align: right;
-            margin-bottom: 20px;
+            font - size: 11px;
+          color: #999;
+          text-align: right;
+          margin-bottom: 20px;
           }
         </style>
       </head>
       <body>
         <div class="timestamp">Generated on: ${new Date().toLocaleString()}</div>
-        
+
         <div class="header">
           <h1>INSURANCE CLAIM DETAILS</h1>
           <h2>Claim Number: ${claim.claimNumber}</h2>
@@ -588,12 +686,12 @@ const InsuranceManagement = () => {
           <p>Document ID: ${claim.id} | Generated on: ${new Date().toLocaleDateString()}</p>
         </div>
       </body>
-      </html>
-    `;
+    </html>
+`;
 
     printWindow.document.write(htmlContent);
     printWindow.document.close();
-    
+
     // Give the content time to load before printing
     setTimeout(() => {
       printWindow.print();
@@ -606,25 +704,32 @@ const InsuranceManagement = () => {
   // Form Submission Handlers
   const handleSubmitClaim = (e) => {
     e.preventDefault();
-    
-    // Validate required fields
-    if (!formData.employeeName || !formData.employeeId || !formData.mobile || 
-        !formData.bankName || !formData.accountNumber || !formData.memberName || 
-        !formData.claimNumber || !formData.treatment || !formData.sumInsured || 
-        !formData.requestedAmount || !formData.dateOfAdmission || !formData.dateOfDischarge || 
-        !formData.claimDate || !formData.hospitalAddress || !formData.typeOfIllness) {
-      alert('Please fill all required fields marked with *');
-      return;
+
+    const newErrors = {};
+    const requiredFields = [
+      'employeeName', 'employeeId', 'mobile', 'bankName',
+      'accountNumber', 'memberName', 'claimNumber', 'treatment',
+      'sumInsured', 'requestedAmount', 'dateOfAdmission', 'dateOfDischarge',
+      'claimDate', 'hospitalAddress', 'typeOfIllness', 'claimStatus', 'paymentStatus'
+    ];
+
+    requiredFields.forEach(field => {
+      if (!formData[field]) newErrors[field] = true;
+    });
+
+    if (formData.typeOfIllness === 'Other' && !formData.otherIllness) {
+      newErrors.otherIllness = true;
     }
 
-    // Validate illness type if "Other" is selected
-    if (formData.typeOfIllness === 'Other' && !formData.otherIllness) {
-      alert('Please specify the illness type in "Other Illness" field');
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length > 0) {
+      // alert('Please fill all required fields marked with *'); // Removed alert
       return;
     }
 
     const newClaim = {
-      id: `CLM-${String(claims.length + 1).padStart(3, '0')}`,
+      id: `CLM - ${String(claims.length + 1).padStart(3, '0')} `,
       employeeName: formData.employeeName,
       employeeId: formData.employeeId,
       claimNumber: formData.claimNumber,
@@ -656,7 +761,7 @@ const InsuranceManagement = () => {
     };
 
     setClaims(prev => [newClaim, ...prev]);
-    
+
     // Reset form
     setFormData({
       employeeName: '',
@@ -690,19 +795,19 @@ const InsuranceManagement = () => {
     });
     setCurrentStep(1);
     setCurrentView('claimHistory');
-    
+
     alert('Claim submitted successfully!');
   };
 
   const handleUpdateClaim = (e) => {
     e.preventDefault();
-    
+
     // Validate required fields
-    if (!editFormData.employeeName || !editFormData.employeeId || !editFormData.mobile || 
-        !editFormData.bankName || !editFormData.accountNumber || !editFormData.memberName || 
-        !editFormData.claimNumber || !editFormData.treatment || !editFormData.sumInsured || 
-        !editFormData.requestedAmount || !editFormData.dateOfAdmission || !editFormData.dateOfDischarge || 
-        !editFormData.claimDate || !editFormData.hospitalAddress || !editFormData.typeOfIllness) {
+    if (!editFormData.employeeName || !editFormData.employeeId || !editFormData.mobile ||
+      !editFormData.bankName || !editFormData.accountNumber || !editFormData.memberName ||
+      !editFormData.claimNumber || !editFormData.treatment || !editFormData.sumInsured ||
+      !editFormData.requestedAmount || !editFormData.dateOfAdmission || !editFormData.dateOfDischarge ||
+      !editFormData.claimDate || !editFormData.hospitalAddress || !editFormData.typeOfIllness) {
       alert('Please fill all required fields marked with *');
       return;
     }
@@ -713,34 +818,34 @@ const InsuranceManagement = () => {
       return;
     }
 
-    setClaims(prev => prev.map(claim => 
-      claim.id === editingClaim.id 
-        ? { 
-            ...claim, 
-            employeeName: editFormData.employeeName,
-            employeeId: editFormData.employeeId,
-            mobile: editFormData.mobile,
-            bankName: editFormData.bankName,
-            accountNumber: editFormData.accountNumber,
-            relationship: editFormData.relationship,
-            spouseName: editFormData.spouseName || '',
-            children: editFormData.children || [],
-            memberName: editFormData.memberName,
-            claimNumber: editFormData.claimNumber,
-            treatment: editFormData.treatment,
-            sumInsured: parseFloat(editFormData.sumInsured) || 0,
-            requestedAmount: parseFloat(editFormData.requestedAmount) || 0,
-            dateOfAdmission: editFormData.dateOfAdmission,
-            dateOfDischarge: editFormData.dateOfDischarge,
-            claimDate: editFormData.claimDate,
-            closeDate: editFormData.closeDate,
-            status: editFormData.claimStatus,
-            paymentStatus: editFormData.paymentStatus,
-            hospitalAddress: editFormData.hospitalAddress,
-            typeOfIllness: editFormData.typeOfIllness === 'Other' ? editFormData.otherIllness : editFormData.typeOfIllness,
-            otherIllness: editFormData.typeOfIllness === 'Other' ? editFormData.otherIllness : '',
-            documents: editFormData.documents || claim.documents
-          }
+    setClaims(prev => prev.map(claim =>
+      claim.id === editingClaim.id
+        ? {
+          ...claim,
+          employeeName: editFormData.employeeName,
+          employeeId: editFormData.employeeId,
+          mobile: editFormData.mobile,
+          bankName: editFormData.bankName,
+          accountNumber: editFormData.accountNumber,
+          relationship: editFormData.relationship,
+          spouseName: editFormData.spouseName || '',
+          children: editFormData.children || [],
+          memberName: editFormData.memberName,
+          claimNumber: editFormData.claimNumber,
+          treatment: editFormData.treatment,
+          sumInsured: parseFloat(editFormData.sumInsured) || 0,
+          requestedAmount: parseFloat(editFormData.requestedAmount) || 0,
+          dateOfAdmission: editFormData.dateOfAdmission,
+          dateOfDischarge: editFormData.dateOfDischarge,
+          claimDate: editFormData.claimDate,
+          closeDate: editFormData.closeDate,
+          status: editFormData.claimStatus,
+          paymentStatus: editFormData.paymentStatus,
+          hospitalAddress: editFormData.hospitalAddress,
+          typeOfIllness: editFormData.typeOfIllness === 'Other' ? editFormData.otherIllness : editFormData.typeOfIllness,
+          otherIllness: editFormData.typeOfIllness === 'Other' ? editFormData.otherIllness : '',
+          documents: editFormData.documents || claim.documents
+        }
         : claim
     ));
     setEditingClaim(null);
@@ -755,38 +860,50 @@ const InsuranceManagement = () => {
 
   // Navigation between steps
   const handleNextStep = () => {
-    // Validate current step before proceeding
     let isValid = true;
     let errorMessage = '';
-    
+    const newErrors = {};
+
     switch (currentStep) {
       case 1:
         // Validate employee details
-        if (!formData.employeeName || !formData.employeeId || !formData.mobile || 
-            !formData.bankName || !formData.accountNumber) {
-          isValid = false;
-          errorMessage = 'Please fill all required employee details';
-        }
+        if (!formData.employeeId) newErrors.employeeId = true;
+        if (!formData.employeeName) newErrors.employeeName = true; // Still check name even if auto-filled
+        if (!formData.mobile || formData.mobile.length < 10) newErrors.mobile = true;
+        if (!formData.bankName) newErrors.bankName = true;
+        if (!formData.accountNumber || formData.accountNumber.length < 12) newErrors.accountNumber = true;
+
         if (formData.relationship === 'Married' && !formData.spouseName) {
-          isValid = false;
+          newErrors.spouseName = true;
           errorMessage = 'Please enter spouse name for married relationship';
+        }
+
+        if (Object.keys(newErrors).length > 0) {
+          isValid = false;
+          // errorMessage = 'Please fill all required employee details'; // Removed generic error
         }
         break;
       case 2:
         // Validate document uploads
-        if (!formData.documents.employeePhoto || !formData.documents.dischargeBill || 
-            !formData.documents.pharmacyBill || !formData.documents.paymentReceipt) {
+        if (!formData.documents.employeePhoto) newErrors.employeePhoto = true;
+        if (!formData.documents.dischargeBill) newErrors.dischargeBill = true;
+        if (!formData.documents.pharmacyBill) newErrors.pharmacyBill = true;
+        if (!formData.documents.paymentReceipt) newErrors.paymentReceipt = true;
+
+        if (Object.keys(newErrors).length > 0) {
           isValid = false;
-          errorMessage = 'Please upload all required documents';
+          // errorMessage = 'Please upload all required documents'; // Removed generic error
         }
         break;
     }
-    
+
+    setErrors(newErrors);
+
     if (!isValid) {
-      alert(errorMessage);
+      if (errorMessage) alert(errorMessage);
       return;
     }
-    
+
     setCurrentStep(currentStep + 1);
   };
 
@@ -922,7 +1039,7 @@ const InsuranceManagement = () => {
               Add Child
             </button>
           </div>
-          
+
           {editFormData.children.map((child, index) => (
             <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-gray-200 rounded-lg">
               <div>
@@ -1235,23 +1352,20 @@ const InsuranceManagement = () => {
         {steps.map((step, index) => (
           <React.Fragment key={step.number}>
             <div className="flex flex-col items-center">
-              <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 ${
-                currentStep >= step.number 
-                  ? 'bg-blue-600 border-blue-600 text-white' 
-                  : 'border-gray-300 text-gray-500'
-              }`}>
+              <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 ${currentStep >= step.number
+                ? 'bg-blue-600 border-blue-600 text-white'
+                : 'border-gray-300 text-gray-500'
+                }`}>
                 <step.icon className="w-6 h-6" />
               </div>
-              <span className={`mt-2 text-sm font-medium ${
-                currentStep >= step.number ? 'text-blue-600' : 'text-gray-500'
-              }`}>
+              <span className={`mt-2 text-sm font-medium ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-500'
+                }`}>
                 {step.title}
               </span>
             </div>
             {index < steps.length - 1 && (
-              <div className={`w-16 h-0.5 ${
-                currentStep > step.number ? 'bg-blue-600' : 'bg-gray-300'
-              }`} />
+              <div className={`w-16 h-0.5 ${currentStep > step.number ? 'bg-blue-600' : 'bg-gray-300'
+                }`} />
             )}
           </React.Fragment>
         ))}
@@ -1262,6 +1376,23 @@ const InsuranceManagement = () => {
   const renderEmployeeDetails = () => (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="col-span-1 md:col-span-2">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Employee *
+          </label>
+          <select
+            value={formData.employeeId}
+            onChange={(e) => handleEmployeeSelect(e.target.value)}
+            className={`w-full px-3 py-2 border ${errors.employeeId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+          >
+            <option value="">Select an employee</option>
+            {employees.map(emp => (
+              <option key={emp.employeeId} value={emp.employeeId}>{emp.name} - {emp.employeeId}</option>
+            ))}
+          </select>
+          {errors.employeeId && <p className="mt-1 text-xs text-red-500">Employee is required</p>}
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Employee Name *
@@ -1270,10 +1401,11 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.employeeName}
             onChange={(e) => handleInputChange('employeeName', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full px-3 py-2 border ${errors.employeeName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter employee name"
-            required
+            readOnly
           />
+          {errors.employeeName && <p className="mt-1 text-xs text-red-500">Employee Name is required</p>}
         </div>
 
         <div>
@@ -1284,10 +1416,11 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.employeeId}
             onChange={(e) => handleInputChange('employeeId', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full px-3 py-2 border ${errors.employeeId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter employee ID"
-            required
+            readOnly
           />
+          {errors.employeeId && <p className="mt-1 text-xs text-red-500">Employee ID is required</p>}
         </div>
 
         <div>
@@ -1298,10 +1431,10 @@ const InsuranceManagement = () => {
             type="tel"
             value={formData.mobile}
             onChange={(e) => handleInputChange('mobile', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full px-3 py-2 border ${errors.mobile ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter mobile number"
-            required
           />
+          {errors.mobile && <p className="mt-1 text-xs text-red-500">Mobile Number must be at least 10 digits</p>}
         </div>
 
         <div>
@@ -1312,10 +1445,10 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.bankName}
             onChange={(e) => handleInputChange('bankName', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full px-3 py-2 border ${errors.bankName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter bank name"
-            required
           />
+          {errors.bankName && <p className="mt-1 text-xs text-red-500">Bank Name is required</p>}
         </div>
 
         <div>
@@ -1326,10 +1459,10 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.accountNumber}
             onChange={(e) => handleInputChange('accountNumber', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full px-3 py-2 border ${errors.accountNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter account number"
-            required
           />
+          {errors.accountNumber && <p className="mt-1 text-xs text-red-500">Account Number must be at least 12 digits</p>}
         </div>
 
         <div>
@@ -1339,14 +1472,14 @@ const InsuranceManagement = () => {
           <select
             value={formData.relationship}
             onChange={(e) => handleInputChange('relationship', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
+            className={`w-full px-3 py-2 border ${errors.relationship ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
           >
             <option value="Single">Single</option>
             <option value="Married">Married</option>
             <option value="Divorced">Divorced</option>
             <option value="Widowed">Widowed</option>
           </select>
+          {errors.relationship && <p className="mt-1 text-xs text-red-500">Relationship is required</p>}
         </div>
       </div>
 
@@ -1363,10 +1496,10 @@ const InsuranceManagement = () => {
                 type="text"
                 value={formData.spouseName}
                 onChange={(e) => handleInputChange('spouseName', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className={`w-full px-3 py-2 border ${errors.spouseName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
                 placeholder="Enter spouse name"
-                required
               />
+              {errors.spouseName && <p className="mt-1 text-xs text-red-500">Spouse Name is required</p>}
             </div>
           </div>
         </div>
@@ -1386,7 +1519,7 @@ const InsuranceManagement = () => {
               Add Child
             </button>
           </div>
-          
+
           {formData.children.map((child, index) => (
             <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-gray-200 rounded-lg">
               <div>
@@ -1399,7 +1532,6 @@ const InsuranceManagement = () => {
                   onChange={(e) => updateChild(index, 'name', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter child name"
-                  required
                 />
               </div>
               <div>
@@ -1414,7 +1546,6 @@ const InsuranceManagement = () => {
                   placeholder="Enter age"
                   min="0"
                   max="25"
-                  required
                 />
               </div>
               <div className="flex items-end">
@@ -1451,7 +1582,7 @@ const InsuranceManagement = () => {
         { key: 'pharmacyBill', label: 'Pharmacy Bills', required: true, accept: '.pdf,.jpg,.jpeg,.png' },
         { key: 'paymentReceipt', label: 'Payment Receipts', required: true, accept: '.pdf,.jpg,.jpeg,.png' }
       ].map((doc) => (
-        <div key={doc.key} className="border border-gray-200 rounded-lg p-4">
+        <div key={doc.key} className={`border ${errors[doc.key] ? 'border-red-500' : 'border-gray-200'} rounded-lg p-4`}>
           <label className="block text-sm font-medium text-gray-700 mb-3">
             {doc.label} {doc.required && <span className="text-red-500">*</span>}
           </label>
@@ -1462,16 +1593,28 @@ const InsuranceManagement = () => {
                 onChange={(e) => handleFileUpload(doc.key, e.target.files[0])}
                 className="hidden"
                 accept={doc.accept}
-                required={doc.required}
               />
-              <div className="px-4 py-2 border border-gray-300 rounded-md text-center cursor-pointer hover:bg-gray-50 transition-colors">
+              <div className={`px-4 py-2 border ${errors[doc.key] ? 'border-red-300 text-red-700' : 'border-gray-300'} rounded-md text-center cursor-pointer hover:bg-gray-50 transition-colors`}>
                 Choose File
               </div>
             </label>
-            <span className="text-sm text-gray-500 flex-1">
-              {formData.documents[doc.key]?.name || 'No file chosen'}
-            </span>
+            <div className="flex-1 flex items-center space-x-2">
+              <span className="text-sm text-gray-500 truncate">
+                {formData.documents[doc.key]?.name || 'No file chosen'}
+              </span>
+              {formData.documents[doc.key] && (
+                <button
+                  type="button"
+                  onClick={() => handleRemoveFile(doc.key)}
+                  className="text-gray-400 hover:text-red-500 p-1"
+                  title="Remove file"
+                >
+                  <XMarkIcon className="w-5 h-5" />
+                </button>
+              )}
+            </div>
           </div>
+          {errors[doc.key] && <p className="mt-1 text-xs text-red-500">{doc.label} is required</p>}
           {formData.documents[doc.key] && (
             <div className="mt-2 text-sm text-green-600">
               ✓ File selected: {formData.documents[doc.key].name}
@@ -1487,7 +1630,7 @@ const InsuranceManagement = () => {
 
   const renderTreatmentDetails = () => (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Member Name *
@@ -1496,10 +1639,11 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.memberName}
             onChange={(e) => handleInputChange('memberName', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            onBlur={() => handleNameBlur('memberName')}
+            className={`w-full px-3 py-2 border ${errors.memberName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter member name"
-            required
           />
+          {errors.memberName && <p className="mt-1 text-xs text-red-500">Member Name is required</p>}
         </div>
 
         <div>
@@ -1510,13 +1654,13 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.claimNumber}
             onChange={(e) => handleInputChange('claimNumber', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full px-3 py-2 border ${errors.claimNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter claim number"
-            required
           />
+          {errors.claimNumber && <p className="mt-1 text-xs text-red-500">Claim Number is required</p>}
         </div>
 
-        <div className="md:col-span-2">
+        <div className="md:col-span-3">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Treatment/Medical Procedure *
           </label>
@@ -1524,13 +1668,13 @@ const InsuranceManagement = () => {
             value={formData.treatment}
             onChange={(e) => handleInputChange('treatment', e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full px-3 py-2 border ${errors.treatment ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Describe the treatment received or medical procedure"
-            required
           />
+          {errors.treatment && <p className="mt-1 text-xs text-red-500">Treatment details are required</p>}
         </div>
 
-        <div className="md:col-span-2">
+        <div className="md:col-span-3">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Hospital Address *
           </label>
@@ -1538,31 +1682,32 @@ const InsuranceManagement = () => {
             value={formData.hospitalAddress}
             onChange={(e) => handleInputChange('hospitalAddress', e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full px-3 py-2 border ${errors.hospitalAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter hospital name and complete address"
-            required
           />
+          {errors.hospitalAddress && <p className="mt-1 text-xs text-red-500">Hospital Address is required</p>}
         </div>
 
-        <div>
+
+        <div className="md:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Type of Illness *
           </label>
           <select
             value={formData.typeOfIllness}
             onChange={(e) => handleInputChange('typeOfIllness', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
+            className={`w-full px-3 py-2 border ${errors.typeOfIllness ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
           >
             <option value="">Select Illness Type</option>
             {illnessTypes.map((illness, index) => (
               <option key={index} value={illness}>{illness}</option>
             ))}
           </select>
+          {errors.typeOfIllness && <p className="mt-1 text-xs text-red-500">Type of Illness is required</p>}
         </div>
 
         {formData.typeOfIllness === 'Other' && (
-          <div>
+          <div className="md:col-span-2">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Other Illness *
             </label>
@@ -1570,14 +1715,14 @@ const InsuranceManagement = () => {
               type="text"
               value={formData.otherIllness}
               onChange={(e) => handleInputChange('otherIllness', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className={`w-full px-3 py-2 border ${errors.otherIllness ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
               placeholder="Please specify illness"
-              required={formData.typeOfIllness === 'Other'}
             />
+            {errors.otherIllness && <p className="mt-1 text-xs text-red-500">Please specify the illness</p>}
           </div>
         )}
 
-        <div>
+        <div className="md:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Sum Insured Amount *
           </label>
@@ -1585,14 +1730,14 @@ const InsuranceManagement = () => {
             type="number"
             value={formData.sumInsured}
             onChange={(e) => handleInputChange('sumInsured', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full px-3 py-2 border ${errors.sumInsured ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter sum insured amount"
             min="0"
-            required
           />
+          {errors.sumInsured && <p className="mt-1 text-xs text-red-500">Sum Insured Amount is required</p>}
         </div>
 
-        <div>
+        <div className="md:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Requested Amount *
           </label>
@@ -1600,40 +1745,14 @@ const InsuranceManagement = () => {
             type="number"
             value={formData.requestedAmount}
             onChange={(e) => handleInputChange('requestedAmount', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className={`w-full px-3 py-2 border ${errors.requestedAmount ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter requested amount"
             min="0"
-            required
           />
+          {errors.requestedAmount && <p className="mt-1 text-xs text-red-500">Requested Amount is required</p>}
         </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Date of Admission *
-          </label>
-          <input
-            type="date"
-            value={formData.dateOfAdmission}
-            onChange={(e) => handleInputChange('dateOfAdmission', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Date of Discharge *
-          </label>
-          <input
-            type="date"
-            value={formData.dateOfDischarge}
-            onChange={(e) => handleInputChange('dateOfDischarge', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
-          />
-        </div>
-
-        <div>
+        <div className="md:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Claim Date *
           </label>
@@ -1641,12 +1760,38 @@ const InsuranceManagement = () => {
             type="date"
             value={formData.claimDate}
             onChange={(e) => handleInputChange('claimDate', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
+            className={`w-full px-3 py-2 border ${errors.claimDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
           />
+          {errors.claimDate && <p className="mt-1 text-xs text-red-500">Claim Date is required</p>}
         </div>
 
-        <div>
+        <div className="md:col-span-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Date of Admission *
+          </label>
+          <input
+            type="date"
+            value={formData.dateOfAdmission}
+            onChange={(e) => handleInputChange('dateOfAdmission', e.target.value)}
+            className={`w-full px-3 py-2 border ${errors.dateOfAdmission ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+          />
+          {errors.dateOfAdmission && <p className="mt-1 text-xs text-red-500">Admission Date is required</p>}
+        </div>
+
+        <div className="md:col-span-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Date of Discharge *
+          </label>
+          <input
+            type="date"
+            value={formData.dateOfDischarge}
+            onChange={(e) => handleInputChange('dateOfDischarge', e.target.value)}
+            className={`w-full px-3 py-2 border ${errors.dateOfDischarge ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+          />
+          {errors.dateOfDischarge && <p className="mt-1 text-xs text-red-500">Discharge Date is required</p>}
+        </div>
+
+        <div className="md:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Close Date
           </label>
@@ -1658,36 +1803,36 @@ const InsuranceManagement = () => {
           />
         </div>
 
-        <div>
+        <div className="md:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Claim Status *
           </label>
           <select
             value={formData.claimStatus}
             onChange={(e) => handleInputChange('claimStatus', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
+            className={`w-full px-3 py-2 border ${errors.claimStatus ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
           >
             <option value="Pending">Pending</option>
             <option value="Approved">Approved</option>
             <option value="Rejected">Rejected</option>
           </select>
+          {errors.claimStatus && <p className="mt-1 text-xs text-red-500">Claim Status is required</p>}
         </div>
 
-        <div>
+        <div className="md:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Payment Status *
           </label>
           <select
             value={formData.paymentStatus}
             onChange={(e) => handleInputChange('paymentStatus', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            required
+            className={`w-full px-3 py-2 border ${errors.paymentStatus ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
           >
             <option value="Unpaid">Unpaid</option>
             <option value="Paid">Paid</option>
             <option value="Rejected">Rejected</option>
           </select>
+          {errors.paymentStatus && <p className="mt-1 text-xs text-red-500">Payment Status is required</p>}
         </div>
       </div>
     </div>
@@ -1799,7 +1944,7 @@ const InsuranceManagement = () => {
               className="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 mr-4 shadow-sm"
             >
               <ArrowLeftIcon className="h-5 w-5 mr-2" />
-              Back
+              Back to Insurance
             </button>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">New Insurance Claim</h1>
@@ -1943,15 +2088,15 @@ const InsuranceManagement = () => {
                           {new Date(claim.claimDate).toLocaleDateString()}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {claim.closeDate ? `Closed: ${new Date(claim.closeDate).toLocaleDateString()}` : 'Open'}
+                          {claim.closeDate ? `Closed: ${new Date(claim.closeDate).toLocaleDateString()} ` : 'Open'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="space-y-2">
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(claim.status)}`}>
+                          <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getStatusColor(claim.status)} `}>
                             {claim.status}
                           </span>
-                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(claim.paymentStatus)}`}>
+                          <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getPaymentStatusColor(claim.paymentStatus)} `}>
                             {claim.paymentStatus}
                           </span>
                         </div>
@@ -2131,13 +2276,13 @@ const InsuranceManagement = () => {
                     <div className="space-y-3">
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700">Claim Status:</span>
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(viewingClaim.status)}`}>
+                        <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getStatusColor(viewingClaim.status)} `}>
                           {viewingClaim.status}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-sm font-medium text-gray-700">Payment Status:</span>
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(viewingClaim.paymentStatus)}`}>
+                        <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getPaymentStatusColor(viewingClaim.paymentStatus)} `}>
                           {viewingClaim.paymentStatus}
                         </span>
                       </div>
