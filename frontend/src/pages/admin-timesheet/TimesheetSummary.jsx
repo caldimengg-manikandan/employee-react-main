@@ -181,7 +181,8 @@ const TimesheetSummary = () => {
       borderRadius: '4px 4px 0 0',
       position: 'relative',
       display: 'flex',
-      alignItems: 'flex-end'
+      alignItems: 'flex-end',
+      overflow: 'hidden'
     },
     barFill: {
       background: '#1976d2',
@@ -337,6 +338,10 @@ const TimesheetSummary = () => {
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 5 }, (_, i) => (currentYear - i).toString());
+  const maxMonthlyHours = (summaryData?.monthlyData || []).reduce(
+    (max, m) => Math.max(max, Number(m.hours || 0)),
+    0
+  );
 
   return (
     <div style={styles.timesheetSummary}>
@@ -431,7 +436,11 @@ const TimesheetSummary = () => {
                     <div 
                       style={{
                         ...styles.barFill,
-                        height: `${(monthData.hours / 400) * 100}%`
+                        height: `${
+                          maxMonthlyHours > 0
+                            ? Math.min((Number(monthData.hours || 0) / maxMonthlyHours) * 100, 100)
+                            : 0
+                        }%`
                       }}
                     ></div>
                   </div>

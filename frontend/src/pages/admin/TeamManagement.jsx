@@ -59,6 +59,16 @@ const TeamManagement = () => {
     }
     return matchLocation && matchDivision && matchManager;
   });
+  const sortedEmployees = [...filteredEmployees].sort((a, b) => {
+    const getNum = (id) => {
+      const m = String(id || '').match(/^CDE(\d{3})$/i);
+      return m ? parseInt(m[1], 10) : Number.MAX_SAFE_INTEGER;
+    };
+    const na = getNum(a.employeeId);
+    const nb = getNum(b.employeeId);
+    if (na !== nb) return na - nb;
+    return String(a.employeeId).localeCompare(String(b.employeeId));
+  });
 
   useEffect(() => {
     const s = filters.search.trim();
@@ -271,7 +281,7 @@ const TeamManagement = () => {
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredEmployees.map(e => (
+                  {sortedEmployees.map(e => (
                     <tr key={e._id} className="hover:bg-gray-50">
                       <td className="px-4 py-2 text-sm text-gray-900">{e.employeeId}</td>
                       <td className="px-4 py-2 text-sm text-gray-900">{e.name}</td>
