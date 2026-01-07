@@ -85,6 +85,29 @@ const MyProfile = () => {
   const [allowSubmit, setAllowSubmit] = useState(false);
   const { notification, showSuccess, showError, hideNotification } = useNotification();
   const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const parseAddress = (addr) => {
+    if (!addr || typeof addr !== 'string') {
+      return { line: '', city: '', state: '', pincode: '' };
+    }
+    const parts = addr.split(',').map(s => s.trim()).filter(Boolean);
+    let line = '';
+    let city = '';
+    let state = '';
+    let pincode = '';
+    if (parts.length >= 4) {
+      line = parts.slice(0, parts.length - 3).join(', ');
+      city = parts[parts.length - 3];
+      state = parts[parts.length - 2];
+      pincode = parts[parts.length - 1].replace(/\D/g, '').slice(0, 6);
+    } else if (parts.length === 3) {
+      line = parts[0];
+      city = parts[1];
+      state = parts[2];
+    } else {
+      line = addr;
+    }
+    return { line, city, state, pincode };
+  };
 
   // Populate form data
   useEffect(() => {
@@ -139,6 +162,8 @@ const MyProfile = () => {
         const emp = res.data;
         if (emp && emp.employeeId) {
           setEmployeeDoc(emp);
+          const perm = parseAddress(emp.permanentAddress);
+          const curr = parseAddress(emp.currentAddress);
           const mappedData = {
             employeeId: emp.employeeId || base.employeeId,
             name: emp.name || emp.employeename || base.name,
@@ -150,16 +175,14 @@ const MyProfile = () => {
             maritalStatus: emp.maritalStatus || base.maritalStatus,
             spouseName: emp.spouseName || base.spouseName,
             spouseContact: emp.spouseContact || base.spouseContact,
-            
-            permanentAddressLine: emp.permanentAddressLine || emp.permanentAddress || base.permanentAddressLine,
-            permanentCity: emp.permanentCity || base.permanentCity,
-            permanentState: emp.permanentState || base.permanentState,
-            permanentPincode: emp.permanentPincode || base.permanentPincode,
-            
-            currentAddressLine: emp.currentAddressLine || emp.currentAddress || base.currentAddressLine,
-            currentCity: emp.currentCity || base.currentCity,
-            currentState: emp.currentState || base.currentState,
-            currentPincode: emp.currentPincode || base.currentPincode,
+            permanentAddressLine: emp.permanentAddressLine || perm.line || base.permanentAddressLine,
+            permanentCity: emp.permanentCity || perm.city || base.permanentCity,
+            permanentState: emp.permanentState || perm.state || base.permanentState,
+            permanentPincode: emp.permanentPincode || perm.pincode || base.permanentPincode,
+            currentAddressLine: emp.currentAddressLine || curr.line || base.currentAddressLine,
+            currentCity: emp.currentCity || curr.city || base.currentCity,
+            currentState: emp.currentState || curr.state || base.currentState,
+            currentPincode: emp.currentPincode || curr.pincode || base.currentPincode,
             
             emergencyContact: emp.emergencyContact || base.emergencyContact,
             nationality: emp.nationality || base.nationality,
@@ -554,7 +577,6 @@ const MyProfile = () => {
       }
       e.pan = validateField('pan', formData.pan);
       e.aadhaar = validateField('aadhaar', formData.aadhaar);
-      if (!formData.passportNumber) e.passportNumber = 'Passport is required';
       e.uan = validateField('uan', formData.uan);
     }
     if (step === 2) {

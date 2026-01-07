@@ -118,6 +118,24 @@ router.post('/', auth, async (req, res) => {
     if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
     if (!data.position && data.role) data.position = data.role;
     if (!data.position && data.designation) data.position = data.designation;
+    const permAddrParts = [
+      data.permanentAddressLine,
+      data.permanentCity,
+      data.permanentState,
+      data.permanentPincode
+    ].filter(Boolean);
+    const currAddrParts = [
+      data.currentAddressLine,
+      data.currentCity,
+      data.currentState,
+      data.currentPincode
+    ].filter(Boolean);
+    if (!data.permanentAddress && permAddrParts.length) {
+      data.permanentAddress = permAddrParts.join(', ');
+    }
+    if (!data.currentAddress && currAddrParts.length) {
+      data.currentAddress = currAddrParts.join(', ');
+    }
     if (Array.isArray(data.previousOrganizations)) {
       data.previousOrganizations = data.previousOrganizations.map(org => {
         const o = { ...org };
@@ -159,6 +177,24 @@ router.put('/me', auth, async (req, res) => {
     if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
     if (!data.position && data.role) data.position = data.role;
     if (!data.position && data.designation) data.position = data.designation;
+    const permAddrParts = [
+      data.permanentAddressLine,
+      data.permanentCity,
+      data.permanentState,
+      data.permanentPincode
+    ].filter(Boolean);
+    const currAddrParts = [
+      data.currentAddressLine,
+      data.currentCity,
+      data.currentState,
+      data.currentPincode
+    ].filter(Boolean);
+    if (!data.permanentAddress && permAddrParts.length) {
+      data.permanentAddress = permAddrParts.join(', ');
+    }
+    if (!data.currentAddress && currAddrParts.length) {
+      data.currentAddress = currAddrParts.join(', ');
+    }
     if (Array.isArray(data.previousOrganizations)) {
       data.previousOrganizations = data.previousOrganizations.map(org => {
         const o = { ...org };
@@ -206,6 +242,24 @@ router.put('/:id', auth, async (req, res) => {
     if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
     if (!data.position && data.role) data.position = data.role;
     if (!data.position && data.designation) data.position = data.designation;
+    const permAddrParts = [
+      data.permanentAddressLine,
+      data.permanentCity,
+      data.permanentState,
+      data.permanentPincode
+    ].filter(Boolean);
+    const currAddrParts = [
+      data.currentAddressLine,
+      data.currentCity,
+      data.currentState,
+      data.currentPincode
+    ].filter(Boolean);
+    if (!data.permanentAddress && permAddrParts.length) {
+      data.permanentAddress = permAddrParts.join(', ');
+    }
+    if (!data.currentAddress && currAddrParts.length) {
+      data.currentAddress = currAddrParts.join(', ');
+    }
     if (Array.isArray(data.previousOrganizations)) {
       data.previousOrganizations = data.previousOrganizations.map(org => {
         const o = { ...org };

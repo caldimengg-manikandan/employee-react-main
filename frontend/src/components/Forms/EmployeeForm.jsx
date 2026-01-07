@@ -43,6 +43,29 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     const da = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${da}`;
   };
+  const parseAddress = (addr) => {
+    if (!addr || typeof addr !== 'string') {
+      return { line: '', city: '', state: '', pincode: '' };
+    }
+    const parts = addr.split(',').map(s => s.trim()).filter(Boolean);
+    let line = '';
+    let city = '';
+    let state = '';
+    let pincode = '';
+    if (parts.length >= 4) {
+      line = parts.slice(0, parts.length - 3).join(', ');
+      city = parts[parts.length - 3];
+      state = parts[parts.length - 2];
+      pincode = parts[parts.length - 1].replace(/\D/g, '').slice(0, 6);
+    } else if (parts.length === 3) {
+      line = parts[0];
+      city = parts[1];
+      state = parts[2];
+    } else {
+      line = addr;
+    }
+    return { line, city, state, pincode };
+  };
 
   const [formData, setFormData] = useState({
     // Personal Information
@@ -181,7 +204,6 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       }
       e.pan = validateField('pan', formData.pan);
       e.aadhaar = validateField('aadhaar', formData.aadhaar);
-      if (!formData.passportNumber) e.passportNumber = 'Passport is required';
       e.uan = validateField('uan', formData.uan);
     }
     if (step === 2) {
@@ -329,6 +351,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
   useEffect(() => {
     if (employee) {
+      const perm = parseAddress(employee.permanentAddress);
+      const curr = parseAddress(employee.currentAddress);
       const mappedData = {
         // Personal Information
         employeeId: employee.employeeId || employee.empId || '',
@@ -343,8 +367,14 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         maritalStatus: employee.maritalStatus || 'single',
         spouseName: employee.spouseName || '',
         spouseContact: employee.spouseContact || '',
-        permanentAddress: employee.permanentAddress || '',
-        currentAddress: employee.currentAddress || '',
+        permanentAddressLine: employee.permanentAddressLine || perm.line || '',
+        permanentCity: employee.permanentCity || perm.city || '',
+        permanentState: employee.permanentState || perm.state || '',
+        permanentPincode: employee.permanentPincode || perm.pincode || '',
+        currentAddressLine: employee.currentAddressLine || curr.line || '',
+        currentCity: employee.currentCity || curr.city || '',
+        currentState: employee.currentState || curr.state || '',
+        currentPincode: employee.currentPincode || curr.pincode || '',
         emergencyContact: employee.emergencyContact || employee.emergencyMobile || '',
         nationality: employee.nationality || 'Indian',
         contactNumber: employee.contactNumber || employee.mobileNo || '',
@@ -1092,13 +1122,12 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number <span className="text-red-600">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Passport Number</label>
                   <input
                     type="text"
                     value={formData.passportNumber}
                     onChange={(e) => handleInputChange('passportNumber', e.target.value.toUpperCase())}
                     maxLength={15}
-                    required
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                     placeholder="Passport number"
                   />
