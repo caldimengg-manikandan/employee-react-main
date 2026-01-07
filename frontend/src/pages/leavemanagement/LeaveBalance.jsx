@@ -263,7 +263,7 @@ const LeaveBalance = () => {
   };
 
   return (
-    <div className="space-y-4 p-6">
+    <div className="space-y-4 p-6 h-[calc(100vh-64px)] flex flex-col">
       {/* Header */}
       {/* <div className="flex justify-between items-center mb-6">
         <div>
@@ -304,16 +304,16 @@ const LeaveBalance = () => {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg overflow-hidden bg-white">
-        <table className="w-full">
-          <thead className="bg-blue-600">
+      <div className="border rounded-lg bg-white flex-1 overflow-auto min-h-0">
+        <table className="w-full relative">
+          <thead className="bg-blue-600 sticky top-0 z-20">
             <tr>
-              <th className="p-4 text-left text-sm font-semibold text-white">Employee ID</th>
-              <th className="p-4 text-left text-sm font-semibold text-white">Employee Name</th>
-              <th className="p-4 text-left text-sm font-semibold text-white">Casual Leave</th>
-              <th className="p-4 text-left text-sm font-semibold text-white">Sick Leave</th>
-              <th className="p-4 text-left text-sm font-semibold text-white">Privilege Leave</th>
-              <th className="p-4 text-left text-sm font-semibold text-white">Actions</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Employee ID</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Employee Name</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Casual Leave</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Sick Leave</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Privilege Leave</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Actions</th>
             </tr>
           </thead>
           <tbody>
