@@ -930,24 +930,7 @@ const MyProfile = () => {
                       </select>
                     </div>
 
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">
-                        Location <span className="text-red-600">*</span>
-                      </label>
-                      <select
-                        value={formData.location}
-                        onChange={(e) => handleInputChange('location', e.target.value)}
-                        required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.location ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
-                      >
-                        {locationOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
-                      {errors.location && <p className="text-xs text-red-600 mt-1">{errors.location}</p>}
-                    </div>
+                    
                   </div>
                 </div>
 
@@ -1229,6 +1212,25 @@ const MyProfile = () => {
                         disabled
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
                       />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">
+                        Location <span className="text-red-600">*</span>
+                      </label>
+                      <select
+                        value={formData.location}
+                        onChange={(e) => handleInputChange('location', e.target.value)}
+                        required
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.location ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
+                      >
+                        {locationOptions.map(option => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      {errors.location && <p className="text-xs text-red-600 mt-1">{errors.location}</p>}
                     </div>
 
                     {/* <div>
