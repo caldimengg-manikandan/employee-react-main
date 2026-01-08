@@ -8,7 +8,8 @@ import {
   Eye,
   Download,
   Calculator,
-  MapPin
+  MapPin,
+  ChevronDown
 } from 'lucide-react';
 import { employeeAPI, payrollAPI, leaveAPI } from '../../services/api';
 
@@ -93,6 +94,10 @@ const PayrollDetails = () => {
   const [employeeLookupError, setEmployeeLookupError] = useState('');
   const [employeeList, setEmployeeList] = useState([]);
   const [lopPreview, setLopPreview] = useState(null);
+  
+  // Custom dropdown state
+  const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
+  const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
 
   // Load payroll data on mount (fallback to empty if API fails)
   useEffect(() => {
@@ -129,7 +134,13 @@ const PayrollDetails = () => {
     employeeAPI.getAllEmployees()
       .then(res => {
         const items = Array.isArray(res.data) ? res.data : [];
-        setEmployeeList(items);
+        // Sort by Employee ID naturally (e.g. CDE1, CDE2, ... CDE10)
+        const sortedItems = items.sort((a, b) => {
+          const idA = (a.employeeId || '').toString();
+          const idB = (b.employeeId || '').toString();
+          return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        setEmployeeList(sortedItems);
       })
       .catch(() => {
         setEmployeeList([]);
@@ -471,6 +482,7 @@ const PayrollDetails = () => {
             type="text"
             placeholder="Search by Employee Name, ID"
             value={searchTerm}
+            maxLength={20}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
           />
@@ -574,9 +586,9 @@ const PayrollDetails = () => {
 
       {/* Payroll Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-[#262760]">
+        <div className="overflow-auto h-[calc(100vh-320px)]">
+          <table className="min-w-full divide-y divide-gray-200 relative">
+            <thead className="bg-[#262760] sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Employee ID
@@ -683,25 +695,92 @@ const PayrollDetails = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Employee ID *
                       </label>
-                      <select
-                        name="employeeId"
-                        value={formData.employeeId}
-                        onChange={handleInputChange}
-                        className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
-                          errors.employeeId ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      >
-                        <option value="">Select Employee ID</option>
-                        {employeeList.map(emp => {
-                          const id = emp.employeeId || '';
-                          const nm = emp.name || emp.employeename || '';
-                          return (
-                            <option key={id || nm} value={id}>
-                              {id} {nm ? `- ${nm}` : ''}
-                            </option>
-                          );
-                        })}
-                      </select>
+                      <div className="relative">
+                        <div
+                          className={`w-full px-3 py-2 border rounded-lg cursor-pointer flex justify-between items-center bg-white ${
+                            errors.employeeId ? 'border-red-500' : 'border-gray-300'
+                          }`}
+                          onClick={() => setIsEmployeeDropdownOpen(!isEmployeeDropdownOpen)}
+                        >
+                          <span className={`${!formData.employeeId ? 'text-gray-500' : 'text-gray-900'}`}>
+                            {formData.employeeId 
+                              ? (() => {
+                                  const selectedEmp = employeeList.find(e => e.employeeId === formData.employeeId);
+                                  const nm = selectedEmp?.name || selectedEmp?.employeename || '';
+                                  return `${formData.employeeId}${nm ? ` - ${nm}` : ''}`;
+                                })()
+                              : 'Select Employee ID'}
+                          </span>
+                          <ChevronDown className="w-4 h-4 text-gray-500" />
+                        </div>
+
+                        {isEmployeeDropdownOpen && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-hidden flex flex-col">
+                            <div className="p-2 border-b bg-gray-50">
+                              <div className="relative">
+                                <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                                <input
+                                  type="text"
+                                  className="w-full pl-8 pr-3 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                                  placeholder="Search by ID or Name..."
+                                  value={employeeSearchTerm}
+                                  onChange={(e) => setEmployeeSearchTerm(e.target.value)}
+                                  onClick={(e) => e.stopPropagation()}
+                                  autoFocus
+                                />
+                              </div>
+                            </div>
+                            <div className="overflow-y-auto max-h-48">
+                              <div 
+                                className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm text-gray-500"
+                                onClick={() => {
+                                  handleInputChange({ target: { name: 'employeeId', value: '' } });
+                                  setIsEmployeeDropdownOpen(false);
+                                  setEmployeeSearchTerm('');
+                                }}
+                              >
+                                Select Employee ID
+                              </div>
+                              {employeeList
+                                .filter(emp => {
+                                  const search = employeeSearchTerm.toLowerCase();
+                                  const id = (emp.employeeId || '').toLowerCase();
+                                  const nm = (emp.name || emp.employeename || '').toLowerCase();
+                                  return id.includes(search) || nm.includes(search);
+                                })
+                                .map(emp => {
+                                  const id = emp.employeeId || '';
+                                  const nm = emp.name || emp.employeename || '';
+                                  return (
+                                    <div
+                                      key={id || nm}
+                                      className={`px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm ${
+                                        formData.employeeId === id ? 'bg-blue-50 text-blue-600' : 'text-gray-700'
+                                      }`}
+                                      onClick={() => {
+                                        handleInputChange({ target: { name: 'employeeId', value: id } });
+                                        setIsEmployeeDropdownOpen(false);
+                                        setEmployeeSearchTerm('');
+                                      }}
+                                    >
+                                      {id} {nm ? `- ${nm}` : ''}
+                                    </div>
+                                  );
+                                })}
+                                {employeeList.filter(emp => {
+                                  const search = employeeSearchTerm.toLowerCase();
+                                  const id = (emp.employeeId || '').toLowerCase();
+                                  const nm = (emp.name || emp.employeename || '').toLowerCase();
+                                  return id.includes(search) || nm.includes(search);
+                                }).length === 0 && (
+                                  <div className="px-3 py-2 text-gray-500 text-sm text-center">
+                                    No employees found
+                                  </div>
+                                )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                       {errors.employeeId && (
                         <p className="text-red-500 text-sm mt-1">{errors.employeeId}</p>
                       )}

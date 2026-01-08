@@ -222,7 +222,6 @@ const ProjectDashboard = () => {
         { name: 'Timesheet History', description: 'View past timesheets', path: '/timesheet/history', icon: DocumentChartBarIcon, permission: 'timesheet_access', allowEmployeeRole: true, category: 'Work & Productivity' },
         { name: 'Attendance Regularization', description: 'Regularize attendance', path: '/timesheet/regularization', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true, category: 'Work & Productivity' },
         { name: 'Employee Attendance', description: 'Attendance tracking', path: '/timesheet/attendance', icon: ClockIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
-        { name: 'Attendance Approval', description: 'Approve attendance', path: '/timesheet/attendance-approval', icon: ClipboardDocumentCheckIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
         
         // Admin Timesheet
         { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
@@ -279,7 +278,6 @@ const ProjectDashboard = () => {
                     'Policy Portal',
                     'Salary Slips',
                     'Leave Summary',
-                    'Attendance Approval'
                 ];
                 return pmAllowed.includes(m.name);
             }

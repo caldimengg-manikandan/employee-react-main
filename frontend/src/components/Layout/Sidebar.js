@@ -127,7 +127,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/timesheet/attendance-approval",
       icon: getIconForMenu("Attendance Approval"),
       permission: "attendance_access",
-      showForRoles: ["admin", "hr", "manager"],
+      showForRoles: ["admin", "hr", ],
     },
     {
       name: "Admin Timesheet",
@@ -366,7 +366,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         "Policy Portal",
         "Salary Slips",
         "Leave Summary",
-        "Attendance Approval"
       ];
       return allowedModules.includes(item.name);
     }

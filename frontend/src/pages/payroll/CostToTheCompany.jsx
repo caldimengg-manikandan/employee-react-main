@@ -13,10 +13,32 @@ const CostToTheCompany = () => {
   const [employees, setEmployees] = useState([]);
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
+  const [employeeDirectory, setEmployeeDirectory] = useState([]); // Cache for employee details
 
   useEffect(() => {
-    fetchFilterOptions();
+    const init = async () => {
+      const emps = await fetchFilterOptions();
+      fetchCTCSummary(emps);
+    };
+    init();
   }, []);
+
+  useEffect(() => {
+    if (!employeeDirectory.length) return;
+
+    let filteredData = employeeDirectory;
+    if (filterDepartment) {
+      filteredData = filteredData.filter(e => (e.department || e.division) === filterDepartment);
+    }
+
+    const uniqueDesigs = [...new Set(filteredData.map(e => e.designation).filter(Boolean))];
+    setDesignations(uniqueDesigs);
+
+    // If currently selected designation is not in the new list, clear it
+    if (filterDesignation && !uniqueDesigs.includes(filterDesignation)) {
+      setFilterDesignation("");
+    }
+  }, [filterDepartment, employeeDirectory]);
 
   const fetchFilterOptions = async () => {
     try {
@@ -24,12 +46,14 @@ const CostToTheCompany = () => {
       const data = Array.isArray(res.data) ? res.data : [];
       
       const uniqueDepts = [...new Set(data.map(e => e.department || e.division).filter(Boolean))];
-      const uniqueDesigs = [...new Set(data.map(e => e.designation).filter(Boolean))];
+      // uniqueDesigs will be handled by the useEffect above
       
       setDepartments(uniqueDepts);
-      setDesignations(uniqueDesigs);
+      setEmployeeDirectory(data);
+      return data;
     } catch (error) {
       console.error("Error fetching filter options", error);
+      return [];
     }
   };
 
@@ -61,7 +85,7 @@ const CostToTheCompany = () => {
     },
   ];
 
-  const fetchCTCSummary = async () => {
+  const fetchCTCSummary = async (empDir = null) => {
     try {
       setLoading(true);
       
@@ -73,6 +97,21 @@ const CostToTheCompany = () => {
 
       const res = await monthlyPayrollAPI.list(params);
       let records = Array.isArray(res.data) ? res.data : [];
+
+      // Use passed directory or state
+      const dir = (Array.isArray(empDir) ? empDir : null) || employeeDirectory;
+      
+      // Enrich records with employee details (Location, Dept, Desig)
+      records = records.map(r => {
+        // If the record already has these fields, keep them, otherwise lookup
+        const emp = dir.find(e => String(e.employeeId || '').toLowerCase() === String(r.employeeId || '').toLowerCase());
+        return {
+          ...r,
+          location: r.location || emp?.location || emp?.address || "Unknown",
+          department: r.department || emp?.department || emp?.division || "Unknown",
+          designation: r.designation || emp?.designation || emp?.position || "Unknown"
+        };
+      });
 
       // Filter by Year if selected but Month is not
       if (year && !month) {
@@ -118,10 +157,6 @@ const CostToTheCompany = () => {
     }
   };
 
-  useEffect(() => {
-    fetchCTCSummary();
-  }, []);
-
   const handleClearFilters = () => {
     setMonth("");
     setYear("");
@@ -133,7 +168,7 @@ const CostToTheCompany = () => {
   };
 
   return (
-    <div className="p-6">
+    <div className="p-2">
       
 
       {/* Filters */}
@@ -247,9 +282,9 @@ const CostToTheCompany = () => {
      
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-96">
           <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-[#262760]">
+            <thead className="bg-[#262760] sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Location
@@ -320,13 +355,10 @@ const CostToTheCompany = () => {
 
       {employees.length > 0 && (
         <div className="bg-white rounded-lg shadow overflow-hidden mt-6">
-          <div className="px-6 py-4 border-b">
-            <div className="text-lg font-semibold">Employee CTC Details</div>
-            <div className="text-sm text-gray-500">Based on monthly payroll data</div>
-          </div>
-          <div className="overflow-x-auto">
+          
+          <div className="overflow-auto max-h-[600px]">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-[#262760]">
+              <thead className="bg-[#262760] sticky top-0 z-10">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Designation</th>

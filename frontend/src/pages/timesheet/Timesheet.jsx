@@ -205,14 +205,14 @@ const Timesheet = () => {
               } catch (_) { }
             });
 
-            const roundedDaily = dailyOnPremises.map((h) => parseFloat(h.toFixed(1)));
-            const roundedWeekly = parseFloat(weeklyOnPremises.toFixed(1));
-            const hasAnyHours = roundedDaily.some((h) => h > 0) || roundedWeekly > 0;
+            const preciseDaily = dailyOnPremises.map((h) => Math.max(0, Number(h) || 0));
+            const preciseWeekly = preciseDaily.reduce((sum, h) => sum + h, 0);
+            const hasAnyHours = preciseDaily.some((h) => h > 0) || preciseWeekly > 0;
             
             if (hasAnyHours) {
               attendanceOnPremises = {
-                daily: roundedDaily,
-                weekly: roundedWeekly
+                daily: preciseDaily,
+                weekly: preciseWeekly
               };
             }
           }

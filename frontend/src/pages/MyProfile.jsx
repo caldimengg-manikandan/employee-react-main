@@ -467,6 +467,8 @@ const MyProfile = () => {
     { value: 'Quality Analyst', label: 'Quality Analyst' },
     { value: 'Technical Support', label: 'Technical Support' },
     { value: 'Network Engineer', label: 'Network Engineer' },
+    { value: 'Sr. Modeler', label: 'Sr. Modeler' },
+    { value: 'Jr. Modeler', label: 'Jr. Modeler' },
     { value: 'Database Administrator', label: 'Database Administrator' },
     { value: 'Business Analyst', label: 'Business Analyst' },
     { value: 'Consultant', label: 'Consultant' }
