@@ -79,8 +79,16 @@ const Timesheet = () => {
     "Estimation Work",
     "Documentation",
     "Other's",
-    "Non product(Training)",
+    "Non Product(Training)",
     "Project Decision",
+    "Idle",
+    "Meeting",
+    "RIF’s",
+    "Study",
+    "On Duty",
+    "Project Management",
+
+
   ];
 
   const leaveTypes = [
@@ -1213,7 +1221,8 @@ const Timesheet = () => {
       const breakHours = computeBreakForDay(i);
       const totalWithBreak = workTotal + breakHours;
 
-      if (op > totalWithBreak) {
+      // Skip check for Saturday (5) and Sunday (6)
+      if (i < 5 && op > totalWithBreak) {
         alert(`On-Premises Time for ${days[i]} cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(op)}\nTotal: ${formatHoursHHMM(totalWithBreak)}`);
         return;
       }

@@ -98,20 +98,26 @@ router.get("/list", auth, async (req, res) => {
     
     // Get unique employee names to bulk lookup
     const names = [...new Set(items.map(i => i.employeeName))];
-    const employees = await Employee.find({ name: { $in: names } }).select("name employeeId");
+    const employees = await Employee.find({ name: { $in: names } }).select("name employeeId location");
     
-    // Map name -> employeeId
-    const nameToId = {};
-    employees.forEach(e => { nameToId[e.name] = e.employeeId; });
+    // Map name -> employee details
+    const nameToDetails = {};
+    employees.forEach(e => { 
+      nameToDetails[e.name] = {
+        employeeId: e.employeeId,
+        location: e.location
+      }; 
+    });
     
-    // Enrich items with correct employeeId if available
+    // Enrich items with correct employeeId and location if available
     const enriched = items.map(item => {
-      const realId = nameToId[item.employeeName];
-      if (realId) {
-        // Return a plain object with the correct ID overrides
+      const details = nameToDetails[item.employeeName];
+      if (details) {
+        // Return a plain object with the correct ID overrides and location
         return {
           ...item.toObject(),
-          employeeId: realId // Use the looked-up ID
+          employeeId: details.employeeId, // Use the looked-up ID
+          location: details.location // Add location
         };
       }
       return item;

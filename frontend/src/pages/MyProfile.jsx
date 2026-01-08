@@ -282,7 +282,7 @@ const MyProfile = () => {
   const handleInputChange = (field, value) => {
     let newValue = value;
     if (field === 'employeeId') {
-      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
     }
     if (field === 'name') {
       newValue = String(newValue || '').toUpperCase().replace(/[^A-Za-z\s]/g, '').slice(0, 25);

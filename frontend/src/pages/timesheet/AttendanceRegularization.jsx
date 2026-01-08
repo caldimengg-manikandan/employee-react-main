@@ -565,13 +565,11 @@ const AttendanceRegularization = () => {
                     {(() => {
                       const status = myRequestsByDate[rec.date]?.status;
                       const isApproved = status === "Approved";
+                      
+                      // User wants to be able to edit even if approved
                       return (
                         <button
-                          style={{ 
-                            ...styles.editButton,
-                            ...(isApproved ? styles.editButtonDisabled : {})
-                          }}
-                          disabled={isApproved}
+                          style={styles.editButton}
                           onClick={() => openEdit(rec)}
                         >
                           <Edit size={14} /> Edit

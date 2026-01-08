@@ -123,7 +123,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   };
 
   const handleEmployeeIdChange = (e) => {
-    let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+    let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
     setFormData(prev => ({ ...prev, employeeId: value }));
     
     if (value && !/^CDE\d{3}$/.test(value)) {

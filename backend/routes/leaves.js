@@ -970,7 +970,7 @@ router.put('/:id/status', auth, async (req, res) => {
     );
     if (updated) {
        await syncTimesheetWithLeave(updated);
-       try { await sendLeaveStatusEmail(updated); } catch (_) {}
+       // try { await sendLeaveStatusEmail(updated); } catch (_) {}
     }
     if (!updated) return res.status(404).json({ error: 'Leave application not found' });
     res.json(updated);
@@ -1048,9 +1048,9 @@ router.post('/', auth, async (req, res) => {
       reason: reason || '',
       bereavementRelation: bereavementRelation || ''
     });
-    try {
-      await sendLeaveSubmissionEmail(created, req.user, emp || {});
-    } catch (_) {}
+    // try {
+    //   await sendLeaveSubmissionEmail(created, req.user, emp || {});
+    // } catch (_) {}
     res.status(201).json(created);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1098,7 +1098,7 @@ router.get('/email-action', async (req, res) => {
     if (updated && action === 'Approved') {
       try { await syncTimesheetWithLeave(updated); } catch (_) {}
     }
-    try { if (updated) await sendLeaveStatusEmail(updated); } catch (_) {}
+    // try { if (updated) await sendLeaveStatusEmail(updated); } catch (_) {}
     const msg = action === 'Approved' ? 'Leave approved successfully.' : 'Leave rejected successfully.';
     return res.send(`<div style="font-family:Arial;padding:20px;"><h3>${msg}</h3><p>Employee: ${updated.employeeName}</p><p>Type: ${updated.leaveType}</p><p>Days: ${updated.totalDays}</p></div>`);
   } catch (err) {

@@ -304,7 +304,7 @@ const Login = () => {
   const handleForgotPasswordChange = (e) => {
     let value = e.target.value;
     if (e.target.name === 'employeeId') {
-      value = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      value = value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
     }
     setForgotPasswordData({
       ...forgotPasswordData,

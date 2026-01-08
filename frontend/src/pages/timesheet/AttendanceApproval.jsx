@@ -7,6 +7,7 @@ const AttendanceApproval = () => {
   const [loading, setLoading] = useState(false);
   const [requests, setRequests] = useState([]);
   const [statusFilter, setStatusFilter] = useState("Pending");
+  const [locationFilter, setLocationFilter] = useState("");
   const [updatingIds, setUpdatingIds] = useState([]);
   const [confirmAction, setConfirmAction] = useState(null);
   const { notification, showSuccess, showError, hideNotification } = useNotification();
@@ -139,11 +140,25 @@ const AttendanceApproval = () => {
     },
   };
 
+  const uniqueLocations = [...new Set(requests.map((r) => r.location).filter(Boolean))];
+  const filteredRequests = requests.filter((r) => {
+    if (!locationFilter) return true;
+    return r.location === locationFilter;
+  });
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
         <div style={styles.title}>Attendance Approval</div>
         <div style={styles.controls}>
+          <select value={locationFilter} onChange={(e) => setLocationFilter(e.target.value)} style={styles.select}>
+            <option value="">All Locations</option>
+            {uniqueLocations.map((loc) => (
+              <option key={loc} value={loc}>
+                {loc}
+              </option>
+            ))}
+          </select>
           <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={styles.select}>
             <option value="">All Statuses</option>
             <option value="Pending">Pending</option>
@@ -159,6 +174,7 @@ const AttendanceApproval = () => {
           <tr>
             <th style={styles.th}>Employee Name</th>
             <th style={styles.th}>Employee ID</th>
+            <th style={styles.th}>Location</th>
             <th style={styles.th}>IN</th>
             <th style={styles.th}>OUT</th>
             <th style={styles.th}>Hours</th>
@@ -169,14 +185,15 @@ const AttendanceApproval = () => {
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={7} style={styles.td}>Loading...</td></tr>
-          ) : requests.length === 0 ? (
-            <tr><td colSpan={7} style={styles.td}>No records</td></tr>
+            <tr><td colSpan={8} style={styles.td}>Loading...</td></tr>
+          ) : filteredRequests.length === 0 ? (
+            <tr><td colSpan={8} style={styles.td}>No records</td></tr>
           ) : (
-            requests.map((r) => (
+            filteredRequests.map((r) => (
               <tr key={r._id}>
                 <td style={styles.td}>{r.employeeName}</td>
                 <td style={styles.td}>{r.employeeId}</td>
+                <td style={styles.td}>{r.location || "-"}</td>
                 <td style={styles.td}>{formatDateTime(r.inTime)}</td>
                 <td style={styles.td}>{formatDateTime(r.outTime)}</td>
                 <td style={styles.td}>{formatHours(Number(r.workDurationSeconds || 0))}</td>

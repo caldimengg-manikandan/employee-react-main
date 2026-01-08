@@ -469,7 +469,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   const handleInputChange = (field, value) => {
     let newValue = value;
     if (field === 'employeeId') {
-      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+      newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
       if (newValue.length === 6 && !/^CDE\d{3}$/.test(newValue)) {
          // Optionally you could force it or just let the validation handle it.
          // For now, I'll let validation handle the error message, 
