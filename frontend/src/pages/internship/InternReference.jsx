@@ -22,6 +22,8 @@ import {
   ArrowDownTrayIcon,
   BuildingLibraryIcon
 } from "@heroicons/react/24/outline";
+import { Popconfirm } from "antd";
+import { EyeIcon } from "lucide-react";
 
 const InternReference = () => {
   const [interns, setInterns] = useState([]);
@@ -32,6 +34,8 @@ const InternReference = () => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [notification, setNotification] = useState({ show: false, message: "", type: "" });
   const [showModal, setShowModal] = useState(false);
+  const [viewIntern, setViewIntern] = useState(null);
+  const [showViewModal, setShowViewModal] = useState(false);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -65,10 +69,10 @@ const InternReference = () => {
     try {
       setLoading(true);
       const response = await internAPI.getAll();
-      
+
       // Handle different response formats
       let internsData = [];
-      
+
       if (Array.isArray(response.data)) {
         internsData = response.data;
       } else if (response.data && Array.isArray(response.data.data)) {
@@ -78,7 +82,7 @@ const InternReference = () => {
       } else if (response && response.data && typeof response.data === 'object') {
         internsData = [response.data];
       }
-      
+
       setInterns(internsData);
     } catch (error) {
       console.error('Error loading interns:', error);
@@ -95,19 +99,31 @@ const InternReference = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!form.fullName.trim()) newErrors.fullName = "Full Name is required";
     if (!form.collegeName.trim()) newErrors.collegeName = "College Name is required";
     if (!form.degree.trim()) newErrors.degree = "Degree is required";
     if (!form.department.trim()) newErrors.department = "Department is required";
     if (!form.mentor.trim()) newErrors.mentor = "Mentor is required";
     if (!form.bankName.trim()) newErrors.bankName = "Bank Name is required";
-    if (!form.accountNumber.trim()) newErrors.accountNumber = "Account Number is required";
+
+    if (!form.accountNumber.trim()) {
+      newErrors.accountNumber = "Account Number is required";
+    } else if (!/^\d+$/.test(form.accountNumber)) {
+      newErrors.accountNumber = "Account Number must contain only digits";
+    }
+
     if (!form.ifscCode.trim()) newErrors.ifscCode = "IFSC Code is required";
-    if (form.contactEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) {
+
+    if (!form.contactEmail.trim()) {
+      newErrors.contactEmail = "Contact Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.contactEmail)) {
       newErrors.contactEmail = "Invalid email format";
     }
-    if (form.contactPhone && !/^[0-9]{10}$/.test(form.contactPhone)) {
+
+    if (!form.contactPhone.trim()) {
+      newErrors.contactPhone = "Contact Phone is required";
+    } else if (!/^\d{10}$/.test(form.contactPhone)) {
       newErrors.contactPhone = "Phone must be 10 digits";
     }
 
@@ -135,7 +151,7 @@ const InternReference = () => {
         await internAPI.create(internData);
         showNotification("Intern added successfully!");
       }
-      
+
       loadData();
       resetForm();
       setShowModal(false);
@@ -169,16 +185,20 @@ const InternReference = () => {
   };
 
   const handleDelete = async (id, name) => {
-    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
-      try {
-        await internAPI.remove(id);
-        showNotification("Intern deleted successfully!");
-        loadData();
-      } catch (error) {
-        console.error('Error deleting intern:', error);
-        showNotification("Failed to delete intern", "error");
-      }
+    // Confirmation is now handled by Popconfirm UI
+    try {
+      await internAPI.remove(id);
+      showNotification("Intern deleted successfully!");
+      loadData();
+    } catch (error) {
+      console.error('Error deleting intern:', error);
+      showNotification("Failed to delete intern", "error");
     }
+  };
+
+  const handleView = (intern) => {
+    setViewIntern(intern);
+    setShowViewModal(true);
   };
 
   const resetForm = () => {
@@ -210,29 +230,38 @@ const InternReference = () => {
 
   // Ensure interns is always an array before filtering
   const safeInterns = Array.isArray(interns) ? interns : [];
-  
+
   const filteredInterns = safeInterns.filter(intern => {
     if (!intern) return false;
-    
-    const matchesSearch = 
+
+    const matchesSearch =
       (intern.fullName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (intern.collegeName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (intern.department?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
       (intern.mentor?.toLowerCase() || '').includes(searchTerm.toLowerCase());
-    
+
     const matchesFilter = filterType === "all" || intern.internshipType === filterType;
     const matchesStatus = filterStatus === "all" || intern.status === filterStatus;
-    
+
     return matchesSearch && matchesFilter && matchesStatus;
   });
 
   const handleDownloadPDF = () => {
+    if (filterType === "all" || filterStatus === "all") {
+      showNotification("Please select both Internship Type and Status to download PDF", "error");
+      return;
+    }
+
+    if (filteredInterns.length === 0) {
+      showNotification("No records available to download", "error");
+      return;
+    }
     const doc = new jsPDF();
-    
+
     // Add title
     doc.setFontSize(18);
     doc.text("Intern Reference List", 14, 20);
-    
+
     // Add date
     doc.setFontSize(10);
     doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 28);
@@ -295,21 +324,21 @@ const InternReference = () => {
     <div className="p-6">
       {/* Notification Component */}
       <Notification />
-      
+
       {/* Header with Add Button */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="relative">
               <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg blur opacity-20"></div>
-             
+
             </div>
-           
+
           </div>
-          
+
         </div>
-        
-        
+
+
       </div>
 
       {/* Debug info (remove in production) */}
@@ -325,11 +354,11 @@ const InternReference = () => {
         <div className="fixed inset-0 z-50 overflow-y-auto">
           <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
             {/* Background overlay */}
-            <div 
-              className="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-75 backdrop-blur-sm" 
+            <div
+              className="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-75 backdrop-blur-sm"
               onClick={() => setShowModal(false)}
             />
-            
+
             {/* Modal panel */}
             <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
               <div className="bg-gradient-to-r from-blue-600 to-purple-700 px-6 py-4">
@@ -348,7 +377,7 @@ const InternReference = () => {
                   </button>
                 </div>
               </div>
-              
+
               <div className="px-6 py-6 max-h-[80vh] overflow-y-auto">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Left Column */}
@@ -359,7 +388,7 @@ const InternReference = () => {
                         <UserIcon className="h-5 w-5" />
                         Personal Information
                       </h4>
-                      
+
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
@@ -371,7 +400,7 @@ const InternReference = () => {
                             value={form.fullName}
                             onChange={e => {
                               setForm({ ...form, fullName: e.target.value });
-                              if (errors.fullName) setErrors({...errors, fullName: null});
+                              if (errors.fullName) setErrors({ ...errors, fullName: null });
                             }}
                           />
                           {errors.fullName && <p className="text-red-500 text-sm mt-1">{errors.fullName}</p>}
@@ -387,7 +416,7 @@ const InternReference = () => {
                             value={form.collegeName}
                             onChange={e => {
                               setForm({ ...form, collegeName: e.target.value });
-                              if (errors.collegeName) setErrors({...errors, collegeName: null});
+                              if (errors.collegeName) setErrors({ ...errors, collegeName: null });
                             }}
                           />
                           {errors.collegeName && <p className="text-red-500 text-sm mt-1">{errors.collegeName}</p>}
@@ -403,7 +432,7 @@ const InternReference = () => {
                             value={form.degree}
                             onChange={e => {
                               setForm({ ...form, degree: e.target.value });
-                              if (errors.degree) setErrors({...errors, degree: null});
+                              if (errors.degree) setErrors({ ...errors, degree: null });
                             }}
                           />
                           {errors.degree && <p className="text-red-500 text-sm mt-1">{errors.degree}</p>}
@@ -419,7 +448,7 @@ const InternReference = () => {
                             value={form.department}
                             onChange={e => {
                               setForm({ ...form, department: e.target.value });
-                              if (errors.department) setErrors({...errors, department: null});
+                              if (errors.department) setErrors({ ...errors, department: null });
                             }}
                           />
                           {errors.department && <p className="text-red-500 text-sm mt-1">{errors.department}</p>}
@@ -433,11 +462,11 @@ const InternReference = () => {
                         <PhoneIcon className="h-5 w-5" />
                         Contact Information
                       </h4>
-                      
+
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
-                            Contact Email
+                            Contact Email *
                           </label>
                           <div className="relative">
                             <EnvelopeIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -448,7 +477,7 @@ const InternReference = () => {
                               value={form.contactEmail}
                               onChange={e => {
                                 setForm({ ...form, contactEmail: e.target.value });
-                                if (errors.contactEmail) setErrors({...errors, contactEmail: null});
+                                if (errors.contactEmail) setErrors({ ...errors, contactEmail: null });
                               }}
                             />
                           </div>
@@ -457,7 +486,7 @@ const InternReference = () => {
 
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
-                            Contact Phone
+                            Contact Phone *
                           </label>
                           <div className="relative">
                             <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
@@ -468,7 +497,7 @@ const InternReference = () => {
                               value={form.contactPhone}
                               onChange={e => {
                                 setForm({ ...form, contactPhone: e.target.value });
-                                if (errors.contactPhone) setErrors({...errors, contactPhone: null});
+                                if (errors.contactPhone) setErrors({ ...errors, contactPhone: null });
                               }}
                             />
                           </div>
@@ -483,7 +512,7 @@ const InternReference = () => {
                         <DocumentTextIcon className="h-5 w-5" />
                         Reference Notes / Remarks
                       </h4>
-                      
+
                       <textarea
                         placeholder="Enter any notes, feedback, or remarks about the intern..."
                         className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 outline-none transition-all min-h-[120px] resize-y"
@@ -501,7 +530,7 @@ const InternReference = () => {
                         <BriefcaseIcon className="h-5 w-5" />
                         Internship Details
                       </h4>
-                      
+
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
@@ -530,7 +559,7 @@ const InternReference = () => {
                             value={form.mentor}
                             onChange={e => {
                               setForm({ ...form, mentor: e.target.value });
-                              if (errors.mentor) setErrors({...errors, mentor: null});
+                              if (errors.mentor) setErrors({ ...errors, mentor: null });
                             }}
                           />
                           {errors.mentor && <p className="text-red-500 text-sm mt-1">{errors.mentor}</p>}
@@ -559,7 +588,7 @@ const InternReference = () => {
                         <CalendarDaysIcon className="h-5 w-5" />
                         Duration & Dates
                       </h4>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
@@ -595,7 +624,7 @@ const InternReference = () => {
                         <BuildingLibraryIcon className="h-5 w-5" />
                         Bank Details
                       </h4>
-                      
+
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
@@ -607,7 +636,7 @@ const InternReference = () => {
                             value={form.bankName}
                             onChange={e => {
                               setForm({ ...form, bankName: e.target.value });
-                              if (errors.bankName) setErrors({...errors, bankName: null});
+                              if (errors.bankName) setErrors({ ...errors, bankName: null });
                             }}
                           />
                           {errors.bankName && <p className="text-red-500 text-sm mt-1">{errors.bankName}</p>}
@@ -623,7 +652,7 @@ const InternReference = () => {
                             value={form.accountNumber}
                             onChange={e => {
                               setForm({ ...form, accountNumber: e.target.value });
-                              if (errors.accountNumber) setErrors({...errors, accountNumber: null});
+                              if (errors.accountNumber) setErrors({ ...errors, accountNumber: null });
                             }}
                           />
                           {errors.accountNumber && <p className="text-red-500 text-sm mt-1">{errors.accountNumber}</p>}
@@ -639,7 +668,7 @@ const InternReference = () => {
                             value={form.ifscCode}
                             onChange={e => {
                               setForm({ ...form, ifscCode: e.target.value.toUpperCase() });
-                              if (errors.ifscCode) setErrors({...errors, ifscCode: null});
+                              if (errors.ifscCode) setErrors({ ...errors, ifscCode: null });
                             }}
                           />
                           {errors.ifscCode && <p className="text-red-500 text-sm mt-1">{errors.ifscCode}</p>}
@@ -673,6 +702,131 @@ const InternReference = () => {
         </div>
       )}
 
+      {/* View Modal */}
+      {showViewModal && viewIntern && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-75 backdrop-blur-sm"
+              onClick={() => setShowViewModal(false)}
+            />
+            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
+              <div className="bg-gradient-to-r from-teal-600 to-emerald-600 px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <UserCircleIcon className="h-8 w-8 text-white" />
+                    <h3 className="text-xl font-bold text-white">
+                      Intern Details Summary
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowViewModal(false)}
+                    className="text-white hover:text-teal-100 transition-colors"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
+              <div className="px-8 py-6 max-h-[70vh] overflow-y-auto">
+                <div className="space-y-6">
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                    <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Identity</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-gray-500">Full Name</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.fullName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Degree</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.degree || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">Department</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.department || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500">College Name</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.collegeName || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
+                    <h4 className="text-sm font-bold text-blue-500 uppercase tracking-wider mb-3">Internship Info</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-blue-500">Type</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.internshipType || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-blue-500">Mentor</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.mentor || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-blue-500">Duration</p>
+                        <p className="font-semibold text-gray-900">
+                          {viewIntern.startDate ? new Date(viewIntern.startDate).toLocaleDateString() : 'N/A'} - {viewIntern.endDate ? new Date(viewIntern.endDate).toLocaleDateString() : 'N/A'}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-blue-500">Status</p>
+                        <span className={`text-xs px-2 py-1 rounded-full inline-block font-medium mt-1 ${viewIntern.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                          viewIntern.status === 'Ongoing' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                          {viewIntern.status || 'N/A'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                    <h4 className="text-sm font-bold text-purple-500 uppercase tracking-wider mb-3">Contact</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-purple-500">Email</p>
+                        <p className="font-semibold text-gray-900 break-all">{viewIntern.contactEmail || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-purple-500">Phone</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.contactPhone || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-teal-50 p-4 rounded-lg border border-teal-100">
+                    <h4 className="text-sm font-bold text-teal-500 uppercase tracking-wider mb-3">Bank Details</h4>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs text-teal-500">Bank Name</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.bankName || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-teal-500">Account No</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.accountNumber || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-teal-500">IFSC Code</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.ifscCode || '-'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {viewIntern.referenceNote && (
+                    <div className="bg-pink-50 p-4 rounded-lg border border-pink-100">
+                      <h4 className="text-sm font-bold text-pink-500 uppercase tracking-wider mb-3">Remarks</h4>
+                      <p className="text-gray-900 bg-white p-3 rounded border border-pink-100 text-sm">
+                        {viewIntern.referenceNote}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search and Filter */}
       <div className="bg-white rounded-xl shadow-md p-2 mb-2 border border-gray-200">
         <div className="flex flex-col md:flex-row gap-4">
@@ -686,7 +840,7 @@ const InternReference = () => {
               onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
-          
+
           <div className="flex gap-3">
             <select
               className="border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
@@ -709,7 +863,7 @@ const InternReference = () => {
               <option value="Ongoing">Ongoing</option>
               <option value="Terminated">Terminated</option>
             </select>
-            
+
             {(searchTerm || filterType !== 'all' || filterStatus !== 'all') && (
               <button
                 onClick={() => {
@@ -725,21 +879,21 @@ const InternReference = () => {
             )}
           </div>
           <div className="flex gap-3 mt-4 md:mt-0">
-          <button
-            onClick={handleDownloadPDF}
-            className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium transition-all duration-200"
-          >
-            <ArrowDownTrayIcon className="h-5 w-5" />
-            Download PDF
-          </button>
-          <button
-            onClick={openAddModal}
-            className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
-          >
-            <PlusIcon className="h-5 w-5" />
-            Add New Intern
-          </button>
-        </div>
+            <button
+              onClick={handleDownloadPDF}
+              className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium transition-all duration-200"
+            >
+              <ArrowDownTrayIcon className="h-5 w-5" />
+              Download PDF
+            </button>
+            <button
+              onClick={openAddModal}
+              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+            >
+              <PlusIcon className="h-5 w-5" />
+              Add New Intern
+            </button>
+          </div>
         </div>
       </div>
 
@@ -758,7 +912,7 @@ const InternReference = () => {
             )}
           </div>
         </div>
-        
+
         {loading ? (
           <div className="p-8 text-center">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
@@ -810,16 +964,22 @@ const InternReference = () => {
                       {intern.accountNumber || 'N/A'}
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`text-xs px-2 py-1 rounded-full inline-block font-medium ${
-                        intern.status === 'Completed' ? 'bg-green-100 text-green-800' :
+                      <span className={`text-xs px-2 py-1 rounded-full inline-block font-medium ${intern.status === 'Completed' ? 'bg-green-100 text-green-800' :
                         intern.status === 'Ongoing' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-red-100 text-red-800'
-                      }`}>
+                          'bg-red-100 text-red-800'
+                        }`}>
                         {intern.status || 'N/A'}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => handleView(intern)}
+                          className="text-teal-600 hover:text-teal-800 transition-colors"
+                          title="View Details"
+                        >
+                          <EyeIcon className="h-5 w-5" />
+                        </button>
                         <button
                           onClick={() => handleEdit(intern)}
                           className="text-blue-600 hover:text-blue-800 transition-colors"
@@ -827,13 +987,20 @@ const InternReference = () => {
                         >
                           <PencilIcon className="h-5 w-5" />
                         </button>
-                        <button
-                          onClick={() => handleDelete(intern._id || intern.id, intern.fullName)}
-                          className="text-red-600 hover:text-red-800 transition-colors"
-                          title="Delete"
+                        <Popconfirm
+                          title="Delete Intern"
+                          description={`Are you sure you want to delete ${intern.fullName}?`}
+                          onConfirm={() => handleDelete(intern._id || intern.id, intern.fullName)}
+                          okText="Yes"
+                          cancelText="No"
                         >
-                          <TrashIcon className="h-5 w-5" />
-                        </button>
+                          <button
+                            className="text-red-600 hover:text-red-800 transition-colors"
+                            title="Delete"
+                          >
+                            <TrashIcon className="h-5 w-5" />
+                          </button>
+                        </Popconfirm>
                       </div>
                     </td>
                   </tr>

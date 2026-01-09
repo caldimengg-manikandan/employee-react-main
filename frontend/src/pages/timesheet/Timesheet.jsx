@@ -87,6 +87,10 @@ const Timesheet = () => {
     "Study",
     "On Duty",
     "Project Management",
+    "Hiring",
+    "Office Administration",
+    "HR Activities",
+    "Accounts",
 
 
   ];

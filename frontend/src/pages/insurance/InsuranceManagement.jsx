@@ -22,6 +22,7 @@ import {
   BuildingOfficeIcon,
   DocumentArrowDownIcon
 } from '@heroicons/react/24/outline';
+import { message } from 'antd';
 import { employeeAPI } from '../../services/api';
 
 const InsuranceManagement = () => {
@@ -43,6 +44,11 @@ const InsuranceManagement = () => {
     };
     fetchEmployees();
   }, []);
+
+  // Clear errors when changing steps to prevent initial validation errors (Issue 1)
+  useEffect(() => {
+    setErrors({});
+  }, [currentStep]);
 
   const [editFormData, setEditFormData] = useState({
     employeeName: '',
@@ -266,6 +272,14 @@ const InsuranceManagement = () => {
 
   // Form Handlers for New Claim
   const handleInputChange = (field, value) => {
+    // Format helper for max length error msg
+    const setMaxLengthError = (fieldName) => {
+      setErrors(prev => ({
+        ...prev,
+        [fieldName]: 'Maximum 250 characters allowed'
+      }));
+    };
+
     // Validation for specific fields
     if (field === 'mobile') {
       if (!/^\d*$/.test(value)) return;
@@ -276,10 +290,40 @@ const InsuranceManagement = () => {
       if (value.length > 18) return;
     }
 
+    // Issue 2: Date Picker 4 digit year restriction
+    if (['claimDate', 'dateOfAdmission', 'dateOfDischarge', 'closeDate'].includes(field)) {
+      if (value) {
+        if (value.length > 10) return;
+        const year = value.split('-')[0];
+        if (year && year.length > 4) return;
+      }
+    }
+
+    // Issue: Claim Number only numbers
+    if (field === 'claimNumber') {
+      if (!/^\d*$/.test(value)) return;
+    }
+
+    // Issue 3: Character Limit 250
+    // Fields that should have limits
+    const textFields = ['employeeName', 'bankName', 'spouseName', 'memberName', 'claimNumber', 'treatment', 'hospitalAddress', 'otherIllness', 'typeOfIllness'];
+    if (textFields.includes(field)) {
+      if (value.length > 250) {
+        setMaxLengthError(field);
+        return;
+      }
+    }
+
+    // Restricted inputs (Name fields - Alphabets only)
+    if (['spouseName', 'memberName'].includes(field)) {
+      if (value && /[^a-zA-Z\s]/.test(value)) return;
+    }
+
     setFormData(prev => ({
       ...prev,
       [field]: value
     }));
+    setMaxLengthError('');
 
     // Clear error if exists
     if (errors[field]) {
@@ -391,6 +435,14 @@ const InsuranceManagement = () => {
   };
 
   const updateChild = (index, field, value) => {
+    // Issue 4: Age field restriction & Name restriction
+    if (field === 'age') {
+      if (value.length > 3) return;
+    }
+    if (field === 'name') {
+      if (/[^a-zA-Z\s]/.test(value)) return;
+    }
+
     setFormData(prev => ({
       ...prev,
       children: prev.children.map((child, i) =>
@@ -415,6 +467,14 @@ const InsuranceManagement = () => {
   };
 
   const updateEditChild = (index, field, value) => {
+    // Issue 4: Age field restriction
+    if (field === 'age') {
+      if (value.length > 3) return;
+    }
+    if (field === 'name') {
+      if (/[^a-zA-Z\s]/.test(value)) return;
+    }
+
     setEditFormData(prev => ({
       ...prev,
       children: prev.children.map((child, i) =>
@@ -425,6 +485,26 @@ const InsuranceManagement = () => {
 
   // Edit form handlers
   const handleEditInputChange = (field, value) => {
+    // Issue 2: Date Picker 4 digit year restriction
+    if (['claimDate', 'dateOfAdmission', 'dateOfDischarge', 'closeDate'].includes(field)) {
+      if (value) {
+        // Strict length check
+        if (value.length > 10) return;
+        const year = value.split('-')[0];
+        if (year && year.length > 4) return;
+      }
+    }
+
+    // Issue: Claim Number only numbers
+    if (field === 'claimNumber') {
+      if (!/^\d*$/.test(value)) return;
+    }
+
+    // Restricted inputs (Name fields - Alphabets only)
+    if (['spouseName', 'memberName'].includes(field)) {
+      if (value && /[^a-zA-Z\s]/.test(value)) return;
+    }
+
     setEditFormData(prev => ({
       ...prev,
       [field]: value
@@ -721,15 +801,45 @@ const InsuranceManagement = () => {
       newErrors.otherIllness = true;
     }
 
-    setErrors(newErrors);
+    if (formData.relationship === 'Married') {
+      if (!formData.spouseName) newErrors.spouseName = 'Spouse Name is required';
+
+      // Validate Children - All visible rows must be filled
+      formData.children.forEach((child, index) => {
+        if (!child.name) newErrors[`childName_${index}`] = 'Name is required';
+        if (!child.age) newErrors[`childAge_${index}`] = 'Age is required';
+      });
+    }
 
     if (Object.keys(newErrors).length > 0) {
-      // alert('Please fill all required fields marked with *'); // Removed alert
+      setErrors(newErrors);
+      // alert('Please fill in all required fields'); // Removed alert
+      message.error('Please fill in all required fields');
+      return;
+    }
+
+    // Additional validation for requested amount vs sum insured
+    const sumInsured = parseFloat(formData.sumInsured);
+    const requestedAmount = parseFloat(formData.requestedAmount);
+    let maxAmountError = false;
+    if (requestedAmount > sumInsured) {
+      newErrors.requestedAmount = 'Requested amount cannot exceed sum insured';
+      maxAmountError = true;
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      message.error('Please fill in all required Treatment Details');
+      return;
+    }
+
+    if (maxAmountError) {
+      message.error("Requested Amount exceeds Sum Insured");
       return;
     }
 
     const newClaim = {
-      id: `CLM - ${String(claims.length + 1).padStart(3, '0')} `,
+      id: `CLM-${Date.now()}`,
       employeeName: formData.employeeName,
       employeeId: formData.employeeId,
       claimNumber: formData.claimNumber,
@@ -761,6 +871,7 @@ const InsuranceManagement = () => {
     };
 
     setClaims(prev => [newClaim, ...prev]);
+    message.success('Claim submitted successfully!');
 
     // Reset form
     setFormData({
@@ -795,26 +906,46 @@ const InsuranceManagement = () => {
     });
     setCurrentStep(1);
     setCurrentView('claimHistory');
-
-    alert('Claim submitted successfully!');
   };
 
   const handleUpdateClaim = (e) => {
     e.preventDefault();
 
-    // Validate required fields
-    if (!editFormData.employeeName || !editFormData.employeeId || !editFormData.mobile ||
-      !editFormData.bankName || !editFormData.accountNumber || !editFormData.memberName ||
-      !editFormData.claimNumber || !editFormData.treatment || !editFormData.sumInsured ||
-      !editFormData.requestedAmount || !editFormData.dateOfAdmission || !editFormData.dateOfDischarge ||
-      !editFormData.claimDate || !editFormData.hospitalAddress || !editFormData.typeOfIllness) {
-      alert('Please fill all required fields marked with *');
+    const newErrors = {};
+    const requiredFields = [
+      'employeeName', 'employeeId', 'mobile', 'bankName',
+      'accountNumber', 'memberName', 'claimNumber', 'treatment',
+      'sumInsured', 'requestedAmount', 'dateOfAdmission', 'dateOfDischarge',
+      'claimDate', 'hospitalAddress', 'typeOfIllness', 'claimStatus', 'paymentStatus'
+    ];
+
+    requiredFields.forEach(field => {
+      if (!editFormData[field]) newErrors[field] = true;
+    });
+
+    if (editFormData.typeOfIllness === 'Other' && !editFormData.otherIllness) {
+      newErrors.otherIllness = true;
+    }
+
+    if (editFormData.relationship === 'Married') {
+      if (!editFormData.spouseName) newErrors.spouseName = 'Spouse Name is required';
+      // Validate Children
+      editFormData.children.forEach((child, index) => {
+        if (!child.name) newErrors[`childName_${index}`] = 'Name is required';
+        if (!child.age) newErrors[`childAge_${index}`] = 'Age is required';
+      });
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      message.error('Please fill in all required fields');
       return;
     }
 
-    // Validate illness type if "Other" is selected
-    if (editFormData.typeOfIllness === 'Other' && !editFormData.otherIllness) {
-      alert('Please specify the illness type in "Other Illness" field');
+    const sumInsured = parseFloat(editFormData.sumInsured);
+    const requestedAmount = parseFloat(editFormData.requestedAmount);
+    if (requestedAmount > sumInsured) {
+      message.error("Requested Amount cannot exceed Sum Insured");
       return;
     }
 
@@ -849,19 +980,21 @@ const InsuranceManagement = () => {
         : claim
     ));
     setEditingClaim(null);
-    alert('Claim updated successfully!');
+    message.success('Claim updated successfully!');
   };
 
   const handleDeleteClaim = (claimId) => {
     if (window.confirm('Are you sure you want to delete this claim?')) {
       setClaims(prev => prev.filter(claim => claim.id !== claimId));
+      message.success('Claim deleted successfully');
     }
   };
 
   // Navigation between steps
-  const handleNextStep = () => {
+  const handleNextStep = (e) => {
+    e?.preventDefault(); // Prevent any form submission
+
     let isValid = true;
-    let errorMessage = '';
     const newErrors = {};
 
     switch (currentStep) {
@@ -875,12 +1008,19 @@ const InsuranceManagement = () => {
 
         if (formData.relationship === 'Married' && !formData.spouseName) {
           newErrors.spouseName = true;
-          errorMessage = 'Please enter spouse name for married relationship';
+        }
+
+        // Validate children if relationship allows
+        if (['Married', 'Divorced', 'Widowed'].includes(formData.relationship)) {
+          formData.children.forEach((child, index) => {
+            // "Children Details all fields required" -> Enforce validation for EVERY row
+            if (!child.name) newErrors[`childName_${index}`] = 'Name is required';
+            if (!child.age) newErrors[`childAge_${index}`] = 'Age is required';
+          });
         }
 
         if (Object.keys(newErrors).length > 0) {
           isValid = false;
-          // errorMessage = 'Please fill all required employee details'; // Removed generic error
         }
         break;
       case 2:
@@ -892,7 +1032,6 @@ const InsuranceManagement = () => {
 
         if (Object.keys(newErrors).length > 0) {
           isValid = false;
-          // errorMessage = 'Please upload all required documents'; // Removed generic error
         }
         break;
     }
@@ -900,7 +1039,7 @@ const InsuranceManagement = () => {
     setErrors(newErrors);
 
     if (!isValid) {
-      if (errorMessage) alert(errorMessage);
+      message.error('Please fill in all required fields for this step.');
       return;
     }
 
@@ -908,6 +1047,7 @@ const InsuranceManagement = () => {
   };
 
   const handlePreviousStep = () => {
+    setErrors({}); // Clear errors when going back
     setCurrentStep(currentStep - 1);
   };
 
@@ -1066,7 +1206,7 @@ const InsuranceManagement = () => {
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   placeholder="Enter age"
                   min="0"
-                  max="25"
+                  max="999"
                   required
                 />
               </div>
@@ -1269,6 +1409,7 @@ const InsuranceManagement = () => {
             onChange={(e) => handleEditInputChange('dateOfAdmission', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             required
+            max="9999-12-31"
           />
         </div>
 
@@ -1282,6 +1423,7 @@ const InsuranceManagement = () => {
             onChange={(e) => handleEditInputChange('dateOfDischarge', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             required
+            max="9999-12-31"
           />
         </div>
 
@@ -1295,6 +1437,7 @@ const InsuranceManagement = () => {
             onChange={(e) => handleEditInputChange('claimDate', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             required
+            max="9999-12-31"
           />
         </div>
 
@@ -1307,6 +1450,7 @@ const InsuranceManagement = () => {
             value={editFormData.closeDate}
             onChange={(e) => handleEditInputChange('closeDate', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            max="9999-12-31"
           />
         </div>
 
@@ -1351,7 +1495,7 @@ const InsuranceManagement = () => {
       <div className="flex items-center space-x-4">
         {steps.map((step, index) => (
           <React.Fragment key={step.number}>
-            <div className="flex flex-col items-center">
+            <div className="flex flex-col items-center mt-3">
               <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 ${currentStep >= step.number
                 ? 'bg-blue-600 border-blue-600 text-white'
                 : 'border-gray-300 text-gray-500'
@@ -1521,45 +1665,37 @@ const InsuranceManagement = () => {
           </div>
 
           {formData.children.map((child, index) => (
-            <div key={index} className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4 p-4 border border-gray-200 rounded-lg">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Child {index + 1} Name *
-                </label>
+            <div key={index} className="flex gap-4 mb-2">
+              <div className="flex-1">
                 <input
                   type="text"
+                  placeholder="Child Name *"
+                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors[`childName_${index}`] ? 'border-red-500' : ''}`}
                   value={child.name}
                   onChange={(e) => updateChild(index, 'name', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter child name"
                 />
+                {errors[`childName_${index}`] && <p className="text-red-500 text-xs mt-1">{errors[`childName_${index}`]}</p>}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Age *
-                </label>
+              <div className="w-32">
                 <input
                   type="number"
+                  placeholder="Age *"
+                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors[`childAge_${index}`] ? 'border-red-500' : ''}`}
                   value={child.age}
                   onChange={(e) => updateChild(index, 'age', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Enter age"
                   min="0"
-                  max="25"
+                  max="999"
                 />
+                {errors[`childAge_${index}`] && <p className="text-red-500 text-xs mt-1">{errors[`childAge_${index}`]}</p>}
               </div>
-              <div className="flex items-end">
-                {formData.children.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeChild(index)}
-                    className="inline-flex items-center px-3 py-2 border border-red-300 text-sm font-medium rounded-md text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-                  >
-                    <MinusIcon className="h-4 w-4 mr-1" />
-                    Remove
-                  </button>
-                )}
-              </div>
+              {formData.children.length > 1 && (
+                <button
+                  onClick={() => removeChild(index)}
+                  className="p-2 text-red-500 hover:bg-red-50 rounded-lg"
+                >
+                  <TrashIcon className="w-5 h-5" />
+                </button>
+              )}
             </div>
           ))}
         </div>
@@ -1642,6 +1778,7 @@ const InsuranceManagement = () => {
             onBlur={() => handleNameBlur('memberName')}
             className={`w-full px-3 py-2 border ${errors.memberName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter member name"
+            maxLength={250}
           />
           {errors.memberName && <p className="mt-1 text-xs text-red-500">Member Name is required</p>}
         </div>
@@ -1656,6 +1793,7 @@ const InsuranceManagement = () => {
             onChange={(e) => handleInputChange('claimNumber', e.target.value)}
             className={`w-full px-3 py-2 border ${errors.claimNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter claim number"
+            maxLength={250}
           />
           {errors.claimNumber && <p className="mt-1 text-xs text-red-500">Claim Number is required</p>}
         </div>
@@ -1670,6 +1808,7 @@ const InsuranceManagement = () => {
             rows={3}
             className={`w-full px-3 py-2 border ${errors.treatment ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Describe the treatment received or medical procedure"
+            maxLength={250}
           />
           {errors.treatment && <p className="mt-1 text-xs text-red-500">Treatment details are required</p>}
         </div>
@@ -1684,6 +1823,7 @@ const InsuranceManagement = () => {
             rows={2}
             className={`w-full px-3 py-2 border ${errors.hospitalAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
             placeholder="Enter hospital name and complete address"
+            maxLength={250}
           />
           {errors.hospitalAddress && <p className="mt-1 text-xs text-red-500">Hospital Address is required</p>}
         </div>
@@ -1717,6 +1857,7 @@ const InsuranceManagement = () => {
               onChange={(e) => handleInputChange('otherIllness', e.target.value)}
               className={`w-full px-3 py-2 border ${errors.otherIllness ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
               placeholder="Please specify illness"
+              maxLength={250}
             />
             {errors.otherIllness && <p className="mt-1 text-xs text-red-500">Please specify the illness</p>}
           </div>
@@ -1761,6 +1902,7 @@ const InsuranceManagement = () => {
             value={formData.claimDate}
             onChange={(e) => handleInputChange('claimDate', e.target.value)}
             className={`w-full px-3 py-2 border ${errors.claimDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            max="9999-12-31"
           />
           {errors.claimDate && <p className="mt-1 text-xs text-red-500">Claim Date is required</p>}
         </div>
@@ -1774,6 +1916,7 @@ const InsuranceManagement = () => {
             value={formData.dateOfAdmission}
             onChange={(e) => handleInputChange('dateOfAdmission', e.target.value)}
             className={`w-full px-3 py-2 border ${errors.dateOfAdmission ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            max="9999-12-31"
           />
           {errors.dateOfAdmission && <p className="mt-1 text-xs text-red-500">Admission Date is required</p>}
         </div>
@@ -1787,6 +1930,7 @@ const InsuranceManagement = () => {
             value={formData.dateOfDischarge}
             onChange={(e) => handleInputChange('dateOfDischarge', e.target.value)}
             className={`w-full px-3 py-2 border ${errors.dateOfDischarge ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            max="9999-12-31"
           />
           {errors.dateOfDischarge && <p className="mt-1 text-xs text-red-500">Discharge Date is required</p>}
         </div>
@@ -1799,7 +1943,8 @@ const InsuranceManagement = () => {
             type="date"
             value={formData.closeDate}
             onChange={(e) => handleInputChange('closeDate', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            max="9999-12-31"
           />
         </div>
 
@@ -1868,7 +2013,10 @@ const InsuranceManagement = () => {
                 </div>
                 <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">New Insurance Claim</h3>
                 <button
-                  onClick={() => setCurrentView('newClaim')}
+                  onClick={() => {
+                    setCurrentView('newClaim');
+                    setErrors({});
+                  }}
                   className="w-full inline-flex items-center justify-center px-8 py-5 border border-transparent text-lg font-medium rounded-xl text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
                 >
                   <PlusIcon className="h-6 w-6 mr-3" />
@@ -1940,6 +2088,7 @@ const InsuranceManagement = () => {
                     paymentReceipt: null
                   }
                 });
+                setErrors({});
               }}
               className="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 mr-4 shadow-sm"
             >
@@ -1983,6 +2132,7 @@ const InsuranceManagement = () => {
                   <div>
                     {currentStep < 3 ? (
                       <button
+                        key="next-btn"
                         type="button"
                         onClick={handleNextStep}
                         className="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md text-lg"
@@ -1991,6 +2141,7 @@ const InsuranceManagement = () => {
                       </button>
                     ) : (
                       <button
+                        key="submit-btn"
                         type="submit"
                         className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-md text-lg"
                       >

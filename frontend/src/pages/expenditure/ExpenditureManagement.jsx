@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
-import { 
-  Eye, 
-  FileText, 
-  Plus, 
-  Trash2, 
-  Download, 
-  Filter, 
+import {
+  Eye,
+  FileText,
+  Plus,
+  Trash2,
+  Download,
+  Filter,
   Search,
   Save,
   Edit,
@@ -22,13 +22,14 @@ import {
   File,
   ExternalLink
 } from "lucide-react";
+import { message } from "antd";
 import { expenditureAPI } from "../../services/api";
 
 const ExpenditureManagement = () => {
   const [activeTab, setActiveTab] = useState("manage");
   const [viewMode, setViewMode] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
-  
+
   /* ---------------- MASTER DATA ---------------- */
   const expenditureTypes = [
     "Milk",
@@ -73,11 +74,11 @@ const ExpenditureManagement = () => {
   const [year, setYear] = useState("");
   const [location, setLocation] = useState("");
   const [budgetAllocated, setBudgetAllocated] = useState("");
-  
+
   const [expenditures, setExpenditures] = useState([]);
   const [saveLoading, setSaveLoading] = useState(false);
   const [savingMessage, setSavingMessage] = useState("");
-  
+
   const [newExpense, setNewExpense] = useState({
     type: "",
     customType: "",
@@ -86,8 +87,10 @@ const ExpenditureManagement = () => {
     documentType: "",
     file: null,
     fileName: "",
+    file: null,
+    fileName: "",
     remarks: "",
-    date: new Date().toISOString().split('T')[0]
+    date: ""
   });
 
   /* ---------------- SUMMARY TAB STATES ---------------- */
@@ -95,7 +98,7 @@ const ExpenditureManagement = () => {
   const [summaryYear, setSummaryYear] = useState(new Date().getFullYear().toString());
   const [loading, setLoading] = useState(false);
   const [summaryData, setSummaryData] = useState([]);
-  
+
   /* ---------------- MODAL STATES ---------------- */
   const [viewModalOpen, setViewModalOpen] = useState(false);
   const [detailedRecord, setDetailedRecord] = useState(null);
@@ -103,12 +106,37 @@ const ExpenditureManagement = () => {
   const [currentDocument, setCurrentDocument] = useState(null);
   const [documentType, setDocumentType] = useState("");
 
+  // New States for Validation and Editing
+  // New States for Validation and Editing
+  const [errors, setErrors] = useState({});
+  const [summaryErrors, setSummaryErrors] = useState({});
+  const [editingExpenditureId, setEditingExpenditureId] = useState(null);
+
+  const monthMap = {
+    "Jan": 0, "Feb": 1, "Mar": 2, "Apr": 3, "May": 4, "Jun": 5,
+    "Jul": 6, "Aug": 7, "Sep": 8, "Oct": 9, "Nov": 10, "Dec": 11
+  };
+
+  const getMonthDateRange = () => {
+    if (!month || !year) return { min: "", max: "", disabled: true };
+    const monthIndex = monthMap[month];
+    if (monthIndex === undefined) return { min: "", max: "", disabled: true };
+
+    const yearNum = parseInt(year);
+    // First day: yyyy-mm-01
+    const min = `${yearNum}-${String(monthIndex + 1).padStart(2, '0')}-01`;
+    // Last day:
+    const lastDay = new Date(yearNum, monthIndex + 1, 0).getDate();
+    const max = `${yearNum}-${String(monthIndex + 1).padStart(2, '0')}-${lastDay}`;
+    return { min, max, disabled: false };
+  };
+
   /* ---------------- CALCULATIONS ---------------- */
   const budgetSpent = expenditures.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
   const remainingBalance = parseFloat(budgetAllocated || 0) - budgetSpent;
   const budgetStatus = remainingBalance >= 0 ? "success" : "danger";
-  const budgetStatusText = remainingBalance >= 0 
-    ? `Within limit (+₹${remainingBalance.toLocaleString('en-IN')})` 
+  const budgetStatusText = remainingBalance >= 0
+    ? `Within limit (+₹${remainingBalance.toLocaleString('en-IN')})`
     : `Over spent (₹${Math.abs(remainingBalance).toLocaleString('en-IN')})`;
 
   /* ---------------- INITIAL LOAD ---------------- */
@@ -137,7 +165,7 @@ const ExpenditureManagement = () => {
       if (res.data && res.data.success) {
         // Look for exact match on month
         const existing = res.data.data.find(r => r.month === month);
-        
+
         if (existing) {
           const confirmLoad = window.confirm(
             `A record for ${month} ${year} in ${location} already exists.\n\n` +
@@ -145,7 +173,7 @@ const ExpenditureManagement = () => {
             `Click OK to load the existing record for editing/adding expenditures.\n` +
             `Click Cancel to change the selection.`
           );
-          
+
           if (confirmLoad) {
             loadRecordForEditing(existing._id || existing.id);
           } else {
@@ -166,14 +194,14 @@ const ExpenditureManagement = () => {
       console.log("✅ API Connection successful:", response.data);
     } catch (error) {
       console.error("❌ API Connection failed:", error);
-      alert(`⚠️ Cannot connect to server. Please make sure backend is running on http://localhost:5003\n\nError: ${error.message}`);
+      message.error(`⚠️ Cannot connect to server. Please make sure backend is running on http://localhost:5003 - Error: ${error.message}`);
     }
   };
 
   /* ---------------- DOCUMENT FUNCTIONS ---------------- */
   const viewUploadedFile = (fileObject, fileName) => {
     if (!fileObject) {
-      alert("No file to view");
+      message.warning("No file to view");
       return;
     }
 
@@ -184,8 +212,8 @@ const ExpenditureManagement = () => {
         name: fileName || fileObject.name,
         type: fileObject.type
       });
-      setDocumentType(fileObject.type.startsWith('image/') ? 'image' : 
-                     fileObject.type === 'application/pdf' ? 'pdf' : 'file');
+      setDocumentType(fileObject.type.startsWith('image/') ? 'image' :
+        fileObject.type === 'application/pdf' ? 'pdf' : 'file');
       setDocumentModalOpen(true);
     } else if (typeof fileObject === 'string') {
       setCurrentDocument({
@@ -203,15 +231,15 @@ const ExpenditureManagement = () => {
     if (file) {
       const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
       if (!allowedTypes.includes(file.type)) {
-        alert('Only JPEG, PNG, and PDF files are allowed');
+        message.error('Only JPEG, PNG, and PDF files are allowed');
         return;
       }
-      
+
       if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        alert('File size should be less than 5MB');
+        message.error('File size should be less than 5MB');
         return;
       }
-      
+
       setNewExpense({
         ...newExpense,
         file: file,
@@ -227,31 +255,65 @@ const ExpenditureManagement = () => {
       type = newExpense.customType;
     }
 
-    if (!type || !newExpense.paymentMode || !newExpense.amount || !newExpense.date) {
-      alert("Type, Payment Mode, Amount, and Date are required");
+    // Validation
+    const newErrors = {};
+    // Check Master Fields
+    if (!month) newErrors.month = "Month is required";
+    if (!year) newErrors.year = "Year is required";
+    if (!location) newErrors.location = "Location is required";
+    if (!budgetAllocated) newErrors.budgetAllocated = "Budget Allocated is required";
+
+    // Check Expenditure Fields
+    if (!type) newErrors.type = true;
+    if (!newExpense.paymentMode) newErrors.paymentMode = true;
+    if (!newExpense.amount) newErrors.amount = true;
+    if (!newExpense.date) newErrors.date = true;
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      // alert("Please fill all required fields correctly.");
       return;
     }
 
     if (parseFloat(newExpense.amount) <= 0) {
-      alert("Amount must be greater than 0");
+      message.error("Amount must be greater than 0");
       return;
     }
 
-    const newExpenditure = {
-      id: Date.now() + Math.random(), // Unique ID
-      type: type,
-      paymentMode: newExpense.paymentMode,
-      amount: parseFloat(newExpense.amount) || 0,
-      date: newExpense.date,
-      documentType: newExpense.documentType || 'Not Applicable',
-      file: newExpense.file,
-      fileName: newExpense.fileName,
-      remarks: newExpense.remarks,
-      sNo: expenditures.length + 1
-    };
+    if (editingExpenditureId) {
+      // Update existing
+      setExpenditures(expenditures.map(exp =>
+        exp.id === editingExpenditureId ? {
+          ...exp,
+          type: type,
+          paymentMode: newExpense.paymentMode,
+          amount: parseFloat(newExpense.amount) || 0,
+          date: newExpense.date,
+          documentType: newExpense.documentType || 'Not Applicable',
+          file: newExpense.file,
+          fileName: newExpense.fileName,
+          remarks: newExpense.remarks
+        } : exp
+      ));
+      setEditingExpenditureId(null);
+    } else {
+      // Add new
+      const newExpenditure = {
+        id: Date.now() + Math.random(), // Unique ID
+        type: type,
+        paymentMode: newExpense.paymentMode,
+        amount: parseFloat(newExpense.amount) || 0,
+        date: newExpense.date,
+        documentType: newExpense.documentType || 'Not Applicable',
+        file: newExpense.file,
+        fileName: newExpense.fileName,
+        remarks: newExpense.remarks,
+        sNo: expenditures.length + 1
+      };
+      setExpenditures([...expenditures, newExpenditure]);
+    }
 
-    setExpenditures([...expenditures, newExpenditure]);
-
+    // Reset Form
     setNewExpense({
       type: "",
       customType: "",
@@ -261,8 +323,9 @@ const ExpenditureManagement = () => {
       file: null,
       fileName: "",
       remarks: "",
-      date: new Date().toISOString().split('T')[0]
+      date: ""
     });
+    setErrors({});
   };
 
   const removeExpense = (id) => {
@@ -288,7 +351,9 @@ const ExpenditureManagement = () => {
         remarks: expenseToEdit.remarks,
         date: expenseToEdit.date
       });
-      removeExpense(id);
+      setEditingExpenditureId(id);
+      setErrors({});
+      // removeExpense(id); // Don't remove for better UX
     }
   };
 
@@ -309,20 +374,39 @@ const ExpenditureManagement = () => {
       file: null,
       fileName: "",
       remarks: "",
-      date: new Date().toISOString().split('T')[0]
+      date: ""
     });
+    setErrors({});
+    setEditingExpenditureId(null);
+  };
+
+  /* ---------------- CANCEL EDIT FUNCTION ---------------- */
+  const cancelEdit = () => {
+    setNewExpense({
+      type: "",
+      customType: "",
+      paymentMode: "",
+      amount: "",
+      documentType: "",
+      file: null,
+      fileName: "",
+      remarks: "",
+      date: ""
+    });
+    setErrors({});
+    setEditingExpenditureId(null);
   };
 
   /* ---------------- SAVE FUNCTION WITH PROPER DB INTEGRATION ---------------- */
   const saveRecord = async () => {
     // Validate required fields
     if (!month || !year || !location || !budgetAllocated) {
-      alert("Month, Year, Location, and Budget Allocated are required");
+      message.error("Month, Year, Location, and Budget Allocated are required");
       return;
     }
 
     if (expenditures.length === 0) {
-      alert("Please add at least one expenditure record");
+      message.warning("Please add at least one expenditure record");
       return;
     }
 
@@ -347,9 +431,9 @@ const ExpenditureManagement = () => {
     try {
       setSaveLoading(true);
       setSavingMessage("Saving record to database...");
-      
+
       console.log('📤 Preparing to save record:', record);
-      
+
       let response;
       if (viewMode && selectedRecord) {
         console.log('✏️ Updating existing record:', selectedRecord._id);
@@ -358,34 +442,34 @@ const ExpenditureManagement = () => {
         console.log('➕ Creating new record');
         response = await expenditureAPI.saveMonthlyRecord(record);
       }
-      
+
       console.log('✅ API Response:', response.data);
-      
+
       if (response.data && response.data.success) {
-        alert(`✅ Record ${viewMode ? 'updated' : 'saved'} successfully in database!`);
-        
+        message.success(`✅ Record ${viewMode ? 'updated' : 'saved'} successfully in database!`);
+
         // Update summary filters to match the saved record
         setSummaryYear(year);
         setSummaryLocation(location);
-        
+
         // Switch to summary tab to show the saved data
         setActiveTab("summary");
-        
+
         clearForm();
       } else {
-        alert(`❌ ${viewMode ? 'Update' : 'Save'} failed: ${response.data?.message || "Unknown error"}`);
+        message.error(`❌ ${viewMode ? 'Update' : 'Save'} failed: ${response.data?.message || "Unknown error"}`);
       }
     } catch (err) {
       console.error("❌ Save error:", err);
       const errorMessage = err.response?.data?.message || err.message || "Unknown error";
-      
+
       // Special handling for duplicate record error
       if (err.response?.status === 400 && errorMessage.includes("already exists")) {
-        alert(`❌ Cannot save: A record for this period already exists.\n\nPlease check the 'Summary' tab to find and edit the existing record.`);
+        message.error(`❌ Cannot save: A record for this period already exists. Please check the 'Summary' tab to find and edit the existing record.`);
       } else {
-        alert(`❌ Save failed: ${errorMessage}`);
+        message.error(`❌ Save failed: ${errorMessage}`);
       }
-      
+
       // Detailed error logging
       if (err.response) {
         console.error("Error status:", err.response.status);
@@ -401,14 +485,15 @@ const ExpenditureManagement = () => {
   /* ---------------- SUMMARY TAB FUNCTIONS ---------------- */
   const loadSummary = async () => {
     if (!summaryYear) {
-      alert("Please select year");
+      setSummaryErrors({ summaryYear: "Year is required" });
       return;
     }
+    setSummaryErrors({});
 
     try {
       setLoading(true);
       const params = { year: summaryYear };
-      
+
       if (summaryLocation && summaryLocation !== "Select All") {
         params.location = summaryLocation;
       }
@@ -423,8 +508,8 @@ const ExpenditureManagement = () => {
           const budgetAllocated = record.budget || record.budgetAllocated || 0;
           const totalBalance = budgetAllocated - totalExpenditure;
           const status = totalBalance >= 0 ? "success" : "danger";
-          const statusText = totalBalance >= 0 
-            ? `Within limit (+₹${totalBalance.toLocaleString('en-IN')})` 
+          const statusText = totalBalance >= 0
+            ? `Within limit (+₹${totalBalance.toLocaleString('en-IN')})`
             : `Over spent (₹${Math.abs(totalBalance).toLocaleString('en-IN')})`;
 
           return {
@@ -438,18 +523,18 @@ const ExpenditureManagement = () => {
             statusText
           };
         });
-        
+
         setSummaryData(processedData);
         console.log('📊 Processed summary data:', processedData);
       } else if (res.data && Array.isArray(res.data.data)) {
         // Handle case where data is directly an array (unwrapped success flag)
-         const processedData = res.data.data.map((record, index) => {
+        const processedData = res.data.data.map((record, index) => {
           const totalExpenditure = record.expenditures?.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0) || 0;
           const budgetAllocated = record.budget || record.budgetAllocated || 0;
           const totalBalance = budgetAllocated - totalExpenditure;
           const status = totalBalance >= 0 ? "success" : "danger";
-          const statusText = totalBalance >= 0 
-            ? `Within limit (+₹${totalBalance.toLocaleString('en-IN')})` 
+          const statusText = totalBalance >= 0
+            ? `Within limit (+₹${totalBalance.toLocaleString('en-IN')})`
             : `Over spent (₹${Math.abs(totalBalance).toLocaleString('en-IN')})`;
 
           return {
@@ -471,7 +556,7 @@ const ExpenditureManagement = () => {
     } catch (err) {
       console.error("❌ Summary error:", err);
       const errorMessage = err.response?.data?.message || err.message || "Unknown error";
-      alert(`❌ Error loading summary data: ${errorMessage}`);
+      message.error(`❌ Error loading summary data: ${errorMessage}`);
       setSummaryData([]);
     } finally {
       setLoading(false);
@@ -484,19 +569,19 @@ const ExpenditureManagement = () => {
       console.log('📄 Fetching record details for ID:', recordId);
       const res = await expenditureAPI.getRecordById(recordId);
       console.log('📄 Record details response:', res.data);
-      
+
       if (res.data && res.data.success) {
         const record = res.data.data;
-        
+
         // Calculate totals
         const totalExpenditure = record.expenditures?.reduce((sum, e) => sum + parseFloat(e.amount || 0), 0) || 0;
         const budgetAllocated = record.budget || record.budgetAllocated || 0;
         const remainingBalance = budgetAllocated - totalExpenditure;
         const budgetStatus = remainingBalance >= 0 ? "success" : "danger";
-        const budgetStatusText = remainingBalance >= 0 
-          ? `Within limit (+₹${remainingBalance.toLocaleString('en-IN')})` 
+        const budgetStatusText = remainingBalance >= 0
+          ? `Within limit (+₹${remainingBalance.toLocaleString('en-IN')})`
           : `Over spent (₹${Math.abs(remainingBalance).toLocaleString('en-IN')})`;
-        
+
         setDetailedRecord({
           ...record,
           budgetAllocated,
@@ -507,11 +592,11 @@ const ExpenditureManagement = () => {
         });
         setViewModalOpen(true);
       } else {
-        alert("No record found");
+        message.warning("No record found");
       }
     } catch (err) {
       console.error("❌ Error loading record details:", err);
-      alert("Failed to load record details");
+      message.error("Failed to load record details");
     } finally {
       setLoading(false);
     }
@@ -525,20 +610,20 @@ const ExpenditureManagement = () => {
     try {
       console.log('🗑️ Deleting record:', recordId);
       await expenditureAPI.deleteRecord(recordId);
-      alert("✅ Record deleted successfully from database");
-      
+      message.success("✅ Record deleted successfully from database");
+
       // Refresh summary if in summary tab
       if (activeTab === "summary" && summaryYear) {
         loadSummary();
       }
-      
+
       // Clear form if it was the selected record
       if (selectedRecord && selectedRecord._id === recordId) {
         clearForm();
       }
     } catch (err) {
       console.error("❌ Delete error:", err);
-      alert("Failed to delete record from database");
+      message.error("Failed to delete record from database");
     }
   };
 
@@ -547,37 +632,37 @@ const ExpenditureManagement = () => {
       setLoading(true);
       console.log('✏️ Loading record for editing:', recordId);
       const res = await expenditureAPI.getRecordById(recordId);
-      
+
       if (res.data && res.data.success) {
         const record = res.data.data;
         setSelectedRecord(record);
         setViewMode(true);
-        
+
         // Set basic info
         setMonth(record.month);
         setYear(record.year.toString());
         setLocation(record.location);
         setBudgetAllocated((record.budget || record.budgetAllocated || 0).toString());
-        
+
         // Set expenditures with serial numbers
         const expendituresWithSNo = record.expenditures?.map((exp, index) => ({
           ...exp,
           id: exp._id || Date.now() + Math.random(),
           sNo: index + 1
         })) || [];
-        
+
         setExpenditures(expendituresWithSNo);
-        
+
         // Switch to manage tab
         setActiveTab("manage");
-        
-        alert("Record loaded for editing. Make changes and click 'Update Record' to save.");
+
+        message.success("Record loaded for editing. Make changes and click 'Update Record' to save.");
       } else {
-        alert("Failed to load record");
+        message.error("Failed to load record");
       }
     } catch (err) {
       console.error("❌ Error loading record:", err);
-      alert("Failed to load record for editing");
+      message.error("Failed to load record for editing");
     } finally {
       setLoading(false);
     }
@@ -586,7 +671,7 @@ const ExpenditureManagement = () => {
   /* ---------------- EXPORT FUNCTIONS ---------------- */
   const exportToCSV = () => {
     if (!month || !year || !location || !budgetAllocated) {
-      alert("Please fill all required fields: Month, Year, Location, and Budget Allocated");
+      message.warning("Please fill all required fields: Month, Year, Location, and Budget Allocated");
       return;
     }
 
@@ -600,7 +685,7 @@ const ExpenditureManagement = () => {
       remainingBalance.toFixed(2),
       budgetStatusText
     ];
-    
+
     const expenditureHeaders = ["S.No", "Date", "Type of Expenditure", "Mode of Payment", "Amount (₹)", "Documents", "Remarks"];
     const expenditureRows = expenditures.map(exp => [
       exp.sNo,
@@ -611,18 +696,18 @@ const ExpenditureManagement = () => {
       exp.fileName || "-",
       exp.remarks || "-"
     ]);
-    
+
     let csvContent = "EXPENDITURE MANAGEMENT RECORD\n\n";
     csvContent += "Summary:\n";
     csvContent += headers.join(',') + '\n';
     csvContent += mainRow.join(',') + '\n\n';
-    
+
     csvContent += "Expenditure Details:\n";
     csvContent += expenditureHeaders.join(',') + '\n';
     expenditureRows.forEach(row => {
       csvContent += row.join(',') + '\n';
     });
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -634,13 +719,13 @@ const ExpenditureManagement = () => {
 
   const exportSummaryToCSV = () => {
     if (summaryData.length === 0) {
-      alert("No summary data to export");
+      message.warning("No summary data to export");
       return;
     }
 
     // Modified headers - removed Year and Location from individual rows
     const headers = ["S.No", "Month", "Budget Allocated (₹)", "Budget Spent (₹)", "Total Balance (₹)", "Budget Status"];
-    
+
     const rows = summaryData.map(row => {
       return [
         row.sNo,
@@ -651,19 +736,19 @@ const ExpenditureManagement = () => {
         row.statusText || "-"
       ];
     });
-    
+
     // Add overall summary with Year and Location in header
     let csvContent = `EXPENDITURE SUMMARY REPORT - ${summaryYear}`;
     if (summaryLocation && summaryLocation !== "Select All") {
       csvContent += ` - ${summaryLocation}`;
     }
     csvContent += '\n\n';
-    
+
     csvContent += headers.join(',') + '\n';
     rows.forEach(row => {
       csvContent += row.join(',') + '\n';
     });
-    
+
     // Calculate overall summary
     const overallSummary = summaryData.reduce((acc, row) => {
       return {
@@ -672,9 +757,9 @@ const ExpenditureManagement = () => {
         monthsCount: acc.monthsCount + 1
       };
     }, { totalBudgetAllocated: 0, totalBudgetSpent: 0, monthsCount: 0 });
-    
+
     const overallBalance = overallSummary.totalBudgetAllocated - overallSummary.totalBudgetSpent;
-    
+
     csvContent += '\nOverall Summary:\n';
     csvContent += `Year,${summaryYear}\n`;
     if (summaryLocation && summaryLocation !== "Select All") {
@@ -685,7 +770,7 @@ const ExpenditureManagement = () => {
     csvContent += `Overall Balance,₹${overallBalance.toFixed(2)}\n`;
     csvContent += `Average Monthly Spend,₹${(overallSummary.totalBudgetSpent / overallSummary.monthsCount).toFixed(2)}\n`;
     csvContent += `Number of Months,${overallSummary.monthsCount}\n`;
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -699,10 +784,10 @@ const ExpenditureManagement = () => {
     <div className="p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        
+
         <div className="flex items-center gap-3">
           {activeTab === "manage" && (
-            <button 
+            <button
               onClick={exportToCSV}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
               disabled={!month || !year || !location}
@@ -712,7 +797,7 @@ const ExpenditureManagement = () => {
             </button>
           )}
           {activeTab === "summary" && summaryData.length > 0 && (
-            <button 
+            <button
               onClick={exportSummaryToCSV}
               className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
             >
@@ -727,21 +812,19 @@ const ExpenditureManagement = () => {
       <div className="mb-6">
         <div className="flex border-b">
           <button
-            className={`px-6 py-3 font-medium text-sm transition-colors ${
-              activeTab === "manage"
-                ? "border-b-2 border-[#262760] text-[#262760]"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "manage"
+              ? "border-b-2 border-[#262760] text-[#262760]"
+              : "text-gray-500 hover:text-gray-700"
+              }`}
             onClick={() => setActiveTab("manage")}
           >
             Manage Expenditure
           </button>
           <button
-            className={`px-6 py-3 font-medium text-sm transition-colors ${
-              activeTab === "summary"
-                ? "border-b-2 border-[#262760] text-[#262760]"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
+            className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "summary"
+              ? "border-b-2 border-[#262760] text-[#262760]"
+              : "text-gray-500 hover:text-gray-700"
+              }`}
             onClick={() => {
               setActiveTab("summary");
               setMonth(""); // Reset month filter
@@ -769,47 +852,62 @@ const ExpenditureManagement = () => {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Month *</label>
-                  <select 
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
-                    value={month} 
-                    onChange={(e) => setMonth(e.target.value)}
+                  <select
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.month ? 'border-red-500' : ''} disabled:bg-gray-100 disabled:text-gray-500`}
+                    value={month}
+                    onChange={(e) => {
+                      setMonth(e.target.value);
+                      if (errors.month) setErrors({ ...errors, month: null });
+                    }}
                     required
+                    disabled={viewMode}
                   >
                     <option value="">Select Month</option>
                     {months.map(m => (
                       <option key={m} value={m}>{m}</option>
                     ))}
                   </select>
+                  {errors.month && <p className="text-red-500 text-xs mt-1">{errors.month}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Year *</label>
-                  <select 
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
-                    value={year} 
-                    onChange={(e) => setYear(e.target.value)}
+                  <select
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.year ? 'border-red-500' : ''} disabled:bg-gray-100 disabled:text-gray-500`}
+                    value={year}
+                    onChange={(e) => {
+                      setYear(e.target.value);
+                      if (errors.year) setErrors({ ...errors, year: null });
+                    }}
                     required
+                    disabled={viewMode}
                   >
                     <option value="">Select Year</option>
                     {years.map(y => (
                       <option key={y} value={y}>{y}</option>
                     ))}
                   </select>
+                  {errors.year && <p className="text-red-500 text-xs mt-1">{errors.year}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Location *</label>
-                  <select 
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
-                    value={location} 
-                    onChange={(e) => setLocation(e.target.value)}
+                  <select
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.location ? 'border-red-500' : ''} disabled:bg-gray-100 disabled:text-gray-500`}
+                    value={location}
+                    onChange={(e) => {
+                      setLocation(e.target.value);
+                      if (errors.location) setErrors({ ...errors, location: null });
+                    }}
                     required
+                    disabled={viewMode}
                   >
                     <option value="">Select Location</option>
                     {locations.map(l => (
                       <option key={l} value={l}>{l}</option>
                     ))}
                   </select>
+                  {errors.location && <p className="text-red-500 text-xs mt-1">{errors.location}</p>}
                 </div>
 
                 <div>
@@ -817,13 +915,17 @@ const ExpenditureManagement = () => {
                   <input
                     type="number"
                     placeholder="Enter budget amount"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.budgetAllocated ? 'border-red-500' : ''} disabled:bg-gray-100 disabled:text-gray-500`}
                     value={budgetAllocated}
-                    onChange={(e) => setBudgetAllocated(e.target.value)}
+                    onChange={(e) => {
+                      if (e.target.value.length <= 8) setBudgetAllocated(e.target.value);
+                      if (errors.budgetAllocated) setErrors({ ...errors, budgetAllocated: null });
+                    }}
                     required
                     min="0"
                     step="0.01"
                   />
+                  {errors.budgetAllocated && <p className="text-red-500 text-xs mt-1">{errors.budgetAllocated}</p>}
                 </div>
               </div>
             </div>
@@ -875,16 +977,19 @@ const ExpenditureManagement = () => {
               </div>
             </div>
 
-            {/* Add New Expenditure Form */}
+            {/* Add New/Edit Expenditure Form */}
             <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-              <h3 className="text-lg font-semibold text-gray-800 mb-4">Add New Expenditure</h3>
+              <h3 className="text-lg font-semibold text-gray-800 mb-4">{editingExpenditureId ? "Edit Expenditure" : "Add New Expenditure"}</h3>
               <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
                 <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
-                  <select 
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
+                  <select
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.type ? 'border-red-500' : ''}`}
                     value={newExpense.type}
-                    onChange={(e) => setNewExpense({ ...newExpense, type: e.target.value })}
+                    onChange={(e) => {
+                      setNewExpense({ ...newExpense, type: e.target.value });
+                      if (errors.type) setErrors({ ...errors, type: null });
+                    }}
                     required
                   >
                     <option value="">Select Type</option>
@@ -892,6 +997,7 @@ const ExpenditureManagement = () => {
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>
+                  {errors.type && <p className="text-red-500 text-xs mt-1">Type is required</p>}
                   {newExpense.type === "Others" && (
                     <input
                       type="text"
@@ -905,10 +1011,13 @@ const ExpenditureManagement = () => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode *</label>
-                  <select 
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
+                  <select
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.paymentMode ? 'border-red-500' : ''}`}
                     value={newExpense.paymentMode}
-                    onChange={(e) => setNewExpense({ ...newExpense, paymentMode: e.target.value })}
+                    onChange={(e) => {
+                      setNewExpense({ ...newExpense, paymentMode: e.target.value });
+                      if (errors.paymentMode) setErrors({ ...errors, paymentMode: null });
+                    }}
                     required
                   >
                     <option value="">Select Mode</option>
@@ -916,6 +1025,7 @@ const ExpenditureManagement = () => {
                       <option key={mode} value={mode}>{mode}</option>
                     ))}
                   </select>
+                  {errors.paymentMode && <p className="text-red-500 text-xs mt-1">Payment Mode is required</p>}
                 </div>
 
                 <div>
@@ -923,29 +1033,40 @@ const ExpenditureManagement = () => {
                   <input
                     type="number"
                     placeholder="Amount"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.amount ? 'border-red-500' : ''}`}
                     value={newExpense.amount}
-                    onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                    onChange={(e) => {
+                      if (e.target.value.length <= 8) setNewExpense({ ...newExpense, amount: e.target.value });
+                      if (errors.amount) setErrors({ ...errors, amount: null });
+                    }}
                     required
                     min="0"
                     step="0.01"
                   />
+                  {errors.amount && <p className="text-red-500 text-xs mt-1">Amount is required</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Date *</label>
                   <input
                     type="date"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.date ? 'border-red-500' : ''} disabled:bg-gray-100 disabled:text-gray-500`}
                     value={newExpense.date}
-                    onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
+                    onChange={(e) => {
+                      setNewExpense({ ...newExpense, date: e.target.value });
+                      if (errors.date) setErrors({ ...errors, date: null });
+                    }}
                     required
+                    disabled={getMonthDateRange().disabled}
+                    min={getMonthDateRange().min}
+                    max={getMonthDateRange().max}
                   />
+                  {errors.date && <p className="text-red-500 text-xs mt-1">Date is required</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Document Type</label>
-                  <select 
+                  <select
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
                     value={newExpense.documentType}
                     onChange={(e) => setNewExpense({ ...newExpense, documentType: e.target.value })}
@@ -983,13 +1104,22 @@ const ExpenditureManagement = () => {
                   />
                 </div>
 
-                <div className="flex items-end">
+                <div className="flex items-end gap-2">
+                  {editingExpenditureId && (
+                    <button
+                      onClick={cancelEdit}
+                      className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors w-full flex items-center justify-center gap-2"
+                    >
+                      <X className="w-4 h-4" />
+                      Cancel
+                    </button>
+                  )}
                   <button
                     onClick={addExpenditure}
                     className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] transition-colors w-full flex items-center justify-center gap-2"
                   >
-                    <Plus className="w-4 h-4" />
-                    Add
+                    {editingExpenditureId ? <Edit className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                    {editingExpenditureId ? "Update" : "Add"}
                   </button>
                 </div>
               </div>
@@ -1000,7 +1130,7 @@ const ExpenditureManagement = () => {
               <h3 className="text-lg font-semibold text-gray-800 mb-4">
                 Expenditure Records ({expenditures.length} items)
               </h3>
-              
+
               <div className="overflow-x-auto border rounded-lg">
                 <table className="w-full">
                   <thead className="bg-[#262760]">
@@ -1011,6 +1141,7 @@ const ExpenditureManagement = () => {
                       <th className="px-4 py-3 text-left text-sm font-semibold text-white">Mode of Payment</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-white">Amount (₹)</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-white">Documents</th>
+                      <th className="px-4 py-3 text-left text-sm font-semibold text-white">Location</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-white">Remarks</th>
                       <th className="px-4 py-3 text-left text-sm font-semibold text-white">Actions</th>
                     </tr>
@@ -1053,6 +1184,9 @@ const ExpenditureManagement = () => {
                           )}
                         </td>
                         <td className="px-4 py-3">
+                          <span className="text-sm text-gray-600">{location || "-"}</span>
+                        </td>
+                        <td className="px-4 py-3">
                           <span className="text-sm text-gray-600">{exp.remarks || "-"}</span>
                         </td>
                         <td className="px-4 py-3">
@@ -1066,8 +1200,9 @@ const ExpenditureManagement = () => {
                             </button>
                             <button
                               onClick={() => removeExpense(exp.id)}
-                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               title="Delete"
+                              disabled={!!editingExpenditureId}
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -1075,12 +1210,14 @@ const ExpenditureManagement = () => {
                         </td>
                       </tr>
                     ))}
-                    
+
                     {expenditures.length === 0 && (
                       <tr>
-                        <td colSpan="8" className="px-4 py-8 text-center text-gray-500">
-                          No expenditure records added yet. Add your first expenditure above.
-                        </td>
+                        <tr>
+                          <td colSpan="9" className="px-4 py-8 text-center text-gray-500">
+                            No expenditure records added yet. Add your first expenditure above.
+                          </td>
+                        </tr>
                       </tr>
                     )}
                   </tbody>
@@ -1145,9 +1282,12 @@ const ExpenditureManagement = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Year *</label>
                   <select
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
+                    className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${summaryErrors.summaryYear ? 'border-red-500' : ''}`}
                     value={summaryYear}
-                    onChange={(e) => setSummaryYear(e.target.value)}
+                    onChange={(e) => {
+                      setSummaryYear(e.target.value);
+                      if (summaryErrors.summaryYear) setSummaryErrors({ ...summaryErrors, summaryYear: null });
+                    }}
                     required
                   >
                     <option value="">Select Year</option>
@@ -1155,6 +1295,7 @@ const ExpenditureManagement = () => {
                       <option key={y} value={y}>{y}</option>
                     ))}
                   </select>
+                  {summaryErrors.summaryYear && <p className="text-red-500 text-xs mt-1">{summaryErrors.summaryYear}</p>}
                 </div>
 
                 <div>
@@ -1174,8 +1315,8 @@ const ExpenditureManagement = () => {
                 <div className="flex items-end">
                   <button
                     onClick={loadSummary}
-                    className="px-6 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] transition-colors w-full flex items-center justify-center gap-2"
-                    disabled={loading || !summaryYear}
+                    className="px-6 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] transition-colors w-full flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={loading}
                   >
                     {loading ? (
                       <>
@@ -1199,7 +1340,7 @@ const ExpenditureManagement = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <h4 className="font-semibold text-gray-800">
-                      Summary for {summaryYear} 
+                      Summary for {summaryYear}
                       {summaryLocation && summaryLocation !== "Select All" ? ` - ${summaryLocation}` : " (All Locations)"}
                     </h4>
                     <p className="text-sm text-gray-600">
@@ -1221,6 +1362,7 @@ const ExpenditureManagement = () => {
                   <tr>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-white">S.No</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-white">Month</th>
+                    <th className="px-4 py-3 text-left text-sm font-semibold text-white">Location</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-white">Budget Allocated (₹)</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-white">Budget Spent (₹)</th>
                     <th className="px-4 py-3 text-left text-sm font-semibold text-white">Total Balance (₹)</th>
@@ -1231,7 +1373,7 @@ const ExpenditureManagement = () => {
                 <tbody>
                   {loading ? (
                     <tr>
-                      <td colSpan="7" className="px-4 py-8 text-center">
+                      <td colSpan="8" className="px-4 py-8 text-center">
                         <div className="flex justify-center">
                           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#262760]"></div>
                         </div>
@@ -1239,7 +1381,7 @@ const ExpenditureManagement = () => {
                     </tr>
                   ) : summaryData.length === 0 ? (
                     <tr>
-                      <td colSpan="7" className="px-4 py-12 text-center text-gray-500">
+                      <td colSpan="8" className="px-4 py-12 text-center text-gray-500">
                         <div className="flex flex-col items-center">
                           <Calendar className="w-12 h-12 text-gray-300 mb-4" />
                           <p className="text-lg font-medium text-gray-600">No summary data</p>
@@ -1251,57 +1393,60 @@ const ExpenditureManagement = () => {
                     summaryData
                       .filter(row => !month || row.month === month)
                       .map((row) => (
-                      <tr key={row.id} className="border-t hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 text-center">{row.sNo}</td>
-                        <td className="px-4 py-3 font-medium">
-                          {monthNames[row.month] || row.month}
-                        </td>
-                        <td className="px-4 py-3">
-                          ₹{row.budgetAllocated?.toLocaleString('en-IN') || '0'}
-                        </td>
-                        <td className="px-4 py-3 text-red-600">
-                          ₹{row.totalExpenditure?.toLocaleString('en-IN') || '0'}
-                        </td>
-                        <td className={`px-4 py-3 font-bold ${row.totalBalance < 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          ₹{row.totalBalance?.toLocaleString('en-IN') || '0'}
-                        </td>
-                        <td className={`px-4 py-3 ${row.status === "danger" ? 'text-red-600' : 'text-green-600'}`}>
-                          <div className="flex items-center gap-2">
-                            {row.status === "danger" ? (
-                              <AlertCircle className="w-4 h-4" />
-                            ) : (
-                              <CheckCircle className="w-4 h-4" />
-                            )}
-                            <span className="text-sm">{row.statusText}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => viewRecordDetails(row.id)}
-                              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                              title="View Details"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => loadRecordForEditing(row.id)}
-                              className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
-                              title="Edit Record"
-                            >
-                              <Edit className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => deleteRecord(row.id)}
-                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
-                              title="Delete Record"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                        <tr key={row.id} className="border-t hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 text-center">{row.sNo}</td>
+                          <td className="px-4 py-3 font-medium">
+                            {monthNames[row.month] || row.month}
+                          </td>
+                          <td className="px-4 py-3">
+                            {row.location || "-"}
+                          </td>
+                          <td className="px-4 py-3">
+                            ₹{row.budgetAllocated?.toLocaleString('en-IN') || '0'}
+                          </td>
+                          <td className="px-4 py-3 text-red-600">
+                            ₹{row.totalExpenditure?.toLocaleString('en-IN') || '0'}
+                          </td>
+                          <td className={`px-4 py-3 font-bold ${row.totalBalance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            ₹{row.totalBalance?.toLocaleString('en-IN') || '0'}
+                          </td>
+                          <td className={`px-4 py-3 ${row.status === "danger" ? 'text-red-600' : 'text-green-600'}`}>
+                            <div className="flex items-center gap-2">
+                              {row.status === "danger" ? (
+                                <AlertCircle className="w-4 h-4" />
+                              ) : (
+                                <CheckCircle className="w-4 h-4" />
+                              )}
+                              <span className="text-sm">{row.statusText}</span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => viewRecordDetails(row.id)}
+                                className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                                title="View Details"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => loadRecordForEditing(row.id)}
+                                className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
+                                title="Edit Record"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => deleteRecord(row.id)}
+                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                                title="Delete Record"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
                   )}
                 </tbody>
               </table>
@@ -1362,7 +1507,7 @@ const ExpenditureManagement = () => {
                   Expenditure Details - {monthNames[detailedRecord.month] || detailedRecord.month} {detailedRecord.year} - {detailedRecord.location}
                 </h2>
                 <p className="text-gray-600 mt-1">
-                  Budget Allocated: ₹{detailedRecord.budgetAllocated?.toLocaleString('en-IN')} | 
+                  Budget Allocated: ₹{detailedRecord.budgetAllocated?.toLocaleString('en-IN')} |
                   Status: <span className={detailedRecord.budgetStatus === "danger" ? "text-red-600" : "text-green-600"}>
                     {detailedRecord.budgetStatusText}
                   </span>
@@ -1491,20 +1636,20 @@ const ExpenditureManagement = () => {
                 <X className="w-6 h-6" />
               </button>
             </div>
-            
+
             <div className="p-6">
               {documentType === 'image' ? (
                 <div className="flex justify-center">
-                  <img 
-                    src={currentDocument.file} 
-                    alt={currentDocument.name} 
+                  <img
+                    src={currentDocument.file}
+                    alt={currentDocument.name}
                     className="max-w-full max-h-[70vh] object-contain"
                   />
                 </div>
               ) : documentType === 'pdf' ? (
                 <div className="h-[70vh]">
-                  <iframe 
-                    src={currentDocument.file} 
+                  <iframe
+                    src={currentDocument.file}
                     className="w-full h-full border-0"
                     title={currentDocument.name}
                   />
@@ -1522,7 +1667,7 @@ const ExpenditureManagement = () => {
                   </button>
                 </div>
               )}
-              
+
               <div className="border-t pt-6 flex justify-between items-center">
                 <div>
                   <p className="text-sm text-gray-600">File: {currentDocument.name}</p>

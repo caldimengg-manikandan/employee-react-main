@@ -722,7 +722,8 @@ const MyProfile = () => {
                         onChange={(e) => handleInputChange('name', e.target.value.toUpperCase())}
                         required
                         maxLength={25}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm uppercase ${errors.name ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm uppercase bg-gray-100 cursor-not-allowed ${errors.name ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                         placeholder="JOHN DOE"
                       />
                       {errors.name && <p className="text-xs text-red-600 mt-1">{errors.name}</p>}
@@ -736,7 +737,8 @@ const MyProfile = () => {
                         value={formData.gender}
                         onChange={(e) => handleInputChange('gender', e.target.value)}
                         required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.gender ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed ${errors.gender ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                       >
                         {genderOptions.map(option => (
                           <option key={option.value} value={option.value}>
@@ -866,7 +868,8 @@ const MyProfile = () => {
                         value={formData.contactNumber}
                         onChange={(e) => handleInputChange('contactNumber', e.target.value)}
                         required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.contactNumber ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed ${errors.contactNumber ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                         placeholder="9876543210"
                       />
                       {errors.contactNumber && <p className="text-xs text-red-600 mt-1">{errors.contactNumber}</p>}
@@ -882,7 +885,8 @@ const MyProfile = () => {
                         onChange={(e) => handleInputChange('email', e.target.value)}
                         required
                         maxLength={40}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.email ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed ${errors.email ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                         placeholder="john.doe@example.com"
                       />
                       {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
@@ -1118,7 +1122,8 @@ const MyProfile = () => {
                         inputMode="numeric"
                         maxLength={12}
                         required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.aadhaar ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-amber-500 focus:border-amber-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed ${errors.aadhaar ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-amber-500 focus:border-amber-500'}`}
                         placeholder="123456789012"
                       />
                       {errors.aadhaar && <p className="text-xs text-red-600 mt-1">{errors.aadhaar}</p>}
@@ -1146,7 +1151,8 @@ const MyProfile = () => {
                         value={formData.uan}
                         onChange={(e) => handleInputChange('uan', e.target.value)}
                         maxLength={12}
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.uan ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-amber-500 focus:border-amber-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed ${errors.uan ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-amber-500 focus:border-amber-500'}`}
                         placeholder="101147215588"
                       />
                     </div>
@@ -1226,7 +1232,8 @@ const MyProfile = () => {
                         value={formData.location}
                         onChange={(e) => handleInputChange('location', e.target.value)}
                         required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.location ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed ${errors.location ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
                       >
                         {locationOptions.map(option => (
                           <option key={option.value} value={option.value}>
@@ -1358,7 +1365,8 @@ const MyProfile = () => {
                         value={formData.bankName}
                         onChange={(e) => handleInputChange('bankName', e.target.value)}
                         required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.bankName ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-purple-500 focus:border-purple-500 text-sm bg-gray-100 cursor-not-allowed"
                         placeholder="Bank name"
                       />
                       {errors.bankName && <p className="text-xs text-red-600 mt-1">{errors.bankName}</p>}
@@ -1389,7 +1397,8 @@ const MyProfile = () => {
                         value={formData.branch}
                         onChange={(e) => handleInputChange('branch', e.target.value)}
                         required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.branch ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed ${errors.branch ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
                         placeholder="Branch name"
                       />
                       {errors.branch && <p className="text-xs text-red-600 mt-1">{errors.branch}</p>}
@@ -1404,7 +1413,8 @@ const MyProfile = () => {
                         value={formData.ifsc}
                         onChange={(e) => handleInputChange('ifsc', e.target.value.toUpperCase())}
                         required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.ifsc ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
+                        disabled
+                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed ${errors.ifsc ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-pink-500 focus:border-pink-500'}`}
                         placeholder="IFSC code"
                       />
                       {errors.ifsc && <p className="text-xs text-red-600 mt-1">{errors.ifsc}</p>}

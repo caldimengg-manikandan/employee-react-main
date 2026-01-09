@@ -118,6 +118,15 @@ router.post('/', auth, async (req, res) => {
     if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
     if (!data.position && data.role) data.position = data.role;
     if (!data.position && data.designation) data.position = data.designation;
+
+    // Check if email is already in use by another user
+    if (data.email && data.email !== req.user.email) {
+      const existingUser = await User.findOne({ email: data.email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email is already in use by another user' });
+      }
+    }
+
     const permAddrParts = [
       data.permanentAddressLine,
       data.permanentCity,
@@ -177,6 +186,15 @@ router.put('/me', auth, async (req, res) => {
     if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
     if (!data.position && data.role) data.position = data.role;
     if (!data.position && data.designation) data.position = data.designation;
+
+    // Check if email is already in use by another user
+    if (data.email && data.email !== req.user.email) {
+      const existingUser = await User.findOne({ email: data.email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email is already in use by another user' });
+      }
+    }
+
     const permAddrParts = [
       data.permanentAddressLine,
       data.permanentCity,
@@ -213,6 +231,12 @@ router.put('/me', auth, async (req, res) => {
       { new: true, runValidators: true }
     );
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+    // Sync email change to User record if it exists
+    if (data.email && data.email !== req.user.email) {
+      await User.findByIdAndUpdate(req.user._id, { email: data.email });
+    }
+
     res.json(employee);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -272,14 +296,48 @@ router.put('/:id', auth, async (req, res) => {
     }
     delete data.role;
 
+    const oldEmployee = await Employee.findById(req.params.id);
+    if (!oldEmployee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    // Check if email is already in use by another user
+    if (data.email && data.email !== oldEmployee.email) {
+      const existingUser = await User.findOne({ email: data.email });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email is already in use by another user' });
+      }
+    }
+
     const employee = await Employee.findByIdAndUpdate(
       req.params.id,
       data,
       { new: true, runValidators: true }
     );
-    if (!employee) {
-      return res.status(404).json({ message: 'Employee not found' });
+
+    // Sync email/employeeId change to User record
+    const emailChanged = data.email && data.email !== oldEmployee.email;
+    const empIdChanged = data.employeeId && data.employeeId !== oldEmployee.employeeId;
+
+    if (emailChanged || empIdChanged) {
+       // Try to find user by OLD employeeId first
+       let user = await User.findOne({ employeeId: oldEmployee.employeeId });
+       
+       // If not found by employeeId, try by OLD email
+       if (!user) {
+         user = await User.findOne({ email: oldEmployee.email });
+       }
+
+       if (user) {
+         if (emailChanged) user.email = data.email;
+         if (empIdChanged) user.employeeId = data.employeeId;
+         // Ensure link
+         if (!user.employeeId) user.employeeId = data.employeeId || oldEmployee.employeeId;
+         
+         await user.save();
+       }
     }
+
     res.json(employee);
   } catch (error) {
     res.status(400).json({ message: error.message });
