@@ -232,6 +232,10 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, message: "Internal Server Error" });
 });
 
+// --------------------- CRON JOBS --------------------- //
+const setupTimesheetReminder = require("./cron/timesheetReminder");
+setupTimesheetReminder();
+
 // --------------------- START SERVER --------------------- //
 const PORT = process.env.PORT || 5003;
 app.listen(PORT, () => {

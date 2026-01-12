@@ -1,6 +1,6 @@
 const nodemailer = require("nodemailer");
 
-async function sendZohoMail({ to, subject, content }) {
+async function sendZohoMail({ to, subject, content, html }) {
   try {
     const transporter = nodemailer.createTransport({
       host: process.env.EMAIL_HOST || "smtp.zoho.com",
@@ -17,7 +17,7 @@ async function sendZohoMail({ to, subject, content }) {
       to: to, // list of receivers
       subject: subject, // Subject line
       text: content, // plain text body
-      html: content, // html body (optional, using content as both for now)
+      html: html || content, // html body
     };
 
     const info = await transporter.sendMail(mailOptions);
