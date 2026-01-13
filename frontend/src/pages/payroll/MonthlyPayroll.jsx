@@ -294,6 +294,14 @@ export default function MonthlyPayroll() {
           bankName: payrollRec?.bankName || emp.bankName || ''
         };
       });
+
+      // Sort by Employee ID (natural sort order)
+      mapped.sort((a, b) => {
+        const idA = a.employeeId || '';
+        const idB = b.employeeId || '';
+        return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
       setSalaryRecords(mapped);
     } catch (e) {
       console.error('Failed to fetch employees or payrolls', e);
@@ -667,8 +675,19 @@ Payroll Department
       minimumFractionDigits: 0 
     }).format(amount || 0);
 
-  const departments = ['all', ...new Set(salaryRecords.map(r => r.department || '').filter(Boolean))];
-  const designations = ['all', ...new Set(salaryRecords.map(r => r.designation || '').filter(Boolean))];
+  // Filter departments based on selected designation
+  const departments = ['all', ...new Set(salaryRecords
+    .filter(r => filterDesignation === 'all' || r.designation === filterDesignation)
+    .map(r => r.department || '')
+    .filter(Boolean))
+  ];
+  
+  // Filter designations based on selected department
+  const designations = ['all', ...new Set(salaryRecords
+    .filter(r => filterDepartment === 'all' || r.department === filterDepartment)
+    .map(r => r.designation || '')
+    .filter(Boolean))
+  ];
 
   const filteredRecords = salaryRecords.filter(record => {
     // Search
@@ -735,7 +754,12 @@ Payroll Department
                 type="text"
                 placeholder="Name or ID"
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
+                maxLength={25}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  const sanitizedValue = value.replace(/[^a-zA-Z0-9 ]/g, '');
+                  setSearchTerm(sanitizedValue);
+                }}
                 className="w-full px-3 py-2 pl-8 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <Filter className="w-4 h-4 text-gray-400 absolute left-2.5 top-2.5" />
@@ -773,7 +797,7 @@ Payroll Department
           </div>
 
           {/* Bank Filter */}
-          {/* <div>
+          <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Bank</label>
             <select
               value={filterBank}
@@ -788,7 +812,7 @@ Payroll Department
               <option value="icici">ICICI Bank</option>
               <option value="other">Other Banks</option>
             </select>
-          </div> */}
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
@@ -855,7 +879,10 @@ Payroll Department
                   Select
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                  Employee
+                  Employee ID
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  Employee Name
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Designation
@@ -875,15 +902,13 @@ Payroll Department
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Bank Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                  Status
-                </th>
+               
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="10" className="px-6 py-4 text-center text-gray-500">
                     <div className="flex items-center justify-center gap-2">
                       <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
                       Loading employees...
@@ -892,7 +917,7 @@ Payroll Department
                 </tr>
               ) : filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="10" className="px-6 py-4 text-center text-gray-500">
                     No employees found matching the criteria.
                   </td>
                 </tr>
@@ -910,8 +935,10 @@ Payroll Department
                       />
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900 font-mono">{record.employeeId}</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="font-medium text-gray-900">{record.employeeName}</div>
-                      <div className="text-xs text-gray-500">{record.employeeId}</div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-gray-900">{record.designation}</div>
@@ -947,17 +974,7 @@ Payroll Department
                         {record.bankName || 'Not Set'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        record.status === 'Paid' 
-                          ? 'bg-green-100 text-green-800' 
-                          : record.status === 'Payment Email Sent'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
-                        {record.status}
-                      </span>
-                    </td>
+                    
                   </tr>
                 );
               }))}
@@ -1033,14 +1050,16 @@ Payroll Department
             </div>
 
             {/* Scrollable Content */}
-            <div className="overflow-auto flex-1 p-5">
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-[#262760] sticky top-0 z-10">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Employee
-                      </th>
+            <div className="overflow-auto flex-1 px-5 pb-5 relative">
+              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0 mt-5">
+                <thead className="bg-[#262760] sticky top-0 z-40">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-0 z-50 bg-[#262760]">
+                      Employee ID
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-[120px] z-50 bg-[#262760]">
+                      Employee Name
+                    </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                         Total Earnings
                       </th>
@@ -1067,9 +1086,11 @@ Payroll Department
                   <tbody className="bg-white divide-y divide-gray-200">
                     {simulation.results.map(result => (
                       <tr key={result.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
+                        <td className="px-6 py-4 whitespace-nowrap sticky left-0 z-30 bg-white">
+                          <div className="text-sm text-gray-900 font-mono">{result.employeeId}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap sticky left-[120px] z-30 bg-white shadow-md">
                           <div className="font-medium text-gray-900">{result.employeeName}</div>
-                          <div className="text-xs text-gray-500">{result.employeeId}</div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           {formatCurrency(result.totalEarnings)}
@@ -1109,7 +1130,7 @@ Payroll Department
                       </tr>
                     ))}
                     <tr className="border-t font-semibold bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap">Totals</td>
+                      <td colSpan="2" className="px-6 py-4 whitespace-nowrap sticky left-0 z-30 bg-gray-50 shadow-md">Totals</td>
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         {formatCurrency(simulation.totals.totalEarnings)}
                       </td>
@@ -1136,7 +1157,6 @@ Payroll Department
                     </tr>
                   </tbody>
                 </table>
-              </div>
               
               {/* Summary Stats */}
               <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">
