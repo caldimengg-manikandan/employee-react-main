@@ -1199,14 +1199,22 @@ const ExpenditureManagement = () => {
                             >
                               <Edit className="w-4 h-4" />
                             </button>
-                            <button
-                              onClick={() => removeExpense(exp.id)}
-                              className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Delete"
+                            <Popconfirm
+                              title="Delete Expenditure"
+                              description="Are you sure you want to delete this expenditure?"
+                              onConfirm={() => removeExpense(exp.id)}
+                              okText="Yes"
+                              cancelText="No"
                               disabled={!!editingExpenditureId}
                             >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                              <button
+                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title="Delete"
+                                disabled={!!editingExpenditureId}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </Popconfirm>
                           </div>
                         </td>
                       </tr>

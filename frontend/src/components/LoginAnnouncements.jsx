@@ -14,9 +14,24 @@ const LoginAnnouncements = ({ title = '📢 Company Announcements', mode = 'list
   const fetchAnnouncements = async () => {
     try {
       const data = await authAPI.announcement.getActive();
-      setAnnouncements(data);
+      
+      // Ensure Pongal announcement is displayed
+      const pongalAnnouncement = {
+        _id: 'pongal-2026',
+        title: 'CALDIM PONGAL CELEBRATION 2026',
+        message: 'PARTICIPATE ✨ ENJOY 🎈😊'
+      };
+      
+      const allAnnouncements = Array.isArray(data) ? [pongalAnnouncement, ...data] : [pongalAnnouncement];
+      setAnnouncements(allAnnouncements);
     } catch (error) {
       console.error('Failed to fetch announcements:', error);
+      // Fallback to Pongal announcement on error
+      setAnnouncements([{
+        _id: 'pongal-2026',
+        title: 'CALDIM PONGAL CELEBRATION 2026',
+        message: 'PARTICIPATE ✨ ENJOY 🎈😊'
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -56,7 +71,7 @@ const LoginAnnouncements = ({ title = '📢 Company Announcements', mode = 'list
         <style>
           {`
             .ticker-track {
-              animation: ticker-scroll 9s linear infinite;
+              animation: ticker-scroll 30s linear infinite;
               will-change: transform;
             }
             .ticker:hover .ticker-track {

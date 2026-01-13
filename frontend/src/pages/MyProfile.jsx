@@ -667,6 +667,10 @@ const MyProfile = () => {
     );
   }
 
+  const isAddOrganizationDisabled = organizations.some(org => 
+    !org.organization || !org.designation || !org.startDate || !org.endDate
+  );
+
   return (
     <>
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">
@@ -1143,9 +1147,10 @@ const MyProfile = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm text-gray-700 mb-1">
+                      <label className="block text-sm text-gray-700 mb-1" > 
                         UAN Number
-                      </label>
+                        <span className="text-red-600">*</span>
+                      </label> 
                       <input
                         type="text"
                         value={formData.uan}
@@ -1179,6 +1184,7 @@ const MyProfile = () => {
                       <select
                         value={formData.designation}
                         onChange={(e) => handleInputChange('designation', e.target.value)}
+                        maxLength={25}
                         required
                         disabled
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
@@ -1265,7 +1271,8 @@ const MyProfile = () => {
                     <button
                       type="button"
                       onClick={addOrganization}
-                      className="text-sm text-cyan-600 hover:text-cyan-700 flex items-center font-medium"
+                      disabled={isAddOrganizationDisabled}
+                      className={`text-sm flex items-center font-medium ${isAddOrganizationDisabled ? 'text-gray-400 cursor-not-allowed' : 'text-cyan-600 hover:text-cyan-700'}`}
                     >
                       <PlusIcon className="h-4 w-4 mr-1" />
                       Add Organization
@@ -1317,6 +1324,7 @@ const MyProfile = () => {
                           <input
                             type="date"
                             value={org.startDate}
+                            max={10}
                             onChange={(e) => handleOrganizationChange(index, 'startDate', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm"
                           />

@@ -112,7 +112,7 @@ const ProjectAllocation = () => {
   const handleProjectFilterChange = (field, value) => {
     setProjectFilters(prev => ({
       ...prev,
-      [field]: prev[field].includes(value) 
+      [field]: prev[field].includes(value)
         ? prev[field].filter(item => item !== value)
         : [...prev[field], value]
     }));
@@ -121,7 +121,7 @@ const ProjectAllocation = () => {
   const handleAllocationFilterChange = (field, value) => {
     setAllocationFilters(prev => ({
       ...prev,
-      [field]: prev[field].includes(value) 
+      [field]: prev[field].includes(value)
         ? prev[field].filter(item => item !== value)
         : [...prev[field], value]
     }));
@@ -218,7 +218,7 @@ const ProjectAllocation = () => {
   // Get unique values for filter options
   const getUniqueProjectCodes = (divisionFilters = []) => {
     let filteredProjects = projects;
-    
+
     if (divisionFilters && divisionFilters.length > 0) {
       filteredProjects = filteredProjects.filter(p => divisionFilters.includes(p.division));
     }
@@ -227,7 +227,7 @@ const ProjectAllocation = () => {
 
   const getUniqueProjectNames = (divisionFilters = []) => {
     let filteredProjects = projects;
-    
+
     if (divisionFilters && divisionFilters.length > 0) {
       filteredProjects = filteredProjects.filter(p => divisionFilters.includes(p.division));
     }
@@ -239,7 +239,7 @@ const ProjectAllocation = () => {
 
   const getUniqueEmployeeIds = (divisionFilters = []) => {
     let filteredAllocations = allocations;
-    
+
     if (divisionFilters && divisionFilters.length > 0) {
       filteredAllocations = filteredAllocations.filter(a => divisionFilters.includes(a.projectDivision || a.division));
     }
@@ -251,15 +251,15 @@ const ProjectAllocation = () => {
   // Filter functions
   const filterProjects = (projects) => {
     return projects.filter(project => {
-      const matchesCode = projectFilters.projectCode.length === 0 || 
+      const matchesCode = projectFilters.projectCode.length === 0 ||
         projectFilters.projectCode.includes(project.code);
-      const matchesName = projectFilters.projectName.length === 0 || 
+      const matchesName = projectFilters.projectName.length === 0 ||
         projectFilters.projectName.includes(project.name);
-      const matchesDivision = projectFilters.division.length === 0 || 
+      const matchesDivision = projectFilters.division.length === 0 ||
         projectFilters.division.includes(project.division);
-      const matchesLocation = projectFilters.location.length === 0 || 
+      const matchesLocation = projectFilters.location.length === 0 ||
         projectFilters.location.includes(project.branch);
-      const matchesStatus = projectFilters.status.length === 0 || 
+      const matchesStatus = projectFilters.status.length === 0 ||
         projectFilters.status.includes(project.status);
 
       return matchesCode && matchesName && matchesDivision && matchesLocation && matchesStatus;
@@ -268,17 +268,17 @@ const ProjectAllocation = () => {
 
   const filterAllocations = (allocations) => {
     return allocations.filter(allocation => {
-      const matchesCode = allocationFilters.projectCode.length === 0 || 
+      const matchesCode = allocationFilters.projectCode.length === 0 ||
         allocationFilters.projectCode.includes(allocation.projectCode);
-      const matchesName = allocationFilters.projectName.length === 0 || 
+      const matchesName = allocationFilters.projectName.length === 0 ||
         allocationFilters.projectName.includes(allocation.projectName);
-      const matchesEmployeeId = allocationFilters.employeeId.length === 0 || 
+      const matchesEmployeeId = allocationFilters.employeeId.length === 0 ||
         allocationFilters.employeeId.includes(allocation.employeeCode);
-      const matchesDivision = allocationFilters.division.length === 0 || 
+      const matchesDivision = allocationFilters.division.length === 0 ||
         allocationFilters.division.includes(allocation.projectDivision || allocation.division);
-      const matchesLocation = allocationFilters.location.length === 0 || 
+      const matchesLocation = allocationFilters.location.length === 0 ||
         allocationFilters.location.includes(allocation.branch);
-      const matchesStatus = allocationFilters.status.length === 0 || 
+      const matchesStatus = allocationFilters.status.length === 0 ||
         allocationFilters.status.includes(allocation.status);
 
       return matchesCode && matchesName && matchesEmployeeId && matchesDivision && matchesLocation && matchesStatus;
@@ -319,16 +319,16 @@ const ProjectAllocation = () => {
   // Calculate current user's allocations
   const myAllocations = allocations.filter(alloc => {
     if (!user) return false;
-    
+
     // robust matching logic
-    const matchesId = (user.id && alloc.employeeId && String(user.id) === String(alloc.employeeId)) || 
-                      (user._id && alloc.employeeId && String(user._id) === String(alloc.employeeId));
-                      
-    const matchesEmployeeId = user.employeeId && alloc.employeeCode && 
-                             String(user.employeeId).trim() === String(alloc.employeeCode).trim();
-                             
-    const matchesName = user.name && alloc.employeeName && 
-                       String(user.name).trim().toLowerCase() === String(alloc.employeeName).trim().toLowerCase();
+    const matchesId = (user.id && alloc.employeeId && String(user.id) === String(alloc.employeeId)) ||
+      (user._id && alloc.employeeId && String(user._id) === String(alloc.employeeId));
+
+    const matchesEmployeeId = user.employeeId && alloc.employeeCode &&
+      String(user.employeeId).trim() === String(alloc.employeeCode).trim();
+
+    const matchesName = user.name && alloc.employeeName &&
+      String(user.name).trim().toLowerCase() === String(alloc.employeeName).trim().toLowerCase();
 
     return matchesId || matchesEmployeeId || matchesName;
   });
@@ -370,7 +370,7 @@ const ProjectAllocation = () => {
         return match ? parseInt(match[1]) : null;
       })
       .filter(num => num !== null && !Number.isNaN(num));
-    
+
     const nextNumber = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 0;
     return `${prefix}-${nextNumber.toString().padStart(3, '0')}`;
   };
@@ -378,12 +378,12 @@ const ProjectAllocation = () => {
   // Filter helpers with location filter
   const getFilteredProjects = () => {
     let filtered = projects;
-    
+
     // Apply location filter
     if (selectedLocation !== 'All') {
       filtered = filtered.filter(p => p.branch === selectedLocation);
     }
-    
+
     // Apply other filters
     const result = filterProjects(filtered);
     return result.sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
@@ -391,24 +391,24 @@ const ProjectAllocation = () => {
 
   const getFilteredAllocations = () => {
     let filtered = allocations;
-    
+
     // Apply location filter
     if (selectedLocation !== 'All') {
       filtered = filtered.filter(a => a.branch === selectedLocation);
     }
-    
+
     // Apply other filters
     return filterAllocations(filtered);
   };
 
   const getMyFilteredAllocations = () => {
     let filtered = myAllocations;
-    
+
     // Apply location filter
     if (selectedLocation !== 'All') {
       filtered = filtered.filter(a => a.branch === selectedLocation);
     }
-    
+
     // Apply other filters
     return filterAllocations(filtered);
   };
@@ -418,12 +418,12 @@ const ProjectAllocation = () => {
   const hasActiveAllocationFilters = Object.values(allocationFilters).some(filter => filter.length > 0);
 
   // MultiSelect Dropdown Component
-  const MultiSelectDropdown = ({ 
-    label, 
-    options, 
-    selectedValues, 
-    onChange, 
-    onSelectAll, 
+  const MultiSelectDropdown = ({
+    label,
+    options,
+    selectedValues,
+    onChange,
+    onSelectAll,
     onClear,
     isOpen,
     onToggle,
@@ -441,16 +441,16 @@ const ProjectAllocation = () => {
             className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white flex justify-between items-center"
           >
             <span className="truncate">
-              {selectedValues.length === 0 
-                ? `All ${label}` 
-                : selectedValues.length === 1 
+              {selectedValues.length === 0
+                ? `All ${label}`
+                : selectedValues.length === 1
                   ? selectedValues[0]
                   : `${selectedValues.length} selected`
               }
             </span>
             <ChevronDown size={16} className={`transform ${isOpen ? 'rotate-180' : ''}`} />
           </button>
-          
+
           {isOpen && (
             <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
               <div className="p-2 border-b border-gray-200">
@@ -510,12 +510,12 @@ const ProjectAllocation = () => {
       openViewModal(project, 'project');
       return;
     }
-    
+
     if (!canEdit) {
       setMessageModal({ isOpen: true, title: 'Access Denied', message: "You don't have permission to manage projects. Please contact Project Manager or Admin." });
       return;
     }
-    
+
     if (project) {
       setEditingProject(project);
       setProjectForm({
@@ -559,7 +559,7 @@ const ProjectAllocation = () => {
     }
 
     // Prevent duplicate project by name + division (exclude current when editing)
-    const duplicateProject = projects.some(p => 
+    const duplicateProject = projects.some(p =>
       String(p.name).trim().toLowerCase() === String(projectForm.name).trim().toLowerCase() &&
       String(p.division).trim().toLowerCase() === String(projectForm.division).trim().toLowerCase() &&
       String(p._id || p.id) !== String(editingProject?._id || editingProject?.id || '')
@@ -598,7 +598,7 @@ const ProjectAllocation = () => {
         await projectAPI.createProject(payload);
       }
       await refreshData();
-      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) {}
+      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) { }
       closeProjectModal();
     } catch (e) {
       setMessageModal({ isOpen: true, title: 'Error', message: e?.response?.data?.error || 'Failed to save project' });
@@ -639,12 +639,12 @@ const ProjectAllocation = () => {
       openViewModal(allocation, 'allocation');
       return;
     }
-    
+
     if (!canEdit) {
       setMessageModal({ isOpen: true, title: 'Access Denied', message: "You don't have permission to edit allocations. Please contact Project Manager or Admin." });
       return;
     }
-    
+
     if (allocation) {
       setEditingAllocation(allocation);
       setAllocationForm({
@@ -696,13 +696,13 @@ const ProjectAllocation = () => {
     }
 
     // Find project by name and division
-    const project = projects.find(p => 
-      p.name === allocationForm.projectName && 
+    const project = projects.find(p =>
+      p.name === allocationForm.projectName &&
       p.division === allocationForm.division
     );
 
     // Find employee by employeeId (unique) to prevent mismatches
-    const employee = employees.find(e => 
+    const employee = employees.find(e =>
       e.employeeId === allocationForm.employeeId
     );
 
@@ -717,7 +717,7 @@ const ProjectAllocation = () => {
     }
 
     // Prevent duplicate allocation (same project + employee)
-    const isDuplicateAllocation = allocations.some(a => 
+    const isDuplicateAllocation = allocations.some(a =>
       String(a.projectName).trim().toLowerCase() === String(project.name).trim().toLowerCase() &&
       String(a.employeeCode).trim().toLowerCase() === String(allocationForm.employeeId).trim().toLowerCase()
     );
@@ -726,7 +726,7 @@ const ProjectAllocation = () => {
       return;
     }
     if (editingAllocation) {
-      const dupOnEdit = allocations.some(a => 
+      const dupOnEdit = allocations.some(a =>
         String(a._id || a.id) !== String(editingAllocation._id || editingAllocation.id) &&
         String(a.projectName).trim().toLowerCase() === String(project.name).trim().toLowerCase() &&
         String(a.employeeCode).trim().toLowerCase() === String(allocationForm.employeeId).trim().toLowerCase()
@@ -771,7 +771,7 @@ const ProjectAllocation = () => {
         await allocationAPI.createAllocation(payload);
       }
       await refreshData();
-      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) {}
+      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) { }
       closeAllocationModal();
     } catch (e) {
       setMessageModal({ isOpen: true, title: 'Error', message: e?.response?.data?.error || 'Failed to save allocation' });
@@ -794,7 +794,7 @@ const ProjectAllocation = () => {
       setAllocations(prev => prev.filter(a => a._id !== allocationId));
       setDeleteAllocationModal({ isOpen: false, allocationId: null });
       setSuccessModal({ isOpen: true, message: 'Allocation deleted.' });
-      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) {}
+      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) { }
     } catch (e) {
       alert(e?.response?.data?.error || 'Failed to delete allocation');
       setDeleteAllocationModal({ isOpen: false, allocationId: null });
@@ -811,7 +811,7 @@ const ProjectAllocation = () => {
           </div>
         </div>
       )}
-      
+
       {!loading && (
         <>
           <Modal
@@ -907,7 +907,7 @@ const ProjectAllocation = () => {
               </div>
             </div>
           </Modal>
-          
+
 
           {/* Controls */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
@@ -939,7 +939,7 @@ const ProjectAllocation = () => {
               </div>
 
               <div className="flex items-center space-x-4">
-               
+
 
                 {/* Filter Button */}
                 <button
@@ -947,9 +947,8 @@ const ProjectAllocation = () => {
                     e.stopPropagation();
                     setShowFilters(!showFilters);
                   }}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
-                    showFilters ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${showFilters ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
                 >
                   <Filter size={16} />
                   Filters
@@ -1205,7 +1204,7 @@ const ProjectAllocation = () => {
                     <h3 className="text-lg font-medium text-gray-900 mb-2">No Projects Found</h3>
                     <p className="text-gray-500">
                       {hasActiveProjectFilters || selectedLocation !== 'All'
-                        ? "No projects match your current filters." 
+                        ? "No projects match your current filters."
                         : "No projects available."
                       }
                     </p>
@@ -1216,9 +1215,9 @@ const ProjectAllocation = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto h-[480px] overflow-y-auto">
                     <table className="w-full">
-                      <thead>
+                      <thead className="sticky top-0 z-10">
                         <tr className="bg-gray-50">
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
@@ -1250,25 +1249,25 @@ const ProjectAllocation = () => {
                             <td className="p-3"><span className={getStatusBadge(project.status)}>{project.status}</span></td>
                             <td className="p-3">
                               <div className="flex space-x-2">
-                                <button 
-                                  onClick={() => openViewModal(project, 'project')} 
-                                  className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors" 
+                                <button
+                                  onClick={() => openViewModal(project, 'project')}
+                                  className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors"
                                   title="View"
                                 >
                                   <Eye size={14} />
                                 </button>
                                 {canEdit && (
                                   <>
-                                    <button 
-                                      onClick={() => openProjectModal(project)} 
-                                      className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors" 
+                                    <button
+                                      onClick={() => openProjectModal(project)}
+                                      className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
                                       title="Edit"
                                     >
                                       <Edit size={14} />
                                     </button>
-                                    <button 
-                                      onClick={() => openDeleteProjectModal(project)} 
-                                      className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors" 
+                                    <button
+                                      onClick={() => openDeleteProjectModal(project)}
+                                      className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
                                       title="Delete"
                                     >
                                       <Trash2 size={14} />
@@ -1330,9 +1329,9 @@ const ProjectAllocation = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto h-[480px] overflow-y-auto">
                     <table className="w-full">
-                      <thead>
+                      <thead className="sticky top-0 z-10">
                         <tr className="bg-gray-50">
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
@@ -1370,25 +1369,25 @@ const ProjectAllocation = () => {
                             </td>
                             <td className="p-3">
                               <div className="flex space-x-2">
-                                <button 
-                                  onClick={() => openViewModal(allocation, 'allocation')} 
-                                  className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors" 
+                                <button
+                                  onClick={() => openViewModal(allocation, 'allocation')}
+                                  className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors"
                                   title="View"
                                 >
                                   <Eye size={14} />
                                 </button>
                                 {canEdit && (
                                   <>
-                                    <button 
-                                      onClick={() => openAllocationModal(allocation)} 
-                                      className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors" 
+                                    <button
+                                      onClick={() => openAllocationModal(allocation)}
+                                      className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
                                       title="Edit"
                                     >
                                       <Edit size={14} />
                                     </button>
-                                    <button 
-                                      onClick={() => openDeleteAllocationModal(allocation)} 
-                                      className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors" 
+                                    <button
+                                      onClick={() => openDeleteAllocationModal(allocation)}
+                                      className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
                                       title="Delete"
                                     >
                                       <Trash2 size={14} />
@@ -1451,9 +1450,9 @@ const ProjectAllocation = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="overflow-x-auto">
+                  <div className="overflow-x-auto h-[480px] overflow-y-auto">
                     <table className="w-full">
-                      <thead>
+                      <thead className="sticky top-0 z-10">
                         <tr className="bg-gray-50">
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
@@ -1491,9 +1490,9 @@ const ProjectAllocation = () => {
                               <div className="text-xs text-gray-400">{formatDate(allocation.assignedDate)}</div>
                             </td>
                             <td className="p-3">
-                              <button 
-                                onClick={() => openViewModal(allocation, 'allocation')} 
-                                className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors" 
+                              <button
+                                onClick={() => openViewModal(allocation, 'allocation')}
+                                className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors"
                                 title="View Details"
                               >
                                 <Eye size={14} />
@@ -1598,8 +1597,8 @@ const ProjectAllocation = () => {
                 </div>
 
                 <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-                  <button 
-                    onClick={closeViewModal} 
+                  <button
+                    onClick={closeViewModal}
                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
                     Close
@@ -1620,9 +1619,9 @@ const ProjectAllocation = () => {
                 <div className="p-6 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Division *</label>
-                    <select 
-                      value={projectForm.division} 
-                      onChange={(e) => setProjectForm(prev => ({ ...prev, division: e.target.value }))} 
+                    <select
+                      value={projectForm.division}
+                      onChange={(e) => setProjectForm(prev => ({ ...prev, division: e.target.value }))}
                       className={`w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${editingProject ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                       disabled={!!editingProject}
                     >
@@ -1635,11 +1634,11 @@ const ProjectAllocation = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Project Name *</label>
-                    <input 
-                      type="text" 
-                      value={projectForm.name} 
-                      onChange={(e) => setProjectForm(prev => ({ ...prev, name: e.target.value }))} 
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                    <input
+                      type="text"
+                      value={projectForm.name}
+                      onChange={(e) => setProjectForm(prev => ({ ...prev, name: e.target.value }))}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Enter project name"
                     />
                   </div>
@@ -1699,9 +1698,9 @@ const ProjectAllocation = () => {
                 <div className="p-6 space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Division *</label>
-                    <select 
-                      value={allocationForm.division} 
-                      onChange={(e) => setAllocationForm(prev => ({ ...prev, division: e.target.value, projectName: '', employeeName: '', employeeId: '' }))} 
+                    <select
+                      value={allocationForm.division}
+                      onChange={(e) => setAllocationForm(prev => ({ ...prev, division: e.target.value, projectName: '', employeeName: '', employeeId: '' }))}
                       className={`w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${editingAllocation ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                       disabled={!!editingAllocation}
                     >
@@ -1714,9 +1713,9 @@ const ProjectAllocation = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Project Name *</label>
-                    <select 
-                      value={allocationForm.projectName} 
-                      onChange={(e) => setAllocationForm(prev => ({ ...prev, projectName: e.target.value }))} 
+                    <select
+                      value={allocationForm.projectName}
+                      onChange={(e) => setAllocationForm(prev => ({ ...prev, projectName: e.target.value }))}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       disabled={!allocationForm.division}
                     >
@@ -1734,9 +1733,9 @@ const ProjectAllocation = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Employee Name *</label>
-                    <select 
-                      value={allocationForm.employeeId} 
-                      onChange={(e) => handleEmployeeSelect(e.target.value)} 
+                    <select
+                      value={allocationForm.employeeId}
+                      onChange={(e) => handleEmployeeSelect(e.target.value)}
                       className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       disabled={!allocationForm.division}
                     >
@@ -1754,11 +1753,11 @@ const ProjectAllocation = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID</label>
-                    <input 
-                      type="text" 
-                      value={allocationForm.employeeId} 
+                    <input
+                      type="text"
+                      value={allocationForm.employeeId}
                       readOnly
-                      className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" 
+                      className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Employee ID will be auto-filled"
                     />
                   </div>

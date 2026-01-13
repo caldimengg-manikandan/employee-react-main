@@ -892,6 +892,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       <input
                         type="text"
                         value={formData.spouseName}
+                        maxLength={25}
                         onChange={(e) => handleInputChange('spouseName', e.target.value)}
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                         placeholder="Spouse name"
@@ -904,6 +905,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       <input
                         type="tel"
                         value={formData.spouseContact}
+                        maxLength={10}
                         onChange={(e) => handleInputChange('spouseContact', e.target.value)}
                         className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                         placeholder="Spouse contact number"

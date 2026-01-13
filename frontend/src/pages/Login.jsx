@@ -503,7 +503,7 @@ const Login = () => {
             {holidays2026.map((holiday, index) => (
               <div 
                 key={index} 
-                className="bg-white/10 border border-white/10 rounded-xl p-4 hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1"
+                className="bg-white/10 border border-white/10 rounded-xl p-4 hover:bg-white/20 transition-all duration-300"
               >
                 <div className="flex justify-between items-start mb-2">
                   <span className="text-3xl font-bold text-white/20">{(index + 1).toString().padStart(2, '0')}</span>

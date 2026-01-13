@@ -21,6 +21,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const [showEmployeeIdDropdown, setShowEmployeeIdDropdown] = useState(false);
   const [employeeIdSearch, setEmployeeIdSearch] = useState('');
 
+  const [employeeSearch, setEmployeeSearch] = useState('');
+
   const permissionOptions = [
     'dashboard',
     'user_access',
@@ -31,7 +33,6 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     'leave_access',
     'leave_manage',
     'leave_view',
-    'leave_manage_trainees',
     'payroll_access',
     'expenditure_access'
   ];
@@ -45,7 +46,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'leave_access',
       'leave_view'
     ],
-  
+
     employees: [
       'dashboard',
       'timesheet_access',
@@ -57,8 +58,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const roleOptions = [
     { value: 'projectmanager', label: 'Project Manager' },
     { value: 'admin', label: 'ADMIN' },
-    { value: 'employees', label: 'employees' },
-    
+    { value: 'employees', label: 'employees' }
   ];
 
   useEffect(() => {
@@ -125,11 +125,11 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const handleEmployeeIdChange = (e) => {
     let value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
     setFormData(prev => ({ ...prev, employeeId: value }));
-    
+
     if (value && !/^CDE\d{3}$/.test(value)) {
-        setErrors(prev => ({ ...prev, employeeId: 'Must be CDE followed by exactly 3 digits' }));
+      setErrors(prev => ({ ...prev, employeeId: 'Must be CDE followed by exactly 3 digits' }));
     } else {
-        setErrors(prev => ({ ...prev, employeeId: '' }));
+      setErrors(prev => ({ ...prev, employeeId: '' }));
     }
   };
 
@@ -173,12 +173,12 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.name.trim()) newErrors.name = 'Name is required';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
     else if (!/\S+@\S+\.\S+/.test(formData.email)) newErrors.email = 'Email is invalid';
     if (!formData.role) newErrors.role = 'Role is required';
-    
+
     // Password validation
     const specialCharRegex = /[!@#$%^&*(),.?":{}|<>]/;
 
@@ -190,10 +190,16 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       if (formData.password.length < 6) newErrors.password = 'Password must be at least 6 characters';
       else if (!specialCharRegex.test(formData.password)) newErrors.password = 'Password must contain at least one special character';
     }
-    
+
     // Confirm password validation
     if (formData.password && formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    // Permissions validation
+    const effectivePermissions = new Set([...formData.permissions, 'timesheet_access']);
+    if (effectivePermissions.size < 2) {
+      newErrors.permissions = 'At least 2 permissions must be selected (including Timesheet Access)';
     }
 
     setErrors(newErrors);
@@ -207,11 +213,17 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     setLoading(true);
     try {
       if (user) {
-        const updateData = { 
+        // Ensure timesheet_access is included if it's missing (though it should be forced)
+        let permissionsToUpdate = [...formData.permissions];
+        if (!permissionsToUpdate.includes('timesheet_access')) {
+          permissionsToUpdate.push('timesheet_access');
+        }
+
+        const updateData = {
           name: formData.name,
           email: formData.email,
           role: formData.role,
-          permissions: formData.permissions,
+          permissions: permissionsToUpdate,
           employeeId: formData.employeeId
         };
         // Only include password if it's provided
@@ -225,7 +237,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
           email: formData.email,
           role: formData.role,
           password: formData.password,
-          permissions: formData.permissions,
+          permissions: [...formData.permissions, ...(!formData.permissions.includes('timesheet_access') ? ['timesheet_access'] : [])],
           employeeId: formData.employeeId
         });
       }
@@ -254,12 +266,12 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
           <button
             type="button"
             onClick={() => setShowEmployeeDropdown(!showEmployeeDropdown)}
-            className="w-full bg-white border border-gray-300 rounded-md shadow-sm px-4 py-2 text-left cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500"
-            disabled={employeeLoading}
+            className={`w-full bg-white border border-gray-300 rounded-md shadow-sm px-4 py-2 text-left cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 ${!!user ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`}
+            disabled={employeeLoading || !!user}
           >
-            {formData.employeeId 
+            {formData.employeeId
               ? `${formData.name} - ${formData.email}`
-              : employeeLoading 
+              : employeeLoading
                 ? 'Loading employees...'
                 : 'Select an employee'
             }
@@ -272,18 +284,42 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
           {showEmployeeDropdown && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-              {employees.length > 0 ? (
-                employees.map((employee) => (
-                  <div
-                    key={employee._id}
-                    onClick={() => handleEmployeeSelect(employee)}
-                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                  >
-                    <div className="font-medium text-gray-900">{employee.name}</div>
-                    <div className="text-sm text-gray-500">{employee.email}</div>
-                    <div className="text-xs text-gray-400">{employee.employeeId}</div>
-                  </div>
-                ))
+              <div className="p-2 border-b border-gray-100">
+                <input
+                  type="text"
+                  value={employeeSearch}
+                  onChange={(e) => setEmployeeSearch(e.target.value)}
+                  placeholder="Search by name, email or ID"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+              {employees.filter(e => {
+                const q = employeeSearch.toLowerCase();
+                return !q ||
+                  (e.name && e.name.toLowerCase().includes(q)) ||
+                  (e.email && e.email.toLowerCase().includes(q)) ||
+                  (e.employeeId && e.employeeId.toLowerCase().includes(q));
+              }).length > 0 ? (
+                employees
+                  .filter(e => {
+                    const q = employeeSearch.toLowerCase();
+                    return !q ||
+                      (e.name && e.name.toLowerCase().includes(q)) ||
+                      (e.email && e.email.toLowerCase().includes(q)) ||
+                      (e.employeeId && e.employeeId.toLowerCase().includes(q));
+                  })
+                  .map((employee) => (
+                    <div
+                      key={employee._id}
+                      onClick={() => handleEmployeeSelect(employee)}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                    >
+                      <div className="font-medium text-gray-900">{employee.name}</div>
+                      <div className="text-sm text-gray-500">{employee.email}</div>
+                      <div className="text-xs text-gray-400">{employee.employeeId}</div>
+                    </div>
+                  ))
               ) : (
                 <div className="px-4 py-2 text-gray-500 text-center">
                   {employeeLoading ? 'Loading...' : 'No employees found'}
@@ -304,12 +340,13 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
           name="employeeId"
           value={formData.employeeId}
           onChange={handleEmployeeIdChange}
+          disabled={!!user}
         />
         <button
           type="button"
           onClick={() => setShowEmployeeIdDropdown(!showEmployeeIdDropdown)}
           className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
-          disabled={employeeLoading}
+          disabled={employeeLoading || !!user}
         >
           <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -358,9 +395,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
           onChange={handleChange}
           error={errors.name}
           required
-          disabled={!!formData.employeeId}
+          disabled={!!formData.employeeId || !!user}
         />
-        {formData.employeeId && (
+        {formData.employeeId && !user && (
           <button
             type="button"
             onClick={() => {
@@ -390,7 +427,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         onChange={handleChange}
         error={errors.email}
         required
-        disabled={!!formData.employeeId}
+        disabled={!!formData.employeeId || !!user}
       />
 
       {/* Role */}
@@ -417,7 +454,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         onChange={handleChange}
         error={errors.password}
         required={!user}
-       
+
       />
 
       {/* Confirm Password */}
@@ -453,21 +490,23 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {permissionOptions.map(permission => {
-            const isActive = formData.permissions.includes(permission);
+            const isActive = formData.permissions.includes(permission) || permission === 'timesheet_access';
+            const isAlwaysEnabled = permission === 'timesheet_access';
             return (
               <div
                 key={permission}
-                className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200"
+                className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 ${isAlwaysEnabled ? 'opacity-75' : ''}`}
               >
                 <span className="text-sm text-gray-700 capitalize">
-                  {permission.replace(/_/g, ' ')}
+                  {permission.replace(/_/g, ' ')} {isAlwaysEnabled && '(Always On)'}
                 </span>
 
                 <button
                   type="button"
-                  onClick={() => handlePermissionChange(permission)}
+                  disabled={isAlwaysEnabled}
+                  onClick={() => !isAlwaysEnabled && handlePermissionChange(permission)}
                   className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out 
-                    ${isActive ? 'bg-primary-600' : 'bg-gray-300'}`}
+                    ${isActive ? 'bg-primary-600' : 'bg-gray-300'} ${isAlwaysEnabled ? 'cursor-not-allowed' : ''}`}
                 >
                   <span
                     className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out 
@@ -478,6 +517,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
             );
           })}
         </div>
+        {errors.permissions && (
+          <p className="mt-2 text-sm text-red-600">{errors.permissions}</p>
+        )}
       </div>
 
       {/* Actions */}

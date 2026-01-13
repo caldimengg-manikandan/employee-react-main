@@ -669,20 +669,20 @@ const InternReference = () => {
 
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
-                            IFSC Code * <span className="text-gray-500 text-xs">(Max 10 characters)</span>
+                            IFSC Code * <span className="text-gray-500 text-xs">(Max 11 characters)</span>
                           </label>
                           <input
                             placeholder="Enter IFSC code"
-                            maxLength={10}
+                            maxLength={11}
                             className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all uppercase ${errors.ifscCode ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
                             value={form.ifscCode}
                             onChange={e => {
-                              const value = e.target.value.toUpperCase().slice(0, 10);
+                              const value = e.target.value.toUpperCase().slice(0, 11);
                               setForm({ ...form, ifscCode: value });
                               if (errors.ifscCode) setErrors({ ...errors, ifscCode: null });
                             }}
                           />
-                          <p className="text-xs text-gray-500">{form.ifscCode.length}/10 characters</p>
+                          <p className="text-xs text-gray-500">{form.ifscCode.length}/11 characters</p>
                           {errors.ifscCode && <p className="text-red-500 text-sm mt-1">{errors.ifscCode}</p>}
                         </div>
                       </div>

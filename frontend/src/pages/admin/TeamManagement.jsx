@@ -282,7 +282,7 @@ const TeamManagement = () => {
             </div>
             <div className="border rounded-lg overflow-hidden">
               <div className="overflow-x-auto">
-                <div className="max-h-96 overflow-y-auto">
+                <div className="h-[calc(100vh-280px)] overflow-y-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50 sticky top-0 z-10">
                       <tr>
