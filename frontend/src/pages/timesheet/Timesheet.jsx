@@ -80,7 +80,7 @@ const Timesheet = () => {
     "Documentation",
     "Other's",
     "Non Product(Training)",
-    "Project Decision",
+    "Project Discussion",
     "Idle",
     "Meeting",
     "RIF’s",
@@ -91,6 +91,7 @@ const Timesheet = () => {
     "Office Administration",
     "HR Activities",
     "Accounts",
+    "Break Time"
 
 
   ];
