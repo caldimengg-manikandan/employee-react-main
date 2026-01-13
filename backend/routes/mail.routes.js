@@ -7,12 +7,15 @@ const router = express.Router();
 
 router.post("/send", async (req, res) => {
   try {
-    const { email, subject, message } = req.body;
+    const { email, cc, subject, message, html, attachments } = req.body;
 
     await sendZohoMail({
       to: email,
+      cc,
       subject,
       content: message,
+      html: html || message, // Use html if provided, fallback to message
+      attachments,
     });
 
     res.json({

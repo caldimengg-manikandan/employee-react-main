@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { monthlyPayrollAPI } from '../../services/api';
+import { monthlyPayrollAPI, employeeAPI } from '../../services/api';
 import { ChevronDown, ChevronRight, Download } from 'lucide-react';
+import useNotification from '../../hooks/useNotification';
+import Notification from '../../components/Notifications/Notification';
 
 export default function GratuitySummary() {
   const [gratuityData, setGratuityData] = useState([]);
@@ -10,6 +12,8 @@ export default function GratuitySummary() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [filterDesignation, setFilterDesignation] = useState('all');
+  const [filterLocation, setFilterLocation] = useState('all');
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
 
   useEffect(() => {
     fetchGratuityData();
@@ -19,9 +23,29 @@ export default function GratuitySummary() {
     setLoading(true);
     setError('');
     try {
-      // Fetch all monthly payroll records
-      const response = await monthlyPayrollAPI.list();
-      const records = Array.isArray(response.data) ? response.data : [];
+      // Fetch all monthly payroll records and employees in parallel
+      const [payrollResponse, employeeResponse] = await Promise.all([
+        monthlyPayrollAPI.list(),
+        employeeAPI.getAllEmployees()
+      ]);
+
+      const records = Array.isArray(payrollResponse.data) ? payrollResponse.data : [];
+      const employees = Array.isArray(employeeResponse.data) ? employeeResponse.data : [];
+
+      // Create a map of employeeId -> department
+      const deptMap = {};
+      employees.forEach(emp => {
+        if (emp.employeeId) {
+          // Use department if available, otherwise fallback to division
+          deptMap[emp.employeeId] = emp.department || emp.division || 'Unknown';
+        }
+      });
+      const locMap = {};
+      employees.forEach(emp => {
+        if (emp.employeeId) {
+          locMap[emp.employeeId] = emp.location || 'Unknown';
+        }
+      });
 
       // Group by employee
       const grouped = {};
@@ -36,7 +60,8 @@ export default function GratuitySummary() {
                employeeId: record.employeeId,
                employeeName: record.employeeName,
                designation: record.designation,
-               department: record.department,
+               department: record.department || deptMap[record.employeeId] || 'Unknown',
+               location: record.location || locMap[record.employeeId] || 'Unknown',
                totalGratuity: 0,
                history: []
              };
@@ -56,8 +81,9 @@ export default function GratuitySummary() {
         emp.history.sort((a, b) => b.month.localeCompare(a.month));
       });
 
-      // Convert to array
+      // Convert to array and sort by Employee ID
       const data = Object.values(grouped);
+      data.sort((a, b) => a.employeeId.localeCompare(b.employeeId, undefined, { numeric: true }));
       setGratuityData(data);
 
     } catch (err) {
@@ -96,10 +122,15 @@ export default function GratuitySummary() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    showSuccess('CSV exported successfully');
   };
 
-  const departments = ['all', ...new Set(gratuityData.map(item => item.department).filter(Boolean))];
-  const designations = ['all', ...new Set(gratuityData.map(item => item.designation).filter(Boolean))];
+  const depCandidateData = gratuityData.filter(item => (filterDesignation === 'all' || item.designation === filterDesignation) && (filterLocation === 'all' || item.location === filterLocation));
+  const departments = ['all', ...new Set(depCandidateData.map(item => item.department).filter(Boolean))];
+  const desigCandidateData = gratuityData.filter(item => (filterDepartment === 'all' || item.department === filterDepartment) && (filterLocation === 'all' || item.location === filterLocation));
+  const designations = ['all', ...new Set(desigCandidateData.map(item => item.designation).filter(Boolean))];
+  const locCandidateData = gratuityData.filter(item => (filterDepartment === 'all' || item.department === filterDepartment) && (filterDesignation === 'all' || item.designation === filterDesignation));
+  const locations = ['all', ...new Set(locCandidateData.map(item => item.location).filter(Boolean))];
 
   const filteredData = gratuityData.filter(item => {
     const matchesSearch = 
@@ -107,32 +138,50 @@ export default function GratuitySummary() {
       item.employeeId.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDepartment = filterDepartment === 'all' || item.department === filterDepartment;
     const matchesDesignation = filterDesignation === 'all' || item.designation === filterDesignation;
-    return matchesSearch && matchesDepartment && matchesDesignation;
+    const matchesLocation = filterLocation === 'all' || item.location === filterLocation;
+    return matchesSearch && matchesDepartment && matchesDesignation && matchesLocation;
   });
+
+  useEffect(() => {
+    const available = new Set(desigCandidateData.map(i => i.designation).filter(Boolean));
+    if (filterDesignation !== 'all' && !available.has(filterDesignation)) {
+      setFilterDesignation('all');
+    }
+    const availableLoc = new Set(locCandidateData.map(i => i.location).filter(Boolean));
+    if (filterLocation !== 'all' && !availableLoc.has(filterLocation)) {
+      setFilterLocation('all');
+    }
+  }, [filterDepartment, gratuityData]);
+
+  useEffect(() => {
+    const availableDepts = new Set(depCandidateData.map(i => i.department).filter(Boolean));
+    if (filterDepartment !== 'all' && !availableDepts.has(filterDepartment)) {
+      setFilterDepartment('all');
+    }
+    const availableLoc = new Set(locCandidateData.map(i => i.location).filter(Boolean));
+    if (filterLocation !== 'all' && !availableLoc.has(filterLocation)) {
+      setFilterLocation('all');
+    }
+  }, [filterDesignation, gratuityData]);
 
   if (loading) return <div className="p-6">Loading gratuity data...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full">
+
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Gratuity Summary</h1>
             <p className="text-gray-500 mt-1">Monthly gratuity additions per employee</p>
           </div>
-          <button
-            onClick={exportCSV}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Export CSV
-          </button>
+          
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="sticky top-0 z-20 bg-white p-4 rounded-lg shadow-sm mb-6 border border-gray-200">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* Search */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Search Employee</label>
@@ -140,6 +189,7 @@ export default function GratuitySummary() {
                 type="text"
                 placeholder="Search by name or ID"
                 value={searchTerm}
+                maxLength={10}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
@@ -174,14 +224,42 @@ export default function GratuitySummary() {
                 ))}
               </select>
             </div>
+
+            {/* Location Filter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+              <select
+                value={filterLocation}
+                onChange={(e) => setFilterLocation(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Locations</option>
+                {locations.filter(l => l !== 'all').map(loc => (
+                  <option key={loc} value={loc}>{loc}</option>
+                ))}
+              </select>
+
+              
+            </div>
+
+            <div className="flex items-end justify-end">
+              <button
+            onClick={exportCSV}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            <Download className="w-4 h-4 mr-2" />
+            Export CSV
+          </button>
+            </div>
+            
           </div>
         </div>
 
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
+          <div className="overflow-auto max-h-[600px]">
+            <table className="w-full text-left border-collapse relative">
+              <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+                <tr className="border-b border-gray-200">
                   <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-10"></th>
                   <th className="px-6 py-4 text-sm font-semibold text-gray-600">Employee ID</th>
                   <th className="px-6 py-4 text-sm font-semibold text-gray-600">Name</th>
@@ -257,8 +335,17 @@ export default function GratuitySummary() {
               </tbody>
             </table>
           </div>
+          <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-right text-sm text-gray-600">
+            Total Records: <span className="font-semibold text-gray-900">{filteredData.length}</span>
+          </div>
         </div>
       </div>
+      <Notification
+        message={notification.message}
+        type={notification.type}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
     </div>
   );
 }

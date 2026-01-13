@@ -22,7 +22,7 @@ import {
   File,
   ExternalLink
 } from "lucide-react";
-import { message } from "antd";
+import { message, Popconfirm } from "antd";
 import { expenditureAPI } from "../../services/api";
 
 const ExpenditureManagement = () => {
@@ -335,6 +335,7 @@ const ExpenditureManagement = () => {
       ...item,
       sNo: index + 1
     })));
+    message.success("Expenditure deleted successfully");
   };
 
   const editExpense = (id) => {
@@ -603,10 +604,6 @@ const ExpenditureManagement = () => {
   };
 
   const deleteRecord = async (recordId) => {
-    if (!confirm("Are you sure you want to delete this record? This action cannot be undone.")) {
-      return;
-    }
-
     try {
       console.log('🗑️ Deleting record:', recordId);
       await expenditureAPI.deleteRecord(recordId);
@@ -913,17 +910,19 @@ const ExpenditureManagement = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Budget Allocated (₹) *</label>
                   <input
-                    type="number"
+                    type="text"
                     placeholder="Enter budget amount"
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.budgetAllocated ? 'border-red-500' : ''} disabled:bg-gray-100 disabled:text-gray-500`}
                     value={budgetAllocated}
                     onChange={(e) => {
-                      if (e.target.value.length <= 8) setBudgetAllocated(e.target.value);
+                      const value = e.target.value;
+                      // Only allow digits and a single decimal point
+                      if (/^\d*\.?\d*$/.test(value) && value.length <= 8) {
+                        setBudgetAllocated(value);
+                      }
                       if (errors.budgetAllocated) setErrors({ ...errors, budgetAllocated: null });
                     }}
                     required
-                    min="0"
-                    step="0.01"
                   />
                   {errors.budgetAllocated && <p className="text-red-500 text-xs mt-1">{errors.budgetAllocated}</p>}
                 </div>
@@ -1031,17 +1030,19 @@ const ExpenditureManagement = () => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Amount (₹) *</label>
                   <input
-                    type="number"
+                    type="text"
                     placeholder="Amount"
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.amount ? 'border-red-500' : ''}`}
                     value={newExpense.amount}
                     onChange={(e) => {
-                      if (e.target.value.length <= 8) setNewExpense({ ...newExpense, amount: e.target.value });
+                      const value = e.target.value;
+                      // Only allow digits and a single decimal point
+                      if (/^\d*\.?\d*$/.test(value) && value.length <= 8) {
+                        setNewExpense({ ...newExpense, amount: value });
+                      }
                       if (errors.amount) setErrors({ ...errors, amount: null });
                     }}
                     required
-                    min="0"
-                    step="0.01"
                   />
                   {errors.amount && <p className="text-red-500 text-xs mt-1">Amount is required</p>}
                 </div>
@@ -1436,13 +1437,21 @@ const ExpenditureManagement = () => {
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
-                              <button
-                                onClick={() => deleteRecord(row.id)}
-                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                              <Popconfirm
                                 title="Delete Record"
+                                description="Are you sure you want to delete this record? This action cannot be undone."
+                                onConfirm={() => deleteRecord(row.id)}
+                                okText="Yes, Delete"
+                                cancelText="Cancel"
+                                okButtonProps={{ danger: true }}
                               >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                                <button
+                                  className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                                  title="Delete Record"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </Popconfirm>
                             </div>
                           </td>
                         </tr>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Eye, Download, Trash2, Plus, Edit2, Check, X, User, Calendar, Building, CreditCard, DollarSign, Clock, AlertCircle, Power } from "lucide-react";
 import { employeeAPI, loanAPI } from "../../services/api";
+import jsPDF from "jspdf";
 
 export default function LoanSummary() {
   const [loans, setLoans] = useState([]);
@@ -50,7 +51,14 @@ export default function LoanSummary() {
     try {
       const response = await employeeAPI.getAllEmployees();
       if (response.data) {
-        setEmployees(Array.isArray(response.data) ? response.data : []);
+        const data = Array.isArray(response.data) ? response.data : [];
+        // Sort employees by employeeId
+        const sortedData = data.sort((a, b) => {
+          const idA = a.employeeId || "";
+          const idB = b.employeeId || "";
+          return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        setEmployees(sortedData);
       }
     } catch (error) {
       console.error("Error fetching employees:", error);
@@ -138,6 +146,16 @@ export default function LoanSummary() {
   /* -------- FORM HANDLING -------- */
   function handleChange(e) {
     const { name, value } = e.target;
+    
+    // Validation logic
+    if (name === "amount") {
+      if (Number(value) > 1000000) return; // Max 10 Lakhs
+    }
+    
+    if (name === "tenureMonths") {
+      if (Number(value) > 60) return; // Max 60 months
+    }
+
     setForm((s) => ({ ...s, [name]: value }));
   }
 
@@ -208,7 +226,7 @@ export default function LoanSummary() {
       employeeName: loan.employeeName,
       amount: loan.amount,
       tenureMonths: loan.tenureMonths,
-      startDate: loan.startDate,
+      startDate: loan.startDate ? new Date(loan.startDate).toISOString().split('T')[0] : "",
       location: loan.location,
       division: loan.division,
       status: loan.status
@@ -256,30 +274,102 @@ export default function LoanSummary() {
   }
 
   function downloadPDF(loan) {
-    const content = `
-Loan Statement
+    const doc = new jsPDF();
+    
+    // Add Company/Title Header
+    doc.setFontSize(22);
+    doc.setTextColor(38, 39, 96); // #262760
+    doc.text("Loan Statement", 105, 20, { align: "center" });
+    
+    // Add Divider Line
+    doc.setDrawColor(200, 200, 200);
+    doc.line(20, 25, 190, 25);
+    
+    // Reset Font
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    
+    let y = 40;
+    const lineHeight = 10;
+    const leftColX = 20;
+    const rightColX = 110;
+    
+    // Helper to add row
+    const addRow = (label, value) => {
+      doc.setFont("helvetica", "bold");
+      doc.text(label, leftColX, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(String(value), leftColX + 40, y);
+    };
 
-Loan ID     : ${loan.id}
-Employee    : ${loan.employeeName} (${loan.employeeId})
-Location    : ${loan.location}
-Division    : ${loan.division}
-Amount      : ₹${loan.amount}
-Tenure      : ${loan.tenureMonths} months
-Start Date  : ${loan.startDate}
-Monthly EMI : ₹${calcMonthlyDeduction(loan)}
-Paid Months : ${loan.paidMonths}
-Remaining   : ₹${remainingBalance(loan)}
-Status      : ${loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}
-Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
-`;
+    // Loan Information
+    doc.setFontSize(14);
+    doc.setTextColor(38, 39, 96);
+    doc.text("Loan Details", leftColX, y);
+    y += 10;
+    
+    doc.setFontSize(11);
+    doc.setTextColor(0, 0, 0);
 
-    const blob = new Blob([content], { type: "application/pdf" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `Loan_${loan.id}.pdf`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const loanId = loan.loanId || loan.id || "N/A";
+    
+    doc.text("Loan ID:", leftColX, y);
+    doc.text(loanId, leftColX + 40, y);
+    
+    doc.text("Date:", rightColX, y);
+    doc.text(new Date().toLocaleDateString(), rightColX + 20, y);
+    y += lineHeight;
+
+    doc.text("Employee:", leftColX, y);
+    doc.text(`${loan.employeeName} (${loan.employeeId})`, leftColX + 40, y);
+    y += lineHeight;
+
+    doc.text("Location:", leftColX, y);
+    doc.text(loan.location || "N/A", leftColX + 40, y);
+    
+    doc.text("Division:", rightColX, y);
+    doc.text(loan.division || "N/A", rightColX + 20, y);
+    y += lineHeight + 5;
+
+    // Financials Box
+    doc.setFillColor(245, 247, 250);
+    doc.rect(15, y, 180, 70, "F");
+    y += 10;
+
+    doc.text("Loan Amount:", leftColX + 5, y);
+    doc.text(`Rs. ${loan.amount}`, leftColX + 45, y);
+    
+    doc.text("Tenure:", rightColX, y);
+    doc.text(`${loan.tenureMonths} months`, rightColX + 25, y);
+    y += lineHeight;
+
+    doc.text("Start Date:", leftColX + 5, y);
+    doc.text(new Date(loan.startDate).toLocaleDateString(), leftColX + 45, y);
+    
+    doc.text("Monthly EMI:", rightColX, y);
+    doc.text(`Rs. ${calcMonthlyDeduction(loan)}`, rightColX + 25, y);
+    y += lineHeight;
+
+    doc.text("Paid Months:", leftColX + 5, y);
+    doc.text(String(loan.paidMonths || 0), leftColX + 45, y);
+    y += lineHeight;
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Remaining Balance:", leftColX + 5, y);
+    doc.text(`Rs. ${remainingBalance(loan)}`, leftColX + 45, y);
+    doc.setFont("helvetica", "normal");
+    y += lineHeight;
+
+    doc.text("Status:", leftColX + 5, y);
+    doc.text(loan.status.charAt(0).toUpperCase() + loan.status.slice(1), leftColX + 45, y);
+    y += lineHeight + 15;
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text("This is a computer generated document.", 105, 280, { align: "center" });
+
+    doc.save(`Loan_${loanId}.pdf`);
   }
 
   async function deleteLoan(id) {
@@ -330,6 +420,7 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
               value={filters.employeeId}
               onChange={handleFilterChange}
               placeholder="Search by ID..."
+              maxLength={10}
               className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#262760]"
             />
           </div>
@@ -539,7 +630,7 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
                   <option value="">Select Employee</option>
                   {employees.map((emp) => (
                     <option key={emp._id || emp.employeeId} value={emp.employeeId}>
-                      {emp.employeeId} - {emp.name}
+                      {emp.employeeId}
                     </option>
                   ))}
                 </select>
@@ -562,6 +653,7 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
                   value={form.amount}
                   onChange={handleChange}
                   placeholder="50000" 
+                  max="1000000"
                   className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-[#262760]"
                   required
                 />
@@ -574,6 +666,7 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
                   value={form.tenureMonths}
                   onChange={handleChange}
                   placeholder="12" 
+                  max="60"
                   className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-[#262760]"
                   required
                 />
@@ -584,7 +677,8 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
                   name="location" 
                   value={form.location}
                   onChange={handleChange}
-                  className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-[#262760]"
+                  disabled
+                  className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-[#262760] bg-gray-100 cursor-not-allowed"
                 >
                   <option value="Chennai">Chennai</option>
                   <option value="Hosur">Hosur</option>
@@ -596,7 +690,8 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
                   name="division" 
                   value={form.division}
                   onChange={handleChange}
-                  className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-[#262760]"
+                  disabled
+                  className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-[#262760] bg-gray-100 cursor-not-allowed"
                 >
                   <option value="SDS">SDS</option>
                   <option value="TEKLA">TEKLA</option>
@@ -656,6 +751,7 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
                   value={form.employeeId}
                   onChange={handleChange}
                   placeholder="E001" 
+                  maxLength={10}
                   className="border p-2 w-full rounded-lg"
                   required
                 />
@@ -679,6 +775,7 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
                   value={form.amount}
                   onChange={handleChange}
                   placeholder="50000" 
+                  max="1000000"
                   className="border p-2 w-full rounded-lg"
                   required
                 />
@@ -691,6 +788,7 @@ Payment     : ${loan.paymentEnabled ? 'Enabled' : 'Disabled'}
                   value={form.tenureMonths}
                   onChange={handleChange}
                   placeholder="12" 
+                  max="60"
                   className="border p-2 w-full rounded-lg"
                   required
                 />

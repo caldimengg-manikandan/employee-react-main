@@ -914,7 +914,17 @@ const TimesheetHistory = () => {
                         const hasApprovedLeave = (selectedTimesheet.entries || []).some(
                           (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
                         );
-                        const breakHours = hasWork && !hasApprovedLeave ? 1.25 : 0;
+                        const shifts = Array.isArray(selectedTimesheet.dailyShiftTypes) ? selectedTimesheet.dailyShiftTypes : [];
+                        const shift = shifts[i] || selectedTimesheet.shiftType || "";
+                        const getShiftBreakHours = (s) => {
+                          if (!s) return 0;
+                          const x = String(s);
+                          if (x.startsWith("First Shift")) return 65 / 60;
+                          if (x.startsWith("Second Shift")) return 60 / 60;
+                          if (x.startsWith("General Shift")) return 75 / 60;
+                          return 0;
+                        };
+                        const breakHours = hasWork && !hasApprovedLeave ? getShiftBreakHours(shift) : 0;
                         return (
                           <td key={i} className="p-3 text-sm text-blue-700 text-center">{toHHMM(breakHours)}</td>
                         );
@@ -927,7 +937,17 @@ const TimesheetHistory = () => {
                           const hasApprovedLeave = (selectedTimesheet.entries || []).some(
                             (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
                           );
-                          return hasWork && !hasApprovedLeave ? 1.25 : 0;
+                          const shifts = Array.isArray(selectedTimesheet.dailyShiftTypes) ? selectedTimesheet.dailyShiftTypes : [];
+                          const shift = shifts[i] || selectedTimesheet.shiftType || "";
+                          const getShiftBreakHours = (s) => {
+                            if (!s) return 0;
+                            const x = String(s);
+                            if (x.startsWith("First Shift")) return 65 / 60;
+                            if (x.startsWith("Second Shift")) return 60 / 60;
+                            if (x.startsWith("General Shift")) return 75 / 60;
+                            return 0;
+                          };
+                          return hasWork && !hasApprovedLeave ? getShiftBreakHours(shift) : 0;
                         }).reduce((sum, b) => sum + b, 0))}
                       </td>
                     </tr>
@@ -942,7 +962,17 @@ const TimesheetHistory = () => {
                         const hasApprovedLeave = (selectedTimesheet.entries || []).some(
                           (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
                         );
-                        const breakHours = hasWork && !hasApprovedLeave ? 1.25 : 0;
+                        const shifts = Array.isArray(selectedTimesheet.dailyShiftTypes) ? selectedTimesheet.dailyShiftTypes : [];
+                        const shift = shifts[i] || selectedTimesheet.shiftType || "";
+                        const getShiftBreakHours = (s) => {
+                          if (!s) return 0;
+                          const x = String(s);
+                          if (x.startsWith("First Shift")) return 65 / 60;
+                          if (x.startsWith("Second Shift")) return 60 / 60;
+                          if (x.startsWith("General Shift")) return 75 / 60;
+                          return 0;
+                        };
+                        const breakHours = hasWork && !hasApprovedLeave ? getShiftBreakHours(shift) : 0;
                         return (
                           <td key={i} className={`p-3 text-sm text-center ${dayWork + breakHours >= 20 ? 'text-yellow-800 font-semibold' : 'text-blue-700 font-semibold'}`}>{toHHMM(dayWork + breakHours)}</td>
                         );
@@ -957,7 +987,17 @@ const TimesheetHistory = () => {
                             const hasApprovedLeave = (selectedTimesheet.entries || []).some(
                               (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
                             );
-                            return hasWork && !hasApprovedLeave ? 1.25 : 0;
+                            const shifts = Array.isArray(selectedTimesheet.dailyShiftTypes) ? selectedTimesheet.dailyShiftTypes : [];
+                            const shift = shifts[i] || selectedTimesheet.shiftType || "";
+                            const getShiftBreakHours = (s) => {
+                              if (!s) return 0;
+                              const x = String(s);
+                              if (x.startsWith("First Shift")) return 65 / 60;
+                              if (x.startsWith("Second Shift")) return 60 / 60;
+                              if (x.startsWith("General Shift")) return 75 / 60;
+                              return 0;
+                            };
+                            return hasWork && !hasApprovedLeave ? getShiftBreakHours(shift) : 0;
                           }).reduce((sum, b) => sum + b, 0);
                           return toHHMM(weeklyWork + weeklyBreak);
                         })()}

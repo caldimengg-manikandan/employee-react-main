@@ -1252,7 +1252,10 @@ const InsuranceManagement = () => {
             <label className="flex-1">
               <input
                 type="file"
-                onChange={(e) => handleEditFileUpload(doc.key, e.target.files[0])}
+                onChange={(e) => {
+                  handleEditFileUpload(doc.key, e.target.files[0]);
+                  e.target.value = ''; // Reset input to allow re-selecting same file
+                }}
                 className="hidden"
                 accept={doc.accept}
               />
@@ -1726,7 +1729,10 @@ const InsuranceManagement = () => {
             <label className="flex-1">
               <input
                 type="file"
-                onChange={(e) => handleFileUpload(doc.key, e.target.files[0])}
+                onChange={(e) => {
+                  handleFileUpload(doc.key, e.target.files[0]);
+                  e.target.value = ''; // Reset input to allow re-selecting same file
+                }}
                 className="hidden"
                 accept={doc.accept}
               />

@@ -37,6 +37,10 @@ api.interceptors.response.use(
   }
 );
 
+export const mailAPI = {
+  send: (data) => api.post('/mail/send', data),
+};
+
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   forgotPassword: (data) => api.post('/auth/forgot-password', data),

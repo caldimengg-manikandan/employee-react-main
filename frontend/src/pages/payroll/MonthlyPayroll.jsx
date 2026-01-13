@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Download, Check, X, Mail, Filter } from 'lucide-react';
-import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI } from '../../services/api';
+import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI, mailAPI } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const calculateSalaryFields = (salaryData, lopDaysInput) => {
   const basicDA = parseFloat(salaryData.basicDA) || 0;
@@ -39,7 +40,173 @@ const calculateSalaryFields = (salaryData, lopDaysInput) => {
   };
 };
 
-const defaultSample = [];
+const createPayrollWorkbook = (simulation, selectedMonth) => {
+  const workbook = XLSX.utils.book_new();
+  
+  // Create headers exactly as in your sample
+  const headers = [
+    ["SL .NO", "LOCATION", "NAME OF THE", "UAN", "BANK ACCOUNT NUMBER", "ID NUMBAR", "ACL", "WORKING DAYS", "GROSS", 
+     "BASIC +DA", "HRA", "CEILING", "DEDUCTION", "EPS", "EPF", "ADMIN", "ESI", "VOLUNTARY", "TDS", 
+     "PROFESSIONALTAX", "LOAN", "TOTAL", "ROUND OFF VALUE", "NET", "EMPLOYEE SIGNATURE"],
+    ["", "", "EMPLOYEE'S", "NO", "SALARY", "", "SALARY", "", "", "BASIC", "EPF", "ESI", "8.33%", "3.67%", 
+     "CHARGES", "3.25%", "CON", "DEDUC", "DEDUC", "", "DEDUC", "SALARY", "", "", ""]
+  ];
+  
+  // Prepare data rows
+  const dataRows = simulation.results.map((record, index) => {
+    // Calculate EPF components (assuming 8.33% for EPS and 3.67% for EPF)
+    const epfCeiling = 15000; // Standard EPF ceiling
+    const basicForEPF = Math.min(record.basicDA || 0, epfCeiling);
+    const epsDeduction = Math.round(basicForEPF * 0.0833);
+    const epfDeduction = Math.round(basicForEPF * 0.0367);
+    
+    // Calculate ESI (assuming 0.75% of gross)
+    const esiDeduction = Math.round((record.totalEarnings || 0) * 0.0075);
+    
+    // Calculate admin charges (assuming 0.5% of basic)
+    const adminCharges = Math.round((record.basicDA || 0) * 0.005);
+    
+    // Calculate working days (30 - LOP days)
+    const workingDays = 30 - (record.lopDays || 0);
+    
+    // Calculate total deduction
+    const totalDeduction = (record.totalDeductions || 0);
+    
+    return [
+      index + 1, // SL .NO
+      record.location || "HSR", // LOCATION
+      record.employeeName || "", // NAME OF THE EMPLOYEE'S
+      "", // UAN NO (if available)
+      record.accountNumber || "", // BANK ACCOUNT NUMBER
+      record.employeeId || "", // ID NUMBAR
+      0, // ACL
+      workingDays, // WORKING DAYS
+      record.totalEarnings || 0, // GROSS SALARY
+      record.basicDA || 0, // BASIC +DA
+      record.hra || 0, // HRA
+      epfCeiling, // CEILING
+      totalDeduction, // DEDUCTION
+      epsDeduction, // EPS 8.33%
+      epfDeduction, // EPF 3.67%
+      adminCharges, // ADMIN CHARGES
+      esiDeduction, // ESI 3.25%
+      0, // VOLUNTARY CON
+      record.tax || 0, // TDS DEDUC
+      record.professionalTax || 0, // PROFESSIONALTAX DEDUC
+      record.loanDeduction || 0, // LOAN DEDUC
+      record.totalEarnings || 0, // TOTAL SALARY
+      0, // ROUND OFF VALUE
+      record.netSalary || 0, // NET
+      "" // EMPLOYEE SIGNATURE
+    ];
+  });
+  
+  // Calculate totals similar to your sample
+  const totals = simulation.results.reduce((acc, record, index) => {
+    acc.gross += record.totalEarnings || 0;
+    acc.basic += record.basicDA || 0;
+    acc.hra += record.hra || 0;
+    acc.net += record.netSalary || 0;
+    acc.workingDays += (30 - (record.lopDays || 0));
+    
+    // EPF calculations
+    const epfCeiling = 15000;
+    const basicForEPF = Math.min(record.basicDA || 0, epfCeiling);
+    acc.eps += Math.round(basicForEPF * 0.0833);
+    acc.epf += Math.round(basicForEPF * 0.0367);
+    acc.esi += Math.round((record.totalEarnings || 0) * 0.0075);
+    acc.admin += Math.round((record.basicDA || 0) * 0.005);
+    
+    return acc;
+  }, { 
+    gross: 0, 
+    basic: 0, 
+    hra: 0, 
+    net: 0, 
+    workingDays: 0,
+    eps: 0,
+    epf: 0,
+    esi: 0,
+    admin: 0
+  });
+  
+  // Add totals row (similar to your sample)
+  const totalsRow = [
+    "TOTAL", 
+    "", 
+    "", 
+    "", 
+    "", 
+    "", 
+    "", 
+    totals.workingDays, // WORKING DAYS total
+    totals.gross, // GROSS total
+    totals.basic, // BASIC +DA total
+    totals.hra, // HRA total
+    "", // CEILING
+    "", // DEDUCTION
+    totals.eps, // EPS total
+    totals.epf, // EPF total
+    totals.admin, // ADMIN total
+    totals.esi, // ESI total
+    "", // VOLUNTARY
+    "", // TDS
+    "", // PROFESSIONALTAX
+    "", // LOAN
+    totals.gross, // TOTAL SALARY
+    0, // ROUND OFF VALUE
+    totals.net, // NET total
+    "" // EMPLOYEE SIGNATURE
+  ];
+  
+  // Combine all data
+  const ws_data = [...headers, ...dataRows, [], totalsRow];
+  
+  // Create worksheet
+  const ws = XLSX.utils.aoa_to_sheet(ws_data);
+  
+  // Set column widths
+  const colWidths = [
+    { wch: 8 },  // SL .NO
+    { wch: 12 }, // LOCATION
+    { wch: 25 }, // NAME
+    { wch: 15 }, // UAN
+    { wch: 20 }, // BANK ACCOUNT
+    { wch: 15 }, // ID NUMBER
+    { wch: 8 },  // ACL
+    { wch: 12 }, // WORKING DAYS
+    { wch: 12 }, // GROSS
+    { wch: 15 }, // BASIC+DA
+    { wch: 10 }, // HRA
+    { wch: 10 }, // CEILING
+    { wch: 12 }, // DEDUCTION
+    { wch: 10 }, // EPS
+    { wch: 10 }, // EPF
+    { wch: 12 }, // ADMIN
+    { wch: 10 }, // ESI
+    { wch: 12 }, // VOLUNTARY
+    { wch: 10 }, // TDS
+    { wch: 18 }, // PROFESSIONAL TAX
+    { wch: 10 }, // LOAN
+    { wch: 12 }, // TOTAL
+    { wch: 15 }, // ROUND OFF
+    { wch: 12 }, // NET
+    { wch: 20 }  // SIGNATURE
+  ];
+  ws['!cols'] = colWidths;
+  
+  // Add to workbook
+  XLSX.utils.book_append_sheet(workbook, ws, `Payroll_${selectedMonth}`);
+  
+  return workbook;
+};
+
+// Function to export to Excel in the specified format
+const exportToExcel = (simulation, selectedMonth) => {
+  if (!simulation) return;
+  const workbook = createPayrollWorkbook(simulation, selectedMonth);
+  XLSX.writeFile(workbook, `Monthly_Payroll_${selectedMonth}.xlsx`);
+};
 
 export default function MonthlyPayroll() {
   const [salaryRecords, setSalaryRecords] = useState([]);
@@ -57,6 +224,10 @@ export default function MonthlyPayroll() {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [filterDesignation, setFilterDesignation] = useState('all');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailTo, setEmailTo] = useState('');
+  const [emailCC, setEmailCC] = useState('');
 
   useEffect(() => {
     fetchEmployees();
@@ -285,6 +456,7 @@ export default function MonthlyPayroll() {
       const response = await monthlyPayrollAPI.save(payload);
       
       setMessage(`Successfully saved ${response.data.count} payroll records to database.`);
+      setShowSuccessModal(true);
       setTimeout(() => setMessage(''), 5000);
       
     } catch (error) {
@@ -295,7 +467,12 @@ export default function MonthlyPayroll() {
     }
   };
 
-  const sendPaymentEmail = () => {
+  const handleExcelExport = () => {
+    if (!simulation) return;
+    exportToExcel(simulation, selectedMonth);
+  };
+
+  const handleSendPaymentClick = () => {
     if (!simulation) return;
 
     // Check for missing bank details
@@ -309,23 +486,78 @@ export default function MonthlyPayroll() {
       return;
     }
 
-    // Prepare email data
-    const emailData = {
-      month: selectedMonth,
-      totalEmployees: simulation.results.length,
-      totalAmount: simulation.totals.netSalary,
-      employees: simulation.results.map(r => ({
-        name: r.employeeName,
-        id: r.employeeId,
-        amount: r.netSalary,
-        accountNumber: r.accountNumber,
-        ifscCode: r.ifscCode,
-        bankName: r.bankName
-      }))
+    setShowEmailModal(true);
+  };
+
+  const processPaymentEmail = async () => {
+    if (!emailTo) {
+      alert('Please enter a recipient email (To)');
+      return;
+    }
+
+    setMessage('Sending email...');
+
+    // Generate Excel attachment
+    const workbook = createPayrollWorkbook(simulation, selectedMonth);
+    const excelBase64 = XLSX.write(workbook, { bookType: 'xlsx', type: 'base64' });
+    const attachment = {
+        filename: `Monthly_Payroll_${selectedMonth}.xlsx`,
+        content: excelBase64,
+        encoding: 'base64'
     };
 
-    // Create email content
-    const emailContent = `
+    // Calculate location-wise stats
+    const locationStats = simulation.results.reduce((acc, curr) => {
+        const loc = curr.location || 'Unknown';
+        if (!acc[loc]) {
+            acc[loc] = { count: 0, amount: 0 };
+        }
+        acc[loc].count++;
+        acc[loc].amount += curr.netSalary;
+        return acc;
+    }, {});
+
+    // Create HTML content for the email
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; padding: 20px;">
+        <h2>Monthly Salary Payment Request - ${selectedMonth}</h2>
+        <p>Dear Accounts Team,</p>
+        <p>Please process salary payments for the following employees for <strong>${selectedMonth}</strong>.</p>
+        
+        <div style="margin: 20px 0; padding: 15px; background-color: #f8f9fa; border-left: 4px solid #262760;">
+          <p><strong>Total Amount:</strong> ₹${formatCurrency(simulation.totals.netSalary)}</p>
+          <p><strong>Total Employees:</strong> ${simulation.results.length}</p>
+        </div>
+
+        <h3>Location-wise Summary</h3>
+        <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+          <thead>
+            <tr style="background-color: #262760; color: white;">
+              <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Location</th>
+              <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Employee Count</th>
+              <th style="padding: 10px; text-align: right; border: 1px solid #ddd;">Total Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${Object.entries(locationStats).map(([loc, stats]) => `
+              <tr style="border-bottom: 1px solid #ddd;">
+                <td style="padding: 10px; border: 1px solid #ddd;">${loc}</td>
+                <td style="padding: 10px; text-align: center; border: 1px solid #ddd;">${stats.count}</td>
+                <td style="padding: 10px; text-align: right; border: 1px solid #ddd;">₹${formatCurrency(stats.amount)}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+        
+        <p style="margin-top: 30px;">The detailed payroll simulation is attached to this email.</p>
+        <p>Please confirm once payments are processed.</p>
+        <p>Regards,<br/>Payroll Department</p>
+      </div>
+    `;
+
+    const plainTextContent = `
+To: ${emailTo}
+CC: ${emailCC}
 Subject: Monthly Salary Payment Request - ${selectedMonth}
 
 Dear Accounts Team,
@@ -335,14 +567,12 @@ Please process salary payments for the following employees for ${selectedMonth}.
 Total Amount: ₹${formatCurrency(simulation.totals.netSalary)}
 Total Employees: ${simulation.results.length}
 
-Employee Details:
-${simulation.results.map(r => `
-- ${r.employeeName} (${r.employeeId})
-  Amount: ₹${formatCurrency(r.netSalary)}
-  Account: ${r.accountNumber}
-  IFSC: ${r.ifscCode}
-  Bank: ${r.bankName}
-`).join('')}
+Location-wise Summary:
+${Object.entries(locationStats).map(([loc, stats]) => 
+  `- ${loc}: ${stats.count} employees, ₹${formatCurrency(stats.amount)}`
+).join('\n')}
+
+The detailed payroll simulation is attached to this email.
 
 Please confirm once payments are processed.
 
@@ -350,36 +580,51 @@ Regards,
 Payroll Department
 `;
 
-    // Simulate sending email
-    console.log('Email content:', emailContent);
-    
-    // Update status in records
-    const updatedRecords = salaryRecords.map(rec => {
-      const simRec = simulation.results.find(s => s.id === rec.id);
-      if (simRec) {
-        return { 
-          ...rec, 
-          ...simRec, 
-          status: 'Payment Email Sent', 
-          salaryMonth: simRec.salaryMonth, 
-          paymentDate: simRec.paymentDate 
-        };
-      }
-      return rec;
-    });
-
-    setSalaryRecords(updatedRecords);
-    
     try {
-      localStorage.setItem('payrollRecords', JSON.stringify(updatedRecords));
-    } catch (e) {
-      console.warn('Failed to write payrollRecords to localStorage', e);
-    }
+      await mailAPI.send({
+        email: emailTo,
+        cc: emailCC,
+        subject: `Monthly Salary Payment Request - ${selectedMonth}`,
+        message: plainTextContent,
+        html: htmlContent,
+        attachments: [attachment]
+      });
 
-    setMessage('Payment email sent to accounts team. Records updated.');
-    setTimeout(() => setMessage(''), 5000);
-    setSimulation(null);
-    setSelectedEmployees([]);
+      // Update status in records
+      const updatedRecords = salaryRecords.map(rec => {
+        const simRec = simulation.results.find(s => s.id === rec.id);
+        if (simRec) {
+          return { 
+            ...rec, 
+            ...simRec, 
+            status: 'Payment Email Sent', 
+            salaryMonth: simRec.salaryMonth, 
+            paymentDate: simRec.paymentDate 
+          };
+        }
+        return rec;
+      });
+
+      setSalaryRecords(updatedRecords);
+      
+      try {
+        localStorage.setItem('payrollRecords', JSON.stringify(updatedRecords));
+      } catch (e) {
+        console.warn('Failed to write payrollRecords to localStorage', e);
+      }
+
+      setMessage(`Payment email sent to ${emailTo}${emailCC ? ` and CC: ${emailCC}` : ''}. Records updated.`);
+      setTimeout(() => setMessage(''), 5000);
+      setSimulation(null);
+      setSelectedEmployees([]);
+      setShowEmailModal(false);
+      setEmailTo('');
+      setEmailCC('');
+
+    } catch (error) {
+      console.error('Failed to send email:', error);
+      setMessage('Error: Failed to send email. Please check backend logs/configuration.');
+    }
   };
 
   const exportSimulationCSV = () => {
@@ -472,14 +717,14 @@ Payroll Department
 
       {message && (
         <div className={`mb-4 p-3 rounded ${
-          message.includes('Error') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+          message.includes('Error') || message.includes('Select at least one employee') ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
         }`}>
           {message}
         </div>
       )}
 
       {/* Controls */}
-      <div className="bg-white p-5 rounded-lg shadow mb-3 border border-gray-200">
+      <div className="bg-white p-5 rounded-lg shadow mb-3 border border-gray-200 flex-none z-20 sticky top-0">
         {/* Filters */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-4 border-b pb-4">
           {/* Search */}
@@ -552,6 +797,7 @@ Payroll Department
             <input 
               type="month" 
               value={selectedMonth} 
+              max={new Date().toISOString().slice(0, 7)}
               onChange={(e) => setSelectedMonth(e.target.value)} 
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
             />
@@ -591,7 +837,7 @@ Payroll Department
             ) : (
               <>
                 <Play className="w-4 h-4" />
-                Simulation
+                Simulate
               </>
             )}
           </button>
@@ -601,9 +847,9 @@ Payroll Department
 
       {/* Employee/Salary Records Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-[#262760]">
+        <div className="overflow-auto max-h-[calc(100vh-250px)]">
+          <table className="min-w-full divide-y divide-gray-200 relative">
+            <thead className="bg-[#262760] sticky top-0 z-10">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Select
@@ -744,6 +990,13 @@ Payroll Department
               </h3>
               <div className="flex items-center gap-2">
                 <button 
+                  onClick={handleExcelExport}
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export Excel
+                </button>
+                <button 
                   onClick={savePayroll} 
                   className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
                   disabled={saving}
@@ -763,7 +1016,7 @@ Payroll Department
                   Export CSV
                 </button>
                 <button 
-                  onClick={sendPaymentEmail}
+                  onClick={handleSendPaymentClick}
                   className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors flex items-center gap-2"
                 >
                   <Mail className="w-4 h-4" />
@@ -925,6 +1178,121 @@ Payroll Department
           </div>
           <p className="text-lg font-medium text-gray-600">No employees selected</p>
           <p className="text-gray-500 mt-1">Select employees and click <strong>Simulation</strong> to preview monthly payroll</p>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all scale-100">
+            <div className="flex flex-col items-center text-center">
+              <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center mb-4">
+                <Check className="w-6 h-6 text-green-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Payroll Saved Successfully</h3>
+              <div className="text-left w-full bg-gray-50 p-4 rounded-lg space-y-3 mb-6">
+                <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                  <span className="text-gray-600">Month</span>
+                  <span className="font-semibold text-gray-900">
+                    {(() => {
+                      const [y, m] = selectedMonth.split('-');
+                      return new Date(parseInt(y), parseInt(m) - 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+                    })()}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center border-b border-gray-200 pb-2">
+                  <span className="text-gray-600">Total Employees</span>
+                  <span className="font-semibold text-gray-900">{simulation?.results?.length || 0}</span>
+                </div>
+                <div className="pt-1">
+                  <span className="text-gray-600 block mb-2 text-sm font-medium">Location Breakdown</span>
+                  <ul className="space-y-2">
+                    {Object.entries(
+                      (simulation?.results || []).reduce((acc, curr) => {
+                        const loc = curr.location || 'Unknown';
+                        acc[loc] = (acc[loc] || 0) + 1;
+                        return acc;
+                      }, {})
+                    ).map(([location, count]) => (
+                      <li key={location} className="flex justify-between items-center text-sm bg-white p-2 rounded border border-gray-100">
+                        <span className="text-gray-700">{location}</span>
+                        <span className="font-semibold text-gray-900 bg-gray-100 px-2 py-0.5 rounded-full text-xs">{count}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all scale-100">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Send Payment Email</h3>
+              <button onClick={() => setShowEmailModal(false)} className="text-gray-400 hover:text-gray-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  To (Email ID) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={emailTo}
+                  onChange={(e) => setEmailTo(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter recipient email"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  CC
+                </label>
+                <input
+                  type="email"
+                  value={emailCC}
+                  onChange={(e) => setEmailCC(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter CC email (optional)"
+                />
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-md text-sm text-blue-700">
+                <p>Sending payment details for <strong>{simulation?.results?.length}</strong> employees.</p>
+                <p className="font-semibold mt-1">Total Amount: {formatCurrency(simulation?.totals?.netSalary)}</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => setShowEmailModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={processPaymentEmail}
+                className="px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] transition-colors flex items-center"
+              >
+                <Mail className="w-4 h-4 mr-2" />
+                Send Email
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

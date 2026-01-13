@@ -281,7 +281,10 @@ const AdminTimesheet = () => {
       color: 'white',
       fontSize: '14px',
       borderBottom: '1px solid #e2e8f0',
-      borderRight: '1px solid #1565c0'
+      borderRight: '1px solid #1565c0',
+      position: 'sticky',
+      top: 0,
+      zIndex: 10
     },
     tableCell: {
       padding: '12px',
@@ -498,15 +501,14 @@ const AdminTimesheet = () => {
     projectHours: 0
   });
 
-  const formatDuration = (decimalHours) => {
-    if (!decimalHours) return '00:00';
-    let hours = Math.floor(decimalHours);
-    let minutes = Math.round((decimalHours - hours) * 60);
-    if (minutes === 60) {
-      hours += 1;
-      minutes = 0;
-    }
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+  const formatDuration = (h) => {
+    const val = Number(h || 0);
+    const totalMinutes = Math.round(val * 60);
+    const sign = totalMinutes < 0 ? "-" : "";
+    const absMinutes = Math.abs(totalMinutes);
+    const hh = String(Math.floor(absMinutes / 60)).padStart(2, "0");
+    const mm = String(absMinutes % 60).padStart(2, "0");
+    return `${sign}${hh}:${mm}`;
   };
 
   const statConfigs = [
@@ -1113,7 +1115,7 @@ const AdminTimesheet = () => {
                 <th style={styles.tableHeaderCell}>Location</th>
                 <th style={styles.tableHeaderCell}>Week</th>
                 <th style={styles.tableHeaderCell}>Projects</th>
-                <th style={styles.tableHeaderCell}>Total Hours</th>
+                <th style={styles.tableHeaderCell}>Total Hours (HH:MM)</th>
                 <th style={styles.tableHeaderCell}>Status</th>
                 <th style={styles.tableHeaderCell}>Actions</th>
               </tr>
@@ -1275,7 +1277,7 @@ const AdminTimesheet = () => {
                       {shortDays.map(day => (
                         <th key={day} style={styles.timeEntriesHeaderCell}>{day}</th>
                       ))}
-                      <th style={styles.timeEntriesHeaderCell}>Total</th>
+                      <th style={styles.timeEntriesHeaderCell}>Total (HH:MM)</th>
                     </tr>
                   </thead>
                   <tbody>

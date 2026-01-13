@@ -61,8 +61,17 @@ function calculateTotalHoursWithBreak(sheet) {
     return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0);
   }, 0);
   
-  // Calculate break hours (1.25 hours per day with project work, except full day leave/holiday)
   const computeBreakForDay = (dayIndex) => {
+    const shifts = Array.isArray(sheet.dailyShiftTypes) ? sheet.dailyShiftTypes : [];
+    const getShiftBreakHours = (shift) => {
+      if (!shift) return 0;
+      const s = String(shift);
+      if (s.startsWith("First Shift")) return 65 / 60;
+      if (s.startsWith("Second Shift")) return 60 / 60;
+      if (s.startsWith("General Shift")) return 75 / 60;
+      return 0;
+    };
+
     const hasProjectWork = entries.some((entry) => {
       if (entry.type !== 'project') return false;
       const hrs = Array.isArray(entry.hours) ? entry.hours : [];
@@ -77,7 +86,9 @@ function calculateTotalHoursWithBreak(sheet) {
       return ((task.includes('leave approved') || task.includes('holiday')) && val > 0);
     });
     
-    return hasProjectWork && !hasApprovedLeaveOrHoliday ? 1.25 : 0;
+    const shiftForDay = shifts[dayIndex] || sheet.shiftType || "";
+    const breakByShift = getShiftBreakHours(shiftForDay);
+    return hasProjectWork && !hasApprovedLeaveOrHoliday ? breakByShift : 0;
   };
   
   const breakDaily = [0, 1, 2, 3, 4, 5, 6].map(computeBreakForDay);

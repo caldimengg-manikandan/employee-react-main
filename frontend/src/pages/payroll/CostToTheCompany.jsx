@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Calendar, Filter } from "lucide-react";
+import { Calendar, Filter, ChevronDown, ChevronRight } from "lucide-react";
 import { monthlyPayrollAPI, employeeAPI } from "../../services/api";
 
 const CostToTheCompany = () => {
@@ -14,6 +14,7 @@ const CostToTheCompany = () => {
   const [departments, setDepartments] = useState([]);
   const [designations, setDesignations] = useState([]);
   const [employeeDirectory, setEmployeeDirectory] = useState([]); // Cache for employee details
+  const [expandedRows, setExpandedRows] = useState(new Set());
 
   useEffect(() => {
     const init = async () => {
@@ -31,7 +32,7 @@ const CostToTheCompany = () => {
       filteredData = filteredData.filter(e => (e.department || e.division) === filterDepartment);
     }
 
-    const uniqueDesigs = [...new Set(filteredData.map(e => e.designation).filter(Boolean))];
+    const uniqueDesigs = [...new Set(filteredData.map(e => e.designation || e.position).filter(Boolean))];
     setDesignations(uniqueDesigs);
 
     // If currently selected designation is not in the new list, clear it
@@ -39,6 +40,23 @@ const CostToTheCompany = () => {
       setFilterDesignation("");
     }
   }, [filterDepartment, employeeDirectory]);
+
+  useEffect(() => {
+    if (!employeeDirectory.length) return;
+
+    let filteredData = employeeDirectory;
+    if (filterDesignation) {
+      filteredData = filteredData.filter(e => (e.designation || e.position) === filterDesignation);
+    }
+
+    const uniqueDepts = [...new Set(filteredData.map(e => e.department || e.division).filter(Boolean))];
+    setDepartments(uniqueDepts);
+
+    // If currently selected department is not in the new list, clear it
+    if (filterDepartment && !uniqueDepts.includes(filterDepartment)) {
+      setFilterDepartment("");
+    }
+  }, [filterDesignation, employeeDirectory]);
 
   const fetchFilterOptions = async () => {
     try {
@@ -149,7 +167,47 @@ const CostToTheCompany = () => {
         agg.totalCTC += ctc;
       }
       setSummary(Array.from(group.values()));
-      setEmployees(records);
+
+      // Aggregate employees
+      const empMap = new Map();
+      for (const r of records) {
+        const empId = r.employeeId;
+        const totalEarnings = Number(r.totalEarnings || 0);
+        const pf = Number(r.pf || 0);
+        const tax = Number(r.tax || 0);
+        const gratuity = Number(r.gratuity || 0);
+        const netSalary = Number(r.netSalary || 0);
+        const ctc = r.ctc != null ? Number(r.ctc || 0) : totalEarnings + gratuity;
+
+        if (!empMap.has(empId)) {
+          empMap.set(empId, {
+            employeeId: empId,
+            employeeName: r.employeeName,
+            designation: r.designation,
+            location: r.location,
+            totalEarnings: 0,
+            pf: 0,
+            tax: 0,
+            gratuity: 0,
+            netSalary: 0,
+            ctc: 0,
+            history: []
+          });
+        }
+        const agg = empMap.get(empId);
+        agg.totalEarnings += totalEarnings;
+        agg.pf += pf;
+        agg.tax += tax;
+        agg.gratuity += gratuity;
+        agg.netSalary += netSalary;
+        agg.ctc += ctc;
+        agg.history.push(r);
+      }
+      
+      const sortedEmployees = Array.from(empMap.values()).sort((a, b) => {
+        return (a.employeeId || "").localeCompare(b.employeeId || "", undefined, { numeric: true });
+      });
+      setEmployees(sortedEmployees);
     } catch (error) {
       console.error("Error fetching CTC summary", error);
     } finally {
@@ -165,6 +223,16 @@ const CostToTheCompany = () => {
     setFilterDesignation("");
     setSummary([]);
     setEmployees([]);
+  };
+
+  const toggleRow = (employeeId) => {
+    const newExpanded = new Set(expandedRows);
+    if (newExpanded.has(employeeId)) {
+      newExpanded.delete(employeeId);
+    } else {
+      newExpanded.add(employeeId);
+    }
+    setExpandedRows(newExpanded);
   };
 
   return (
@@ -360,6 +428,8 @@ const CostToTheCompany = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-[#262760] sticky top-0 z-10">
                 <tr>
+                  <th className="px-6 py-3 w-10"></th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Designation</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Location</th>
@@ -373,27 +443,80 @@ const CostToTheCompany = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {employees.map((e) => {
-                  const totalEarnings = Number(e.totalEarnings || 0);
-                  const gratuity = Number(e.gratuity || 0);
-                  const ctc = e.ctc != null ? Number(e.ctc || 0) : totalEarnings + gratuity;
                   return (
-                    <tr key={`${e.employeeId}-${e.salaryMonth}`} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap font-medium">{e.employeeName}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{e.designation || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap">{e.location || "-"}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">₹{totalEarnings.toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">₹{Number(e.pf || 0).toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">₹{Number(e.tax || 0).toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">₹{gratuity.toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">₹{Number(e.netSalary || 0).toLocaleString()}</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right font-semibold text-blue-700">₹{ctc.toLocaleString()}</td>
-                    </tr>
+                    <React.Fragment key={e.employeeId}>
+                      <tr 
+                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${expandedRows.has(e.employeeId) ? 'bg-blue-50/30' : ''}`}
+                        onClick={() => toggleRow(e.employeeId)}
+                      >
+                        <td className="px-6 py-4 text-gray-400">
+                          {expandedRows.has(e.employeeId) ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{e.employeeId}</td>
+                        <td className="px-6 py-4 whitespace-nowrap font-medium">{e.employeeName}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">{e.designation || "-"}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">{e.location || "-"}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">₹{e.totalEarnings.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">₹{e.pf.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">₹{e.tax.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">₹{e.gratuity.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">₹{e.netSalary.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right font-semibold text-blue-700">₹{e.ctc.toLocaleString()}</td>
+                      </tr>
+                      {expandedRows.has(e.employeeId) && (
+                        <tr className="bg-gray-50/50">
+                          <td colSpan="11" className="px-6 py-4">
+                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                              <table className="w-full text-sm">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Month</th>
+                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">Earnings</th>
+                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">PF</th>
+                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">Tax</th>
+                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">Gratuity</th>
+                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">Net Salary</th>
+                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">CTC</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                  {e.history.map((record, idx) => {
+                                      const rTotalEarnings = Number(record.totalEarnings || 0);
+                                      const rPf = Number(record.pf || 0);
+                                      const rTax = Number(record.tax || 0);
+                                      const rGratuity = Number(record.gratuity || 0);
+                                      const rNetSalary = Number(record.netSalary || 0);
+                                      const rCtc = record.ctc != null ? Number(record.ctc || 0) : rTotalEarnings + rGratuity;
+                                      
+                                      return (
+                                        <tr key={idx}>
+                                          <td className="px-4 py-2 text-gray-700">{record.salaryMonth}</td>
+                                          <td className="px-4 py-2 text-right text-gray-700">₹{rTotalEarnings.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-gray-700">₹{rPf.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-gray-700">₹{rTax.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-gray-700">₹{rGratuity.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-gray-700">₹{rNetSalary.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right font-medium text-blue-600">₹{rCtc.toLocaleString()}</td>
+                                        </tr>
+                                      );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
                   );
                 })}
               </tbody>
               <tfoot className="bg-gray-50">
                 <tr>
-                  <td className="px-6 py-4 whitespace-nowrap font-bold" colSpan={3}>Totals</td>
+                  <td className="px-6 py-4 whitespace-nowrap font-bold" colSpan={5}>Totals</td>
                   <td className="px-6 py-4 whitespace-nowrap text-right font-bold">
                     ₹{employees.reduce((sum, e) => sum + Number(e.totalEarnings || 0), 0).toLocaleString()}
                   </td>
@@ -410,12 +533,7 @@ const CostToTheCompany = () => {
                     ₹{employees.reduce((sum, e) => sum + Number(e.netSalary || 0), 0).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-700">
-                    ₹{employees.reduce((sum, e) => {
-                      const te = Number(e.totalEarnings || 0);
-                      const gr = Number(e.gratuity || 0);
-                      const c = e.ctc != null ? Number(e.ctc || 0) : te + gr;
-                      return sum + c;
-                    }, 0).toLocaleString()}
+                    ₹{employees.reduce((sum, e) => sum + Number(e.ctc || 0), 0).toLocaleString()}
                   </td>
                 </tr>
               </tfoot>

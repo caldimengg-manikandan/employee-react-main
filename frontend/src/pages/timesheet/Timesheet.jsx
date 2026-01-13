@@ -941,7 +941,9 @@ const Timesheet = () => {
       (r) => (r.task || "").startsWith("Leave Approved") && (r.id === id ? numValue : Number(r.hours?.[dayIndex] || 0)) > 0
     );
 
-    const breakAfterUpdate = hasWorkAfterUpdate && !hasApprovedLeave ? 1.25 : 0;
+    const shiftForDay = dailyShiftTypes?.[dayIndex] || shiftType || "";
+    const breakByShift = getShiftBreakHours(shiftForDay);
+    const breakAfterUpdate = hasWorkAfterUpdate && !hasApprovedLeave ? breakByShift : 0;
 
     // Shift-based caps removed in favor of on-premises enforcement
     // Enforce on-premises cap: project work + auto break must not exceed on-premises time
@@ -1207,6 +1209,23 @@ const Timesheet = () => {
       return;
     }
 
+    if (!weeklyMinimumSatisfied) {
+      if (missingShiftDays.length > 0) {
+        alert(
+          `Please select a shift for the following days (Mon–Fri):\n` +
+          `${missingShiftDays.join(", ")}.\n\n` +
+          `A shift must be selected for every working day unless a Full Day Leave or Holiday is applied.`
+        );
+      } else {
+        alert(
+          `Weekly minimum hours based on selected shifts is ${formatHoursHHMM(weeklyRequiredShiftHours)}.\n` +
+          `Currently recorded (Work + Break): ${formatHoursHHMM(weeklyTotalWithBreakValidDays)}.\n\n` +
+          `Please complete the required hours before submitting.`
+        );
+      }
+      return;
+    }
+
     if (monthlyPermissionCount > 3) {
       alert(`Monthly permission limit exceeded! Current count: ${monthlyPermissionCount}/3`);
       return;
@@ -1226,7 +1245,10 @@ const Timesheet = () => {
       const totalWithBreak = workTotal + breakHours;
 
       // Skip check for Saturday (5) and Sunday (6)
-      if (i < 5 && op > totalWithBreak) {
+      // Compare using minute precision to avoid float rounding issues
+      const opMinutes = Math.round(op * 60);
+      const totalMinutes = Math.round(totalWithBreak * 60);
+      if (i < 5 && opMinutes > totalMinutes) {
         alert(`On-Premises Time for ${days[i]} cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(op)}\nTotal: ${formatHoursHHMM(totalWithBreak)}`);
         return;
       }
@@ -1307,20 +1329,21 @@ const Timesheet = () => {
 
   const getShiftMinHours = (shift) => {
     if (!shift) return 0;
-    if (shift.startsWith("General Shift")) return 8.25;
-    if (shift.startsWith("First Shift") || shift.startsWith("Secend Shift")) return 7.75;
+    const s = String(shift);
+    if (s.startsWith("General Shift")) return 9.5;
+    if (s.startsWith("First Shift") || s.startsWith("Second Shift") || s.startsWith("Secend Shift")) return 8.5;
     return 0;
   };
 
   const getShiftMaxHours = (shift) => {
     if (!shift) return 24;
-    if (shift.startsWith("General Shift")) return 8.25;
-    if (shift.startsWith("First Shift") || shift.startsWith("Secend Shift")) return 7.75;
+    const s = String(shift);
+    if (s.startsWith("General Shift")) return 9.5;
+    if (s.startsWith("First Shift") || s.startsWith("Second Shift") || s.startsWith("Secend Shift")) return 8.5;
     return 24;
   };
 
   const isShiftSelectedForDay = (idx) => {
-    if (idx === 5 || idx === 6) return true;
     const s = dailyShiftTypes?.[idx];
     return !!s && s !== "Select Shift";
   };
@@ -1351,6 +1374,82 @@ const Timesheet = () => {
     return dailyWorkTotals[idx] >= required;
   });
 
+  // ========== WORK + BREAK LOGIC FUNCTIONS ==========
+
+  const getShiftBreakHours = (shift) => {
+    if (!shift) return 0;
+    const s = String(shift);
+    if (s.startsWith("First Shift")) return 65 / 60;
+    if (s.startsWith("Second Shift")) return 60 / 60;
+    if (s.startsWith("General Shift")) return 75 / 60;
+    return 0;
+  };
+
+  const computeBreakForDay = (dayIndex) => {
+    const hasWork = timesheetRows.some(
+      (row) => row.type === "project" && row.task !== "Office Holiday" && Number(row.hours?.[dayIndex] || 0) > 0
+    );
+    // No break for approved leave days (Full or Half)
+    const hasApprovedLeave = timesheetRows.some(
+      (row) => (row.task || "").startsWith("Leave Approved") && Number(row.hours?.[dayIndex] || 0) > 0
+    );
+    const shiftForDay = dailyShiftTypes?.[dayIndex] || shiftType || "";
+    const breakByShift = getShiftBreakHours(shiftForDay);
+    return hasWork && !hasApprovedLeave ? breakByShift : 0;
+  };
+
+  // Calculate weekly break total
+  const computeWeeklyBreak = () => {
+    let sum = 0;
+    for (let i = 0; i < 7; i++) sum += computeBreakForDay(i);
+    return sum;
+  };
+
+  const hasAnyApprovedLeave = (dayIndex) => {
+    return timesheetRows.some(
+      (row) => (row.task || "").startsWith("Leave Approved") && Number(row.hours?.[dayIndex] || 0) > 0
+    );
+  };
+
+  const getWeeklyRequiredShiftHours = () => {
+    let required = 0;
+    // Iterate all 7 days (Mon-Sun)
+    for (let i = 0; i < 7; i++) {
+      const shift = dailyShiftTypes?.[i] || shiftType || "";
+      // Skip if no shift is selected
+      if (!shift || shift === "Select Shift") continue;
+      // Skip full day leave/holiday OR any approved leave
+      if (hasFullDayLeave(i) || hasAnyApprovedLeave(i)) continue;
+      
+      // For Mon-Fri (0-4), shift is mandatory (checked by getMissingShiftDays)
+      // For Sat-Sun (5-6), if shift is selected, it adds to required hours
+      required += getShiftMinHours(shift);
+    }
+    return required;
+  };
+
+  const getMissingShiftDays = () => {
+    const missing = [];
+    for (let i = 0; i < 5; i++) {
+      if (hasFullDayLeave(i) || hasAnyApprovedLeave(i)) continue;
+      const shift = dailyShiftTypes?.[i] || shiftType || "";
+      if (!shift || shift === "Select Shift") {
+        missing.push(days[i]);
+      }
+    }
+    return missing;
+  };
+
+  const weeklyRequiredShiftHours = getWeeklyRequiredShiftHours();
+  // Sum Work + Break for all days (0-6) EXCLUDING Full Day Leave or Approved Leave days
+  const weeklyTotalWithBreakValidDays = totals.daily.slice(0, 7).reduce((sum, h, i) => {
+    if (hasFullDayLeave(i) || hasAnyApprovedLeave(i)) return sum;
+    return sum + h + computeBreakForDay(i);
+  }, 0);
+  const missingShiftDays = getMissingShiftDays();
+  // Compare minutes to avoid floating point issues
+  const weeklyMinimumSatisfied = missingShiftDays.length === 0 && Math.round(weeklyTotalWithBreakValidDays * 60) >= Math.round(weeklyRequiredShiftHours * 60);
+
   const updateDailyShift = (index, value) => {
     setDailyShiftTypes((prev) => {
       const next = [...prev];
@@ -1365,27 +1464,6 @@ const Timesheet = () => {
     saveDailyShiftTypesToSession();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dailyShiftTypes, shiftType, currentWeek]);
-
-  // ========== WORK + BREAK LOGIC FUNCTIONS ==========
-
-  // Calculate break for a specific day (1.25 hours if there's any project work)
-  const computeBreakForDay = (dayIndex) => {
-    const hasWork = timesheetRows.some(
-      (row) => row.type === "project" && row.task !== "Office Holiday" && Number(row.hours?.[dayIndex] || 0) > 0
-    );
-    // No break for approved leave days (Full or Half)
-    const hasApprovedLeave = timesheetRows.some(
-      (row) => (row.task || "").startsWith("Leave Approved") && Number(row.hours?.[dayIndex] || 0) > 0
-    );
-    return hasWork && !hasApprovedLeave ? 1.25 : 0;
-  };
-
-  // Calculate weekly break total
-  const computeWeeklyBreak = () => {
-    let sum = 0;
-    for (let i = 0; i < 7; i++) sum += computeBreakForDay(i);
-    return sum;
-  };
 
   // Get daily total with break (formatted in HH:MM)
   const getDailyTotalWithBreak = (dayIndex) => {
@@ -1585,26 +1663,24 @@ const Timesheet = () => {
                       })}
                     </div>
                     <div className="mt-2">
-                      {index !== 5 && index !== 6 && (
-                        isHoliday(weekDates[index]) ? (
-                          <div className="text-xs font-bold text-green-800 break-words whitespace-normal px-1">
-                            {getHolidayOccasion(weekDates[index])}
-                          </div>
-                        ) : (
-                          <select
-                            value={dailyShiftTypes[index]}
-                            onChange={(e) => updateDailyShift(index, e.target.value)}
-                            className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            disabled={isSubmitted || isLeaveAutoDraft}
-                          >
-                            <option value="">Select Shift</option>
-                            {shiftTypes.map((shift) => (
-                              <option key={shift} value={shift}>
-                                {shift}
-                              </option>
-                            ))}
-                          </select>
-                        )
+                      {isHoliday(weekDates[index]) ? (
+                        <div className="text-xs font-bold text-green-800 break-words whitespace-normal px-1">
+                          {getHolidayOccasion(weekDates[index])}
+                        </div>
+                      ) : (
+                        <select
+                          value={dailyShiftTypes[index]}
+                          onChange={(e) => updateDailyShift(index, e.target.value)}
+                          className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          disabled={isSubmitted || isLeaveAutoDraft}
+                        >
+                          <option value="">Select Shift</option>
+                          {shiftTypes.map((shift) => (
+                            <option key={shift} value={shift}>
+                              {shift}
+                            </option>
+                          ))}
+                        </select>
                       )}
                     </div>
                   </th>
@@ -1779,7 +1855,6 @@ const Timesheet = () => {
                             isSubmitted || isLeaveAutoDraft ||
                             row.locked ||
                             (row.lockedDays && row.lockedDays[dayIndex]) ||
-                            (row.type === "project" && (dayIndex === 5 || dayIndex === 6)) ||
                             (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
                             (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
@@ -1792,8 +1867,6 @@ const Timesheet = () => {
                                 ? "Locked due to approved leave"
                                 : (row.lockedDays && row.lockedDays[dayIndex])
                                   ? "Locked due to full day leave"
-                                  : (row.type === "project" && (dayIndex === 5 || dayIndex === 6))
-                                    ? "Project hours not allowed on weekends"
                                   : (row.type === "project" ? (!row.project || !row.task) : (!row.task))
                                     ? (row.type === "project" ? "Please select project and task first" : "Please select a leave type or task")
                                     : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
@@ -1831,7 +1904,6 @@ const Timesheet = () => {
                                 disabled={
                                   isSubmitted || isLeaveAutoDraft ||
                                   row.locked ||
-                                  (row.type === "project" && (dayIndex === 5 || dayIndex === 6)) ||
                                   (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                                   (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
                                   (!isShiftSelectedForDay(dayIndex))
@@ -1857,7 +1929,6 @@ const Timesheet = () => {
                                 disabled={
                                   isSubmitted || isLeaveAutoDraft ||
                                   row.locked ||
-                                  (row.type === "project" && (dayIndex === 5 || dayIndex === 6)) ||
                                   (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                                   (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
                                   (!isShiftSelectedForDay(dayIndex))
@@ -1982,8 +2053,8 @@ const Timesheet = () => {
           
           <button
             onClick={submitTimesheet}
-            disabled={loading || isSubmitted || isLeaveAutoDraft}
-            className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${loading || isSubmitted || isLeaveAutoDraft
+            disabled={loading || isSubmitted || isLeaveAutoDraft || !weeklyMinimumSatisfied}
+            className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(loading || isSubmitted || isLeaveAutoDraft || !weeklyMinimumSatisfied)
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-700 hover:bg-blue-800 text-white"
               }`}

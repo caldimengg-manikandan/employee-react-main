@@ -9,8 +9,6 @@ import {
   PencilSquareIcon,
   TrashIcon,
   EyeIcon,
-  ChevronLeftIcon,
-  ChevronRightIcon,
   AdjustmentsHorizontalIcon,
   UserIcon,
   PhoneIcon,
@@ -27,6 +25,41 @@ import Modal from '../components/Modals/Modal';
 import Notification from '../components/Notifications/Notification';
 import useNotification from '../hooks/useNotification';
 import { employeeAPI } from '../services/api';
+
+const DIVISION_DESIGNATION_MAP = {
+  TEKLA: [
+    'Detailer',
+    'Modeler',
+    'Jr.Engineer',
+    'Sr.Engineer',
+    'Team Lead',
+    'Project Co-Ordinator'
+  ],
+  SDS: [
+    'Project Manager',
+    'Asst Project Manager',
+    'Sr Project Manager',
+    'System Engineer',
+    'Trainee'
+  ],
+  'HR/Admin': [
+    'Office Assistant',
+    'Admin Manager',
+    'IT Admin'
+  ],
+  'DAS(Software)': [
+    'Software Developer',
+    'System Engineer',
+    'Trainee'
+  ],
+  Electrical: ['Sr.Engineer', 'Trainee'],
+  Management: [
+    'Managing Director (MD)',
+    'General Manager (GM)',
+    'Branch Manager'
+  ]
+};
+
 
 const EmployeeManagement = () => {
   const [employees, setEmployees] = useState([]);
@@ -46,9 +79,7 @@ const EmployeeManagement = () => {
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
   const { notification, showSuccess, showError, hideNotification } = useNotification();
 
-  // Pagination state
-  const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+
 
   useEffect(() => {
     fetchEmployees();
@@ -56,7 +87,6 @@ const EmployeeManagement = () => {
 
   useEffect(() => {
     filterEmployees();
-    setCurrentPage(1);
   }, [employees, filters]);
 
   const fetchEmployees = async () => {
@@ -111,12 +141,20 @@ const EmployeeManagement = () => {
     setFilteredEmployees(filtered);
   };
 
+  // const handleFilterChange = (key, value) => {
+  //   setFilters(prev => ({
+  //     ...prev,
+  //     [key]: value
+  //   }));
+  // };
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({
       ...prev,
-      [key]: value
+      [key]: value,
+      ...(key === 'division' ? { designation: '' } : {})
     }));
   };
+
 
   const clearFilters = () => {
     setFilters({
@@ -188,12 +226,12 @@ const EmployeeManagement = () => {
     let months = (today.getFullYear() - joinDate.getFullYear()) * 12;
     months -= joinDate.getMonth();
     months += today.getMonth();
-    
+
     if (months < 0) months = 0;
-    
+
     const years = Math.floor(months / 12);
     const remainingMonths = months % 12;
-    
+
     let result = '';
     if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
     if (remainingMonths > 0) {
@@ -201,17 +239,11 @@ const EmployeeManagement = () => {
       result += `${remainingMonths} month${remainingMonths > 1 ? 's' : ''}`;
     }
     if (!result) result = 'Less than a month';
-    
+
     return result;
   };
 
-  // Pagination logic
-  const indexOfLastItem = currentPage * itemsPerPage;
-  const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-  const currentItems = filteredEmployees.slice(indexOfFirstItem, indexOfLastItem);
-  const totalPages = Math.ceil(filteredEmployees.length / itemsPerPage);
 
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const handleEdit = (employee) => {
     setEditingEmployee(employee);
@@ -277,24 +309,45 @@ const EmployeeManagement = () => {
     Array.from(new Set(employees.map(e => e.division).filter(Boolean)))
   ), [employees]);
 
+
   // Designation options including MD and GM
+  // const designationOptions = useMemo(() => {
+  //   const designationsFromEmployees = Array.from(new Set(
+  //     employees.map(e => (e.designation || e.role || e.position)).filter(Boolean)
+  //   ));
+
+  //   // Add MD and GM if not already present
+  //   const allDesignations = [...designationsFromEmployees];
+  //   console.log("allDesignations", allDesignations);
+  //   if (!allDesignations.includes('Managing Director (MD)')) {
+  //     allDesignations.push('Managing Director (MD)');
+  //   }
+  //   if (!allDesignations.includes('General Manager (GM)')) {
+  //     allDesignations.push('General Manager (GM)');
+  //   }
+
+  //   // Sort alphabetically
+  //   return allDesignations.sort((a, b) => a.localeCompare(b));
+  // }, [employees]);
+
   const designationOptions = useMemo(() => {
-    const designationsFromEmployees = Array.from(new Set(
-      employees.map(e => (e.designation || e.role || e.position)).filter(Boolean)
-    ));
-    
-    // Add MD and GM if not already present
-    const allDesignations = [...designationsFromEmployees];
-    if (!allDesignations.includes('Managing Director (MD)')) {
-      allDesignations.push('Managing Director (MD)');
+    // If no division selected → show all designations
+    if (!filters.division) {
+      return Array.from(
+        new Set(
+          employees
+            .map(e => e.designation || e.role || e.position)
+            .filter(Boolean)
+        )
+      ).sort((a, b) => a.localeCompare(b));
     }
-    if (!allDesignations.includes('General Manager (GM)')) {
-      allDesignations.push('General Manager (GM)');
-    }
-    
-    // Sort alphabetically
-    return allDesignations.sort((a, b) => a.localeCompare(b));
-  }, [employees]);
+
+    // If division selected → show mapped designations only
+    return (DIVISION_DESIGNATION_MAP[filters.division] || []).slice().sort(
+      (a, b) => a.localeCompare(b)
+    );
+  }, [employees, filters.division]);
+
 
   const locationOptions = useMemo(() => (
     Array.from(new Set(employees.map(e => (e.location || e.branch)).filter(Boolean)))
@@ -346,7 +399,7 @@ const EmployeeManagement = () => {
                 <UserIcon className="h-6 w-6 text-blue-600" />
                 <h3 className="text-xl font-bold text-gray-900">Personal Information</h3>
               </div>
-              
+
               <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* Basic Information */}
@@ -355,22 +408,22 @@ const EmployeeManagement = () => {
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Employee ID</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.employeeId || '-'}</div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Employee Name</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.name || '-'}</div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Gender</div>
                       <div className="text-lg font-bold text-gray-900 capitalize">{viewingEmployee.gender || '-'}</div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Date of Birth</div>
                       <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.dateOfBirth || viewingEmployee.dob)}</div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Qualification</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.qualification || viewingEmployee.highestQualification || '-'}</div>
@@ -382,31 +435,31 @@ const EmployeeManagement = () => {
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Blood Group</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.bloodGroup || '-'}</div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Marital Status</div>
                       <div className="text-lg font-bold text-gray-900 capitalize">{viewingEmployee.maritalStatus || '-'}</div>
                     </div>
-                    
+
                     {viewingEmployee.maritalStatus === 'married' && (
                       <>
                         <div className="space-y-1">
                           <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Spouse Name</div>
                           <div className="text-lg font-bold text-gray-900">{viewingEmployee.spouseName || '-'}</div>
                         </div>
-                        
+
                         <div className="space-y-1">
                           <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Spouse Contact</div>
                           <div className="text-lg font-bold text-gray-900">{viewingEmployee.spouseContact || '-'}</div>
                         </div>
                       </>
                     )}
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Nationality</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.nationality || '-'}</div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Guardian Name</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.guardianName || '-'}</div>
@@ -418,22 +471,22 @@ const EmployeeManagement = () => {
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Location</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.location || '-'}</div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">PAN Number</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.pan || '-'}</div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Aadhaar Number</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.aadhaar || '-'}</div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Passport Number</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.passportNumber || '-'}</div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">UAN Number</div>
                       <div className="text-lg font-bold text-gray-900">{viewingEmployee.uan || '-'}</div>
@@ -447,7 +500,7 @@ const EmployeeManagement = () => {
                     <HomeIcon className="h-5 w-5 text-blue-600" />
                     <h4 className="text-lg font-semibold text-gray-900">Address Information</h4>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Permanent Address</div>
@@ -455,7 +508,7 @@ const EmployeeManagement = () => {
                         {viewingEmployee.permanentAddress || '-'}
                       </div>
                     </div>
-                    
+
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Current Address</div>
                       <div className="text-base font-medium text-gray-900 whitespace-pre-line">
@@ -473,19 +526,19 @@ const EmployeeManagement = () => {
                 <PhoneIcon className="h-6 w-6 text-green-600" />
                 <h3 className="text-xl font-bold text-gray-900">Contact Information</h3>
               </div>
-              
+
               <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Mobile Number</div>
                     <div className="text-lg font-bold text-gray-900">{viewingEmployee.contactNumber || viewingEmployee.mobileNo || '-'}</div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Email Address</div>
                     <div className="text-lg font-bold text-gray-900 break-words">{viewingEmployee.email || '-'}</div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Emergency Contact</div>
                     <div className="text-lg font-bold text-gray-900">{viewingEmployee.emergencyContact || viewingEmployee.emergencyMobile || '-'}</div>
@@ -500,26 +553,26 @@ const EmployeeManagement = () => {
                 <BriefcaseIcon className="h-6 w-6 text-indigo-600" />
                 <h3 className="text-xl font-bold text-gray-900">Professional Information</h3>
               </div>
-              
+
               <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Designation</div>
                     <div className="text-lg font-bold text-gray-900">{viewingEmployee.designation || viewingEmployee.role || viewingEmployee.position || '-'}</div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Division</div>
                     <div className="text-lg font-bold text-gray-900">{viewingEmployee.division || '-'}</div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Date of Joining</div>
                     <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin)}</div>
                   </div>
-                  
-                 
-                  
+
+
+
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Previous Experience</div>
                     <div className="text-lg font-bold text-gray-900">{viewingEmployee.previousExperience || '-'}</div>
@@ -533,7 +586,7 @@ const EmployeeManagement = () => {
                       <AcademicCapIcon className="h-5 w-5 text-indigo-600" />
                       <h4 className="text-lg font-semibold text-gray-900">Previous Organizations</h4>
                     </div>
-                    
+
                     <div className="overflow-x-auto">
                       <table className="min-w-full divide-y divide-gray-200">
                         <thead>
@@ -567,24 +620,24 @@ const EmployeeManagement = () => {
                 <BanknotesIcon className="h-6 w-6 text-amber-600" />
                 <h3 className="text-xl font-bold text-gray-900">Bank Information</h3>
               </div>
-              
+
               <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Bank Name</div>
                     <div className="text-lg font-bold text-gray-900">{viewingEmployee.bankName || '-'}</div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Account Number</div>
                     <div className="text-lg font-bold text-gray-900">{viewingEmployee.bankAccount || '-'}</div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Branch</div>
                     <div className="text-lg font-bold text-gray-900">{viewingEmployee.branch || '-'}</div>
                   </div>
-                  
+
                   <div className="space-y-1">
                     <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">IFSC Code</div>
                     <div className="text-lg font-bold text-gray-900">{viewingEmployee.ifsc || '-'}</div>
@@ -628,7 +681,7 @@ const EmployeeManagement = () => {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen p-4 sm:p-6 lg:p-8">
+    <div className="bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="w-full mx-auto px-0">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           {/* Header with Actions - All buttons on right side */}
@@ -638,11 +691,10 @@ const EmployeeManagement = () => {
                 {/* Filter Button */}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex items-center px-3 py-2.5 border rounded-lg shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 ${
-                    showFilters || isFilterApplied
-                      ? 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
-                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className={`inline-flex items-center px-3 py-2.5 border rounded-lg shadow-sm text-sm font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200 ${showFilters || isFilterApplied
+                    ? 'bg-blue-50 border-blue-200 text-blue-600 hover:bg-blue-100'
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                    }`}
                 >
                   <AdjustmentsHorizontalIcon className="h-5 w-5 mr-2" />
                   Filters
@@ -652,7 +704,7 @@ const EmployeeManagement = () => {
                     </span>
                   )}
                 </button>
-                
+
                 <button
                   onClick={exportToCSV}
                   className="inline-flex items-center px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
@@ -742,146 +794,128 @@ const EmployeeManagement = () => {
 
           {/* Results Count */}
           <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-gray-700">
-                Showing <span className="font-semibold">{indexOfFirstItem + 1}</span> to{' '}
-                <span className="font-semibold">
-                  {Math.min(indexOfLastItem, filteredEmployees.length)}
-                </span> of{' '}
-                <span className="font-semibold">{filteredEmployees.length}</span> employees
-              </p>
-              <div className="flex items-center space-x-2 mt-2 sm:mt-0">
-                <span className="text-sm text-gray-700">Items per page:</span>
-                <select
-                  value={itemsPerPage}
-                  onChange={(e) => {
-                    setItemsPerPage(Number(e.target.value));
-                    setCurrentPage(1);
-                  }}
-                  className="border border-gray-300 rounded-md text-sm py-1 px-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                >
-                  <option value={5}>5</option>
-                  <option value={10}>10</option>
-                  <option value={25}>25</option>
-                  <option value={50}>50</option>
-                </select>
+            <p className="text-sm text-gray-700">
+              Showing <span className="font-semibold">{filteredEmployees.length}</span> employees
+            </p>
+          </div>
+
+          {/* Desktop Table View with BLUE HEADER */}
+          <div className="hidden lg:block border-t border-gray-200">
+            <div className="overflow-x-auto">
+              <div className="max-h-[600px] overflow-y-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="sticky top-0 z-10">
+                    <tr className="bg-gradient-to-r from-blue-600 to-indigo-600">
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                        S.No
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                        Employee ID
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                        Employee Name
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                        Email
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                        Division
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                        Designation
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                        Qualification
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                        Experience
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                        Contact
+                      </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider bg-gradient-to-r from-blue-600 to-indigo-600">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredEmployees.map((employee, index) => (
+                      <tr
+                        key={employee._id}
+                        className="hover:bg-gray-50 transition-colors duration-150"
+                      >
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-100">
+                          {index + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
+                          <span className="font-semibold text-blue-600">{employee.employeeId}</span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
+                          <div className="text-sm font-semibold text-gray-900">{employee.name}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
+                          {employee.email}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                            {employee.division}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
+                          {employee.designation || employee.role || employee.position}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
+                          {employee.highestQualification || employee.qualification || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
+                          {calculateServiceYears(employee.dateOfJoining || employee.dateofjoin) || employee.currentExperience || employee.experience || '-'}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
+                          <div className="font-medium">{employee.mobileNo}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={() => handleView(employee)}
+                              className="inline-flex items-center p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-200"
+                              title="View Details"
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEdit(employee)}
+                              className="inline-flex items-center p-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors duration-200"
+                              title="Edit"
+                            >
+                              <PencilSquareIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(employee._id)}
+                              className="inline-flex items-center p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors duration-200"
+                              title="Delete"
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
 
-          {/* Desktop Table View with BLUE HEADER */}
-          <div className="hidden lg:block overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr className="bg-gradient-to-r from-blue-600 to-indigo-600">
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
-                    S.No
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
-                    Employee ID
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
-                    Employee Name
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
-                    Email
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
-                    Division
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
-                    Designation
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
-                    Qualification
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
-                    Experience
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500">
-                    Contact
-                  </th>
-                  <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentItems.map((employee, index) => (
-                  <tr
-                    key={employee._id}
-                    className="hover:bg-gray-50 transition-colors duration-150"
-                  >
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 border-r border-gray-100">
-                      {indexOfFirstItem + index + 1}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
-                      <span className="font-semibold text-blue-600">{employee.employeeId}</span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
-                      <div className="text-sm font-semibold text-gray-900">{employee.name}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
-                      {employee.email}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
-                        {employee.division}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
-                      {employee.designation || employee.role || employee.position}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
-                      {employee.highestQualification || employee.qualification || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
-                      {calculateServiceYears(employee.dateOfJoining || employee.dateofjoin) || employee.currentExperience || employee.experience || '-'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
-                      <div className="font-medium">{employee.mobileNo}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex items-center space-x-2">
-                        <button
-                          onClick={() => handleView(employee)}
-                          className="inline-flex items-center p-2 text-blue-600 bg-blue-50 rounded-lg hover:bg-blue-100 transition-colors duration-200"
-                          title="View Details"
-                        >
-                          <EyeIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleEdit(employee)}
-                          className="inline-flex items-center p-2 text-indigo-600 bg-indigo-50 rounded-lg hover:bg-indigo-100 transition-colors duration-200"
-                          title="Edit"
-                        >
-                          <PencilSquareIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(employee._id)}
-                          className="inline-flex items-center p-2 text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition-colors duration-200"
-                          title="Delete"
-                        >
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
           {/* Mobile/Tablet Card View */}
           <div className="lg:hidden">
-            {currentItems.map((employee, index) => (
+            {filteredEmployees.map((employee, index) => (
               <div key={employee._id} className="border-b border-gray-200 p-4 hover:bg-gray-50 transition-colors duration-150">
                 <div className="flex justify-between items-start mb-3">
-                    <div>
-                      <h3 className="text-base font-semibold text-gray-900">{employee.name}</h3>
-                      <p className="text-sm text-blue-600 font-medium">{employee.employeeId}</p>
-                      <p className="text-xs text-gray-500 mt-1">{employee.email}</p>
-                    </div>
+                  <div>
+                    <h3 className="text-base font-semibold text-gray-900">{employee.name}</h3>
+                    <p className="text-sm text-blue-600 font-medium">{employee.employeeId}</p>
+                    <p className="text-xs text-gray-500 mt-1">{employee.email}</p>
+                  </div>
                   <div className="flex space-x-1">
                     <button
                       onClick={() => handleView(employee)}
@@ -942,76 +976,12 @@ const EmployeeManagement = () => {
                   </div>
                   <div>
                     <span className="text-xs text-gray-500">S.No</span>
-                    <p className="font-medium text-gray-900">{indexOfFirstItem + index + 1}</p>
+                    <p className="font-medium text-gray-900">{index + 1}</p>
                   </div>
                 </div>
               </div>
             ))}
           </div>
-
-          {/* Pagination */}
-          {filteredEmployees.length > 0 && (
-            <div className="bg-white px-4 py-3 border-t border-gray-200 sm:px-6">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-gray-700 mb-4 sm:mb-0">
-                  Page {currentPage} of {totalPages}
-                </div>
-                <div>
-                  <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                    <button
-                      onClick={() => paginate(currentPage - 1)}
-                      disabled={currentPage === 1}
-                      className={`relative inline-flex items-center px-3 py-2 rounded-l-md border border-gray-300 text-sm font-medium ${currentPage === 1
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-white text-gray-500 hover:bg-gray-50'
-                        }`}
-                    >
-                      <span className="sr-only">Previous</span>
-                      <ChevronLeftIcon className="h-5 w-5" />
-                    </button>
-
-                    {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => paginate(pageNum)}
-                          className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === pageNum
-                              ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                              : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                            }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
-
-                    <button
-                      onClick={() => paginate(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                      className={`relative inline-flex items-center px-3 py-2 rounded-r-md border border-gray-300 text-sm font-medium ${currentPage === totalPages
-                          ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                          : 'bg-white text-gray-500 hover:bg-gray-50'
-                        }`}
-                    >
-                      <span className="sr-only">Next</span>
-                      <ChevronRightIcon className="h-5 w-5" />
-                    </button>
-                  </nav>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

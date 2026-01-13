@@ -237,7 +237,17 @@ const TeamManagement = () => {
           </div> */}
 
           <div className="mt-6">
-            <h3 className="text-base font-medium text-gray-700 mb-3">Employees Filter</h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-medium text-gray-700">Employees Filter</h3>
+              {(empFilters.location || empFilters.division || empFilters.managerEmpId) && (
+                <button
+                  onClick={() => setEmpFilters({ location: '', division: '', managerEmpId: '' })}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
+                >
+                  Clear Filters
+                </button>
+              )}
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
               <select
                 value={empFilters.location}
@@ -270,32 +280,36 @@ const TeamManagement = () => {
                 ))}
               </select>
             </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Employee ID</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Division</th>
-                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {sortedEmployees.map(e => (
-                    <tr key={e._id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-sm text-gray-900">{e.employeeId}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{e.name}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{e.division || '-'}</td>
-                      <td className="px-4 py-2 text-sm text-gray-900">{e.location || '-'}</td>
-                    </tr>
-                  ))}
-                  {filteredEmployees.length === 0 && (
-                    <tr>
-                      <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>No employees found</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            <div className="border rounded-lg overflow-hidden">
+              <div className="overflow-x-auto">
+                <div className="max-h-96 overflow-y-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Employee ID</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Name</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Division</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Location</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {sortedEmployees.map(e => (
+                        <tr key={e._id} className="hover:bg-gray-50">
+                          <td className="px-4 py-2 text-sm text-gray-900">{e.employeeId}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{e.name}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{e.division || '-'}</td>
+                          <td className="px-4 py-2 text-sm text-gray-900">{e.location || '-'}</td>
+                        </tr>
+                      ))}
+                      {filteredEmployees.length === 0 && (
+                        <tr>
+                          <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>No employees found</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
           </div>
         </div>

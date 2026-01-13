@@ -1,11 +1,11 @@
 // components/Forms/EmployeeForm.jsx
 import React, { useState, useEffect } from 'react';
-import { 
-  UserIcon, 
-  BriefcaseIcon, 
-  AcademicCapIcon, 
-  PhoneIcon, 
-  HomeIcon, 
+import {
+  UserIcon,
+  BriefcaseIcon,
+  AcademicCapIcon,
+  PhoneIcon,
+  HomeIcon,
   BanknotesIcon,
   CreditCardIcon,
   IdentificationIcon,
@@ -96,13 +96,13 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     contactNumber: '',
     email: '',
     guardianName: '',
-    
+
     // Identification
     pan: '',
     aadhaar: '',
     passportNumber: '',
     uan: '',
-    
+
     // Employment Information
     designation: '',
     division: '',
@@ -111,7 +111,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     previousOrganizations: [],
     currentExperience: '',
     status: 'Active',
-    
+
     // Bank Information
     bankName: '',
     bankAccount: '',
@@ -302,7 +302,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: 'Indian', label: 'Indian' }
   ];
   const indiaStates = [
-    'Andhra Pradesh','Arunachal Pradesh','Assam','Bihar','Chhattisgarh','Goa','Gujarat','Haryana','Himachal Pradesh','Jharkhand','Karnataka','Kerala','Madhya Pradesh','Maharashtra','Manipur','Meghalaya','Mizoram','Nagaland','Odisha','Punjab','Rajasthan','Sikkim','Tamil Nadu','Telangana','Tripura','Uttar Pradesh','Uttarakhand','West Bengal','Andaman and Nicobar Islands','Chandigarh','Dadra and Nagar Haveli and Daman and Diu','Delhi','Jammu and Kashmir','Ladakh','Lakshadweep','Puducherry'
+    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh', 'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka', 'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram', 'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal', 'Andaman and Nicobar Islands', 'Chandigarh', 'Dadra and Nagar Haveli and Daman and Diu', 'Delhi', 'Jammu and Kashmir', 'Ladakh', 'Lakshadweep', 'Puducherry'
   ];
 
   // Status options
@@ -382,13 +382,13 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         contactNumber: employee.contactNumber || employee.mobileNo || '',
         email: employee.email || '',
         guardianName: employee.guardianName || '',
-        
+
         // Identification
         pan: employee.pan || '',
         aadhaar: employee.aadhaar || '',
         passportNumber: employee.passportNumber || '',
         uan: employee.uan || '',
-        
+
         // Employment Information - CORRECTED: Using designation field
         designation: employee.designation || employee.role || employee.position || '',
         division: employee.division || '',
@@ -397,17 +397,17 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         previousOrganizations: employee.previousOrganizations || [],
         currentExperience: employee.currentExperience || '',
         status: employee.status || 'Active',
-        
+
         // Bank Information
         bankName: employee.bankName || '',
         bankAccount: employee.bankAccount || '',
         branch: employee.branch || '',
         ifsc: employee.ifsc || ''
       };
-      
+
       // Set marital status
       setMaritalStatus(mappedData.maritalStatus || 'single');
-      
+
       // Set organizations if available - CORRECTED: Map designation field
       if (mappedData.previousOrganizations && mappedData.previousOrganizations.length > 0) {
         setOrganizations(mappedData.previousOrganizations.map(org => ({
@@ -417,7 +417,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
           endDate: toInputDate(org.endDate) || ''
         })));
       }
-      
+
       setFormData(mappedData);
     }
   }, [employee]);
@@ -426,26 +426,26 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     // Calculate total previous experience whenever organizations change
     if (organizations.length > 0 && organizations[0].organization) {
       let totalMonths = 0;
-      
+
       organizations.forEach(org => {
         if (org.startDate && org.endDate) {
           const start = new Date(org.startDate);
           const end = new Date(org.endDate);
-          const diffInMonths = (end.getFullYear() - start.getFullYear()) * 12 + 
-                              (end.getMonth() - start.getMonth());
+          const diffInMonths = (end.getFullYear() - start.getFullYear()) * 12 +
+            (end.getMonth() - start.getMonth());
           totalMonths += diffInMonths;
         } else if (org.startDate) {
           const start = new Date(org.startDate);
           const now = new Date();
-          const diffInMonths = (now.getFullYear() - start.getFullYear()) * 12 + 
-                              (now.getMonth() - start.getMonth());
+          const diffInMonths = (now.getFullYear() - start.getFullYear()) * 12 +
+            (now.getMonth() - start.getMonth());
           totalMonths += diffInMonths;
         }
       });
-      
+
       const years = Math.floor(totalMonths / 12);
       const months = totalMonths % 12;
-      
+
       let experienceText = '';
       if (years > 0) {
         experienceText += `${years} year${years > 1 ? 's' : ''}`;
@@ -456,7 +456,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       if (!experienceText) {
         experienceText = '0 years';
       }
-      
+
       // Update formData with calculated experience
       setFormData(prev => ({
         ...prev,
@@ -471,9 +471,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     if (field === 'employeeId') {
       newValue = String(newValue || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 20);
       if (newValue.length === 6 && !/^CDE\d{3}$/.test(newValue)) {
-         // Optionally you could force it or just let the validation handle it.
-         // For now, I'll let validation handle the error message, 
-         // but I'm enforcing uppercase and length 6 in the slice above.
+        // Optionally you could force it or just let the validation handle it.
+        // For now, I'll let validation handle the error message, 
+        // but I'm enforcing uppercase and length 6 in the slice above.
       }
     }
     if (field === 'name' || field === 'employeename') {
@@ -500,6 +500,18 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     if (field === 'uan') {
       newValue = String(newValue || '').replace(/\D/g, '').slice(0, 12);
     }
+    if (field === 'bankName') {
+      newValue = String(newValue || '').slice(0, 25);
+    }
+    if (field === 'bankAccount') {
+      newValue = String(newValue || '').replace(/\D/g, '').slice(0, 18);
+    }
+    if (field === 'branch') {
+      newValue = String(newValue || '').slice(0, 20);
+    }
+    if (field === 'ifsc') {
+      newValue = String(newValue || '').toUpperCase().slice(0, 10);
+    }
 
     const updatedData = {
       ...formData,
@@ -519,7 +531,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       updatedData.highestQualification = newValue;
     }
 
-    
+
 
     // Update marital status in state when formData changes
     if (field === 'maritalStatus') {
@@ -534,6 +546,16 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   const handleOrganizationChange = (index, field, value) => {
     const updatedOrganizations = [...organizations];
     updatedOrganizations[index][field] = value;
+
+    // If Start Date changes, reset End Date if it's invalid
+    if (field === 'startDate') {
+      const currentEndDate = updatedOrganizations[index].endDate;
+      // Reset End Date if it exists and is less than or equal to the new Start Date
+      if (currentEndDate && value && currentEndDate <= value) {
+        updatedOrganizations[index].endDate = '';
+      }
+    }
+
     setOrganizations(updatedOrganizations);
   };
 
@@ -551,6 +573,13 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   };
 
   const handleStepClick = (step) => {
+    // Only allow navigation if moving backwards or if current step is valid
+    if (step > currentStep) {
+      const isValid = validateStep(currentStep);
+      if (!isValid) {
+        return; // Don't allow navigation if current step has errors
+      }
+    }
     setCurrentStep(step);
   };
 
@@ -570,7 +599,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
     // Prepare final data
     const finalData = {
       ...formData,
@@ -586,9 +615,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     if (Object.keys(formErrors).length > 0) {
       return;
     }
-    
+
     onSubmit(finalData);
-    
+
     if (!isModal) {
       // Reset form if not in modal mode
       setCurrentStep(1);
@@ -639,13 +668,12 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         <div key={step} className="flex items-center">
           <button
             onClick={() => handleStepClick(step)}
-            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-              currentStep === step 
-                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/50' 
-                : currentStep > step
+            className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${currentStep === step
+              ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/50'
+              : currentStep > step
                 ? 'bg-blue-100 text-blue-600 border border-blue-200'
                 : 'bg-white text-gray-400 border border-gray-300'
-            }`}
+              }`}
           >
             {step}
           </button>
@@ -690,7 +718,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
               <UserIcon className="h-6 w-6 text-blue-600" />
               Personal Information
             </h3>
-            
+
             {/* Basic Information */}
             <div className={`rounded-lg p-5 ${sectionColors.personal.bg} border ${sectionColors.personal.border}`}>
               <div className="flex items-center mb-4">
@@ -734,7 +762,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     value={formData.gender}
                     onChange={(e) => handleInputChange('gender', e.target.value)}
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.gender ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   >
                     {genderOptions.map(option => (
                       <option key={option.value} value={option.value}>
@@ -742,6 +770,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       </option>
                     ))}
                   </select>
+                  {errors.gender && <p className="text-xs text-red-600 mt-1">{errors.gender}</p>}
                 </div>
 
                 <div>
@@ -749,7 +778,32 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                   <input
                     type="date"
                     value={formData.dateOfBirth}
-                    onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                    onChange={(e) => {
+                      const selectedDate = new Date(e.target.value);
+                      const today = new Date();
+                      const age = today.getFullYear() - selectedDate.getFullYear();
+                      const monthDiff = today.getMonth() - selectedDate.getMonth();
+                      const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < selectedDate.getDate()) ? age - 1 : age;
+
+                      if (actualAge < 18) {
+                        setErrors(prev => ({ ...prev, dateOfBirth: 'Must be at least 18 years old' }));
+                      } else {
+                        setErrors(prev => ({ ...prev, dateOfBirth: '' }));
+                      }
+                      handleInputChange('dateOfBirth', e.target.value);
+                    }}
+                    onKeyDown={(e) => {
+                      // Limit year input to 4 digits
+                      const input = e.target;
+                      const value = input.value;
+                      if (value) {
+                        const yearPart = value.split('-')[0];
+                        if (yearPart && yearPart.length >= 4 && e.key >= '0' && e.key <= '9') {
+                          e.preventDefault();
+                        }
+                      }
+                    }}
+                    max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
                     required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.dateOfBirth ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   />
@@ -806,11 +860,10 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                         setMaritalStatus('single');
                         handleInputChange('maritalStatus', 'single');
                       }}
-                      className={`flex-1 px-3 py-2 rounded-lg border transition-colors text-sm font-medium ${
-                        maritalStatus === 'single'
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-transparent'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
+                      className={`flex-1 px-3 py-2 rounded-lg border transition-colors text-sm font-medium ${maritalStatus === 'single'
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-transparent'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
                     >
                       Single
                     </button>
@@ -820,11 +873,10 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                         setMaritalStatus('married');
                         handleInputChange('maritalStatus', 'married');
                       }}
-                      className={`flex-1 px-3 py-2 rounded-lg border transition-colors text-sm font-medium ${
-                        maritalStatus === 'married'
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-transparent'
-                          : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-                      }`}
+                      className={`flex-1 px-3 py-2 rounded-lg border transition-colors text-sm font-medium ${maritalStatus === 'married'
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white border-transparent'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                        }`}
                     >
                       Married
                     </button>
@@ -943,7 +995,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                   </select>
                 </div>
 
-                
+
               </div>
             </div>
 
@@ -1023,6 +1075,15 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                           currentState: prev.permanentState,
                           currentPincode: prev.permanentPincode
                         }));
+                        // Clear current address errors when checking
+                        setErrors(prev => {
+                          const newErrors = { ...prev };
+                          delete newErrors.currentAddressLine;
+                          delete newErrors.currentCity;
+                          delete newErrors.currentState;
+                          delete newErrors.currentPincode;
+                          return newErrors;
+                        });
                       }
                     }}
                     className="w-4 h-4 rounded border-gray-300"
@@ -1039,7 +1100,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                         value={formData.currentAddressLine}
                         onChange={(e) => handleInputChange('currentAddressLine', e.target.value)}
                         required={!sameAsPermanent}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.currentAddressLine ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        disabled={sameAsPermanent}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm ${sameAsPermanent ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'} ${errors.currentAddressLine ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                         placeholder="Street, house number"
                       />
                       {errors.currentAddressLine && <p className="text-xs text-red-600 mt-1">{errors.currentAddressLine}</p>}
@@ -1051,7 +1113,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                         value={formData.currentCity}
                         onChange={(e) => handleInputChange('currentCity', e.target.value)}
                         required={!sameAsPermanent}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.currentCity ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        disabled={sameAsPermanent}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm ${sameAsPermanent ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'} ${errors.currentCity ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                         placeholder="City"
                       />
                       {errors.currentCity && <p className="text-xs text-red-600 mt-1">{errors.currentCity}</p>}
@@ -1062,7 +1125,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                         value={formData.currentState}
                         onChange={(e) => handleInputChange('currentState', e.target.value)}
                         required={!sameAsPermanent}
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.currentState ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        disabled={sameAsPermanent}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm ${sameAsPermanent ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'} ${errors.currentState ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                       >
                         <option value="">Select State</option>
                         {indiaStates.map(s => <option key={s} value={s}>{s}</option>)}
@@ -1076,8 +1140,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                         value={formData.currentPincode}
                         onChange={(e) => handleInputChange('currentPincode', e.target.value.replace(/\D/g, '').slice(0, 6))}
                         required={!sameAsPermanent}
+                        disabled={sameAsPermanent}
                         inputMode="numeric"
-                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.currentPincode ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                        className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm ${sameAsPermanent ? 'bg-gray-100 cursor-not-allowed' : 'bg-white'} ${errors.currentPincode ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                         placeholder="600001"
                       />
                       {errors.currentPincode && <p className="text-xs text-red-600 mt-1">{errors.currentPincode}</p>}
@@ -1143,9 +1208,10 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     inputMode="numeric"
                     maxLength={12}
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.uan ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="101147215588"
                   />
+                  {errors.uan && <p className="text-xs text-red-600 mt-1">{errors.uan}</p>}
                 </div>
               </div>
             </div>
@@ -1159,7 +1225,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
               <BriefcaseIcon className="h-6 w-6 text-blue-600" />
               Professional Information
             </h3>
-            
+
             {/* Employment Details */}
             <div className={`rounded-lg p-5 ${sectionColors.professional.bg} border ${sectionColors.professional.border}`}>
               <div className="flex items-center mb-4">
@@ -1175,7 +1241,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     value={formData.designation}
                     onChange={(e) => handleInputChange('designation', e.target.value)}
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.designation ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   >
                     {designationOptions.map(option => (
                       <option key={option.value} value={option.value}>
@@ -1183,6 +1249,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       </option>
                     ))}
                   </select>
+                  {errors.designation && <p className="text-xs text-red-600 mt-1">{errors.designation}</p>}
                 </div>
 
                 <div>
@@ -1191,7 +1258,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     value={formData.division}
                     onChange={(e) => handleInputChange('division', e.target.value)}
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.division ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   >
                     {divisionOptions.map(option => (
                       <option key={option.value} value={option.value}>
@@ -1199,6 +1266,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       </option>
                     ))}
                   </select>
+                  {errors.division && <p className="text-xs text-red-600 mt-1">{errors.division}</p>}
                 </div>
 
                 <div>
@@ -1209,12 +1277,14 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     type="date"
                     value={formData.dateOfJoining}
                     onChange={(e) => handleInputChange('dateOfJoining', e.target.value)}
+                    max={new Date().toISOString().split('T')[0]}
                     required
-                    className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.dateOfJoining ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   />
+                  {errors.dateOfJoining && <p className="text-xs text-red-600 mt-1">{errors.dateOfJoining}</p>}
                 </div>
 
-             
+
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1269,7 +1339,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                   Add Organization
                 </button>
               </div>
-              
+
               <div className="mb-6 p-4 border border-cyan-200 rounded-lg bg-cyan-50/50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
@@ -1287,7 +1357,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                   </div>
                 </div>
               </div>
-              
+
               {organizations.map((org, index) => (
                 <div key={index} className="mb-4 p-4 border border-gray-200 rounded-lg bg-gray-50">
                   <div className="flex justify-between items-center mb-3">
@@ -1302,7 +1372,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       </button>
                     )}
                   </div>
-                  
+
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">
@@ -1338,6 +1408,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                         type="date"
                         value={org.startDate}
                         onChange={(e) => handleOrganizationChange(index, 'startDate', e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
                       />
                     </div>
@@ -1349,14 +1420,29 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       <input
                         type="date"
                         value={org.endDate}
-                        onChange={(e) => handleOrganizationChange(index, 'endDate', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                        onChange={(e) => {
+                          const newEndDate = e.target.value;
+                          const startDate = org.startDate;
+                          // Only allow End Date if it's after Start Date
+                          if (startDate && newEndDate && newEndDate <= startDate) {
+                            // Don't update if End Date is not after Start Date
+                            return;
+                          }
+                          handleOrganizationChange(index, 'endDate', newEndDate);
+                        }}
+                        min={org.startDate ? new Date(new Date(org.startDate).getTime() + 86400000).toISOString().split('T')[0] : undefined}
+                        max={new Date().toISOString().split('T')[0]}
+                        disabled={!org.startDate}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
+                      {org.startDate && org.endDate && org.endDate <= org.startDate && (
+                        <p className="text-xs text-red-600 mt-1">End Date must be after Start Date</p>
+                      )}
                     </div>
                   </div>
                 </div>
               ))}
-              
+
               {organizations.length === 0 && (
                 <div className="text-center py-6 text-gray-500 text-sm">
                   No previous organizations added. Click "Add Organization" to add one.
@@ -1383,61 +1469,70 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bank Name <span className="text-red-600">*</span>
+                    Bank Name <span className="text-red-600">*</span> <span className="text-gray-500 text-xs">(Max 25 characters)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.bankName}
                     onChange={(e) => handleInputChange('bankName', e.target.value)}
+                    maxLength={25}
                     required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.bankName ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="HDFC Bank"
                   />
+                  <p className="text-xs text-gray-500 mt-1">{formData.bankName.length}/25 characters</p>
                   {errors.bankName && <p className="text-xs text-red-600 mt-1">{errors.bankName}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Bank Account Number <span className="text-red-600">*</span>
+                    Bank Account Number <span className="text-red-600">*</span> <span className="text-gray-500 text-xs">(Max 18 digits)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.bankAccount}
                     onChange={(e) => handleInputChange('bankAccount', e.target.value)}
+                    maxLength={18}
+                    inputMode="numeric"
                     required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.bankAccount ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="123456789012"
                   />
+                  <p className="text-xs text-gray-500 mt-1">{formData.bankAccount.length}/18 digits</p>
                   {errors.bankAccount && <p className="text-xs text-red-600 mt-1">{errors.bankAccount}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Branch <span className="text-red-600">*</span>
+                    Branch <span className="text-red-600">*</span> <span className="text-gray-500 text-xs">(Max 20 characters)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.branch}
                     onChange={(e) => handleInputChange('branch', e.target.value)}
+                    maxLength={20}
                     required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.branch ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="Ramapuram"
                   />
+                  <p className="text-xs text-gray-500 mt-1">{formData.branch.length}/20 characters</p>
                   {errors.branch && <p className="text-xs text-red-600 mt-1">{errors.branch}</p>}
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    IFSC Code <span className="text-red-600">*</span>
+                    IFSC Code <span className="text-red-600">*</span> <span className="text-gray-500 text-xs">(Max 10 characters)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.ifsc}
                     onChange={(e) => handleInputChange('ifsc', e.target.value)}
+                    maxLength={10}
                     required
-                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.ifsc ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
-                    placeholder="IFSC code"
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white uppercase ${errors.ifsc ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                    placeholder="HDFC0001234"
                   />
+                  <p className="text-xs text-gray-500 mt-1">{formData.ifsc.length}/10 characters</p>
                   {errors.ifsc && <p className="text-xs text-red-600 mt-1">{errors.ifsc}</p>}
                 </div>
               </div>

@@ -486,21 +486,24 @@ const InternReference = () => {
 
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
-                            Contact Phone *
+                            Contact Phone * <span className="text-gray-500 text-xs">(Max 10 digits)</span>
                           </label>
                           <div className="relative">
                             <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                             <input
                               type="tel"
                               placeholder="10-digit mobile number"
+                              maxLength={10}
                               className={`w-full border rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all ${errors.contactPhone ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
                               value={form.contactPhone}
                               onChange={e => {
-                                setForm({ ...form, contactPhone: e.target.value });
+                                const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                setForm({ ...form, contactPhone: value });
                                 if (errors.contactPhone) setErrors({ ...errors, contactPhone: null });
                               }}
                             />
                           </div>
+                          <p className="text-xs text-gray-500">{form.contactPhone.length}/10 digits</p>
                           {errors.contactPhone && <p className="text-red-500 text-sm mt-1">{errors.contactPhone}</p>}
                         </div>
                       </div>
@@ -628,49 +631,58 @@ const InternReference = () => {
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
-                            Bank Name *
+                            Bank Name * <span className="text-gray-500 text-xs">(Max 25 characters)</span>
                           </label>
                           <input
                             placeholder="e.g. HDFC Bank"
+                            maxLength={25}
                             className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all ${errors.bankName ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
                             value={form.bankName}
                             onChange={e => {
-                              setForm({ ...form, bankName: e.target.value });
+                              const value = e.target.value.slice(0, 25);
+                              setForm({ ...form, bankName: value });
                               if (errors.bankName) setErrors({ ...errors, bankName: null });
                             }}
                           />
+                          <p className="text-xs text-gray-500">{form.bankName.length}/25 characters</p>
                           {errors.bankName && <p className="text-red-500 text-sm mt-1">{errors.bankName}</p>}
                         </div>
 
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
-                            Account Number *
+                            Account Number * <span className="text-gray-500 text-xs">(Max 18 digits)</span>
                           </label>
                           <input
                             placeholder="Enter account number"
+                            maxLength={18}
                             className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all ${errors.accountNumber ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
                             value={form.accountNumber}
                             onChange={e => {
-                              setForm({ ...form, accountNumber: e.target.value });
+                              const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 18);
+                              setForm({ ...form, accountNumber: value });
                               if (errors.accountNumber) setErrors({ ...errors, accountNumber: null });
                             }}
                           />
+                          <p className="text-xs text-gray-500">{form.accountNumber.length}/18 digits</p>
                           {errors.accountNumber && <p className="text-red-500 text-sm mt-1">{errors.accountNumber}</p>}
                         </div>
 
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
-                            IFSC Code *
+                            IFSC Code * <span className="text-gray-500 text-xs">(Max 10 characters)</span>
                           </label>
                           <input
                             placeholder="Enter IFSC code"
+                            maxLength={10}
                             className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all uppercase ${errors.ifscCode ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
                             value={form.ifscCode}
                             onChange={e => {
-                              setForm({ ...form, ifscCode: e.target.value.toUpperCase() });
+                              const value = e.target.value.toUpperCase().slice(0, 10);
+                              setForm({ ...form, ifscCode: value });
                               if (errors.ifscCode) setErrors({ ...errors, ifscCode: null });
                             }}
                           />
+                          <p className="text-xs text-gray-500">{form.ifscCode.length}/10 characters</p>
                           {errors.ifscCode && <p className="text-red-500 text-sm mt-1">{errors.ifscCode}</p>}
                         </div>
                       </div>

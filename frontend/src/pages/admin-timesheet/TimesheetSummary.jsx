@@ -343,6 +343,16 @@ const TimesheetSummary = () => {
     0
   );
 
+  const formatHours = (h) => {
+    const val = Number(h || 0);
+    const totalMinutes = Math.round(val * 60);
+    const sign = totalMinutes < 0 ? "-" : "";
+    const absMinutes = Math.abs(totalMinutes);
+    const hh = String(Math.floor(absMinutes / 60)).padStart(2, "0");
+    const mm = String(absMinutes % 60).padStart(2, "0");
+    return `${sign}${hh}:${mm}`;
+  };
+
   return (
     <div style={styles.timesheetSummary}>
       <h2 style={styles.title}>Yearly Timesheet Summary</h2>
@@ -411,7 +421,7 @@ const TimesheetSummary = () => {
           <div style={styles.summaryStats}>
             <div style={styles.summaryStat}>
               <h3 style={styles.summaryStatTitle}>Total Hours</h3>
-              <div style={styles.summaryStatValue}>{summaryData.totalHours.toLocaleString()}</div>
+              <div style={styles.summaryStatValue}>{formatHours(summaryData.totalHours)}</div>
             </div>
             <div style={styles.summaryStat}>
               <h3 style={styles.summaryStatTitle}>Total Employees</h3>
@@ -445,7 +455,7 @@ const TimesheetSummary = () => {
                     ></div>
                   </div>
                   <span style={styles.barLabel}>{monthData.month}</span>
-                  <span style={styles.barValue}>{monthData.hours}h</span>
+                  <span style={styles.barValue}>{formatHours(monthData.hours)}</span>
                 </div>
               ))}
             </div>
@@ -473,7 +483,7 @@ const TimesheetSummary = () => {
                     </td>
                     <td style={styles.summaryTableCell}>{item.employeeName}</td>
                     <td style={styles.summaryTableCell}>
-                      <span style={{fontWeight: '600'}}>{item.totalHours}h</span>
+                      <span style={{fontWeight: '600'}}>{formatHours(item.totalHours)}</span>
                     </td>
                   </tr>
                 ))}
