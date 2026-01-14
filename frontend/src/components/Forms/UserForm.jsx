@@ -24,21 +24,65 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const [employeeSearch, setEmployeeSearch] = useState('');
 
   const permissionOptions = [
-    'dashboard',
-    'user_access',
-    'employee_access',
-    'timesheet_access',
-    'attendance_access',
-    'project_access',
-    'leave_access',
-    'leave_manage',
-    'leave_view',
-    'payroll_access',
-    'expenditure_access'
+    { key: 'home', label: 'Home', alwaysOn: true },
+    { key: 'my_profile', label: 'My Profile', alwaysOn: true },
+    { key: 'dashboard', label: 'Dashboard' },
+    { key: 'user_access', label: 'User Access' },
+    { key: 'employee_access', label: 'Employee Management' },
+
+    // Timesheet & attendance
+    { key: 'timesheet_access', label: 'Timesheet', alwaysOn: true },
+    { key: 'timesheet_access', label: 'Timesheet History' },
+    { key: 'timesheet_access', label: 'Attendance Regularization' },
+    { key: 'attendance_access', label: 'Employee Attendance' },
+    { key: 'attendance_access', label: 'Attendance Approval' },
+    { key: 'timesheet_access', label: 'Admin Timesheet' },
+    { key: 'timesheet_access', label: 'Timesheet Summary' },
+
+    // Project
+    { key: 'project_access', label: 'Project Allocation' },
+
+    // Leave management
+    { key: 'leave_access', label: 'Leave Applications', alwaysOn: true },
+    { key: 'leave_view', label: 'Leave Summary' },
+    { key: 'leave_view', label: 'Leave Balance' },
+    { key: 'leave_manage', label: 'Edit Leave Eligibility' },
+    { key: 'leave_manage_trainees', label: 'Trainees Management' },
+
+    // Exit management
+    { key: 'exit_form_access', label: 'Employee Exit Form', alwaysOn: true },
+    { key: 'exit_approval_access', label: 'Exit Approval' },
+
+    // Insurance / policy
+    { key: 'dashboard', label: 'Insurance' },
+    { key: 'dashboard', label: 'Policy Portal' },
+
+    // Salary / payroll / holidays
+    { key: 'payroll_view', label: 'Salary Slips', alwaysOn: true },
+    { key: 'payroll_view', label: 'PF & Gratuity Summary' },
+    { key: 'payroll_view', label: 'Holidays Allowance' },
+    { key: 'payroll_access', label: 'Payroll Details' },
+    { key: 'payroll_view', label: 'Cost to the Company' },
+    { key: 'loan_view', label: 'Loan Summary' },
+    { key: 'gratuity_view', label: 'Gratuity Summary' },
+    { key: 'payroll_access', label: 'Monthly Payroll' },
+
+    // Expenditure
+    { key: 'expenditure_access', label: 'Expenditure Management' },
+
+    // Announcements / rewards / interns / team
+    { key: 'announcement_manage', label: 'Announcements' },
+    { key: 'reward_access', label: 'Employee Reward Tracker' },
+    { key: 'dashboard', label: 'Intern Reference' },
+    { key: 'team_access', label: 'Team Management' }
   ];
 
+  const alwaysOnPermissionKeys = Array.from(
+    new Set(permissionOptions.filter(p => p.alwaysOn && p.key).map(p => p.key))
+  );
+
   const rolePermissionDefaults = {
-    admin: permissionOptions,
+    admin: Array.from(new Set(permissionOptions.map(p => p.key))),
     projectmanager: [
       'dashboard',
       'timesheet_access',
@@ -160,7 +204,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const selectAllPermissions = () => {
     setFormData(prev => ({
       ...prev,
-      permissions: permissionOptions
+      permissions: Array.from(new Set(permissionOptions.map(p => p.key)))
     }));
   };
 
@@ -197,7 +241,10 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     }
 
     // Permissions validation
-    const effectivePermissions = new Set([...formData.permissions, 'timesheet_access']);
+    const effectivePermissions = new Set([
+      ...formData.permissions,
+      ...alwaysOnPermissionKeys
+    ]);
     if (effectivePermissions.size < 2) {
       newErrors.permissions = 'At least 2 permissions must be selected (including Timesheet Access)';
     }
@@ -213,11 +260,12 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     setLoading(true);
     try {
       if (user) {
-        // Ensure timesheet_access is included if it's missing (though it should be forced)
         let permissionsToUpdate = [...formData.permissions];
-        if (!permissionsToUpdate.includes('timesheet_access')) {
-          permissionsToUpdate.push('timesheet_access');
-        }
+        alwaysOnPermissionKeys.forEach(key => {
+          if (!permissionsToUpdate.includes(key)) {
+            permissionsToUpdate.push(key);
+          }
+        });
 
         const updateData = {
           name: formData.name,
@@ -232,12 +280,19 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         }
         await authAPI.updateUser(user._id, updateData);
       } else {
+        const basePermissions = [...formData.permissions];
+        alwaysOnPermissionKeys.forEach(key => {
+          if (!basePermissions.includes(key)) {
+            basePermissions.push(key);
+          }
+        });
+
         await authAPI.createUser({
           name: formData.name,
           email: formData.email,
           role: formData.role,
           password: formData.password,
-          permissions: [...formData.permissions, ...(!formData.permissions.includes('timesheet_access') ? ['timesheet_access'] : [])],
+          permissions: basePermissions,
           employeeId: formData.employeeId
         });
       }
@@ -489,16 +544,17 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {permissionOptions.map(permission => {
-            const isActive = formData.permissions.includes(permission) || permission === 'timesheet_access';
-            const isAlwaysEnabled = permission === 'timesheet_access';
+          {permissionOptions.map(option => {
+            const permission = option.key;
+            const isAlwaysEnabled = !!option.alwaysOn;
+            const isActive = isAlwaysEnabled || formData.permissions.includes(permission);
             return (
               <div
                 key={permission}
                 className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 ${isAlwaysEnabled ? 'opacity-75' : ''}`}
               >
-                <span className="text-sm text-gray-700 capitalize">
-                  {permission.replace(/_/g, ' ')} {isAlwaysEnabled && '(Always On)'}
+                <span className="text-sm text-gray-700">
+                  {option.label} {isAlwaysEnabled && '(Always On)'}
                 </span>
 
                 <button

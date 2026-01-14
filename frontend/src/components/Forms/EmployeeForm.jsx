@@ -662,6 +662,10 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     }
   };
 
+  const isAddOrganizationDisabled = organizations.some(org =>
+    !org.organization || !org.designation || !org.startDate || !org.endDate
+  );
+
   const renderStepIndicator = () => (
     <div className="flex items-center justify-center mb-8">
       {[1, 2, 3].map((step) => (
@@ -815,6 +819,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                   <input
                     type="text"
                     value={formData.qualification}
+                    maxLength={20}
                     onChange={(e) => {
                       const v = e.target.value.toUpperCase();
                       handleInputChange('qualification', v);
@@ -1335,7 +1340,12 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 <button
                   type="button"
                   onClick={addOrganization}
-                  className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-cyan-600 bg-cyan-50 rounded-lg hover:bg-cyan-100 focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors duration-200"
+                  disabled={isAddOrganizationDisabled}
+                  className={`flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 transition-colors duration-200 ${
+                    isAddOrganizationDisabled
+                      ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                      : 'text-cyan-600 bg-cyan-50 hover:bg-cyan-100'
+                  }`}
                 >
                   <PlusIcon className="h-4 w-4" />
                   Add Organization
@@ -1523,18 +1533,18 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    IFSC Code <span className="text-red-600">*</span> <span className="text-gray-500 text-xs">(Max 10 characters)</span>
+                    IFSC Code <span className="text-red-600">*</span> <span className="text-gray-500 text-xs">(Max 11 characters)</span>
                   </label>
                   <input
                     type="text"
                     value={formData.ifsc}
                     onChange={(e) => handleInputChange('ifsc', e.target.value)}
-                    maxLength={10}
+                    maxLength={11}
                     required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white uppercase ${errors.ifsc ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="HDFC0001234"
                   />
-                  <p className="text-xs text-gray-500 mt-1">{formData.ifsc.length}/10 characters</p>
+                  <p className="text-xs text-gray-500 mt-1">{formData.ifsc.length}/11 characters</p>
                   {errors.ifsc && <p className="text-xs text-red-600 mt-1">{errors.ifsc}</p>}
                 </div>
               </div>

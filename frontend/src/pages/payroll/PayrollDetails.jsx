@@ -9,9 +9,12 @@ import {
   Download,
   Calculator,
   MapPin,
-  ChevronDown
+  ChevronDown,
+  X
 } from 'lucide-react';
 import { employeeAPI, payrollAPI, leaveAPI } from '../../services/api';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 // Salary Calculation Functions
 const calculateSalaryFields = (salaryData) => {
@@ -360,6 +363,14 @@ const PayrollDetails = () => {
     setViewRecord(null);
   };
 
+  const formatNumberIN = (value) => {
+    const num = Number(value);
+    if (Number.isNaN(num)) {
+      return '0';
+    }
+    return num.toLocaleString('en-IN');
+  };
+
   const handleDownloadAllPDF = () => {
     if (filteredRecords.length === 0) {
       setSuccessMessage('No records to download');
@@ -367,62 +378,93 @@ const PayrollDetails = () => {
       return;
     }
 
-    // Generate combined PDF content
-    let pdfContent = `PAYROLL REPORT\n==============\n\n`;
-    pdfContent += `Generated on: ${new Date().toLocaleDateString()}\n`;
-    pdfContent += `Total Records: ${filteredRecords.length}\n`;
-    pdfContent += `Location Filter: ${filterLocation === 'all' ? 'All Locations' : filterLocation}\n\n`;
-    pdfContent += '='.repeat(80) + '\n\n';
+    const doc = new jsPDF('l', 'mm', 'a4');
 
-    filteredRecords.forEach((record, index) => {
-      pdfContent += `RECORD ${index + 1}\n`;
-      pdfContent += '-'.repeat(40) + '\n';
-      pdfContent += `Employee ID: ${record.employeeId}\n`;
-      pdfContent += `Employee Name: ${record.employeeName}\n`;
-      pdfContent += `Designation: ${record.designation}\n`;
-      pdfContent += `Department: ${record.department}\n`;
-      const location = employeeList.find(e => e.employeeId === record.employeeId)?.location || record.location || 'N/A';
-      pdfContent += `Location: ${location}\n\n`;
-      
-      pdfContent += `EARNINGS:\n`;
-      pdfContent += `  Basic + DA: ₹${record.basicDA.toLocaleString('en-IN')}\n`;
-      pdfContent += `  HRA: ₹${record.hra.toLocaleString('en-IN')}\n`;
-      pdfContent += `  Special Allowance: ₹${record.specialAllowance.toLocaleString('en-IN')}\n`;
-      pdfContent += `  Total Earnings: ₹${record.totalEarnings.toLocaleString('en-IN')}\n\n`;
-      
-      pdfContent += `DEDUCTIONS:\n`;
-      pdfContent += `  PF Contribution: ₹${record.pf.toLocaleString('en-IN')}\n`;
-      pdfContent += `  ESI Contribution: ₹${record.esi.toLocaleString('en-IN')}\n`;
-      pdfContent += `  Income Tax: ₹${record.tax.toLocaleString('en-IN')}\n`;
-      pdfContent += `  Professional Tax: ₹${record.professionalTax.toLocaleString('en-IN')}\n`;
-      pdfContent += `  Loan Deduction: ₹${record.loanDeduction.toLocaleString('en-IN')}\n`;
-      pdfContent += `  LOP: ₹${record.lop.toLocaleString('en-IN')}\n`;
-      pdfContent += `  Total Deductions: ₹${record.totalDeductions.toLocaleString('en-IN')}\n\n`;
-      
-      pdfContent += `BENEFITS:\n`;
-      pdfContent += `  Gratuity: ₹${record.gratuity.toLocaleString('en-IN')}\n\n`;
+    doc.setFontSize(16);
+    doc.text('Payroll Report', 14, 15);
 
-      pdfContent += `SUMMARY:\n`;
-      pdfContent += `  Net Salary: ₹${record.netSalary.toLocaleString('en-IN')}\n`;
-      pdfContent += `  CTC: ₹${record.ctc.toLocaleString('en-IN')}\n`;
-      pdfContent += `  Status: ${record.status}\n\n`;
-      
-      pdfContent += '='.repeat(80) + '\n\n';
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 21);
+    doc.text(`Total Records: ${filteredRecords.length}`, 14, 26);
+    doc.text(
+      `Location Filter: ${filterLocation === 'all' ? 'All Locations' : filterLocation}`,
+      14,
+      31
+    );
+
+    const head = [
+      [
+        'S.No',
+        'Emp ID',
+        'Name',
+        'Designation',
+        'Division',
+        'Location',
+        'Basic+DA',
+        'HRA',
+        'Special',
+        'Total Earn',
+        'PF',
+        'ESI',
+        'Tax',
+        'Prof Tax',
+        'Loan',
+        'LOP',
+        'Total Ded',
+        'Net Salary',
+        'CTC',
+        'Status'
+      ]
+    ];
+
+    const body = filteredRecords.map((record, index) => {
+      const location =
+        employeeList.find(e => e.employeeId === record.employeeId)?.location ||
+        record.location ||
+        'N/A';
+
+      return [
+        index + 1,
+        record.employeeId || '',
+        record.employeeName || '',
+        record.designation || '',
+        record.department || '',
+        location,
+        formatNumberIN(record.basicDA),
+        formatNumberIN(record.hra),
+        formatNumberIN(record.specialAllowance),
+        formatNumberIN(record.totalEarnings),
+        formatNumberIN(record.pf),
+        formatNumberIN(record.esi),
+        formatNumberIN(record.tax),
+        formatNumberIN(record.professionalTax),
+        formatNumberIN(record.loanDeduction),
+        formatNumberIN(record.lop),
+        formatNumberIN(record.totalDeductions),
+        formatNumberIN(record.netSalary),
+        formatNumberIN(record.ctc),
+        record.status || ''
+      ];
     });
 
-    // Create a Blob with the PDF content
-    const blob = new Blob([pdfContent], { type: 'application/pdf' });
-    const url = URL.createObjectURL(blob);
-    
-    // Create a temporary link element
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Payroll_Report_${new Date().toISOString().split('T')[0]}.pdf`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
+    autoTable(doc, {
+      head,
+      body,
+      startY: 38,
+      styles: { fontSize: 7 },
+      headStyles: { fillColor: [38, 39, 96], textColor: 255 },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 18 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 22 },
+        4: { cellWidth: 22 },
+        5: { cellWidth: 24 }
+      }
+    });
+
+    doc.save(`Payroll_Report_${new Date().toISOString().split('T')[0]}.pdf`);
+
     setSuccessMessage(`PDF report downloaded with ${filteredRecords.length} records`);
     setTimeout(() => setSuccessMessage(''), 3000);
   };
@@ -451,6 +493,10 @@ const PayrollDetails = () => {
     const matchesDesignation = filterDesignation === 'all' || record.designation === filterDesignation;
     
     return matchesSearch && matchesLocation && matchesDepartment && matchesDesignation;
+  }).sort((a, b) => {
+    const idA = (a.employeeId || '').toString();
+    const idB = (b.employeeId || '').toString();
+    return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
   });
 
   const formatCurrency = (amount) => {
@@ -467,8 +513,24 @@ const PayrollDetails = () => {
     { value: 'Hosur', label: 'Hosur' }
   ];
 
-  const departments = ['all', ...new Set(payrollRecords.map(item => item.department).filter(Boolean))];
-  const designations = ['all', ...new Set(payrollRecords.map(item => item.designation).filter(Boolean))];
+  const departments = [
+    'all',
+    ...new Set(
+      payrollRecords
+        .filter(item => filterDesignation === 'all' || item.designation === filterDesignation)
+        .map(item => item.department)
+        .filter(Boolean)
+    )
+  ];
+  const designations = [
+    'all',
+    ...new Set(
+      payrollRecords
+        .filter(item => filterDepartment === 'all' || item.department === filterDepartment)
+        .map(item => item.designation)
+        .filter(Boolean)
+    )
+  ];
 
 
   return (
@@ -678,10 +740,18 @@ const PayrollDetails = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             {/* Header */}
-            <div className="px-6 py-4 border-b">
+            <div className="px-6 py-4 border-b flex items-center justify-between">
               <h2 className="text-xl font-semibold text-gray-800">
                 {editingIndex !== null ? 'Edit Salary Record' : 'Add New Salary Record'}
               </h2>
+              <button
+                onClick={handleCloseDialog}
+                className="p-2 text-gray-400 hover:text-gray-600"
+                title="Close"
+                aria-label="Close"
+              >
+                <X className="w-6 h-6" />
+              </button>
             </div>
 
             {/* Form Content */}
@@ -905,6 +975,7 @@ const PayrollDetails = () => {
                           <input
                             type="number"
                             name={field.name}
+                            maxLength={7}
                             value={formData[field.name]}
                             onChange={handleInputChange}
                             className={`w-full pl-8 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
@@ -933,6 +1004,7 @@ const PayrollDetails = () => {
                           <input
                             type="number"
                             name={field.name}
+                            maxLength={7}
                             value={formData[field.name]}
                             onChange={handleInputChange}
                             className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -964,6 +1036,7 @@ const PayrollDetails = () => {
                           <input
                             type="number"
                             name={field.name}
+                            maxLength={7}
                             value={formData[field.name]}
                             onChange={handleInputChange}
                             className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"

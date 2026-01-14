@@ -27,7 +27,7 @@ import Notification from '../../components/Notifications/Notification';
   const LeaveApplications = () => {
     // State for leave form
     const [leaveData, setLeaveData] = useState({
-      leaveType: 'CL',
+      leaveType: 'PL',
       startDate: '',
       endDate: '',
       dayType: 'Full Day',
@@ -264,16 +264,28 @@ import Notification from '../../components/Notifications/Notification';
     if (type === 'file') {
       setLeaveData(prev => ({ ...prev, [name]: files[0] }));
     } else {
-      setLeaveData(prev => ({ ...prev, [name]: value }));
+      if (name === 'startDate' && leaveData.dayType === 'Half Day') {
+        setLeaveData(prev => ({ ...prev, startDate: value, endDate: value }));
+      } else {
+        setLeaveData(prev => ({ ...prev, [name]: value }));
+      }
     }
 
     // Recalculate days when dates or day type changes
     if (name === 'startDate' || name === 'endDate' || name === 'dayType') {
       setTimeout(() => {
+        let currentStartDate = name === 'startDate' ? value : leaveData.startDate;
+        let currentEndDate = name === 'endDate' ? value : leaveData.endDate;
+        let currentDayType = name === 'dayType' ? value : leaveData.dayType;
+
+        if (name === 'startDate' && leaveData.dayType === 'Half Day') {
+          currentEndDate = value;
+        }
+
         const days = calculateWorkingDays(
-          name === 'startDate' ? value : leaveData.startDate,
-          name === 'endDate' ? value : leaveData.endDate,
-          name === 'dayType' ? value : leaveData.dayType
+          currentStartDate,
+          currentEndDate,
+          currentDayType
         );
         setTotalLeaveDays(days);
       }, 0);
@@ -282,10 +294,15 @@ import Notification from '../../components/Notifications/Notification';
 
   // Handle day type change
   const handleDayTypeChange = (type) => {
-    setLeaveData(prev => ({ ...prev, dayType: type }));
+    let newEndDate = leaveData.endDate;
+    if (type === 'Half Day' && leaveData.startDate) {
+      newEndDate = leaveData.startDate;
+    }
+    
+    setLeaveData(prev => ({ ...prev, dayType: type, endDate: newEndDate }));
 
-    if (leaveData.startDate && leaveData.endDate) {
-      const days = calculateWorkingDays(leaveData.startDate, leaveData.endDate, type);
+    if (leaveData.startDate && newEndDate) {
+      const days = calculateWorkingDays(leaveData.startDate, newEndDate, type);
       setTotalLeaveDays(days);
     }
   };
@@ -295,7 +312,7 @@ import Notification from '../../components/Notifications/Notification';
     e.preventDefault();
     if (submitting) return;
     setSubmitting(true);
-
+ 
     // Validation
     if (!leaveData.startDate || !leaveData.endDate || !leaveData.leaveType) {
       showNotification('Please fill in all required fields', 'error');
@@ -321,6 +338,91 @@ import Notification from '../../components/Notifications/Notification';
       showNotification('Medical certificate is required for sick leave exceeding 3 days', 'error');
       setSubmitting(false);
       return;
+    }
+ 
+    const newStart = new Date(leaveData.startDate);
+    const newEnd = new Date(leaveData.endDate);
+    const newIsHalfDay = leaveData.dayType === 'Half Day';
+
+    if (newIsHalfDay) {
+      if (isNaN(newStart.getTime()) || isNaN(newEnd.getTime())) {
+        setSubmitting(false);
+        return;
+      }
+
+      const targetDate = new Date(
+        newStart.getFullYear(),
+        newStart.getMonth(),
+        newStart.getDate()
+      );
+
+      let halfDayTotal = 0;
+      let hasFullDayConflict = false;
+
+      leaveHistory.forEach(leave => {
+        if (leave.status === 'Rejected') return;
+        if (editingLeaveId && leave.id === editingLeaveId) return;
+
+        const existingStart = new Date(leave.startDate);
+        const existingEnd = new Date(leave.endDate);
+
+        if (
+          isNaN(existingStart.getTime()) ||
+          isNaN(existingEnd.getTime())
+        ) {
+          return;
+        }
+
+        const existingStartDay = new Date(
+          existingStart.getFullYear(),
+          existingStart.getMonth(),
+          existingStart.getDate()
+        );
+        const existingEndDay = new Date(
+          existingEnd.getFullYear(),
+          existingEnd.getMonth(),
+          existingEnd.getDate()
+        );
+
+        const coversTarget =
+          targetDate >= existingStartDay && targetDate <= existingEndDay;
+
+        if (!coversTarget) return;
+
+        if (leave.dayType === 'Half Day' && existingStartDay.getTime() === existingEndDay.getTime()) {
+          halfDayTotal += Number(leave.totalDays || 0);
+        } else {
+          hasFullDayConflict = true;
+        }
+      });
+
+      if (hasFullDayConflict || halfDayTotal >= 1) {
+        showNotification('You have already taken leave on this date.', 'error');
+        setSubmitting(false);
+        return;
+      }
+    } else {
+      const hasOverlappingLeave = leaveHistory.some(leave => {
+        if (leave.status === 'Rejected') return false;
+        if (editingLeaveId && leave.id === editingLeaveId) return false;
+        const existingStart = new Date(leave.startDate);
+        const existingEnd = new Date(leave.endDate);
+        if (
+          isNaN(existingStart.getTime()) ||
+          isNaN(existingEnd.getTime()) ||
+          isNaN(newStart.getTime()) ||
+          isNaN(newEnd.getTime())
+        ) {
+          return false;
+        }
+        return newStart <= existingEnd && newEnd >= existingStart;
+      });
+
+      if (hasOverlappingLeave) {
+        showNotification('You have already taken leave on this date.', 'error');
+        setSubmitting(false);
+        return;
+      }
     }
 
     // Create or update leave application
@@ -381,7 +483,7 @@ import Notification from '../../components/Notifications/Notification';
 
     // Reset form
     setLeaveData({
-      leaveType: 'CL',
+      leaveType: 'PL',
       startDate: '',
       endDate: '',
       dayType: 'Full Day',
@@ -419,7 +521,7 @@ import Notification from '../../components/Notifications/Notification';
     setIsEditModalOpen(false);
     setEditingLeaveId(null);
     setLeaveData({
-      leaveType: allowedLeaveTypes[0]?.value || 'CL',
+      leaveType: 'PL',
       startDate: '',
       endDate: '',
       dayType: 'Full Day',
@@ -582,7 +684,7 @@ import Notification from '../../components/Notifications/Notification';
       {/* Dates Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Start Date */}
-        <div>
+      <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Start Date *
           </label>
@@ -590,6 +692,9 @@ import Notification from '../../components/Notifications/Notification';
             type="date"
             name="startDate"
             value={leaveData.startDate}
+            onKeyDown={(e) => e.preventDefault()}
+            onPaste={(e) => e.preventDefault()}
+            onDrop={(e) => e.preventDefault()}
             onChange={handleInputChange}
             className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             required
@@ -626,9 +731,13 @@ import Notification from '../../components/Notifications/Notification';
             type="date"
             name="endDate"
             value={leaveData.endDate}
+            onKeyDown={(e) => e.preventDefault()}
+            onPaste={(e) => e.preventDefault()}
+            onDrop={(e) => e.preventDefault()}
             onChange={handleInputChange}
             min={leaveData.startDate}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            disabled={leaveData.dayType === 'Half Day'}
+            className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${leaveData.dayType === 'Half Day' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             required
           />
         </div>
@@ -833,7 +942,6 @@ import Notification from '../../components/Notifications/Notification';
                     <Home className="w-5 h-5 text-green-600" />
                   </div>
                   <div className="text-3xl font-bold text-green-600">{getAvailableBalance('CL')} days</div>
-                  <div className="text-sm text-gray-600 mt-1">0.5 days/month entitlement</div>
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.CL} days</div>
                 </div>
 
@@ -843,7 +951,6 @@ import Notification from '../../components/Notifications/Notification';
                     <AlertCircle className="w-5 h-5 text-red-600" />
                   </div>
                   <div className="text-3xl font-bold text-red-600">{getAvailableBalance('SL')} days</div>
-                  <div className="text-sm text-gray-600 mt-1">0.5 days/month entitlement</div>
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.SL} days</div>
                 </div>
 
@@ -853,7 +960,6 @@ import Notification from '../../components/Notifications/Notification';
                     <Calendar className="w-5 h-5 text-blue-600" />
                   </div>
                   <div className="text-3xl font-bold text-blue-600">{getAvailableBalance('PL')} days</div>
-                  <div className="text-sm text-gray-600 mt-1">15 days/year after completion</div>
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.PL} days</div>
                 </div>
 

@@ -139,6 +139,12 @@ const TimesheetHistory = () => {
     return `${sign}${hh}:${mm}`;
   };
 
+  const getTotalHoursWithBreakValue = (timesheet) => {
+    const withBreak = Number(timesheet.totalHoursWithBreak || 0);
+    if (withBreak > 0) return withBreak;
+    return Number(timesheet.totalHours || 0);
+  };
+
   const handleViewDetails = (timesheet) => {
     setSelectedTimesheet(timesheet);
     setShowDetailsModal(true);
@@ -221,21 +227,21 @@ const TimesheetHistory = () => {
           entry.project,
           getProjectCode(entry),
           entry.task,
-          entry.hours[0] || 0,
-          entry.hours[1] || 0,
-          entry.hours[2] || 0,
-          entry.hours[3] || 0,
-          entry.hours[4] || 0,
-          entry.hours[5] || 0,
-          entry.hours[6] || 0,
-          entry.hours.reduce((sum, hour) => sum + (Number(hour) || 0), 0)
+          toHHMM(entry.hours[0] || 0),
+          toHHMM(entry.hours[1] || 0),
+          toHHMM(entry.hours[2] || 0),
+          toHHMM(entry.hours[3] || 0),
+          toHHMM(entry.hours[4] || 0),
+          toHHMM(entry.hours[5] || 0),
+          toHHMM(entry.hours[6] || 0),
+          toHHMM(entry.hours.reduce((sum, hour) => sum + (Number(hour) || 0), 0))
         ];
         data.push(row);
       });
       
       // Add summary row
       data.push([]);
-      data.push(['', '', 'TOTAL HOURS', '', '', '', '', '', '', '', timesheet.totalHours]);
+      data.push(['', '', 'TOTAL HOURS (Work + Break)', '', '', '', '', '', '', '', toHHMM(getTotalHoursWithBreakValue(timesheet))]);
       data.push(['', '', 'STATUS', '', '', '', '', '', '', '', timesheet.status]);
       data.push(['', '', 'WEEK', '', '', '', '', '', '', '', `${weekStart.toLocaleDateString()} - ${weekEnd.toLocaleDateString()}`]);
       
@@ -272,7 +278,7 @@ const TimesheetHistory = () => {
       worksheetData.push([]);
       
       // Header row
-      worksheetData.push(['Week', 'Projects', 'Project Codes', 'Total Hours', 'Status', 'Submitted Date']);
+      worksheetData.push(['Week', 'Projects', 'Project Codes', 'Total Hours (Work + Break)', 'Status', 'Submitted Date']);
       
       // Data rows
       monthTimesheets.forEach(timesheet => {
@@ -287,16 +293,19 @@ const TimesheetHistory = () => {
           weekRange,
           projects,
           projectCodes,
-          timesheet.totalHours,
+          toHHMM(getTotalHoursWithBreakValue(timesheet)),
           timesheet.status,
           submittedDate
         ]);
       });
       
       // Add monthly total
-      const monthlyTotal = monthTimesheets.reduce((sum, t) => sum + t.totalHours, 0);
+      const monthlyTotal = monthTimesheets.reduce(
+        (sum, t) => sum + getTotalHoursWithBreakValue(t),
+        0
+      );
       worksheetData.push([]);
-      worksheetData.push(['Monthly Total Hours:', '', '', monthlyTotal, '', '']);
+      worksheetData.push(['Monthly Total Hours:', '', '', toHHMM(monthlyTotal), '', '']);
       
       const worksheet = XLSX.utils.aoa_to_sheet(worksheetData);
       XLSX.utils.book_append_sheet(workbook, worksheet, monthYear.substring(0, 31)); // Sheet name limit
@@ -324,21 +333,21 @@ const TimesheetHistory = () => {
       // Header info
       pdf.setFontSize(10);
       pdf.text(`Status: ${timesheet.status}`, 14, 25);
-      pdf.text(`Total Hours: ${timesheet.totalHours}`, 14, 32);
+      pdf.text(`Total Hours (Work + Break): ${toHHMM(getTotalHoursWithBreakValue(timesheet))}`, 14, 32);
       
       // Table data
       const tableData = timesheet.entries.map(entry => [
         entry.project,
         getProjectCode(entry),
         entry.task,
-        entry.hours[0] || 0,
-        entry.hours[1] || 0,
-        entry.hours[2] || 0,
-        entry.hours[3] || 0,
-        entry.hours[4] || 0,
-        entry.hours[5] || 0,
-        entry.hours[6] || 0,
-        entry.hours.reduce((sum, hour) => sum + (Number(hour) || 0), 0)
+        toHHMM(entry.hours[0] || 0),
+        toHHMM(entry.hours[1] || 0),
+        toHHMM(entry.hours[2] || 0),
+        toHHMM(entry.hours[3] || 0),
+        toHHMM(entry.hours[4] || 0),
+        toHHMM(entry.hours[5] || 0),
+        toHHMM(entry.hours[6] || 0),
+        toHHMM(entry.hours.reduce((sum, hour) => sum + (Number(hour) || 0), 0))
       ]);
       
       // Add table
@@ -388,17 +397,20 @@ const TimesheetHistory = () => {
         formatWeekRange(timesheet.weekStartDate, timesheet.weekEndDate),
         Array.from(new Set(timesheet.entries.map(e => e.project))).join(', '),
         getProjectCodes(timesheet.entries),
-        timesheet.totalHours,
+        toHHMM(getTotalHoursWithBreakValue(timesheet)),
         timesheet.status,
         timesheet.submittedAt ? new Date(timesheet.submittedAt).toLocaleDateString() : 'Draft'
       ]);
       
       // Monthly total
-      const monthlyTotal = monthTimesheets.reduce((sum, t) => sum + t.totalHours, 0);
+      const monthlyTotal = monthTimesheets.reduce(
+        (sum, t) => sum + getTotalHoursWithBreakValue(t),
+        0
+      );
       
       autoTable(pdf, {
         startY: 25,
-        head: [['Week', 'Projects', 'Project Codes', 'Total Hours', 'Status', 'Submitted Date']],
+        head: [['Week', 'Projects', 'Project Codes', 'Total Hours (Work + Break)', 'Status', 'Submitted Date']],
         body: tableData,
         theme: 'grid',
         styles: { fontSize: 8 },
@@ -408,7 +420,7 @@ const TimesheetHistory = () => {
       // Add monthly total
       const finalY = pdf.lastAutoTable.finalY + 10;
       pdf.setFontSize(10);
-      pdf.text(`Monthly Total Hours: ${monthlyTotal}`, 14, finalY);
+      pdf.text(`Monthly Total Hours: ${toHHMM(monthlyTotal)}`, 14, finalY);
     });
     
     pdf.save(`Timesheet_Monthly_${new Date().toISOString().split('T')[0]}.pdf`);
@@ -549,7 +561,7 @@ const TimesheetHistory = () => {
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Week</th>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Projects</th>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Project Code</th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700">Total Hours</th>
+                  <th className="p-4 text-left text-sm font-semibold text-gray-700">Total Hours (Work + Break)</th>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Status</th>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Last Updated</th>
                   <th className="p-4 text-left text-sm font-semibold text-gray-700">Actions</th>
@@ -604,7 +616,7 @@ const TimesheetHistory = () => {
                         </div>
                       </td>
                       <td className="p-4 text-sm font-semibold text-gray-900">
-                        {toHHMM(t.totalHours)}
+                        {toHHMM(getTotalHoursWithBreakValue(t))}
                       </td>
                       <td className="p-4">
                         <span className={getStatusBadge(t.status)}>

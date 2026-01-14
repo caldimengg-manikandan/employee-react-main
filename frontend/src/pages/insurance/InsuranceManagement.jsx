@@ -736,6 +736,7 @@ const InsuranceManagement = () => {
                 <span class="value">${child.name} (Age: ${child.age} years)</span>
               </div>
             `).join('')}
+            
           </div>
         ` : ''}
 
@@ -1172,8 +1173,13 @@ const InsuranceManagement = () => {
             <h3 className="text-lg font-medium text-gray-900">Children Details</h3>
             <button
               type="button"
+              disabled={!(editFormData.children?.[editFormData.children.length - 1]?.name && editFormData.children?.[editFormData.children.length - 1]?.age)}
               onClick={addEditChild}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className={`inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md ${
+                !(editFormData.children?.[editFormData.children.length - 1]?.name && editFormData.children?.[editFormData.children.length - 1]?.age)
+                  ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                  : 'text-blue-600 bg-blue-100 hover:bg-blue-200'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
             >
               <PlusIcon className="h-4 w-4 mr-1" />
               Add Child
@@ -1305,6 +1311,7 @@ const InsuranceManagement = () => {
             type="text"
             value={editFormData.claimNumber}
             onChange={(e) => handleEditInputChange('claimNumber', e.target.value)}
+            maxLength={40}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             placeholder="Enter claim number"
             required
@@ -1659,8 +1666,13 @@ const InsuranceManagement = () => {
             <h3 className="text-lg font-medium text-gray-900">Children Details</h3>
             <button
               type="button"
+              disabled={!(formData.children?.[formData.children.length - 1]?.name && formData.children?.[formData.children.length - 1]?.age)}
               onClick={addChild}
-              className="inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md text-blue-600 bg-blue-100 hover:bg-blue-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className={`inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md ${
+                !(formData.children?.[formData.children.length - 1]?.name && formData.children?.[formData.children.length - 1]?.age)
+                  ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
+                  : 'text-blue-600 bg-blue-100 hover:bg-blue-200'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
             >
               <PlusIcon className="h-4 w-4 mr-1" />
               Add Child

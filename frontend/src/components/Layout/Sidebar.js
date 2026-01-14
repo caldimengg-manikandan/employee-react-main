@@ -31,7 +31,20 @@ import {
   ClipboardDocumentCheckIcon as ApprovalIcon,
   UserCircleIcon,
   ChevronDoubleLeftIcon,
-  ChevronDoubleRightIcon
+  ChevronDoubleRightIcon,
+  // ADDITIONAL UNIQUE ICONS
+  DocumentDuplicateIcon,
+  ReceiptPercentIcon,
+  BuildingLibraryIcon,
+  NewspaperIcon,
+  // MORE UNIQUE ICONS TO REPLACE DUPLICATES
+  PresentationChartLineIcon,
+  ClipboardIcon,
+  GiftIcon,
+  Cog6ToothIcon,
+  DocumentMagnifyingGlassIcon,
+  UserIcon,
+  CalendarDaysIcon
 } from "@heroicons/react/24/outline";
 
 const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }) => {
@@ -51,20 +64,23 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     setOpenDropdown(openDropdown === name ? null : name);
   };
 
-  // icon mapping - Updated with Exit Management icons
+  // icon mapping - All unique icons, no duplicates
   const iconMap = {
     Dashboard: HomeIcon,
+    Home: HomeIcon,
+    "My Profile": UserIcon,
     "User Access": KeyIcon,
     "Employee Management": UsersIcon,
-    "Timesheet": ClockIcon,
+    "Timesheet": DocumentChartBarIcon,
     "Employee Attendance": ClockIcon,
     "Attendance Approval": ClipboardDocumentCheckIcon,
     "Project Allocation": FolderIcon,
     "Leave Management": CalendarIcon,
-    "Leave Applications": ClipboardDocumentCheckIcon,
-    "Salary Slips": BanknotesIcon,
-    "Admin Timesheet": ClockIcon,
-    "licy Portal": DocumentIcon,
+    "Leave Applications": DocumentDuplicateIcon,
+    "Insurance": ShieldCheckIcon,
+    "Policy Portal": DocumentIcon,
+    "Salary Slips": ReceiptPercentIcon,
+    "Admin Timesheet": ClipboardIcon,
     "Edit Leave Eligibility": AdjustmentsHorizontalIcon,
     "Leave Summary": ChartBarIcon,
     "Leave Balance": ClipboardDocumentListIcon,
@@ -72,19 +88,20 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Expenditure Management": CurrencyDollarIcon,
     "Payroll Management": CalculatorIcon,
     "Cost to the Company": CurrencyRupeeIcon,
-    "Payroll Details": CurrencyRupeeIcon,
+    "Payroll Details": BanknotesIcon,
+    "Compensation Master": Cog6ToothIcon,
     "Team Management": UserGroupIcon,
     "Employee Reward Tracker": BriefcaseIcon,
     "Dashboard Reports": ChartPieIcon,
-    "Loan Summary": BanknotesIcon,
-    "Gratuity Summary": BanknotesIcon,
-    "Monthly Payroll": BanknotesIcon,
-    "Announcements": DocumentTextIcon,
+    "Loan Summary": BuildingLibraryIcon,
+    "Gratuity Summary": GiftIcon,
+    "Monthly Payroll": PresentationChartLineIcon,
+    "Announcements": NewspaperIcon,
     "Intern Reference": DocumentTextIcon,
-    "Holidays Allowance": CurrencyDollarIcon,
+    "Holidays Allowance": CalendarDaysIcon,
     // NEW ICONS FOR EXIT MANAGEMENT
     "Employee Exit Form": ArrowRightOnRectangleIcon,
-    "Exit Approval": ApprovalIcon,
+    "Exit Approval": DocumentMagnifyingGlassIcon,
     "Exit Management": UserCircleIcon
   };
 
@@ -94,7 +111,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     {
       name: "Home",
       path: "/dashboard",
-      icon: getIconForMenu("Dashboard"),
+      icon: getIconForMenu("Home"),
       allowEmployeeRole: true,
     },
     {
@@ -127,7 +144,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/timesheet/attendance-approval",
       icon: getIconForMenu("Attendance Approval"),
       permission: "attendance_access",
-      showForRoles: ["admin", "hr", ],
+      showForRoles: ["admin", "hr",],
     },
     {
       name: "Admin Timesheet",
@@ -144,7 +161,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Project Allocation",
       path: "/project-allocation",
       icon: getIconForMenu("Project Allocation"),
-      showForRoles: ["admin", "projectmanager", "manager", ],
+      showForRoles: ["admin", "projectmanager", "manager",],
       allowEmployeeRole: true,
     },
     // LEAVE MANAGEMENT MODULE
@@ -156,14 +173,14 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       allowEmployeeRole: false,
       showForRoles: ["admin", "hr", "manager"],
       children: [
-        { 
-          name: "Leave Summary", 
+        {
+          name: "Leave Summary",
           path: "/leave-management/summary",
           permission: "leave_view",
           showForRoles: ["admin", "hr", "manager"]
         },
-        { 
-          name: "Leave Balance", 
+        {
+          name: "Leave Balance",
           path: "/leave-management/balance",
           permission: "leave_view",
           allowEmployeeRole: true
@@ -171,13 +188,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       ],
     },
     // PROJECT MANAGER: LEAVE SUMMARY (Top Level)
-    { 
-      name: "Leave Summary", 
-      path: "/leave-management/summary",
-      permission: "leave_view",
-      icon: getIconForMenu("Leave Summary"),
-      showForRoles: ["projectmanager", "project_manager"]
-    },
+    // { 
+    //   name: "Leave Summary", 
+    //   path: "/leave-management/summary",
+    //   permission: "leave_view",
+    //   icon: getIconForMenu("Leave Summary"),
+    //   showForRoles: ["projectmanager", "project_manager"]
+    // },
     // LEAVE APPLICATIONS
     {
       name: "Leave Applications",
@@ -215,8 +232,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       showForRoles: ["admin", "hr", "finance"],
       allowEmployeeRole: false,
       children: [
-        { 
-          name: "Payroll Details", 
+        {
+          name: "Payroll Details",
           path: "/payroll/details",
           permission: "payroll_manage",
           showForRoles: ["admin", "hr", "finance"]
@@ -295,8 +312,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "exit_access",
       showForRoles: ["admin", "hr", "manager"],
       children: [
-        { 
-          name: "Exit Approval", 
+        {
+          name: "Exit Approval",
           path: "/employee-exit/approval",
           permission: "exit_approval_access",
           showForRoles: ["admin", "hr", "manager"]
@@ -312,7 +329,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       showForRoles: ["admin", "hr", "manager"],
     },
     // HOLIDAY 
-     {
+    {
       name: "Holidays Allowance",
       path: "/holidays-allowance",
       icon: getIconForMenu("Holidays Allowance"),
@@ -344,7 +361,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "team_access",
       showForRoles: ["admin", "manager"],
     },
-   
+
   ];
 
   // Filter logic
@@ -412,7 +429,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
   // Filter dropdown children
   const getFilteredChildren = (children) => {
     if (!children) return [];
-    
+
     return children.filter((child) => {
       // Admin can see everything
       if (role === "admin") return true;
@@ -439,9 +456,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
   const isItemActive = (item) => {
     if (item.path) return location.pathname === item.path;
     if (item.children) {
-      return item.children.some((child) => 
-        child.path && location.pathname.startsWith(child.path.replace(/\/[^\/]+$/, '')) ||
-        location.pathname === child.path
+      return item.children.some((child) =>
+        child.path && location.pathname === child.path
       );
     }
     return false;
@@ -449,16 +465,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
 
   const isChildActive = (childPath) => {
     if (!childPath) return false;
-    
-    // Exact match
-    if (location.pathname === childPath) return true;
-    
-    // For sub-paths
-    if (childPath && location.pathname.startsWith(childPath)) {
-      return true;
-    }
-    
-    return false;
+
+    // Exact match only to prevent multiple children being active
+    return location.pathname === childPath;
   };
 
   // DropdownIcons - Updated with Exit Management icons
@@ -518,14 +527,14 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
           >
             <X size={24} />
           </button>
-          
+
           {/* Desktop Toggle Button */}
           <button
-             onClick={toggleDesktopSidebar}
-             className={`hidden lg:flex items-center justify-center text-white p-1 rounded-md hover:bg-[#1e2050] transition-colors duration-200 
+            onClick={toggleDesktopSidebar}
+            className={`hidden lg:flex items-center justify-center text-white p-1 rounded-md hover:bg-[#1e2050] transition-colors duration-200 
              ${!isDesktopOpen ? 'w-full' : 'absolute right-2'}`}
           >
-             {isDesktopOpen ? <ChevronDoubleLeftIcon className="h-5 w-5" /> : <ChevronDoubleRightIcon className="h-6 w-6" />}
+            {isDesktopOpen ? <ChevronDoubleLeftIcon className="h-5 w-5" /> : <ChevronDoubleRightIcon className="h-6 w-6" />}
           </button>
         </div>
 
@@ -537,11 +546,10 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
                 <>
                   <button
                     onClick={() => toggleDropdown(item.name)}
-                    className={`w-full flex items-center ${!isDesktopOpen ? 'justify-center' : 'justify-between'} px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                      isItemActive(item)
-                        ? "bg-[#1e2050] text-white shadow-sm"
-                        : "text-violet-100 hover:bg-[#1e2050] hover:text-white"
-                    }`}
+                    className={`w-full flex items-center ${!isDesktopOpen ? 'justify-center' : 'justify-between'} px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${isItemActive(item)
+                      ? "bg-[#1e2050] text-white shadow-sm"
+                      : "text-violet-100 hover:bg-[#1e2050] hover:text-white"
+                      }`}
                     title={!isDesktopOpen ? item.name : ''}
                   >
                     <div className={`flex items-center ${!isDesktopOpen ? 'justify-center' : ''}`}>
@@ -562,11 +570,10 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
                           key={child.path}
                           to={child.path}
                           onClick={onClose}
-                          className={`flex items-center px-3 py-2.5 text-sm rounded-md transition-all mx-1 ${
-                            isChildActive(child.path)
-                              ? "bg-[#1e2050] text-white border-l-2 border-white"
-                              : "text-violet-100 hover:bg-[#1e2050] hover:text-white hover:border-l-2 hover:border-violet-300"
-                          }`}
+                          className={`flex items-center px-3 py-2.5 text-sm rounded-md transition-all mx-1 ${isChildActive(child.path)
+                            ? "bg-[#1e2050] text-white border-l-2 border-white"
+                            : "text-violet-100 hover:bg-[#1e2050] hover:text-white hover:border-l-2 hover:border-violet-300"
+                            }`}
                         >
                           {getChildIcon(child.name)}
                           <span>{child.name}</span>
@@ -579,11 +586,10 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
                 <Link
                   to={item.path}
                   onClick={onClose}
-                  className={`flex items-center ${!isDesktopOpen ? 'justify-center' : ''} px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                    isItemActive(item)
-                      ? "bg-[#1e2050] text-white shadow-sm"
-                      : "text-violet-100 hover:bg-[#1e2050] hover:text-white"
-                  }`}
+                  className={`flex items-center ${!isDesktopOpen ? 'justify-center' : ''} px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${isItemActive(item)
+                    ? "bg-[#1e2050] text-white shadow-sm"
+                    : "text-violet-100 hover:bg-[#1e2050] hover:text-white"
+                    }`}
                   title={!isDesktopOpen ? item.name : ''}
                 >
                   <item.icon className={`${isDesktopOpen ? 'mr-3' : ''} h-5 w-5`} />

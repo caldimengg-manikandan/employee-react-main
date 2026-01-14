@@ -1,12 +1,13 @@
 // src/pages/AdminPolicyPortal.jsx
 import React, { useState, useEffect } from 'react';
 import { policyAPI } from '../services/api';
-import { 
+import {
   PlusIcon,
   CheckIcon,
   TrashIcon,
   PencilIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 const AdminPolicyPortal = () => {
@@ -18,6 +19,12 @@ const AdminPolicyPortal = () => {
   const [policyTitle, setPolicyTitle] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [policyToDelete, setPolicyToDelete] = useState(null);
+  const [titleError, setTitleError] = useState('');
+  const [contentError, setContentError] = useState('');
+  const [originalTitle, setOriginalTitle] = useState('');
+  const [originalContent, setOriginalContent] = useState('');
+  const [isNewPolicy, setIsNewPolicy] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const role = user.role || 'employees';
   const isReadOnly = role === 'employees' || role === 'projectmanager';
@@ -29,41 +36,87 @@ const AdminPolicyPortal = () => {
         const res = await policyAPI.list();
         const items = Array.isArray(res.data) ? res.data : [];
         setPolicies(items);
-        if (items.length > 0) {
+        if (items.length > 0 && !activePolicy) {
           setActivePolicy(items[0]);
           setContent(items[0].content || '');
           setPolicyTitle(items[0].title || '');
+          setOriginalTitle(items[0].title || '');
+          setOriginalContent(items[0].content || '');
         }
       } catch (err) {
-        // silent fail
+        console.error('Failed to fetch policies:', err);
       }
     };
     fetchPolicies();
   }, []);
 
-  // Add new policy
-  const handleAddPolicy = async () => {
-    try {
-      const res = await policyAPI.create({
-        title: 'New Policy',
-        content: '# New Policy\n\nAdd your policy content here...'
-      });
-      const created = res.data;
-      const updatedPolicies = [...policies, created];
-      setPolicies(updatedPolicies);
-      setActivePolicy(created);
-      setContent(created.content || '');
-      setPolicyTitle(created.title || '');
-      setEditingContent(true);
-      setEditingTitle(true);
-    } catch (err) {
-      // silent fail
-    }
+  // Validate if title is unique (excluding current policy)
+  const isTitleUnique = (title, currentPolicyId = null) => {
+    const trimmedTitle = title.trim().toLowerCase();
+    return !policies.some(
+      policy =>
+        policy.title.trim().toLowerCase() === trimmedTitle &&
+        policy._id !== currentPolicyId
+    );
+  };
+
+  // Add new policy - creates a temporary draft
+  const handleAddPolicy = () => {
+    // Create a temporary new policy object (not saved to backend yet)
+    const newPolicyDraft = {
+      _id: `temp-${Date.now()}`, // Temporary ID
+      title: 'New Policy',
+      content: '# New Policy\n\nAdd your policy content here...',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      isTemp: true // Flag to identify unsaved policy
+    };
+
+    // Add to local state only
+    const updatedPolicies = [...policies, newPolicyDraft];
+    setPolicies(updatedPolicies);
+    setActivePolicy(newPolicyDraft);
+    setContent(newPolicyDraft.content);
+    setPolicyTitle(newPolicyDraft.title);
+    setOriginalTitle(newPolicyDraft.title);
+    setOriginalContent(newPolicyDraft.content);
+    setIsNewPolicy(true);
+    setEditingContent(true);
+    setEditingTitle(true);
+    setTitleError('');
+    setContentError('');
   };
 
   // Delete policy
   const handleDeletePolicy = async (id) => {
     try {
+      // If it's a temporary policy, just remove from state
+      if (id.startsWith('temp-')) {
+        const updatedPolicies = policies.filter(policy => policy._id !== id);
+        setPolicies(updatedPolicies);
+        if (activePolicy && activePolicy._id === id) {
+          if (updatedPolicies.length > 0) {
+            const firstRealPolicy = updatedPolicies[0];
+            setActivePolicy(firstRealPolicy);
+            setContent(firstRealPolicy.content || '');
+            setPolicyTitle(firstRealPolicy.title || '');
+            setOriginalTitle(firstRealPolicy.title || '');
+            setOriginalContent(firstRealPolicy.content || '');
+          } else {
+            setActivePolicy(null);
+            setContent('');
+            setPolicyTitle('');
+            setOriginalTitle('');
+            setOriginalContent('');
+          }
+        }
+        setIsNewPolicy(false);
+        setShowDeleteConfirm(false);
+        setPolicyToDelete(null);
+        return;
+      }
+
+      // Delete from backend
       await policyAPI.remove(id);
       const updatedPolicies = policies.filter(policy => policy._id !== id);
       setPolicies(updatedPolicies);
@@ -72,65 +125,234 @@ const AdminPolicyPortal = () => {
           setActivePolicy(updatedPolicies[0]);
           setContent(updatedPolicies[0].content || '');
           setPolicyTitle(updatedPolicies[0].title || '');
+          setOriginalTitle(updatedPolicies[0].title || '');
+          setOriginalContent(updatedPolicies[0].content || '');
         } else {
           setActivePolicy(null);
           setContent('');
           setPolicyTitle('');
+          setOriginalTitle('');
+          setOriginalContent('');
         }
       }
     } catch (err) {
-      // silent fail
+      console.error('Failed to delete policy:', err);
+      alert('Failed to delete policy. Please try again.');
     } finally {
       setShowDeleteConfirm(false);
       setPolicyToDelete(null);
     }
   };
 
-  // Save policy changes
+  // Save policy changes with comprehensive validation
   const handleSaveChanges = async () => {
     if (!activePolicy) return;
+
+    setIsSaving(true);
+    let hasError = false;
+
+    // Validate title
+    const trimmedTitle = policyTitle.trim();
+    if (trimmedTitle.length === 0) {
+      setTitleError('Title cannot be empty');
+      hasError = true;
+    } else if (trimmedTitle.length < 3) {
+      setTitleError('Title must be at least 3 characters');
+      hasError = true;
+    } else if (trimmedTitle.length > 100) {
+      setTitleError('Title must not exceed 100 characters');
+      hasError = true;
+    } else if (!isTitleUnique(trimmedTitle, activePolicy._id)) {
+      setTitleError('A policy with this title already exists');
+      hasError = true;
+    } else {
+      setTitleError('');
+    }
+
+    // Validate content
+    const trimmedContent = content.trim();
+    if (trimmedContent.length === 0) {
+      setContentError('Content cannot be empty');
+      hasError = true;
+    } else if (trimmedContent.length < 25) {
+      setContentError('Content must be at least 25 characters');
+      hasError = true;
+    } else if (trimmedContent.length > 50000) {
+      setContentError('Content must not exceed 50,000 characters');
+      hasError = true;
+    } else {
+      setContentError('');
+    }
+
+    if (hasError) {
+      setIsSaving(false);
+      return;
+    }
+
     try {
-      const res = await policyAPI.update(activePolicy._id, {
-        title: policyTitle,
-        content: content
-      });
-      const updated = res.data;
-      const updatedPolicies = policies.map(policy =>
-        policy._id === updated._id ? updated : policy
-      );
-      setPolicies(updatedPolicies);
+      let updated;
+
+      // If it's a new temporary policy, create it
+      if (activePolicy.isTemp || activePolicy._id.startsWith('temp-')) {
+        const res = await policyAPI.create({
+          title: trimmedTitle,
+          content: trimmedContent
+        });
+        updated = res.data;
+
+        // Remove temp policy and add real one
+        const updatedPolicies = policies
+          .filter(p => p._id !== activePolicy._id)
+          .concat(updated);
+        setPolicies(updatedPolicies);
+        setIsNewPolicy(false);
+      } else {
+        // Update existing policy
+        const res = await policyAPI.update(activePolicy._id, {
+          title: trimmedTitle,
+          content: trimmedContent
+        });
+        updated = res.data;
+
+        const updatedPolicies = policies.map(policy =>
+          policy._id === updated._id ? updated : policy
+        );
+        setPolicies(updatedPolicies);
+      }
+
       setActivePolicy(updated);
-    } catch (err) {
-      // silent fail
-    } finally {
+      setOriginalTitle(updated.title);
+      setOriginalContent(updated.content);
+      setPolicyTitle(updated.title);
+      setContent(updated.content);
       setEditingContent(false);
       setEditingTitle(false);
+      setTitleError('');
+      setContentError('');
+    } catch (err) {
+      console.error('Failed to save policy:', err);
+      if (err.response?.data?.message) {
+        alert(`Error: ${err.response.data.message}`);
+      } else {
+        alert('Failed to save policy. Please try again.');
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
   // Handle policy selection
   const handleSelectPolicy = (policy) => {
+    // If currently editing a new policy, warn user
+    if (isNewPolicy && activePolicy?.isTemp) {
+      const confirmSwitch = window.confirm(
+        'You have unsaved changes. Switching policies will discard them. Continue?'
+      );
+      if (!confirmSwitch) return;
+
+      // Remove temp policy from list
+      const updatedPolicies = policies.filter(p => p._id !== activePolicy._id);
+      setPolicies(updatedPolicies);
+      setIsNewPolicy(false);
+    }
+
     setActivePolicy(policy);
     setContent(policy.content);
     setPolicyTitle(policy.title);
+    setOriginalTitle(policy.title);
+    setOriginalContent(policy.content);
     setEditingContent(false);
     setEditingTitle(false);
+    setTitleError('');
+    setContentError('');
+  };
+
+  // Cancel title editing
+  const handleCancelTitleEdit = () => {
+    setPolicyTitle(originalTitle);
+    setEditingTitle(false);
+    setTitleError('');
+  };
+
+  // Cancel content editing
+  const handleCancelContentEdit = () => {
+    // If it's a new unsaved policy, remove it completely
+    if (isNewPolicy && activePolicy?.isTemp) {
+      const updatedPolicies = policies.filter(p => p._id !== activePolicy._id);
+      setPolicies(updatedPolicies);
+
+      if (updatedPolicies.length > 0) {
+        const firstPolicy = updatedPolicies[0];
+        setActivePolicy(firstPolicy);
+        setContent(firstPolicy.content);
+        setPolicyTitle(firstPolicy.title);
+        setOriginalTitle(firstPolicy.title);
+        setOriginalContent(firstPolicy.content);
+      } else {
+        setActivePolicy(null);
+        setContent('');
+        setPolicyTitle('');
+        setOriginalTitle('');
+        setOriginalContent('');
+      }
+
+      setIsNewPolicy(false);
+      setEditingContent(false);
+      setEditingTitle(false);
+      setContentError('');
+      setTitleError('');
+      return;
+    }
+
+    // For existing policies, just revert changes
+    setContent(originalContent);
+    setPolicyTitle(originalTitle);
+    setEditingContent(false);
+    setEditingTitle(false);
+    setContentError('');
+    setTitleError('');
   };
 
   // Handle content editing
   const handleContentChange = (e) => {
-    setContent(e.target.value);
+    const newContent = e.target.value;
+    setContent(newContent);
+
+    // Real-time validation feedback
+    if (newContent.trim().length === 0) {
+      setContentError('Content cannot be empty');
+    } else if (newContent.trim().length < 25) {
+      setContentError(`Content must be at least 25 characters (current: ${newContent.trim().length})`);
+    } else if (newContent.trim().length > 50000) {
+      setContentError('Content must not exceed 50,000 characters');
+    } else {
+      setContentError('');
+    }
   };
 
   // Handle title editing
   const handleTitleChange = (e) => {
-    setPolicyTitle(e.target.value);
+    const newTitle = e.target.value;
+    setPolicyTitle(newTitle);
+
+    // Real-time validation feedback
+    if (newTitle.trim().length === 0) {
+      setTitleError('Title cannot be empty');
+    } else if (newTitle.trim().length < 3) {
+      setTitleError('Title must be at least 3 characters');
+    } else if (newTitle.trim().length > 100) {
+      setTitleError('Title must not exceed 100 characters');
+    } else if (!isTitleUnique(newTitle, activePolicy?._id)) {
+      setTitleError('A policy with this title already exists');
+    } else {
+      setTitleError('');
+    }
   };
 
   // Format markdown content for display
   const formatContentForDisplay = (text) => {
     if (!text) return '';
-    
+
     return text
       .replace(/^# (.*$)/gm, '<h1 class="text-xl font-bold mb-3">$1</h1>')
       .replace(/^## (.*$)/gm, '<h2 class="text-lg font-semibold mt-4 mb-2">$1</h2>')
@@ -156,17 +378,23 @@ const AdminPolicyPortal = () => {
                     <div className="flex justify-between items-center">
                       <div className="flex-1">
                         {editingTitle ? (
-                          <input
-                            type="text"
-                            value={policyTitle}
-                            onChange={handleTitleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-lg font-semibold"
-                            onKeyPress={(e) => {
-                              if (e.key === 'Enter') {
-                                handleSaveChanges();
-                              }
-                            }}
-                          />
+                          <div>
+                            <input
+                              type="text"
+                              value={policyTitle}
+                              onChange={handleTitleChange}
+                              className={`w-full px-3 py-2 border rounded-lg text-lg font-semibold ${titleError ? 'border-red-500' : 'border-gray-300'
+                                }`}
+                              onKeyPress={(e) => {
+                                if (e.key === 'Enter') {
+                                  handleSaveChanges();
+                                }
+                              }}
+                            />
+                            {titleError && (
+                              <p className="text-red-500 text-sm mt-1">{titleError}</p>
+                            )}
+                          </div>
                         ) : (
                           <h2 className="text-lg font-semibold text-gray-900">
                             {policyTitle}
@@ -178,18 +406,36 @@ const AdminPolicyPortal = () => {
                           Updated: {activePolicy.updatedAt ? new Date(activePolicy.updatedAt).toISOString().split('T')[0] : ''}
                         </span>
                         {!isReadOnly && (
-                          <button
-                            onClick={() => {
-                              if (editingTitle) {
-                                handleSaveChanges();
-                              } else {
-                                setEditingTitle(true);
-                              }
-                            }}
-                            className="p-2 text-gray-600 hover:text-blue-600"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => {
+                                if (editingTitle) {
+                                  handleSaveChanges();
+                                } else {
+                                  setOriginalTitle(policyTitle);
+                                  setEditingTitle(true);
+                                }
+                              }}
+                              disabled={isSaving}
+                              className={`p-2 ${isSaving ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:text-blue-600'}`}
+                              title={editingTitle ? 'Save Title' : 'Edit Title'}
+                            >
+                              {editingTitle ? (
+                                <CheckIcon className="h-4 w-4" />
+                              ) : (
+                                <PencilIcon className="h-4 w-4" />
+                              )}
+                            </button>
+                            {editingTitle && !isSaving && (
+                              <button
+                                onClick={handleCancelTitleEdit}
+                                className="p-2 text-gray-600 hover:text-red-600"
+                                title="Cancel Edit"
+                              >
+                                <XMarkIcon className="h-4 w-4" />
+                              </button>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -202,44 +448,72 @@ const AdminPolicyPortal = () => {
                         <textarea
                           value={content}
                           onChange={handleContentChange}
-                          className="w-full h-[400px] p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                          className={`w-full h-[400px] p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm ${contentError ? 'border-red-500' : 'border-gray-300'
+                            }`}
                           placeholder="# Enter policy content here"
                         />
+                        {contentError && (
+                          <p className="text-red-500 text-sm mt-1">{contentError}</p>
+                        )}
                       </div>
                     ) : (
                       <div className="prose max-w-none">
-                        <div 
+                        <div
                           className="policy-content"
                           dangerouslySetInnerHTML={{ __html: formatContentForDisplay(content) }}
                         />
                       </div>
                     )}
-                    
+
                     {/* Edit Content Button */}
                     {!isReadOnly && (
                       <div className="mt-6 pt-6 border-t border-gray-200">
-                        <button
-                          onClick={() => {
-                            if (editingContent) {
-                              handleSaveChanges();
-                            } else {
-                              setEditingContent(true);
-                            }
-                          }}
-                          className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700"
-                        >
-                          {editingContent ? (
-                            <>
-                              <CheckIcon className="h-4 w-4 mr-2" />
-                              Save Content
-                            </>
-                          ) : (
-                            <>
-                              <PencilIcon className="h-4 w-4 mr-2" />
-                              Edit Content
-                            </>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => {
+                              if (editingContent) {
+                                handleSaveChanges();
+                              } else {
+                                setOriginalContent(content);
+                                setEditingContent(true);
+                              }
+                            }}
+                            disabled={isSaving}
+                            className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg ${isSaving
+                              ? 'bg-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700'
+                              } text-white transition-colors`}
+                          >
+                            {isSaving ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                                Saving...
+                              </>
+                            ) : editingContent ? (
+                              <>
+                                <CheckIcon className="h-4 w-4 mr-2" />
+                                Save Content
+                              </>
+                            ) : (
+                              <>
+                                <PencilIcon className="h-4 w-4 mr-2" />
+                                Edit Content
+                              </>
+                            )}
+                          </button>
+                          {editingContent && !isSaving && (
+                            <button
+                              onClick={handleCancelContentEdit}
+                              className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg bg-gray-200 text-gray-700 hover:bg-gray-300"
+                            >
+                              <XMarkIcon className="h-4 w-4 mr-2" />
+                              Cancel
+                            </button>
                           )}
-                        </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -270,26 +544,23 @@ const AdminPolicyPortal = () => {
                 <h3 className="text-base font-semibold text-gray-900">POLICIES LIST</h3>
               </div>
 
-              <div className="p-4">
+              <div className="p-4 max-h-[calc(100vh-200px)] overflow-y-auto">
                 <div className="space-y-2">
                   {policies.map((policy) => (
                     <div
                       key={policy._id}
-                      className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${
-                        activePolicy?._id === policy._id
-                          ? 'bg-blue-50 border border-blue-200'
-                          : 'hover:bg-gray-50 border border-transparent'
-                      }`}
+                      className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${activePolicy?._id === policy._id
+                        ? 'bg-blue-50 border border-blue-200'
+                        : 'hover:bg-gray-50 border border-transparent'
+                        }`}
                       onClick={() => handleSelectPolicy(policy)}
                     >
                       <div className="flex items-center">
-                        <DocumentTextIcon className={`h-4 w-4 mr-3 ${
-                          activePolicy?._id === policy._id ? 'text-blue-600' : 'text-gray-400'
-                        }`} />
-                      <div>
-                          <div className={`text-sm font-medium ${
-                            activePolicy?._id === policy._id ? 'text-blue-700' : 'text-gray-700'
-                          }`}>
+                        <DocumentTextIcon className={`h-4 w-4 mr-3 ${activePolicy?._id === policy._id ? 'text-blue-600' : 'text-gray-400'
+                          }`} />
+                        <div>
+                          <div className={`text-sm font-medium ${activePolicy?._id === policy._id ? 'text-blue-700' : 'text-gray-700'
+                            }`}>
                             {policy.title}
                           </div>
                           <div className="text-xs text-gray-500">
