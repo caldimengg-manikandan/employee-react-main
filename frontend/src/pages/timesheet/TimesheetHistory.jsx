@@ -131,7 +131,6 @@ const TimesheetHistory = () => {
     if (val === 0) return '0';
     const m = Math.round(val * 60);
     if (m === 0) return '0';
-    
     const sign = m < 0 ? '-' : '';
     const abs = Math.abs(m);
     const hh = String(Math.floor(abs / 60)).padStart(2, '0');
@@ -139,10 +138,76 @@ const TimesheetHistory = () => {
     return `${sign}${hh}:${mm}`;
   };
 
+  const getShiftBreakHours = (shift) => {
+    if (!shift) return 0;
+    const s = String(shift);
+    if (s.startsWith("First Shift")) return 65 / 60;
+    if (s.startsWith("Second Shift")) return 60 / 60;
+    if (s.startsWith("General Shift")) return 75 / 60;
+    return 0;
+  };
+
+  const computeBreakForDayFromTimesheet = (timesheet, dayIndex) => {
+    if (!timesheet) return 0;
+    const entries = Array.isArray(timesheet.entries) ? timesheet.entries : [];
+
+    const hasWork = entries.some(
+      (e) =>
+        e.type === 'project' &&
+        (e.task || '') !== 'Office Holiday' &&
+        Number(e.hours?.[dayIndex] || 0) > 0
+    );
+
+    const hasApprovedLeave = entries.some(
+      (e) =>
+        (e.task || '').startsWith('Leave Approved') &&
+        Number(e.hours?.[dayIndex] || 0) > 0
+    );
+
+    const shifts = Array.isArray(timesheet.dailyShiftTypes)
+      ? timesheet.dailyShiftTypes
+      : [];
+    const shiftForDay = shifts[dayIndex] || timesheet.shiftType || '';
+
+    const breakByShift = getShiftBreakHours(shiftForDay);
+    return hasWork && !hasApprovedLeave ? breakByShift : 0;
+  };
+
+  const computeWeeklyBreakFromTimesheet = (timesheet) => {
+    if (!timesheet) return 0;
+    let sum = 0;
+    for (let i = 0; i < 7; i += 1) {
+      sum += computeBreakForDayFromTimesheet(timesheet, i);
+    }
+    return sum;
+  };
+
+  const calculateWeeklyTotalWithBreak = (timesheet) => {
+    if (!timesheet) return 0;
+
+    const entries = Array.isArray(timesheet.entries) ? timesheet.entries : [];
+
+    const weeklyWork = entries.reduce(
+      (sum, e) =>
+        sum +
+        (Array.isArray(e.hours)
+          ? e.hours.reduce(
+              (s, h) => s + (Number(h) || 0),
+              0
+            )
+          : 0),
+      0
+    );
+
+    const weeklyBreak = computeWeeklyBreakFromTimesheet(timesheet);
+
+    return weeklyWork + weeklyBreak;
+  };
+
   const getTotalHoursWithBreakValue = (timesheet) => {
-    const withBreak = Number(timesheet.totalHoursWithBreak || 0);
-    if (withBreak > 0) return withBreak;
-    return Number(timesheet.totalHours || 0);
+    const fromBackend = Number(timesheet?.totalHoursWithBreak || 0);
+    if (fromBackend > 0) return fromBackend;
+    return calculateWeeklyTotalWithBreak(timesheet);
   };
 
   const handleViewDetails = (timesheet) => {
@@ -928,14 +993,6 @@ const TimesheetHistory = () => {
                         );
                         const shifts = Array.isArray(selectedTimesheet.dailyShiftTypes) ? selectedTimesheet.dailyShiftTypes : [];
                         const shift = shifts[i] || selectedTimesheet.shiftType || "";
-                        const getShiftBreakHours = (s) => {
-                          if (!s) return 0;
-                          const x = String(s);
-                          if (x.startsWith("First Shift")) return 65 / 60;
-                          if (x.startsWith("Second Shift")) return 60 / 60;
-                          if (x.startsWith("General Shift")) return 75 / 60;
-                          return 0;
-                        };
                         const breakHours = hasWork && !hasApprovedLeave ? getShiftBreakHours(shift) : 0;
                         return (
                           <td key={i} className="p-3 text-sm text-blue-700 text-center">{toHHMM(breakHours)}</td>
@@ -976,43 +1033,13 @@ const TimesheetHistory = () => {
                         );
                         const shifts = Array.isArray(selectedTimesheet.dailyShiftTypes) ? selectedTimesheet.dailyShiftTypes : [];
                         const shift = shifts[i] || selectedTimesheet.shiftType || "";
-                        const getShiftBreakHours = (s) => {
-                          if (!s) return 0;
-                          const x = String(s);
-                          if (x.startsWith("First Shift")) return 65 / 60;
-                          if (x.startsWith("Second Shift")) return 60 / 60;
-                          if (x.startsWith("General Shift")) return 75 / 60;
-                          return 0;
-                        };
                         const breakHours = hasWork && !hasApprovedLeave ? getShiftBreakHours(shift) : 0;
                         return (
                           <td key={i} className={`p-3 text-sm text-center ${dayWork + breakHours >= 20 ? 'text-yellow-800 font-semibold' : 'text-blue-700 font-semibold'}`}>{toHHMM(dayWork + breakHours)}</td>
                         );
                       })}
                       <td className="p-3 text-sm font-bold text-blue-700 text-center">
-                        {(() => {
-                          const weeklyWork = (selectedTimesheet.entries || []).reduce((sum, e) => sum + (Array.isArray(e.hours) ? e.hours.reduce((s, h) => s + (Number(h) || 0), 0) : 0), 0);
-                          const weeklyBreak = Array.from({ length: 7 }, (_, i) => {
-                            const hasWork = (selectedTimesheet.entries || []).some(
-                              (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
-                            );
-                            const hasApprovedLeave = (selectedTimesheet.entries || []).some(
-                              (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
-                            );
-                            const shifts = Array.isArray(selectedTimesheet.dailyShiftTypes) ? selectedTimesheet.dailyShiftTypes : [];
-                            const shift = shifts[i] || selectedTimesheet.shiftType || "";
-                            const getShiftBreakHours = (s) => {
-                              if (!s) return 0;
-                              const x = String(s);
-                              if (x.startsWith("First Shift")) return 65 / 60;
-                              if (x.startsWith("Second Shift")) return 60 / 60;
-                              if (x.startsWith("General Shift")) return 75 / 60;
-                              return 0;
-                            };
-                            return hasWork && !hasApprovedLeave ? getShiftBreakHours(shift) : 0;
-                          }).reduce((sum, b) => sum + b, 0);
-                          return toHHMM(weeklyWork + weeklyBreak);
-                        })()}
+                        {toHHMM(calculateWeeklyTotalWithBreak(selectedTimesheet))}
                       </td>
                     </tr>
                   </tfoot>
@@ -1024,22 +1051,7 @@ const TimesheetHistory = () => {
               <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
                 <span className="text-lg font-semibold text-gray-800">Total Hours (Work + Break):</span>
                 <span className="text-lg font-bold text-gray-900">
-                  {(() => {
-                    const weeklyWork = (selectedTimesheet.entries || []).reduce(
-                      (sum, e) => sum + (Array.isArray(e.hours) ? e.hours.reduce((s, h) => s + (Number(h) || 0), 0) : 0),
-                      0
-                    );
-                    const weeklyBreak = Array.from({ length: 7 }, (_, i) => {
-                      const hasWork = (selectedTimesheet.entries || []).some(
-                        (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
-                      );
-                      const hasApprovedLeave = (selectedTimesheet.entries || []).some(
-                        (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
-                      );
-                      return hasWork && !hasApprovedLeave ? 1.25 : 0;
-                    }).reduce((sum, b) => sum + b, 0);
-                    return toHHMM(weeklyWork + weeklyBreak);
-                  })()}
+                  {toHHMM(calculateWeeklyTotalWithBreak(selectedTimesheet))}
                 </span>
               </div>
               </div>

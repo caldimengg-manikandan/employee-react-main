@@ -320,18 +320,32 @@ const PayrollDetails = () => {
     setTimeout(() => setSuccessMessage(''), 3000);
   };
 
-  const handleEdit = (index) => {
-    setFormData(payrollRecords[index]);
-    setEditingIndex(index);
+  const handleEdit = (record) => {
+    const idx = payrollRecords.findIndex(
+      (r) => (r.id || r._id) === (record.id || record._id)
+    );
+    const effectiveIndex = idx === -1 ? null : idx;
+    const data = effectiveIndex !== null ? payrollRecords[effectiveIndex] : record;
+
+    setFormData(data);
+    setEditingIndex(effectiveIndex);
     setOpenDialog(true);
   };
 
-  const handleDelete = async (index) => {
+  const handleDelete = async (record) => {
+    const idx = payrollRecords.findIndex(
+      (r) => (r.id || r._id) === (record.id || record._id)
+    );
+
+    if (idx === -1) {
+      return;
+    }
+
     if (window.confirm('Are you sure you want to delete this payroll record?')) {
       try {
-        const recId = payrollRecords[index]?.id || payrollRecords[index]?._id;
+        const recId = payrollRecords[idx]?.id || payrollRecords[idx]?._id;
         await payrollAPI.remove(recId);
-        const updatedRecords = payrollRecords.filter((_, i) => i !== index);
+        const updatedRecords = payrollRecords.filter((_, i) => i !== idx);
         setPayrollRecords(updatedRecords);
         setSuccessMessage('Payroll record deleted successfully!');
         setTimeout(() => setSuccessMessage(''), 3000);
@@ -706,7 +720,7 @@ const PayrollDetails = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
                       <button
-                        onClick={() => handleEdit(index)}
+                        onClick={() => handleEdit(record)}
                         className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
                         title="Edit"
                       >
@@ -720,7 +734,7 @@ const PayrollDetails = () => {
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
-                        onClick={() => handleDelete(index)}
+                        onClick={() => handleDelete(record)}
                         className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
                         title="Delete"
                       >
