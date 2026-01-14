@@ -505,7 +505,7 @@ const Timesheet = () => {
           (eid && empMongoId && eid === empMongoId) ||
           (ename && empName && ename === empName);
         const statusVal = String(a.status || "").trim().toLowerCase();
-        const statusAllowed = statusVal === "active" || statusVal === "completed";
+        const statusAllowed = statusVal === "active";
         return matchesEmployee && statusAllowed;
       });
       const mineWeek = mineByMatch.filter(inSelectedWeek);

@@ -105,7 +105,8 @@ const ProjectAllocation = () => {
     division: '',
     projectName: '',
     employeeName: '',
-    employeeId: ''
+    employeeId: '',
+    employeeIds: []
   });
 
   // Filter handlers
@@ -289,7 +290,10 @@ const ProjectAllocation = () => {
   const getFilteredProjectsByDivision = () => {
     if (!allocationForm.division) return [];
     return projects
-      .filter(project => project.division === allocationForm.division)
+      .filter(project =>
+        project.division === allocationForm.division &&
+        String(project.status || '').toLowerCase() === 'active'
+      )
       .sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
   };
 
@@ -452,7 +456,7 @@ const ProjectAllocation = () => {
           </button>
 
           {isOpen && (
-            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
+            <div className="absolute z-10 w-full mt-1 z-2 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto" >
               <div className="p-2 border-b border-gray-200">
                 <div className="flex justify-between items-center">
                   <button
@@ -651,7 +655,8 @@ const ProjectAllocation = () => {
         division: allocation.projectDivision || allocation.division || '',
         projectName: allocation.projectName,
         employeeName: allocation.employeeName,
-        employeeId: allocation.employeeCode || allocation.employeeId || ''
+        employeeId: allocation.employeeCode || allocation.employeeId || '',
+        employeeIds: [allocation.employeeCode || allocation.employeeId].filter(Boolean)
       });
     } else {
       setEditingAllocation(null);
@@ -659,7 +664,8 @@ const ProjectAllocation = () => {
         division: '',
         projectName: '',
         employeeName: '',
-        employeeId: ''
+        employeeId: '',
+        employeeIds: []
       });
     }
     setShowAllocationModal(true);
@@ -680,7 +686,6 @@ const ProjectAllocation = () => {
         employeeId: selectedEmployee.employeeId || selectedEmployee.id || ''
       }));
     } else {
-      // Clear when no selection
       setAllocationForm(prev => ({
         ...prev,
         employeeName: '',
@@ -689,8 +694,30 @@ const ProjectAllocation = () => {
     }
   };
 
+  const addEmployeeToList = () => {
+    if (!allocationForm.employeeId) return;
+    if (allocationForm.employeeIds.includes(allocationForm.employeeId)) return;
+    setAllocationForm(prev => ({
+      ...prev,
+      employeeIds: [...prev.employeeIds, prev.employeeId],
+      employeeName: '',
+      employeeId: ''
+    }));
+  };
+
+  const removeEmployeeFromList = (employeeCode) => {
+    setAllocationForm(prev => ({
+      ...prev,
+      employeeIds: prev.employeeIds.filter(code => code !== employeeCode)
+    }));
+  };
+
   const handleAllocate = async () => {
-    if (!allocationForm.division || !allocationForm.projectName || !allocationForm.employeeName) {
+    const hasEmployees = editingAllocation
+      ? !!allocationForm.employeeId
+      : allocationForm.employeeIds.length > 0;
+
+    if (!allocationForm.division || !allocationForm.projectName || !hasEmployees) {
       setMessageModal({ isOpen: true, title: 'Missing Fields', message: 'Please fill all required fields.' });
       return;
     }
@@ -701,28 +728,62 @@ const ProjectAllocation = () => {
       p.division === allocationForm.division
     );
 
-    // Find employee by employeeId (unique) to prevent mismatches
-    const employee = employees.find(e =>
-      e.employeeId === allocationForm.employeeId
-    );
-
     if (!project) {
       setMessageModal({ isOpen: true, title: 'Not Found', message: 'Project not found. Please check the project name and division.' });
       return;
     }
 
-    if (!employee) {
-      setMessageModal({ isOpen: true, title: 'Not Found', message: 'Employee not found. Please check the employee name.' });
+    const selectedEmployeeIds = (allocationForm.employeeIds && allocationForm.employeeIds.length > 0)
+      ? allocationForm.employeeIds
+      : (allocationForm.employeeId ? [allocationForm.employeeId] : []);
+    if (selectedEmployeeIds.length === 0) {
+      setMessageModal({ isOpen: true, title: 'Not Found', message: 'Employee not found. Please select at least one employee.' });
       return;
     }
 
-    // Prevent duplicate allocation (same project + employee)
-    const isDuplicateAllocation = allocations.some(a =>
-      String(a.projectName).trim().toLowerCase() === String(project.name).trim().toLowerCase() &&
-      String(a.employeeCode).trim().toLowerCase() === String(allocationForm.employeeId).trim().toLowerCase()
-    );
-    if (!editingAllocation && isDuplicateAllocation) {
-      setMessageModal({ isOpen: true, title: 'Duplicate Allocation', message: 'This employee is already allocated to the selected project.' });
+    if (!editingAllocation) {
+      let createdCount = 0;
+      let skippedCount = 0;
+      for (const empCode of selectedEmployeeIds) {
+        const employee = employees.find(e => e.employeeId === empCode);
+        if (!employee) {
+          skippedCount++;
+          continue;
+        }
+        const isDuplicateAllocation = allocations.some(a =>
+          String(a.projectName).trim().toLowerCase() === String(project.name).trim().toLowerCase() &&
+          String(a.employeeCode).trim().toLowerCase() === String(empCode).trim().toLowerCase()
+        );
+        if (isDuplicateAllocation) {
+          skippedCount++;
+          continue;
+        }
+        const payload = {
+          projectName: project.name,
+          projectCode: project.code,
+          employeeName: employee.name,
+          employeeCode: empCode,
+          startDate: project.startDate,
+          endDate: project.endDate,
+          branch: project.branch,
+          projectDivision: project.division,
+          status: 'Active',
+          allocatedHours: 40,
+          assignedBy: user.name || 'System',
+          assignedDate: new Date().toISOString().split('T')[0],
+          role: ''
+        };
+        try {
+          await allocationAPI.createAllocation(payload);
+          createdCount++;
+        } catch (_) {
+          skippedCount++;
+        }
+      }
+      await refreshData();
+      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) { }
+      closeAllocationModal();
+      setSuccessModal({ isOpen: true, message: `${createdCount} allocation(s) created, ${skippedCount} skipped.` });
       return;
     }
     if (editingAllocation) {
@@ -737,6 +798,11 @@ const ProjectAllocation = () => {
       }
     }
 
+    const employee = employees.find(e => e.employeeId === allocationForm.employeeId);
+    if (!employee) {
+      setMessageModal({ isOpen: true, title: 'Not Found', message: 'Employee not found. Please check the employee name.' });
+      return;
+    }
     const payload = {
       projectName: project.name,
       projectCode: project.code,
@@ -750,7 +816,6 @@ const ProjectAllocation = () => {
       allocatedHours: 40,
       assignedBy: user.name || 'System',
       assignedDate: new Date().toISOString().split('T')[0],
-      // Preserve existing role when editing, or set empty for new allocations
       role: editingAllocation ? (editingAllocation.role || '') : ''
     };
 
@@ -1217,7 +1282,7 @@ const ProjectAllocation = () => {
                 ) : (
                   <div className="overflow-x-auto h-[480px] overflow-y-auto">
                     <table className="w-full">
-                      <thead className="sticky top-0 z-10">
+                      <thead className="sticky top-0 ">
                         <tr className="bg-gray-50">
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
@@ -1331,7 +1396,7 @@ const ProjectAllocation = () => {
                 ) : (
                   <div className="overflow-x-auto h-[480px] overflow-y-auto">
                     <table className="w-full">
-                      <thead className="sticky top-0 z-10">
+                      <thead className="sticky top-0">
                         <tr className="bg-gray-50">
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
@@ -1700,7 +1765,7 @@ const ProjectAllocation = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Division *</label>
                     <select
                       value={allocationForm.division}
-                      onChange={(e) => setAllocationForm(prev => ({ ...prev, division: e.target.value, projectName: '', employeeName: '', employeeId: '' }))}
+                      onChange={(e) => setAllocationForm(prev => ({ ...prev, division: e.target.value, projectName: '', employeeName: '', employeeId: '', employeeIds: [] }))}
                       className={`w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${editingAllocation ? 'bg-gray-100 cursor-not-allowed' : ''}`}
                       disabled={!!editingAllocation}
                     >
@@ -1733,21 +1798,55 @@ const ProjectAllocation = () => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Employee Name *</label>
-                    <select
-                      value={allocationForm.employeeId}
-                      onChange={(e) => handleEmployeeSelect(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      disabled={!allocationForm.division}
-                    >
-                      <option value="">Select Employee</option>
-                      {getFilteredEmployeesByDivision().map(employee => (
-                        <option key={employee._id} value={employee.employeeId}>
-                          {employee.name} {employee.employeeId ? `(${employee.employeeId})` : ''}
-                        </option>
-                      ))}
-                    </select>
+                    <div className="flex gap-2">
+                      <select
+                        value={allocationForm.employeeId}
+                        onChange={(e) => handleEmployeeSelect(e.target.value)}
+                        className="flex-1 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        disabled={!allocationForm.division}
+                      >
+                        <option value="">Select Employee</option>
+                        {getFilteredEmployeesByDivision().map(employee => (
+                          <option key={employee._id} value={employee.employeeId}>
+                            {employee.name} {employee.employeeId ? `(${employee.employeeId})` : ''}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={addEmployeeToList}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        disabled={!allocationForm.employeeId}
+                      >
+                        Add
+                      </button>
+                    </div>
                     {!allocationForm.division && (
                       <p className="text-sm text-gray-500 mt-1">Please select a division first</p>
+                    )}
+                    {allocationForm.employeeIds.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {allocationForm.employeeIds.map(code => {
+                          const emp = employees.find(e => e.employeeId === code);
+                          return (
+                            <div
+                              key={code}
+                              className="flex items-center justify-between px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg"
+                            >
+                              <span className="text-sm text-gray-700">
+                                {(emp && emp.name) || 'Employee'} {code ? `(${code})` : ''}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => removeEmployeeFromList(code)}
+                                className="text-xs text-red-600 hover:text-red-800"
+                              >
+                                Remove
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
                   </div>
 
@@ -1755,10 +1854,10 @@ const ProjectAllocation = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Employee ID</label>
                     <input
                       type="text"
-                      value={allocationForm.employeeId}
+                      value={allocationForm.employeeIds.join(', ')}
                       readOnly
                       className="w-full p-3 border border-gray-300 rounded-lg bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Employee ID will be auto-filled"
+                      placeholder="Added employees will appear below"
                     />
                   </div>
                 </div>
