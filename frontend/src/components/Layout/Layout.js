@@ -9,9 +9,8 @@ const Layout = () => {
   const navigate = useNavigate();
   const logoutTimerRef = useRef(null);
 
-  // Auto-logout after 5 minutes of inactivity
   useEffect(() => {
-    const TIMEOUT_DURATION = 5 * 60 * 1000; // 5 minutes
+    const TIMEOUT_DURATION = 20 * 60 * 1000;
 
     const handleLogout = () => {
       sessionStorage.clear();

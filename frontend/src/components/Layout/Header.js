@@ -1,9 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Bars3Icon } from '@heroicons/react/24/outline';
 import { useNavigate, useLocation } from 'react-router-dom';
-import {
-  ArrowLeftIcon
-} from '@heroicons/react/24/outline';
+import { ArrowLeftIcon } from '@heroicons/react/24/outline';
+import { employeeAPI } from '../../services/api';
 
 const Header = ({ onMenuClick }) => {
   const location = useLocation();
@@ -12,6 +11,7 @@ const Header = ({ onMenuClick }) => {
   const [currentTime, setCurrentTime] = useState(new Date());
   const profileRef = useRef(null);
   const navigate = useNavigate();
+  const [profileEmployeeId, setProfileEmployeeId] = useState('');
 
   // Map routes to page titles
   const getPageTitle = () => {
@@ -52,8 +52,16 @@ const Header = ({ onMenuClick }) => {
     return routeTitles[location.pathname] || 'Caldim Employee Portal';
   };
 
-  // Get the first letter of the user's name for the avatar
   const userInitial = user.name ? user.name.charAt(0).toUpperCase() : 'U';
+
+  const getDisplayEmployeeId = () => {
+    if (profileEmployeeId) return profileEmployeeId;
+    if (!user) return '';
+    if (user.employeeId) return user.employeeId;
+    if (user.employeeCode) return user.employeeCode;
+    if (user.empId) return user.empId;
+    return '';
+  };
 
   // Update time every second
   useEffect(() => {
@@ -62,6 +70,26 @@ const Header = ({ onMenuClick }) => {
     }, 1000);
 
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const fetchProfileEmployeeId = async () => {
+      try {
+        const res = await employeeAPI.getMyProfile();
+        const emp = res.data;
+        if (emp && emp.employeeId) {
+          setProfileEmployeeId(emp.employeeId);
+          const storedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+          const updatedUser = {
+            ...storedUser,
+            employeeId: emp.employeeId
+          };
+          sessionStorage.setItem('user', JSON.stringify(updatedUser));
+        }
+      } catch (e) {
+      }
+    };
+    fetchProfileEmployeeId();
   }, []);
 
   // Close profile dropdown when clicking outside
@@ -172,7 +200,11 @@ const Header = ({ onMenuClick }) => {
                       <div className="min-w-0">
                         <p className="text-sm text-gray-500">{getGreeting()}</p>
                         <p className="font-medium text-gray-800 truncate">{user.name}</p>
-                        <p className="text-sm text-gray-600 truncate">{user.employeeId || ''}</p>
+                        {getDisplayEmployeeId() && (
+                          <p className="text-sm text-gray-600 truncate">
+                            Employee ID: {getDisplayEmployeeId()}
+                          </p>
+                        )}
                         
                       </div>
                     </div>
