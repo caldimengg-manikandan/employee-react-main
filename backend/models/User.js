@@ -46,7 +46,17 @@ const userSchema = new mongoose.Schema({
       'leave_view',
       'leave_manage_trainees',
       'payroll_access',
-      'expenditure_access'
+      'expenditure_access',
+      'home',
+      'my_profile',
+      'exit_form_access',
+      'exit_approval_access',
+      'payroll_view',
+      'loan_view',
+      'gratuity_view',
+      'announcement_manage',
+      'reward_access',
+      'team_access'
     ]
   }],
   lastLogin: {

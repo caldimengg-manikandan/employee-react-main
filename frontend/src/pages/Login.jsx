@@ -498,19 +498,14 @@ const Login = () => {
         </div>
 
         {/* Content */}
-        <div className="p-6 overflow-y-auto max-h-[60vh] custom-scrollbar">
+        <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {holidays2026.map((holiday, index) => (
               <div 
                 key={index} 
                 className="bg-white/10 border border-white/10 rounded-xl p-4 hover:bg-white/20 transition-all duration-300"
               >
-                <div className="flex justify-between items-start mb-2">
-                  <span className="text-3xl font-bold text-white/20">{(index + 1).toString().padStart(2, '0')}</span>
-                  <span className="px-3 py-1 bg-blue-500/20 text-blue-200 text-xs rounded-full border border-blue-500/30">
-                    {holiday.day}
-                  </span>
-                </div>
+                
                 
                 <h3 className="text-xl font-bold text-white mb-1">{holiday.date}</h3>
                 <p className="text-blue-100 font-medium border-t border-white/10 pt-2 mt-2">

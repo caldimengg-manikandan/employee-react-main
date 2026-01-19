@@ -45,6 +45,8 @@ const TimesheetSchema = new mongoose.Schema(
       default: "Draft",
     },
 
+    rejectionReason: { type: String, default: "" },
+
     submittedAt: { type: Date, default: null },
     approvedAt: { type: Date, default: null },
   },

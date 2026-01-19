@@ -731,6 +731,7 @@ router.post("/", auth, async (req, res) => {
       if (!sheet.employeeName && employeeName) sheet.employeeName = employeeName;
       sheet.totalHours = totalHours;
       sheet.status = status || "Draft";
+      sheet.rejectionReason = ""; // Clear rejection reason on update
       if (typeof shiftType !== "undefined") sheet.shiftType = shiftType || "";
       if (Array.isArray(dailyShiftTypes)) sheet.dailyShiftTypes = dailyShiftTypes;
       if (onPremisesTime && Array.isArray(onPremisesTime.daily)) {
@@ -929,10 +930,12 @@ router.get("/my-timesheets", auth, async (req, res) => {
 
       if (adminDoc) {
         const s = (adminDoc.status || "").toLowerCase();
+        const currentStatus = (sheet.status || "").toLowerCase();
         if (s === "approved") {
           sheet.status = "Approved";
         } else if (s === "rejected") {
-          sheet.status = "Rejected";
+          // Keep Draft status for employee view if sheet is already Draft
+          sheet.status = currentStatus === "draft" ? "Draft" : "Rejected";
         } else if (s === "pending") {
           sheet.status = "Submitted";
         }
@@ -956,9 +959,13 @@ router.get("/my-timesheets", auth, async (req, res) => {
         }
         if (matched) {
           const s = (matched.status || "").toLowerCase();
+          const currentStatus = (sheet.status || "").toLowerCase();
           let newStatus = null;
           if (s === "approved") newStatus = "Approved";
-          else if (s === "rejected") newStatus = "Rejected";
+          else if (s === "rejected") {
+            // Preserve Draft status for employee if sheet is already Draft
+            newStatus = currentStatus === "draft" ? "Draft" : "Rejected";
+          }
           else if (s === "pending") newStatus = "Submitted";
           if (newStatus) {
             sheet.status = newStatus;
