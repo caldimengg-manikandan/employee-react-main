@@ -20,6 +20,23 @@ const TimesheetHistory = () => {
   });
   const [downloadOption, setDownloadOption] = useState('weekly'); // 'weekly' or 'monthly'
   const [downloadFormat, setDownloadFormat] = useState('excel'); // 'excel' or 'pdf'
+  
+  // Confirmation Dialog State
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [timesheetToDelete, setTimesheetToDelete] = useState(null);
+  
+  // Message Dialog State
+  const [showMessageDialog, setShowMessageDialog] = useState(false);
+  const [messageDialogConfig, setMessageDialogConfig] = useState({
+    title: '',
+    message: '',
+    type: 'info' // 'info', 'success', 'error', 'warning'
+  });
+
+  const showMessage = (title, message, type = 'info') => {
+    setMessageDialogConfig({ title, message, type });
+    setShowMessageDialog(true);
+  };
 
   // Function to get project code - use projectCode field if available, otherwise extract from name
   const getProjectCode = (entry) => {
@@ -223,27 +240,36 @@ const TimesheetHistory = () => {
       const endIso = end.toISOString();
       window.location.href = `/timesheet?weekStart=${encodeURIComponent(startIso)}&weekEnd=${encodeURIComponent(endIso)}`;
     } catch (err) {
-      try { alert('Failed to open draft for editing'); } catch (_) {}
+      try { showMessage('Error', 'Failed to open draft for editing', 'error'); } catch (_) {}
     }
   };
 
   const handleDelete = (timesheet) => {
-    if (window.confirm('Are you sure you want to delete this draft? This action cannot be undone.')) {
-      // Backend drafts only
-      const deleteBackendDraft = async () => {
-        try {
-          await timesheetAPI.deleteTimesheet(timesheet._id);
-          const updatedTimesheets = timesheets.filter(t => t._id !== timesheet._id);
-          setTimesheets(updatedTimesheets);
-          setFilteredTimesheets(updatedTimesheets);
-          alert('Draft deleted successfully');
-        } catch (err) {
-          console.error('Failed to delete draft:', err);
-          alert('Failed to delete draft. Please try again.');
-        }
-      };
-      deleteBackendDraft();
+    setTimesheetToDelete(timesheet);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!timesheetToDelete) return;
+    
+    try {
+      await timesheetAPI.deleteTimesheet(timesheetToDelete._id);
+      const updatedTimesheets = timesheets.filter(t => t._id !== timesheetToDelete._id);
+      setTimesheets(updatedTimesheets);
+      setFilteredTimesheets(updatedTimesheets);
+      setShowDeleteConfirm(false);
+      setTimesheetToDelete(null);
+      showMessage('Success', 'Draft deleted successfully', 'success');
+    } catch (err) {
+      console.error('Failed to delete draft:', err);
+      setShowDeleteConfirm(false);
+      showMessage('Error', 'Failed to delete draft. Please try again.', 'error');
     }
+  };
+
+  const cancelDelete = () => {
+    setShowDeleteConfirm(false);
+    setTimesheetToDelete(null);
   };
 
   const handleCloseModal = () => {
@@ -493,7 +519,7 @@ const TimesheetHistory = () => {
 
   const handleDownload = () => {
     if (filteredTimesheets.length === 0) {
-      alert('No data available to download.');
+      showMessage('Info', 'No data available to download.', 'info');
       return;
     }
 
@@ -1063,6 +1089,63 @@ const TimesheetHistory = () => {
                 className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200"
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Confirmation Dialog */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Confirm Deletion</h3>
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete this draft? This action cannot be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={cancelDelete}
+                className="px-4 py-2 text-gray-700 bg-gray-100 rounded hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 text-white bg-red-600 rounded hover:bg-red-700 transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Message Dialog (Success/Error/Info) */}
+      {showMessageDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4 shadow-xl">
+            <h3 className={`text-lg font-semibold mb-4 ${
+              messageDialogConfig.type === 'success' ? 'text-green-600' :
+              messageDialogConfig.type === 'error' ? 'text-red-600' :
+              messageDialogConfig.type === 'warning' ? 'text-yellow-600' :
+              'text-blue-600'
+            }`}>
+              {messageDialogConfig.title}
+            </h3>
+            <p className="text-gray-600 mb-6 whitespace-pre-line">
+              {messageDialogConfig.message}
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowMessageDialog(false)}
+                className={`px-4 py-2 text-white rounded transition-colors ${
+                  messageDialogConfig.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
+                  messageDialogConfig.type === 'error' ? 'bg-red-600 hover:bg-red-700' :
+                  messageDialogConfig.type === 'warning' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                  'bg-blue-600 hover:bg-blue-700'
+                }`}
+              >
+                OK
               </button>
             </div>
           </div>

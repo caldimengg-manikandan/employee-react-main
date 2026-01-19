@@ -101,6 +101,7 @@ export const timesheetAPI = {
   updateTimesheetStatus: (id, status) => api.put(`/timesheet-history/${id}/status`, { status }),
   deleteTimesheet: (id) => api.delete(`/timesheets/${id}`),
   getAttendanceData: (params) => api.get('/attendance/my-week', { params }),
+  getPermissionUsage: (params) => api.get('/timesheets/permissions/usage', { params }),
 };
 
 export const projectAPI = {

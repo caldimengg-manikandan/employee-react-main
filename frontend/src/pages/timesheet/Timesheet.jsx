@@ -61,6 +61,15 @@ const Timesheet = () => {
   const [dailyShiftTypes, setDailyShiftTypes] = useState(["", "", "", "", "", "", ""]);
   const [cellInputs, setCellInputs] = useState({});
   const [rejectionReason, setRejectionReason] = useState("");
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
+  const [errorTitle, setErrorTitle] = useState("Validation Error");
+
+  const showError = (message, title = "Validation Error") => {
+    setErrorMessage(message);
+    setErrorTitle(title);
+    setShowErrorDialog(true);
+  };
 
   const shiftTypes = [
     "First Shift",
@@ -589,7 +598,7 @@ const Timesheet = () => {
         // Show confirmation message
         if (draftData.rows && draftData.rows.length > 0) {
           const savedTime = new Date(draftData.savedAt).toLocaleTimeString();
-          alert(`📂 Draft data loaded from your current session (saved at ${savedTime})`);
+          showError(`📂 Draft data loaded from your current session (saved at ${savedTime})`, "Info");
         }
       }
     } catch (error) {
@@ -624,18 +633,20 @@ const Timesheet = () => {
     const getPermissionCountForHours = (h) => {
       const val = Number(h) || 0;
       if (val <= 0) return 0;
-      if (val <= 1) return 1;
-      if (val <= 2) return 2;
-      return 3;
+      // Rule: Every 30 mins = 1 count. 
+      // 0.5 -> 1, 1.0 -> 2, 1.5 -> 3, 2.0 -> 4
+      return val * 2;
     };
+
+    const weekDates = getWeekDates();
 
     timesheetRows.forEach((row) => {
       if (row.task === "Permission") {
         row.hours.forEach((hours, dayIndex) => {
-          const date = new Date(currentWeek);
-          date.setDate(date.getDate() + (dayIndex - date.getDay() + 1));
+          // Use weekDates to determine the exact date of this column
+          const date = weekDates[dayIndex];
 
-          if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+          if (date && date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
             const dateKey = date.toDateString();
             const c = getPermissionCountForHours(hours);
             if (c > 0) {
@@ -659,50 +670,29 @@ const Timesheet = () => {
   useEffect(() => {
     const loadMonthlyBasePermissionCount = async () => {
       try {
-        const res = await timesheetAPI.getMyTimesheets();
-        const sheets = Array.isArray(res.data) ? res.data : [];
         const currentMonth = currentWeek.getMonth();
         const currentYear = currentWeek.getFullYear();
         
-        // Calculate current week Monday to exclude it from base count
-        const currentBase = new Date(currentWeek);
-        const day = currentBase.getDay();
-        const diff = (day + 6) % 7;
-        const currentMonday = new Date(currentBase);
-        currentMonday.setDate(currentBase.getDate() - diff);
-        currentMonday.setHours(0, 0, 0, 0);
+        // Normalize current week start date for exclusion
+        const weekDates = getWeekDates();
+        // Construct ISO string for the first day of the week (Monday)
+        const weekStartStr = new Date(Date.UTC(weekDates[0].getFullYear(), weekDates[0].getMonth(), weekDates[0].getDate())).toISOString();
 
-        let baseCount = 0;
-        sheets.forEach((sheet) => {
-          const weekStart = new Date(sheet.weekStartDate);
-          const sheetMonday = new Date(weekStart);
-          sheetMonday.setHours(0, 0, 0, 0);
-          
-          // Skip if this sheet is for the current week (to avoid double counting)
-          if (Math.abs(sheetMonday - currentMonday) < 86400000) return;
-
-          (sheet.entries || []).forEach((entry) => {
-            if (entry.task === "Permission" && Array.isArray(entry.hours)) {
-              entry.hours.forEach((h, idx) => {
-                if (h > 0) {
-                  const d = new Date(weekStart);
-                  d.setDate(d.getDate() + idx);
-                  if (d.getMonth() === currentMonth && d.getFullYear() === currentYear) {
-                    const val = Number(h) || 0;
-                    if (val > 0 && val <= 1) baseCount += 1;
-                    else if (val > 1 && val <= 2) baseCount += 2;
-                    else if (val > 2) baseCount += 3;
-                  }
-                }
-              });
-            }
-          });
+        const res = await timesheetAPI.getPermissionUsage({
+          month: currentMonth,
+          year: currentYear,
+          excludeWeekStart: weekStartStr
         });
-        setMonthlyBasePermissionCount(baseCount);
+        
+        if (res.data && res.data.success) {
+          setMonthlyBasePermissionCount(res.data.count);
+        } else {
+           setMonthlyBasePermissionCount(0);
+        }
       } catch (e) {
+        console.error("Error loading permission usage:", e);
         setMonthlyBasePermissionCount(0);
       }
-      // updateMonthlyPermissionCount will be triggered by useEffect when monthlyBasePermissionCount changes
     };
     loadMonthlyBasePermissionCount();
   }, [currentWeek]);
@@ -738,7 +728,7 @@ const Timesheet = () => {
 
   const addLeaveRow = () => {
     if (isAddLeaveDisabled()) {
-      alert("Maximum 4 leave rows allowed per timesheet.");
+      showError("Maximum 4 leave rows allowed per timesheet.");
       return;
     }
 
@@ -755,7 +745,7 @@ const Timesheet = () => {
 
   const deleteRow = (id) => {
     if (timesheetRows.length <= 1) {
-      alert("At least one row must remain.");
+      showError("At least one row must remain.");
       return;
     }
     setTimesheetRows((prev) => prev.filter((row) => row.id !== id));
@@ -805,7 +795,7 @@ const Timesheet = () => {
       row.task !== "Office Holiday" &&
       row.task !== "Leave Approved"
     ) {
-      alert("Leave/Holiday applied on this day; other entries are blocked.");
+      showError("Leave/Holiday applied on this day; other entries are blocked.");
       return;
     }
 
@@ -853,14 +843,14 @@ const Timesheet = () => {
 
     if (newTotalWithBreakAll > 24) {
       const currentTotalWithBreak = (currentDailyAllTotal + currentBreakHours).toFixed(1);
-      alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${currentBreakHours.toFixed(1)}h)\nAfter update: ${newTotalWithBreakAll.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+      showError(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${currentBreakHours.toFixed(1)}h)\nAfter update: ${newTotalWithBreakAll.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
       return; // Don't update if it would exceed 24 hours
     }
 
     // Warning when approaching 24 hours (within 2 hours)
     if (newTotalWithBreakAll >= 22 && newTotalWithBreakAll <= 24) {
       const remainingHours = (24 - newTotalWithBreakAll).toFixed(1);
-      alert(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newTotalWithBreakAll.toFixed(1)}h (only ${remainingHours}h remaining)\n\nThis includes Work (${newWorkTotalAll.toFixed(1)}h) + Break (${currentBreakHours.toFixed(1)}h)`);
+      showError(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newTotalWithBreakAll.toFixed(1)}h (only ${remainingHours}h remaining)\n\nThis includes Work (${newWorkTotalAll.toFixed(1)}h) + Break (${currentBreakHours.toFixed(1)}h)`, "Warning");
     }
 
     // Handle leave types
@@ -890,29 +880,38 @@ const Timesheet = () => {
       // Allow specific duration input, but validate max limits
       if (numValue <= 0) {
         numValue = 0;
-      } else if (numValue > 3) {
-        alert("Maximum duration for a single permission is 3 hours.");
+      } else if (numValue > 2) {
+        showError("Maximum duration for a single permission is 2 hours.");
         return;
+      } else {
+        // Enforce 30-minute increments (0.5, 1.0, 1.5, 2.0)
+        // Check if numValue is a multiple of 0.5
+        const remainder = numValue % 0.5;
+        // Use epsilon for float comparison (allow very small floating point errors)
+        if (remainder > 0.001 && remainder < 0.499) {
+          showError("Permission duration must be in 30-minute increments (e.g., 0:30, 1:00, 1:30, 2:00).");
+          return;
+        }
       }
       
       const getPermissionCountForHours = (h) => {
         const val = Number(h) || 0;
         if (val <= 0) return 0;
-        if (val <= 1) return 1;
-        if (val <= 2) return 2;
-        return 3;
+        return val * 2;
       };
 
       const computeMonthlyPermissionCountWithOverride = (overrideRowId, overrideDayIndex, overrideHours) => {
         const currentMonth = currentWeek.getMonth();
         const currentYear = currentWeek.getFullYear();
         let count = monthlyBasePermissionCount;
+        
+        const weekDates = getWeekDates();
+
         timesheetRows.forEach((r) => {
           if (r.task !== "Permission") return;
           r.hours.forEach((h, idx) => {
-            const date = new Date(currentWeek);
-            date.setDate(date.getDate() + (idx - date.getDay() + 1));
-            if (date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
+            const date = weekDates[idx];
+            if (date && date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
               const hours = (r.id === overrideRowId && idx === overrideDayIndex) ? overrideHours : h;
               const c = getPermissionCountForHours(hours);
               count += c;
@@ -924,8 +923,8 @@ const Timesheet = () => {
 
       if (numValue > 0) {
         const prospectiveCount = computeMonthlyPermissionCountWithOverride(id, dayIndex, numValue);
-        if (prospectiveCount > 3) {
-          alert("Monthly permission limit (3 counts) exceeded!");
+        if (prospectiveCount > 6) {
+          showError(`Monthly permission limit (6 counts) exceeded! You have used ${prospectiveCount} counts.`);
           return;
         }
       }
@@ -977,7 +976,7 @@ const Timesheet = () => {
 
     if (finalTotalWithBreak > 24) {
       const currentTotalWithBreak = (currentDailyAllTotal + computeBreakForDay(dayIndex)).toFixed(1);
-      alert(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${computeBreakForDay(dayIndex).toFixed(1)}h)\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+      showError(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${computeBreakForDay(dayIndex).toFixed(1)}h)\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
       return;
     }
 
@@ -1133,7 +1132,7 @@ const Timesheet = () => {
   // ✅ Save as draft - Allow saving with partial data
   const saveAsDraft = async () => {
     if (!hasSomeData()) {
-      alert("Please enter at least some data (project, task, or hours) before saving as draft.");
+      showError("Please enter at least some data (project, task, or hours) before saving as draft.");
       return;
     }
 
@@ -1188,12 +1187,13 @@ const Timesheet = () => {
       // Notify history page to refresh
       try { window.dispatchEvent(new Event('refreshTimesheetHistory')); } catch (_) { }
 
-      alert("✅ Timesheet saved as draft successfully!");
+      showError("✅ Timesheet saved as draft successfully!", "Success");
     } catch (error) {
       console.error("❌ Error saving timesheet as draft:", error);
-      alert(
+      showError(
         error.response?.data?.message ||
-        "Failed to save timesheet as draft. Please try again."
+        "Failed to save timesheet as draft. Please try again.",
+        "Error"
       );
     } finally {
       setLoading(false);
@@ -1206,34 +1206,68 @@ const Timesheet = () => {
       (row) => !row.project || (row.type === "project" && !row.task)
     );
     if (invalidRows.length > 0) {
-      alert("Please fill all required fields for all rows.");
+      showError("Please fill all required fields for all rows.");
       return;
     }
 
     if (totals.weekly === 0) {
-      alert("Please enter hours for at least one day.");
+      showError("Please enter hours for at least one day.");
       return;
     }
 
-    if (!weeklyMinimumSatisfied) {
-      if (missingShiftDays.length > 0) {
-        alert(
-          `Please select a shift for the following days (Mon–Fri):\n` +
-          `${missingShiftDays.join(", ")}.\n\n` +
-          `A shift must be selected for every working day unless a Full Day Leave or Holiday is applied.`
-        );
+    // ✅ Check for missing shifts (Mon-Fri)
+    if (missingShiftDays.length > 0) {
+      showError(
+        `Please select a shift for the following days (Mon–Fri):\n` +
+        `${missingShiftDays.join(", ")}.\n\n` +
+        `A shift must be selected for every working day unless a Full Day Leave or Holiday is applied.`
+      );
+      return;
+    }
+
+    // ✅ Day-wise Minimum Hours Validation
+    for (let i = 0; i < 7; i++) {
+      // Skip validation for days with Full Day Leave, Office Holiday, or Approved Leave
+      if (hasFullDayLeave(i) || hasAnyApprovedLeave(i)) continue;
+
+      const shift = dailyShiftTypes?.[i] || shiftType || "";
+      // If no shift selected (e.g., weekend without work), skip validation
+      // Note: missingShiftDays already ensures Mon-Fri have shifts if not on leave
+      if (!shift || shift === "Select Shift") continue;
+
+      const totalWithBreak = totals.daily[i] + computeBreakForDay(i);
+      const currentMinutes = Math.round(totalWithBreak * 60);
+      
+      let minMinutes = 0;
+      let minHoursText = "";
+
+      // Determine minimum minutes based on shift (with 5 min grace period)
+      // First/Second Shift: 8h 30m required -> 8h 25m threshold
+      // General Shift: 9h 30m required -> 9h 25m threshold
+      
+      if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
+        minMinutes = (8 * 60) + 25; // 505 minutes
+        minHoursText = "8:25";
+      } else if (shift.startsWith("General Shift")) {
+        minMinutes = (9 * 60) + 25; // 565 minutes
+        minHoursText = "9:25";
       } else {
-        alert(
-          `Weekly minimum hours based on selected shifts is ${formatHoursHHMM(weeklyRequiredShiftHours)}.\n` +
-          `Currently recorded (Work + Break): ${formatHoursHHMM(weeklyTotalWithBreakValidDays)}.\n\n` +
-          `Please complete the required hours before submitting.`
-        );
+        continue;
       }
-      return;
+
+      if (currentMinutes < minMinutes) {
+        showError(
+          `Day-wise minimum hours not met for ${days[i]} (${shift}).\n\n` +
+          `Required minimum (with grace): ${minHoursText}\n` +
+          `Recorded (Work + Break): ${formatHoursHHMM(totalWithBreak)}\n\n` +
+          `Please ensure each working day meets the shift requirement.`
+        );
+        return;
+      }
     }
 
-    if (monthlyPermissionCount > 3) {
-      alert(`Monthly permission limit exceeded! Current count: ${monthlyPermissionCount}/3`);
+    if (monthlyPermissionCount > 6) {
+      showError(`Monthly permission limit exceeded! Current count: ${monthlyPermissionCount}/6`);
       return;
     }
 
@@ -1254,12 +1288,12 @@ const Timesheet = () => {
       const totalMinutes = Math.round(totalWithBreak * 60);
       const allowedSlackMinutes = 2;
       if (i < 5 && opMinutes - totalMinutes > allowedSlackMinutes) {
-        alert(`On-Premises Time for ${days[i]} cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(op)}\nTotal: ${formatHoursHHMM(totalWithBreak)}`);
+        showError(`On-Premises Time for ${days[i]} cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(op)}\nTotal: ${formatHoursHHMM(totalWithBreak)}`);
         return;
       }
 
       if (op <= 0 && hasProjectHours) {
-        alert(`Project hours not allowed for ${days[i]} without on-premises time. Please record attendance or remove project hours.`);
+        showError(`Project hours not allowed for ${days[i]} without on-premises time. Please record attendance or remove project hours.`);
         return;
       }
     }
@@ -1317,12 +1351,13 @@ const Timesheet = () => {
       // Notify history page to refresh
       try { window.dispatchEvent(new Event('refreshTimesheetHistory')); } catch (_) { }
 
-      alert("✅ Timesheet submitted successfully!");
+      showError("✅ Timesheet submitted successfully!", "Success");
     } catch (error) {
       console.error("❌ Error submitting timesheet:", error);
-      alert(
+      showError(
         error.response?.data?.message ||
-        "Failed to submit timesheet. Please try again."
+        "Failed to submit timesheet. Please try again.",
+        "Error"
       );
     } finally {
       setLoading(false);
@@ -1445,15 +1480,29 @@ const Timesheet = () => {
     return missing;
   };
 
-  const weeklyRequiredShiftHours = getWeeklyRequiredShiftHours();
-  // Sum Work + Break for all days (0-6) EXCLUDING Full Day Leave or Approved Leave days
-  const weeklyTotalWithBreakValidDays = totals.daily.slice(0, 7).reduce((sum, h, i) => {
-    if (hasFullDayLeave(i) || hasAnyApprovedLeave(i)) return sum;
-    return sum + h + computeBreakForDay(i);
-  }, 0);
   const missingShiftDays = getMissingShiftDays();
-  // Compare minutes to avoid floating point issues
-  const weeklyMinimumSatisfied = missingShiftDays.length === 0 && Math.round(weeklyTotalWithBreakValidDays * 60) >= Math.round(weeklyRequiredShiftHours * 60);
+
+  const allDaysSatisfied = (() => {
+    if (missingShiftDays.length > 0) return false;
+    for (let i = 0; i < 7; i++) {
+      if (hasFullDayLeave(i) || hasAnyApprovedLeave(i)) continue;
+      const shift = dailyShiftTypes?.[i] || shiftType || "";
+      if (!shift || shift === "Select Shift") continue;
+      
+      const totalWithBreak = totals.daily[i] + computeBreakForDay(i);
+      const currentMinutes = Math.round(totalWithBreak * 60);
+      
+      let minMinutes = 0;
+      if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
+        minMinutes = (8 * 60) + 25;
+      } else if (shift.startsWith("General Shift")) {
+        minMinutes = (9 * 60) + 25;
+      }
+      
+      if (minMinutes > 0 && currentMinutes < minMinutes) return false;
+    }
+    return true;
+  })();
 
   const updateDailyShift = (index, value) => {
     setDailyShiftTypes((prev) => {
@@ -1498,6 +1547,21 @@ const Timesheet = () => {
     const totalWithBreak = getCurrentDailyTotalWithBreak(dayIndex);
     if (totalWithBreak >= 24) return "bg-red-100 text-red-800 font-bold";
     if (totalWithBreak >= 20) return "bg-yellow-100 text-yellow-800 font-bold";
+    
+    // Check minimum hours
+    if (!hasFullDayLeave(dayIndex) && !hasAnyApprovedLeave(dayIndex)) {
+        const shift = dailyShiftTypes?.[dayIndex] || shiftType || "";
+        if (shift && shift !== "Select Shift") {
+            let minMinutes = 0;
+            if (shift.startsWith("General Shift")) minMinutes = (9 * 60) + 25;
+            else if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) minMinutes = (8 * 60) + 25;
+
+            if (minMinutes > 0 && Math.round(totalWithBreak * 60) < minMinutes) {
+                 return "bg-red-50 text-red-600 font-bold";
+            }
+        }
+    }
+
     return "text-blue-700 font-bold";
   };
 
@@ -1646,9 +1710,7 @@ const Timesheet = () => {
                 <Plus className="w-4 h-4" />
                 ADD PERMISSION 
               </button>
-              {/* <span className={`text-[10px] font-bold mt-1 ${monthlyPermissionCount > 3 ? 'text-red-600' : 'text-gray-500'}`}>
-                Used: {monthlyPermissionCount}/3
-              </span> */}
+              
             </div>
 
             <button
@@ -1885,7 +1947,7 @@ const Timesheet = () => {
                             (row.lockedDays && row.lockedDays[dayIndex]) ||
                             (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                            (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
+                            (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 6 && Number(hours) === 0))) ||
                             (!isShiftSelectedForDay(dayIndex))
                           }
                           title={
@@ -1899,7 +1961,7 @@ const Timesheet = () => {
                                     ? (row.type === "project" ? "Please select project and task first" : "Please select a leave type or task")
                                     : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
                                       ? "Permission not allowed for this day"
-                                      : (monthlyPermissionCount >= 3 && Number(hours) === 0)
+                                      : (monthlyPermissionCount >= 6 && Number(hours) === 0)
                                         ? "Monthly permission limit reached"
                                         : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
                                           ? "Full Day Leave applied on this day"
@@ -2063,14 +2125,19 @@ const Timesheet = () => {
           <div className="text-sm text-gray-600 text-center md:text-left">
             Fill your timesheet and submit before the deadline
             {monthlyPermissionCount > 0 && (
-              <span className="ml-2 text-orange-600">
-                • Permissions used: {monthlyPermissionCount}/3
+              <span className={`ml-2 ${monthlyPermissionCount >= 6 ? 'text-red-600 font-bold' : 'text-orange-600'}`}>
+                • Permissions used: {monthlyPermissionCount}/6
               </span>
             )}
             {hasUnsavedChanges && !isSubmitted && (
               <span className="ml-2 text-yellow-600 font-semibold">
                 • Unsaved changes
               </span>
+            )}
+            {!allDaysSatisfied && !isSubmitted && (
+               <span className="ml-2 text-red-600 font-semibold">
+                • Minimum hours not met
+               </span>
             )}
             {isSubmitted && (
               <span className="ml-2 text-green-600 font-semibold">
@@ -2081,8 +2148,8 @@ const Timesheet = () => {
           
           <button
             onClick={submitTimesheet}
-            disabled={loading || isSubmitted || isLeaveAutoDraft || !weeklyMinimumSatisfied}
-            className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(loading || isSubmitted || isLeaveAutoDraft || !weeklyMinimumSatisfied)
+            disabled={loading || isSubmitted || isLeaveAutoDraft || !allDaysSatisfied}
+            className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(loading || isSubmitted || isLeaveAutoDraft || !allDaysSatisfied)
                 ? "bg-gray-400 cursor-not-allowed"
                 : "bg-blue-700 hover:bg-blue-800 text-white"
               }`}
@@ -2115,7 +2182,8 @@ const Timesheet = () => {
               <li>General Shift: 9:30 AM - 7:00 PM</li>
             </ul>
           </li>
-          <li>• Monthly permission limit: Maximum 3 hours allowed per month</li>
+          <li>• Monthly permission limit: Maximum 6 permission counts allowed per month</li>
+          <li>• Permission duration: 30-minute increments only (0:30, 1:00, 1:30, 2:00)</li>
         </ul>
       </div>
 
@@ -2147,6 +2215,28 @@ const Timesheet = () => {
                 className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 transition-colors"
               >
                 Save Draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Error/Message Dialog */}
+      {showErrorDialog && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className={`text-lg font-semibold mb-4 ${errorTitle.toLowerCase().includes('success') ? 'text-green-600' : 'text-red-600'}`}>
+              {errorTitle}
+            </h3>
+            <p className="text-gray-600 mb-6 whitespace-pre-line">
+              {errorMessage}
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={() => setShowErrorDialog(false)}
+                className={`px-4 py-2 text-white rounded transition-colors ${errorTitle.toLowerCase().includes('success') ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-700 hover:bg-blue-800'}`}
+              >
+                OK
               </button>
             </div>
           </div>

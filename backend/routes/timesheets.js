@@ -900,6 +900,85 @@ router.get("/test-email", auth, async (req, res) => {
 });
 
 /**
+ * Get monthly permission usage
+ * Query params: month (0-11), year (YYYY), excludeWeekStart (ISO date string)
+ */
+router.get("/permissions/usage", auth, async (req, res) => {
+  try {
+    const { month, year, excludeWeekStart } = req.query;
+
+    if (month === undefined || year === undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Month and year are required"
+      });
+    }
+
+    const targetMonth = parseInt(month);
+    const targetYear = parseInt(year);
+
+    // Calculate start and end of the target month
+    // Note: Month is 0-indexed in JS Date
+    const startOfMonth = new Date(Date.UTC(targetYear, targetMonth, 1));
+    const endOfMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0, 23, 59, 59, 999));
+
+    // Find all timesheets for the user that overlap with the target month
+    const sheets = await Timesheet.find({
+      userId: req.user._id,
+      weekStartDate: { $lte: endOfMonth },
+      weekEndDate: { $gte: startOfMonth }
+    });
+
+    let totalCount = 0;
+    const excludeDate = excludeWeekStart ? new Date(excludeWeekStart).toISOString().split('T')[0] : null;
+
+    sheets.forEach(sheet => {
+      // Exclude the current week if specified
+      if (excludeDate) {
+        const sheetDate = new Date(sheet.weekStartDate).toISOString().split('T')[0];
+        if (sheetDate === excludeDate) return;
+      }
+
+      const sheetStart = new Date(sheet.weekStartDate);
+
+      (sheet.entries || []).forEach(entry => {
+        if (entry.task === "Permission") {
+          (entry.hours || []).forEach((hours, dayIndex) => {
+            if (hours > 0) {
+              const entryDate = new Date(sheetStart);
+              entryDate.setDate(entryDate.getDate() + dayIndex);
+
+              // Check if this specific entry falls within the target month
+              if (entryDate.getMonth() === targetMonth && entryDate.getFullYear() === targetYear) {
+                // Permission Count Calculation:
+                // 0:30 (0.5) -> 1
+                // 1:00 (1.0) -> 2
+                // 1:30 (1.5) -> 3
+                // 2:00 (2.0) -> 4
+                // Formula: hours * 2
+                totalCount += (hours * 2);
+              }
+            }
+          });
+        }
+      });
+    });
+
+    res.json({
+      success: true,
+      count: totalCount
+    });
+
+  } catch (error) {
+    console.error("❌ Error calculating permission usage:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+  }
+});
+
+/**
  * Get logged-in user's all timesheets
  */
 router.get("/my-timesheets", auth, async (req, res) => {
