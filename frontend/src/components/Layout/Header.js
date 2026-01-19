@@ -47,6 +47,8 @@ const Header = ({ onMenuClick }) => {
       '/payroll/monthly': 'Monthly Payroll',
       '/employee-exit/form': 'Employee Exit Form',
       '/my-profile': 'My Profile',
+      '/employee-exit/approval': 'Exam form Approval',
+      
     };
     
     return routeTitles[location.pathname] || 'Caldim Employee Portal';

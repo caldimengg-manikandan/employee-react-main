@@ -1245,11 +1245,10 @@ const Timesheet = () => {
       const breakHours = computeBreakForDay(i);
       const totalWithBreak = workTotal + breakHours;
 
-      // Skip check for Saturday (5) and Sunday (6)
-      // Compare using minute precision to avoid float rounding issues
       const opMinutes = Math.round(op * 60);
       const totalMinutes = Math.round(totalWithBreak * 60);
-      if (i < 5 && opMinutes > totalMinutes) {
+      const allowedSlackMinutes = 2;
+      if (i < 5 && opMinutes - totalMinutes > allowedSlackMinutes) {
         alert(`On-Premises Time for ${days[i]} cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(op)}\nTotal: ${formatHoursHHMM(totalWithBreak)}`);
         return;
       }
