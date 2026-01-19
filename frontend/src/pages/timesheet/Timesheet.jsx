@@ -103,7 +103,6 @@ const Timesheet = () => {
     "Accounts",
     "Break Time"
 
-
   ];
 
   const leaveTypes = [
