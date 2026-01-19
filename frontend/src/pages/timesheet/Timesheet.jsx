@@ -93,7 +93,7 @@ const Timesheet = () => {
     "Project Discussion",
     "Idle",
     "Meeting",
-    "RIF’s",
+    "RFI’s",
     "Study",
     "On Duty",
     "Project Management",
