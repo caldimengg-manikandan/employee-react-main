@@ -369,7 +369,8 @@ import Notification from '../../components/Notifications/Notification';
       let hasFullDayConflict = false;
 
       leaveHistory.forEach(leave => {
-        if (leave.status === 'Rejected') return;
+        // Only consider active leaves (Pending/Approved) for overlap check
+        if (leave.status !== 'Approved' && leave.status !== 'Pending') return;
         if (editingLeaveId && leave.id === editingLeaveId) return;
 
         const existingStart = new Date(leave.startDate);
@@ -406,13 +407,17 @@ import Notification from '../../components/Notifications/Notification';
       });
 
       if (hasFullDayConflict || halfDayTotal >= 1) {
-        showNotification('You have already taken leave on this date.', 'error');
+        setWarningModal({
+          isOpen: true,
+          message: 'You have already taken leave on this date.'
+        });
         setSubmitting(false);
         return;
       }
     } else {
       const hasOverlappingLeave = leaveHistory.some(leave => {
-        if (leave.status === 'Rejected') return false;
+        // Only consider active leaves (Pending/Approved) for overlap check
+        if (leave.status !== 'Approved' && leave.status !== 'Pending') return false;
         if (editingLeaveId && leave.id === editingLeaveId) return false;
         const existingStart = new Date(leave.startDate);
         const existingEnd = new Date(leave.endDate);
@@ -428,7 +433,10 @@ import Notification from '../../components/Notifications/Notification';
       });
 
       if (hasOverlappingLeave) {
-        showNotification('You have already taken leave on this date.', 'error');
+        setWarningModal({
+          isOpen: true,
+          message: 'You have already taken leave on this date.'
+        });
         setSubmitting(false);
         return;
       }
