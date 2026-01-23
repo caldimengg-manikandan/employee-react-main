@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Eye, Edit, Save, X, History } from 'lucide-react';
+import { Search, Eye, Edit, Save, X, History, Download } from 'lucide-react';
 import { leaveAPI, employeeAPI } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const LeaveBalance = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -168,6 +169,13 @@ const LeaveBalance = () => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          String(emp.empId || '').toLowerCase().includes(searchTerm.toLowerCase());
     return matchesSearch;
+  }).sort((a, b) => {
+    // Sort by Employee ID ascending
+    const idA = (a.empId || '').toString().toLowerCase();
+    const idB = (b.empId || '').toString().toLowerCase();
+    if (idA < idB) return -1;
+    if (idA > idB) return 1;
+    return 0;
   });
 
   const formatDate = (dateString) => {
@@ -236,6 +244,32 @@ const LeaveBalance = () => {
     }
   };
 
+  const handleDownloadExcel = () => {
+    const data = filteredEmployees.map(emp => ({
+      'Employee ID': emp.empId || emp.id,
+      'Employee Name': emp.name,
+      'Casual Leave': getAvailableBalance(emp, 'CL'),
+      'Sick Leave': getAvailableBalance(emp, 'SL'),
+      'Privilege Leave': getAvailableBalance(emp, 'PL')
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Leave Balances");
+    
+    // Adjust column widths
+    const wscols = [
+      {wch: 15}, // Employee ID
+      {wch: 25}, // Employee Name
+      {wch: 15}, // Casual Leave
+      {wch: 15}, // Sick Leave
+      {wch: 15}  // Privilege Leave
+    ];
+    ws['!cols'] = wscols;
+
+    XLSX.writeFile(wb, `Leave_Balance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+  };
+
   const handleViewHistory = async (employee) => {
     setSelectedEmployee(employee);
     setShowHistoryModal(true);
@@ -287,6 +321,12 @@ const LeaveBalance = () => {
         </div>
         
         <div className="flex gap-2">
+          <button
+            onClick={handleDownloadExcel}
+            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+          >
+            <Download size={16} /> Download Report
+          </button>
           <button
             onClick={handleSyncAll}
             className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"

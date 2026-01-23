@@ -117,6 +117,13 @@ const LeaveSummary = () => {
     const matchesLocation = selectedLocation === 'all' || app.location === selectedLocation;
     const matchesStatus = selectedStatus === 'all' || app.status === selectedStatus;
     return matchesMonthWindow && matchesEmployeeId && matchesLeaveType && matchesLocation && matchesStatus;
+  }).sort((a, b) => {
+    // Sort by Employee ID ascending
+    const idA = (a.employeeId || '').toString().toLowerCase();
+    const idB = (b.employeeId || '').toString().toLowerCase();
+    if (idA < idB) return -1;
+    if (idA > idB) return 1;
+    return 0;
   });
 
   // Calculate total leave days for filtered applications
