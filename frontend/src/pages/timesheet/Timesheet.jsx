@@ -22,7 +22,7 @@ const isHoliday = (date) => {
   const month = date.toLocaleDateString('en-US', { month: 'short' });
   const year = String(date.getFullYear()).slice(-2);
   const formattedDate = `${day}-${month}-${year}`;
-  
+
   return holidays2026.some(h => h.date === formattedDate);
 };
 
@@ -32,7 +32,7 @@ const getHolidayOccasion = (date) => {
   const month = date.toLocaleDateString('en-US', { month: 'short' });
   const year = String(date.getFullYear()).slice(-2);
   const formattedDate = `${day}-${month}-${year}`;
-  
+
   const holiday = holidays2026.find(h => h.date === formattedDate);
   return holiday ? holiday.occasion : "";
 };
@@ -101,10 +101,12 @@ const Timesheet = () => {
     "Office Administration",
     "HR Activities",
     "Accounts",
-    "Break Time"
+    "Break Time",
+    "Training"
 
   ];
 
+  
   const leaveTypes = [
     "Permission"
   ];
@@ -158,7 +160,7 @@ const Timesheet = () => {
         if (timesheetRes.status === "fulfilled" && timesheetRes.value) {
           const res = timesheetRes.value;
           sheet = (res?.data && res.data.data) ? res.data.data : res.data;
-          
+
           rows = (sheet.entries || []).map((e) => ({
             id: Date.now() + Math.random(),
             project: e.project || "",
@@ -189,7 +191,7 @@ const Timesheet = () => {
           setShiftType(loadedShiftType);
           setDailyShiftTypes(loadedDailyShiftTypes);
           setRejectionReason(sheet.rejectionReason || "");
-          
+
           setIsSubmitted(
             (sheet.status || "").toLowerCase() === "submitted" ||
             (sheet.status || "").toLowerCase() === "approved"
@@ -204,7 +206,7 @@ const Timesheet = () => {
         if (attendanceRes.status === "fulfilled" && attendanceRes.value) {
           const attRes = attendanceRes.value;
           const attendanceData = Array.isArray(attRes.data?.records) ? attRes.data.records : [];
-          
+
           if (attendanceData.length > 0) {
             const weekKeys = wd.map((d) => {
               const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
@@ -231,7 +233,7 @@ const Timesheet = () => {
             const preciseDaily = dailyOnPremises.map((h) => Math.max(0, Number(h) || 0));
             const preciseWeekly = preciseDaily.reduce((sum, h) => sum + h, 0);
             const hasAnyHours = preciseDaily.some((h) => h > 0) || preciseWeekly > 0;
-            
+
             if (hasAnyHours) {
               attendanceOnPremises = {
                 daily: preciseDaily,
@@ -257,62 +259,62 @@ const Timesheet = () => {
           });
         }
 
-          // --- Set Timesheet Rows ---
-          if (rows.length === 0) {
-            const weekDates = getWeekDates(currentWeek);
-            const holidayHours = weekDates.map(date => isHoliday(date) ? 9.5 : 0);
-            const hasHoliday = holidayHours.some(h => h > 0);
+        // --- Set Timesheet Rows ---
+        if (rows.length === 0) {
+          const weekDates = getWeekDates(currentWeek);
+          const holidayHours = weekDates.map(date => isHoliday(date) ? 9.5 : 0);
+          const hasHoliday = holidayHours.some(h => h > 0);
 
-            const initialRows = [];
-            
-            if (hasHoliday) {
-              initialRows.push({
-                id: Date.now() + Math.random(),
-                project: "Office Holiday",
-                task: "Office Holiday",
-                hours: holidayHours,
-                type: "project",
-                shiftType: "",
-                locked: true // Lock this row to prevent editing
-              });
-            }
+          const initialRows = [];
 
+          if (hasHoliday) {
             initialRows.push({
-              id: Date.now() + Math.random() + 1,
-              project: "",
-              task: "",
-              hours: [0, 0, 0, 0, 0, 0, 0],
+              id: Date.now() + Math.random(),
+              project: "Office Holiday",
+              task: "Office Holiday",
+              hours: holidayHours,
               type: "project",
-              shiftType: ""
+              shiftType: "",
+              locked: true // Lock this row to prevent editing
             });
-
-            setTimesheetRows(initialRows);
-            setOriginalData(JSON.stringify(initialRows));
-            setHasUnsavedChanges(false);
-          } else {
-            // Check if we need to add holiday row for existing timesheet
-            const weekDates = getWeekDates(currentWeek);
-            const holidayHours = weekDates.map(date => isHoliday(date) ? 9.5 : 0);
-            const hasHoliday = holidayHours.some(h => h > 0);
-            const hasHolidayRow = rows.some(r => r.project === "Office Holiday" || r.task === "Office Holiday");
-
-            if (hasHoliday && !hasHolidayRow) {
-               rows.unshift({
-                id: Date.now() + Math.random(),
-                project: "Office Holiday",
-                task: "Office Holiday",
-                hours: holidayHours,
-                type: "project",
-                shiftType: "",
-                locked: true
-              });
-            }
-
-            setTimesheetRows(rows);
-            setOriginalData(JSON.stringify(rows));
-            setHasUnsavedChanges(false);
           }
-        
+
+          initialRows.push({
+            id: Date.now() + Math.random() + 1,
+            project: "",
+            task: "",
+            hours: [0, 0, 0, 0, 0, 0, 0],
+            type: "project",
+            shiftType: ""
+          });
+
+          setTimesheetRows(initialRows);
+          setOriginalData(JSON.stringify(initialRows));
+          setHasUnsavedChanges(false);
+        } else {
+          // Check if we need to add holiday row for existing timesheet
+          const weekDates = getWeekDates(currentWeek);
+          const holidayHours = weekDates.map(date => isHoliday(date) ? 9.5 : 0);
+          const hasHoliday = holidayHours.some(h => h > 0);
+          const hasHolidayRow = rows.some(r => r.project === "Office Holiday" || r.task === "Office Holiday");
+
+          if (hasHoliday && !hasHolidayRow) {
+            rows.unshift({
+              id: Date.now() + Math.random(),
+              project: "Office Holiday",
+              task: "Office Holiday",
+              hours: holidayHours,
+              type: "project",
+              shiftType: "",
+              locked: true
+            });
+          }
+
+          setTimesheetRows(rows);
+          setOriginalData(JSON.stringify(rows));
+          setHasUnsavedChanges(false);
+        }
+
       } catch (err) {
         console.error("❌ Error loading week data:", err);
         // Don't load draft from session automatically - start fresh
@@ -472,8 +474,8 @@ const Timesheet = () => {
         allocationAPI.getAllAllocations()
       ]);
       const me = meResult.status === 'fulfilled' ? meResult.value?.data || {} : {};
-      const allocations = allocResult.status === 'fulfilled' && Array.isArray(allocResult.value?.data) 
-        ? allocResult.value.data 
+      const allocations = allocResult.status === 'fulfilled' && Array.isArray(allocResult.value?.data)
+        ? allocResult.value.data
         : [];
       const weekDates = getWeekDates();
       const weekStart = new Date(weekDates[0]);
@@ -671,7 +673,7 @@ const Timesheet = () => {
       try {
         const currentMonth = currentWeek.getMonth();
         const currentYear = currentWeek.getFullYear();
-        
+
         // Normalize current week start date for exclusion
         const weekDates = getWeekDates();
         // Construct ISO string for the first day of the week (Monday)
@@ -682,11 +684,11 @@ const Timesheet = () => {
           year: currentYear,
           excludeWeekStart: weekStartStr
         });
-        
+
         if (res.data && res.data.success) {
           setMonthlyBasePermissionCount(res.data.count);
         } else {
-           setMonthlyBasePermissionCount(0);
+          setMonthlyBasePermissionCount(0);
         }
       } catch (e) {
         console.error("Error loading permission usage:", e);
@@ -892,7 +894,7 @@ const Timesheet = () => {
           return;
         }
       }
-      
+
       const getPermissionCountForHours = (h) => {
         const val = Number(h) || 0;
         if (val <= 0) return 0;
@@ -903,7 +905,7 @@ const Timesheet = () => {
         const currentMonth = currentWeek.getMonth();
         const currentYear = currentWeek.getFullYear();
         let count = monthlyBasePermissionCount;
-        
+
         const weekDates = getWeekDates();
 
         timesheetRows.forEach((r) => {
@@ -935,7 +937,7 @@ const Timesheet = () => {
     const hasWorkAfterUpdate = timesheetRows.some(
       (r) => r.type === "project" && r.task !== "Office Holiday" && ((r.id === id ? numValue : (r.hours?.[dayIndex] || 0)) > 0)
     );
-    
+
     // Check if there is approved leave (use current state + current row update if applicable)
     // Note: If we are editing the "Leave Approved" row itself, we should use numValue
     const hasApprovedLeave = timesheetRows.some(
@@ -1236,14 +1238,14 @@ const Timesheet = () => {
 
       const totalWithBreak = totals.daily[i] + computeBreakForDay(i);
       const currentMinutes = Math.round(totalWithBreak * 60);
-      
+
       let minMinutes = 0;
       let minHoursText = "";
 
       // Determine minimum minutes based on shift (with 5 min grace period)
       // First/Second Shift: 8h 30m required -> 8h 25m threshold
       // General Shift: 9h 30m required -> 9h 25m threshold
-      
+
       if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
         minMinutes = (8 * 60) + 25; // 505 minutes
         minHoursText = "8:25";
@@ -1459,7 +1461,7 @@ const Timesheet = () => {
       if (!shift || shift === "Select Shift") continue;
       // Skip full day leave/holiday OR any approved leave
       if (hasFullDayLeave(i) || hasAnyApprovedLeave(i)) continue;
-      
+
       // For Mon-Fri (0-4), shift is mandatory (checked by getMissingShiftDays)
       // For Sat-Sun (5-6), if shift is selected, it adds to required hours
       required += getShiftMinHours(shift);
@@ -1487,17 +1489,17 @@ const Timesheet = () => {
       if (hasFullDayLeave(i) || hasAnyApprovedLeave(i)) continue;
       const shift = dailyShiftTypes?.[i] || shiftType || "";
       if (!shift || shift === "Select Shift") continue;
-      
+
       const totalWithBreak = totals.daily[i] + computeBreakForDay(i);
       const currentMinutes = Math.round(totalWithBreak * 60);
-      
+
       let minMinutes = 0;
       if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
         minMinutes = (8 * 60) + 25;
       } else if (shift.startsWith("General Shift")) {
         minMinutes = (9 * 60) + 25;
       }
-      
+
       if (minMinutes > 0 && currentMinutes < minMinutes) return false;
     }
     return true;
@@ -1546,19 +1548,19 @@ const Timesheet = () => {
     const totalWithBreak = getCurrentDailyTotalWithBreak(dayIndex);
     if (totalWithBreak >= 24) return "bg-red-100 text-red-800 font-bold";
     if (totalWithBreak >= 20) return "bg-yellow-100 text-yellow-800 font-bold";
-    
+
     // Check minimum hours
     if (!hasFullDayLeave(dayIndex) && !hasAnyApprovedLeave(dayIndex)) {
-        const shift = dailyShiftTypes?.[dayIndex] || shiftType || "";
-        if (shift && shift !== "Select Shift") {
-            let minMinutes = 0;
-            if (shift.startsWith("General Shift")) minMinutes = (9 * 60) + 25;
-            else if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) minMinutes = (8 * 60) + 25;
+      const shift = dailyShiftTypes?.[dayIndex] || shiftType || "";
+      if (shift && shift !== "Select Shift") {
+        let minMinutes = 0;
+        if (shift.startsWith("General Shift")) minMinutes = (9 * 60) + 25;
+        else if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) minMinutes = (8 * 60) + 25;
 
-            if (minMinutes > 0 && Math.round(totalWithBreak * 60) < minMinutes) {
-                 return "bg-red-50 text-red-600 font-bold";
-            }
+        if (minMinutes > 0 && Math.round(totalWithBreak * 60) < minMinutes) {
+          return "bg-red-50 text-red-600 font-bold";
         }
+      }
     }
 
     return "text-blue-700 font-bold";
@@ -1701,23 +1703,23 @@ const Timesheet = () => {
                 onClick={addLeaveRow}
                 disabled={isAddLeaveDisabled()}
                 className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isAddLeaveDisabled()
-                    ? "bg-gray-400 cursor-not-allowed"
-                    : "bg-blue-700 hover:bg-blue-800 text-white"
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-700 hover:bg-blue-800 text-white"
                   }`}
                 title={isAddLeaveDisabled() ? "Cannot add leave row (Limit reached or Permission active)" : "Add Leave Row"}
               >
                 <Plus className="w-4 h-4" />
-                ADD PERMISSION 
+                ADD PERMISSION
               </button>
-              
+
             </div>
 
             <button
               onClick={saveAsDraft}
               disabled={loading || !hasSomeData() || isSubmitted || isLeaveAutoDraft}
               className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${loading || !hasSomeData() || isSubmitted || isLeaveAutoDraft
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-700 hover:bg-blue-800 text-white"
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-700 hover:bg-blue-800 text-white"
                 }`}
             >
               <Save className="w-4 h-4" />
@@ -1927,18 +1929,18 @@ const Timesheet = () => {
                             });
                           }}
                           className={`w-20 p-2 ${row.type !== "project" ? "pr-6" : ""} border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${(row.type === "project" ? (!row.project || !row.task) : (!row.task))
+                            ? "bg-gray-100 cursor-not-allowed"
+                            : (row.type === "project" && (dayIndex === 5 || dayIndex === 6))
                               ? "bg-gray-100 cursor-not-allowed"
-                              : (row.type === "project" && (dayIndex === 5 || dayIndex === 6))
+                              : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
                                 ? "bg-gray-100 cursor-not-allowed"
-                                : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
+                                : isSubmitted || row.locked
                                   ? "bg-gray-100 cursor-not-allowed"
-                                  : isSubmitted || row.locked
+                                  : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
                                     ? "bg-gray-100 cursor-not-allowed"
-                                    : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
+                                    : !isShiftSelectedForDay(dayIndex)
                                       ? "bg-gray-100 cursor-not-allowed"
-                                      : !isShiftSelectedForDay(dayIndex)
-                                        ? "bg-gray-100 cursor-not-allowed"
-                                        : ""
+                                      : ""
                             }`}
                           disabled={
                             isSubmitted || isLeaveAutoDraft ||
@@ -2134,9 +2136,9 @@ const Timesheet = () => {
               </span>
             )}
             {!allDaysSatisfied && !isSubmitted && (
-               <span className="ml-2 text-red-600 font-semibold">
+              <span className="ml-2 text-red-600 font-semibold">
                 • Minimum hours not met
-               </span>
+              </span>
             )}
             {isSubmitted && (
               <span className="ml-2 text-green-600 font-semibold">
@@ -2144,13 +2146,13 @@ const Timesheet = () => {
               </span>
             )}
           </div>
-          
+
           <button
             onClick={submitTimesheet}
             disabled={loading || isSubmitted || isLeaveAutoDraft || !allDaysSatisfied}
             className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(loading || isSubmitted || isLeaveAutoDraft || !allDaysSatisfied)
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-700 hover:bg-blue-800 text-white"
+              ? "bg-gray-400 cursor-not-allowed"
+              : "bg-blue-700 hover:bg-blue-800 text-white"
               }`}
           >
             {loading ? (

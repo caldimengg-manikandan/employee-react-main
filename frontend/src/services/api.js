@@ -68,17 +68,17 @@ export const hikvisionAPI = {
   // Connection & Status
   getConnectionStatus: () => api.get('/hik/status'),
   testConnection: () => api.get('/hik/test-connection'),
-  
+
   // Attendance Data
   getAttendance: (params) => api.get('/hik/attendance-data', { params }),
   pullEvents: (data) => api.post('/hik/pull-events', data),
-  
+
   // Save Hikvision data to MongoDB
   saveAttendanceToDB: (data) => api.post('/attendance/save-hikvision-attendance', data),
-  
+
   // Device Information
   getDeviceInfo: () => api.get('/hik/device-info'),
-  
+
   // Test endpoints
   testSimple: (data) => api.post('/hik/test-simple', data),
   testAttendance: () => api.post('/hik/test-attendance'),
@@ -146,18 +146,18 @@ export const accessAPI = {
   getStats: (params) => api.get('/access/stats', { params }),
   getEmployeeLogs: (params) => api.get('/access/logs', { params }),
   getEmployees: () => api.get('/employees'),
-  
+
   // Hikvision Integration
   getHikvisionConnectionStatus: () => hikvisionAPI.getConnectionStatus(),
   pullHikvisionEvents: (data) => hikvisionAPI.pullEvents(data),
   getHikvisionAttendance: (params) => hikvisionAPI.getAttendance(params),
   syncHikvisionData: () => hikvisionAPI.pullEvents({}),
-  
+
   // Local Database Attendance
   getLocalAttendance: (params) => api.get('/attendance', { params }),
   createAttendanceRecord: (data) => api.post('/attendance', data),
   getAttendanceSummary: () => api.get('/attendance/summary'),
-  
+
   // Fallback methods
   testHikvisionConnection: () => hikvisionAPI.testConnection(),
 };
@@ -168,7 +168,7 @@ export const attendanceAPI = {
   create: (data) => api.post('/attendance', data),
   getSummary: () => api.get('/attendance/summary'),
   regularize: (data) => api.post('/attendance/regularize', data),
-  
+
   // Hikvision integration
   getHikvision: (params) => hikvisionAPI.getAttendance(params),
   syncHikvision: () => hikvisionAPI.pullEvents({}),

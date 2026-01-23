@@ -54,6 +54,7 @@ import Notification from '../../components/Notifications/Notification';
   const [notification, setNotification] = useState({ message: '', type: 'success', isVisible: false });
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, leaveId: null });
   const [submitModal, setSubmitModal] = useState({ isOpen: false, leave: null });
+  const [warningModal, setWarningModal] = useState({ isOpen: false, message: '' });
   const [submitting, setSubmitting] = useState(false);
 
   const showNotification = (message, type = 'success') => {
@@ -326,11 +327,19 @@ import Notification from '../../components/Notifications/Notification';
       return;
     }
 
-    // Check leave balance (allow negative for CL/SL/PL; keep bereavement strict)
-    if (leaveData.leaveType === 'BEREAVEMENT' && totalLeaveDays > getAvailableBalance('BEREAVEMENT')) {
-      showNotification(`Insufficient Bereavement Leave balance. Available: ${getAvailableBalance('BEREAVEMENT')} days`, 'error');
-      setSubmitting(false);
-      return;
+    // Check leave balance
+    // Rule: CL, SL, BEREAVEMENT cannot go negative.
+    // PL can go negative (or just isn't blocked).
+    if (['CL', 'SL', 'BEREAVEMENT'].includes(leaveData.leaveType)) {
+      const available = getAvailableBalance(leaveData.leaveType);
+      if (totalLeaveDays > available) {
+        setWarningModal({
+          isOpen: true,
+          message: 'You do not have sufficient leave balance for this leave type. Please apply leave under Privilege Leave (PL).'
+        });
+        setSubmitting(false);
+        return;
+      }
     }
 
     // Medical certificate check for sick leave > 3 days
@@ -987,7 +996,27 @@ import Notification from '../../components/Notifications/Notification';
         {leaveFormContent}
       </Modal>
 
-      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={warningModal.isOpen}
+        onClose={() => setWarningModal({ isOpen: false, message: '' })}
+        title="Balance Check"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-gray-700 font-medium">
+            {warningModal.message}
+          </p>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setWarningModal({ isOpen: false, message: '' })}
+              className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition"
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       <Modal
         isOpen={deleteModal.isOpen}
         onClose={() => setDeleteModal({ isOpen: false, leaveId: null })}
