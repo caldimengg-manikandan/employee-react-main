@@ -394,8 +394,36 @@ const Timesheet = () => {
 
   const normalizeHHMMInput = (val) => {
     if (typeof val !== "string") return "";
+
+    // If it has a colon, try to respect it
+    if (val.includes(':')) {
+      const parts = val.split(':');
+      let h = parseInt(parts[0] || '0', 10);
+      let m = parseInt(parts[1] || '0', 10);
+
+      if (isNaN(h)) h = 0;
+      if (isNaN(m)) m = 0;
+
+      // Cap minutes at 59
+      if (m > 59) m = 59;
+
+      const hh = String(h).padStart(2, '0');
+      const mm = String(m).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+
     const digits = val.replace(/\D/g, "");
     if (!digits) return "";
+
+    // If 3 digits, assume HMM (e.g. 930 -> 09:30)
+    if (digits.length === 3) {
+      const h = digits.slice(0, 1);
+      const m = digits.slice(1, 3);
+      let mVal = parseInt(m, 10);
+      if (mVal > 59) mVal = 59;
+      return `0${h}:${String(mVal).padStart(2, '0')}`;
+    }
+
     const h = digits.slice(0, 2);
     const mRaw = digits.slice(2, 4);
     if (mRaw.length === 0) return h;
@@ -1847,12 +1875,17 @@ const Timesheet = () => {
                     <td key={dayIndex} className={`p-2 text-center border border-gray-200 w-32 ${isHoliday(weekDates[dayIndex]) ? 'bg-green-100' : ''}`}>
                       <div className="relative inline-flex items-center">
                         <input
-                          type="time"
+                          type="text"
+                          maxLength={5}
                           value={cellInputs[`${row.id}_${dayIndex}`] ?? formatHoursHHMM(hours)}
                           placeholder="00:00"
                           onChange={(e) => {
-                            const key = `${row.id}_${dayIndex}`;
-                            setCellInputs((prev) => ({ ...prev, [key]: e.target.value }));
+                            const val = e.target.value;
+                            // Allow only digits and colon
+                            if (/^[0-9:]*$/.test(val)) {
+                              const key = `${row.id}_${dayIndex}`;
+                              setCellInputs((prev) => ({ ...prev, [key]: val }));
+                            }
                           }}
                           onKeyDown={(e) => {
                             if (e.key === 'Enter') {
