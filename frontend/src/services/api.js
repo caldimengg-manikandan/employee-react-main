@@ -17,6 +17,8 @@ const api = axios.create({
   timeout: 20000
 });
 
+export const BASE_URL = API_BASE_URL.replace('/api', '');
+
 api.interceptors.request.use((config) => {
   const token = sessionStorage.getItem('token');
   if (token) {
@@ -234,6 +236,9 @@ export const loanAPI = {
 
 export const expenditureAPI = {
   healthCheck: () => api.get('/expenditure/health-check'),
+  uploadFile: (formData) => api.post('/expenditure/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   saveMonthlyRecord: (data) => api.post('/expenditure/save-monthly', data),
   updateRecord: (id, data) => api.put(`/expenditure/update/${id}`, data),
   getSummary: (params) => api.get('/expenditure/summary', { params }),

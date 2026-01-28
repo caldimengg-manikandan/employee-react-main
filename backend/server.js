@@ -3,6 +3,7 @@ const express = require("express");
 const cors = require("cors");
 const multer = require("multer");
 const dotenv = require("dotenv");
+const path = require("path");
 const connectDB = require("./config/database");
 const Attendance = require("./models/Attendance");
 const crypto = require("crypto");
@@ -25,6 +26,7 @@ const app = express();
 // --------------------- MIDDLEWARE --------------------- //
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 const upload = multer(); // optional for file uploads
 
 // --------------------- API ROUTES --------------------- //

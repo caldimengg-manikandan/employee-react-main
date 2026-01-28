@@ -25,6 +25,10 @@ const expenditureSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  filePath: {
+    type: String,
+    default: ''
+  },
   remarks: {
     type: String,
     default: ''

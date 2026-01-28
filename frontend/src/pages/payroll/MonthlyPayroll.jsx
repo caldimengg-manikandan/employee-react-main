@@ -226,6 +226,8 @@ export default function MonthlyPayroll() {
   const [filterDesignation, setFilterDesignation] = useState('all');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showEmailModal, setShowEmailModal] = useState(false);
+  const [showBankWarningModal, setShowBankWarningModal] = useState(false);
+  const [missingBankEmployees, setMissingBankEmployees] = useState([]);
   const [emailTo, setEmailTo] = useState('');
   const [emailCC, setEmailCC] = useState('');
 
@@ -489,8 +491,8 @@ export default function MonthlyPayroll() {
     );
 
     if (missingBankDetails.length > 0) {
-      setMessage(`Error: ${missingBankDetails.length} employee(s) have incomplete bank details.`);
-      setTimeout(() => setMessage(''), 6000);
+      setMissingBankEmployees(missingBankDetails);
+      setShowBankWarningModal(true);
       return;
     }
 
@@ -1310,6 +1312,55 @@ Payroll Department
               >
                 <Mail className="w-4 h-4 mr-2" />
                 Send Email
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Bank Warning Modal */}
+      {showBankWarningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all scale-100">
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-12 h-12 rounded-full bg-yellow-100 flex items-center justify-center mb-4">
+                <span className="text-yellow-600 text-2xl font-bold">!</span>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Incomplete Bank Details</h3>
+              <p className="text-gray-600">
+                The following {missingBankEmployees.length} employee(s) have incomplete bank details:
+              </p>
+            </div>
+
+            <div className="bg-gray-50 rounded-lg p-4 max-h-48 overflow-y-auto mb-6 border border-gray-200">
+              <ul className="space-y-2">
+                {missingBankEmployees.map(emp => (
+                  <li key={emp.employeeId} className="flex justify-between items-center text-sm">
+                    <span className="font-medium text-gray-900">{emp.employeeName}</span>
+                    <span className="text-gray-500 font-mono text-xs">{emp.employeeId}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <p className="text-sm text-gray-500 text-center mb-6">
+              Do you want to proceed with sending the payment email anyway?
+            </p>
+
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowBankWarningModal(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setShowBankWarningModal(false);
+                  setShowEmailModal(true);
+                }}
+                className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
+              >
+                Proceed Anyway
               </button>
             </div>
           </div>

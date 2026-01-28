@@ -22,8 +22,8 @@ import {
   File,
   ExternalLink
 } from "lucide-react";
-import { message, Popconfirm } from "antd";
-import { expenditureAPI } from "../../services/api";
+import { message, Popconfirm, Modal } from "antd";
+import { expenditureAPI, BASE_URL } from "../../services/api";
 
 const ExpenditureManagement = () => {
   const [activeTab, setActiveTab] = useState("manage");
@@ -216,12 +216,25 @@ const ExpenditureManagement = () => {
         fileObject.type === 'application/pdf' ? 'pdf' : 'file');
       setDocumentModalOpen(true);
     } else if (typeof fileObject === 'string') {
+      let fileUrl = fileObject;
+      if (fileObject.startsWith('/uploads')) {
+        fileUrl = `${BASE_URL}${fileObject}`;
+      }
+      
       setCurrentDocument({
-        file: fileObject,
+        file: fileUrl,
         name: fileName || "Document",
         type: "file"
       });
-      setDocumentType("file");
+      
+      const extension = fileName ? fileName.split('.').pop().toLowerCase() : '';
+      if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+        setDocumentType('image');
+      } else if (extension === 'pdf') {
+        setDocumentType('pdf');
+      } else {
+        setDocumentType("file");
+      }
       setDocumentModalOpen(true);
     }
   };
@@ -249,7 +262,7 @@ const ExpenditureManagement = () => {
   };
 
   /* ---------------- MANAGE TAB FUNCTIONS ---------------- */
-  const addExpenditure = () => {
+  const addExpenditure = async () => {
     let type = newExpense.type;
     if (type === "Others" && newExpense.customType.trim()) {
       type = newExpense.customType;
@@ -280,6 +293,29 @@ const ExpenditureManagement = () => {
       return;
     }
 
+    let filePath = newExpense.filePath || "";
+    // Upload File if present and new
+    if (newExpense.file && typeof newExpense.file === 'object') {
+        try {
+            const formData = new FormData();
+            formData.append('file', newExpense.file);
+            const hide = message.loading('Uploading file...', 0);
+            const response = await expenditureAPI.uploadFile(formData);
+            hide();
+            
+            if (response.data.success) {
+                filePath = response.data.filePath;
+                message.success("File uploaded successfully");
+            }
+        } catch (error) {
+            console.error("File upload failed", error);
+            message.error("File upload failed");
+            return;
+        }
+    } else if (typeof newExpense.file === 'string') {
+        filePath = newExpense.file;
+    }
+
     if (editingExpenditureId) {
       // Update existing
       setExpenditures(expenditures.map(exp =>
@@ -290,7 +326,8 @@ const ExpenditureManagement = () => {
           amount: parseFloat(newExpense.amount) || 0,
           date: newExpense.date,
           documentType: newExpense.documentType || 'Not Applicable',
-          file: newExpense.file,
+          file: filePath,
+          filePath: filePath,
           fileName: newExpense.fileName,
           remarks: newExpense.remarks
         } : exp
@@ -305,7 +342,8 @@ const ExpenditureManagement = () => {
         amount: parseFloat(newExpense.amount) || 0,
         date: newExpense.date,
         documentType: newExpense.documentType || 'Not Applicable',
-        file: newExpense.file,
+        file: filePath,
+        filePath: filePath,
         fileName: newExpense.fileName,
         remarks: newExpense.remarks,
         sNo: expenditures.length + 1
@@ -321,6 +359,7 @@ const ExpenditureManagement = () => {
       amount: "",
       documentType: "",
       file: null,
+      filePath: "",
       fileName: "",
       remarks: "",
       date: ""
@@ -348,6 +387,7 @@ const ExpenditureManagement = () => {
         amount: expenseToEdit.amount,
         documentType: expenseToEdit.documentType,
         file: expenseToEdit.file,
+        filePath: expenseToEdit.filePath,
         fileName: expenseToEdit.fileName,
         remarks: expenseToEdit.remarks,
         date: expenseToEdit.date
@@ -373,6 +413,7 @@ const ExpenditureManagement = () => {
       amount: "",
       documentType: "",
       file: null,
+      filePath: "",
       fileName: "",
       remarks: "",
       date: ""
@@ -390,6 +431,7 @@ const ExpenditureManagement = () => {
       amount: "",
       documentType: "",
       file: null,
+      filePath: "",
       fileName: "",
       remarks: "",
       date: ""
@@ -424,6 +466,7 @@ const ExpenditureManagement = () => {
         date: e.date,
         documentType: e.documentType || 'Not Applicable',
         fileName: e.fileName || '',
+        filePath: e.filePath || '',
         remarks: e.remarks || ''
         // Note: file object is not included as it needs separate handling
       }))
@@ -644,6 +687,7 @@ const ExpenditureManagement = () => {
         // Set expenditures with serial numbers
         const expendituresWithSNo = record.expenditures?.map((exp, index) => ({
           ...exp,
+          file: exp.filePath || exp.file,
           id: exp._id || Date.now() + Math.random(),
           sNo: index + 1
         })) || [];
@@ -1170,7 +1214,7 @@ const ExpenditureManagement = () => {
                           {exp.fileName ? (
                             <div className="flex items-center gap-2">
                               <button
-                                onClick={() => viewUploadedFile(exp.file, exp.fileName)}
+                                onClick={() => viewUploadedFile(exp.file || exp.filePath, exp.fileName)}
                                 className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
                                 title="View Document"
                               >
@@ -1596,7 +1640,7 @@ const ExpenditureManagement = () => {
                             {exp.fileName ? (
                               <div className="flex items-center gap-2">
                                 <button
-                                  onClick={() => viewUploadedFile(exp.file, exp.fileName)}
+                                  onClick={() => viewUploadedFile(exp.file || exp.filePath, exp.fileName)}
                                   className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
                                   title="View Document"
                                 >
