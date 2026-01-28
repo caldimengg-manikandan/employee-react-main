@@ -9,8 +9,8 @@ const LeaveSummary = () => {
   const currentMonth = currentDate.getMonth() + 1; // 1-12 for January-December
 
   // State for filters
-  const [selectedYear, setSelectedYear] = useState(currentYear);
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedYear, setSelectedYear] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState('all');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
   const [selectedLeaveType, setSelectedLeaveType] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
@@ -87,14 +87,14 @@ const LeaveSummary = () => {
 
   // Check if any filter is applied
   useEffect(() => {
-    const isApplied = selectedYear !== currentYear ||
-      selectedMonth !== currentMonth ||
+    const isApplied = selectedYear !== 'all' ||
+      selectedMonth !== 'all' ||
       selectedEmployeeId !== '' ||
       selectedLeaveType !== 'all' ||
       selectedLocation !== 'all' ||
       selectedStatus !== 'all';
     setIsFilterApplied(isApplied);
-  }, [selectedYear, selectedMonth, selectedEmployeeId, selectedLeaveType, selectedLocation, selectedStatus, currentYear, currentMonth]);
+  }, [selectedYear, selectedMonth, selectedEmployeeId, selectedLeaveType, selectedLocation, selectedStatus]);
 
   // Helper: does leave overlap selected month/year?
   const overlapsSelectedMonth = (startISO, endISO, year, month) => {

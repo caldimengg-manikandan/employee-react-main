@@ -336,20 +336,18 @@ export default function MonthlyPayroll() {
 
     setProcessing(true);
     
+    const [year, month] = selectedMonth.split('-');
+    
     try {
-      // Calculate month start and end
-      const [year, month] = selectedMonth.split('-');
-      // Start of selected month for LOP calculation
-      const start = new Date(parseInt(year), parseInt(month) - 1, 1);
-      // End of selected month for LOP calculation
-      const end = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
+      // Fetch approved leaves for the whole year to correctly replay balance
+      const yearStart = new Date(parseInt(year), 0, 1);
+      const yearEnd = new Date(parseInt(year), 11, 31, 23, 59, 59);
 
-      // Fetch approved leaves with overlap and current balances
       const [leavesResponse, balancesResponse] = await Promise.all([
         leaveAPI.list({
           status: 'Approved',
-          startDate: start.toISOString(),
-          endDate: end.toISOString(),
+          startDate: yearStart.toISOString(),
+          endDate: yearEnd.toISOString(),
           overlap: 'true'
         }),
         leaveAPI.getBalance()
@@ -369,59 +367,98 @@ export default function MonthlyPayroll() {
       const selectedRecords = salaryRecords.filter(r => selectedEmployees.includes(r.id));
 
       const results = selectedRecords.map(rec => {
-        // Calculate LOP days for this employee
-        // Match by employeeId or loose match by name if needed
-        const employeeLeaves = leaves.filter(l => 
-          (l.employeeId && l.employeeId === rec.employeeId)
-        );
+        // Get employee leaves sorted by start date
+        const employeeLeaves = leaves
+          .filter(l => (l.employeeId && l.employeeId === rec.employeeId))
+          .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
         
-        // Filter only LOP leaves (case-insensitive)
-        const lopLeaves = employeeLeaves.filter(l => {
-          const type = (l.leaveType || '').toLowerCase().replace(/\s+/g, '');
-          return ['lop', 'lossofpay', 'unpaid', 'lwop'].includes(type);
-        });
-
-        // Calculate actual days falling within the selected month
-        const explicitLopDays = lopLeaves.reduce((sum, l) => {
-          const startOfDay = (d) => {
-            const newD = new Date(d);
-            newD.setHours(0, 0, 0, 0);
-            return newD;
-          };
-
-          const lStart = startOfDay(l.startDate);
-          const lEnd = startOfDay(l.endDate);
-          const mStart = startOfDay(start);
-          const mEnd = startOfDay(end);
-          
-          // Intersection with month
-          const effectiveStart = lStart < mStart ? mStart : lStart;
-          const effectiveEnd = lEnd > mEnd ? mEnd : lEnd;
-          
-          if (effectiveStart > effectiveEnd) return sum;
-          
-          // Calculate days difference (inclusive)
-          const diffTime = Math.abs(effectiveEnd - effectiveStart);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
-          
-          return sum + diffDays;
-        }, 0);
-
-        // Check for negative balances (excess leave taken)
-        let negativeBalanceDays = 0;
+        // Get initial balances (Allocation)
+        // Note: The balance API returns CURRENT balance (Allocated - Used).
+        // We need the Allocated amount to replay.
         const empBalances = balanceMap.get(rec.employeeId);
+        let clAlloc = 0, slAlloc = 0, plAlloc = 0;
         
         if (empBalances) {
-          const cl = Number(empBalances.casual?.balance || 0);
-          const sl = Number(empBalances.sick?.balance || 0);
-          const pl = Number(empBalances.privilege?.balance || 0);
-          
-          // Sum up all negative balances
-          negativeBalanceDays = Math.max(0, -cl) + Math.max(0, -sl) + Math.max(0, -pl);
+          clAlloc = Number(empBalances.casual?.allocated || 0);
+          slAlloc = Number(empBalances.sick?.allocated || 0);
+          plAlloc = Number(empBalances.privilege?.allocated || 0);
         }
-        
-        // Total LOP days = Explicit LOP applications + Negative Balance days
-        const lopDays = explicitLopDays + negativeBalanceDays;
+
+        // Helper to check date intersection with selected month
+        const isDateInMonth = (d) => {
+            const date = new Date(d);
+            return date.getFullYear() === parseInt(year) && date.getMonth() === (parseInt(month) - 1);
+        };
+
+        let lopDaysInMonth = 0;
+
+        // Replay Logic
+        let clUsed = 0, slUsed = 0, plUsed = 0;
+
+        employeeLeaves.forEach(leave => {
+            // Determine leave type category
+            const type = (leave.leaveType || '').toUpperCase().trim();
+            const isExplicitLOP = ['LOP', 'LOSSOFPAY', 'UNPAID', 'LWOP'].some(t => type.replace(/\s+/g, '') === t);
+            
+            // Iterate day by day for this leave
+            const startD = new Date(leave.startDate);
+            const endD = new Date(leave.endDate);
+            startD.setHours(0,0,0,0);
+            endD.setHours(0,0,0,0);
+            
+            const currentD = new Date(startD);
+            while (currentD <= endD) {
+                // Count every day to match backend's simple duration calculation (includes weekends)
+                // If a more complex holiday/weekend policy is needed, it should be implemented here and in backend.
+                let isDayLOP = false;
+
+                if (isExplicitLOP) {
+                    isDayLOP = true;
+                } else {
+                    // Check balance
+                    if (type === 'CL') {
+                        if (clUsed < clAlloc) {
+                            clUsed++;
+                        } else {
+                            isDayLOP = true;
+                        }
+                    } else if (type === 'SL') {
+                        if (slUsed < slAlloc) {
+                            slUsed++;
+                        } else {
+                            isDayLOP = true;
+                        }
+                    } else if (type === 'PL') {
+                        // PL can go negative? Usually no. If negative allowed, it's not LOP.
+                        // Assuming PL also triggers LOP if exhausted
+                         if (plUsed < plAlloc) {
+                            plUsed++;
+                        } else {
+                            isDayLOP = true;
+                        }
+                    } else if (type === 'BEREAVEMENT') {
+                         // Assuming limited bereavement or always paid?
+                         // Let's assume always paid for now or handled separately.
+                         isDayLOP = false;
+                    } else {
+                        // Unknown type -> Treat as LOP? Or Paid?
+                        // Default to LOP to be safe? Or Paid?
+                        // Let's assume Paid if not explicitly LOP.
+                        isDayLOP = false; 
+                    }
+                }
+
+                // If this day is LOP and falls in the selected month, add to count
+                if (isDayLOP && isDateInMonth(currentD)) {
+                    lopDaysInMonth++;
+                }
+                
+                currentD.setDate(currentD.getDate() + 1);
+            }
+        });
+
+        // Total LOP days = calculated from replay
+        const lopDays = lopDaysInMonth;
 
         const base = calculateSalaryFields(rec, lopDays);
         const adjusted = { ...base };

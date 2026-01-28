@@ -596,17 +596,39 @@ router.get('/balance', auth, async (req, res) => {
       const currentYear = new Date().getFullYear();
       const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
 
+      const systemCalc = calcBalanceForEmployee(emp, usedMap[emp.employeeId] || []);
+
       if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
+        // Merge stored allocated with system used to ensure dynamic LOP detection
+        const mergedBalances = JSON.parse(JSON.stringify(stored.balances));
+        
+        ['casual', 'sick', 'privilege'].forEach(type => {
+            if (mergedBalances[type]) {
+                const allocated = Number(mergedBalances[type].allocated) || 0;
+                // Use system calculated 'used' which is based on actual approved leaves
+                const used = Number(systemCalc.balances[type]?.used) || 0;
+                
+                mergedBalances[type].used = used;
+                mergedBalances[type].balance = allocated - used;
+            }
+        });
+        
+        // Recalculate total balance
+        const clBal = Number(mergedBalances.casual?.balance) || 0;
+        const slBal = Number(mergedBalances.sick?.balance) || 0;
+        const plBal = Number(mergedBalances.privilege?.balance) || 0;
+        mergedBalances.totalBalance = clBal + slBal + plBal;
+
         return {
           employeeId: emp.employeeId || '',
           name: emp.name || emp.employeename || '',
           position: emp.position || emp.role || '',
           division: emp.division || '',
           monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt),
-          balances: stored.balances
+          balances: mergedBalances
         };
       }
-      return calcBalanceForEmployee(emp, usedMap[emp.employeeId] || []);
+      return systemCalc;
     });
     res.json(result);
   } catch (err) {
@@ -789,6 +811,27 @@ router.get('/my-balance', auth, async (req, res) => {
       return res.status(404).json({ message: 'Employee profile not found' });
     }
 
+    // Aggregate approved leaves for this user
+    let approvals = [];
+    if (emp.employeeId) {
+        approvals = await LeaveApplication.find({ 
+            $or: [{ userId: user._id }, { employeeId: emp.employeeId }],
+            status: 'Approved' 
+        }).lean();
+        // Deduplicate
+        const seen = new Set();
+        approvals = approvals.filter(a => {
+            const k = a._id.toString();
+            if(seen.has(k)) return false;
+            seen.add(k);
+            return true;
+        });
+    } else {
+        approvals = await LeaveApplication.find({ userId: user._id, status: 'Approved' }).lean();
+    }
+
+    const systemCalc = calcBalanceForEmployee(emp, approvals);
+
     // Check for stored balance
     if (emp.employeeId) {
       const stored = await LeaveBalance.findOne({ employeeId: emp.employeeId }).lean();
@@ -796,22 +839,35 @@ router.get('/my-balance', auth, async (req, res) => {
       const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
 
       if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
+         // Merge stored allocated with system used
+         const mergedBalances = JSON.parse(JSON.stringify(stored.balances));
+         
+         ['casual', 'sick', 'privilege'].forEach(type => {
+             if (mergedBalances[type]) {
+                 const allocated = Number(mergedBalances[type].allocated) || 0;
+                 const used = Number(systemCalc.balances[type]?.used) || 0;
+                 mergedBalances[type].used = used;
+                 mergedBalances[type].balance = allocated - used;
+             }
+         });
+         
+         const clBal = Number(mergedBalances.casual?.balance) || 0;
+         const slBal = Number(mergedBalances.sick?.balance) || 0;
+         const plBal = Number(mergedBalances.privilege?.balance) || 0;
+         mergedBalances.totalBalance = clBal + slBal + plBal;
+
         return res.json({
           employeeId: emp.employeeId || '',
           name: emp.name || emp.employeename || '',
           position: emp.position || emp.role || '',
           division: emp.division || '',
           monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt),
-          balances: stored.balances
+          balances: mergedBalances
         });
       }
     }
 
-    // Aggregate approved leaves for this user
-    const approvals = await LeaveApplication.find({ userId: user._id, status: 'Approved' }).lean();
-    // Pass raw approvals array to calcBalanceForEmployee
-    const result = calcBalanceForEmployee(emp, approvals);
-    return res.json(result);
+    return res.json(systemCalc);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
