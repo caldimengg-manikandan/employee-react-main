@@ -25,8 +25,8 @@ const expenditureSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
-  filePath: {
-    type: String,
+  fileData: {
+    type: String, // Base64 string
     default: ''
   },
   remarks: {

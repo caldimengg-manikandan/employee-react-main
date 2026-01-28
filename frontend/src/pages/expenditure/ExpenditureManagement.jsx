@@ -199,43 +199,55 @@ const ExpenditureManagement = () => {
   };
 
   /* ---------------- DOCUMENT FUNCTIONS ---------------- */
-  const viewUploadedFile = (fileObject, fileName) => {
-    if (!fileObject) {
+  const viewUploadedFile = (fileData, fileName) => {
+    if (!fileData) {
       message.warning("No file to view");
       return;
     }
 
-    if (fileObject.constructor && fileObject.constructor.name === 'File') {
-      const fileURL = URL.createObjectURL(fileObject);
-      setCurrentDocument({
-        file: fileURL,
-        name: fileName || fileObject.name,
-        type: fileObject.type
-      });
-      setDocumentType(fileObject.type.startsWith('image/') ? 'image' :
-        fileObject.type === 'application/pdf' ? 'pdf' : 'file');
-      setDocumentModalOpen(true);
-    } else if (typeof fileObject === 'string') {
-      let fileUrl = fileObject;
-      if (fileObject.startsWith('/uploads')) {
-        fileUrl = `${BASE_URL}${fileObject}`;
-      }
-      
-      setCurrentDocument({
-        file: fileUrl,
-        name: fileName || "Document",
-        type: "file"
-      });
-      
-      const extension = fileName ? fileName.split('.').pop().toLowerCase() : '';
-      if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
-        setDocumentType('image');
-      } else if (extension === 'pdf') {
-        setDocumentType('pdf');
-      } else {
-        setDocumentType("file");
-      }
-      setDocumentModalOpen(true);
+    // Check if it's a File object (not uploaded yet) or Base64 string
+    if (typeof fileData === 'object' && fileData instanceof File) {
+        const fileURL = URL.createObjectURL(fileData);
+        setCurrentDocument({
+            file: fileURL,
+            name: fileName || fileData.name,
+            type: fileData.type
+        });
+        setDocumentType(fileData.type.startsWith('image/') ? 'image' :
+            fileData.type === 'application/pdf' ? 'pdf' : 'file');
+        setDocumentModalOpen(true);
+    } else if (typeof fileData === 'string') {
+        setCurrentDocument({
+            file: fileData,
+            name: fileName || "Document",
+            type: "file"
+        });
+        
+        // Try to detect type from Base64 header or filename
+        let isImage = false;
+        let isPdf = false;
+
+        if (fileData.startsWith('data:image')) {
+            isImage = true;
+        } else if (fileData.startsWith('data:application/pdf')) {
+            isPdf = true;
+        } else {
+            const extension = fileName ? fileName.split('.').pop().toLowerCase() : '';
+            if (['jpg', 'jpeg', 'png', 'gif'].includes(extension)) {
+                isImage = true;
+            } else if (extension === 'pdf') {
+                isPdf = true;
+            }
+        }
+
+        if (isImage) {
+            setDocumentType('image');
+        } else if (isPdf) {
+            setDocumentType('pdf');
+        } else {
+            setDocumentType("file");
+        }
+        setDocumentModalOpen(true);
     }
   };
 
@@ -248,16 +260,21 @@ const ExpenditureManagement = () => {
         return;
       }
 
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        message.error('File size should be less than 5MB');
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit for DB storage
+        message.error('File size should be less than 2MB');
         return;
       }
 
-      setNewExpense({
-        ...newExpense,
-        file: file,
-        fileName: file.name
-      });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setNewExpense({
+          ...newExpense,
+          file: file,
+          fileData: reader.result,
+          fileName: file.name
+        });
+      };
+      reader.readAsDataURL(file);
     }
   };
 
@@ -293,28 +310,7 @@ const ExpenditureManagement = () => {
       return;
     }
 
-    let filePath = newExpense.filePath || "";
-    // Upload File if present and new
-    if (newExpense.file && typeof newExpense.file === 'object') {
-        try {
-            const formData = new FormData();
-            formData.append('file', newExpense.file);
-            const hide = message.loading('Uploading file...', 0);
-            const response = await expenditureAPI.uploadFile(formData);
-            hide();
-            
-            if (response.data.success) {
-                filePath = response.data.filePath;
-                message.success("File uploaded successfully");
-            }
-        } catch (error) {
-            console.error("File upload failed", error);
-            message.error("File upload failed");
-            return;
-        }
-    } else if (typeof newExpense.file === 'string') {
-        filePath = newExpense.file;
-    }
+    let fileData = newExpense.fileData || "";
 
     if (editingExpenditureId) {
       // Update existing
@@ -326,8 +322,7 @@ const ExpenditureManagement = () => {
           amount: parseFloat(newExpense.amount) || 0,
           date: newExpense.date,
           documentType: newExpense.documentType || 'Not Applicable',
-          file: filePath,
-          filePath: filePath,
+          fileData: fileData,
           fileName: newExpense.fileName,
           remarks: newExpense.remarks
         } : exp
@@ -342,8 +337,7 @@ const ExpenditureManagement = () => {
         amount: parseFloat(newExpense.amount) || 0,
         date: newExpense.date,
         documentType: newExpense.documentType || 'Not Applicable',
-        file: filePath,
-        filePath: filePath,
+        fileData: fileData,
         fileName: newExpense.fileName,
         remarks: newExpense.remarks,
         sNo: expenditures.length + 1
@@ -359,7 +353,7 @@ const ExpenditureManagement = () => {
       amount: "",
       documentType: "",
       file: null,
-      filePath: "",
+      fileData: "",
       fileName: "",
       remarks: "",
       date: ""
@@ -386,8 +380,8 @@ const ExpenditureManagement = () => {
         paymentMode: expenseToEdit.paymentMode,
         amount: expenseToEdit.amount,
         documentType: expenseToEdit.documentType,
-        file: expenseToEdit.file,
-        filePath: expenseToEdit.filePath,
+        file: null, // Reset file input
+        fileData: expenseToEdit.fileData,
         fileName: expenseToEdit.fileName,
         remarks: expenseToEdit.remarks,
         date: expenseToEdit.date
@@ -413,7 +407,7 @@ const ExpenditureManagement = () => {
       amount: "",
       documentType: "",
       file: null,
-      filePath: "",
+      fileData: "",
       fileName: "",
       remarks: "",
       date: ""
@@ -431,7 +425,7 @@ const ExpenditureManagement = () => {
       amount: "",
       documentType: "",
       file: null,
-      filePath: "",
+      fileData: "",
       fileName: "",
       remarks: "",
       date: ""
@@ -466,7 +460,7 @@ const ExpenditureManagement = () => {
         date: e.date,
         documentType: e.documentType || 'Not Applicable',
         fileName: e.fileName || '',
-        filePath: e.filePath || '',
+        fileData: e.fileData || '',
         remarks: e.remarks || ''
         // Note: file object is not included as it needs separate handling
       }))
@@ -1211,23 +1205,23 @@ const ExpenditureManagement = () => {
                           ₹{parseFloat(exp.amount || 0).toLocaleString('en-IN')}
                         </td>
                         <td className="px-4 py-3">
-                          {exp.fileName ? (
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => viewUploadedFile(exp.file || exp.filePath, exp.fileName)}
-                                className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
-                                title="View Document"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <span className="text-sm text-gray-600 truncate max-w-[120px]">
-                                {exp.fileName}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-gray-400 text-sm">-</span>
-                          )}
-                        </td>
+                            {exp.fileData ? (
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => viewUploadedFile(exp.fileData, exp.fileName)}
+                                  className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
+                                  title="View Document"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                                <span className="text-sm text-gray-600 truncate max-w-[120px]">
+                                  {exp.fileName}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-gray-400 text-sm">-</span>
+                            )}
+                          </td>
                         <td className="px-4 py-3">
                           <span className="text-sm text-gray-600">{location || "-"}</span>
                         </td>
@@ -1637,10 +1631,10 @@ const ExpenditureManagement = () => {
                             ₹{Number(exp.amount || 0).toLocaleString('en-IN')}
                           </td>
                           <td className="px-4 py-3">
-                            {exp.fileName ? (
+                            {exp.fileData ? (
                               <div className="flex items-center gap-2">
                                 <button
-                                  onClick={() => viewUploadedFile(exp.file || exp.filePath, exp.fileName)}
+                                  onClick={() => viewUploadedFile(exp.fileData, exp.fileName)}
                                   className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
                                   title="View Document"
                                 >
