@@ -343,12 +343,7 @@ const LeaveBalance = () => {
           >
             <Download size={16} /> Download Report
           </button>
-          <button
-            onClick={handleSyncAll}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-          >
-            <Save size={16} /> Save All
-          </button>
+         
           {/* Refresh Button */}
           <button
             onClick={handleRefresh}

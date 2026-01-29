@@ -221,6 +221,7 @@ export default function MonthlyPayroll() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
   const [filterBank, setFilterBank] = useState('all');
+  const [filterLocation, setFilterLocation] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [filterDesignation, setFilterDesignation] = useState('all');
@@ -320,7 +321,7 @@ export default function MonthlyPayroll() {
   };
 
   const selectAll = () => {
-    setSelectedEmployees(salaryRecords.map(r => r.id));
+    setSelectedEmployees(filteredRecords.map(r => r.id));
   };
 
   const clearSelection = () => {
@@ -408,49 +409,66 @@ export default function MonthlyPayroll() {
             
             const currentD = new Date(startD);
             while (currentD <= endD) {
-                // Count every day to match backend's simple duration calculation (includes weekends)
-                // If a more complex holiday/weekend policy is needed, it should be implemented here and in backend.
-                let isDayLOP = false;
+                // Skip weekends (Saturday and Sunday)
+                const dayOfWeek = currentD.getDay();
+                if (dayOfWeek === 0 || dayOfWeek === 6) {
+                    currentD.setDate(currentD.getDate() + 1);
+                    continue;
+                }
+
+                // Determine day value (0.5 for Half Day, 1 for Full Day)
+                let dayValue = 1;
+                if (leave.dayType === 'Half Day') {
+                    dayValue = 0.5;
+                }
+
+                let lopAmount = 0;
 
                 if (isExplicitLOP) {
-                    isDayLOP = true;
+                    lopAmount = dayValue;
                 } else {
                     // Check balance
                     if (type === 'CL') {
-                        if (clUsed < clAlloc) {
-                            clUsed++;
+                        if (clUsed + dayValue <= clAlloc) {
+                            clUsed += dayValue;
+                        } else if (clUsed < clAlloc) {
+                            const available = clAlloc - clUsed;
+                            clUsed += available;
+                            lopAmount = dayValue - available;
                         } else {
-                            isDayLOP = true;
+                            lopAmount = dayValue;
                         }
                     } else if (type === 'SL') {
-                        if (slUsed < slAlloc) {
-                            slUsed++;
+                        if (slUsed + dayValue <= slAlloc) {
+                            slUsed += dayValue;
+                        } else if (slUsed < slAlloc) {
+                            const available = slAlloc - slUsed;
+                            slUsed += available;
+                            lopAmount = dayValue - available;
                         } else {
-                            isDayLOP = true;
+                            lopAmount = dayValue;
                         }
                     } else if (type === 'PL') {
-                        // PL can go negative? Usually no. If negative allowed, it's not LOP.
-                        // Assuming PL also triggers LOP if exhausted
-                         if (plUsed < plAlloc) {
-                            plUsed++;
+                         if (plUsed + dayValue <= plAlloc) {
+                            plUsed += dayValue;
+                        } else if (plUsed < plAlloc) {
+                            const available = plAlloc - plUsed;
+                            plUsed += available;
+                            lopAmount = dayValue - available;
                         } else {
-                            isDayLOP = true;
+                            lopAmount = dayValue;
                         }
                     } else if (type === 'BEREAVEMENT') {
-                         // Assuming limited bereavement or always paid?
-                         // Let's assume always paid for now or handled separately.
-                         isDayLOP = false;
+                         lopAmount = 0;
                     } else {
-                        // Unknown type -> Treat as LOP? Or Paid?
-                        // Default to LOP to be safe? Or Paid?
-                        // Let's assume Paid if not explicitly LOP.
-                        isDayLOP = false; 
+                        // Unknown type -> Treat as Paid (0 LOP)
+                        lopAmount = 0; 
                     }
                 }
 
-                // If this day is LOP and falls in the selected month, add to count
-                if (isDayLOP && isDateInMonth(currentD)) {
-                    lopDaysInMonth++;
+                // If this day contributes to LOP and falls in the selected month, add to count
+                if (lopAmount > 0 && isDateInMonth(currentD)) {
+                    lopDaysInMonth += lopAmount;
                 }
                 
                 currentD.setDate(currentD.getDate() + 1);
@@ -728,6 +746,12 @@ Payroll Department
     .filter(Boolean))
   ];
 
+  // Get unique locations
+  const uniqueLocations = ['all', ...new Set(salaryRecords
+    .map(r => r.location || '')
+    .filter(Boolean))
+  ].sort();
+
   const filteredRecords = salaryRecords.filter(record => {
     // Search
     const matchesSearch = 
@@ -740,17 +764,20 @@ Payroll Department
     // Designation
     const matchesDesig = filterDesignation === 'all' || record.designation === filterDesignation;
 
+    // Location
+    const matchesLocation = filterLocation === 'all' || record.location === filterLocation;
+
     // Bank
-    if (filterBank === 'all') return matchesSearch && matchesDept && matchesDesig;
-    if (filterBank === 'hdfc') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('HDFC');
-    if (filterBank === 'sbi') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('SBI');
-    if (filterBank === 'axis') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('Axis');
-    if (filterBank === 'indian') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('Indian');
-    if (filterBank === 'icici') return (matchesSearch && matchesDept && matchesDesig) && record.bankName?.includes('ICICI');
-    if (filterBank === 'other') return (matchesSearch && matchesDept && matchesDesig) && !['HDFC', 'SBI', 'Axis', 'Indian', 'ICICI'].some(bank => 
+    if (filterBank === 'all') return matchesSearch && matchesDept && matchesDesig && matchesLocation;
+    if (filterBank === 'hdfc') return (matchesSearch && matchesDept && matchesDesig && matchesLocation) && record.bankName?.includes('HDFC');
+    if (filterBank === 'sbi') return (matchesSearch && matchesDept && matchesDesig && matchesLocation) && record.bankName?.includes('SBI');
+    if (filterBank === 'axis') return (matchesSearch && matchesDept && matchesDesig && matchesLocation) && record.bankName?.includes('Axis');
+    if (filterBank === 'indian') return (matchesSearch && matchesDept && matchesDesig && matchesLocation) && record.bankName?.includes('Indian');
+    if (filterBank === 'icici') return (matchesSearch && matchesDept && matchesDesig && matchesLocation) && record.bankName?.includes('ICICI');
+    if (filterBank === 'other') return (matchesSearch && matchesDept && matchesDesig && matchesLocation) && !['HDFC', 'SBI', 'Axis', 'Indian', 'ICICI'].some(bank => 
       record.bankName?.includes(bank)
     );
-    return matchesSearch && matchesDept && matchesDesig;
+    return matchesSearch && matchesDept && matchesDesig && matchesLocation;
   });
 
   const getBankFilterLabel = () => {
@@ -784,7 +811,7 @@ Payroll Department
       {/* Controls */}
       <div className="bg-white p-5 rounded-lg shadow mb-3 border border-gray-200 flex-none z-20 sticky top-0">
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mb-4 border-b pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end mb-4 border-b pb-4">
           {/* Search */}
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Search</label>
@@ -831,6 +858,21 @@ Payroll Department
               <option value="all">All Designations</option>
               {designations.filter(d => d !== 'all').map(desig => (
                 <option key={desig} value={desig}>{desig}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Location */}
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Location</label>
+            <select
+              value={filterLocation}
+              onChange={(e) => setFilterLocation(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Locations</option>
+              {uniqueLocations.filter(l => l !== 'all').map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
               ))}
             </select>
           </div>
