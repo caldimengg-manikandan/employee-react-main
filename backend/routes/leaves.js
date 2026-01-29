@@ -535,6 +535,7 @@ function calcBalanceForEmployee(emp, approvedLeaves = [], calculationDate = new 
     name: emp.name || emp.employeename || '',
     position: emp.position || emp.role || '',
     division: emp.division || '',
+    location: emp.location || emp.branch || '',
     monthsOfService: mos,
     traineeMonths,
     regularMonths: postTraineeMonths,
@@ -624,6 +625,7 @@ router.get('/balance', auth, async (req, res) => {
           name: emp.name || emp.employeename || '',
           position: emp.position || emp.role || '',
           division: emp.division || '',
+          location: emp.location || emp.branch || '',
           monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt),
           balances: mergedBalances
         };

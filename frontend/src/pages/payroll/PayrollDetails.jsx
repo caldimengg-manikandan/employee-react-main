@@ -15,6 +15,7 @@ import {
 import { employeeAPI, payrollAPI, leaveAPI } from '../../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 // Salary Calculation Functions
 const calculateSalaryFields = (salaryData) => {
@@ -483,6 +484,78 @@ const PayrollDetails = () => {
     setTimeout(() => setSuccessMessage(''), 3000);
   };
 
+  const handleDownloadExcel = () => {
+    const headers = [
+      'Employee ID',
+      'Name',
+      'Designation',
+      'Department',
+      'Location',
+      'Basic+DA',
+      'HRA',
+      'Special Allowance',
+      'Total Earnings',
+      'PF',
+      'ESI',
+      'Tax',
+      'Professional Tax',
+      'Loan Deduction',
+      'LOP',
+      'Total Deductions',
+      'Net Salary',
+      'CTC',
+      'Status',
+      'Bank Name',
+      'Account Number',
+      'IFSC Code'
+    ];
+
+    const data = filteredRecords.map(record => {
+      const effectiveLocation = employeeList.find(e => e.employeeId === record.employeeId)?.location || 
+                                record.location || 
+                                employeeList.find(e => e.employeeId === record.employeeId)?.address || 
+                                'Unknown';
+      return [
+        record.employeeId,
+        record.employeeName,
+        record.designation,
+        record.department,
+        effectiveLocation,
+        record.basicDA,
+        record.hra,
+        record.specialAllowance,
+        record.totalEarnings,
+        record.pf,
+        record.esi,
+        record.tax,
+        record.professionalTax,
+        record.loanDeduction,
+        record.lop,
+        record.totalDeductions,
+        record.netSalary,
+        record.ctc,
+        record.status,
+        record.bankName,
+        record.accountNumber,
+        record.ifscCode
+      ];
+    });
+
+    const wsData = [headers, ...data];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Payroll Details");
+    
+    // Auto-size columns (optional but nice)
+    const colWidths = headers.map(header => ({ wch: header.length + 5 }));
+    ws['!cols'] = colWidths;
+
+    XLSX.writeFile(wb, `Payroll_Details_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    setSuccessMessage(`Excel report downloaded with ${filteredRecords.length} records`);
+    setTimeout(() => setSuccessMessage(''), 3000);
+  };
+
   const handleCalculateSalary = () => {
     const updatedData = calculateSalaryFields(formData);
     setFormData(updatedData);
@@ -574,7 +647,7 @@ const PayrollDetails = () => {
 
       {/* Filters Section */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
           {/* Filter by Location */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -650,7 +723,18 @@ const PayrollDetails = () => {
               className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
               <Download className="w-4 h-4 mr-2" />
-              Download All as PDF
+              PDF
+            </button>
+          </div>
+
+          {/* Download Excel Button */}
+          <div className="flex items-end">
+            <button
+              onClick={handleDownloadExcel}
+              className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Excel
             </button>
           </div>
         </div>

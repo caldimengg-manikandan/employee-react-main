@@ -11,6 +11,8 @@ const SalarySlips = () => {
   const [month, setMonth] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [employeeId, setEmployeeId] = useState('');
+  const [panNumber, setPanNumber] = useState('');
+  const [uanNumber, setUanNumber] = useState('');
   const [payslipData, setPayslipData] = useState(null);
   const [showPayslip, setShowPayslip] = useState(false);
   const [availableYears, setAvailableYears] = useState([]);
@@ -31,6 +33,10 @@ const SalarySlips = () => {
         const me = await employeeAPI.getMyProfile();
         const empId = me?.data?.employeeId || user.employeeId || user.username || user.id;
         setEmployeeId(empId);
+        if (me?.data) {
+          setPanNumber(me.data.pan || '');
+          setUanNumber(me.data.uan || '');
+        }
       } catch (err) {
         const fallbackId = user.employeeId || user.username || user.id;
         setEmployeeId(fallbackId);
@@ -91,6 +97,8 @@ const SalarySlips = () => {
         employeeName: rec.employeeName,
         designation: rec.designation || '',
         department: rec.department || '',
+        panNumber: panNumber || 'N/A',
+        uanNumber: uanNumber || 'N/A',
         month: selectedMonth,
         year: selectedYear,
         financialYear,
@@ -133,6 +141,8 @@ const SalarySlips = () => {
       employeeName: "John Doe",
       designation: "Software Engineer",
       department: "IT",
+      panNumber: panNumber || 'N/A',
+      uanNumber: uanNumber || 'N/A',
       month: selectedMonth,
       year: selectedYear,
       financialYear: financialYear,
@@ -160,6 +170,16 @@ const SalarySlips = () => {
     setPayslipData(mockData);
     setShowPayslip(true);
   };
+
+  useEffect(() => {
+    if (payslipData) {
+      setPayslipData(prev => ({
+        ...prev,
+        panNumber: panNumber || prev?.panNumber || 'N/A',
+        uanNumber: uanNumber || prev?.uanNumber || 'N/A',
+      }));
+    }
+  }, [panNumber, uanNumber]); 
 
   const handleMonthChange = (selectedMonth) => {
     setMonth(selectedMonth);
@@ -356,8 +376,8 @@ const SalarySlips = () => {
                    <div className="flex"><span className="w-32 text-gray-500 font-medium">Name:</span> <span className="font-bold text-gray-800">{data.employeeName}</span></div>
                    <div className="flex"><span className="w-32 text-gray-500 font-medium">Designation:</span> <span className="font-bold text-gray-800">{data.designation}</span></div>
                    {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">Department:</span> <span className="font-bold text-gray-800">{data.department}</span></div> */}
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">PAN Number:</span> <span className="font-bold text-gray-800">ABCD1234E</span></div>
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">UAN:</span> <span className="font-bold text-gray-800">100123456789</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">PAN Number:</span> <span className="font-bold text-gray-800">{data.panNumber}</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">UAN:</span> <span className="font-bold text-gray-800">{data.uanNumber}</span></div>
                 </div>
               </div>
 

@@ -5,6 +5,7 @@ import * as XLSX from 'xlsx';
 
 const LeaveBalance = () => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -167,8 +168,10 @@ const LeaveBalance = () => {
 
   const filteredEmployees = employeesWithBalances.filter(emp => {
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         String(emp.empId || '').toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch;
+                         String(emp.empId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         String(emp.location || '').toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesLocation = locationFilter ? emp.location === locationFilter : true;
+    return matchesSearch && matchesLocation;
   }).sort((a, b) => {
     // Sort by Employee ID ascending
     const idA = (a.empId || '').toString().toLowerCase();
@@ -190,6 +193,7 @@ const LeaveBalance = () => {
   // Handle refresh
   const handleRefresh = () => {
     setSearchTerm('');
+    setLocationFilter('');
     loadBalances();
   };
 
@@ -248,6 +252,7 @@ const LeaveBalance = () => {
     const data = filteredEmployees.map(emp => ({
       'Employee ID': emp.empId || emp.id,
       'Employee Name': emp.name,
+      'Location': emp.location || 'N/A',
       'Casual Leave': getAvailableBalance(emp, 'CL'),
       'Sick Leave': getAvailableBalance(emp, 'SL'),
       'Privilege Leave': getAvailableBalance(emp, 'PL')
@@ -261,6 +266,7 @@ const LeaveBalance = () => {
     const wscols = [
       {wch: 15}, // Employee ID
       {wch: 25}, // Employee Name
+      {wch: 15}, // Location
       {wch: 15}, // Casual Leave
       {wch: 15}, // Sick Leave
       {wch: 15}  // Privilege Leave
@@ -321,6 +327,16 @@ const LeaveBalance = () => {
         </div>
         
         <div className="flex gap-2">
+          <select
+            value={locationFilter}
+            onChange={(e) => setLocationFilter(e.target.value)}
+            className="border rounded-lg px-3 py-2 bg-white outline-none text-sm min-w-[150px]"
+          >
+            <option value="">All Locations</option>
+            {[...new Set(employees.map(emp => emp.location).filter(Boolean))].map(loc => (
+              <option key={loc} value={loc}>{loc}</option>
+            ))}
+          </select>
           <button
             onClick={handleDownloadExcel}
             className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
@@ -350,6 +366,7 @@ const LeaveBalance = () => {
             <tr>
               <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Employee ID</th>
               <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Employee Name</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Location</th>
               <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Casual Leave</th>
               <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Sick Leave</th>
               <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Privilege Leave</th>
@@ -387,6 +404,11 @@ const LeaveBalance = () => {
                     {/* <div className="text-xs text-gray-500 mt-1">
                       {employee.monthsOfService} months service
                     </div> */}
+                  </td>
+                  
+                  {/* Location Column */}
+                  <td className="p-4">
+                    <div className="text-gray-600">{employee.location || '-'}</div>
                   </td>
                   
                   {/* Casual Leave Column */}
