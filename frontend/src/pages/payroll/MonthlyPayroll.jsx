@@ -76,7 +76,7 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
       index + 1, // SL .NO
       record.location || "HSR", // LOCATION
       record.employeeName || "", // NAME OF THE EMPLOYEE'S
-      "", // UAN NO (if available)
+      record.uan || "", // UAN NO (if available)
       record.accountNumber || "", // BANK ACCOUNT NUMBER
       record.employeeId || "", // ID NUMBAR
       0, // ACL
@@ -231,6 +231,7 @@ export default function MonthlyPayroll() {
   const [missingBankEmployees, setMissingBankEmployees] = useState([]);
   const [emailTo, setEmailTo] = useState('');
   const [emailCC, setEmailCC] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
     fetchEmployees();
@@ -292,6 +293,7 @@ export default function MonthlyPayroll() {
           lop: 0,
           status: 'Pending',
           
+          uan: emp.uan || '',
           accountNumber: payrollRec?.accountNumber || emp.bankAccount || '',
           ifscCode: payrollRec?.ifscCode || emp.ifsc || '',
           bankName: payrollRec?.bankName || emp.bankName || ''
@@ -560,6 +562,7 @@ export default function MonthlyPayroll() {
       return;
     }
 
+    setSendingEmail(true);
     setMessage('Sending email...');
 
     // Generate Excel attachment
@@ -682,6 +685,7 @@ Payroll Department
       setTimeout(() => setMessage(''), 5000);
       setSimulation(null);
       setSelectedEmployees([]);
+      setSendingEmail(false);
       setShowEmailModal(false);
       setEmailTo('');
       setEmailCC('');
@@ -689,6 +693,7 @@ Payroll Department
     } catch (error) {
       console.error('Failed to send email:', error);
       setMessage('Error: Failed to send email. Please check backend logs/configuration.');
+      setSendingEmail(false);
     }
   };
 
@@ -1387,10 +1392,20 @@ Payroll Department
               </button>
               <button
                 onClick={processPaymentEmail}
-                className="px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] transition-colors flex items-center"
+                disabled={sendingEmail}
+                className="px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] transition-colors flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Mail className="w-4 h-4 mr-2" />
-                Send Email
+                {sendingEmail ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4 mr-2" />
+                    Send Email
+                  </>
+                )}
               </button>
             </div>
           </div>
