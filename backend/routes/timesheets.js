@@ -692,7 +692,7 @@ router.post("/", auth, async (req, res) => {
 
     const currentCount = countPermissionsInEntriesForMonth(entries || [], weekStart, targetMonth, targetYear);
 
-    if (status === "Submitted" && (baseCount + currentCount) > 3) {
+    if (status === "Submitted" && (baseCount + currentCount) > 6) {
       return res.status(400).json({
         success: false,
         message: "Monthly permission limit (3 counts) exceeded",
