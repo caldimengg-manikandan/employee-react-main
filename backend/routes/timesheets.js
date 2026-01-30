@@ -698,6 +698,7 @@ router.post("/", auth, async (req, res) => {
         message: "Monthly permission limit (3 counts) exceeded",
       });
     }
+    
 
     const entriesArray = Array.isArray(entries) ? entries : [];
     const dayIndices = [0, 1, 2, 3, 4, 5, 6];

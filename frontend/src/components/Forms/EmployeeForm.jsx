@@ -510,7 +510,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       newValue = String(newValue || '').slice(0, 20);
     }
     if (field === 'ifsc') {
-      newValue = String(newValue || '').toUpperCase().slice(0, 10);
+      newValue = String(newValue || '').toUpperCase().slice(0, 11);
     }
 
     const updatedData = {
