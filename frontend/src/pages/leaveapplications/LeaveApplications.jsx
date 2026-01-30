@@ -229,6 +229,21 @@ import Notification from '../../components/Notifications/Notification';
 
   const dayTypes = ['Full Day', 'Half Day'];
 
+  // Calculate date limits for date selection
+  const today = new Date();
+  const firstDayPrevMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+  const lastDayCurrentMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+  
+  const formatDateForInput = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const minDateLimit = formatDateForInput(firstDayPrevMonth);
+  const maxDateLimit = formatDateForInput(lastDayCurrentMonth);
+
   // Calculate total working days excluding weekends
   const calculateWorkingDays = (start, end, dayType) => {
     if (!start || !end) return 0;
@@ -709,6 +724,8 @@ import Notification from '../../components/Notifications/Notification';
             type="date"
             name="startDate"
             value={leaveData.startDate}
+            min={minDateLimit}
+            max={maxDateLimit}
             onKeyDown={(e) => e.preventDefault()}
             onPaste={(e) => e.preventDefault()}
             onDrop={(e) => e.preventDefault()}
@@ -748,11 +765,12 @@ import Notification from '../../components/Notifications/Notification';
             type="date"
             name="endDate"
             value={leaveData.endDate}
+            min={leaveData.startDate || minDateLimit}
+            max={maxDateLimit}
             onKeyDown={(e) => e.preventDefault()}
             onPaste={(e) => e.preventDefault()}
             onDrop={(e) => e.preventDefault()}
             onChange={handleInputChange}
-            min={leaveData.startDate}
             disabled={leaveData.dayType === 'Half Day'}
             className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${leaveData.dayType === 'Half Day' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
             required
