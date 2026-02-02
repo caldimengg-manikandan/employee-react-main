@@ -600,15 +600,37 @@ router.get('/balance', auth, async (req, res) => {
       const systemCalc = calcBalanceForEmployee(emp, usedMap[emp.employeeId] || []);
 
       if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
+        // Calculate what the system WOULD have allocated at the time of last update
+        const lastUpdateDate = stored.lastUpdated ? new Date(stored.lastUpdated) : new Date(stored.createdAt);
+        // We pass empty array for used leaves because we only care about allocation
+        const pastSystemCalc = calcBalanceForEmployee(emp, [], lastUpdateDate);
+
         // Merge stored allocated with system used to ensure dynamic LOP detection
         const mergedBalances = JSON.parse(JSON.stringify(stored.balances));
         
         ['casual', 'sick', 'privilege'].forEach(type => {
             if (mergedBalances[type]) {
-                const allocated = Number(mergedBalances[type].allocated) || 0;
+                let allocated = Number(mergedBalances[type].allocated) || 0;
+                
+                // Calculate incremental accrual since last update
+                // This ensures that if a new month has started, the additional accrual is added
+                // even if the user has a manually saved balance.
+                const currentAlloc = Number(systemCalc.balances[type]?.allocated) || 0;
+                const pastAlloc = Number(pastSystemCalc.balances[type]?.allocated) || 0;
+                
+                // We add the difference between current system alloc and past system alloc
+                // This preserves any manual adjustments (stored.allocated) while adding new accruals
+                const delta = currentAlloc - pastAlloc;
+                
+                // Only apply delta if it's significant (avoid floating point noise)
+                if (Math.abs(delta) > 0.001) {
+                    allocated += delta;
+                }
+
                 // Use system calculated 'used' which is based on actual approved leaves
                 const used = Number(systemCalc.balances[type]?.used) || 0;
                 
+                mergedBalances[type].allocated = allocated;
                 mergedBalances[type].used = used;
                 mergedBalances[type].balance = allocated - used;
             }
@@ -841,13 +863,28 @@ router.get('/my-balance', auth, async (req, res) => {
       const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
 
       if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
+         // Calculate what the system WOULD have allocated at the time of last update
+         const lastUpdateDate = stored.lastUpdated ? new Date(stored.lastUpdated) : new Date(stored.createdAt);
+         const pastSystemCalc = calcBalanceForEmployee(emp, [], lastUpdateDate);
+
          // Merge stored allocated with system used
          const mergedBalances = JSON.parse(JSON.stringify(stored.balances));
          
          ['casual', 'sick', 'privilege'].forEach(type => {
              if (mergedBalances[type]) {
-                 const allocated = Number(mergedBalances[type].allocated) || 0;
+                 let allocated = Number(mergedBalances[type].allocated) || 0;
+                 
+                 // Calculate incremental accrual
+                 const currentAlloc = Number(systemCalc.balances[type]?.allocated) || 0;
+                 const pastAlloc = Number(pastSystemCalc.balances[type]?.allocated) || 0;
+                 const delta = currentAlloc - pastAlloc;
+                 
+                 if (Math.abs(delta) > 0.001) {
+                     allocated += delta;
+                 }
+
                  const used = Number(systemCalc.balances[type]?.used) || 0;
+                 mergedBalances[type].allocated = allocated;
                  mergedBalances[type].used = used;
                  mergedBalances[type].balance = allocated - used;
              }
