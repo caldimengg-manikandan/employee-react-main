@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Play, Download, Check, X, Mail, Filter } from 'lucide-react';
+import { Play, Download, Check, X, Mail, Filter, Edit } from 'lucide-react';
 import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI, mailAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
 
-const calculateSalaryFields = (salaryData, lopDaysInput) => {
+const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const basicDA = parseFloat(salaryData.basicDA) || 0;
   const hra = parseFloat(salaryData.hra) || 0;
   const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
@@ -20,8 +20,8 @@ const calculateSalaryFields = (salaryData, lopDaysInput) => {
   const totalEarnings = basicDA + hra + specialAllowance;
   
   // Calculate LOP deduction
-  // Per Day Salary = Total Earnings / 30
-  const perDaySalary = totalEarnings / 30;
+  // Per Day Salary = Total Earnings / Actual Days in Month
+  const perDaySalary = totalEarnings / daysInMonth;
   const lopDeduction = Math.round(perDaySalary * lopDays);
 
   // Gratuity is part of CTC but usually not deducted from monthly Net Salary (it's separate)
@@ -36,13 +36,18 @@ const calculateSalaryFields = (salaryData, lopDaysInput) => {
     netSalary,
     ctc,
     lop: lopDeduction,
-    lopDays
+    lopDays,
+    daysInMonth // Store daysInMonth in the record for reference
   };
 };
 
 const createPayrollWorkbook = (simulation, selectedMonth) => {
   const workbook = XLSX.utils.book_new();
   
+  // Calculate days in month from selectedMonth (YYYY-MM)
+  const [year, month] = selectedMonth.split('-');
+  const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+
   // Create headers exactly as in your sample
   const headers = [
     ["SL .NO", "LOCATION", "NAME OF THE", "UAN", "BANK ACCOUNT NUMBER", "ID NUMBAR", "ACL", "WORKING DAYS", "GROSS", 
@@ -66,8 +71,10 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
     // Calculate admin charges (assuming 0.5% of basic)
     const adminCharges = Math.round((record.basicDA || 0) * 0.005);
     
-    // Calculate working days (30 - LOP days)
-    const workingDays = 30 - (record.lopDays || 0);
+    // Calculate working days (Actual Days - LOP days)
+    // Use stored daysInMonth or calculate it
+    const actualDays = record.daysInMonth || daysInMonth;
+    const workingDays = actualDays - (record.lopDays || 0);
     
     // Calculate total deduction
     const totalDeduction = (record.totalDeductions || 0);
@@ -107,7 +114,9 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
     acc.basic += record.basicDA || 0;
     acc.hra += record.hra || 0;
     acc.net += record.netSalary || 0;
-    acc.workingDays += (30 - (record.lopDays || 0));
+    
+    const actualDays = record.daysInMonth || daysInMonth;
+    acc.workingDays += (actualDays - (record.lopDays || 0));
     
     // EPF calculations
     const epfCeiling = 15000;
@@ -216,6 +225,10 @@ export default function MonthlyPayroll() {
   });
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [simulation, setSimulation] = useState(null);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [cfUsedInput, setCfUsedInput] = useState(0);
+  const [simulatedBalances, setSimulatedBalances] = useState(new Map());
   const [processing, setProcessing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -275,6 +288,7 @@ export default function MonthlyPayroll() {
           department: emp.department || emp.division,
           division: emp.division,
           location: emp.location || emp.address || emp.currentAddress || 'Unknown',
+          dateOfJoining: emp.dateOfJoining,
           
           // Use payroll record if available, else fallback to employee record
           basicDA: payrollRec ? (payrollRec.basicDA || 0) : (emp.basicDA || emp.basic || 0),
@@ -366,10 +380,39 @@ export default function MonthlyPayroll() {
           balanceMap.set(item.employeeId, item.balances);
         }
       });
+      setSimulatedBalances(balanceMap);
 
       const selectedRecords = salaryRecords.filter(r => selectedEmployees.includes(r.id));
+      
+      // Calculate days in month
+      const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
 
       const results = selectedRecords.map(rec => {
+        // DOJ Calculation Logic
+        let preDojDays = 0;
+        let joiningDate = null;
+        
+        if (rec.dateOfJoining) {
+            joiningDate = new Date(rec.dateOfJoining);
+            joiningDate.setHours(0,0,0,0);
+            
+            // Payroll Month Boundaries
+            const payrollMonthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
+            const payrollMonthEnd = new Date(parseInt(year), parseInt(month), 0);
+            
+            // Only apply if DOJ is after the start of the month
+            if (joiningDate > payrollMonthStart) {
+                if (joiningDate > payrollMonthEnd) {
+                    // Joined after this month entirely
+                    preDojDays = daysInMonth;
+                } else {
+                    // Joined during this month
+                    // Days before DOJ are unpaid
+                    preDojDays = joiningDate.getDate() - 1;
+                }
+            }
+        }
+
         // Get employee leaves sorted by start date
         const employeeLeaves = leaves
           .filter(l => (l.employeeId && l.employeeId === rec.employeeId))
@@ -411,6 +454,12 @@ export default function MonthlyPayroll() {
             
             const currentD = new Date(startD);
             while (currentD <= endD) {
+                // If the day is before DOJ, ignore it (it's covered by preDojDays)
+                if (joiningDate && currentD < joiningDate) {
+                    currentD.setDate(currentD.getDate() + 1);
+                    continue;
+                }
+
                 // Skip weekends (Saturday and Sunday)
                 const dayOfWeek = currentD.getDay();
                 if (dayOfWeek === 0 || dayOfWeek === 6) {
@@ -477,10 +526,10 @@ export default function MonthlyPayroll() {
             }
         });
 
-        // Total LOP days = calculated from replay
-        const lopDays = lopDaysInMonth;
+        // Total LOP days = calculated from replay + Pre-DOJ days
+        const lopDays = lopDaysInMonth + preDojDays;
 
-        const base = calculateSalaryFields(rec, lopDays);
+        const base = calculateSalaryFields(rec, lopDays, daysInMonth);
         const adjusted = { ...base };
         
         // Include gratuity by default (calculation already includes it)
@@ -489,6 +538,10 @@ export default function MonthlyPayroll() {
         adjusted.accountNumber = rec.accountNumber || '';
         adjusted.ifscCode = rec.ifscCode || '';
         adjusted.bankName = rec.bankName || 'HDFC Bank';
+
+        // Add debug info
+        adjusted.doj = rec.dateOfJoining;
+        adjusted.preDojDays = preDojDays;
         
         return adjusted;
       });
@@ -532,6 +585,92 @@ export default function MonthlyPayroll() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleEditClick = (record) => {
+    setEditingRecord(record);
+    setCfUsedInput(0);
+    setEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingRecord) return;
+    
+    // Formula: Final LOP (Month) = max( Monthly LOP - CF Used (that month), 0 )
+    const originalLopDays = editingRecord.lopDays;
+    const cfUsed = parseFloat(cfUsedInput) || 0;
+    const newLopDays = Math.max(originalLopDays - cfUsed, 0);
+    
+    // Calculate days in month from selectedMonth
+    const [year, month] = selectedMonth.split('-');
+    const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+
+    // Recalculate salary
+    const updatedRecord = calculateSalaryFields(editingRecord, newLopDays, daysInMonth);
+    
+    // Update simulation
+    const newResults = simulation.results.map(r => 
+      r.id === editingRecord.id ? updatedRecord : r
+    );
+    
+    const newTotals = newResults.reduce((acc, curr) => ({
+      totalNetSalary: acc.totalNetSalary + curr.netSalary,
+      totalDeductions: acc.totalDeductions + curr.totalDeductions,
+      totalEarnings: acc.totalEarnings + curr.totalEarnings,
+      totalLopDays: acc.totalLopDays + curr.lopDays,
+      totalLopAmount: acc.totalLopAmount + curr.lop
+    }), {
+      totalNetSalary: 0,
+      totalDeductions: 0,
+      totalEarnings: 0,
+      totalLopDays: 0,
+      totalLopAmount: 0
+    });
+    
+    setSimulation({
+      ...simulation,
+      results: newResults,
+      totals: newTotals
+    });
+
+    // CF Balance update: CF Balance = Previous CF - CF Used (that month)
+    if (cfUsed > 0) {
+      try {
+        const currentBalances = simulatedBalances.get(editingRecord.employeeId);
+        if (currentBalances) {
+            // Assuming Privilege Leave is the Carry Forward component
+            const currentPL = Number(currentBalances.privilege?.balance || 0);
+            const newPL = currentPL - cfUsed;
+            
+            const balanceUpdate = {
+                casual: currentBalances.casual?.balance || 0,
+                sick: currentBalances.sick?.balance || 0,
+                privilege: newPL
+            };
+            
+            await leaveAPI.saveBalance({
+                employeeId: editingRecord.employeeId,
+                balances: balanceUpdate
+            });
+            
+            // Update local cache
+            const newMap = new Map(simulatedBalances);
+            newMap.set(editingRecord.employeeId, {
+                ...currentBalances,
+                privilege: { ...currentBalances.privilege, balance: newPL }
+            });
+            setSimulatedBalances(newMap);
+            
+            alert(`LOP adjusted. Privilege Leave deducted by ${cfUsed}. New Balance: ${newPL}`);
+        }
+      } catch (error) {
+        console.error("Failed to update leave balance", error);
+        alert("Failed to update leave balance in backend.");
+      }
+    }
+    
+    setEditModalOpen(false);
+    setEditingRecord(null);
   };
 
   const handleExcelExport = () => {
@@ -1167,6 +1306,9 @@ Payroll Department
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                         Bank
                       </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                        Action
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -1213,6 +1355,15 @@ Payroll Department
                             {result.bankName || 'N/A'}
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <button 
+                            onClick={() => handleEditClick(result)}
+                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+                            title="Edit LOP / Apply CF"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                     <tr className="border-t font-semibold bg-gray-50">
@@ -1240,6 +1391,7 @@ Payroll Department
                           Mixed Banks
                         </span> */}
                       </td>
+                      <td className="px-6 py-4 whitespace-nowrap"></td>
                     </tr>
                   </tbody>
                 </table>
@@ -1455,6 +1607,66 @@ Payroll Department
                 className="px-4 py-2 bg-yellow-600 text-white rounded-md hover:bg-yellow-700 transition-colors"
               >
                 Proceed Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit LOP / CF Modal */}
+      {editModalOpen && editingRecord && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 transform transition-all scale-100">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Edit LOP / Apply Carry Forward</h3>
+              <button onClick={() => setEditModalOpen(false)} className="text-gray-400 hover:text-gray-500">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div className="bg-yellow-50 p-3 rounded-md text-sm text-yellow-800 border border-yellow-200">
+                <p><strong>Employee:</strong> {editingRecord.employeeName} ({editingRecord.employeeId})</p>
+                <p><strong>Current LOP Days:</strong> {editingRecord.lopDays}</p>
+                <p><strong>Current LOP Deduction:</strong> {formatCurrency(editingRecord.lop)}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Carry Forward (CF) Used
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={cfUsedInput}
+                  onChange={(e) => setCfUsedInput(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Enter days to adjust from CF"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  This will deduct from the employee's Privilege Leave balance immediately.
+                </p>
+              </div>
+
+              <div className="bg-blue-50 p-3 rounded-md text-sm text-blue-700">
+                <p><strong>New LOP Days:</strong> {Math.max(editingRecord.lopDays - (parseFloat(cfUsedInput) || 0), 0)}</p>
+                <p><strong>Formula:</strong> max(Monthly LOP - CF Used, 0)</p>
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                onClick={() => setEditModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleSaveEdit}
+                className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Apply & Update Balance
               </button>
             </div>
           </div>

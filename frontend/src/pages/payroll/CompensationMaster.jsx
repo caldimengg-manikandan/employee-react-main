@@ -10,7 +10,7 @@ import {
   Save,
   X
 } from "lucide-react";
-import { employeeAPI } from "../../services/api";
+import { employeeAPI, compensationAPI } from "../../services/api";
 
 const initialCompensation = {
   name: "",
@@ -57,9 +57,14 @@ const CompensationMaster = () => {
   const [viewItem, setViewItem] = useState(null);
 
   useEffect(() => {
-    employeeAPI.getAllEmployees()
-      .then(res => {
-        const list = Array.isArray(res.data) ? res.data : [];
+    const loadData = async () => {
+      try {
+        const [empRes, compRes] = await Promise.all([
+          employeeAPI.getAllEmployees(),
+          compensationAPI.getAll()
+        ]);
+
+        const list = Array.isArray(empRes.data) ? empRes.data : [];
         setEmployees(list);
         const depts = [...new Set(list.map(e => e.department || e.division).filter(Boolean))];
         const desigs = [...new Set(list.map(e => e.designation || e.position || e.role).filter(Boolean))];
@@ -67,8 +72,15 @@ const CompensationMaster = () => {
         setDepartments(depts);
         setDesignations(desigs);
         if (locs.length > 0) setLocations(locs);
-      })
-      .catch(() => {});
+
+        if (Array.isArray(compRes.data)) {
+          setCompensation(compRes.data);
+        }
+      } catch (error) {
+        console.error("Error loading data", error);
+      }
+    };
+    loadData();
   }, []);
 
   const filtered = useMemo(() => {
@@ -106,10 +118,18 @@ const CompensationMaster = () => {
     setOpenDialog(true);
   };
 
-  const handleDelete = (index) => {
-    const next = [...compensation];
-    next.splice(index, 1);
-    setCompensation(next);
+  const handleDelete = async (index) => {
+    if (!window.confirm("Are you sure you want to delete this compensation?")) return;
+    try {
+      const id = compensation[index]._id;
+      await compensationAPI.delete(id);
+      const next = [...compensation];
+      next.splice(index, 1);
+      setCompensation(next);
+    } catch (error) {
+      console.error("Error deleting compensation", error);
+      alert("Failed to delete compensation");
+    }
   };
 
   const handleChange = (e) => {
@@ -117,19 +137,28 @@ const CompensationMaster = () => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const payload = { ...formData };
     if (!payload.name || !payload.department || !payload.designation) return;
-    if (editingIndex !== null) {
-      const next = [...compensation];
-      next[editingIndex] = payload;
-      setCompensation(next);
-    } else {
-      setCompensation(prev => [payload, ...prev]);
+
+    try {
+      if (editingIndex !== null) {
+        const id = compensation[editingIndex]._id;
+        const res = await compensationAPI.update(id, payload);
+        const next = [...compensation];
+        next[editingIndex] = res.data;
+        setCompensation(next);
+      } else {
+        const res = await compensationAPI.create(payload);
+        setCompensation(prev => [res.data, ...prev]);
+      }
+      setOpenDialog(false);
+      setEditingIndex(null);
+      setFormData(initialCompensation);
+    } catch (error) {
+      console.error("Error saving compensation", error);
+      alert("Failed to save compensation");
     }
-    setOpenDialog(false);
-    setEditingIndex(null);
-    setFormData(initialCompensation);
   };
 
   const exportCSV = () => {

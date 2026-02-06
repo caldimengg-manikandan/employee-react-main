@@ -661,10 +661,9 @@ const Timesheet = () => {
 
     const getPermissionCountForHours = (h) => {
       const val = Number(h) || 0;
-      if (val <= 0) return 0;
-      // Rule: Every 30 mins = 1 count. 
-      // 0.5 -> 1, 1.0 -> 2, 1.5 -> 3, 2.0 -> 4
-      return val * 2;
+      if (val >= 2) return 2;
+      if (val >= 1) return 1;
+      return 0;
     };
 
     const weekDates = getWeekDates();
@@ -909,24 +908,22 @@ const Timesheet = () => {
       // Allow specific duration input, but validate max limits
       if (numValue <= 0) {
         numValue = 0;
+      } else if (numValue < 1) {
+        showError("Minimum duration for a single permission is 1 hour.");
+        return;
       } else if (numValue > 2) {
         showError("Maximum duration for a single permission is 2 hours.");
         return;
-      } else {
-        // Enforce 30-minute increments (0.5, 1.0, 1.5, 2.0)
-        // Check if numValue is a multiple of 0.5
-        const remainder = numValue % 0.5;
-        // Use epsilon for float comparison (allow very small floating point errors)
-        if (remainder > 0.001 && remainder < 0.499) {
-          showError("Permission duration must be in 30-minute increments (e.g., 0:30, 1:00, 1:30, 2:00).");
-          return;
-        }
+      } else if (numValue !== 1 && numValue !== 2) {
+        showError("Permission duration must be whole hours (1 or 2). Fractional hours are not allowed.");
+        return;
       }
 
       const getPermissionCountForHours = (h) => {
         const val = Number(h) || 0;
-        if (val <= 0) return 0;
-        return val * 2;
+        if (val >= 2) return 2;
+        if (val >= 1) return 1;
+        return 0;
       };
 
       const computeMonthlyPermissionCountWithOverride = (overrideRowId, overrideDayIndex, overrideHours) => {
@@ -952,8 +949,8 @@ const Timesheet = () => {
 
       if (numValue > 0) {
         const prospectiveCount = computeMonthlyPermissionCountWithOverride(id, dayIndex, numValue);
-        if (prospectiveCount > 6) {
-          showError(`Monthly permission limit (6 counts) exceeded! You have used ${prospectiveCount} counts.`);
+        if (prospectiveCount > 3) {
+          showError(`Monthly permission limit (3 counts) exceeded! You have used ${prospectiveCount} counts.`);
           return;
         }
       }
@@ -1295,8 +1292,8 @@ const Timesheet = () => {
       }
     }
 
-    if (monthlyPermissionCount > 6) {
-      showError(`Monthly permission limit exceeded! Current count: ${monthlyPermissionCount}/6`);
+    if (monthlyPermissionCount > 3) {
+      showError(`Monthly permission limit exceeded! Current count: ${monthlyPermissionCount}/3`);
       return;
     }
 
@@ -1995,8 +1992,8 @@ const Timesheet = () => {
                                     ? (row.type === "project" ? "Please select project and task first" : "Please select a leave type or task")
                                     : row.task === "Permission" && !isPermissionAllowed(dayIndex, row.id)
                                       ? "Permission not allowed for this day"
-                                      : (monthlyPermissionCount >= 6 && Number(hours) === 0)
-                                        ? "Monthly permission limit reached"
+                                      : (monthlyPermissionCount >= 3 && Number(hours) === 0)
+                                          ? "Monthly permission limit reached"
                                         : hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday"
                                           ? "Full Day Leave applied on this day"
                                           : !isShiftSelectedForDay(dayIndex)
@@ -2159,8 +2156,8 @@ const Timesheet = () => {
           <div className="text-sm text-gray-600 text-center md:text-left">
             Fill your timesheet and submit before the deadline
             {monthlyPermissionCount > 0 && (
-              <span className={`ml-2 ${monthlyPermissionCount >= 6 ? 'text-red-600 font-bold' : 'text-orange-600'}`}>
-                • Permissions used: {monthlyPermissionCount}/6
+              <span className={`ml-2 ${monthlyPermissionCount >= 3 ? 'text-red-600 font-bold' : 'text-orange-600'}`}>
+                • Permissions used: {monthlyPermissionCount}/3
               </span>
             )}
             {hasUnsavedChanges && !isSubmitted && (

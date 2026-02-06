@@ -263,6 +263,14 @@ export const exitFormalityAPI = {
   remove: (id) => api.delete(`/exit-formalities/${id}`),
 };
 
+export const compensationAPI = {
+  getAll: () => api.get('/compensation'),
+  getById: (id) => api.get(`/compensation/${id}`),
+  create: (data) => api.post('/compensation', data),
+  update: (id, data) => api.put(`/compensation/${id}`, data),
+  delete: (id) => api.delete(`/compensation/${id}`),
+};
+
 // Announcements (management + public active list)
 authAPI.announcement = {
   getAll: async () => {

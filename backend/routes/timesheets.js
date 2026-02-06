@@ -470,10 +470,9 @@ async function sendPermissionUsageEmail(user, sheet) {
 
     const permissionCountForHours = (h) => {
       const val = Number(h) || 0;
-      if (val <= 0) return 0;
-      if (val <= 1) return 1;
-      if (val <= 2) return 2;
-      return 3;
+      if (val >= 2) return 2;
+      if (val >= 1) return 1;
+      return 0;
     };
 
     const countPermissionsInEntries = (entriesList) => {
@@ -537,7 +536,7 @@ async function sendPermissionUsageEmail(user, sheet) {
             <td style="padding:6px 0;color:#333;">${balance} permission${balance === 1 ? '' : 's'} remaining</td>
           </tr>
         </table>
-        <p style="color:#999;font-size:12px;margin-top:16px;">Note: Each hour of Permission counts towards your monthly limit (1h = 1, 2h = 2, 3h = 3). Monthly maximum is ${maxMonthly}.</p>
+        <p style="color:#999;font-size:12px;margin-top:16px;">Note: Each Permission entry counts as 1 usage towards your monthly limit. Monthly maximum is ${maxMonthly}.</p>
       </div>
     `;
 
@@ -646,10 +645,9 @@ router.post("/", auth, async (req, res) => {
 
     const permissionCountForHours = (h) => {
       const val = Number(h) || 0;
-      if (val <= 0) return 0;
-      if (val <= 1) return 1;
-      if (val <= 2) return 2;
-      return 3;
+      if (val >= 2) return 2;
+      if (val >= 1) return 1;
+      return 0;
     };
 
     const countPermissionsInEntriesForMonth = (entriesList, sheetWeekStart, targetMonth, targetYear) => {
@@ -692,7 +690,7 @@ router.post("/", auth, async (req, res) => {
 
     const currentCount = countPermissionsInEntriesForMonth(entries || [], weekStart, targetMonth, targetYear);
 
-    if (status === "Submitted" && (baseCount + currentCount) > 6) {
+    if (status === "Submitted" && (baseCount + currentCount) > 3) {
       return res.status(400).json({
         success: false,
         message: "Monthly permission limit (3 counts) exceeded",
@@ -952,12 +950,9 @@ router.get("/permissions/usage", auth, async (req, res) => {
               // Check if this specific entry falls within the target month
               if (entryDate.getMonth() === targetMonth && entryDate.getFullYear() === targetYear) {
                 // Permission Count Calculation:
-                // 0:30 (0.5) -> 1
-                // 1:00 (1.0) -> 2
-                // 1:30 (1.5) -> 3
-                // 2:00 (2.0) -> 4
-                // Formula: hours * 2
-                totalCount += (hours * 2);
+              // 1 hour = 1 count, 2 hours = 2 counts
+              const val = Number(hours) || 0;
+              totalCount += (val >= 2 ? 2 : (val >= 1 ? 1 : 0));
               }
             }
           });

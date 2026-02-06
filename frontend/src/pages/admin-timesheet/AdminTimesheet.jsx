@@ -1274,9 +1274,21 @@ const AdminTimesheet = () => {
                     <tr>
                       <th style={{...styles.timeEntriesHeaderCell, textAlign: 'left'}}>Projects</th>
                       <th style={{...styles.timeEntriesHeaderCell, textAlign: 'left'}}>Task</th>
-                      {shortDays.map(day => (
-                        <th key={day} style={styles.timeEntriesHeaderCell}>{day}</th>
-                      ))}
+                      {shortDays.map((day, index) => {
+                        const shift = (selectedTimesheet.dailyShiftTypes && selectedTimesheet.dailyShiftTypes[index]) 
+                          || selectedTimesheet.shiftType 
+                          || '';
+                        return (
+                          <th key={day} style={styles.timeEntriesHeaderCell}>
+                            <div>{day}</div>
+                            {shift && (
+                              <div style={{ fontSize: '11px', fontWeight: 'normal', color: '#005ed8ff', marginTop: '4px' }}>
+                                {shift}
+                              </div>
+                            )}
+                          </th>
+                        );
+                      })}
                       <th style={styles.timeEntriesHeaderCell}>Total (HH:MM)</th>
                     </tr>
                   </thead>

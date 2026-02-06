@@ -547,6 +547,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
           {permissionOptions.map(option => {
             const permission = option.key;
             const isAlwaysEnabled = !!option.alwaysOn;
+
+
             const isActive = isAlwaysEnabled || formData.permissions.includes(permission);
             return (
               <div

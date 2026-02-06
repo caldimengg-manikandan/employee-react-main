@@ -63,6 +63,7 @@ app.use("/api/mail", require("./routes/mail.routes"));
 //payroll
 
 app.use("/api/payroll", payrollRoutes);
+app.use("/api/compensation", require("./routes/compensationRoutes"));
 app.use("/api/monthly-payroll", monthlyPayrollRoutes);
 app.use("/api/loans", loanRoutes);
 

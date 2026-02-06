@@ -88,7 +88,18 @@ router.get("/list", auth, async (req, res) => {
     if (week && week !== "All Weeks") adminQuery.week = week;
     if (project && project !== "All Projects") adminQuery["timeEntries.project"] = project;
 
-    const adminDocs = await AdminTimesheet.find(adminQuery).sort({ submittedDate: -1 }).lean();
+    const adminDocs = await AdminTimesheet.find(adminQuery)
+      .populate('timesheetId', 'dailyShiftTypes shiftType')
+      .sort({ submittedDate: -1 })
+      .lean();
+
+    // Hoist shift data from populated timesheetId to top level
+    adminDocs.forEach(doc => {
+      if (doc.timesheetId) {
+        doc.dailyShiftTypes = doc.timesheetId.dailyShiftTypes || [];
+        doc.shiftType = doc.timesheetId.shiftType || "";
+      }
+    });
 
     // If caller wants specifically Submitted status OR no admin docs found, include raw submitted employee timesheets
     const includeSubmitted = !status || status === "All Status" || status === "Submitted";
@@ -181,6 +192,8 @@ router.get("/list", auth, async (req, res) => {
             submittedDate: (sheet.submittedAt ? new Date(sheet.submittedAt) : new Date()).toISOString().split("T")[0],
             timeEntries,
             weeklyTotal: Number(weeklyTotal || 0),
+            dailyShiftTypes: sheet.dailyShiftTypes || [],
+            shiftType: sheet.shiftType || "",
           };
 
           // Apply filters to submitted records

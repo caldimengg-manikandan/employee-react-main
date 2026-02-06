@@ -70,7 +70,7 @@ const SalarySlips = () => {
     const currentMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
 
     // Check if selected month is in the future
-    if (selectedDate >= currentMonthStart) {
+    if (selectedDate > currentMonthStart) {
       alert("Payslip for this month is not available yet.");
       return;
     }
@@ -88,7 +88,11 @@ const SalarySlips = () => {
         setIsLoading(false);
         return;
       }
-      const workingDays = 30;
+      
+      // Calculate actual days in the month
+      const daysInMonth = new Date(selectedYear, selectedMonthNum, 0).getDate();
+      const workingDays = daysInMonth;
+      
       const lopDays = Number(rec.lopDays || 0);
       const paidDays = Math.max(0, workingDays - lopDays);
       const paidDate = rec.paymentDate || `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-28`;

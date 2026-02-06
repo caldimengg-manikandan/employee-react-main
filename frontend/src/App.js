@@ -43,6 +43,7 @@ import EmployeeRewardTracker from "./pages/rewards/EmployeeRewardTracker";
 
 // Payroll
 import PayrollDetails from "./pages/payroll/PayrollDetails";
+import CompensationMaster from "./pages/payroll/CompensationMaster";
 import CostToTheCompany from "./pages/payroll/CostToTheCompany";
 import LoanSummary from "./pages/payroll/LoanSummary";
 import GratuitySummary from "./pages/payroll/GratuitySummary";
@@ -346,6 +347,14 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["payroll_access"]} roles={["admin", "hr", "finance"]}>
                   <PayrollDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="payroll/compensation-master"
+              element={
+                <ProtectedRoute requiredPermissions={["payroll_access"]} roles={["admin", "hr", "finance"]}>
+                  <CompensationMaster />
                 </ProtectedRoute>
               }
             />
