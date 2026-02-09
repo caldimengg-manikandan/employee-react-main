@@ -1630,7 +1630,21 @@ const Timesheet = () => {
     const startDay = weekDates[0].getDate();
     const endDay = weekDates[6].getDate();
 
-    return `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+    // Helper to get ISO week number
+    const getISOWeek = (d) => {
+      const date = new Date(d.valueOf());
+      date.setHours(0, 0, 0, 0);
+      // Thursday in current week decides the year.
+      date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+      // January 4 is always in week 1.
+      const week1 = new Date(date.getFullYear(), 0, 4);
+      // Adjust to Thursday in week 1 and count number of weeks from date to week1.
+      return 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+    };
+
+    const weekNumber = getISOWeek(weekDates[0]);
+
+    return `${startMonth} ${startDay} - ${endMonth} ${endDay} (Week ${weekNumber})`;
   };
 
   return (
@@ -2213,8 +2227,8 @@ const Timesheet = () => {
               <li>General Shift: 9:30 AM - 7:00 PM</li>
             </ul>
           </li>
-          <li>• Monthly permission limit: Maximum 6 permission counts allowed per month</li>
-          <li>• Permission duration: 30-minute increments only (0:30, 1:00, 1:30, 2:00)</li>
+          <li>• Monthly permission limit: Maximum 3 permission counts allowed per month</li>
+          <li>• Permission duration: 1 hour increments only ( 1:00, 2:00)</li>
         </ul>
       </div>
 

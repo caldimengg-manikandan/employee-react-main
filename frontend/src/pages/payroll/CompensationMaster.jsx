@@ -13,6 +13,7 @@ import {
 import { employeeAPI, compensationAPI } from "../../services/api";
 
 const initialCompensation = {
+  employeeId: "",
   name: "",
   department: "",
   designation: "",
@@ -135,6 +136,23 @@ const CompensationMaster = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleEmployeeSelect = (e) => {
+    const empId = e.target.value;
+    const emp = employees.find(emp => emp.employeeId === empId);
+    if (emp) {
+      setFormData(prev => ({
+        ...prev,
+        employeeId: emp.employeeId,
+        name: emp.name,
+        department: emp.department || prev.department,
+        designation: emp.designation || prev.designation,
+        location: emp.location || prev.location
+      }));
+    } else {
+      setFormData(prev => ({ ...prev, employeeId: "" }));
+    }
   };
 
   const handleSubmit = async () => {
@@ -334,6 +352,21 @@ const CompensationMaster = () => {
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Select Employee</label>
+                  <select 
+                    value={formData.employeeId || ""} 
+                    onChange={handleEmployeeSelect} 
+                    className="border rounded px-3 py-2 w-full"
+                  >
+                    <option value="">-- Select Employee --</option>
+                    {employees.map(e => (
+                      <option key={e._id} value={e.employeeId}>
+                        {e.name} ({e.employeeId})
+                      </option>
+                    ))}
+                  </select>
+                </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Compensation Name</label>
                   <input name="name" value={formData.name} onChange={handleChange} className="border rounded px-3 py-2 w-full" />
