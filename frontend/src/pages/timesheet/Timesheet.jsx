@@ -47,6 +47,7 @@ const Timesheet = () => {
   const [onPremisesTime, setOnPremisesTime] = useState({
     daily: [0, 0, 0, 0, 0, 0, 0],
     weekly: 0,
+    prevSunday: 0,
   });
   const [loading, setLoading] = useState(false);
   const [permissionCounts, setPermissionCounts] = useState({});
@@ -137,6 +138,11 @@ const Timesheet = () => {
         const weekStartStr = normalizeToUTCDateOnly(wd[0]);
         const weekEndStr = normalizeToUTCDateOnly(wd[6]);
 
+        // Calculate previous Sunday for attendance fetch (needed for >12h rule)
+        const prevSunday = new Date(wd[0]);
+        prevSunday.setDate(prevSunday.getDate() - 1);
+        const attendanceStartStr = normalizeToUTCDateOnly(prevSunday);
+
         // Run both requests in parallel to avoid race conditions
         const [timesheetRes, attendanceRes] = await Promise.allSettled([
           timesheetAPI.getTimesheet({
@@ -145,7 +151,7 @@ const Timesheet = () => {
             _t: Date.now() // Prevent caching
           }),
           timesheetAPI.getAttendanceData({
-            startDate: weekStartStr,
+            startDate: attendanceStartStr, // Fetch from prev Sunday
             endDate: weekEndStr,
             _t: Date.now()
           })
@@ -215,10 +221,20 @@ const Timesheet = () => {
 
             const dailyOnPremises = [0, 0, 0, 0, 0, 0, 0];
             let weeklyOnPremises = 0;
+            let prevSundayHours = 0;
+
+            // Normalize prevSunday to YYYY-MM-DD for comparison
+            const prevSundayKey = new Date(Date.UTC(prevSunday.getFullYear(), prevSunday.getMonth(), prevSunday.getDate())).toISOString().split("T")[0];
 
             attendanceData.forEach((record) => {
               try {
                 const key = new Date(record.date).toISOString().split("T")[0];
+                
+                // Check for prev Sunday
+                if (key === prevSundayKey) {
+                   prevSundayHours += computeRecordDurationHours(record) || 0;
+                }
+
                 const idx = weekKeys.indexOf(key);
                 if (idx !== -1) {
                   const hours = computeRecordDurationHours(record) || 0;
@@ -232,12 +248,15 @@ const Timesheet = () => {
 
             const preciseDaily = dailyOnPremises.map((h) => Math.max(0, Number(h) || 0));
             const preciseWeekly = preciseDaily.reduce((sum, h) => sum + h, 0);
-            const hasAnyHours = preciseDaily.some((h) => h > 0) || preciseWeekly > 0;
+            const precisePrevSunday = Math.max(0, Number(prevSundayHours) || 0);
+
+            const hasAnyHours = preciseDaily.some((h) => h > 0) || preciseWeekly > 0 || precisePrevSunday > 0;
 
             if (hasAnyHours) {
               attendanceOnPremises = {
                 daily: preciseDaily,
-                weekly: preciseWeekly
+                weekly: preciseWeekly,
+                prevSunday: precisePrevSunday
               };
             }
           }
@@ -250,12 +269,14 @@ const Timesheet = () => {
         } else if (Array.isArray(sheet.onPremisesTime?.daily)) {
           setOnPremisesTime({
             daily: (sheet.onPremisesTime.daily || []).map((n) => Number(n) || 0),
-            weekly: Number(sheet.onPremisesTime.weekly) || 0
+            weekly: Number(sheet.onPremisesTime.weekly) || 0,
+            prevSunday: Number(sheet.onPremisesTime?.prevSunday) || 0
           });
         } else {
           setOnPremisesTime({
             daily: [0, 0, 0, 0, 0, 0, 0],
-            weekly: 0
+            weekly: 0,
+            prevSunday: 0
           });
         }
 
@@ -1271,14 +1292,36 @@ const Timesheet = () => {
       // First/Second Shift: 8h 30m required -> 8h 25m threshold
       // General Shift: 9h 30m required -> 9h 25m threshold
 
-      if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
-        minMinutes = (8 * 60) + 25; // 505 minutes
-        minHoursText = "8:25";
-      } else if (shift.startsWith("General Shift")) {
-        minMinutes = (9 * 60) + 25; // 565 minutes
-        minHoursText = "9:25";
+      // Determine previous day's on-premises hours
+      let prevDayHours = 0;
+      if (i === 0) {
+        prevDayHours = onPremisesTime.prevSunday || 0;
       } else {
-        continue;
+        prevDayHours = onPremisesTime.daily?.[i - 1] || 0;
+      }
+
+      if (prevDayHours > 14) {
+        // Reduced minimums if previous day > 14 hours
+        if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
+           minMinutes = 7 * 60; // 7 hours
+           minHoursText = "7:00";
+        } else if (shift.startsWith("General Shift")) {
+           minMinutes = 8 * 60; // 8 hours
+           minHoursText = "8:00";
+        } else {
+           continue;
+        }
+      } else {
+        // Standard minimums
+        if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
+          minMinutes = (8 * 60) + 25; // 505 minutes
+          minHoursText = "8:25";
+        } else if (shift.startsWith("General Shift")) {
+          minMinutes = (9 * 60) + 25; // 565 minutes
+          minHoursText = "9:25";
+        } else {
+          continue;
+        }
       }
 
       if (currentMinutes < minMinutes) {
@@ -1312,9 +1355,15 @@ const Timesheet = () => {
 
       const opMinutes = Math.round(op * 60);
       const totalMinutes = Math.round(totalWithBreak * 60);
-      const allowedSlackMinutes = 2;
-      if (i < 5 && opMinutes - totalMinutes > allowedSlackMinutes) {
-        showError(`On-Premises Time for ${days[i]} cannot exceed Total (Work + Break).\n\nOn-Premises: ${formatHoursHHMM(op)}\nTotal: ${formatHoursHHMM(totalWithBreak)}`);
+      
+      // Check for mismatch > 2 minutes
+      if ((opMinutes > 0 || totalMinutes > 0) && Math.abs(opMinutes - totalMinutes) > 2) {
+        showError(
+          `Time Mismatch for ${days[i]}:\n` +
+          `On-Premises Time: ${formatHoursHHMM(op)}\n` +
+          `Total Hours (Work + Break): ${formatHoursHHMM(totalWithBreak)}\n\n` +
+          `These values must match within 2 minutes.`
+        );
         return;
       }
 
@@ -1518,14 +1567,39 @@ const Timesheet = () => {
       const totalWithBreak = totals.daily[i] + computeBreakForDay(i);
       const currentMinutes = Math.round(totalWithBreak * 60);
 
+      // Determine previous day's on-premises hours
+      let prevDayHours = 0;
+      if (i === 0) {
+        prevDayHours = onPremisesTime.prevSunday || 0;
+      } else {
+        prevDayHours = onPremisesTime.daily?.[i - 1] || 0;
+      }
+
       let minMinutes = 0;
-      if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
-        minMinutes = (8 * 60) + 25;
-      } else if (shift.startsWith("General Shift")) {
-        minMinutes = (9 * 60) + 25;
+      if (prevDayHours > 14) {
+        // Reduced minimums if previous day > 14 hours
+        if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
+          minMinutes = 7 * 60; // 7 hours
+        } else if (shift.startsWith("General Shift")) {
+          minMinutes = 8 * 60; // 8 hours
+        }
+      } else {
+        // Standard minimums
+        if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
+          minMinutes = (8 * 60) + 25;
+        } else if (shift.startsWith("General Shift")) {
+          minMinutes = (9 * 60) + 25;
+        }
       }
 
       if (minMinutes > 0 && currentMinutes < minMinutes) return false;
+
+      // Check if On-Premises Time matches Total Hours (Work + Break) within 2 mins cushion
+      const onPremisesHours = onPremisesTime.daily?.[i] || 0;
+      const onPremisesMinutes = Math.round(onPremisesHours * 60);
+      if ((onPremisesMinutes > 0 || currentMinutes > 0) && Math.abs(onPremisesMinutes - currentMinutes) > 2) {
+        return false;
+      }
     }
     return true;
   })();
@@ -1578,11 +1652,33 @@ const Timesheet = () => {
     if (!hasFullDayLeave(dayIndex) && !hasAnyApprovedLeave(dayIndex)) {
       const shift = dailyShiftTypes?.[dayIndex] || shiftType || "";
       if (shift && shift !== "Select Shift") {
+        
+        // Determine previous day's on-premises hours
+        let prevDayHours = 0;
+        if (dayIndex === 0) {
+          prevDayHours = onPremisesTime.prevSunday || 0;
+        } else {
+          prevDayHours = onPremisesTime.daily?.[dayIndex - 1] || 0;
+        }
+
         let minMinutes = 0;
-        if (shift.startsWith("General Shift")) minMinutes = (9 * 60) + 25;
-        else if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) minMinutes = (8 * 60) + 25;
+        if (prevDayHours > 14) {
+           if (shift.startsWith("General Shift")) minMinutes = 8 * 60;
+           else if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) minMinutes = 7 * 60;
+        } else {
+           if (shift.startsWith("General Shift")) minMinutes = (9 * 60) + 25;
+           else if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) minMinutes = (8 * 60) + 25;
+        }
 
         if (minMinutes > 0 && Math.round(totalWithBreak * 60) < minMinutes) {
+          return "bg-red-50 text-red-600 font-bold";
+        }
+
+        // Check if On-Premises Time matches Total Hours (Work + Break) within 2 mins cushion
+        const currentMinutes = Math.round(totalWithBreak * 60);
+        const onPremisesHours = onPremisesTime.daily?.[dayIndex] || 0;
+        const onPremisesMinutes = Math.round(onPremisesHours * 60);
+        if ((onPremisesMinutes > 0 || currentMinutes > 0) && Math.abs(onPremisesMinutes - currentMinutes) > 2) {
           return "bg-red-50 text-red-600 font-bold";
         }
       }
