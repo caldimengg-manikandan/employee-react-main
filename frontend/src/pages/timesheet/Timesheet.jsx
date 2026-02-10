@@ -1355,12 +1355,20 @@ const Timesheet = () => {
 
       const opMinutes = Math.round(op * 60);
       const totalMinutes = Math.round(totalWithBreak * 60);
+
+      // Calculate permission minutes for the day
+      const permissionHours = timesheetRows
+        .filter(r => r.task === "Permission")
+        .reduce((sum, r) => sum + (Number(r.hours?.[i]) || 0), 0);
+      const permissionMinutes = Math.round(permissionHours * 60);
+      
+      const adjustedOpMinutes = opMinutes + permissionMinutes;
       
       // Check for mismatch > 2 minutes
-      if ((opMinutes > 0 || totalMinutes > 0) && Math.abs(opMinutes - totalMinutes) > 2) {
+      if ((opMinutes > 0 || totalMinutes > 0) && Math.abs(adjustedOpMinutes - totalMinutes) > 2) {
         showError(
           `Time Mismatch for ${days[i]}:\n` +
-          `On-Premises Time: ${formatHoursHHMM(op)}\n` +
+          `On-Premises Time (${formatHoursHHMM(op)}) + Permission (${formatHoursHHMM(permissionHours)}): ${formatHoursHHMM(op + permissionHours)}\n` +
           `Total Hours (Work + Break): ${formatHoursHHMM(totalWithBreak)}\n\n` +
           `These values must match within 2 minutes.`
         );
@@ -1594,10 +1602,20 @@ const Timesheet = () => {
 
       if (minMinutes > 0 && currentMinutes < minMinutes) return false;
 
+      // Calculate permission minutes for the day
+      const permissionHours = timesheetRows
+        .filter(r => r.task === "Permission")
+        .reduce((sum, r) => sum + (Number(r.hours?.[i]) || 0), 0);
+      const permissionMinutes = Math.round(permissionHours * 60);
+
       // Check if On-Premises Time matches Total Hours (Work + Break) within 2 mins cushion
       const onPremisesHours = onPremisesTime.daily?.[i] || 0;
       const onPremisesMinutes = Math.round(onPremisesHours * 60);
-      if ((onPremisesMinutes > 0 || currentMinutes > 0) && Math.abs(onPremisesMinutes - currentMinutes) > 2) {
+      
+      // If permission exists, add it to on-premises time for validation (since permission is time away)
+      const adjustedOnPremisesMinutes = onPremisesMinutes + permissionMinutes;
+
+      if ((onPremisesMinutes > 0 || currentMinutes > 0) && Math.abs(adjustedOnPremisesMinutes - currentMinutes) > 2) {
         return false;
       }
     }
@@ -1678,7 +1696,15 @@ const Timesheet = () => {
         const currentMinutes = Math.round(totalWithBreak * 60);
         const onPremisesHours = onPremisesTime.daily?.[dayIndex] || 0;
         const onPremisesMinutes = Math.round(onPremisesHours * 60);
-        if ((onPremisesMinutes > 0 || currentMinutes > 0) && Math.abs(onPremisesMinutes - currentMinutes) > 2) {
+
+        // Calculate permission minutes
+        const permissionHours = timesheetRows
+          .filter(r => r.task === "Permission")
+          .reduce((sum, r) => sum + (Number(r.hours?.[dayIndex]) || 0), 0);
+        const permissionMinutes = Math.round(permissionHours * 60);
+        const adjustedOnPremisesMinutes = onPremisesMinutes + permissionMinutes;
+
+        if ((onPremisesMinutes > 0 || currentMinutes > 0) && Math.abs(adjustedOnPremisesMinutes - currentMinutes) > 2) {
           return "bg-red-50 text-red-600 font-bold";
         }
       }
