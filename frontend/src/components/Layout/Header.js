@@ -48,6 +48,13 @@ const Header = ({ onMenuClick }) => {
       '/employee-exit/form': 'Employee Exit Form',
       '/my-profile': 'My Profile',
       '/employee-exit/approval': 'Exam form Approval',
+      '/performance/self-appraisal': 'Self Appraisal',
+      '/performance/team-appraisal': 'Team Appraisal',
+      '/performance/reviewer-approval': 'Reviewer Approval',
+      '/performance/director-approval': 'Director Approval',
+      '/performance/appraisal-workflow': 'Appraisal Workflow',
+      '/performance/increment-master': 'Increment Master',
+      '/performance/increment-summary': 'Increment Summary',
       
     };
     

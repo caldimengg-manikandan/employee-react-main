@@ -7,7 +7,7 @@ import {
     DocumentChartBarIcon, ClipboardDocumentCheckIcon, ChartBarIcon, 
     ClipboardDocumentListIcon, CurrencyRupeeIcon, BriefcaseIcon, 
     UserGroupIcon, BellIcon, ChevronRightIcon, ArrowRightIcon,
-    MagnifyingGlassIcon, ArrowRightOnRectangleIcon, BuildingOfficeIcon, UserIcon
+    MagnifyingGlassIcon, ArrowRightOnRectangleIcon, BuildingOfficeIcon, UserIcon, StarIcon
 } from '@heroicons/react/24/outline';
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip,
@@ -82,7 +82,8 @@ const categoryImages = {
     'Work & Productivity': 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=1000',
     'Leave Management': 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=1000',
     'Finance & Payroll': 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=1000',
-    'Company & Resources': 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000'
+    'Company & Resources': 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000',
+    'Performance Management': 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1000'
 };
 
 const CategoryCard = ({ category, modules, onViewDetails, images }) => {
@@ -249,6 +250,16 @@ const ProjectDashboard = () => {
         
         // Expenditure
         { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+
+        // Performance Management
+        { name: 'Self Appraisal', description: 'Submit self appraisal', path: '/performance/self-appraisal', icon: StarIcon, allowEmployeeRole: true, category: 'Performance Management' },
+        { name: 'Team Appraisal', description: 'Review team performance', path: '/performance/team-appraisal', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
+        { name: 'Reviewer Approval', description: 'Approve appraisals', path: '/performance/reviewer-approval', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
+        { name: 'Director Approval', description: 'Final approval', path: '/performance/director-approval', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'director'], category: 'Performance Management' },
+        { name: 'Appraisal Workflow', description: 'Track appraisal status', path: '/performance/appraisal-workflow', icon: StarIcon, allowEmployeeRole: true, category: 'Performance Management' },
+        { name: 'Increment Master', description: 'Manage increments', path: '/performance/increment-master', icon: StarIcon, showForRoles: ['admin', 'hr'], category: 'Performance Management' },
+        { name: 'Increment Summary', description: 'View increment summary', path: '/performance/increment-summary', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager'], category: 'Performance Management' },
+        
         
         // Other
         { name: 'Exit Form', description: 'Submit exit form', path: '/employee-exit/form', icon: ArrowRightOnRectangleIcon, allowEmployeeRole: true, category: 'Company & Resources' },

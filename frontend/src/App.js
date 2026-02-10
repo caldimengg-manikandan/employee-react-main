@@ -56,6 +56,15 @@ import ExitForm from "./pages/EmployeeExitForms";
 import ExitApproval from "./pages/ExitApprovals";
 import HolidaysAllowance from "./pages/HolidaysAllowance";
 
+//performance Management
+import SelfAppraisal from "./pages/performance/SelfAppraisal";
+import TeamAppraisal from "./pages/performance/TeamAppraisal";
+import AppraisalWorkflow from "./pages/performance/AppraisalWorkflow";
+import ReviewerApproval from "./pages/performance/ReviewerApproval";
+import DirectorApproval from "./pages/performance/DirectorApproval";
+import IncrementMaster from "./pages/performance/IncrementMaster";
+import IncrementSummary from "./pages/performance/IncrementSummary";
+
 
 
 function App() {
@@ -427,6 +436,65 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["employee_access"]}>
                   <TeamManagement />
+                </ProtectedRoute>
+              }
+            />
+
+
+            {/* ---------------- Performance Management ---------------- */}
+            <Route
+              path="performance/self-appraisal"
+              element={
+                <ProtectedRoute allowEmployeeRole>
+                  <SelfAppraisal />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="performance/team-appraisal"
+              element={
+                <ProtectedRoute roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
+                  <TeamAppraisal />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="performance/reviewer-approval"
+              element={
+                <ProtectedRoute roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
+                  <ReviewerApproval />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="performance/director-approval"
+              element={
+                <ProtectedRoute roles={["admin", "hr", "manager", "director"]}>
+                  <DirectorApproval />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="performance/appraisal-workflow"
+              element={
+                <ProtectedRoute allowEmployeeRole>
+                  <AppraisalWorkflow />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="performance/increment-master"
+              element={
+                <ProtectedRoute roles={["admin", "hr"]}>
+                  <IncrementMaster />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="performance/increment-summary"
+              element={
+                <ProtectedRoute roles={["admin", "hr", "manager"]}>
+                  <IncrementSummary />
                 </ProtectedRoute>
               }
             />

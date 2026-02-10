@@ -44,7 +44,8 @@ import {
   Cog6ToothIcon,
   DocumentMagnifyingGlassIcon,
   UserIcon,
-  CalendarDaysIcon
+  CalendarDaysIcon,
+  StarIcon
 } from "@heroicons/react/24/outline";
 
 const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }) => {
@@ -102,7 +103,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     // NEW ICONS FOR EXIT MANAGEMENT
     "Employee Exit Form": ArrowRightOnRectangleIcon,
     "Exit Approval": DocumentMagnifyingGlassIcon,
-    "Exit Management": UserCircleIcon
+    "Exit Management": UserCircleIcon,
+    "Performance Management": StarIcon
   };
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
@@ -163,6 +165,56 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Project Allocation"),
       showForRoles: ["admin", "projectmanager", "manager",],
       allowEmployeeRole: true,
+    },
+
+
+    // PERFORMANCE MANAGEMENT
+    {
+      name: "Performance Management",
+      hasDropdown: true,
+      icon: getIconForMenu("Performance Management"),
+      // allowEmployeeRole: true,
+
+      children: [
+        { name: "Self Appraisal", 
+          path: "/performance/self-appraisal", 
+          // allowEmployeeRole: true
+          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"]
+        
+        },
+        { 
+          name: "Team Appraisal", 
+          path: "/performance/team-appraisal",
+          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"] 
+        },
+        { 
+          name: "Reviewer Approval", 
+          path: "/performance/reviewer-approval",
+          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"]
+        },
+        { 
+          name: "Director Approval", 
+          path: "/performance/director-approval",
+          showForRoles: ["admin", "hr", "manager", "director"]
+        },
+
+
+        { 
+          name: "Appraisal Workflow", 
+          path: "/performance/appraisal-workflow",
+          showForRoles: ["admin", "hr", "director"]
+        },
+        { 
+          name: "Increment Master", 
+          path: "/performance/increment-master",
+          showForRoles: ["admin", "hr"]
+        },
+        { 
+          name: "Increment Summary", 
+          path: "/performance/increment-summary",
+          showForRoles: ["admin", "hr", "manager"]
+        },
+      ],
     },
     // LEAVE MANAGEMENT MODULE
     {

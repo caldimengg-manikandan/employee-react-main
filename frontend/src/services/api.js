@@ -208,6 +208,24 @@ export const internAPI = {
   remove: (id) => api.delete(`/interns/${id}`),
 };
 
+export const performanceAPI = {
+  // Self Appraisal Endpoints
+  getMySelfAppraisals: () => api.get('/performance/self-appraisals/me'),
+  getSelfAppraisalById: (id) => api.get(`/performance/self-appraisals/${id}`),
+  createSelfAppraisal: (data) => api.post('/performance/self-appraisals', data),
+  updateSelfAppraisal: (id, data) => api.put(`/performance/self-appraisals/${id}`, data),
+  deleteSelfAppraisal: (id) => api.delete(`/performance/self-appraisals/${id}`),
+  
+  // For Team Appraisal (Manager View)
+  getTeamAppraisals: () => api.get('/performance/team-appraisals'),
+  updateTeamAppraisal: (id, data) => api.put(`/performance/team-appraisals/${id}`, data),
+  
+  // Reviewer Endpoints
+  getReviewerAppraisals: () => api.get('/performance/reviewer'),
+  updateReviewerAppraisal: (id, data) => api.put(`/performance/reviewer/${id}`, data),
+  submitToDirector: (ids) => api.post('/performance/reviewer/submit-director', { ids }),
+};
+
 export const payrollAPI = {
   list: () => api.get('/payroll'),
   create: (data) => api.post('/payroll', data),
