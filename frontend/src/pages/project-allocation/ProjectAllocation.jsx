@@ -945,7 +945,7 @@ const ProjectAllocation = () => {
               <div className="flex justify-end">
                 <button
                   onClick={() => setSuccessModal({ isOpen: false, message: '' })}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors"
                 >
                   OK
                 </button>
@@ -965,7 +965,7 @@ const ProjectAllocation = () => {
               <div className="flex justify-end">
                 <button
                   onClick={() => setMessageModal({ isOpen: false, title: '', message: '' })}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors"
                 >
                   OK
                 </button>
@@ -980,14 +980,14 @@ const ProjectAllocation = () => {
               <div className="flex space-x-2">
                 <button
                   onClick={() => setActiveTab('projects')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'projects' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'projects' ? 'bg-[#262760] text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
                 >
                   <Building2 size={16} />
                   Projects
                 </button>
                 <button
                   onClick={() => setActiveTab('allocations')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'allocations' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'allocations' ? 'bg-[#262760] text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
                 >
                   <Users size={16} />
                   Allocations
@@ -995,7 +995,7 @@ const ProjectAllocation = () => {
                 {!canEdit && (
                   <button
                     onClick={() => setActiveTab('myAllocations')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'myAllocations' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'myAllocations' ? 'bg-[#262760] text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
                   >
                     <Target size={16} />
                     My Allocations
@@ -1012,7 +1012,7 @@ const ProjectAllocation = () => {
                     e.stopPropagation();
                     setShowFilters(!showFilters);
                   }}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${showFilters ? 'bg-blue-600 text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${showFilters ? 'bg-[#262760] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                     }`}
                 >
                   <Filter size={16} />
@@ -1027,7 +1027,7 @@ const ProjectAllocation = () => {
                 {canEdit && (
                   <button
                     onClick={() => activeTab === 'projects' ? openProjectModal() : openAllocationModal()}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                    className="px-4 py-2 bg-[#262760] text-white rounded-lg font-medium hover:bg-[#1f204d] transition-colors flex items-center gap-2"
                   >
                     {activeTab === 'projects' ? (
                       <>
@@ -1274,7 +1274,7 @@ const ProjectAllocation = () => {
                       }
                     </p>
                     {(hasActiveProjectFilters || selectedLocation !== 'All') && (
-                      <button onClick={() => { clearProjectFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                      <button onClick={() => { clearProjectFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors text-sm">
                         Clear All Filters
                       </button>
                     )}
@@ -1283,7 +1283,7 @@ const ProjectAllocation = () => {
                   <div className="overflow-x-auto h-[480px] overflow-y-auto">
                     <table className="w-full">
                       <thead className="sticky top-0 ">
-                        <tr className="bg-gray-50">
+                        <tr className="bg-[#262760] text-white">
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
@@ -1388,7 +1388,7 @@ const ProjectAllocation = () => {
                       }
                     </p>
                     {(hasActiveAllocationFilters || selectedLocation !== 'All') && (
-                      <button onClick={() => { clearAllocationFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                      <button onClick={() => { clearAllocationFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors text-sm">
                         Clear All Filters
                       </button>
                     )}
@@ -1397,7 +1397,7 @@ const ProjectAllocation = () => {
                   <div className="overflow-x-auto h-[480px] overflow-y-auto">
                     <table className="w-full">
                       <thead className="sticky top-0">
-                        <tr className="bg-gray-50">
+                        <tr className="bg-[#262760] text-white">
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
@@ -1509,7 +1509,7 @@ const ProjectAllocation = () => {
                     </p>
                     <p className="text-sm text-gray-400 mt-2">Contact your Project Manager for project assignments.</p>
                     {(hasActiveAllocationFilters || selectedLocation !== 'All') && (
-                      <button onClick={() => { clearAllocationFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm">
+                      <button onClick={() => { clearAllocationFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors text-sm">
                         Clear All Filters
                       </button>
                     )}
@@ -1518,7 +1518,7 @@ const ProjectAllocation = () => {
                   <div className="overflow-x-auto h-[480px] overflow-y-auto">
                     <table className="w-full">
                       <thead className="sticky top-0 z-10">
-                        <tr className="bg-gray-50">
+                        <tr className="bg-[#262760] text-white">
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
@@ -1664,7 +1664,7 @@ const ProjectAllocation = () => {
                 <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
                   <button
                     onClick={closeViewModal}
-                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-6 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors"
                   >
                     Close
                   </button>
@@ -1746,7 +1746,7 @@ const ProjectAllocation = () => {
 
                 <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
                   <button onClick={closeProjectModal} className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
-                  <button onClick={handleProjectSave} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">{editingProject ? 'Update' : 'Create'}</button>
+                  <button onClick={handleProjectSave} className="px-6 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors">{editingProject ? 'Update' : 'Create'}</button>
                 </div>
               </div>
             </div>
@@ -1815,7 +1815,7 @@ const ProjectAllocation = () => {
                       <button
                         type="button"
                         onClick={addEmployeeToList}
-                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+                        className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] text-sm"
                         disabled={!allocationForm.employeeId}
                       >
                         Add
@@ -1864,7 +1864,7 @@ const ProjectAllocation = () => {
 
                 <div className="flex justify-end space-x-3 p-6 border-t border-gray-200 bg-gray-50 rounded-b-xl">
                   <button onClick={closeAllocationModal} className="px-6 py-2 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-100 transition-colors">Cancel</button>
-                  <button onClick={handleAllocate} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">{editingAllocation ? 'Update' : 'Allocate'}</button>
+                  <button onClick={handleAllocate} className="px-6 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors">{editingAllocation ? 'Update' : 'Allocate'}</button>
                 </div>
               </div>
             </div>

@@ -468,15 +468,15 @@ const UserAccess = () => {
               <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${showFilters || Object.values(filters).some(Boolean)
-                    ? 'border-blue-500 text-blue-700 bg-blue-50 hover:bg-blue-100'
+                  className={`inline-flex items-center px-3 py-2 border shadow-sm text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760] ${showFilters || Object.values(filters).some(Boolean)
+                    ? 'border-[#262760] text-white bg-[#262760] hover:bg-[#1e2050]'
                     : 'border-gray-300 text-gray-700 bg-white hover:bg-gray-50'
                     }`}
                 >
                   <FunnelIcon className="h-5 w-5 mr-2" />
                   Filters
                   {Object.values(filters).some(Boolean) && (
-                    <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white bg-blue-600 rounded-full">
+                    <span className="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-[#262760] bg-white rounded-full">
                       {Object.values(filters).filter(Boolean).length}
                     </span>
                   )}
@@ -485,7 +485,7 @@ const UserAccess = () => {
                 {Object.values(filters).some(Boolean) && (
                   <button
                     onClick={clearFilters}
-                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-[#262760] bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760]"
                   >
                     <XMarkIcon className="h-5 w-5 mr-2" />
                     Clear
@@ -494,7 +494,7 @@ const UserAccess = () => {
 
                 <button
                   onClick={exportFilteredUsers}
-                  className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-3 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760]"
                 >
                   <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
                   Export CSV
@@ -505,7 +505,7 @@ const UserAccess = () => {
                     setEditingUser(null);
                     setShowModal(true);
                   }}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760]"
                 >
                   <PlusIcon className="h-5 w-5 mr-2" />
                   Add User
@@ -607,32 +607,29 @@ const UserAccess = () => {
             {/* Desktop Table View */}
             <div className="hidden sm:block overflow-y-auto max-h-[65vh]">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 sticky top-0 z-10 shadow-sm">
+                <thead className="bg-[#262760] sticky top-0 z-10 shadow-sm">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Employee ID</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Division</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Location</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Login</th>
-                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">S.No</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">User</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Role</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Division</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Location</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Last Login</th>
+                    <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {currentItems.map((user) => {
+                  {currentItems.map((user, index) => {
                     const emp = getEmployeeRecord(user);
                     return (
                       <tr key={user._id} className="hover:bg-gray-50 transition-colors duration-150">
                         <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{indexOfFirstItem + index + 1}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                              <span className="font-medium text-blue-800">
-                                {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                              </span>
-                            </div>
-                            <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">{getDisplayEmployeeName(user)}</div>
-                            </div>
+                            <div className="text-sm font-medium text-gray-900">{getDisplayEmployeeName(user)}</div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -781,7 +778,7 @@ const UserAccess = () => {
                       key={page}
                       onClick={() => paginate(page)}
                       className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === page
-                        ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                        ? 'z-10 bg-[#262760] border-[#262760] text-white'
                         : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
                         }`}
                     >
@@ -881,7 +878,7 @@ const UserAccess = () => {
             <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
               <button
                 onClick={() => setViewingUser(null)}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors duration-150"
+                className="px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] transition-colors duration-150"
               >
                 Close
               </button>

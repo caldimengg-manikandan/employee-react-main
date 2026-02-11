@@ -242,7 +242,7 @@ const TeamManagement = () => {
               {(empFilters.location || empFilters.division || empFilters.managerEmpId) && (
                 <button
                   onClick={() => setEmpFilters({ location: '', division: '', managerEmpId: '' })}
-                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded transition-colors"
+                  className="px-4 py-2 bg-[#262760] hover:bg-[#1f204d] text-white text-sm rounded transition-colors"
                 >
                   Clear Filters
                 </button>
@@ -284,12 +284,12 @@ const TeamManagement = () => {
               <div className="overflow-x-auto">
                 <div className="h-[calc(100vh-280px)] overflow-y-auto">
                   <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50 sticky top-0 z-10">
+                    <thead className="bg-[#262760] sticky top-0 z-10">
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Employee ID</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Name</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Division</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase bg-gray-50">Location</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-white uppercase bg-[#262760]">Employee ID</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-white uppercase bg-[#262760]">Name</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-white uppercase bg-[#262760]">Division</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-white uppercase bg-[#262760]">Location</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -334,7 +334,7 @@ const TeamManagement = () => {
             )}
             {!selectedTeamCode && (
               <div className="flex items-end">
-                <button onClick={handleSaveTeam} disabled={loading || !form.teamCode || !form.leaderEmployeeId} className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded px-3 py-2">Save Team</button>
+                <button onClick={handleSaveTeam} disabled={loading || !form.teamCode || !form.leaderEmployeeId} className="w-full bg-[#262760] hover:bg-[#1f204d] text-white rounded px-3 py-2">Save Team</button>
               </div>
             )}
             <div>
@@ -342,7 +342,7 @@ const TeamManagement = () => {
               <input value={memberEmployeeId} onChange={(e) => setMemberEmployeeId(e.target.value)} className="mt-1 w-full border rounded px-3 py-2" placeholder="Enter employee id" />
             </div>
             <div className="flex items-end">
-              <button onClick={handleAddMember} disabled={loading || !selectedTeamCode || !memberEmployeeId} className="w-full bg-green-600 hover:bg-green-700 text-white rounded px-3 py-2">Add to Team</button>
+              <button onClick={handleAddMember} disabled={loading || !selectedTeamCode || !memberEmployeeId} className="w-full bg-[#262760] hover:bg-[#1f204d] text-white rounded px-3 py-2">Add to Team</button>
             </div>
           </div>
 

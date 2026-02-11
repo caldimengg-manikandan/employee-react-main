@@ -224,6 +224,14 @@ export const performanceAPI = {
   getReviewerAppraisals: () => api.get('/performance/reviewer'),
   updateReviewerAppraisal: (id, data) => api.put(`/performance/reviewer/${id}`, data),
   submitToDirector: (ids) => api.post('/performance/reviewer/submit-director', { ids }),
+  
+  // Director Endpoints
+  getDirectorAppraisals: () => api.get('/performance/director'),
+  updateDirectorAppraisal: (id, data) => api.put(`/performance/director/${id}`, data),
+
+  // Increment Master
+  getIncrementMatrix: () => api.get('/performance/increment-master'),
+  saveIncrementMatrix: (data) => api.post('/performance/increment-master', data),
 };
 
 export const payrollAPI = {

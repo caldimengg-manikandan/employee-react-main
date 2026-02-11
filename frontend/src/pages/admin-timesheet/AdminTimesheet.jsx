@@ -52,6 +52,7 @@ const AdminTimesheet = () => {
   const [employeeIdOptions, setEmployeeIdOptions] = useState(['']);
   const [selectedTimesheet, setSelectedTimesheet] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
 
   useEffect(() => {
@@ -214,7 +215,7 @@ const AdminTimesheet = () => {
       display: 'flex',
       alignItems: 'center',
       gap: '6px',
-      backgroundColor: '#4299e1',
+      backgroundColor: '#262760',
       color: 'white',
       border: 'none',
       padding: '10px 20px',
@@ -225,15 +226,15 @@ const AdminTimesheet = () => {
       transition: 'all 0.2s ease'
     },
     primaryButtonHover: {
-      backgroundColor: '#3182ce',
+      backgroundColor: '#1f204d',
       transform: 'translateY(-1px)'
     },
     secondaryButton: {
       display: 'flex',
       alignItems: 'center',
       gap: '6px',
-      backgroundColor: '#e2e8f0',
-      color: '#4a5568',
+      backgroundColor: '#262760',
+      color: 'white',
       border: 'none',
       padding: '10px 20px',
       borderRadius: '6px',
@@ -243,7 +244,7 @@ const AdminTimesheet = () => {
       transition: 'all 0.2s ease'
     },
     secondaryButtonHover: {
-      backgroundColor: '#cbd5e0'
+      backgroundColor: '#1f204d'
     },
     timesheetsTableSection: {
       padding: '16px',
@@ -276,12 +277,12 @@ const AdminTimesheet = () => {
     tableHeaderCell: {
       padding: '12px',
       textAlign: 'left',
-      backgroundColor: '#1976d2',
+      backgroundColor: '#262760',
       fontWeight: '600',
       color: 'white',
       fontSize: '14px',
       borderBottom: '1px solid #e2e8f0',
-      borderRight: '1px solid #1565c0',
+      borderRight: '1px solid #1f204d',
       position: 'sticky',
       top: 0,
       zIndex: 10
@@ -335,7 +336,7 @@ const AdminTimesheet = () => {
       display: 'flex',
       alignItems: 'center',
       gap: '4px',
-      backgroundColor: '#1976d2',
+      backgroundColor: '#262760',
       color: 'white',
       border: 'none',
       padding: '6px 12px',
@@ -453,17 +454,17 @@ const AdminTimesheet = () => {
       overflow: 'hidden'
     },
     timeEntriesHeader: {
-      backgroundColor: '#1976d2',
+      backgroundColor: '#262760',
       fontWeight: '600',
       color: 'white',
       fontSize: '14px',
       textAlign: 'center',
-      borderRight: '1px solid #1565c0'
+      borderRight: '1px solid #1f204d'
     },
     timeEntriesHeaderCell: {
       padding: '12px',
       borderBottom: '1px solid #e2e8f0',
-      borderRight: '1px solid #1565c0'
+      borderRight: '1px solid #1f204d'
     },
     timeEntriesCell: {
       padding: '12px',
@@ -923,6 +924,7 @@ const AdminTimesheet = () => {
       </div>
 
       {/* Filters Section */}
+      {showFilters && (
       <div style={styles.filtersSection}>
         <div style={styles.sectionHeader}>
           <h2 style={styles.sectionTitle}>
@@ -932,40 +934,13 @@ const AdminTimesheet = () => {
           <div style={styles.actionButtons}>
             {isFilterApplied() && (
               <button
-                style={{
-                  ...styles.secondaryButton,
-                  color: '#e53e3e',
-                  borderColor: '#e53e3e',
-                  backgroundColor: '#fff5f5'
-                }}
+                style={styles.secondaryButton}
                 onClick={handleClearFilters}
               >
                 <X size={16} />
                 Clear Filters
               </button>
             )}
-            <button 
-              style={{
-                ...styles.secondaryButton,
-                ...(hoverStates.refreshButton?.refresh ? styles.secondaryButtonHover : {}),
-                opacity: loading ? 0.7 : 1,
-                cursor: loading ? 'not-allowed' : 'pointer'
-              }}
-              onMouseEnter={() => handleMouseEnter('refreshButton', 'refresh')}
-              onMouseLeave={() => handleMouseLeave('refreshButton', 'refresh')}
-              onClick={handleRefresh}
-              disabled={loading}
-            >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
-            <button 
-              style={styles.primaryButton}
-              onClick={handleExport}
-            >
-              <Download size={16} />
-              Export
-            </button>
           </div>
         </div>
 
@@ -1092,17 +1067,51 @@ const AdminTimesheet = () => {
           </div>
         </div>
       </div>
+      )}
 
       {/* Timesheets Table */}
       <div style={styles.timesheetsTableSection}>
         <div style={styles.tableHeader}>
-          <h2 style={styles.sectionTitle}>
-            <FileText size={20} />
-            Submitted Timesheets
-          </h2>
-          <span style={{color: '#718096', fontSize: '14px'}}>
-            {timesheets.length} records
-          </span>
+          <div>
+            <h2 style={styles.sectionTitle}>
+              <FileText size={20} />
+              Submitted Timesheets
+            </h2>
+            <span style={{color: '#718096', fontSize: '14px', marginLeft: '28px'}}>
+              {timesheets.length} records
+            </span>
+          </div>
+          <div style={styles.actionButtons}>
+            <button
+              style={styles.secondaryButton}
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter size={16} />
+              {showFilters ? 'Hide Filters' : 'Show Filters'}
+            </button>
+            <button 
+              style={{
+                ...styles.secondaryButton,
+                ...(hoverStates.refreshButton?.refresh ? styles.secondaryButtonHover : {}),
+                opacity: loading ? 0.7 : 1,
+                cursor: loading ? 'not-allowed' : 'pointer'
+              }}
+              onMouseEnter={() => handleMouseEnter('refreshButton', 'refresh')}
+              onMouseLeave={() => handleMouseLeave('refreshButton', 'refresh')}
+              onClick={handleRefresh}
+              disabled={loading}
+            >
+              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+              {loading ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <button 
+              style={styles.primaryButton}
+              onClick={handleExport}
+            >
+              <Download size={16} />
+              Export
+            </button>
+          </div>
         </div>
 
         <div style={styles.tableContainer}>
@@ -1274,21 +1283,9 @@ const AdminTimesheet = () => {
                     <tr>
                       <th style={{...styles.timeEntriesHeaderCell, textAlign: 'left'}}>Projects</th>
                       <th style={{...styles.timeEntriesHeaderCell, textAlign: 'left'}}>Task</th>
-                      {shortDays.map((day, index) => {
-                        const shift = (selectedTimesheet.dailyShiftTypes && selectedTimesheet.dailyShiftTypes[index]) 
-                          || selectedTimesheet.shiftType 
-                          || '';
-                        return (
-                          <th key={day} style={styles.timeEntriesHeaderCell}>
-                            <div>{day}</div>
-                            {shift && (
-                              <div style={{ fontSize: '11px', fontWeight: 'normal', color: '#005ed8ff', marginTop: '4px' }}>
-                                {shift}
-                              </div>
-                            )}
-                          </th>
-                        );
-                      })}
+                      {shortDays.map(day => (
+                        <th key={day} style={styles.timeEntriesHeaderCell}>{day}</th>
+                      ))}
                       <th style={styles.timeEntriesHeaderCell}>Total (HH:MM)</th>
                     </tr>
                   </thead>

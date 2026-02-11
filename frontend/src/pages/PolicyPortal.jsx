@@ -1,5 +1,6 @@
 // src/pages/AdminPolicyPortal.jsx
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { policyAPI } from '../services/api';
 import {
   PlusIcon,
@@ -28,6 +29,7 @@ const AdminPolicyPortal = () => {
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const role = user.role || 'employees';
   const isReadOnly = role === 'employees' || role === 'projectmanager';
+  const location = useLocation();
 
   // Load policies from backend on component mount
   useEffect(() => {
@@ -36,19 +38,44 @@ const AdminPolicyPortal = () => {
         const res = await policyAPI.list();
         const items = Array.isArray(res.data) ? res.data : [];
         setPolicies(items);
-        if (items.length > 0 && !activePolicy) {
-          setActivePolicy(items[0]);
-          setContent(items[0].content || '');
-          setPolicyTitle(items[0].title || '');
-          setOriginalTitle(items[0].title || '');
-          setOriginalContent(items[0].content || '');
-        }
       } catch (err) {
         console.error('Failed to fetch policies:', err);
       }
     };
     fetchPolicies();
   }, []);
+
+  // Handle URL param or default selection
+  useEffect(() => {
+    if (policies.length === 0) return;
+
+    const params = new URLSearchParams(location.search);
+    const policyId = params.get('id');
+
+    let targetPolicy = null;
+    if (policyId) {
+      targetPolicy = policies.find(p => p._id === policyId);
+    }
+
+    // If specific policy requested via URL, select it.
+    if (targetPolicy) {
+      if (!activePolicy || activePolicy._id !== targetPolicy._id) {
+        setActivePolicy(targetPolicy);
+        setContent(targetPolicy.content || '');
+        setPolicyTitle(targetPolicy.title || '');
+        setOriginalTitle(targetPolicy.title || '');
+        setOriginalContent(targetPolicy.content || '');
+      }
+    } else if (!activePolicy && policies.length > 0) {
+      // Default to first policy if nothing selected and no URL param
+      const first = policies[0];
+      setActivePolicy(first);
+      setContent(first.content || '');
+      setPolicyTitle(first.title || '');
+      setOriginalTitle(first.title || '');
+      setOriginalContent(first.content || '');
+    }
+  }, [policies, location.search]);
 
   // Validate if title is unique (excluding current policy)
   const isTitleUnique = (title, currentPolicyId = null) => {

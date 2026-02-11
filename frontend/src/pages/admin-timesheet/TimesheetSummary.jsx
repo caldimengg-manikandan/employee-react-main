@@ -91,8 +91,8 @@ const TimesheetSummary = () => {
       fontSize: '14px',
       backgroundColor: 'white'
     },
-    loadSummaryBtn: {
-      background: '#1976d2',
+   loadSummaryBtn: {
+      background: '#262760',
       color: 'white',
       border: 'none',
       padding: '10px 20px',
@@ -104,7 +104,7 @@ const TimesheetSummary = () => {
       transition: 'all 0.2s ease'
     },
     exportExcelBtn: {
-      background: '#28a745',
+      background: '#262760',
       color: 'white',
       border: 'none',
       padding: '10px 20px',
@@ -135,7 +135,7 @@ const TimesheetSummary = () => {
       padding: '20px',
       borderRadius: '8px',
       textAlign: 'center',
-      borderLeft: '4px solid #1976d2'
+      borderLeft: '4px solid #262760'
     },
     summaryStatTitle: {
       margin: '0 0 10px 0',
@@ -185,7 +185,7 @@ const TimesheetSummary = () => {
       overflow: 'hidden'
     },
     barFill: {
-      background: '#1976d2',
+      background: '#262760',
       width: '100%',
       borderRadius: '4px 4px 0 0',
       transition: 'height 0.3s ease'
@@ -212,11 +212,11 @@ const TimesheetSummary = () => {
       padding: '12px',
       textAlign: 'left',
       borderBottom: '1px solid #e2e8f0',
-      backgroundColor: '#1976d2',
+      backgroundColor: '#262760',
       fontWeight: '600',
       color: 'white',
       fontSize: '14px',
-      borderRight: '1px solid #1565c0'
+      borderRight: '1px solid #1f204d'
     },
     summaryTableCell: {
       padding: '12px',
@@ -355,7 +355,7 @@ const TimesheetSummary = () => {
 
   return (
     <div style={styles.timesheetSummary}>
-      <h2 style={styles.title}>Yearly Timesheet Summary</h2>
+      
       
       <div style={styles.summaryFilters}>
         <div style={styles.filterGroup}>
@@ -400,8 +400,8 @@ const TimesheetSummary = () => {
         <button 
           style={styles.loadSummaryBtn}
           onClick={handleLoadSummary}
-          onMouseOver={(e) => e.target.style.background = '#1565c0'}
-          onMouseOut={(e) => e.target.style.background = '#1976d2'}
+          onMouseOver={(e) => e.target.style.background = '#1f204d'}
+          onMouseOut={(e) => e.target.style.background = '#262760'}
         >
           Load Summary
         </button>
@@ -409,8 +409,8 @@ const TimesheetSummary = () => {
         <button 
           style={styles.exportExcelBtn}
           onClick={handleExportToExcel}
-          onMouseOver={(e) => e.target.style.background = '#218838'}
-          onMouseOut={(e) => e.target.style.background = '#28a745'}
+          onMouseOver={(e) => e.target.style.background = '#1f204d'}
+          onMouseOut={(e) => e.target.style.background = '#262760'}
         >
           Export to Excel
         </button>
@@ -477,7 +477,7 @@ const TimesheetSummary = () => {
                   <tr key={index} style={styles.summaryTableRow}>
                     <td style={styles.summaryTableCell}>{item.project}</td>
                     <td style={styles.summaryTableCell}>
-                      <span style={{color: '#1976d2', fontWeight: '500'}}>
+                      <span style={{color: '#262760', fontWeight: '500'}}>
                         {item.employeeId}
                       </span>
                     </td>

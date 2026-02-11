@@ -1064,7 +1064,7 @@ const InsuranceManagement = () => {
             type="text"
             value={editFormData.employeeName}
             onChange={(e) => handleEditInputChange('employeeName', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Enter employee name"
             required
           />
@@ -1078,7 +1078,7 @@ const InsuranceManagement = () => {
             type="text"
             value={editFormData.employeeId}
             onChange={(e) => handleEditInputChange('employeeId', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Enter employee ID"
             required
           />
@@ -1092,7 +1092,7 @@ const InsuranceManagement = () => {
             type="tel"
             value={editFormData.mobile}
             onChange={(e) => handleEditInputChange('mobile', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Enter mobile number"
             required
           />
@@ -1106,7 +1106,7 @@ const InsuranceManagement = () => {
             type="text"
             value={editFormData.bankName}
             onChange={(e) => handleEditInputChange('bankName', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Enter bank name"
             required
           />
@@ -1120,7 +1120,7 @@ const InsuranceManagement = () => {
             type="text"
             value={editFormData.accountNumber}
             onChange={(e) => handleEditInputChange('accountNumber', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Enter account number"
             required
           />
@@ -1133,7 +1133,7 @@ const InsuranceManagement = () => {
           <select
             value={editFormData.relationship}
             onChange={(e) => handleEditInputChange('relationship', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             required
           >
             <option value="Single">Single</option>
@@ -1157,7 +1157,7 @@ const InsuranceManagement = () => {
                 type="text"
                 value={editFormData.spouseName}
                 onChange={(e) => handleEditInputChange('spouseName', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
                 placeholder="Enter spouse name"
                 required
               />
@@ -1178,8 +1178,8 @@ const InsuranceManagement = () => {
               className={`inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md ${
                 !(editFormData.children?.[editFormData.children.length - 1]?.name && editFormData.children?.[editFormData.children.length - 1]?.age)
                   ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                  : 'text-blue-600 bg-blue-100 hover:bg-blue-200'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                  : 'text-[#262760] bg-[#262760]/10 hover:bg-[#262760]/20'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760]`}
             >
               <PlusIcon className="h-4 w-4 mr-1" />
               Add Child
@@ -1196,7 +1196,7 @@ const InsuranceManagement = () => {
                   type="text"
                   value={child.name}
                   onChange={(e) => updateEditChild(index, 'name', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
                   placeholder="Enter child name"
                   required
                 />
@@ -1209,7 +1209,7 @@ const InsuranceManagement = () => {
                   type="number"
                   value={child.age}
                   onChange={(e) => updateEditChild(index, 'age', e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
                   placeholder="Enter age"
                   min="0"
                   max="999"
@@ -1237,9 +1237,9 @@ const InsuranceManagement = () => {
 
   const renderEditUploadDocuments = () => (
     <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-800 mb-2">Uploaded Documents</h3>
-        <p className="text-sm text-blue-700">
+      <div className="bg-[#262760]/5 border border-[#262760]/20 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-[#262760] mb-2">Uploaded Documents</h3>
+        <p className="text-sm text-[#262760]/80">
           You can update the documents if needed. Maximum file size: 5MB per file.
         </p>
       </div>
@@ -1265,7 +1265,7 @@ const InsuranceManagement = () => {
                 className="hidden"
                 accept={doc.accept}
               />
-              <div className="px-4 py-2 border border-gray-300 rounded-md text-center cursor-pointer hover:bg-gray-50 transition-colors">
+              <div className="px-4 py-2 border border-gray-300 rounded-md text-center cursor-pointer hover:bg-[#262760]/10 hover:text-[#262760] transition-colors">
                 Update File
               </div>
             </label>
@@ -1274,7 +1274,7 @@ const InsuranceManagement = () => {
             </span>
           </div>
           {editFormData.documents[doc.key] && (
-            <div className="mt-2 text-sm text-green-600">
+            <div className="mt-2 text-sm text-[#262760]">
               ✓ File selected: {editFormData.documents[doc.key].name}
             </div>
           )}
@@ -1297,7 +1297,7 @@ const InsuranceManagement = () => {
             type="text"
             value={editFormData.memberName}
             onChange={(e) => handleEditInputChange('memberName', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Enter member name"
             required
           />
@@ -1312,7 +1312,7 @@ const InsuranceManagement = () => {
             value={editFormData.claimNumber}
             onChange={(e) => handleEditInputChange('claimNumber', e.target.value)}
             maxLength={40}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Enter claim number"
             required
           />
@@ -1326,7 +1326,7 @@ const InsuranceManagement = () => {
             value={editFormData.treatment}
             onChange={(e) => handleEditInputChange('treatment', e.target.value)}
             rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Describe the treatment received or medical procedure"
             required
           />
@@ -1340,7 +1340,7 @@ const InsuranceManagement = () => {
             value={editFormData.hospitalAddress}
             onChange={(e) => handleEditInputChange('hospitalAddress', e.target.value)}
             rows={2}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Enter hospital name and complete address"
             required
           />
@@ -1353,7 +1353,7 @@ const InsuranceManagement = () => {
           <select
             value={editFormData.typeOfIllness}
             onChange={(e) => handleEditInputChange('typeOfIllness', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             required
           >
             <option value="">Select Illness Type</option>
@@ -1372,7 +1372,7 @@ const InsuranceManagement = () => {
               type="text"
               value={editFormData.otherIllness}
               onChange={(e) => handleEditInputChange('otherIllness', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
               placeholder="Please specify illness"
               required={editFormData.typeOfIllness === 'Other'}
             />
@@ -1387,7 +1387,7 @@ const InsuranceManagement = () => {
             type="number"
             value={editFormData.sumInsured}
             onChange={(e) => handleEditInputChange('sumInsured', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Enter sum insured amount"
             min="0"
             required
@@ -1402,7 +1402,7 @@ const InsuranceManagement = () => {
             type="number"
             value={editFormData.requestedAmount}
             onChange={(e) => handleEditInputChange('requestedAmount', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             placeholder="Enter requested amount"
             min="0"
             required
@@ -1417,7 +1417,7 @@ const InsuranceManagement = () => {
             type="date"
             value={editFormData.dateOfAdmission}
             onChange={(e) => handleEditInputChange('dateOfAdmission', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             required
             max="9999-12-31"
           />
@@ -1431,7 +1431,7 @@ const InsuranceManagement = () => {
             type="date"
             value={editFormData.dateOfDischarge}
             onChange={(e) => handleEditInputChange('dateOfDischarge', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             required
             max="9999-12-31"
           />
@@ -1445,7 +1445,7 @@ const InsuranceManagement = () => {
             type="date"
             value={editFormData.claimDate}
             onChange={(e) => handleEditInputChange('claimDate', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             required
             max="9999-12-31"
           />
@@ -1459,7 +1459,7 @@ const InsuranceManagement = () => {
             type="date"
             value={editFormData.closeDate}
             onChange={(e) => handleEditInputChange('closeDate', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             max="9999-12-31"
           />
         </div>
@@ -1471,7 +1471,7 @@ const InsuranceManagement = () => {
           <select
             value={editFormData.claimStatus}
             onChange={(e) => handleEditInputChange('claimStatus', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             required
           >
             <option value="Pending">Pending</option>
@@ -1487,7 +1487,7 @@ const InsuranceManagement = () => {
           <select
             value={editFormData.paymentStatus}
             onChange={(e) => handleEditInputChange('paymentStatus', e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             required
           >
             <option value="Unpaid">Unpaid</option>
@@ -1507,18 +1507,18 @@ const InsuranceManagement = () => {
           <React.Fragment key={step.number}>
             <div className="flex flex-col items-center mt-3">
               <div className={`flex items-center justify-center w-12 h-12 rounded-full border-2 ${currentStep >= step.number
-                ? 'bg-blue-600 border-blue-600 text-white'
+                ? 'bg-[#262760] border-[#262760] text-white'
                 : 'border-gray-300 text-gray-500'
                 }`}>
                 <step.icon className="w-6 h-6" />
               </div>
-              <span className={`mt-2 text-sm font-medium ${currentStep >= step.number ? 'text-blue-600' : 'text-gray-500'
+              <span className={`mt-2 text-sm font-medium ${currentStep >= step.number ? 'text-[#262760]' : 'text-gray-500'
                 }`}>
                 {step.title}
               </span>
             </div>
             {index < steps.length - 1 && (
-              <div className={`w-16 h-0.5 ${currentStep > step.number ? 'bg-blue-600' : 'bg-gray-300'
+              <div className={`w-16 h-0.5 ${currentStep > step.number ? 'bg-[#262760]' : 'bg-gray-300'
                 }`} />
             )}
           </React.Fragment>
@@ -1537,7 +1537,7 @@ const InsuranceManagement = () => {
           <select
             value={formData.employeeId}
             onChange={(e) => handleEmployeeSelect(e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.employeeId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.employeeId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
           >
             <option value="">Select an employee</option>
             {employees.map(emp => (
@@ -1555,7 +1555,7 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.employeeName}
             onChange={(e) => handleInputChange('employeeName', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.employeeName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.employeeName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Enter employee name"
             readOnly
           />
@@ -1570,7 +1570,7 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.employeeId}
             onChange={(e) => handleInputChange('employeeId', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.employeeId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.employeeId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Enter employee ID"
             readOnly
           />
@@ -1585,7 +1585,7 @@ const InsuranceManagement = () => {
             type="tel"
             value={formData.mobile}
             onChange={(e) => handleInputChange('mobile', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.mobile ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.mobile ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Enter mobile number"
           />
           {errors.mobile && <p className="mt-1 text-xs text-red-500">Mobile Number must be at least 10 digits</p>}
@@ -1599,7 +1599,7 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.bankName}
             onChange={(e) => handleInputChange('bankName', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.bankName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.bankName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Enter bank name"
           />
           {errors.bankName && <p className="mt-1 text-xs text-red-500">Bank Name is required</p>}
@@ -1613,7 +1613,7 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.accountNumber}
             onChange={(e) => handleInputChange('accountNumber', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.accountNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.accountNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Enter account number"
           />
           {errors.accountNumber && <p className="mt-1 text-xs text-red-500">Account Number must be at least 12 digits</p>}
@@ -1626,7 +1626,7 @@ const InsuranceManagement = () => {
           <select
             value={formData.relationship}
             onChange={(e) => handleInputChange('relationship', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.relationship ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.relationship ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
           >
             <option value="Single">Single</option>
             <option value="Married">Married</option>
@@ -1650,7 +1650,7 @@ const InsuranceManagement = () => {
                 type="text"
                 value={formData.spouseName}
                 onChange={(e) => handleInputChange('spouseName', e.target.value)}
-                className={`w-full px-3 py-2 border ${errors.spouseName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+                className={`w-full px-3 py-2 border ${errors.spouseName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
                 placeholder="Enter spouse name"
               />
               {errors.spouseName && <p className="mt-1 text-xs text-red-500">Spouse Name is required</p>}
@@ -1671,8 +1671,8 @@ const InsuranceManagement = () => {
               className={`inline-flex items-center px-3 py-1 border border-transparent text-sm font-medium rounded-md ${
                 !(formData.children?.[formData.children.length - 1]?.name && formData.children?.[formData.children.length - 1]?.age)
                   ? 'text-gray-400 bg-gray-100 cursor-not-allowed'
-                  : 'text-blue-600 bg-blue-100 hover:bg-blue-200'
-              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500`}
+                  : 'text-[#262760] bg-[#262760]/10 hover:bg-[#262760]/20'
+              } focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760]`}
             >
               <PlusIcon className="h-4 w-4 mr-1" />
               Add Child
@@ -1685,7 +1685,7 @@ const InsuranceManagement = () => {
                 <input
                   type="text"
                   placeholder="Child Name *"
-                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors[`childName_${index}`] ? 'border-red-500' : ''}`}
+                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760] ${errors[`childName_${index}`] ? 'border-red-500' : ''}`}
                   value={child.name}
                   onChange={(e) => updateChild(index, 'name', e.target.value)}
                 />
@@ -1695,7 +1695,7 @@ const InsuranceManagement = () => {
                 <input
                   type="number"
                   placeholder="Age *"
-                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${errors[`childAge_${index}`] ? 'border-red-500' : ''}`}
+                  className={`w-full p-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760] ${errors[`childAge_${index}`] ? 'border-red-500' : ''}`}
                   value={child.age}
                   onChange={(e) => updateChild(index, 'age', e.target.value)}
                   min="0"
@@ -1720,9 +1720,9 @@ const InsuranceManagement = () => {
 
   const renderUploadDocuments = () => (
     <div className="space-y-6">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-800 mb-2">Required Documents</h3>
-        <p className="text-sm text-blue-700">
+      <div className="bg-[#262760]/5 border border-[#262760]/20 rounded-lg p-4">
+        <h3 className="text-sm font-medium text-[#262760] mb-2">Required Documents</h3>
+        <p className="text-sm text-[#262760]/80">
           Please upload clear and legible copies of all required documents. Maximum file size: 5MB per file.
         </p>
       </div>
@@ -1748,7 +1748,7 @@ const InsuranceManagement = () => {
                 className="hidden"
                 accept={doc.accept}
               />
-              <div className={`px-4 py-2 border ${errors[doc.key] ? 'border-red-300 text-red-700' : 'border-gray-300'} rounded-md text-center cursor-pointer hover:bg-gray-50 transition-colors`}>
+              <div className={`px-4 py-2 border ${errors[doc.key] ? 'border-red-300 text-red-700' : 'border-gray-300'} rounded-md text-center cursor-pointer hover:bg-[#262760]/10 hover:text-[#262760] transition-colors`}>
                 Choose File
               </div>
             </label>
@@ -1770,7 +1770,7 @@ const InsuranceManagement = () => {
           </div>
           {errors[doc.key] && <p className="mt-1 text-xs text-red-500">{doc.label} is required</p>}
           {formData.documents[doc.key] && (
-            <div className="mt-2 text-sm text-green-600">
+            <div className="mt-2 text-sm text-[#262760]">
               ✓ File selected: {formData.documents[doc.key].name}
             </div>
           )}
@@ -1794,7 +1794,7 @@ const InsuranceManagement = () => {
             value={formData.memberName}
             onChange={(e) => handleInputChange('memberName', e.target.value)}
             onBlur={() => handleNameBlur('memberName')}
-            className={`w-full px-3 py-2 border ${errors.memberName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.memberName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Enter member name"
             maxLength={250}
           />
@@ -1809,7 +1809,7 @@ const InsuranceManagement = () => {
             type="text"
             value={formData.claimNumber}
             onChange={(e) => handleInputChange('claimNumber', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.claimNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.claimNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Enter claim number"
             maxLength={250}
           />
@@ -1824,7 +1824,7 @@ const InsuranceManagement = () => {
             value={formData.treatment}
             onChange={(e) => handleInputChange('treatment', e.target.value)}
             rows={3}
-            className={`w-full px-3 py-2 border ${errors.treatment ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.treatment ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Describe the treatment received or medical procedure"
             maxLength={250}
           />
@@ -1839,7 +1839,7 @@ const InsuranceManagement = () => {
             value={formData.hospitalAddress}
             onChange={(e) => handleInputChange('hospitalAddress', e.target.value)}
             rows={2}
-            className={`w-full px-3 py-2 border ${errors.hospitalAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.hospitalAddress ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Enter hospital name and complete address"
             maxLength={250}
           />
@@ -1854,7 +1854,7 @@ const InsuranceManagement = () => {
           <select
             value={formData.typeOfIllness}
             onChange={(e) => handleInputChange('typeOfIllness', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.typeOfIllness ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.typeOfIllness ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
           >
             <option value="">Select Illness Type</option>
             {illnessTypes.map((illness, index) => (
@@ -1873,7 +1873,7 @@ const InsuranceManagement = () => {
               type="text"
               value={formData.otherIllness}
               onChange={(e) => handleInputChange('otherIllness', e.target.value)}
-              className={`w-full px-3 py-2 border ${errors.otherIllness ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+              className={`w-full px-3 py-2 border ${errors.otherIllness ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
               placeholder="Please specify illness"
               maxLength={250}
             />
@@ -1889,7 +1889,7 @@ const InsuranceManagement = () => {
             type="number"
             value={formData.sumInsured}
             onChange={(e) => handleInputChange('sumInsured', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.sumInsured ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.sumInsured ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Enter sum insured amount"
             min="0"
           />
@@ -1904,7 +1904,7 @@ const InsuranceManagement = () => {
             type="number"
             value={formData.requestedAmount}
             onChange={(e) => handleInputChange('requestedAmount', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.requestedAmount ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.requestedAmount ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             placeholder="Enter requested amount"
             min="0"
           />
@@ -1919,7 +1919,7 @@ const InsuranceManagement = () => {
             type="date"
             value={formData.claimDate}
             onChange={(e) => handleInputChange('claimDate', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.claimDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.claimDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             max="9999-12-31"
           />
           {errors.claimDate && <p className="mt-1 text-xs text-red-500">Claim Date is required</p>}
@@ -1933,7 +1933,7 @@ const InsuranceManagement = () => {
             type="date"
             value={formData.dateOfAdmission}
             onChange={(e) => handleInputChange('dateOfAdmission', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.dateOfAdmission ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.dateOfAdmission ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             max="9999-12-31"
           />
           {errors.dateOfAdmission && <p className="mt-1 text-xs text-red-500">Admission Date is required</p>}
@@ -1989,7 +1989,7 @@ const InsuranceManagement = () => {
           <select
             value={formData.paymentStatus}
             onChange={(e) => handleInputChange('paymentStatus', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.paymentStatus ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.paymentStatus ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
           >
             <option value="Unpaid">Unpaid</option>
             <option value="Paid">Paid</option>
@@ -2026,8 +2026,8 @@ const InsuranceManagement = () => {
             {/* New Insurance Claim Card - Increased height */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 md:p-10 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 min-h-[320px] flex flex-col justify-center">
               <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-gradient-to-r from-blue-100 to-blue-200 mb-8 shadow-inner">
-                  <PlusIcon className="h-12 w-12 text-blue-600" />
+                <div className="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-gradient-to-r from-[#262760]/10 to-[#262760]/20 mb-8 shadow-inner">
+                  <PlusIcon className="h-12 w-12 text-[#262760]" />
                 </div>
                 <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">New Insurance Claim</h3>
                 <button
@@ -2035,7 +2035,7 @@ const InsuranceManagement = () => {
                     setCurrentView('newClaim');
                     setErrors({});
                   }}
-                  className="w-full inline-flex items-center justify-center px-8 py-5 border border-transparent text-lg font-medium rounded-xl text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                  className="w-full inline-flex items-center justify-center px-8 py-5 border border-transparent text-lg font-medium rounded-xl text-white bg-gradient-to-r from-[#262760] to-[#1e2050] hover:from-[#1e2050] hover:to-[#1a1b40] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760] transition-all duration-200 shadow-md hover:shadow-lg"
                 >
                   <PlusIcon className="h-6 w-6 mr-3" />
                   Create New Claim
@@ -2046,13 +2046,13 @@ const InsuranceManagement = () => {
             {/* Claim History Card - Increased height */}
             <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 md:p-10 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 min-h-[320px] flex flex-col justify-center">
               <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-gradient-to-r from-green-100 to-green-200 mb-8 shadow-inner">
-                  <DocumentTextIcon className="h-12 w-12 text-green-600" />
+                <div className="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-gradient-to-r from-[#262760]/10 to-[#262760]/20 mb-8 shadow-inner">
+                  <DocumentTextIcon className="h-12 w-12 text-[#262760]" />
                 </div>
                 <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Claim History</h3>
                 <button
                   onClick={() => setCurrentView('claimHistory')}
-                  className="w-full inline-flex items-center justify-center px-8 py-5 border border-transparent text-lg font-medium rounded-xl text-white bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition-all duration-200 shadow-md hover:shadow-lg"
+                  className="w-full inline-flex items-center justify-center px-8 py-5 border border-transparent text-lg font-medium rounded-xl text-white bg-gradient-to-r from-[#262760] to-[#1e2050] hover:from-[#1e2050] hover:to-[#1a1b40] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760] transition-all duration-200 shadow-md hover:shadow-lg"
                 >
                   <DocumentTextIcon className="h-6 w-6 mr-3" />
                   View Claim History
@@ -2153,7 +2153,7 @@ const InsuranceManagement = () => {
                         key="next-btn"
                         type="button"
                         onClick={handleNextStep}
-                        className="px-8 py-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md text-lg"
+                        className="px-8 py-4 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-lg hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md text-lg"
                       >
                         Next Step
                       </button>
@@ -2161,7 +2161,7 @@ const InsuranceManagement = () => {
                       <button
                         key="submit-btn"
                         type="submit"
-                        className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-lg hover:from-green-700 hover:to-green-800 transition-all duration-200 shadow-md text-lg"
+                        className="inline-flex items-center justify-center px-8 py-4 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-lg hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md text-lg"
                       >
                         <PaperAirplaneIcon className="w-6 h-6 mr-3" />
                         Submit Claim
@@ -2206,82 +2206,86 @@ const InsuranceManagement = () => {
           <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px]">
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gradient-to-r from-blue-50 to-blue-100">
+                <thead className="bg-[#262760]">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                      Claim Details
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                      S.No
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                      Treatment & Member
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                      Employee ID
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                      Amount
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                      Employee Name
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-blue-900 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                      Claim No
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                      Treatment
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                      Insured Amount
+                    </th>
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
                       Dates
                     </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-blue-900 uppercase tracking-wider">
-                      Status
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                      Claim Status
                     </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-blue-900 uppercase tracking-wider">
+                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                      Payment Status
+                    </th>
+                    <th className="px-6 py-4 text-right text-xs font-semibold text-white uppercase tracking-wider">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {claims.map((claim) => (
-                    <tr key={claim.id} className="hover:bg-blue-50 transition-colors duration-150">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center mr-3">
-                            <UserIcon className="h-5 w-5 text-blue-600" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-semibold text-gray-900">{claim.claimNumber}</div>
-                            <div className="text-sm text-gray-600">{claim.employeeName}</div>
-                            <div className="text-xs text-gray-500">{claim.employeeId}</div>
-                          </div>
-                        </div>
+                  {claims.map((claim, index) => (
+                    <tr key={claim.id} className="hover:bg-[#262760]/5 transition-colors duration-150">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {index + 1}
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">{claim.treatment}</div>
-                        <div className="text-sm text-gray-600">{claim.memberName}</div>
-                        <div className="text-xs text-gray-500">{claim.typeOfIllness}</div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {claim.employeeId}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-lg font-bold text-gray-900">₹{claim.requestedAmount?.toLocaleString()}</div>
-                        <div className="text-sm text-gray-500">Insured: ₹{claim.sumInsured?.toLocaleString()}</div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {claim.employeeName}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">
-                          {new Date(claim.claimDate).toLocaleDateString()}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {claim.closeDate ? `Closed: ${new Date(claim.closeDate).toLocaleDateString()} ` : 'Open'}
-                        </div>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {claim.claimNumber}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        {claim.treatment}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        ₹{claim.sumInsured?.toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(claim.claimDate).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="space-y-2">
-                          <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getStatusColor(claim.status)} `}>
-                            {claim.status}
-                          </span>
-                          <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getPaymentStatusColor(claim.paymentStatus)} `}>
-                            {claim.paymentStatus}
-                          </span>
-                        </div>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(claim.status)}`}>
+                          {claim.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(claim.paymentStatus)}`}>
+                          {claim.paymentStatus}
+                        </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <div className="flex justify-end space-x-2">
                           <button
                             onClick={() => setViewingClaim(claim)}
-                            className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors duration-150"
+                            className="p-2 bg-[#262760] text-white hover:bg-[#1e2050] rounded-lg shadow-sm transition-all duration-150"
                             title="View Claim Details"
                           >
                             <EyeIcon className="h-5 w-5" />
                           </button>
                           <button
                             onClick={() => handleDownloadPDF(claim)}
-                            className="p-2 text-purple-600 hover:text-purple-800 hover:bg-purple-100 rounded-lg transition-colors duration-150"
+                            className="p-2 text-[#262760] hover:text-[#1e2050] hover:bg-[#262760]/10 rounded-lg transition-colors duration-150"
                             title="Download PDF"
                           >
                             <DocumentArrowDownIcon className="h-5 w-5" />
@@ -2321,7 +2325,7 @@ const InsuranceManagement = () => {
                                 }
                               });
                             }}
-                            className="p-2 text-green-600 hover:text-green-800 hover:bg-green-100 rounded-lg transition-colors duration-150"
+                            className="p-2 text-[#262760] hover:text-[#1e2050] hover:bg-[#262760]/10 rounded-lg transition-colors duration-150"
                             title="Edit Claim"
                           >
                             <PencilIcon className="h-5 w-5" />
@@ -2349,7 +2353,7 @@ const InsuranceManagement = () => {
                   <p className="text-gray-600 mb-6">Start by submitting your first insurance claim.</p>
                   <button
                     onClick={() => setCurrentView('newClaim')}
-                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md"
+                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-lg hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md"
                   >
                     <PlusIcon className="h-5 w-5 mr-2" />
                     Create First Claim
@@ -2362,107 +2366,119 @@ const InsuranceManagement = () => {
 
         {/* View Claim Modal */}
         {viewingClaim && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-              <div className="p-6 border-b border-gray-200">
+          <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto transform transition-all">
+              <div className="p-6 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-t-3xl">
                 <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-gray-800">Claim Details - {viewingClaim.claimNumber}</h2>
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 bg-white/10 rounded-lg">
+                      <DocumentTextIcon className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-xl font-bold">Claim Details</h2>
+                      <p className="text-white/80 text-sm">#{viewingClaim.claimNumber}</p>
+                    </div>
+                  </div>
                   <button
                     onClick={() => setViewingClaim(null)}
-                    className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                    className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all duration-200"
                   >
                     <XMarkIcon className="h-6 w-6" />
                   </button>
                 </div>
               </div>
 
-              <div className="p-6 space-y-6">
+              <div className="p-8 space-y-8 bg-gray-50/50">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Claim Information */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <DocumentTextIcon className="h-5 w-5 mr-2 text-blue-600" />
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
+                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
+                        <DocumentTextIcon className="h-4 w-4 text-[#262760]" />
+                      </span>
                       Claim Information
                     </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Claim Number:</span>
-                        <span className="text-sm font-semibold text-gray-900">{viewingClaim.claimNumber}</span>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                        <span className="text-sm font-medium text-gray-500">Claim Number</span>
+                        <span className="text-sm font-bold text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded">{viewingClaim.claimNumber}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Member Name:</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.memberName}</span>
+                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                        <span className="text-sm font-medium text-gray-500">Member Name</span>
+                        <span className="text-sm font-semibold text-gray-900">{viewingClaim.memberName}</span>
                       </div>
                       <div>
-                        <span className="text-sm font-medium text-gray-700">Treatment:</span>
-                        <p className="text-sm text-gray-900 mt-1">{viewingClaim.treatment}</p>
+                        <span className="text-sm font-medium text-gray-500 block mb-1">Treatment</span>
+                        <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100">{viewingClaim.treatment}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* Financial Details */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <BanknotesIcon className="h-5 w-5 mr-2 text-green-600" />
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
+                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
+                        <BanknotesIcon className="h-4 w-4 text-[#262760]" />
+                      </span>
                       Financial Details
                     </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Sum Insured:</span>
-                        <span className="text-lg font-bold text-gray-900">₹{viewingClaim.sumInsured?.toLocaleString()}</span>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-100">
+                        <span className="text-sm font-medium text-green-800">Sum Insured</span>
+                        <span className="text-lg font-bold text-green-700">₹{viewingClaim.sumInsured?.toLocaleString()}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Requested Amount:</span>
-                        <span className="text-lg font-bold text-gray-900">₹{viewingClaim.requestedAmount?.toLocaleString()}</span>
+                      <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-100">
+                        <span className="text-sm font-medium text-blue-800">Requested Amount</span>
+                        <span className="text-lg font-bold text-blue-700">₹{viewingClaim.requestedAmount?.toLocaleString()}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Treatment Dates */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <ClockIcon className="h-5 w-5 mr-2 text-purple-600" />
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
+                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
+                        <ClockIcon className="h-4 w-4 text-[#262760]" />
+                      </span>
                       Treatment Dates
                     </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Admission Date:</span>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                        <span className="text-sm font-medium text-gray-500">Admission Date</span>
                         <span className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.dateOfAdmission).toLocaleDateString()}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Discharge Date:</span>
+                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                        <span className="text-sm font-medium text-gray-500">Discharge Date</span>
                         <span className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.dateOfDischarge).toLocaleDateString()}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Claim Status */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <ExclamationCircleIcon className="h-5 w-5 mr-2 text-yellow-600" />
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
+                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
+                        <ExclamationCircleIcon className="h-4 w-4 text-[#262760]" />
+                      </span>
                       Claim Status
                     </h4>
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Claim Status:</span>
-                        <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getStatusColor(viewingClaim.status)} `}>
+                        <span className="text-sm font-medium text-gray-500">Claim Status</span>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusColor(viewingClaim.status)}`}>
                           {viewingClaim.status}
                         </span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-700">Payment Status:</span>
-                        <span className={`inline - flex items - center px - 3 py - 1 rounded - full text - xs font - medium ${getPaymentStatusColor(viewingClaim.paymentStatus)} `}>
+                        <span className="text-sm font-medium text-gray-500">Payment Status</span>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getPaymentStatusColor(viewingClaim.paymentStatus)}`}>
                           {viewingClaim.paymentStatus}
                         </span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Claim Date:</span>
-                        <span className="text-sm text-gray-900">{new Date(viewingClaim.claimDate).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Close Date:</span>
-                        <span className="text-sm text-gray-900">
-                          {viewingClaim.closeDate ? new Date(viewingClaim.closeDate).toLocaleDateString() : 'Open'}
+                      <div className="flex justify-between items-center pt-2 border-t border-gray-50">
+                        <span className="text-xs text-gray-400">Claim Date: {new Date(viewingClaim.claimDate).toLocaleDateString()}</span>
+                        <span className="text-xs text-gray-400">
+                          {viewingClaim.closeDate ? `Closed: ${new Date(viewingClaim.closeDate).toLocaleDateString()}` : 'Open'}
                         </span>
                       </div>
                     </div>
@@ -2472,44 +2488,48 @@ const InsuranceManagement = () => {
                 {/* Medical Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Hospital Information */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <BuildingOfficeIcon className="h-5 w-5 mr-2 text-blue-600" />
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
+                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
+                        <BuildingOfficeIcon className="h-4 w-4 text-[#262760]" />
+                      </span>
                       Hospital Information
                     </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Hospital Address:</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.hospitalAddress}</span>
+                    <div className="space-y-4">
+                      <div>
+                        <span className="text-sm font-medium text-gray-500 block mb-1">Hospital Address</span>
+                        <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100">{viewingClaim.hospitalAddress}</p>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Type of Illness:</span>
-                        <span className="text-sm font-semibold text-gray-900">{viewingClaim.typeOfIllness}</span>
+                      <div className="flex justify-between items-center border-t border-gray-50 pt-2">
+                        <span className="text-sm font-medium text-gray-500">Type of Illness</span>
+                        <span className="text-sm font-semibold text-gray-900 px-2 py-1 bg-purple-50 text-purple-700 rounded">{viewingClaim.typeOfIllness}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Employee Information */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <UserIcon className="h-5 w-5 mr-2 text-blue-600" />
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
+                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
+                        <UserIcon className="h-4 w-4 text-[#262760]" />
+                      </span>
                       Employee Information
                     </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Employee Name:</span>
-                        <span className="text-sm font-semibold text-gray-900">{viewingClaim.employeeName}</span>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                        <span className="text-sm font-medium text-gray-500">Employee Name</span>
+                        <span className="text-sm font-bold text-gray-900">{viewingClaim.employeeName}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Employee ID:</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.employeeId}</span>
+                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                        <span className="text-sm font-medium text-gray-500">Employee ID</span>
+                        <span className="text-sm font-mono text-gray-600 bg-gray-50 px-2 py-1 rounded">{viewingClaim.employeeId}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Mobile:</span>
+                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                        <span className="text-sm font-medium text-gray-500">Mobile</span>
                         <span className="text-sm text-gray-900">{viewingClaim.mobile}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Relationship:</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-500">Relationship</span>
                         <span className="text-sm text-gray-900">{viewingClaim.relationship}</span>
                       </div>
                     </div>
@@ -2519,19 +2539,21 @@ const InsuranceManagement = () => {
                 {/* Additional Information */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Bank Information */}
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4 flex items-center">
-                      <BuildingLibraryIcon className="h-5 w-5 mr-2 text-green-600" />
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
+                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
+                        <BuildingLibraryIcon className="h-4 w-4 text-[#262760]" />
+                      </span>
                       Bank Information
                     </h4>
-                    <div className="space-y-3">
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Bank Name:</span>
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
+                        <span className="text-sm font-medium text-gray-500">Bank Name</span>
                         <span className="text-sm font-semibold text-gray-900">{viewingClaim.bankName}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm font-medium text-gray-700">Account Number:</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.accountNumber}</span>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm font-medium text-gray-500">Account Number</span>
+                        <span className="text-sm font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded">{viewingClaim.accountNumber}</span>
                       </div>
                     </div>
                   </div>
@@ -2539,23 +2561,28 @@ const InsuranceManagement = () => {
 
                 {/* Family Details */}
                 {(viewingClaim.spouseName || (viewingClaim.children && viewingClaim.children.length > 0)) && (
-                  <div className="bg-gray-50 p-6 rounded-xl">
-                    <h4 className="text-sm font-semibold text-gray-900 mb-4">Family Details</h4>
+                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
+                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
+                        <UserGroupIcon className="h-4 w-4 text-[#262760]" />
+                      </span>
+                      Family Details
+                    </h4>
                     <div className="space-y-4">
                       {viewingClaim.spouseName && (
-                        <div className="flex justify-between">
-                          <span className="text-sm font-medium text-gray-700">Spouse Name:</span>
-                          <span className="text-sm font-semibold text-gray-900">{viewingClaim.spouseName}</span>
+                        <div className="flex justify-between items-center p-3 bg-pink-50 rounded-lg border border-pink-100">
+                          <span className="text-sm font-medium text-pink-800">Spouse Name</span>
+                          <span className="text-sm font-bold text-pink-900">{viewingClaim.spouseName}</span>
                         </div>
                       )}
                       {viewingClaim.children && viewingClaim.children.length > 0 && (
                         <div>
-                          <span className="text-sm font-medium text-gray-700">Children:</span>
-                          <div className="mt-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+                          <span className="text-sm font-medium text-gray-500 mb-2 block">Children</span>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {viewingClaim.children.map((child, index) => (
-                              <div key={index} className="bg-white p-3 rounded-lg border border-gray-200">
-                                <div className="font-medium text-gray-900">{child.name}</div>
-                                <div className="text-sm text-gray-600">Age: {child.age} years</div>
+                              <div key={index} className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex justify-between items-center">
+                                <div className="font-semibold text-blue-900">{child.name}</div>
+                                <div className="text-xs font-medium text-blue-700 bg-white/50 px-2 py-1 rounded-full">{child.age} yrs</div>
                               </div>
                             ))}
                           </div>
@@ -2566,19 +2593,19 @@ const InsuranceManagement = () => {
                 )}
               </div>
 
-              <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-between">
+              <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-3xl flex justify-between items-center">
                 <button
                   onClick={() => handleDownloadPDF(viewingClaim)}
-                  className="inline-flex items-center px-6 py-3 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors duration-200"
+                  className="inline-flex items-center px-6 py-3 border-2 border-[#262760] text-[#262760] font-semibold rounded-xl hover:bg-[#262760] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md"
                 >
                   <DocumentArrowDownIcon className="w-5 h-5 mr-2" />
-                  Download as PDF
+                  Download PDF
                 </button>
                 <button
                   onClick={() => setViewingClaim(null)}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-150 shadow-md"
+                  className="px-8 py-3 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white font-semibold rounded-xl hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
                 >
-                  Close Details
+                  Close
                 </button>
               </div>
             </div>
@@ -2608,7 +2635,7 @@ const InsuranceManagement = () => {
                     {/* Employee Details Section */}
                     <div className="border-b pb-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                        <UserCircleIcon className="h-5 w-5 mr-2 text-blue-600" />
+                        <UserCircleIcon className="h-5 w-5 mr-2 text-[#262760]" />
                         Employee Details
                       </h3>
                       {renderEditEmployeeDetails()}
@@ -2617,7 +2644,7 @@ const InsuranceManagement = () => {
                     {/* Upload Documents Section */}
                     <div className="border-b pb-6">
                       <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                        <DocumentArrowUpIcon className="h-5 w-5 mr-2 text-blue-600" />
+                        <DocumentArrowUpIcon className="h-5 w-5 mr-2 text-[#262760]" />
                         Upload Documents
                       </h3>
                       {renderEditUploadDocuments()}
@@ -2626,7 +2653,7 @@ const InsuranceManagement = () => {
                     {/* Treatment Details Section */}
                     <div>
                       <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                        <DocumentTextIcon className="h-5 w-5 mr-2 text-blue-600" />
+                        <DocumentTextIcon className="h-5 w-5 mr-2 text-[#262760]" />
                         Treatment Details
                       </h3>
                       {renderEditTreatmentDetails()}
@@ -2643,7 +2670,7 @@ const InsuranceManagement = () => {
                     </button>
                     <button
                       type="submit"
-                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-md"
+                      className="px-6 py-3 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-lg hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md"
                     >
                       Update Claim
                     </button>

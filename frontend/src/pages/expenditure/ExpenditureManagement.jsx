@@ -817,38 +817,12 @@ const ExpenditureManagement = () => {
 
   return (
     <div className="p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-
-        <div className="flex items-center gap-3">
-          {activeTab === "manage" && (
-            <button
-              onClick={exportToCSV}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-              disabled={!month || !year || !location}
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button>
-          )}
-          {activeTab === "summary" && summaryData.length > 0 && (
-            <button
-              onClick={exportSummaryToCSV}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Export Summary
-            </button>
-          )}
-        </div>
-      </div>
-
       {/* Tabs */}
-      <div className="mb-6">
-        <div className="flex border-b">
+      <div className="mb-6 flex justify-between items-end border-b">
+        <div className="flex">
           <button
             className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "manage"
-              ? "border-b-2 border-[#262760] text-[#262760]"
+              ? "border-b-2 border-[#262760] text-[#262760] -mb-[2px]"
               : "text-gray-500 hover:text-gray-700"
               }`}
             onClick={() => setActiveTab("manage")}
@@ -857,7 +831,7 @@ const ExpenditureManagement = () => {
           </button>
           <button
             className={`px-6 py-3 font-medium text-sm transition-colors ${activeTab === "summary"
-              ? "border-b-2 border-[#262760] text-[#262760]"
+              ? "border-b-2 border-[#262760] text-[#262760] -mb-[2px]"
               : "text-gray-500 hover:text-gray-700"
               }`}
             onClick={() => {
@@ -867,6 +841,28 @@ const ExpenditureManagement = () => {
           >
             View Summary
           </button>
+        </div>
+
+        <div className="flex items-center gap-3 pb-2">
+          {activeTab === "manage" && (
+            <button
+              onClick={exportToCSV}
+              className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors flex items-center gap-2"
+              disabled={!month || !year || !location}
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </button>
+          )}
+          {activeTab === "summary" && summaryData.length > 0 && (
+            <button
+              onClick={exportSummaryToCSV}
+              className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors flex items-center gap-2"
+            >
+              <Download className="w-4 h-4" />
+              Export Summary
+            </button>
+          )}
         </div>
       </div>
 

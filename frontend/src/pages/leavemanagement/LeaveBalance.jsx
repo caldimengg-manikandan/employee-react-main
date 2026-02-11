@@ -113,7 +113,7 @@ const LeaveBalance = () => {
     const { designation, monthsOfService } = employee;
     let casual = 0, sick = 0, privilege = 0;
     
-    const isTrainee = String(designation || '').toLowerCase() === 'trainee';
+    const isTrainee = String(designation || '').toLowerCase().includes('trainee');
     const traineeMonths = Math.min(monthsOfService, 12);
     const usedCasual = 0;
     const usedSick = 0;

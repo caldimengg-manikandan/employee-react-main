@@ -80,7 +80,7 @@ const AnnouncementManagement = () => {
       
 
       {/* Form */}
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl border border-blue-200 mb-8">
+      <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 mb-8">
         <h3 className="text-lg font-semibold text-gray-800 mb-4">
           {editingId ? 'Edit Announcement' : 'Create New Announcement'}
         </h3>
@@ -94,7 +94,7 @@ const AnnouncementManagement = () => {
               <input
                 type="text"
                 required
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
                 placeholder="Enter announcement title"
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
@@ -108,7 +108,7 @@ const AnnouncementManagement = () => {
               <textarea
                 required
                 rows={4}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
                 placeholder="Enter announcement message"
                 value={form.message}
                 onChange={(e) => setForm({ ...form, message: e.target.value })}
@@ -122,7 +122,7 @@ const AnnouncementManagement = () => {
                 </label>
                 <input
                   type="date"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
                   value={form.startDate}
                   onChange={(e) => setForm({ ...form, startDate: e.target.value })}
                 />
@@ -133,7 +133,7 @@ const AnnouncementManagement = () => {
                 </label>
                 <input
                   type="date"
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
                   value={form.endDate}
                   onChange={(e) => setForm({ ...form, endDate: e.target.value })}
                 />
@@ -144,7 +144,7 @@ const AnnouncementManagement = () => {
               <input
                 type="checkbox"
                 id="isActive"
-                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                className="w-4 h-4 text-[#262760] rounded focus:ring-[#262760]"
                 checked={form.isActive}
                 onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
               />
@@ -158,7 +158,7 @@ const AnnouncementManagement = () => {
             <button
               type="submit"
               disabled={isLoading}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-300 disabled:opacity-50"
+              className="bg-[#262760] text-white px-6 py-2.5 rounded-lg font-medium hover:bg-[#1e2050] transition-all duration-300 disabled:opacity-50"
             >
               {isLoading ? 'Saving...' : editingId ? 'Update Announcement' : 'Publish Announcement'}
             </button>
@@ -239,7 +239,7 @@ const AnnouncementManagement = () => {
                       className={`px-3 py-1.5 text-xs rounded-lg font-medium ${
                         announcement.isActive
                           ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
-                          : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                          : 'bg-[#262760] text-white hover:bg-[#1e2050]'
                       }`}
                     >
                       {announcement.isActive ? 'Deactivate' : 'Activate'}
@@ -247,7 +247,7 @@ const AnnouncementManagement = () => {
                     
                     <button
                       onClick={() => handleEdit(announcement)}
-                      className="px-3 py-1.5 text-xs bg-blue-100 text-blue-800 rounded-lg font-medium hover:bg-blue-200"
+                      className="px-3 py-1.5 text-xs bg-[#262760] text-white rounded-lg font-medium hover:bg-[#1e2050]"
                     >
                       Edit
                     </button>

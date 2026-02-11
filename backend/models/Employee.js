@@ -91,6 +91,9 @@ const employeeSchema = new mongoose.Schema({
     totalBalance: Number
   },
   leaveBalanceUpdatedAt: Date,
+  appraiser: String,
+  reviewer: String,
+  director: String,
   status: {
     type: String,
     enum: ['Active', 'Inactive', 'Suspended'],

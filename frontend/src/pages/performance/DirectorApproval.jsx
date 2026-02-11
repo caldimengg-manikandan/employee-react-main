@@ -11,49 +11,10 @@ import {
   User,
   Send
 } from 'lucide-react';
+import { performanceAPI } from '../../services/api';
 
 const DirectorApproval = () => {
-  // Mock Data
-  const MOCK_DATA = [
-    {
-      id: 1,
-      financialYr: '2025-26',
-      empId: 'EMP001',
-      name: 'John Doe',
-      designation: 'Senior Developer',
-      department: 'Engineering',
-      selfAppraiseeComments: 'I have successfully led the migration to the new architecture.',
-      managerComments: 'John has been an exceptional performer. Highly recommended for promotion.',
-      reviewerComments: 'Agreed. He is a top performer.',
-      directorComments: '',
-      currentSalary: 1200000,
-      incrementPercentage: 10,
-      incrementCorrectionPercentage: 0,
-      incrementAmount: 120000,
-      revisedSalary: 1320000,
-      status: 'Pending'
-    },
-    {
-      id: 2,
-      financialYr: '2025-26',
-      empId: 'EMP002',
-      name: 'Jane Smith',
-      designation: 'Product Manager',
-      department: 'Product',
-      selfAppraiseeComments: 'Delivered three key product features ahead of schedule.',
-      managerComments: 'Jane is a great asset to the team.',
-      reviewerComments: 'Good performance, but needs to focus on leadership.',
-      directorComments: '',
-      currentSalary: 1500000,
-      incrementPercentage: 8,
-      incrementCorrectionPercentage: 2,
-      incrementAmount: 150000,
-      revisedSalary: 1650000,
-      status: 'Pending'
-    }
-  ];
-
-  const [employees, setEmployees] = useState(MOCK_DATA);
+  const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFinancialYr, setSelectedFinancialYr] = useState('2025-26');
@@ -71,10 +32,23 @@ const DirectorApproval = () => {
   // View Details Modal State
   const [viewModalData, setViewModalData] = useState(null);
 
-  // Fetch data (simulated)
+  // Fetch data
   useEffect(() => {
-    // fetchDirectorAppraisals();
+    fetchDirectorAppraisals();
   }, []);
+
+  const fetchDirectorAppraisals = async () => {
+    setLoading(true);
+    try {
+      const response = await performanceAPI.getDirectorAppraisals();
+      setEmployees(response.data);
+    } catch (error) {
+      console.error('Error fetching appraisals:', error);
+      // alert('Failed to fetch appraisals');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const calculateFinancials = (current, pct, correctionPct) => {
     const currentVal = parseFloat(current) || 0;
@@ -102,13 +76,19 @@ const DirectorApproval = () => {
     setEditFormData({});
   };
 
-  const handleSaveRow = () => {
-    setEmployees(employees.map(emp => 
-      emp.id === editingRowId ? editFormData : emp
-    ));
-    setEditingRowId(null);
-    setEditFormData({});
-    alert("Row saved successfully!");
+  const handleSaveRow = async () => {
+    try {
+      await performanceAPI.updateDirectorAppraisal(editingRowId, editFormData);
+      setEmployees(employees.map(emp => 
+        emp.id === editingRowId ? editFormData : emp
+      ));
+      setEditingRowId(null);
+      setEditFormData({});
+      alert("Row saved successfully!");
+    } catch (error) {
+      console.error('Error saving row:', error);
+      alert('Failed to save changes');
+    }
   };
 
   const handleInputChange = (field, value) => {
@@ -134,27 +114,41 @@ const DirectorApproval = () => {
     setIsCommentModalOpen(true);
   };
 
-  const saveComment = () => {
-    if (editingRowId === currentCommentEmpId) {
-      setEditFormData({ ...editFormData, directorComments: tempComment });
-    } else {
-      setEmployees(employees.map(emp => 
-        emp.id === currentCommentEmpId ? { ...emp, directorComments: tempComment } : emp
-      ));
+  const saveComment = async () => {
+    try {
+      const updatedData = { directorComments: tempComment };
+      await performanceAPI.updateDirectorAppraisal(currentCommentEmpId, updatedData);
+
+      if (editingRowId === currentCommentEmpId) {
+        setEditFormData({ ...editFormData, directorComments: tempComment });
+      } else {
+        setEmployees(employees.map(emp => 
+          emp.id === currentCommentEmpId ? { ...emp, directorComments: tempComment } : emp
+        ));
+      }
+      setIsCommentModalOpen(false);
+    } catch (error) {
+      console.error('Error saving comment:', error);
+      alert('Failed to save comment');
     }
-    setIsCommentModalOpen(false);
   };
 
-  const handleApproveRelease = (emp) => {
+  const handleApproveRelease = async (emp) => {
     if(window.confirm(`Are you sure you want to approve and release the letter for ${emp.name}?`)) {
-      setEmployees(employees.map(e => 
-        e.id === emp.id ? { ...e, status: 'Released' } : e
-      ));
-      alert(`Appraisal letter released for ${emp.name}!`);
+      try {
+        await performanceAPI.updateDirectorAppraisal(emp.id, { status: 'Released' });
+        setEmployees(employees.map(e => 
+          e.id === emp.id ? { ...e, status: 'Released' } : e
+        ));
+        alert(`Appraisal letter released for ${emp.name}!`);
+      } catch (error) {
+        console.error('Error releasing letter:', error);
+        alert('Failed to release letter');
+      }
     }
   };
 
-  const handleBulkApprove = () => {
+  const handleBulkApprove = async () => {
     const rowsToSubmit = selectedRows.length > 0 
       ? employees.filter(emp => selectedRows.includes(emp.id))
       : employees;
@@ -166,13 +160,22 @@ const DirectorApproval = () => {
     }
 
     if(window.confirm(`Approve and Release Letters for ${count} employee(s)?`)) {
-      setEmployees(employees.map(emp => 
-        (selectedRows.length === 0 || selectedRows.includes(emp.id)) 
-          ? { ...emp, status: 'Released' } 
-          : emp
-      ));
-      alert(`${count} letters released successfully!`);
-      setSelectedRows([]);
+      try {
+        await Promise.all(rowsToSubmit.map(emp => 
+           performanceAPI.updateDirectorAppraisal(emp.id, { status: 'Released' })
+        ));
+        
+        setEmployees(employees.map(emp => 
+          (selectedRows.length === 0 || selectedRows.includes(emp.id)) 
+            ? { ...emp, status: 'Released' } 
+            : emp
+        ));
+        alert(`${count} letters released successfully!`);
+        setSelectedRows([]);
+      } catch (error) {
+        console.error('Error releasing letters:', error);
+        alert('Failed to release letters');
+      }
     }
   };
 

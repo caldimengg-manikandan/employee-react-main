@@ -42,6 +42,7 @@ const Header = ({ onMenuClick }) => {
       '/admin/team-management': 'Team Management',
       '/payroll/details': 'Employee PayRolls Details',
       '/payroll/cost-to-the-company': 'Cost to the Company',
+      '/payroll/compensation-master': 'Compensation Master',
       '/payroll/loan-summary': 'Loan Summary',
       '/payroll/gratuity-summary': 'Gratuity Summary',
       '/payroll/monthly': 'Monthly Payroll',

@@ -363,7 +363,7 @@ const EmployeeManagement = () => {
           {/* Header */}
           <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center rounded-t-2xl">
             <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center">
+              <div className="w-16 h-16 bg-[#262760] rounded-xl flex items-center justify-center">
                 <span className="text-2xl font-bold text-white">
                   {viewingEmployee.name ? viewingEmployee.name.charAt(0).toUpperCase() : 'E'}
                 </span>
@@ -661,7 +661,7 @@ const EmployeeManagement = () => {
                   setViewingEmployee(null);
                   handleEdit(viewingEmployee);
                 }}
-                className="px-6 py-3 text-sm font-medium text-white bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg"
+                className="px-6 py-3 text-sm font-medium text-white bg-[#262760] rounded-xl hover:bg-[#202150] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg"
               >
                 Edit Employee
               </button>
@@ -714,7 +714,7 @@ const EmployeeManagement = () => {
                 </button>
                 <button
                   onClick={() => setShowModal(true)}
-                  className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
+                  className="inline-flex items-center px-4 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-[#262760] hover:bg-[#202150] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                 >
                   <PlusIcon className="h-5 w-5 mr-2" />
                   Add Employee
@@ -804,36 +804,34 @@ const EmployeeManagement = () => {
             <div className="overflow-x-auto">
               <div className="max-h-[600px] overflow-y-auto">
                 <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="sticky top-0 z-10">
-                    <tr className="bg-gradient-to-r from-blue-600 to-indigo-600">
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                  <thead className="sticky top-0 z-10 bg-[#262760]">
+                    <tr>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         S.No
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Employee ID
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Employee Name
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
-                        Email
-                      </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Division
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Designation
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Qualification
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Experience
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500 bg-gradient-to-r from-blue-600 to-indigo-600">
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Contact
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider bg-gradient-to-r from-blue-600 to-indigo-600">
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
                         Actions
                       </th>
                     </tr>
@@ -853,9 +851,7 @@ const EmployeeManagement = () => {
                         <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
                           <div className="text-sm font-semibold text-gray-900">{employee.name}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
-                          {employee.email}
-                        </td>
+
                         <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
                           <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
                             {employee.division}

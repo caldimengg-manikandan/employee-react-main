@@ -24,56 +24,80 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const [employeeSearch, setEmployeeSearch] = useState('');
 
   const permissionOptions = [
+    // Dashboard & Profile
     { key: 'home', label: 'Home', alwaysOn: true },
     { key: 'my_profile', label: 'My Profile', alwaysOn: true },
     { key: 'dashboard', label: 'Dashboard' },
-    { key: 'user_access', label: 'User Access' },
-    { key: 'employee_access', label: 'Employee Management' },
 
-    // Timesheet & attendance
+    // Timesheet
     { key: 'timesheet_access', label: 'Timesheet', alwaysOn: true },
     { key: 'timesheet_access', label: 'Timesheet History' },
     { key: 'timesheet_access', label: 'Attendance Regularization' },
     { key: 'attendance_access', label: 'Employee Attendance' },
     { key: 'attendance_access', label: 'Attendance Approval' },
-    { key: 'timesheet_access', label: 'Admin Timesheet' },
-    { key: 'timesheet_access', label: 'Timesheet Summary' },
+    { key: 'admin_timesheet_access', label: 'Admin Timesheet' },
+    { key: 'admin_timesheet_access', label: 'Timesheet Summary' },
 
-    // Project
+    // Project Allocation
     { key: 'project_access', label: 'Project Allocation' },
 
-    // Leave management
+    // Performance Management
+    { key: 'performance_access', label: 'Self Appraisal' },
+    { key: 'performance_access', label: 'Team Appraisal' },
+    { key: 'performance_access', label: 'Reviewer Approval' },
+    { key: 'performance_access', label: 'Director Approval' },
+    { key: 'performance_access', label: 'Appraisal Workflow' },
+    { key: 'performance_access', label: 'Increment Master' },
+    { key: 'performance_access', label: 'Increment Summary' },
+
+    // Leave Management
     { key: 'leave_access', label: 'Leave Applications', alwaysOn: true },
     { key: 'leave_view', label: 'Leave Summary' },
     { key: 'leave_view', label: 'Leave Balance' },
-    { key: 'leave_manage', label: 'Edit Leave Eligibility' },
-    { key: 'leave_manage_trainees', label: 'Trainees Management' },
+    // { key: 'leave_manage', label: 'Edit Leave Eligibility' }, // Not in sidebar explicitly, maybe part of something else?
+    // { key: 'leave_manage_trainees', label: 'Trainees Management' }, // Not in sidebar explicitly
 
-    // Exit management
-    { key: 'exit_form_access', label: 'Employee Exit Form', alwaysOn: true },
-    { key: 'exit_approval_access', label: 'Exit Approval' },
+    // Insurance & Policy
+    { key: 'insurance_access', label: 'Insurance' },
+    { key: 'dashboard', label: 'Policy Portal' }, // Using dashboard as generic read permission if not specified
 
-    // Insurance / policy
-    { key: 'dashboard', label: 'Insurance' },
-    { key: 'dashboard', label: 'Policy Portal' },
-
-    // Salary / payroll / holidays
+    // Salary Slips
     { key: 'payroll_view', label: 'Salary Slips', alwaysOn: true },
-    { key: 'payroll_view', label: 'PF & Gratuity Summary' },
-    { key: 'payroll_view', label: 'Holidays Allowance' },
-    { key: 'payroll_access', label: 'Payroll Details' },
+
+    // Payroll Management
+    { key: 'payroll_manage', label: 'Payroll Details' },
     { key: 'payroll_view', label: 'Cost to the Company' },
+    { key: 'payroll_manage', label: 'Compensation Master' },
     { key: 'loan_view', label: 'Loan Summary' },
     { key: 'gratuity_view', label: 'Gratuity Summary' },
     { key: 'payroll_access', label: 'Monthly Payroll' },
 
-    // Expenditure
+    // Expenditure Management
     { key: 'expenditure_access', label: 'Expenditure Management' },
 
-    // Announcements / rewards / interns / team
+    // Announcements
     { key: 'announcement_manage', label: 'Announcements' },
+
+    // Intern Reference
+    { key: 'dashboard', label: 'Intern Reference' }, // Generic permission
+
+    // Exit Management
+    { key: 'exit_form_access', label: 'Employee Exit Form', alwaysOn: true },
+    { key: 'exit_approval_access', label: 'Exit Approval' },
+
+    // Employee Reward Tracker
     { key: 'reward_access', label: 'Employee Reward Tracker' },
-    { key: 'dashboard', label: 'Intern Reference' },
+
+    // Holidays
+    { key: 'payroll_view', label: 'Holidays Allowance' },
+
+    // Employee Management
+    { key: 'employee_access', label: 'Employee Management' },
+
+    // User Access
+    { key: 'user_access', label: 'User Access' },
+
+    // Team Management
     { key: 'team_access', label: 'Team Management' }
   ];
 
@@ -305,7 +329,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="flex flex-col max-h-[80vh]">
+      <div className="space-y-6 overflow-y-auto pr-2 flex-1 p-1">
       {errors.submit && (
         <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
           {errors.submit}
@@ -530,14 +555,14 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
             <button
               type="button"
               onClick={selectAllPermissions}
-              className="px-3 py-1 rounded-md text-sm bg-blue-600 text-white hover:bg-blue-700"
+              className="px-3 py-1 rounded-md text-sm bg-[#262760] text-white hover:bg-[#1e2050] transition-colors duration-150"
             >
               Select All
             </button>
             <button
               type="button"
               onClick={clearAllPermissions}
-              className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-800 hover:bg-gray-300"
+              className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors duration-150"
             >
               Clear
             </button>
@@ -547,13 +572,11 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
           {permissionOptions.map(option => {
             const permission = option.key;
             const isAlwaysEnabled = !!option.alwaysOn;
-
-
             const isActive = isAlwaysEnabled || formData.permissions.includes(permission);
             return (
               <div
-                key={permission}
-                className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 ${isAlwaysEnabled ? 'opacity-75' : ''}`}
+                key={`${permission}-${option.label}`}
+                className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-[#262760] transition-all duration-200 ${isAlwaysEnabled ? 'opacity-75' : ''}`}
               >
                 <span className="text-sm text-gray-700">
                   {option.label} {isAlwaysEnabled && '(Always On)'}
@@ -563,41 +586,39 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
                   type="button"
                   disabled={isAlwaysEnabled}
                   onClick={() => !isAlwaysEnabled && handlePermissionChange(permission)}
-                  className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out 
-                    ${isActive ? 'bg-primary-600' : 'bg-gray-300'} ${isAlwaysEnabled ? 'cursor-not-allowed' : ''}`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out 
-                      ${isActive ? 'translate-x-5' : 'translate-x-0'}`}
-                  />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-        {errors.permissions && (
-          <p className="mt-2 text-sm text-red-600">{errors.permissions}</p>
-        )}
+                className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out 
+                  ${isActive ? 'bg-[#262760]' : 'bg-gray-300'} ${isAlwaysEnabled ? 'cursor-not-allowed' : ''}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                  ${isActive ? 'translate-x-5' : 'translate-x-0'}`}
+                />
+              </button>
+            </div>
+          );
+        })}
+      </div>
+      {errors.permissions && (
+        <p className="mt-2 text-sm text-red-600">{errors.permissions}</p>
+      )}
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-end space-x-3 pt-4">
+      </div>
+      <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 mt-4">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 
-                     hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
+          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760]"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium 
-                     text-white bg-primary-600 hover:bg-primary-700 focus:outline-none 
-                     focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50"
+          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760] disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {loading ? 'Saving...' : user ? 'Update' : 'Create'}
+          {loading ? 'Saving...' : user ? 'Update User' : 'Create User'}
         </button>
       </div>
     </form>

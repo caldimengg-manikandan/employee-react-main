@@ -386,8 +386,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/holidays-allowance",
       icon: getIconForMenu("Holidays Allowance"),
       permission: "payroll_view",
-      allowEmployeeRole: true,
-      showForRoles: ["admin", "hr", "manager", "employees"],
+      showForRoles: ["admin", "hr",],
     },
     // EMPLOYEE MANAGEMENT
     {

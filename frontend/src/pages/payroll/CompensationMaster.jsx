@@ -8,9 +8,11 @@ import {
   Download,
   Filter,
   Save,
-  X
+  X,
+  Mail,
+  Paperclip
 } from "lucide-react";
-import { employeeAPI, compensationAPI } from "../../services/api";
+import { employeeAPI, compensationAPI, mailAPI } from "../../services/api";
 
 const initialCompensation = {
   employeeId: "",
@@ -56,6 +58,18 @@ const CompensationMaster = () => {
   const [locations, setLocations] = useState(["Hosur", "Chennai"]);
   const [employees, setEmployees] = useState([]);
   const [viewItem, setViewItem] = useState(null);
+
+  // Email state
+  const [emailModalOpen, setEmailModalOpen] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailData, setEmailData] = useState({
+    to: "",
+    cc: "",
+    subject: "Compensation Details / Offer Letter",
+    message: "",
+    attachments: [] // Array of { filename, content, encoding }
+  });
+  const [selectedCompensation, setSelectedCompensation] = useState(null); // Store current comp for HTML generation
 
   useEffect(() => {
     const loadData = async () => {
@@ -152,6 +166,196 @@ const CompensationMaster = () => {
       }));
     } else {
       setFormData(prev => ({ ...prev, employeeId: "" }));
+    }
+  };
+
+  const handleOpenEmail = (comp) => {
+    const emp = employees.find(e => e.employeeId === comp.employeeId);
+    const email = emp?.email || "";
+    setSelectedCompensation(comp);
+    
+    // Default introductory message
+    const message = `Dear ${comp.name},
+
+We are pleased to share your compensation details with you. Please find the breakdown below.
+
+Should you have any questions, feel free to reach out to us.
+
+Best regards,
+HR Team`;
+
+    setEmailData({
+      to: email,
+      cc: "",
+      subject: "Compensation Details - " + comp.name,
+      message: message,
+      attachments: []
+    });
+    setEmailModalOpen(true);
+  };
+
+  const handleFileChange = async (e) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+
+    const newAttachments = [];
+    for (const file of files) {
+      const reader = new FileReader();
+      const promise = new Promise((resolve) => {
+        reader.onload = (e) => {
+          const content = e.target.result.split(',')[1]; // Get base64 content
+          resolve({
+            filename: file.name,
+            content: content,
+            encoding: 'base64'
+          });
+        };
+      });
+      reader.readAsDataURL(file);
+      newAttachments.push(await promise);
+    }
+
+    setEmailData(prev => ({
+      ...prev,
+      attachments: [...prev.attachments, ...newAttachments]
+    }));
+  };
+
+  const removeAttachment = (index) => {
+    setEmailData(prev => ({
+      ...prev,
+      attachments: prev.attachments.filter((_, i) => i !== index)
+    }));
+  };
+
+  const generateHTML = (message, comp) => {
+    if (!comp) return "";
+    
+    const formatCurrency = (val) => {
+        if (!val) return "0";
+        return isNaN(val) ? val : Number(val).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
+    };
+
+    return `
+      <div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
+        <div style="background-color: #262760; padding: 20px; text-align: center;">
+          <h2 style="color: white; margin: 0;">Compensation Details</h2>
+        </div>
+        
+        <div style="padding: 30px;">
+          <div style="font-size: 16px; line-height: 1.6; color: #555; white-space: pre-wrap;">
+            ${message.replace(/\n/g, '<br>')}
+          </div>
+
+          <div style="margin-top: 30px; background-color: #f9fafb; padding: 20px; border-radius: 8px;">
+            <h3 style="margin-top: 0; color: #262760; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Employee Details</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280; width: 40%;">Name</td>
+                <td style="padding: 8px 0; font-weight: 600;">${comp.name}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280;">Designation</td>
+                <td style="padding: 8px 0; font-weight: 600;">${comp.designation}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280;">Department</td>
+                <td style="padding: 8px 0; font-weight: 600;">${comp.department}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280;">Location</td>
+                <td style="padding: 8px 0; font-weight: 600;">${comp.location}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; color: #6b7280;">Effective Date</td>
+                <td style="padding: 8px 0; font-weight: 600;">${comp.effectiveDate}</td>
+              </tr>
+            </table>
+          </div>
+
+          <div style="margin-top: 30px;">
+            <h3 style="color: #262760; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Salary Breakdown</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+              <thead style="background-color: #f3f4f6;">
+                <tr>
+                  <th style="padding: 12px; text-align: left; color: #4b5563; font-weight: 600; border: 1px solid #e5e7eb;">Component</th>
+                  <th style="padding: 12px; text-align: right; color: #4b5563; font-weight: 600; border: 1px solid #e5e7eb;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Basic + DA</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.basicDA}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">HRA</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.hra}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Special Allowance</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.specialAllowance}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">PF (Employer)</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.pf}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">ESI (Employer)</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.esi}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Gratuity</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.gratuity}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Bonus</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.bonus || 0}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Variable Pay</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.variablePay || 0}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          
+          <div style="margin-top: 30px; font-size: 12px; color: #9ca3af; text-align: center;">
+            <p>This is a system generated email. Please do not reply directly to this email unless instructed.</p>
+          </div>
+        </div>
+      </div>
+    `;
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailData.to) {
+      alert("Please enter a recipient email address.");
+      return;
+    }
+    
+    try {
+      setSendingEmail(true);
+      
+      const htmlContent = generateHTML(emailData.message, selectedCompensation);
+
+      await mailAPI.send({
+        email: emailData.to,
+        cc: emailData.cc,
+        subject: emailData.subject,
+        message: emailData.message, // Fallback text
+        html: htmlContent,          // Rich HTML
+        attachments: emailData.attachments
+      });
+      
+      alert("Email sent successfully!");
+      setEmailModalOpen(false);
+      setEmailData({ to: "", cc: "", subject: "", message: "", attachments: [] });
+      setSelectedCompensation(null);
+    } catch (error) {
+      console.error("Error sending email", error);
+      alert("Failed to send email.");
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -332,6 +536,13 @@ const CompensationMaster = () => {
                       >
                         <Trash2 className="h-5 w-5" />
                       </button>
+                      <button
+                        onClick={() => handleOpenEmail(t)}
+                        className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-50"
+                        title="Send Email"
+                      >
+                        <Mail className="h-5 w-5" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -352,7 +563,7 @@ const CompensationMaster = () => {
             </div>
             <div className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium mb-1">Select Employee</label>
                   <select 
                     value={formData.employeeId || ""} 
@@ -366,7 +577,7 @@ const CompensationMaster = () => {
                       </option>
                     ))}
                   </select>
-                </div>
+                </div> */}
                 <div>
                   <label className="block text-sm font-medium mb-1">Compensation Name</label>
                   <input name="name" value={formData.name} onChange={handleChange} className="border rounded px-3 py-2 w-full" />
@@ -553,6 +764,128 @@ const CompensationMaster = () => {
                 <div><div className="text-xs text-gray-500">Professional Tax</div><div className="font-semibold">{viewItem.professionalTax || "-"}</div></div>
                 <div><div className="text-xs text-gray-500">Bonus</div><div className="font-semibold">{viewItem.bonus || "-"}</div></div>
                 <div><div className="text-xs text-gray-500">Variable Pay</div><div className="font-semibold">{viewItem.variablePay || "-"}</div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Email Modal */}
+      {emailModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden">
+            <div className="p-4 border-b flex justify-between items-center bg-[#262760] text-white">
+              <div className="font-semibold text-lg flex items-center gap-2">
+                <Mail size={20} />
+                Send Email
+              </div>
+              <button onClick={() => setEmailModalOpen(false)} className="p-1 hover:bg-white/10 rounded">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">To</label>
+                <input
+                  type="email"
+                  value={emailData.to}
+                  onChange={(e) => setEmailData({...emailData, to: e.target.value})}
+                  className="border rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="recipient@example.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">CC</label>
+                <input
+                  type="text"
+                  value={emailData.cc}
+                  onChange={(e) => setEmailData({...emailData, cc: e.target.value})}
+                  className="border rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                  placeholder="cc@example.com, hr@example.com"
+                />
+                <p className="text-xs text-gray-500 mt-1">Separate multiple emails with commas</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Subject</label>
+                <input
+                  type="text"
+                  value={emailData.subject}
+                  onChange={(e) => setEmailData({...emailData, subject: e.target.value})}
+                  className="border rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Message Body</label>
+                <textarea
+                  value={emailData.message}
+                  onChange={(e) => setEmailData({...emailData, message: e.target.value})}
+                  rows={6}
+                  className="border rounded px-3 py-2 w-full focus:ring-2 focus:ring-blue-500 outline-none text-sm"
+                  placeholder="Enter your message here..."
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Note: A formatted compensation table will be automatically appended to this message.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Attachments</label>
+                <div className="flex items-center gap-2 mb-2">
+                  <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-2 rounded border border-gray-300 flex items-center gap-2 text-sm transition-colors">
+                    <Paperclip size={16} />
+                    Attach Files
+                    <input 
+                      type="file" 
+                      multiple 
+                      className="hidden" 
+                      onChange={handleFileChange}
+                    />
+                  </label>
+                  <span className="text-xs text-gray-500">Supported: PDF, Doc, Images</span>
+                </div>
+                
+                {emailData.attachments.length > 0 && (
+                  <ul className="space-y-1 bg-gray-50 p-2 rounded border border-gray-200">
+                    {emailData.attachments.map((file, idx) => (
+                      <li key={idx} className="flex justify-between items-center text-sm p-1 hover:bg-gray-100 rounded">
+                        <div className="flex items-center gap-2 truncate">
+                           <Paperclip size={14} className="text-gray-400" />
+                           <span className="truncate max-w-[200px]">{file.filename}</span>
+                        </div>
+                        <button 
+                          onClick={() => removeAttachment(idx)}
+                          className="text-red-500 hover:text-red-700 p-1"
+                        >
+                          <X size={14} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2 border-t mt-4">
+                <button
+                  onClick={() => setEmailModalOpen(false)}
+                  className="px-4 py-2 border rounded hover:bg-gray-50"
+                  disabled={sendingEmail}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSendEmail}
+                  className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] flex items-center gap-2 disabled:opacity-70"
+                  disabled={sendingEmail}
+                >
+                  {sendingEmail ? (
+                    <>Sending...</>
+                  ) : (
+                    <>
+                      <Mail size={16} />
+                      Send Email
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

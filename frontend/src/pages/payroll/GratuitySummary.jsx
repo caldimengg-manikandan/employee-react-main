@@ -172,10 +172,7 @@ export default function GratuitySummary() {
       <div className="w-full">
 
         <div className="flex justify-between items-center mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Gratuity Summary</h1>
-            <p className="text-gray-500 mt-1">Monthly gratuity additions per employee</p>
-          </div>
+         
           
         </div>
 
@@ -191,7 +188,7 @@ export default function GratuitySummary() {
                 value={searchTerm}
                 maxLength={10}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
               />
             </div>
 
@@ -201,7 +198,7 @@ export default function GratuitySummary() {
               <select
                 value={filterDepartment}
                 onChange={(e) => setFilterDepartment(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
               >
                 <option value="all">All Departments</option>
                 {departments.filter(d => d !== 'all').map(dept => (
@@ -216,7 +213,7 @@ export default function GratuitySummary() {
               <select
                 value={filterDesignation}
                 onChange={(e) => setFilterDesignation(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
               >
                 <option value="all">All Designations</option>
                 {designations.filter(d => d !== 'all').map(desig => (
@@ -231,7 +228,7 @@ export default function GratuitySummary() {
               <select
                 value={filterLocation}
                 onChange={(e) => setFilterLocation(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
               >
                 <option value="all">All Locations</option>
                 {locations.filter(l => l !== 'all').map(loc => (
@@ -245,7 +242,7 @@ export default function GratuitySummary() {
             <div className="flex items-end justify-end">
               <button
             onClick={exportCSV}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            className="flex items-center px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] transition-colors"
           >
             <Download className="w-4 h-4 mr-2" />
             Export CSV
@@ -258,13 +255,13 @@ export default function GratuitySummary() {
         <div className="bg-white rounded-xl shadow-sm overflow-hidden border border-gray-200">
           <div className="overflow-auto max-h-[600px]">
             <table className="w-full text-left border-collapse relative">
-              <thead className="sticky top-0 z-10 bg-gray-50 shadow-sm">
+              <thead className="sticky top-0 z-10 bg-[#262760] shadow-sm">
                 <tr className="border-b border-gray-200">
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 w-10"></th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600">Employee ID</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600">Name</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600">Designation</th>
-                  <th className="px-6 py-4 text-sm font-semibold text-gray-600 text-right">Total Accrued (₹)</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-white w-10"></th>
+                  <th className="px-6 py-4 text-sm font-semibold text-white">Employee ID</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-white">Name</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-white">Designation</th>
+                  <th className="px-6 py-4 text-sm font-semibold text-white text-right">Total Accrued (₹)</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

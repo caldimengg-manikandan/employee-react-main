@@ -251,14 +251,14 @@ const ProjectDashboard = () => {
         // Expenditure
         { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
 
-        // Performance Management
-        { name: 'Self Appraisal', description: 'Submit self appraisal', path: '/performance/self-appraisal', icon: StarIcon, allowEmployeeRole: true, category: 'Performance Management' },
-        { name: 'Team Appraisal', description: 'Review team performance', path: '/performance/team-appraisal', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
-        { name: 'Reviewer Approval', description: 'Approve appraisals', path: '/performance/reviewer-approval', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
-        { name: 'Director Approval', description: 'Final approval', path: '/performance/director-approval', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'director'], category: 'Performance Management' },
-        { name: 'Appraisal Workflow', description: 'Track appraisal status', path: '/performance/appraisal-workflow', icon: StarIcon, allowEmployeeRole: true, category: 'Performance Management' },
-        { name: 'Increment Master', description: 'Manage increments', path: '/performance/increment-master', icon: StarIcon, showForRoles: ['admin', 'hr'], category: 'Performance Management' },
-        { name: 'Increment Summary', description: 'View increment summary', path: '/performance/increment-summary', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager'], category: 'Performance Management' },
+        // // Performance Management
+        // { name: 'Self Appraisal', description: 'Submit self appraisal', path: '/performance/self-appraisal', icon: StarIcon, allowEmployeeRole: true, category: 'Performance Management' },
+        // { name: 'Team Appraisal', description: 'Review team performance', path: '/performance/team-appraisal', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
+        // { name: 'Reviewer Approval', description: 'Approve appraisals', path: '/performance/reviewer-approval', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
+        // { name: 'Director Approval', description: 'Final approval', path: '/performance/director-approval', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'director'], category: 'Performance Management' },
+        // { name: 'Appraisal Workflow', description: 'Track appraisal status', path: '/performance/appraisal-workflow', icon: StarIcon, allowEmployeeRole: true, category: 'Performance Management' },
+        // { name: 'Increment Master', description: 'Manage increments', path: '/performance/increment-master', icon: StarIcon, showForRoles: ['admin', 'hr'], category: 'Performance Management' },
+        // { name: 'Increment Summary', description: 'View increment summary', path: '/performance/increment-summary', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager'], category: 'Performance Management' },
         
         
         // Other

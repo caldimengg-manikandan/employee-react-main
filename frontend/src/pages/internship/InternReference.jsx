@@ -286,7 +286,7 @@ const InternReference = () => {
       head: [tableColumn],
       body: tableRows,
       startY: 35,
-      headStyles: { fillColor: [30, 58, 138] }, // Dark Blue (blue-900)
+      headStyles: { fillColor: [38, 39, 96] }, // Sidebar Color (#262760)
       styles: { fontSize: 9 },
       columnStyles: {
         0: { cellWidth: 15 }, // S.No
@@ -361,7 +361,7 @@ const InternReference = () => {
 
             {/* Modal panel */}
             <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-4xl sm:w-full">
-              <div className="bg-gradient-to-r from-blue-600 to-purple-700 px-6 py-4">
+              <div className="bg-[#262760] px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <AcademicCapIcon className="h-8 w-8 text-white" />
@@ -702,7 +702,7 @@ const InternReference = () => {
                   </button>
                   <button
                     onClick={handleSubmit}
-                    className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
+                    className="flex items-center gap-2 bg-[#262760] hover:bg-[#1e2050] text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200"
                   >
                     <CheckCircleIcon className="h-5 w-5" />
                     {editingId ? "Update Intern" : "Save Intern"}
@@ -723,7 +723,7 @@ const InternReference = () => {
               onClick={() => setShowViewModal(false)}
             />
             <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full">
-              <div className="bg-gradient-to-r from-teal-600 to-emerald-600 px-6 py-4">
+              <div className="bg-[#262760] px-6 py-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <UserCircleIcon className="h-8 w-8 text-white" />
@@ -900,7 +900,7 @@ const InternReference = () => {
             </button>
             <button
               onClick={openAddModal}
-              className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+              className="flex items-center gap-2 bg-[#262760] hover:bg-[#1e2050] text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
             >
               <PlusIcon className="h-5 w-5" />
               Add New Intern
@@ -938,7 +938,7 @@ const InternReference = () => {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-blue-900 text-white">
+              <thead className="bg-[#262760] text-white">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">S.No</th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Full Name</th>

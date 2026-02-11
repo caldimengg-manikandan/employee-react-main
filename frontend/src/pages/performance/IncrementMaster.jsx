@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Save, Loader2 } from 'lucide-react';
+import { performanceAPI } from '../../services/api';
 
 const IncrementMaster = () => {
   // Initial data structure mirroring the image
@@ -41,6 +42,27 @@ const IncrementMaster = () => {
       ]
     }
   ]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    fetchMatrix();
+  }, []);
+
+  const fetchMatrix = async () => {
+    try {
+      setLoading(true);
+      const response = await performanceAPI.getIncrementMatrix();
+      if (response.data && response.data.length > 0) {
+        setMatrixData(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching increment matrix:', error);
+      // Fallback to default/initial state if error or empty
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleInputChange = (categoryId, gradeIndex, field, value) => {
     setMatrixData(prevData => prevData.map(category => {
@@ -53,21 +75,38 @@ const IncrementMaster = () => {
     }));
   };
 
-  const handleSave = () => {
-    console.log("Saving Matrix Data:", matrixData);
-    alert("Increment Matrix Saved Successfully!");
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await performanceAPI.saveIncrementMatrix({ matrixData });
+      alert("Increment Matrix Saved Successfully!");
+    } catch (error) {
+      console.error('Error saving increment matrix:', error);
+      alert("Failed to save increment matrix");
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-[#262760]" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20 p-8 font-sans">
       <div className="w-full mx-auto">
         <div className="flex justify-between items-center mb-6">
-          
+          <h1 className="text-2xl font-bold text-gray-900">Increment Master</h1>
           <button
             onClick={handleSave}
-            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none"
+            disabled={saving}
+            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none disabled:opacity-50"
           >
-            <Save className="h-4 w-4 mr-2" />
+            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
             Save Changes
           </button>
         </div>

@@ -45,6 +45,7 @@ import Notification from '../../components/Notifications/Notification';
     PL: 15,
     BEREAVEMENT: 2
   });
+  const [apiUsedLeaves, setApiUsedLeaves] = useState(null);
 
   // Leave history state
   const [leaveHistory, setLeaveHistory] = useState([]);
@@ -106,7 +107,7 @@ import Notification from '../../components/Notifications/Notification';
     const calculateLeaveBalances = (employee) => {
       const { designation, monthsOfService } = employee;
       let casual = 0, sick = 0, privilege = 0;
-      const isTrainee = String(designation || '').toLowerCase() === 'trainee';
+      const isTrainee = String(designation || '').toLowerCase().includes('trainee');
       const traineeMonths = Math.min(monthsOfService, 12);
       if (isTrainee) {
         privilege = traineeMonths * 1;
@@ -165,6 +166,11 @@ import Notification from '../../components/Notifications/Notification';
             PL: data.balances.privilege?.allocated || 0,
             BEREAVEMENT: 2
           });
+          setApiUsedLeaves({
+            CL: data.balances.casual?.used || 0,
+            SL: data.balances.sick?.used || 0,
+            PL: data.balances.privilege?.used || 0
+          });
           return;
         }
         // Fallback to generic balance list when accessible
@@ -182,6 +188,11 @@ import Notification from '../../components/Notifications/Notification';
             SL: mine.balances.sick?.allocated || 0,
             PL: mine.balances.privilege?.allocated || 0,
             BEREAVEMENT: 2
+          });
+          setApiUsedLeaves({
+            CL: mine.balances.casual?.used || 0,
+            SL: mine.balances.sick?.used || 0,
+            PL: mine.balances.privilege?.used || 0
           });
           return;
         }
@@ -215,6 +226,7 @@ import Notification from '../../components/Notifications/Notification';
             PL: Number(alloc.PL || 0),
             BEREAVEMENT: 2
           });
+          setApiUsedLeaves(used);
         } catch { }
       }
     };
@@ -627,6 +639,22 @@ import Notification from '../../components/Notifications/Notification';
 
   // Calculate leave summary
   const calculateLeaveSummary = () => {
+    // If we have API-provided used counts, use them to ensure consistency with backend/balance view
+    if (apiUsedLeaves) {
+      // Calculate Bereavement locally as API might not track it fully in standard balances
+      const localBereavement = leaveHistory.reduce((sum, leave) => {
+        if (leave.leaveType === 'BEREAVEMENT' && leave.status === 'Approved') {
+          return sum + (leave.totalDays || 0);
+        }
+        return sum;
+      }, 0);
+
+      return {
+        ...apiUsedLeaves,
+        BEREAVEMENT: localBereavement
+      };
+    }
+
     const used = {
       CL: 0,
       SL: 0,
