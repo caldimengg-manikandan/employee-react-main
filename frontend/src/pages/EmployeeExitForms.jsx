@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { exitFormalityAPI, employeeAPI } from '../services/api';
+import { message } from 'antd';
+import Modal from '../components/Modals/Modal';
 import {
   ArrowLeftIcon,
   UserIcon,
@@ -10,13 +12,15 @@ import {
   IdentificationIcon,
   DocumentTextIcon,
   TrashIcon,
-  CheckBadgeIcon
+  CheckBadgeIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
 
 const ExitForm = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [viewDetails, setViewDetails] = useState(false);
   const [employeeInfo, setEmployeeInfo] = useState({
     employeeId: '',
     employeeName: '',
@@ -68,6 +72,7 @@ const ExitForm = () => {
   ];
 
   const [declarationChecked, setDeclarationChecked] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
 
   useEffect(() => {
     fetchInitialData();
@@ -92,6 +97,34 @@ const ExitForm = () => {
       const exitRes = await exitFormalityAPI.getMyExit();
       if (exitRes.data?.data && exitRes.data.data.length > 0) {
         const existingForm = exitRes.data.data[0];
+        
+        // Transform assets from backend format
+        const formattedAssets = (existingForm.assetsToReturn || []).map(asset => {
+          const parts = (asset.assetDetails || '').split(' || ');
+          // Handle legacy data or empty details
+          if (parts.length <= 1) {
+             return {
+               item: parts[0] || asset.assetType,
+               category: 'Hardware',
+               serialNumber: '',
+               remarks: '',
+               status: asset.returned ? 'Returned' : 'Pending',
+               returned: asset.returned,
+               type: 'custom' 
+             };
+          }
+          
+          return {
+            item: parts[0] || '',
+            category: parts[1] || 'Hardware',
+            serialNumber: parts[2] || '',
+            remarks: parts[3] || '',
+            status: asset.returned ? 'Returned' : 'Pending',
+            returned: asset.returned,
+            type: 'custom'
+          };
+        });
+
         setFormData({
           _id: existingForm._id,
           proposedLastWorkingDay: existingForm.proposedLastWorkingDay ? existingForm.proposedLastWorkingDay.split('T')[0] : '',
@@ -99,7 +132,7 @@ const ExitForm = () => {
           reasonDetails: existingForm.reasonDetails,
           feedback: existingForm.feedback,
           suggestions: existingForm.suggestions,
-          assetsToReturn: existingForm.assetsToReturn && existingForm.assetsToReturn.length > 0 ? existingForm.assetsToReturn : defaultAssets,
+          assetsToReturn: formattedAssets.length > 0 ? formattedAssets : defaultAssets,
           status: existingForm.status,
           currentStage: existingForm.currentStage
         });
@@ -145,22 +178,78 @@ const ExitForm = () => {
     }));
   };
 
+  const handleDeleteDraft = async () => {
+    if (!formData._id) return;
+    
+    setSaving(true);
+    try {
+      await exitFormalityAPI.remove(formData._id);
+      message.success("Draft deleted successfully.");
+      setDeleteModalOpen(false);
+      
+      // Reset form
+      setFormData({
+        _id: null,
+        proposedLastWorkingDay: '',
+        reasonForLeaving: '',
+        reasonDetails: '',
+        feedback: '',
+        suggestions: '',
+        assetsToReturn: defaultAssets,
+        status: 'draft',
+        currentStage: 'initiation'
+      });
+      setDeclarationChecked(false);
+    } catch (error) {
+      console.error('Error deleting draft:', error);
+      message.error("Failed to delete draft: " + (error.response?.data?.error || error.message));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleSubmit = async (isDraft = true) => {
     if (!isDraft) {
       if (!declarationChecked) {
-        alert("Please accept the declaration before submitting.");
+        message.warning("Please accept the declaration before submitting.");
         return;
       }
       if (!formData.proposedLastWorkingDay || !formData.reasonForLeaving) {
-         alert("Please fill in Proposed Last Working Day and Reason for Leaving.");
+         message.warning("Please fill in Proposed Last Working Day and Reason for Leaving.");
          return;
       }
     }
 
     setSaving(true);
     try {
+      // Transform assets for backend
+      const assetsForBackend = formData.assetsToReturn.map(asset => {
+         const itemLower = (asset.item || '').toLowerCase();
+         let type = 'other';
+         if (itemLower.includes('laptop')) type = 'laptop';
+         else if (itemLower.includes('mobile') || itemLower.includes('phone')) type = 'mobile';
+         else if (itemLower.includes('access card')) type = 'access_card';
+         else if (itemLower.includes('id card')) type = 'id_card';
+         else if (itemLower.includes('key')) type = 'keys';
+         else if (itemLower.includes('document')) type = 'documents';
+
+         const details = [
+           asset.item || '',
+           asset.category || 'Hardware',
+           asset.serialNumber || '',
+           asset.remarks || ''
+         ].join(' || ');
+
+         return {
+           assetType: type,
+           assetDetails: details,
+           returned: asset.status === 'Returned'
+         };
+      });
+
       const payload = {
         ...formData,
+        assetsToReturn: assetsForBackend,
         status: isDraft ? 'draft' : 'submitted'
       };
 
@@ -173,15 +262,17 @@ const ExitForm = () => {
         if (!isDraft) await exitFormalityAPI.submitExit(res.data.data._id);
       }
       
-      alert(isDraft ? 'Saved as draft!' : 'Submitted successfully!');
+      message.success(isDraft ? 'Saved as draft!' : 'Submitted successfully!');
       if (!isDraft) {
-        navigate('/dashboard');
+        // Refresh data to update status to 'submitted'
+        fetchInitialData();
+        window.scrollTo(0, 0);
       } else {
         fetchInitialData();
       }
     } catch (error) {
       console.error('Error saving form:', error);
-      alert('Failed to save form. Please try again.');
+      message.error('Failed to save form. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -193,10 +284,60 @@ const ExitForm = () => {
     </div>
   );
 
+  // Show "Under Processing" state if submitted and not viewing details
+  if (formData.status === 'submitted' && !viewDetails) {
+    return (
+      <div className="min-h-screen bg-[#262760] p-6 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full text-center space-y-6 animate-fade-in">
+          <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-indigo-100">
+            <ClockIcon className="h-12 w-12 text-indigo-600" />
+          </div>
+          
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold text-gray-900">Form Under Processing</h2>
+            <p className="text-gray-500 text-lg">
+              Your exit formalities form has been submitted and is currently under review.
+            </p>
+          </div>
+
+          <div className="bg-indigo-50 rounded-xl p-4 text-sm text-indigo-800 border border-indigo-100">
+            <p><strong>Next Step:</strong> Manager Approval</p>
+            <p className="mt-1 opacity-80">You will be notified once the status changes.</p>
+          </div>
+          
+          <div className="pt-6 space-y-3">
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="w-full py-3.5 bg-[#1e2050] text-white rounded-xl font-bold hover:bg-[#2a2c6a] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              Return to Dashboard
+            </button>
+            <button
+              onClick={() => setViewDetails(true)}
+              className="w-full py-3.5 bg-white border-2 border-indigo-100 text-indigo-700 rounded-xl font-bold hover:bg-indigo-50 hover:border-indigo-200 transition-all"
+            >
+              View Submitted Form
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#262760] p-6 pb-20">
       <div className="max-w-6xl mx-auto">
         
+        {viewDetails && (
+          <button
+            onClick={() => setViewDetails(false)}
+            className="mb-6 flex items-center text-white/80 hover:text-white transition-colors font-medium"
+          >
+            <ArrowLeftIcon className="h-5 w-5 mr-2" />
+            Back to Status
+          </button>
+        )}
+
         <div className="space-y-8">
           {/* Employee Info Section */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-indigo-100">
@@ -521,7 +662,18 @@ const ExitForm = () => {
               </label>
 
               {formData.status === 'draft' && (
-                <div className="mt-8 flex justify-end space-x-4 border-t border-gray-200 pt-6">
+                <div className="mt-8 flex justify-end items-center space-x-4 border-t border-gray-200 pt-6">
+                  {formData._id && (
+                    <button
+                      type="button"
+                      onClick={() => setDeleteModalOpen(true)}
+                      disabled={saving}
+                      className="mr-auto px-4 py-3 rounded-xl text-red-600 font-medium hover:bg-red-50 hover:text-red-700 transition-all flex items-center"
+                    >
+                      <TrashIcon className="h-5 w-5 mr-2" />
+                      Delete Draft
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={() => handleSubmit(true)}
@@ -544,6 +696,39 @@ const ExitForm = () => {
           </div>
         </div>
       </div>
+      
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={deleteModalOpen}
+        onClose={() => setDeleteModalOpen(false)}
+        title="Confirm Deletion"
+        size="sm"
+      >
+        <div className="mt-2">
+          <p className="text-sm text-gray-500">
+            Are you sure you want to delete this draft? This action cannot be undone.
+          </p>
+        </div>
+        
+        <div className="mt-6 flex justify-end space-x-3">
+          <button
+            type="button"
+            className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 sm:text-sm"
+            onClick={() => setDeleteModalOpen(false)}
+            disabled={saving}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 sm:text-sm"
+            onClick={handleDeleteDraft}
+            disabled={saving}
+          >
+            {saving ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
+      </Modal>
     </div>
   );
 };

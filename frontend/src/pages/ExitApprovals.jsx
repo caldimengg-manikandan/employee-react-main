@@ -17,6 +17,7 @@ import {
 import { exitFormalityAPI, employeeAPI } from '../services/api';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import { Modal, message, Input } from 'antd';
 
 const ExitApproval = () => {
   const [loading, setLoading] = useState(true);
@@ -34,6 +35,10 @@ const ExitApproval = () => {
     location: ''
   });
   const [employees, setEmployees] = useState([]);
+  
+  // Modal states
+  const [rejectModal, setRejectModal] = useState({ visible: false, formId: null, reason: '' });
+  const [clearanceModal, setClearanceModal] = useState({ visible: false, formId: null, department: '', status: '', remarks: '' });
 
   // Get current user role
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
@@ -120,7 +125,7 @@ const ExitApproval = () => {
 
   const handleGenerateRelievingLetter = (form) => {
     if (form.status !== 'completed') {
-      alert("Relieving letter can only be generated for completed exit requests.");
+      message.warning("Relieving letter can only be generated for completed exit requests.");
       return;
     }
 
@@ -159,7 +164,7 @@ const ExitApproval = () => {
     try {
       const element = document.getElementById('relieving-letter-template');
       if (!element) {
-        alert("Error generating letter. Please try again.");
+        message.error("Error generating letter. Please try again.");
         return;
       }
       const canvas = await html2canvas(element, {
@@ -184,88 +189,121 @@ const ExitApproval = () => {
       pdf.save(filename);
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('Failed to generate PDF. Please try again.');
+      message.error('Failed to generate PDF. Please try again.');
     }
   };
 
-  const handleManagerApprove = async (formId) => {
-    if (!window.confirm("Are you sure you want to approve this exit request?")) return;
-    setActionLoading(true);
-    try {
-      await exitFormalityAPI.managerApprove(formId);
-      alert("Manager approval recorded.");
-      fetchExitForms();
-      setSelectedForm(null);
-    } catch (error) {
-      console.error("Manager approval failed:", error);
-      alert("Failed to approve: " + (error.response?.data?.error || error.message));
-    } finally {
-      setActionLoading(false);
-    }
+  const handleManagerApprove = (formId) => {
+    Modal.confirm({
+      title: 'Manager Approval',
+      content: 'Are you sure you want to approve this exit request?',
+      okText: 'Approve',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        setActionLoading(true);
+        try {
+          await exitFormalityAPI.managerApprove(formId);
+          message.success("Manager approval recorded.");
+          fetchExitForms();
+          setSelectedForm(null);
+        } catch (error) {
+          console.error("Manager approval failed:", error);
+          message.error("Failed to approve: " + (error.response?.data?.error || error.message));
+        } finally {
+          setActionLoading(false);
+        }
+      }
+    });
   };
 
-  const handleHRApprove = async (formId) => {
-    if (!window.confirm("Confirm FINAL approval and completion of exit?")) return;
-    setActionLoading(true);
-    try {
-      await exitFormalityAPI.approve(formId);
-      alert("Exit process completed successfully.");
-      fetchExitForms();
-      setSelectedForm(null);
-    } catch (error) {
-      console.error("HR approval failed:", error);
-      alert("Failed to complete: " + (error.response?.data?.error || error.message));
-    } finally {
-      setActionLoading(false);
-    }
+  const handleHRApprove = (formId) => {
+    Modal.confirm({
+      title: 'Final Approval',
+      content: 'Confirm FINAL approval and completion of exit?',
+      okText: 'Approve & Complete',
+      okType: 'primary',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        setActionLoading(true);
+        try {
+          await exitFormalityAPI.approve(formId);
+          message.success("Exit process completed successfully.");
+          fetchExitForms();
+          setSelectedForm(null);
+        } catch (error) {
+          console.error("HR approval failed:", error);
+          message.error("Failed to complete: " + (error.response?.data?.error || error.message));
+        } finally {
+          setActionLoading(false);
+        }
+      }
+    });
   };
 
-  const handleDelete = async (formId) => {
-    if (!window.confirm("Are you sure you want to delete this exit request? This cannot be undone.")) return;
-    setActionLoading(true);
-    try {
-      await exitFormalityAPI.remove(formId);
-      alert("Exit request deleted.");
-      fetchExitForms();
-      if (selectedForm?._id === formId) setSelectedForm(null);
-    } catch (error) {
-      console.error("Delete failed:", error);
-      alert("Failed to delete: " + (error.response?.data?.error || error.message));
-    } finally {
-      setActionLoading(false);
-    }
+  const handleDelete = (formId) => {
+    Modal.confirm({
+      title: 'Delete Exit Request',
+      content: 'Are you sure you want to delete this exit request? This cannot be undone.',
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        setActionLoading(true);
+        try {
+          await exitFormalityAPI.remove(formId);
+          message.success("Exit request deleted.");
+          fetchExitForms();
+          if (selectedForm?._id === formId) setSelectedForm(null);
+        } catch (error) {
+          console.error("Delete failed:", error);
+          message.error("Failed to delete: " + (error.response?.data?.error || error.message));
+        } finally {
+          setActionLoading(false);
+        }
+      }
+    });
   };
-  const handleReject = async (formId) => {
-    const reason = prompt("Please enter reason for rejection:");
-    if (!reason) return;
+  const handleReject = (formId) => {
+    setRejectModal({ visible: true, formId, reason: '' });
+  };
+
+  const submitRejection = async () => {
+    if (!rejectModal.reason) {
+      message.error("Please enter a reason for rejection");
+      return;
+    }
     
     setActionLoading(true);
     try {
-      await exitFormalityAPI.reject(formId, reason);
-      alert("Exit request rejected/cancelled.");
+      await exitFormalityAPI.reject(rejectModal.formId, rejectModal.reason);
+      message.success("Exit request rejected/cancelled.");
       fetchExitForms();
       setSelectedForm(null);
+      setRejectModal({ visible: false, formId: null, reason: '' });
     } catch (error) {
       console.error("Rejection failed:", error);
-      alert("Failed to reject: " + (error.response?.data?.error || error.message));
+      message.error("Failed to reject: " + (error.response?.data?.error || error.message));
     } finally {
       setActionLoading(false);
     }
   };
 
-  const handleClearanceUpdate = async (formId, department, status) => {
-    const remarks = prompt(`Enter remarks for ${department} clearance (${status}):`, "");
-    if (remarks === null) return; // Cancelled
+  const handleClearanceUpdate = (formId, department, status) => {
+    setClearanceModal({ visible: true, formId, department, status, remarks: '' });
+  };
 
+  const submitClearanceUpdate = async () => {
     setActionLoading(true);
     try {
-      await exitFormalityAPI.updateClearance(formId, department, status, remarks);
-      const updatedForm = await exitFormalityAPI.getExitById(formId);
+      await exitFormalityAPI.updateClearance(clearanceModal.formId, clearanceModal.department, clearanceModal.status, clearanceModal.remarks);
+      const updatedForm = await exitFormalityAPI.getExitById(clearanceModal.formId);
       setSelectedForm(updatedForm.data.data);
       fetchExitForms();
+      setClearanceModal({ visible: false, formId: null, department: '', status: '', remarks: '' });
+      message.success(`Clearance updated for ${clearanceModal.department}`);
     } catch (error) {
       console.error("Clearance update failed:", error);
-      alert("Failed to update clearance");
+      message.error("Failed to update clearance");
     } finally {
       setActionLoading(false);
     }
@@ -677,6 +715,43 @@ const ExitApproval = () => {
           </div>
         </div>
       )}
+      {/* Rejection Modal */}
+      <Modal
+        title="Reject Exit Request"
+        open={rejectModal.visible}
+        onOk={submitRejection}
+        onCancel={() => setRejectModal({ visible: false, formId: null, reason: '' })}
+        okText="Reject"
+        okType="danger"
+        confirmLoading={actionLoading}
+      >
+        <p className="mb-2 text-gray-600">Please provide a reason for rejection:</p>
+        <Input.TextArea
+          rows={4}
+          value={rejectModal.reason}
+          onChange={(e) => setRejectModal({ ...rejectModal, reason: e.target.value })}
+          placeholder="Enter rejection reason..."
+        />
+      </Modal>
+
+      {/* Clearance Modal */}
+      <Modal
+        title={`Update ${clearanceModal.department?.toUpperCase()} Clearance`}
+        open={clearanceModal.visible}
+        onOk={submitClearanceUpdate}
+        onCancel={() => setClearanceModal({ visible: false, formId: null, department: '', status: '', remarks: '' })}
+        okText="Update"
+        confirmLoading={actionLoading}
+      >
+        <p className="mb-2 text-gray-600">Status: <span className="font-semibold capitalize">{clearanceModal.status}</span></p>
+        <p className="mb-2 text-gray-600">Remarks:</p>
+        <Input.TextArea
+          rows={3}
+          value={clearanceModal.remarks}
+          onChange={(e) => setClearanceModal({ ...clearanceModal, remarks: e.target.value })}
+          placeholder="Enter remarks (optional)..."
+        />
+      </Modal>
     </div>
   );
 };
