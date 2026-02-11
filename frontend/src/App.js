@@ -168,7 +168,7 @@ function App() {
                 <ProtectedRoute 
                   requiredPermissions={["exit_form_access"]} 
                   allowEmployeeRole
-                  roles={["employees"]}
+                  roles={["employees", "projectmanager", "project_manager"]}
                 >
                   <ExitForm />
                 </ProtectedRoute>

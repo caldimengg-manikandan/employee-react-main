@@ -58,10 +58,7 @@ const ExitForm = () => {
   ];
 
   const defaultAssets = [
-    { item: 'Laptop', returned: false, remarks: '', type: 'default' },
-    { item: 'ID Card', returned: false, remarks: '', type: 'default' },
-    { item: 'Access Card', returned: false, remarks: '', type: 'default' },
-    { item: 'Headset', returned: false, remarks: '', type: 'default' }
+    // { item: '', category: 'Hardware', serialNumber: '', status: 'Pending', remarks: '', type: 'custom' }
   ];
 
   const commonAssets = [
@@ -162,6 +159,16 @@ const ExitForm = () => {
   };
 
   const handleAddAsset = () => {
+    // Check if the last asset row is complete
+    const assets = formData.assetsToReturn;
+    if (assets.length > 0) {
+      const lastAsset = assets[assets.length - 1];
+      if (!lastAsset.item || !lastAsset.serialNumber) {
+        message.warning("Please complete the current asset details before adding a new one.");
+        return;
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
       assetsToReturn: [

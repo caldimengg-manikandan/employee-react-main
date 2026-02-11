@@ -355,7 +355,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/employee-exit/form",
       icon: getIconForMenu("Employee Exit Form"),
       allowEmployeeRole: true,
-      showForRoles: ["employees"],
+      showForRoles: ["employees", "hr", "project_manager", "projectmanager"],
     },
     // EXIT MANAGEMENT - Admin/HR/Manager
     {
@@ -436,6 +436,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         "Salary Slips",
         "Leave Summary",
         "Leave Management",
+        "Employee Exit Form",
       ];
       return allowedModules.includes(item.name);
     }

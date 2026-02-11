@@ -30,8 +30,6 @@ const initialCompensation = {
   esi: "",
   tax: "",
   professionalTax: "",
-  bonus: "",
-  variablePay: "",
   modeBasicDA: "amount",
   modeHra: "amount",
   modeSpecialAllowance: "amount",
@@ -40,8 +38,7 @@ const initialCompensation = {
   modeEsi: "amount",
   modeTax: "amount",
   modeProfessionalTax: "amount",
-  modeBonus: "amount",
-  modeVariablePay: "amount"
+ 
 };
 
 const CompensationMaster = () => {
@@ -296,21 +293,18 @@ HR Team`;
                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.specialAllowance}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 12px; border: 1px solid #e5e7eb;">PF (Employer)</td>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">PF Contribution</td>
                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.pf}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 12px; border: 1px solid #e5e7eb;">ESI (Employer)</td>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">ESI</td>
                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.esi}</td>
                 </tr>
                 <tr>
                   <td style="padding: 12px; border: 1px solid #e5e7eb;">Gratuity</td>
                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.gratuity}</td>
                 </tr>
-                <tr>
-                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Bonus</td>
-                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.bonus || 0}</td>
-                </tr>
+               
                 <tr>
                   <td style="padding: 12px; border: 1px solid #e5e7eb;">Variable Pay</td>
                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${comp.variablePay || 0}</td>
@@ -386,8 +380,8 @@ HR Team`;
   const exportCSV = () => {
     const cols = [
       "name","department","designation","grade","location","effectiveDate",
-      "basicDA","hra","specialAllowance","gratuity","pf","esi","tax","professionalTax","bonus","variablePay",
-      "modeBasicDA","modeHra","modeSpecialAllowance","modeGratuity","modePf","modeEsi","modeTax","modeProfessionalTax","modeBonus","modeVariablePay"
+      "basicDA","hra","specialAllowance","gratuity","pf","esi","tax","professionalTax",
+      "modeBasicDA","modeHra","modeSpecialAllowance","modeGratuity","modePf","modeEsi","modeTax","modeProfessionalTax"
     ];
     const header = cols.join(",");
     const rows = compensation.map(t =>
@@ -694,26 +688,8 @@ HR Team`;
                     </select>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium mb-1">Bonus</label>
-                  <div className="flex gap-2">
-                    <input name="bonus" value={formData.bonus} onChange={handleChange} placeholder="Value" className="border rounded px-3 py-2 w-full" />
-                    <select name="modeBonus" value={formData.modeBonus} onChange={handleChange} className="border rounded px-3 py-2">
-                      <option value="amount">₹</option>
-                      <option value="percent">% of base</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium mb-1">Variable Pay</label>
-                  <div className="flex gap-2">
-                    <input name="variablePay" value={formData.variablePay} onChange={handleChange} placeholder="Value" className="border rounded px-3 py-2 w-full" />
-                    <select name="modeVariablePay" value={formData.modeVariablePay} onChange={handleChange} className="border rounded px-3 py-2">
-                      <option value="amount">₹</option>
-                      <option value="percent">% of base</option>
-                    </select>
-                  </div>
-                </div>
+              
+              
               </div>
             </div>
             <div className="p-4 border-t flex justify-end gap-2">
@@ -762,8 +738,8 @@ HR Team`;
                 <div><div className="text-xs text-gray-500">ESI</div><div className="font-semibold">{viewItem.esi || "-"}</div></div>
                 <div><div className="text-xs text-gray-500">Tax</div><div className="font-semibold">{viewItem.tax || "-"}</div></div>
                 <div><div className="text-xs text-gray-500">Professional Tax</div><div className="font-semibold">{viewItem.professionalTax || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Bonus</div><div className="font-semibold">{viewItem.bonus || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Variable Pay</div><div className="font-semibold">{viewItem.variablePay || "-"}</div></div>
+                
+                
               </div>
             </div>
           </div>

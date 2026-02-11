@@ -247,11 +247,6 @@ const InternReference = () => {
   });
 
   const handleDownloadPDF = () => {
-    if (filterType === "all" || filterStatus === "all") {
-      showNotification("Please select both Internship Type and Status to download PDF", "error");
-      return;
-    }
-
     if (filteredInterns.length === 0) {
       showNotification("No records available to download", "error");
       return;
@@ -614,6 +609,7 @@ const InternReference = () => {
                             type="date"
                             className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"
                             value={form.endDate}
+                            min={form.startDate}
                             onChange={e => setForm({ ...form, endDate: e.target.value })}
                             required
                           />
@@ -936,19 +932,19 @@ const InternReference = () => {
             <p className="text-gray-600">No interns found. Add your first intern using the button above!</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[600px] border rounded-b-xl custom-scrollbar">
             <table className="w-full">
-              <thead className="bg-[#262760] text-white">
+              <thead className="bg-[#262760] text-white sticky top-0 z-10 shadow-sm">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">S.No</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Full Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Degree</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Internship Type</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Company Mentor</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Contact No</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Account No</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Action</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">S.No</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Full Name</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Degree</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Internship Type</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Company Mentor</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Contact No</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Account No</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Status</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Action</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">

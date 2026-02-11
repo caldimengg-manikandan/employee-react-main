@@ -10,7 +10,11 @@ router.get('/', auth, async (req, res) => {
   try {
     const { status, division, page = 1, limit = 20 } = req.query;
     const query = {};
-    if (status && status !== 'all') query.status = status;
+    if (status && status !== 'all') {
+      query.status = status;
+    } else {
+      query.status = { $ne: 'draft' };
+    }
     if (division && division !== 'all') query.division = division;
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [items, total] = await Promise.all([
@@ -138,8 +142,8 @@ router.post('/', auth, async (req, res) => {
       division: employeeData.division,
       position: employeeData.position,
       dateOfJoining: employeeData.dateOfJoining,
-      proposedLastWorkingDay: req.body.proposedLastWorkingDay,
-      reasonForLeaving: req.body.reasonForLeaving,
+      proposedLastWorkingDay: req.body.proposedLastWorkingDay || undefined,
+      reasonForLeaving: req.body.reasonForLeaving || undefined,
       reasonDetails: req.body.reasonDetails || '',
       feedback: req.body.feedback || '',
       suggestions: req.body.suggestions || '',
@@ -166,7 +170,20 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const item = await ExitFormality.findById(req.params.id);
     if (!item) return res.status(404).json({ success: false, error: 'Not found' });
+    
+    // Merge updates
     Object.assign(item, req.body);
+
+    // Validate if submitting (not draft)
+    if (item.status !== 'draft') {
+      if (!item.proposedLastWorkingDay) {
+        return res.status(400).json({ success: false, error: 'Proposed Last Working Day is required' });
+      }
+      if (!item.reasonForLeaving) {
+        return res.status(400).json({ success: false, error: 'Reason for Leaving is required' });
+      }
+    }
+
     await item.save();
     res.json({ success: true, data: item });
   } catch (error) {

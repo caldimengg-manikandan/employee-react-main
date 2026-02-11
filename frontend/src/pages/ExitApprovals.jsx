@@ -59,6 +59,34 @@ const ExitApproval = () => {
     { value: 'rejected', label: 'Rejected' }
   ];
 
+  // Derive unique filter options from exitForms
+  const uniqueEmployeeNames = React.useMemo(() => 
+    [...new Set(exitForms.map(form => form.employeeName).filter(Boolean))].sort(),
+  [exitForms]);
+
+  const uniqueEmployeeIds = React.useMemo(() => 
+    [...new Set(exitForms.map(form => form.employeeId?.employeeId).filter(Boolean))].sort(),
+  [exitForms]);
+
+  const uniqueDivisions = React.useMemo(() => 
+    [...new Set(exitForms.map(form => form.department || form.division).filter(Boolean))].sort(),
+  [exitForms]);
+
+  const uniqueLocations = React.useMemo(() => {
+    const locs = exitForms.map(form => {
+      if (form.location) return form.location;
+      const emp = employees.find(e => e.employeeId === form.employeeId?.employeeId);
+      return emp?.location;
+    }).filter(Boolean);
+    
+    // Normalize and unique
+    const uniqueMap = new Map();
+    locs.forEach(l => {
+      if(l) uniqueMap.set(l.toLowerCase(), l);
+    });
+    return Array.from(uniqueMap.values()).sort();
+  }, [exitForms, employees]);
+
   useEffect(() => {
     fetchExitForms();
     fetchEmployees();
@@ -337,8 +365,8 @@ const ExitApproval = () => {
                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base py-3 px-4"
              >
                <option value="">All</option>
-               {employees.map(emp => (
-                 <option key={emp._id} value={emp.name}>{emp.name}</option>
+               {uniqueEmployeeNames.map(name => (
+                 <option key={name} value={name}>{name}</option>
                ))}
              </select>
           </div>
@@ -350,8 +378,8 @@ const ExitApproval = () => {
                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base py-3 px-4"
              >
                <option value="">All</option>
-               {employees.map(emp => (
-                 <option key={emp._id} value={emp.employeeId}>{emp.employeeId}</option>
+               {uniqueEmployeeIds.map(id => (
+                 <option key={id} value={id}>{id}</option>
                ))}
              </select>
           </div>
@@ -363,7 +391,7 @@ const ExitApproval = () => {
                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base py-3 px-4"
              >
                <option value="">All Divisions</option>
-               {divisions.map(div => (
+               {uniqueDivisions.map(div => (
                  <option key={div} value={div}>{div}</option>
                ))}
              </select>
@@ -376,8 +404,9 @@ const ExitApproval = () => {
               className="w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-base py-3 px-4"
             >
               <option value="">All Locations</option>
-              <option value="hosur">Hosur</option>
-              <option value="chennai">Chennai</option>
+              {uniqueLocations.map(loc => (
+                <option key={loc} value={loc.toLowerCase()}>{loc}</option>
+              ))}
             </select>
           </div>
           <div className="w-full">

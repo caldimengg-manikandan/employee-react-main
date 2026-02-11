@@ -56,6 +56,7 @@ const Header = ({ onMenuClick }) => {
       '/performance/appraisal-workflow': 'Appraisal Workflow',
       '/performance/increment-master': 'Increment Master',
       '/performance/increment-summary': 'Increment Summary',
+      '/internship/InternReference': 'Intern Reference',
       
     };
     

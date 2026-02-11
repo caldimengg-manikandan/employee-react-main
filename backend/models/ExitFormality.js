@@ -25,8 +25,7 @@ const ExitFormalitySchema = new mongoose.Schema(
       type: Date
     },
     proposedLastWorkingDay: {
-      type: Date,
-      required: true
+      type: Date
     },
     reasonForLeaving: {
       type: String,
@@ -44,8 +43,7 @@ const ExitFormalitySchema = new mongoose.Schema(
         'team_lead',
         'compensation',
         'other'
-      ],
-      required: true
+      ]
     },
     reasonDetails: {
       type: String
