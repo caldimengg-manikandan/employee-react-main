@@ -48,7 +48,7 @@ const Header = ({ onMenuClick }) => {
       '/payroll/monthly': 'Monthly Payroll',
       '/employee-exit/form': 'Employee Exit Form',
       '/my-profile': 'My Profile',
-      '/employee-exit/approval': 'Exam form Approval',
+      '/employee-exit/approval': 'Exit form Approval',
       '/performance/self-appraisal': 'Self Appraisal',
       '/performance/team-appraisal': 'Team Appraisal',
       '/performance/reviewer-approval': 'Reviewer Approval',

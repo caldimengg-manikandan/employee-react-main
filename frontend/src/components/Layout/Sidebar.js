@@ -223,19 +223,20 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Leave Management"),
       permission: "leave_access",
       allowEmployeeRole: false,
-      showForRoles: ["admin", "hr", "manager"],
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
       children: [
         {
           name: "Leave Summary",
           path: "/leave-management/summary",
           permission: "leave_view",
-          showForRoles: ["admin", "hr", "manager"]
+          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"]
         },
         {
           name: "Leave Balance",
           path: "/leave-management/balance",
           permission: "leave_view",
-          allowEmployeeRole: true
+          allowEmployeeRole: true,
+          showForRoles: ["admin", "hr"]
         }
       ],
     },
@@ -434,6 +435,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         "Policy Portal",
         "Salary Slips",
         "Leave Summary",
+        "Leave Management",
       ];
       return allowedModules.includes(item.name);
     }
