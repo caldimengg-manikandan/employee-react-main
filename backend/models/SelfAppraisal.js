@@ -25,10 +25,36 @@ const SelfAppraisalSchema = new mongoose.Schema({
   },
   status: {
     type: String,
-    enum: ['Draft', 'Submitted', 'AppraiserReview', 'ReviewerReview', 'DirectorApproval', 'Released', 'Reviewed'],
+    enum: [
+      'Draft', 
+      'Submitted', // Employee has submitted
+      'SUBMITTED', // Normalize to uppercase if needed, but keeping mixed for now based on existing code. User requested "SUBMITTED" explicitly. 
+      // Let's support both or standardized. The user input used uppercase. I will add uppercase versions.
+      'APPRAISER_COMPLETED', 
+      'REVIEWER_COMPLETED', 
+      'DIRECTOR_APPROVED',
+      // Keeping legacy/other statuses for safety if needed, or remove if strict. 
+      // User requested strict flow: DRAFT -> SUBMITTED -> APPRAISER_COMPLETED -> REVIEWER_COMPLETED -> DIRECTOR_APPROVED
+      'AppraiserReview', 'ReviewerReview', 'DirectorApproval', 'Released', 'Reviewed'
+    ],
     default: 'Draft'
   },
   appraiser: {
+    type: String
+  },
+  appraiserId: {
+    type: String
+  },
+  reviewer: {
+    type: String
+  },
+  reviewerId: {
+    type: String
+  },
+  director: {
+    type: String
+  },
+  directorId: {
     type: String
   },
   // Manager/Appraiser Fields

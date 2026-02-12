@@ -27,8 +27,9 @@ const ALLOWED_COMPENSATION_VIEWERS = ['arunkumar.p', 'balasubiramaniyam', 'uvara
 import { performanceAPI } from '../../services/api';
 
 const TeamAppraisal = () => {
-  // Mock Current User State (for demonstration/testing purposes)
-  const [currentUser, setCurrentUser] = useState('Arunkumar.p');
+  // Get current user from session
+  const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+  const currentUser = user.name || '';
 
   // Helper to check if current user has access
   const hasCompensationAccess = ALLOWED_COMPENSATION_VIEWERS.includes(currentUser.toLowerCase());
@@ -54,45 +55,7 @@ const TeamAppraisal = () => {
       setEmployees(response.data || []);
     } catch (error) {
       console.error("Failed to fetch team appraisals", error);
-      // Keep empty or handle error state
-      setEmployees([
-        {
-          id: 1,
-          financialYr: '2024-25',
-          empId: 'EMP001',
-          name: 'Alice Johnson',
-          avatar: 'A',
-          designation: 'Senior Developer',
-          department: 'Engineering',
-          status: 'Pending Review',
-          selfAppraiseeComments: 'Completed all assigned tasks on time.',
-          managerComments: '',
-          keyPerformance: 'Delivered Project X ahead of schedule. Improved code quality.',
-          appraiseeComments: 'I felt I did well this year.',
-          appraiserRating: '',
-          leadership: 'Under Development',
-          attitude: 'Excellent',
-          communication: 'Good'
-        },
-        {
-          id: 2,
-          financialYr: '2024-25',
-          empId: 'EMP002',
-          name: 'Bob Smith',
-          avatar: 'B',
-          designation: 'QA Engineer',
-          department: 'Quality Assurance',
-          status: 'In Progress',
-          selfAppraiseeComments: 'Found 50+ bugs in the new release.',
-          managerComments: 'Good attention to detail.',
-          keyPerformance: 'Ensured zero critical bugs in production.',
-          appraiseeComments: 'Need more training on automation tools.',
-          appraiserRating: 'ME',
-          leadership: 'Not yet reach the level',
-          attitude: 'Average',
-          communication: 'Average'
-        }
-      ]);
+      setEmployees([]);
     } finally {
       setLoading(false);
     }
@@ -118,6 +81,40 @@ const TeamAppraisal = () => {
     setEmployees(employees.map(emp => 
       emp.id === id ? updatedEmployee : emp
     ));
+
+    // Auto-calculate Increment % if rating changes
+    if (field === 'appraiserRating') {
+      calculateIncrementPercentage(updatedEmployee, value);
+    }
+  };
+
+  const calculateIncrementPercentage = async (employee, rating) => {
+    if (!rating) {
+      // If rating is cleared, reset percentage
+       updateIncrementState(employee.id, 0);
+       return;
+    }
+
+    try {
+      const response = await performanceAPI.calculateIncrement({
+         financialYear: employee.financialYear || employee.financialYr || '2025-2026',
+         designation: employee.designation,
+         rating: rating
+      });
+      
+      if (response.data && response.data.success) {
+         updateIncrementState(employee.id, response.data.percentage);
+      }
+    } catch (err) {
+      console.error('Error calculating increment:', err);
+    }
+  };
+
+  const updateIncrementState = (id, percentage) => {
+    setSelectedEmployee(prev => ({ ...prev, incrementPercentage: percentage }));
+    setEmployees(prev => prev.map(emp => 
+      emp.id === id ? { ...emp, incrementPercentage: percentage } : emp
+    ));
   };
 
   const handleSave = async () => {
@@ -132,9 +129,9 @@ const TeamAppraisal = () => {
   };
 
   const handleSubmit = async () => {
-    if (window.confirm('Are you sure you want to submit this review? This will mark it as Reviewed.')) {
+    if (window.confirm('Are you sure you want to submit this review? This will mark it as Completed.')) {
       try {
-        const payload = { ...selectedEmployee, status: 'Reviewed' };
+        const payload = { ...selectedEmployee, status: 'APPRAISER_COMPLETED' };
         await performanceAPI.updateTeamAppraisal(selectedEmployee.id, payload);
         alert('Review submitted successfully!');
         setSelectedEmployee(null);
@@ -148,8 +145,9 @@ const TeamAppraisal = () => {
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Reviewed': return 'bg-green-100 text-green-800 border-green-200';
-      case 'In Progress': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'APPRAISER_COMPLETED': return 'bg-green-100 text-green-800 border-green-200';
+      case 'Submitted': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'SUBMITTED': return 'bg-blue-100 text-blue-800 border-blue-200';
       default: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     }
   };
@@ -359,6 +357,24 @@ const TeamAppraisal = () => {
                            </select>
                          </div>
                          <div>
+                            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">Annual Increment %</label>
+                             <div className="relative rounded-md shadow-sm">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                  <span className="text-gray-500 sm:text-sm font-bold">%</span>
+                                </div>
+                                <input
+                                  type="text"
+                                  value={selectedEmployee.incrementPercentage || 0}
+                                  disabled
+                                  className="block w-full pl-8 border-gray-300 rounded-md shadow-sm focus:ring-[#262760] focus:border-[#262760] sm:text-sm p-2.5 bg-gray-100 text-gray-800 font-bold"
+                                />
+                             </div>
+                             <p className="mt-1 text-xs text-gray-500">Auto-fetched based on designation & rating</p>
+                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div>
                             <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">Leadership Potential</label>
                             <select 
                               value={selectedEmployee.leadership}
@@ -371,9 +387,6 @@ const TeamAppraisal = () => {
                               <option value="Not yet reach the level">Not yet reach the level</option>
                             </select>
                          </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">Attitude</label>
                            <select 
@@ -387,6 +400,9 @@ const TeamAppraisal = () => {
                              <option value="Poor">Poor</option>
                            </select>
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div>
                            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">Communication</label>
                            <select 

@@ -11,8 +11,22 @@ router.get('/', auth, async (req, res) => {
   try {
     // In a real app, you might check req.user.role === 'Director'
     
+    // Strict Visibility Rule: Only assigned Director can view
+    // Strict Sequential Flow: Only show appraisals in 'REVIEWER_COMPLETED' stage
+    const query = {
+      $and: [
+        { status: 'REVIEWER_COMPLETED' },
+        {
+          $or: [
+            { directorId: req.user.employeeId },
+            { director: req.user.name }
+          ]
+        }
+      ]
+    };
+
     // Populate employee details
-    const appraisals = await SelfAppraisal.find()
+    const appraisals = await SelfAppraisal.find(query)
       .populate('employeeId', 'name employeeId designation department avatar ctc');
 
     // Transform to frontend format
@@ -113,7 +127,7 @@ router.post('/release', auth, async (req, res) => {
     let modifiedCount = 0;
     
     for (const appraisal of appraisals) {
-      appraisal.status = 'Released';
+      appraisal.status = 'DIRECTOR_APPROVED';
       appraisal.updatedAt = Date.now();
       await appraisal.save();
 

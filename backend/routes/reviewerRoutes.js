@@ -11,8 +11,22 @@ router.get('/', auth, async (req, res) => {
   try {
     // Check permissions if needed (e.g. req.user.role === 'Admin' or 'Reviewer')
     
+    // Strict Visibility Rule: Only assigned Reviewer can view
+    // Strict Sequential Flow: Only show appraisals in 'APPRAISER_COMPLETED' stage
+    const query = {
+      $and: [
+        { status: 'APPRAISER_COMPLETED' },
+        {
+          $or: [
+            { reviewerId: req.user.employeeId },
+            { reviewer: req.user.name }
+          ]
+        }
+      ]
+    };
+
     // Populate employee details
-    const appraisals = await SelfAppraisal.find()
+    const appraisals = await SelfAppraisal.find(query)
       .populate('employeeId', 'name employeeId designation department avatar ctc');
 
     // Transform to frontend format
@@ -101,7 +115,7 @@ router.post('/submit-director', auth, async (req, res) => {
       { _id: { $in: ids } },
       { 
         $set: { 
-          status: 'DirectorApproval',
+          status: 'REVIEWER_COMPLETED',
           updatedAt: Date.now()
         } 
       }

@@ -1,47 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Plus, X, Search, Check } from 'lucide-react';
+import { Save, Loader2, Plus, X, Search, Check, Edit } from 'lucide-react';
 import { performanceAPI, employeeAPI } from '../../services/api';
 
 const IncrementMaster = () => {
-  // Initial data structure mirroring the image
-  const [matrixData, setMatrixData] = useState([
-    {
-      id: 1,
-      
-      ratings: [
-        { grade: 'ES', belowTarget: '5%', metTarget: '8%', target1_1: '', target1_25: '10%', target1_5: '12%' },
-        { grade: 'ME', belowTarget: '3%', metTarget: '4%', target1_1: '', target1_25: '6%', target1_5: '8%' },
-        { grade: 'BE', belowTarget: '2%', metTarget: '2%', target1_1: '', target1_25: '3%', target1_5: '5%' }
-      ]
-    },
-    {
-      id: 2,
-      
-      ratings: [
-        { grade: 'ES', belowTarget: '8%', metTarget: '10%', target1_1: '', target1_25: '13%', target1_5: '15%' },
-        { grade: 'ME', belowTarget: '3%', metTarget: '5%', target1_1: '', target1_25: '8%', target1_5: '10%' },
-        { grade: 'BE', belowTarget: '2%', metTarget: '3%', target1_1: '', target1_25: '5%', target1_5: '7%' }
-      ]
-    },
-    {
-      id: 3,
-     
-      ratings: [
-        { grade: 'ES', belowTarget: '10%', metTarget: '12%', target1_1: '', target1_25: '15%', target1_5: '20%' },
-        { grade: 'ME', belowTarget: '5%', metTarget: '8%', target1_1: '', target1_25: '10%', target1_5: '15%' },
-        { grade: 'BE', belowTarget: '3%', metTarget: '5%', target1_1: '', target1_25: '8%', target1_5: '10%' }
-      ]
-    },
-    {
-      id: 4,
-     
-      ratings: [
-        { grade: 'ES', belowTarget: '10%', metTarget: '15%', target1_1: '', target1_25: '20%', target1_5: '25%' },
-        { grade: 'ME', belowTarget: '5%', metTarget: '10%', target1_1: '', target1_25: '15%', target1_5: '18%' },
-        { grade: 'BE', belowTarget: '3%', metTarget: '5%', target1_1: '', target1_25: '8%', target1_5: '12%' }
-      ]
-    }
-  ]);
+  // Main Data (Source of Truth)
+  const [matrixData, setMatrixData] = useState([]);
+  
+  const [enabledColumns, setEnabledColumns] = useState({
+    belowTarget: false,
+    metTarget: true,
+    target1_1: false,
+    target1_25: false,
+    target1_5: false
+  });
+
+  const [financialYear, setFinancialYear] = useState('2025-2026');
+  const [editFinancialYear, setEditFinancialYear] = useState('2025-2026');
+  const financialYears = ['2025-2026', '2026-2027'];
+
+  // Edit Mode State
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editMatrixData, setEditMatrixData] = useState([]);
+  const [editEnabledColumns, setEditEnabledColumns] = useState({});
+
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   
@@ -51,22 +32,23 @@ const IncrementMaster = () => {
   const [editingCategoryId, setEditingCategoryId] = useState(null);
   const [tempSelectedDesignations, setTempSelectedDesignations] = useState([]);
   const [disabledDesignations, setDisabledDesignations] = useState([]);
-  const [enabledColumns, setEnabledColumns] = useState({
-    belowTarget: false,
-    metTarget: true,
-    target1_1: false,
-    target1_25: false,
-    target1_5: false
-  });
+  
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     columnKey: null,
     columnName: ''
   });
+  const [successModal, setSuccessModal] = useState({
+    isOpen: false,
+    message: ''
+  });
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     fetchMatrix();
+  }, [financialYear]);
+
+  useEffect(() => {
     fetchDesignations();
   }, []);
 
@@ -96,19 +78,84 @@ const IncrementMaster = () => {
   const fetchMatrix = async () => {
     try {
       setLoading(true);
-      const response = await performanceAPI.getIncrementMatrix();
-      if (response.data && response.data.length > 0) {
-        setMatrixData(response.data);
+      const response = await performanceAPI.getIncrementMatrix({ financialYear });
+      
+      if (response.data) {
+        // Handle new response format { matrix, enabledColumns }
+        if (response.data.matrix && response.data.matrix.length > 0) {
+          setMatrixData(response.data.matrix);
+        } else if (Array.isArray(response.data) && response.data.length > 0) {
+          // Fallback for old format
+          setMatrixData(response.data);
+        } else {
+          // If no data found for this year, backend should have seeded it
+          setMatrixData([]);
+        }
+        
+        // Set enabled columns if present in response
+        if (response.data.enabledColumns) {
+          setEnabledColumns(response.data.enabledColumns);
+        } else {
+           // Default enabled columns if not found
+           setEnabledColumns({
+            belowTarget: false,
+            metTarget: true,
+            target1_1: false,
+            target1_25: false,
+            target1_5: false
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching increment matrix:', error);
       // Fallback to default/initial state if error or empty
+      setMatrixData([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleColumn = (columnKey) => {
+  // Edit Mode Handlers
+  const handleEditOpen = () => {
+    setEditMatrixData(JSON.parse(JSON.stringify(matrixData)));
+    setEditEnabledColumns({ ...enabledColumns });
+    setEditFinancialYear(financialYear);
+    setIsEditMode(true);
+  };
+
+  const handleEditClose = () => {
+    setIsEditMode(false);
+    setEditMatrixData([]);
+    setEditEnabledColumns({});
+  };
+
+  const handleEditSave = async () => {
+    try {
+      setSaving(true);
+      await performanceAPI.saveIncrementMatrix({ 
+        matrixData: editMatrixData,
+        enabledColumns: editEnabledColumns,
+        financialYear: editFinancialYear 
+      });
+      
+      setSuccessModal({ isOpen: true, message: "Increment Matrix Saved Successfully!" });
+      setIsEditMode(false);
+
+      if (financialYear !== editFinancialYear) {
+        setFinancialYear(editFinancialYear);
+      } else {
+        setMatrixData(editMatrixData);
+        setEnabledColumns(editEnabledColumns);
+      }
+    } catch (error) {
+      console.error('Error saving increment matrix:', error);
+      alert("Failed to save increment matrix");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const toggleEditColumn = (columnKey) => {
     const columnNames = {
       belowTarget: 'Below Target',
       metTarget: 'Met Target',
@@ -118,7 +165,7 @@ const IncrementMaster = () => {
     };
 
     // If we are enabling a column (it's currently false)
-    if (!enabledColumns[columnKey]) {
+    if (!editEnabledColumns[columnKey]) {
       // Show custom confirmation modal
       setConfirmationModal({
         isOpen: true,
@@ -127,17 +174,17 @@ const IncrementMaster = () => {
       });
     } else {
       // If disabling the currently enabled column
-      setEnabledColumns(prev => ({
+      setEditEnabledColumns(prev => ({
         ...prev,
         [columnKey]: false
       }));
     }
   };
 
-  const confirmEnableColumn = () => {
+  const confirmEnableEditColumn = () => {
     const { columnKey } = confirmationModal;
     if (columnKey) {
-      setEnabledColumns({
+      setEditEnabledColumns({
         belowTarget: false,
         metTarget: false,
         target1_1: false,
@@ -149,8 +196,8 @@ const IncrementMaster = () => {
     setConfirmationModal({ isOpen: false, columnKey: null, columnName: '' });
   };
 
-  const handleInputChange = (categoryId, gradeIndex, field, value) => {
-    setMatrixData(prevData => prevData.map(category => {
+  const handleEditInputChange = (categoryId, gradeIndex, field, value) => {
+    setEditMatrixData(prevData => prevData.map(category => {
       if (category.id === categoryId) {
         const newRatings = [...category.ratings];
         newRatings[gradeIndex] = { ...newRatings[gradeIndex], [field]: value };
@@ -160,20 +207,7 @@ const IncrementMaster = () => {
     }));
   };
 
-  const handleSave = async () => {
-    try {
-      setSaving(true);
-      await performanceAPI.saveIncrementMatrix({ matrixData });
-      alert("Increment Matrix Saved Successfully!");
-    } catch (error) {
-      console.error('Error saving increment matrix:', error);
-      alert("Failed to save increment matrix");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Designation Modal Handlers
+  // Designation Modal Handlers (Operating on editMatrixData)
   const openDesignationModal = (category) => {
     setEditingCategoryId(category.id);
     // Split existing category string into array, trim whitespace
@@ -182,9 +216,9 @@ const IncrementMaster = () => {
       : [];
     setTempSelectedDesignations(currentDesignations);
     
-    // Calculate designations used in OTHER categories
+    // Calculate designations used in OTHER categories (using editMatrixData)
     const otherUsed = new Set();
-    matrixData.forEach(cat => {
+    editMatrixData.forEach(cat => {
       if (cat.id !== category.id && cat.category) {
         const catDesignations = cat.category.split(',').map(d => d.trim()).filter(Boolean);
         catDesignations.forEach(d => otherUsed.add(d));
@@ -208,32 +242,21 @@ const IncrementMaster = () => {
     });
   };
 
-  const saveDesignations = async () => {
+  const saveDesignations = () => {
     if (editingCategoryId !== null) {
       const newCategoryString = tempSelectedDesignations.join(', ');
       
       // Update local state immediately for UI responsiveness
-      const updatedMatrixData = matrixData.map(cat => 
+      const updatedMatrixData = editMatrixData.map(cat => 
         cat.id === editingCategoryId 
           ? { ...cat, category: newCategoryString } 
           : cat
       );
       
-      setMatrixData(updatedMatrixData);
+      setEditMatrixData(updatedMatrixData);
       setShowDesignationModal(false);
       setEditingCategoryId(null);
-
-      // Silent auto-save to backend
-      try {
-        setSaving(true);
-        await performanceAPI.saveIncrementMatrix({ matrixData: updatedMatrixData });
-      } catch (error) {
-        console.error('Error auto-saving designations:', error);
-        // We don't alert here to avoid interrupting the flow, but the error is logged
-        // and the user can try manual save if needed.
-      } finally {
-        setSaving(false);
-      }
+      // Removed auto-save to API
     }
   };
 
@@ -245,169 +268,326 @@ const IncrementMaster = () => {
     );
   }
 
+  const getGradeDisplay = (grade) => {
+    // If grade is already in full format "Exceeds Expectations (ES)", return it.
+    // If it's short format "ES", map it to full format.
+    const gradeMap = {
+      'ES': 'Exceeds Expectations (ES)',
+      'ME': 'Meets Expectations (ME)',
+      'BE': 'Below Expectations (BE)'
+    };
+
+    if (gradeMap[grade]) {
+      return gradeMap[grade];
+    }
+    
+    // If it's already full format or unknown, return as is
+    return grade;
+  };
+
+  const renderViewTable = () => (
+    <div className="bg-white shadow overflow-hidden border border-gray-200 sm:rounded-lg overflow-x-auto">
+      <table className="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
+        <thead className="bg-white">
+          <tr>
+            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Category</th>
+            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Ratings</th>
+            <th colSpan={Object.values(enabledColumns).filter(Boolean).length} className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" sstyle={{width: '20%'}}>Annual Increment %</th>
+          </tr>
+          <tr>
+            <th className="border border-gray-300 bg-white"></th>
+            <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900">Company Performance</th>
+            {enabledColumns.belowTarget && <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#fff2cc]">Below Target</th>}
+            {enabledColumns.metTarget && <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#deebf7]">Met Target</th>}
+            {enabledColumns.target1_1 && <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#deebf7]">1.1 X Target</th>}
+            {enabledColumns.target1_25 && <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#fce4d6]">1.25 X Target</th>}
+            {enabledColumns.target1_5 && <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#e2efda]">1.5 X Target</th>}
+          </tr>
+        </thead>
+        <tbody className="bg-white divide-y divide-gray-200">
+          {matrixData.map((category) => (
+            <React.Fragment key={category.id}>
+              {category.ratings.map((rating, index) => (
+                <tr key={`${category.id}-${rating.grade}`}>
+                  {index === 0 && (
+                    <td 
+                      rowSpan={category.ratings.length} 
+                      className="border border-gray-300 px-4 py-2 text-sm text-gray-900 font-medium align-middle bg-white"
+                    >
+                      <div className="">
+                        {category.category ? category.category.split(',').map((d, i) => (
+                          <div key={i} className="py-0.5 leading-snug">{d.trim()}</div>
+                        )) : <span className="text-gray-400 italic text-xs">No designations</span>}
+                      </div>
+                    </td>
+                  )}
+                  <td className="border border-gray-300 px-4 py-2 text-center text-sm text-gray-900 font-bold">
+                    {getGradeDisplay(rating.grade)}
+                  </td>
+                  {enabledColumns.belowTarget && (
+                    <td className="border border-gray-300 px-2 py-1 bg-[#fff2cc] text-center text-sm">
+                      {rating.belowTarget}
+                    </td>
+                  )}
+                  {enabledColumns.metTarget && (
+                    <td className="border border-gray-300 px-2 py-1 bg-[#deebf7] text-center text-sm">
+                      {rating.metTarget}
+                    </td>
+                  )}
+                  {enabledColumns.target1_1 && (
+                    <td className="border border-gray-300 px-2 py-1 bg-[#deebf7] text-center text-sm">
+                      {rating.target1_1}
+                    </td>
+                  )}
+                  {enabledColumns.target1_25 && (
+                    <td className="border border-gray-300 px-2 py-1 bg-[#fce4d6] text-center text-sm">
+                      {rating.target1_25}
+                    </td>
+                  )}
+                  {enabledColumns.target1_5 && (
+                    <td className="border border-gray-300 px-2 py-1 bg-[#e2efda] text-center text-sm">
+                      {rating.target1_5}
+                    </td>
+                  )}
+                </tr>
+              ))}
+            </React.Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 p-8 font-sans">
       <div className="w-full mx-auto">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">Increment Master</h1>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Increment Master</h1>
+            <div className="flex items-center mt-2">
+              <label htmlFor="main-financial-year-select" className="text-sm text-gray-500 mr-2">Financial Year:</label>
+              <select
+                id="main-financial-year-select"
+                value={financialYear}
+                onChange={(e) => setFinancialYear(e.target.value)}
+                className="text-sm border-gray-300 rounded-md shadow-sm focus:border-[#262760] focus:ring-[#262760] py-1 pl-2 pr-8"
+              >
+                {financialYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <button
-            onClick={handleSave}
-            disabled={saving}
-            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none disabled:opacity-50"
+            onClick={handleEditOpen}
+            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none"
           >
-            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Save Changes
+            <Edit className="h-4 w-4 mr-2" />
+            Edit
           </button>
         </div>
 
-        <div className="bg-white shadow overflow-hidden border border-gray-200 sm:rounded-lg overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
-            <thead className="bg-white">
-              <tr>
-                <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Category</th>
-                <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '10%'}}>Ratings</th>
-                <th colSpan="5" className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100">Annual Increment %</th>
-              </tr>
-              <tr>
-                <th className="border border-gray-300 bg-white"></th>
-                <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900">Company Performance</th>
-                <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#fff2cc]">
-                  <div className="flex flex-col items-center gap-1">
-                    Below Target
-                    <button
-                      onClick={() => toggleColumn('belowTarget')}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabledColumns.belowTarget ? 'bg-[#262760]' : 'bg-gray-300'}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${enabledColumns.belowTarget ? 'translate-x-4.5' : 'translate-x-1'}`} style={{transform: enabledColumns.belowTarget ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
-                    </button>
-                  </div>
-                </th>
-                <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#deebf7]">
-                  <div className="flex flex-col items-center gap-1">
-                    Met Target
-                    <button
-                      onClick={() => toggleColumn('metTarget')}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabledColumns.metTarget ? 'bg-[#262760]' : 'bg-gray-300'}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: enabledColumns.metTarget ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
-                    </button>
-                  </div>
-                </th>
-                <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#deebf7]">
-                  <div className="flex flex-col items-center gap-1">
-                    1.1 X Target
-                    <button
-                      onClick={() => toggleColumn('target1_1')}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabledColumns.target1_1 ? 'bg-[#262760]' : 'bg-gray-300'}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: enabledColumns.target1_1 ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
-                    </button>
-                  </div>
-                </th>
-                <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#fce4d6]">
-                  <div className="flex flex-col items-center gap-1">
-                    1.25 X Target
-                    <button
-                      onClick={() => toggleColumn('target1_25')}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabledColumns.target1_25 ? 'bg-[#262760]' : 'bg-gray-300'}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: enabledColumns.target1_25 ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
-                    </button>
-                  </div>
-                </th>
-                <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#e2efda]">
-                  <div className="flex flex-col items-center gap-1">
-                    1.5 X Target
-                    <button
-                      onClick={() => toggleColumn('target1_5')}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${enabledColumns.target1_5 ? 'bg-[#262760]' : 'bg-gray-300'}`}
-                    >
-                      <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: enabledColumns.target1_5 ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
-                    </button>
-                  </div>
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {matrixData.map((category) => (
-                <React.Fragment key={category.id}>
-                  {category.ratings.map((rating, index) => (
-                    <tr key={`${category.id}-${rating.grade}`}>
-                      {index === 0 && (
-                        <td 
-                          rowSpan={category.ratings.length} 
-                          className="border border-gray-300 px-4 py-2 text-sm text-gray-900 font-medium align-middle bg-white relative"
-                        >
-                          <button
-                              onClick={() => openDesignationModal(category)}
-                              className="absolute top-1 left-1 p-1 rounded hover:bg-gray-100 text-blue-600 transition-colors z-10"
-                              title="Add/Edit Designations"
-                          >
-                            <Plus size={16} />
-                          </button>
-                          <div className="mt-6">
-                            {category.category ? category.category.split(',').map((d, i) => (
-                              <div key={i} className="py-0.5 leading-snug">{d.trim()}</div>
-                            )) : <span className="text-gray-400 italic text-xs">No designations</span>}
-                          </div>
-                        </td>
-                      )}
-                      <td className="border border-gray-300 px-4 py-2 text-center text-sm text-gray-900 font-bold">
-                        {rating.grade}
-                      </td>
-                      <td className={`border border-gray-300 px-2 py-1 ${enabledColumns.belowTarget ? 'bg-[#fff2cc]' : 'bg-gray-100'}`}>
-                        <input
-                          type="text"
-                          value={rating.belowTarget}
-                          onChange={(e) => handleInputChange(category.id, index, 'belowTarget', e.target.value)}
-                          className={`w-full text-center border-none bg-transparent focus:ring-0 text-sm p-1 ${!enabledColumns.belowTarget ? 'cursor-not-allowed text-gray-400' : ''}`}
-                          disabled={!enabledColumns.belowTarget}
-                        />
-                      </td>
-                      <td className={`border border-gray-300 px-2 py-1 ${enabledColumns.metTarget ? 'bg-[#deebf7]' : 'bg-gray-100'}`}>
-                         <input
-                          type="text"
-                          value={rating.metTarget}
-                          onChange={(e) => handleInputChange(category.id, index, 'metTarget', e.target.value)}
-                          className={`w-full text-center border-none bg-transparent focus:ring-0 text-sm p-1 ${!enabledColumns.metTarget ? 'cursor-not-allowed text-gray-400' : ''}`}
-                          disabled={!enabledColumns.metTarget}
-                        />
-                      </td>
-                      <td className={`border border-gray-300 px-2 py-1 ${enabledColumns.target1_1 ? 'bg-[#deebf7]' : 'bg-gray-100'}`}>
-                         <input
-                          type="text"
-                          value={rating.target1_1}
-                          onChange={(e) => handleInputChange(category.id, index, 'target1_1', e.target.value)}
-                          className={`w-full text-center border-none bg-transparent focus:ring-0 text-sm p-1 ${!enabledColumns.target1_1 ? 'cursor-not-allowed text-gray-400' : ''}`}
-                          disabled={!enabledColumns.target1_1}
-                        />
-                      </td>
-                      <td className={`border border-gray-300 px-2 py-1 ${enabledColumns.target1_25 ? 'bg-[#fce4d6]' : 'bg-gray-100'}`}>
-                         <input
-                          type="text"
-                          value={rating.target1_25}
-                          onChange={(e) => handleInputChange(category.id, index, 'target1_25', e.target.value)}
-                          className={`w-full text-center border-none bg-transparent focus:ring-0 text-sm p-1 ${!enabledColumns.target1_25 ? 'cursor-not-allowed text-gray-400' : ''}`}
-                          disabled={!enabledColumns.target1_25}
-                        />
-                      </td>
-                      <td className={`border border-gray-300 px-2 py-1 ${enabledColumns.target1_5 ? 'bg-[#e2efda]' : 'bg-gray-100'}`}>
-                         <input
-                          type="text"
-                          value={rating.target1_5}
-                          onChange={(e) => handleInputChange(category.id, index, 'target1_5', e.target.value)}
-                          className={`w-full text-center border-none bg-transparent focus:ring-0 text-sm p-1 ${!enabledColumns.target1_5 ? 'cursor-not-allowed text-gray-400' : ''}`}
-                          disabled={!enabledColumns.target1_5}
-                        />
-                      </td>
+        {renderViewTable()}
+    </div>
+
+      {/* Edit Matrix Modal */}
+      {isEditMode && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-[95%] max-w-7xl max-h-[90vh] flex flex-col border border-gray-200">
+            <div className="flex justify-between items-center p-6 border-b border-gray-100">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Edit Increment Matrix</h3>
+                <div className="flex items-center mt-2">
+                  <label htmlFor="financial-year-select" className="text-sm text-gray-500 mr-2">Financial Year:</label>
+                  <select
+                    id="financial-year-select"
+                    value={editFinancialYear}
+                    onChange={(e) => setEditFinancialYear(e.target.value)}
+                    className="text-sm border-gray-300 rounded-md shadow-sm focus:border-[#262760] focus:ring-[#262760] py-1 pl-2 pr-8"
+                  >
+                    {financialYears.map(year => (
+                      <option key={year} value={year}>{year}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <button 
+                onClick={handleEditClose}
+                className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-auto p-6">
+              <div className="bg-white shadow overflow-hidden border border-gray-200 sm:rounded-lg overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
+                  <thead className="bg-white">
+                    <tr>
+                      <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Category</th>
+                      <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Ratings</th>
+                      <th colSpan="5" className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100">Annual Increment %</th>
                     </tr>
-                  ))}
-                </React.Fragment>
-              ))}
-            </tbody>
-          </table>
+                    <tr>
+                      <th className="border border-gray-300 bg-white"></th>
+                      <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900">Company Performance</th>
+                      <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#fff2cc]">
+                        <div className="flex flex-col items-center gap-1">
+                          Below Target
+                          <button
+                            onClick={() => toggleEditColumn('belowTarget')}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${editEnabledColumns.belowTarget ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${editEnabledColumns.belowTarget ? 'translate-x-4.5' : 'translate-x-1'}`} style={{transform: editEnabledColumns.belowTarget ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
+                          </button>
+                        </div>
+                      </th>
+                      <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#deebf7]">
+                        <div className="flex flex-col items-center gap-1">
+                          Met Target
+                          <button
+                            onClick={() => toggleEditColumn('metTarget')}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${editEnabledColumns.metTarget ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: editEnabledColumns.metTarget ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
+                          </button>
+                        </div>
+                      </th>
+                      <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#deebf7]">
+                        <div className="flex flex-col items-center gap-1">
+                          1.1 X Target
+                          <button
+                            onClick={() => toggleEditColumn('target1_1')}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${editEnabledColumns.target1_1 ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: editEnabledColumns.target1_1 ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
+                          </button>
+                        </div>
+                      </th>
+                      <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#fce4d6]">
+                        <div className="flex flex-col items-center gap-1">
+                          1.25 X Target
+                          <button
+                            onClick={() => toggleEditColumn('target1_25')}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${editEnabledColumns.target1_25 ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: editEnabledColumns.target1_25 ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
+                          </button>
+                        </div>
+                      </th>
+                      <th className="border border-gray-300 px-2 py-2 text-center text-xs font-bold text-gray-900 bg-[#e2efda]">
+                        <div className="flex flex-col items-center gap-1">
+                          1.5 X Target
+                          <button
+                            onClick={() => toggleEditColumn('target1_5')}
+                            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${editEnabledColumns.target1_5 ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                          >
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: editEnabledColumns.target1_5 ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
+                          </button>
+                        </div>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {editMatrixData.map((category) => (
+                      <React.Fragment key={category.id}>
+                        {category.ratings.map((rating, index) => (
+                          <tr key={`${category.id}-${rating.grade}`}>
+                            {index === 0 && (
+                              <td 
+                                rowSpan={category.ratings.length} 
+                                className="border border-gray-300 px-4 py-2 text-sm text-gray-900 font-medium align-middle bg-white relative"
+                              >
+                                <button
+                                    onClick={() => openDesignationModal(category)}
+                                    className="absolute top-1 left-1 p-1 rounded hover:bg-gray-100 text-blue-600 transition-colors z-10"
+                                    title="Add/Edit Designations"
+                                >
+                                  <Plus size={16} />
+                                </button>
+                                <div className="mt-6">
+                                  {category.category ? category.category.split(',').map((d, i) => (
+                                    <div key={i} className="py-0.5 leading-snug">{d.trim()}</div>
+                                  )) : <span className="text-gray-400 italic text-xs">No designations</span>}
+                                </div>
+                              </td>
+                            )}
+                            <td className="border border-gray-300 px-4 py-2 text-center text-sm text-gray-900 font-bold">
+                              {getGradeDisplay(rating.grade)}
+                            </td>
+                            <td className={`border border-gray-300 px-2 py-1 ${editEnabledColumns.belowTarget ? 'bg-[#fff2cc]' : 'bg-gray-100'}`}>
+                              <input
+                                type="text"
+                                value={rating.belowTarget}
+                                onChange={(e) => handleEditInputChange(category.id, index, 'belowTarget', e.target.value)}
+                                className={`w-full text-center border-none bg-transparent focus:ring-0 text-sm p-1 ${!editEnabledColumns.belowTarget ? 'cursor-not-allowed text-gray-400' : ''}`}
+                                disabled={!editEnabledColumns.belowTarget}
+                              />
+                            </td>
+                            <td className={`border border-gray-300 px-2 py-1 ${editEnabledColumns.metTarget ? 'bg-[#deebf7]' : 'bg-gray-100'}`}>
+                               <input
+                                type="text"
+                                value={rating.metTarget}
+                                onChange={(e) => handleEditInputChange(category.id, index, 'metTarget', e.target.value)}
+                                className={`w-full text-center border-none bg-transparent focus:ring-0 text-sm p-1 ${!editEnabledColumns.metTarget ? 'cursor-not-allowed text-gray-400' : ''}`}
+                                disabled={!editEnabledColumns.metTarget}
+                              />
+                            </td>
+                            <td className={`border border-gray-300 px-2 py-1 ${editEnabledColumns.target1_1 ? 'bg-[#deebf7]' : 'bg-gray-100'}`}>
+                               <input
+                                type="text"
+                                value={rating.target1_1}
+                                onChange={(e) => handleEditInputChange(category.id, index, 'target1_1', e.target.value)}
+                                className={`w-full text-center border-none bg-transparent focus:ring-0 text-sm p-1 ${!editEnabledColumns.target1_1 ? 'cursor-not-allowed text-gray-400' : ''}`}
+                                disabled={!editEnabledColumns.target1_1}
+                              />
+                            </td>
+                            <td className={`border border-gray-300 px-2 py-1 ${editEnabledColumns.target1_25 ? 'bg-[#fce4d6]' : 'bg-gray-100'}`}>
+                               <input
+                                type="text"
+                                value={rating.target1_25}
+                                onChange={(e) => handleEditInputChange(category.id, index, 'target1_25', e.target.value)}
+                                className={`w-full text-center border-none bg-transparent focus:ring-0 text-sm p-1 ${!editEnabledColumns.target1_25 ? 'cursor-not-allowed text-gray-400' : ''}`}
+                                disabled={!editEnabledColumns.target1_25}
+                              />
+                            </td>
+                            <td className={`border border-gray-300 px-2 py-1 ${editEnabledColumns.target1_5 ? 'bg-[#e2efda]' : 'bg-gray-100'}`}>
+                               <input
+                                type="text"
+                                value={rating.target1_5}
+                                onChange={(e) => handleEditInputChange(category.id, index, 'target1_5', e.target.value)}
+                                className={`w-full text-center border-none bg-transparent focus:ring-0 text-sm p-1 ${!editEnabledColumns.target1_5 ? 'cursor-not-allowed text-gray-400' : ''}`}
+                                disabled={!editEnabledColumns.target1_5}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="p-6 border-t border-gray-100 flex justify-end gap-3 bg-gray-50 rounded-b-xl">
+              <button
+                onClick={handleEditClose}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-white hover:shadow-sm transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSave}
+                disabled={saving}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                Save Changes
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Confirmation Modal */}
       {confirmationModal.isOpen && (
@@ -425,12 +605,33 @@ const IncrementMaster = () => {
                 Cancel
               </button>
               <button
-                onClick={confirmEnableColumn}
+                onClick={confirmEnableEditColumn}
                 className="px-4 py-2 bg-[#262760] text-white rounded-lg text-sm font-medium hover:bg-[#1e2050] transition-colors"
               >
                 Confirm
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {successModal.isOpen && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 transform transition-all scale-100 flex flex-col items-center">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+              <Check className="h-6 w-6 text-green-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2 text-center">Success</h3>
+            <p className="text-gray-600 mb-6 text-center">
+              {successModal.message}
+            </p>
+            <button
+              onClick={() => setSuccessModal({ isOpen: false, message: '' })}
+              className="w-full px-4 py-2 bg-[#262760] text-white rounded-lg text-sm font-medium hover:bg-[#1e2050] transition-colors"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}

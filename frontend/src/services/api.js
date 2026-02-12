@@ -230,8 +230,9 @@ export const performanceAPI = {
   updateDirectorAppraisal: (id, data) => api.put(`/performance/director/${id}`, data),
 
   // Increment Master
-  getIncrementMatrix: () => api.get('/performance/increment-master'),
+  getIncrementMatrix: (params) => api.get('/performance/increment-master', { params }),
   saveIncrementMatrix: (data) => api.post('/performance/increment-master', data),
+  calculateIncrement: (data) => api.post('/performance/increment-master/calculate', data),
 };
 
 export const payrollAPI = {

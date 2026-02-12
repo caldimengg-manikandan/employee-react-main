@@ -75,19 +75,20 @@ const AppraisalWorkflow = () => {
             // Appraiser Designations
             const appraiserDesignations = [
                 'Managing Director (MD)', 
+                'Managing Director MD',
                 'General Manager (GM)', 
-                'Sr Project Manager', 
-                'Branch Manager', 
-                'Admin Manager'
+                'General Manager GM',
+                'BRANCH MANAGER', 
+                'Sr.Project Manager'
             ];
             setAppraiserOptions(getFilteredOptions(appraiserDesignations));
 
             // Reviewer Designations
-            const reviewerDesignations = ['General Manager (GM)'];
+            const reviewerDesignations = ['General Manager (GM)', 'General Manager GM'];
             setReviewerOptions(getFilteredOptions(reviewerDesignations));
 
             // Director Designations
-            const directorDesignations = ['Managing Director (MD)'];
+            const directorDesignations = ['Managing Director (MD)', 'Managing Director MD'];
             setDirectorOptions(getFilteredOptions(directorDesignations));
 
         } catch (error) {

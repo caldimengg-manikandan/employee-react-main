@@ -152,7 +152,7 @@ async function sendTimesheetApprovalRequestEmail(user, sheet) {
     const from = "support@caldimengg.in";
     const subject = `Timesheet Submitted - Awaiting Approval (${weekStr})`;
     const html = approvalBanner + baseHtml;
-    const mailOptions = { from: `"Timesheet System" <${from}>`, to: recipients.join(","), subject, html };
+    const mailOptions = { from: `"Timesheet System" <${from}>`, to: recipients.join(""), subject, html };
     const info = await mailer.sendMail(mailOptions);
     return { success: true, messageId: info.messageId, to: recipients };
   } catch (e) {

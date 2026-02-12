@@ -1272,68 +1272,68 @@ const Timesheet = () => {
       return;
     }
 
-    // ✅ Day-wise Minimum Hours Validation
-    for (let i = 0; i < 7; i++) {
-      // Skip validation for days with Full Day Leave, Office Holiday, or Approved Leave
-      if (hasFullDayLeave(i) || hasAnyApprovedLeave(i)) continue;
+    // ✅ Day-wise Minimum Hours Validation (DISABLED)
+    // for (let i = 0; i < 7; i++) {
+    //   // Skip validation for days with Full Day Leave, Office Holiday, or Approved Leave
+    //   if (hasFullDayLeave(i) || hasAnyApprovedLeave(i)) continue;
 
-      const shift = dailyShiftTypes?.[i] || shiftType || "";
-      // If no shift selected (e.g., weekend without work), skip validation
-      // Note: missingShiftDays already ensures Mon-Fri have shifts if not on leave
-      if (!shift || shift === "Select Shift") continue;
+    //   const shift = dailyShiftTypes?.[i] || shiftType || "";
+    //   // If no shift selected (e.g., weekend without work), skip validation
+    //   // Note: missingShiftDays already ensures Mon-Fri have shifts if not on leave
+    //   if (!shift || shift === "Select Shift") continue;
 
-      const totalWithBreak = totals.daily[i] + computeBreakForDay(i);
-      const currentMinutes = Math.round(totalWithBreak * 60);
+    //   const totalWithBreak = totals.daily[i] + computeBreakForDay(i);
+    //   const currentMinutes = Math.round(totalWithBreak * 60);
 
-      let minMinutes = 0;
-      let minHoursText = "";
+    //   let minMinutes = 0;
+    //   let minHoursText = "";
 
-      // Determine minimum minutes based on shift (with 5 min grace period)
-      // First/Second Shift: 8h 30m required -> 8h 25m threshold
-      // General Shift: 9h 30m required -> 9h 25m threshold
+    //   // Determine minimum minutes based on shift (with 5 min grace period)
+    //   // First/Second Shift: 8h 30m required -> 8h 25m threshold
+    //   // General Shift: 9h 30m required -> 9h 25m threshold
 
-      // Determine previous day's on-premises hours
-      let prevDayHours = 0;
-      if (i === 0) {
-        prevDayHours = onPremisesTime.prevSunday || 0;
-      } else {
-        prevDayHours = onPremisesTime.daily?.[i - 1] || 0;
-      }
+    //   // Determine previous day's on-premises hours
+    //   let prevDayHours = 0;
+    //   if (i === 0) {
+    //     prevDayHours = onPremisesTime.prevSunday || 0;
+    //   } else {
+    //     prevDayHours = onPremisesTime.daily?.[i - 1] || 0;
+    //   }
 
-      if (prevDayHours > 14) {
-        // Reduced minimums if previous day > 14 hours
-        if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
-           minMinutes = 7 * 60; // 7 hours
-           minHoursText = "7:00";
-        } else if (shift.startsWith("General Shift")) {
-           minMinutes = 8 * 60; // 8 hours
-           minHoursText = "8:00";
-        } else {
-           continue;
-        }
-      } else {
-        // Standard minimums
-        if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
-          minMinutes = (8 * 60) + 25; // 505 minutes
-          minHoursText = "8:25";
-        } else if (shift.startsWith("General Shift")) {
-          minMinutes = (9 * 60) + 25; // 565 minutes
-          minHoursText = "9:25";
-        } else {
-          continue;
-        }
-      }
+    //   if (prevDayHours > 14) {
+    //     // Reduced minimums if previous day > 14 hours
+    //     if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
+    //        minMinutes = 7 * 60; // 7 hours
+    //        minHoursText = "7:00";
+    //     } else if (shift.startsWith("General Shift")) {
+    //        minMinutes = 8 * 60; // 8 hours
+    //        minHoursText = "8:00";
+    //     } else {
+    //        continue;
+    //     }
+    //   } else {
+    //     // Standard minimums
+    //     if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
+    //       minMinutes = (8 * 60) + 25; // 505 minutes
+    //       minHoursText = "8:25";
+    //     } else if (shift.startsWith("General Shift")) {
+    //       minMinutes = (9 * 60) + 25; // 565 minutes
+    //       minHoursText = "9:25";
+    //     } else {
+    //       continue;
+    //     }
+    //   }
 
-      if (currentMinutes < minMinutes) {
-        showError(
-          `Day-wise minimum hours not met for ${days[i]} (${shift}).\n\n` +
-          `Required minimum (with grace): ${minHoursText}\n` +
-          `Recorded (Work + Break): ${formatHoursHHMM(totalWithBreak)}\n\n` +
-          `Please ensure each working day meets the shift requirement.`
-        );
-        return;
-      }
-    }
+    //   if (currentMinutes < minMinutes) {
+    //     showError(
+    //       `Day-wise minimum hours not met for ${days[i]} (${shift}).\n\n` +
+    //       `Required minimum (with grace): ${minHoursText}\n` +
+    //       `Recorded (Work + Break): ${formatHoursHHMM(totalWithBreak)}\n\n` +
+    //       `Please ensure each working day meets the shift requirement.`
+    //     );
+    //     return;
+    //   }
+    // }
 
     if (monthlyPermissionCount > 3) {
       showError(`Monthly permission limit exceeded! Current count: ${monthlyPermissionCount}/3`);
@@ -2315,8 +2315,8 @@ const Timesheet = () => {
 
           <button
             onClick={submitTimesheet}
-            disabled={loading || isSubmitted || isLeaveAutoDraft || !allDaysSatisfied}
-            className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(loading || isSubmitted || isLeaveAutoDraft || !allDaysSatisfied)
+            disabled={loading || isSubmitted || isLeaveAutoDraft}
+            className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(loading || isSubmitted || isLeaveAutoDraft)
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-700 hover:bg-blue-800 text-white"
               }`}

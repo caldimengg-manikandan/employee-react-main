@@ -9,9 +9,23 @@ const Employee = require('../models/Employee');
 // @access  Private (Manager)
 router.get('/', auth, async (req, res) => {
   try {
+    // Strict Visibility Rule: Only assigned Appraiser can view
+    // Strict Sequential Flow: Only show appraisals in 'SUBMITTED' stage
+    const query = {
+      $and: [
+        { status: { $in: ['Submitted', 'SUBMITTED'] } },
+        {
+          $or: [
+            { appraiserId: req.user.employeeId },
+            { appraiser: req.user.name }
+          ]
+        }
+      ]
+    };
+
     // Populate employee details
     // Note: employeeId in SelfAppraisal is a ref to Employee model
-    const appraisals = await SelfAppraisal.find()
+    const appraisals = await SelfAppraisal.find(query)
       .populate('employeeId', 'name employeeId designation department avatar');
 
     // Transform to frontend format
@@ -58,7 +72,8 @@ router.put('/:id', auth, async (req, res) => {
       leadership, 
       attitude, 
       communication,
-      status 
+      status,
+      incrementPercentage 
     } = req.body;
 
     let appraisal = await SelfAppraisal.findById(req.params.id);
@@ -75,6 +90,7 @@ router.put('/:id', auth, async (req, res) => {
     if (attitude !== undefined) appraisal.attitude = attitude;
     if (communication !== undefined) appraisal.communication = communication;
     if (status !== undefined) appraisal.status = status;
+    if (incrementPercentage !== undefined) appraisal.incrementPercentage = incrementPercentage;
 
     appraisal.updatedAt = Date.now();
     

@@ -81,13 +81,34 @@ router.post('/self-appraisals', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: `Appraisal for FY ${year} already exists` });
     }
 
+    // Resolve Workflow IDs based on Employee profile
+    let appraiserId = null, reviewerId = null, directorId = null;
+    
+    if (employee.appraiser) {
+        const appraiserUser = await Employee.findOne({ name: employee.appraiser });
+        if (appraiserUser) appraiserId = appraiserUser.employeeId;
+    }
+    if (employee.reviewer) {
+        const reviewerUser = await Employee.findOne({ name: employee.reviewer });
+        if (reviewerUser) reviewerId = reviewerUser.employeeId;
+    }
+    if (employee.director) {
+        const directorUser = await Employee.findOne({ name: employee.director });
+        if (directorUser) directorId = directorUser.employeeId;
+    }
+
     const newAppraisal = new SelfAppraisal({
       employeeId: employee._id,
       year,
       projects,
       overallContribution,
       status: status || 'Draft',
-      appraiser: 'Pending Assignment' // Or derive from logic
+      appraiser: employee.appraiser || 'Pending Assignment',
+      appraiserId,
+      reviewer: employee.reviewer,
+      reviewerId,
+      director: employee.director,
+      directorId
     });
 
     await newAppraisal.save();
@@ -116,6 +137,31 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
     if (overallContribution !== undefined) appraisal.overallContribution = overallContribution;
     if (status) appraisal.status = status;
     
+    // If submitting, refresh workflow routing from Employee profile
+    if (status === 'Submitted' || status === 'SUBMITTED') {
+        // Ensure status is normalized to SUBMITTED if that's the convention
+        appraisal.status = 'SUBMITTED'; 
+        
+        const employee = await Employee.findById(appraisal.employeeId);
+        if (employee) {
+             if (employee.appraiser) {
+                 const appraiserUser = await Employee.findOne({ name: employee.appraiser });
+                 if (appraiserUser) appraisal.appraiserId = appraiserUser.employeeId;
+                 appraisal.appraiser = employee.appraiser;
+             }
+             if (employee.reviewer) {
+                 const reviewerUser = await Employee.findOne({ name: employee.reviewer });
+                 if (reviewerUser) appraisal.reviewerId = reviewerUser.employeeId;
+                 appraisal.reviewer = employee.reviewer;
+             }
+             if (employee.director) {
+                 const directorUser = await Employee.findOne({ name: employee.director });
+                 if (directorUser) appraisal.directorId = directorUser.employeeId;
+                 appraisal.director = employee.director;
+             }
+        }
+    }
+
     appraisal.updatedAt = Date.now();
 
     await appraisal.save();

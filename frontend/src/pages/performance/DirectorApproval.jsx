@@ -136,14 +136,14 @@ const DirectorApproval = () => {
   const handleApproveRelease = async (emp) => {
     if(window.confirm(`Are you sure you want to approve and release the letter for ${emp.name}?`)) {
       try {
-        await performanceAPI.updateDirectorAppraisal(emp.id, { status: 'Released' });
+        await performanceAPI.updateDirectorAppraisal(emp.id, { status: 'DIRECTOR_APPROVED' });
         setEmployees(employees.map(e => 
-          e.id === emp.id ? { ...e, status: 'Released' } : e
+          e.id === emp.id ? { ...e, status: 'DIRECTOR_APPROVED' } : e
         ));
-        alert(`Appraisal letter released for ${emp.name}!`);
+        alert(`Appraisal approved for ${emp.name}!`);
       } catch (error) {
-        console.error('Error releasing letter:', error);
-        alert('Failed to release letter');
+        console.error('Error approving appraisal:', error);
+        alert('Failed to approve appraisal');
       }
     }
   };
@@ -162,19 +162,19 @@ const DirectorApproval = () => {
     if(window.confirm(`Approve and Release Letters for ${count} employee(s)?`)) {
       try {
         await Promise.all(rowsToSubmit.map(emp => 
-           performanceAPI.updateDirectorAppraisal(emp.id, { status: 'Released' })
+           performanceAPI.updateDirectorAppraisal(emp.id, { status: 'DIRECTOR_APPROVED' })
         ));
         
         setEmployees(employees.map(emp => 
           (selectedRows.length === 0 || selectedRows.includes(emp.id)) 
-            ? { ...emp, status: 'Released' } 
+            ? { ...emp, status: 'DIRECTOR_APPROVED' } 
             : emp
         ));
-        alert(`${count} letters released successfully!`);
+        alert(`${count} appraisals approved successfully!`);
         setSelectedRows([]);
       } catch (error) {
-        console.error('Error releasing letters:', error);
-        alert('Failed to release letters');
+        console.error('Error approving appraisals:', error);
+        alert('Failed to approve appraisals');
       }
     }
   };
