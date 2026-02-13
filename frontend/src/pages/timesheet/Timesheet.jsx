@@ -1365,7 +1365,8 @@ const Timesheet = () => {
       const adjustedOpMinutes = opMinutes + permissionMinutes;
       
       // Check for mismatch > 2 minutes
-      if ((opMinutes > 0 || totalMinutes > 0) && Math.abs(adjustedOpMinutes - totalMinutes) > 2) {
+      // Only check if on-premises time is present. If op is 0, we'll hit the "Project hours not allowed" check below.
+      if (opMinutes > 0 && Math.abs(adjustedOpMinutes - totalMinutes) > 2) {
         showError(
           `Time Mismatch for ${days[i]}:\n` +
           `On-Premises Time (${formatHoursHHMM(op)}) + Permission (${formatHoursHHMM(permissionHours)}): ${formatHoursHHMM(op + permissionHours)}\n` +
