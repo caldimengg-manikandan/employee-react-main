@@ -87,6 +87,70 @@ const initialCompensation = {
   employmentType: "Permanent",
 };
 
+
+const headerSvg = "data:image/svg+xml;charset=utf-8,%3Csvg width='1000' height='128' viewBox='0 0 1000 128' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'%3E%3Cpath d='M0,0 L560,0 L490,128 L0,128 Z' fill='%231e2b58' /%3E%3Cpath d='M560,0 L610,0 L540,128 L490,128 Z' fill='%23f37021' /%3E%3C/svg%3E";
+
+const LetterHeader = () => (
+  <div className="w-full h-32 relative overflow-hidden flex" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
+      <img src={headerSvg} alt="" style={{ width: '100%', height: '100%', display: 'block', objectFit: 'fill' }} />
+    </div>
+    <div className="relative z-10 w-full flex" style={{ height: '100%' }}>
+      <div className="w-[60%] flex items-center pl-8 pr-12" style={{ width: '60%', display: 'flex', alignItems: 'center', paddingLeft: '32px', paddingRight: '48px' }}>
+        <div className="flex items-center gap-4" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" style={{ height: '64px', width: 'auto', filter: 'brightness(0) invert(1)' }} />
+          <div className="text-white" style={{ color: 'white' }}>
+             <h1 className="text-4xl font-bold leading-none tracking-wide">CALDIM</h1>
+             <p className="text-[11px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">ENGINEERING PRIVATE LIMITED</p>
+          </div>
+        </div>
+      </div>
+      <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', paddingRight: '32px', paddingTop: '8px' }}>
+        <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+          <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', color: '#1f2937', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
+          <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+            </svg>
+          </div>
+        </div>
+        <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
+          <span className="text-sm font-semibold text-gray-700 w-64 leading-tight" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', width: '256px', lineHeight: 1.25 }}>No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
+          <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', marginLeft: '12px', marginTop: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+
+const LetterFooter = () => (
+  <div className="w-full flex items-end mt-auto relative" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative' }}>
+    <div className="bg-[#f37021] flex-1 mb-0" style={{ height: '8px', backgroundColor: '#f37021', flex: 1, marginBottom: 0 }}></div>
+    <div className="relative text-white flex flex-col items-end justify-center" style={{ 
+      position: 'relative', 
+      minWidth: '350px', 
+      height: '60px',
+      background: 'linear-gradient(135deg, transparent 25px, #1e2b58 25px)',
+      padding: '0 40px 0 60px', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'flex-end', 
+      justifyContent: 'center' 
+    }}>
+      <div className="relative z-10" style={{ position: 'relative', zIndex: 10, textAlign: 'right' }}>
+        <div style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.05em', fontFamily: 'Arial, sans-serif' }}>Website : www.caldimengg.com</div>
+        <div style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.05em', marginTop: '4px', fontFamily: 'Arial, sans-serif' }}>CIN U74999TN2016PTC110683</div>
+      </div>
+    </div>
+  </div>
+);
+
 const CompensationMaster = () => {
   const [compensation, setCompensation] = useState([]);
   const [openDialog, setOpenDialog] = useState(false);
@@ -448,7 +512,7 @@ HR Team`;
       // Small delay to ensure DOM is ready with new data
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const pages = ['offer-letter-p1', 'offer-letter-p2', 'offer-letter-p3'];
+      const pages = ['offer-letter-p1', 'offer-letter-p2', 'offer-letter-p3', 'offer-letter-p4'];
       const pdf = new jsPDF('p', 'mm', 'a4');
       let pageAdded = false;
 
@@ -489,7 +553,7 @@ HR Team`;
       // Small delay to ensure DOM is ready with new data
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      const pages = ['offer-letter-p1', 'offer-letter-p2', 'offer-letter-p3'];
+      const pages = ['offer-letter-p1', 'offer-letter-p2', 'offer-letter-p3', 'offer-letter-p4'];
     const pdf = new jsPDF('p', 'mm', 'a4');
     let pageAdded = false;
 
@@ -1201,304 +1265,206 @@ HR Team`;
       {/* Hidden PDF Template */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         {/* Page 1: Offer Letter */}
-        <div id="offer-letter-p1" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', minHeight: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black' }}>
+        <div id="offer-letter-p1" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', height: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
           
           {/* Header */}
-            <div className="w-full flex h-32 relative overflow-hidden" style={{ width: '100%', display: 'flex', height: '128px', position: 'relative', overflow: 'hidden' }}>
-              <div className="relative w-[60%] bg-[#1e2b58] flex items-center pl-8 pr-12" style={{ position: 'relative', width: '60%', backgroundColor: '#1e2b58', display: 'flex', alignItems: 'center', paddingLeft: '32px', paddingRight: '48px', clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)', WebkitClipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}>
-                <div className="flex items-center gap-4" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" style={{ height: '64px', width: 'auto', filter: 'brightness(0) invert(1)' }} />
-                  <div className="text-white" style={{ color: 'white' }}>
-                    <h1 className="text-3xl font-bold leading-none tracking-wide" style={{ fontSize: '30px', fontWeight: 'bold', lineHeight: 1, letterSpacing: '0.025em', margin: 0 }}>CALDIM</h1>
-                    <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold" style={{ fontSize: '10px', letterSpacing: '0.2em', marginTop: '4px', color: '#fb923c', fontWeight: 600, margin: 0 }}>ENGINEERING PRIVATE LIMITED</p>
-                  </div>
-                </div>
-              </div>
-              <div className="absolute left-[50%] top-0 h-32 w-16 bg-[#f37021] z-[-1]" style={{ position: 'absolute', left: '50%', top: 0, height: '128px', width: '64px', backgroundColor: '#f37021', zIndex: -1, clipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)', WebkitClipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)' }}></div>
-              <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', paddingRight: '32px', paddingTop: '8px' }}>
-                <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                  <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', color: '#1f2937', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
-                  <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
-                  <span className="text-sm font-semibold text-gray-700 w-64 leading-tight" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', width: '256px', lineHeight: 1.25 }}>No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
-                  <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', marginLeft: '12px', marginTop: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <LetterHeader />
 
           {/* Letter Pad Content Container */}
-          <div className="relative z-10 flex flex-col h-full justify-between" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', minHeight: '190mm' }}>
+          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
             
             {/* Main Content Area */}
-            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '10px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
               
-              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '16px', marginBottom: '8px', textDecoration: 'underline' }}>OFFER LETTER</div>
+              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '28px', marginBottom: '20px', textDecoration: 'underline', fontFamily: '"Times New Roman", Times, serif', letterSpacing: '1px' }}>OFFER LETTER</div>
               
-              <div style={{ textAlign: 'right', marginBottom: '8px', fontSize: '10pt', color: '#374151' }}>
+              <div style={{ textAlign: 'right', marginBottom: '15px', fontSize: '12pt', color: '#374151' }}>
                  Date: {new Date().toLocaleDateString('en-GB')}
               </div>
 
-              <div style={{ marginBottom: '8px', fontSize: '10pt', color: '#1f2937' }}>
+              <div style={{ marginBottom: '15px', fontSize: '12pt', color: '#1f2937' }}>
                  <strong>To,</strong><br />
-                 {selectedCompensation?.name}<br />
+                 <strong>{selectedCompensation?.name}</strong><br />
               </div>
 
-              <div style={{ marginBottom: '8px', fontSize: '10pt', fontWeight: 'bold', color: '#1f2937' }}>
+              <div style={{ marginBottom: '15px', fontSize: '12pt', fontWeight: 'bold', color: '#1f2937' }}>
                  Subject: Offer of Employment at Caldim Engineering Pvt. Ltd.
               </div>
 
-              <div style={{ marginBottom: '8px', fontSize: '10pt', lineHeight: '1.4', color: '#374151', textAlign: 'justify' }}>
+              <div style={{ marginBottom: '15px', fontSize: '12pt', lineHeight: '1.6', color: '#374151', textAlign: 'justify' }}>
                  Dear {selectedCompensation?.name},<br /><br />
                  We are pleased to offer you employment with Caldim Engineering Private Limited (“the Company”) for the position of <strong>{selectedCompensation?.designation}</strong>, effective from <strong>{formatDate(selectedCompensation?.dateOfJoining)}</strong>.
                  <br/><br/>
                  Your appointment will be governed by the terms and conditions outlined below and further detailed in the Annexure – Terms & Conditions of Employment.
               </div>
 
-              <div style={{ marginBottom: '4px', fontWeight: 'bold', fontSize: '10pt' }}>1. Compensation Structure</div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '9pt', border: '1px solid #e5e7eb' }}>
+              <div style={{ marginBottom: '10px', fontWeight: 'bold', fontSize: '12pt' }}>1. Compensation Structure</div>
+              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px', fontSize: '11pt', border: '1px solid #e5e7eb' }}>
                  <thead>
                     <tr style={{ backgroundColor: '#f3f4f6' }}>
-                       <th style={{ border: '1px solid #d1d5db', padding: '3px', textAlign: 'left', color: '#1f2937' }}>Component</th>
-                       <th style={{ border: '1px solid #d1d5db', padding: '3px', textAlign: 'right', color: '#1f2937' }}>Monthly (₹)</th>
+                       <th style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'left', color: '#1f2937' }}>Component</th>
+                       <th style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right', color: '#1f2937' }}>Monthly (₹)</th>
                     </tr>
                  </thead>
                  <tbody>
                     <tr>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px' }}>Basic Salary</td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px', textAlign: 'right' }}>{Number(selectedCompensation?.basicDA || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Basic Salary</td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.basicDA || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
                     </tr>
                     <tr>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px' }}>HRA</td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px', textAlign: 'right' }}>{Number(selectedCompensation?.hra || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>HRA</td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.hra || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
                     </tr>
                   
                     <tr>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px' }}>Special Allowance</td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px', textAlign: 'right' }}>{Number(selectedCompensation?.specialAllowance || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Special Allowance</td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.specialAllowance || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
                     </tr>
                     <tr style={{backgroundColor: '#f9fafb'}}>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px' }}><strong>Gross Salary</strong></td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px', textAlign: 'right' }}><strong>{Number(calcTotalEarnings).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}><strong>Gross Salary</strong></td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}><strong>{Number(calcTotalEarnings).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
                     </tr>
                     <tr>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px' }}>PF Contribution </td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px', textAlign: 'right' }}>{Number(calcPF).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>PF Contribution </td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcPF).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
                     </tr>
                     <tr style={{ backgroundColor: '#eef2ff' }}>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px', color: '#312e81' }}><strong>Total CTC (Cost to Company)</strong></td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '3px', textAlign: 'right', color: '#312e81' }}><strong>{Number(calcCTC).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px', color: '#312e81' }}><strong>Total CTC (Cost to Company)</strong></td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right', color: '#312e81' }}><strong>{Number(calcCTC).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
                     </tr>
                  </tbody>
               </table>
               
-              <div style={{ fontSize: '9pt', fontStyle: 'italic', marginBottom: '6px' }}>
+              <div style={{ fontSize: '11pt', fontStyle: 'italic', marginBottom: '10px' }}>
                   Note: Statutory deductions such as PF, Professional Tax, and Income Tax (if applicable) will be made as per prevailing laws.
               </div>
 
-              <div style={{ marginBottom: '6px', fontSize: '10pt' }}>
-                  <strong>2. Working Hours</strong>
-                  <div style={{ fontSize: '9pt', marginTop: '0px' }}>
-                      Employees are expected to complete a minimum of 48 hours per week across 5 working days (Monday to Friday).
-                      This translates to a minimum of 9 hours 30 minutes per day (including breaks) to be eligible for full-day pay.
-                      For employees on shift schedules, the mandated daily hours are 8 hours 30 minutes.
-                  </div>
-              </div>
-
-              <div style={{ marginBottom: '6px', fontSize: '10pt' }}>
-                  <strong>3. Place of Work</strong>
-                  <div style={{ fontSize: '9pt', marginTop: '0px' }}>
-                  Your initial place of work will be <strong>{selectedCompensation?.location || '[Location]'}</strong>. You may be transferred to any other department, branch, or client site as required by the Company.
-                  </div>
-              </div>
-
-               <div style={{ marginTop: '20px', fontSize: '9pt', fontStyle: 'italic', textAlign: 'right' }}>
+               <div style={{ marginTop: 'auto', fontSize: '11pt', fontStyle: 'italic', textAlign: 'right' }}>
                   (Continued in next page...)
               </div>
 
             </div>
 
             {/* Footer */}
-            <div className="w-full flex items-end mt-auto" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto' }}>
-              <div className="h-3 bg-[#f37021] flex-1 mb-0" style={{ height: '12px', backgroundColor: '#f37021', flex: 1, marginBottom: 0 }}></div>
-              <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center" style={{ backgroundColor: '#1e2b58', color: 'white', paddingTop: '12px', paddingBottom: '12px', paddingLeft: '64px', paddingRight: '40px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', WebkitClipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', minWidth: '450px' }}>
-                <div className="text-sm font-medium tracking-wide" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em' }}>Website : www.caldimengg.com</div>
-                <div className="text-sm font-medium tracking-wide mt-1" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em', marginTop: '4px' }}>CIN U74999TN2016PTC110683</div>
-              </div>
+            <div style={{ width: '100%' }}>
+              <LetterFooter />
             </div>
 
           </div>
         </div>
 
         {/* Page 2: Annexure */}
-        <div id="offer-letter-p2" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', minHeight: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black' }}>
+        <div id="offer-letter-p2" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', height: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
           
            {/* Header (Same as Page 1) */}
-            <div className="w-full flex h-32 relative overflow-hidden" style={{ width: '100%', display: 'flex', height: '128px', position: 'relative', overflow: 'hidden' }}>
-              <div className="relative w-[60%] bg-[#1e2b58] flex items-center pl-8 pr-12" style={{ position: 'relative', width: '60%', backgroundColor: '#1e2b58', display: 'flex', alignItems: 'center', paddingLeft: '32px', paddingRight: '48px', clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)', WebkitClipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}>
-                <div className="flex items-center gap-4" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" style={{ height: '64px', width: 'auto', filter: 'brightness(0) invert(1)' }} />
-                  <div className="text-white" style={{ color: 'white' }}>
-                    <h1 className="text-3xl font-bold leading-none tracking-wide" style={{ fontSize: '30px', fontWeight: 'bold', lineHeight: 1, letterSpacing: '0.025em', margin: 0 }}>CALDIM</h1>
-                    <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold" style={{ fontSize: '10px', letterSpacing: '0.2em', marginTop: '4px', color: '#fb923c', fontWeight: 600, margin: 0 }}>ENGINEERING PRIVATE LIMITED</p>
-                  </div>
-                </div>
-              </div>
-              <div className="absolute left-[50%] top-0 h-32 w-16 bg-[#f37021] z-[-1]" style={{ position: 'absolute', left: '50%', top: 0, height: '128px', width: '64px', backgroundColor: '#f37021', zIndex: -1, clipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)', WebkitClipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)' }}></div>
-              <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', paddingRight: '32px', paddingTop: '8px' }}>
-                <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                  <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', color: '#1f2937', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
-                  <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
-                  <span className="text-sm font-semibold text-gray-700 w-64 leading-tight" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', width: '256px', lineHeight: 1.25 }}>No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
-                  <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', marginLeft: '12px', marginTop: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <LetterHeader />
 
           {/* Letter Pad Content Container */}
-          <div className="relative z-10 flex flex-col h-full justify-between" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', minHeight: '190mm' }}>
+          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
             
             {/* Main Content Area */}
-            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '10px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
               
-               <div style={{ marginBottom: '6px', fontSize: '10pt' }}>
+              <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
+                  <strong>2. Working Hours</strong>
+                  <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
+                      Employees are expected to complete a minimum of 48 hours per week across 5 working days (Monday to Friday).
+                      This translates to a minimum of 9 hours 30 minutes per day (including breaks) to be eligible for full-day pay.
+                      For employees on shift schedules, the mandated daily hours are 8 hours 30 minutes.
+                  </div>
+              </div>
+
+              <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
+                  <strong>3. Place of Work</strong>
+                  <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
+                  Your initial place of work will be <strong>{selectedCompensation?.location || '[Location]'}</strong>. You may be transferred to any other department, branch, or client site as required by the Company.
+                  </div>
+              </div>
+
+               <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
                   <strong>4. Probation Period</strong>
-                  <div style={{ fontSize: '9pt', marginTop: '0px' }}>
+                  <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
                       You will be on probation for a period of 6 months from your date of joining. Upon successful completion, your employment will be confirmed in writing.
                   </div>
               </div>
 
-              <div style={{ marginBottom: '6px', fontSize: '10pt' }}>
+              <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
                   <strong>5. Notice Period</strong>
-                  <div style={{ fontSize: '9pt', marginTop: '0px' }}>
+                  <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
                       During probation, either party may terminate the employment with 15 days' notice. After confirmation, the notice period will be 2 months.
                   </div>
               </div>
 
-              <div style={{ marginBottom: '6px', fontSize: '10pt' }}>
+              <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
                   <strong>6. Employment Terms</strong>
-                  <div style={{ fontSize: '9pt', marginTop: '0px' }}>
+                  <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
                       Your employment is subject to the rules and regulations of the Company as applicable from time to time. You will be required to sign a Non-Disclosure Agreement (NDA) and other standard employment documents.
                   </div>
               </div>
 
-              <div style={{ marginTop: '20px', fontSize: '10pt' }}>
+              <div style={{ marginTop: '30px', fontSize: '11pt' }}>
                   <strong>Acknowledgement & Acceptance:</strong><br/>
                   I, <strong>{selectedCompensation?.name}</strong>, accept the offer of employment on the terms and conditions mentioned above and in the Annexure.<br/><br/>
                   Signature: ___________________________ Date: _______________________________
               </div>
               
-               <div style={{ marginTop: 'auto', marginBottom: '20px', fontSize: '9pt', fontStyle: 'italic', textAlign: 'right' }}>
+               <div style={{ marginTop: 'auto', marginBottom: '20px', fontSize: '11pt', fontStyle: 'italic', textAlign: 'right' }}>
                   (Encl: Annexure - Terms & Conditions)
               </div>
 
             </div>
 
             {/* Footer */}
-            <div className="w-full flex items-end mt-auto" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto' }}>
-              <div className="h-3 bg-[#f37021] flex-1 mb-0" style={{ height: '12px', backgroundColor: '#f37021', flex: 1, marginBottom: 0 }}></div>
-              <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center" style={{ backgroundColor: '#1e2b58', color: 'white', paddingTop: '12px', paddingBottom: '12px', paddingLeft: '64px', paddingRight: '40px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', WebkitClipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', minWidth: '450px' }}>
-                <div className="text-sm font-medium tracking-wide" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em' }}>Website : www.caldimengg.com</div>
-                <div className="text-sm font-medium tracking-wide mt-1" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em', marginTop: '4px' }}>CIN U74999TN2016PTC110683</div>
-              </div>
+            <div style={{ width: '100%' }}>
+              <LetterFooter />
             </div>
 
           </div>
         </div>
 
         {/* Page 3: Annexure */}
-        <div id="offer-letter-p3" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', minHeight: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black' }}>
+        <div id="offer-letter-p3" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', height: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
           
            {/* Header (Same as Page 1) */}
-            <div className="w-full flex h-32 relative overflow-hidden" style={{ width: '100%', display: 'flex', height: '128px', position: 'relative', overflow: 'hidden' }}>
-              <div className="relative w-[60%] bg-[#1e2b58] flex items-center pl-8 pr-12" style={{ position: 'relative', width: '60%', backgroundColor: '#1e2b58', display: 'flex', alignItems: 'center', paddingLeft: '32px', paddingRight: '48px', clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)', WebkitClipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}>
-                <div className="flex items-center gap-4" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" style={{ height: '64px', width: 'auto', filter: 'brightness(0) invert(1)' }} />
-                  <div className="text-white" style={{ color: 'white' }}>
-                    <h1 className="text-3xl font-bold leading-none tracking-wide" style={{ fontSize: '30px', fontWeight: 'bold', lineHeight: 1, letterSpacing: '0.025em', margin: 0 }}>CALDIM</h1>
-                    <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold" style={{ fontSize: '10px', letterSpacing: '0.2em', marginTop: '4px', color: '#fb923c', fontWeight: 600, margin: 0 }}>ENGINEERING PRIVATE LIMITED</p>
-                  </div>
-                </div>
-              </div>
-              <div className="absolute left-[50%] top-0 h-32 w-16 bg-[#f37021] z-[-1]" style={{ position: 'absolute', left: '50%', top: 0, height: '128px', width: '64px', backgroundColor: '#f37021', zIndex: -1, clipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)', WebkitClipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)' }}></div>
-              <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', paddingRight: '32px', paddingTop: '8px' }}>
-                <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                  <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', color: '#1f2937', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
-                  <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
-                  <span className="text-sm font-semibold text-gray-700 w-64 leading-tight" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', width: '256px', lineHeight: 1.25 }}>No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
-                  <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', marginLeft: '12px', marginTop: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                    </svg>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <LetterHeader />
 
           {/* Letter Pad Content Container */}
-          <div className="relative z-10 flex flex-col h-full justify-between" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100%', justifyContent: 'space-between', minHeight: '190mm' }}>
+          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
             
             {/* Main Content Area */}
-            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '10px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
               
-               <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '14px', marginBottom: '10px', marginTop: '5px', textDecoration: 'underline' }}>
+               <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '16px', marginBottom: '20px', marginTop: '10px', textDecoration: 'underline' }}>
                     ANNEXURE<br/>TERMS & CONDITIONS OF EMPLOYMENT
                 </div>
                 
-                <div style={{ marginBottom: '6px', fontSize: '9pt' }}>
+                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
                     <strong>1. Provident Fund (PF)</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '0px', marginBottom: '0px' }}>
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
                         <li>Employees contribute 12% of basic salary towards PF as per statutory norms.</li>
                         <li>The Company contributes an equal 12% towards PF.</li>
                         <li>PF balances will be settled as per PF rules upon separation.</li>
                     </ul>
                 </div>
 
-                <div style={{ marginBottom: '6px', fontSize: '9pt' }}>
+                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
                     <strong>2. Gratuity</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '0px', marginBottom: '0px' }}>
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
                         <li>Payable under the Payment of Gratuity Act, As per Indian Government norms</li>
                         <li>Formula: Gratuity = Basic × No. of Years × (15/26)</li>
                     </ul>
                 </div>
                 
-                <div style={{ marginBottom: '6px', fontSize: '9pt' }}>
+                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
                     <strong>3. Leave Policy</strong>
-                    <div style={{ paddingLeft: '10px', marginTop: '0px' }}>
+                    <div style={{ paddingLeft: '10px', marginTop: '5px' }}>
                         <strong>Applicability:</strong>
-                        <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '0px', marginBottom: '0px' }}>
+                        <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '5px', marginBottom: '10px', lineHeight: '1.6' }}>
                             <li>Experienced Employees: Leave benefits apply post-probation.</li>
                             <li>Trainees: 1 day leave/month during training. On confirmation, regular leave norms apply.</li>
                         </ul>
                         <strong>Entitlements:</strong>
-                        <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '0px', marginBottom: '0px' }}>
+                        <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '5px', marginBottom: '10px', lineHeight: '1.6' }}>
                             <li>Casual Leave (CL): 0.5 day/month</li>
                             <li>Sick Leave (SL): 0.5 day/month (medical proof for extended absence)</li>
                             <li>Privilege/Earned Leave (PL/EL): 15 days/year. accumulable for up to 2 years - Encashment Formula: (Basic Salary / Total Days in Month) × Available PL</li>
@@ -1506,7 +1472,7 @@ HR Team`;
                             <li>Sandwich Leave: Leaves adjoining holidays will be treated as continuous</li>
                         </ul>
                         <strong>Holidays</strong>
-                        <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '0px', marginBottom: '0px' }}>
+                        <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
                             <li>Declared holidays will be issued annually.</li>
                             <li>Saturdays and Sundays are holidays.</li>
                             <li>Employees working on holidays receive additional payment (not compensatory off), subject to 9-hour completion including breaks</li>
@@ -1514,49 +1480,75 @@ HR Team`;
                     </div>
                 </div>
 
-                <div style={{ marginBottom: '6px', fontSize: '9pt' }}>
+                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
                     <strong>4. Monthly Permission</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '0px', marginBottom: '0px' }}>
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
                         <li>3 permissions/month, maximum of 1 hour each.</li>
                         <li>Even shorter durations count as one permission.</li>
                     </ul>
                 </div>
                 
-                <div style={{ marginBottom: '6px', fontSize: '9pt' }}>
+                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
                     <strong>5. Bonus</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '0px', marginBottom: '0px' }}>
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
                         <li>Pro-rata bonus applicable during the first year.</li>
                         <li>Standard annual bonus of ₹7,500 after one year of continuous service.</li>
                     </ul>
                 </div>
 
-                <div style={{ marginBottom: '6px', fontSize: '9pt' }}>
+               <div style={{ marginTop: 'auto', fontSize: '11pt', fontStyle: 'italic', textAlign: 'right' }}>
+                  (Continued in next page...)
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div style={{ width: '100%' }}>
+              <LetterFooter />
+            </div>
+
+          </div>
+        </div>
+
+        {/* Page 4: Annexure Continued */}
+        <div id="offer-letter-p4" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', height: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
+          
+           {/* Header (Same as Page 1) */}
+            <LetterHeader />
+
+          {/* Letter Pad Content Container */}
+          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
+            
+            {/* Main Content Area */}
+            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+
+                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
                     <strong>6. Health Insurance</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '0px', marginBottom: '0px' }}>
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
                         <li>Coverage of ₹1,00,000 upon joining; ₹2,00,000 after 1 year.</li>
                         <li>Covers employee, spouse, and children only.</li>
                         <li>Governed by IRDAI guidelines.</li>
                     </ul>
                 </div>
                 
-                <div style={{ marginBottom: '6px', fontSize: '9pt' }}>
+                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
                     <strong>7. General</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '0px', marginBottom: '0px' }}>
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
                         <li>Employee must comply with all Company policies and HR guidelines.</li>
                         <li>The Company reserves the right to modify or withdraw any policy or benefit as required by law or management decision.</li>
                     </ul>
                 </div>
 
-                <div style={{ marginBottom: '6px', fontSize: '9pt' }}>
+                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
                     <strong>8. Service Commitment (Bond)</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '0px', marginBottom: '0px' }}>
+                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
                         <li>The Employee undertakes to serve the Company for a minimum period of 2 years from the date of joining.</li>
                         <li>If the Employee voluntarily resigns or is terminated for cause before completion of 2 years, the Employee agrees to pay the Company a penalty of ₹1,00,000 (Rupees One Lakh only) as per Company policy.</li>
                         <li>This penalty covers training, onboarding, and other investments made by the Company.</li>
                     </ul>
                 </div>
                 
-                <div style={{ marginTop: '10px', fontSize: '9pt' }}>
+                <div style={{ marginTop: '30px', fontSize: '11pt' }}>
                   <strong>Employee Declaration:</strong><br/>
                   I have read and understood the terms stated in this Annexure and agree to abide by them during my employment with Caldim Engineering Pvt. Ltd.<br/><br/>
                   Signature: ___________________________ Name: ______________________________ Date: _______________________________
@@ -1565,12 +1557,8 @@ HR Team`;
             </div>
 
             {/* Footer */}
-            <div className="w-full flex items-end mt-auto" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto' }}>
-              <div className="h-3 bg-[#f37021] flex-1 mb-0" style={{ height: '12px', backgroundColor: '#f37021', flex: 1, marginBottom: 0 }}></div>
-              <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center" style={{ backgroundColor: '#1e2b58', color: 'white', paddingTop: '12px', paddingBottom: '12px', paddingLeft: '64px', paddingRight: '40px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', WebkitClipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', minWidth: '450px' }}>
-                <div className="text-sm font-medium tracking-wide" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em' }}>Website : www.caldimengg.com</div>
-                <div className="text-sm font-medium tracking-wide mt-1" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em', marginTop: '4px' }}>CIN U74999TN2016PTC110683</div>
-              </div>
+            <div style={{ width: '100%' }}>
+              <LetterFooter />
             </div>
 
           </div>

@@ -4,6 +4,8 @@ const auth = require('../middleware/auth');
 const SelfAppraisal = require('../models/SelfAppraisal');
 const Employee = require('../models/Employee');
 
+const { calculateIncrement } = require('../utils/incrementUtils');
+
 // @desc    Get team appraisals (for managers)
 // @route   GET /api/team-appraisals
 // @access  Private (Manager)
@@ -13,7 +15,7 @@ router.get('/', auth, async (req, res) => {
     // Strict Sequential Flow: Only show appraisals in 'SUBMITTED' stage
     const query = {
       $and: [
-        { status: { $in: ['Submitted', 'SUBMITTED'] } },
+        { status: { $in: ['Submitted', 'SUBMITTED', 'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'Released'] } },
         {
           $or: [
             { appraiserId: req.user.employeeId },
@@ -29,9 +31,27 @@ router.get('/', auth, async (req, res) => {
       .populate('employeeId', 'name employeeId designation department avatar');
 
     // Transform to frontend format
-    const formattedAppraisals = appraisals.map(app => {
+    // Use Promise.all to handle async calculation
+    const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
       const emp = app.employeeId || {};
       
+      // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
+      // This ensures Managers see the correct value even if they haven't opened it before
+      let finalIncrementPercentage = app.incrementPercentage || 0;
+      
+      if (finalIncrementPercentage === 0 && app.appraiserRating && app.year && emp.designation) {
+         try {
+           const calculated = await calculateIncrement(app.year, emp.designation, app.appraiserRating);
+           if (calculated > 0) {
+             finalIncrementPercentage = calculated;
+             // Update the DB record silently so it is fixed for good
+             await SelfAppraisal.updateOne({ _id: app._id }, { $set: { incrementPercentage: calculated } });
+           }
+         } catch (err) {
+           console.error(`Auto-calc failed for appraisal ${app._id}:`, err);
+         }
+      }
+
       return {
         id: app._id,
         financialYr: app.year,
@@ -48,9 +68,10 @@ router.get('/', auth, async (req, res) => {
         appraiserRating: app.appraiserRating || '',
         leadership: app.leadership || '',
         attitude: app.attitude || '',
-        communication: app.communication || ''
+        communication: app.communication || '',
+        incrementPercentage: finalIncrementPercentage,
       };
-    });
+    }));
 
     res.json(formattedAppraisals);
   } catch (error) {

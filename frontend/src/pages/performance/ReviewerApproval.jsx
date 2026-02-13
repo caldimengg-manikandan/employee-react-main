@@ -164,13 +164,16 @@ const ReviewerApproval = () => {
   };
 
   const handleSubmitToDirector = async () => {
-    const rowsToSubmit = selectedRows.length > 0 
+    // Only consider pending records
+    const candidates = selectedRows.length > 0 
       ? employees.filter(emp => selectedRows.includes(emp.id))
       : employees;
       
+    const rowsToSubmit = candidates.filter(emp => emp.status === 'APPRAISER_COMPLETED');
+      
     const count = rowsToSubmit.length;
     if (count === 0) {
-      alert("No records to submit.");
+      alert("No pending records to submit.");
       return;
     }
 
@@ -193,9 +196,28 @@ const ReviewerApproval = () => {
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedRows(filteredEmployees.map(emp => emp.id));
+      // Only select pending records
+      const pendingRecords = filteredEmployees
+        .filter(emp => emp.status === 'APPRAISER_COMPLETED')
+        .map(emp => emp.id);
+      setSelectedRows(pendingRecords);
     } else {
       setSelectedRows([]);
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    switch (status) {
+      case 'APPRAISER_COMPLETED':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending Review</span>;
+      case 'REVIEWER_COMPLETED':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Submitted</span>;
+      case 'DIRECTOR_APPROVED':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Approved</span>;
+      case 'RELEASED':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Released</span>;
+      default:
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{status}</span>;
     }
   };
 
@@ -274,13 +296,14 @@ const ReviewerApproval = () => {
                     <input 
                       type="checkbox" 
                       className="rounded border-gray-300 text-[#262760] focus:ring-[#262760]"
-                      checked={selectedRows.length === filteredEmployees.length && filteredEmployees.length > 0}
+                      checked={selectedRows.length > 0 && selectedRows.length === filteredEmployees.filter(e => e.status === 'APPRAISER_COMPLETED').length}
                       onChange={handleSelectAll}
                     />
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">S.No</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee Name</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Reviewer Comments</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Current Salary</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Increment %</th>
@@ -295,20 +318,25 @@ const ReviewerApproval = () => {
                   const isEditing = editingRowId === emp.id;
                   const data = isEditing ? editFormData : emp;
                   const isSelected = selectedRows.includes(emp.id);
+                  const isEditable = emp.status === 'APPRAISER_COMPLETED';
 
                   return (
                     <tr key={emp.id} className={`hover:bg-gray-50 ${isSelected ? 'bg-indigo-50' : ''}`}>
                       <td className="px-4 py-4 text-center">
                         <input 
                           type="checkbox" 
-                          className="rounded border-gray-300 text-[#262760] focus:ring-[#262760]"
+                          className="rounded border-gray-300 text-[#262760] focus:ring-[#262760] disabled:opacity-50"
                           checked={isSelected}
-                          onChange={() => handleSelectRow(emp.id)}
+                          onChange={() => isEditable && handleSelectRow(emp.id)}
+                          disabled={!isEditable}
                         />
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{data.empId}</td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{data.name}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-center">
+                        {getStatusBadge(emp.status)}
+                      </td>
                       <td className="px-4 py-4 text-center">
                         {isEditing ? (
                           <textarea
@@ -320,8 +348,8 @@ const ReviewerApproval = () => {
                           />
                         ) : (
                           <div 
-                            className="text-xs text-gray-700 max-w-[200px] truncate mx-auto cursor-pointer hover:text-[#262760]"
-                            onClick={() => openCommentModal(emp)}
+                            className={`text-xs text-gray-700 max-w-[200px] truncate mx-auto ${isEditable ? 'cursor-pointer hover:text-[#262760]' : ''}`}
+                            onClick={() => isEditable && openCommentModal(emp)}
                             title={data.reviewerComments || 'Click to add comments'}
                           >
                             {data.reviewerComments || <span className="text-gray-400 italic">Add comments...</span>}
@@ -332,19 +360,7 @@ const ReviewerApproval = () => {
                         {data.currentSalary.toLocaleString()}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                        {isEditing ? (
-                          <div className="relative">
-                             <input
-                              type="number"
-                              className="w-16 px-2 py-1 border border-gray-300 rounded text-right focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-4"
-                              value={data.incrementPercentage}
-                              onChange={(e) => handleInputChange('incrementPercentage', e.target.value)}
-                            />
-                            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
-                          </div>
-                        ) : (
-                          <span>{data.incrementPercentage}%</span>
-                        )}
+                        <span className="font-medium text-gray-700">{data.incrementPercentage}%</span>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                         {isEditing ? (
@@ -389,12 +405,16 @@ const ReviewerApproval = () => {
                               >
                                 <Eye className="h-5 w-5" />
                               </button>
-                              <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900" title="Edit">
-                                <Edit className="h-5 w-5" />
-                              </button>
-                              <button onClick={() => handleDelete(emp.id)} className="text-red-600 hover:text-red-900" title="Delete">
-                                <Trash2 className="h-5 w-5" />
-                              </button>
+                              {isEditable && (
+                                <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900" title="Edit">
+                                  <Edit className="h-5 w-5" />
+                                </button>
+                              )}
+                              {isEditable && (
+                                <button onClick={() => handleDelete(emp.id)} className="text-red-600 hover:text-red-900" title="Delete">
+                                  <Trash2 className="h-5 w-5" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>

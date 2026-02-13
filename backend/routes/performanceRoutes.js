@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const auth = require('../middleware/auth');
 const SelfAppraisal = require('../models/SelfAppraisal');
 const Employee = require('../models/Employee');
@@ -32,6 +33,10 @@ router.get('/self-appraisals/me', auth, async (req, res) => {
 // @access  Private
 router.get('/self-appraisals/:id', auth, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid Appraisal ID' });
+    }
+
     const appraisal = await SelfAppraisal.findById(req.params.id);
 
     if (!appraisal) {
@@ -125,6 +130,10 @@ router.post('/self-appraisals', auth, async (req, res) => {
 // @access  Private
 router.put('/self-appraisals/:id', auth, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid Appraisal ID' });
+    }
+
     const { projects, overallContribution, status } = req.body;
 
     let appraisal = await SelfAppraisal.findById(req.params.id);
@@ -178,6 +187,10 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
 // @access  Private
 router.delete('/self-appraisals/:id', auth, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, message: 'Invalid Appraisal ID' });
+    }
+
     const appraisal = await SelfAppraisal.findById(req.params.id);
     if (!appraisal) {
       return res.status(404).json({ success: false, message: 'Appraisal not found' });

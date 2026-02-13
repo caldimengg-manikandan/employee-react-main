@@ -70,27 +70,35 @@ const TeamAppraisal = () => {
   const handleEdit = (emp) => {
     setSelectedEmployee(emp);
     setIsEditable(true);
+
+    // Auto-calculate for existing records with rating but no percentage
+    if (emp.appraiserRating && (!emp.incrementPercentage || emp.incrementPercentage === 0)) {
+      // Use a timeout to ensure state is set or just pass emp directly (which we do)
+      calculateIncrementPercentage(emp, emp.appraiserRating);
+    }
   };
 
   const handleInputChange = (id, field, value) => {
     // Update local state for immediate feedback
-    const updatedEmployee = { ...selectedEmployee, [field]: value };
-    setSelectedEmployee(updatedEmployee);
+    setSelectedEmployee(prev => ({ ...prev, [field]: value }));
     
     // Also update the list view
-    setEmployees(employees.map(emp => 
-      emp.id === id ? updatedEmployee : emp
+    setEmployees(prev => prev.map(emp => 
+      emp.id === id ? { ...emp, [field]: value } : emp
     ));
 
     // Auto-calculate Increment % if rating changes
     if (field === 'appraiserRating') {
-      calculateIncrementPercentage(updatedEmployee, value);
+      // Create a temporary object for calculation
+      // We use the current selectedEmployee for static fields like designation
+      const employeeForCalc = { ...selectedEmployee, [field]: value };
+      calculateIncrementPercentage(employeeForCalc, value);
     }
   };
 
   const calculateIncrementPercentage = async (employee, rating) => {
+    // If rating is cleared, reset percentage
     if (!rating) {
-      // If rating is cleared, reset percentage
        updateIncrementState(employee.id, 0);
        return;
     }
@@ -104,9 +112,16 @@ const TeamAppraisal = () => {
       
       if (response.data && response.data.success) {
          updateIncrementState(employee.id, response.data.percentage);
+      } else {
+         // Optionally handle error (e.g., matrix not found)
+         console.warn("Could not calculate increment:", response.data.message);
+         // If calculation fails (e.g., no matrix rule), reset to 0 to avoid confusion
+         updateIncrementState(employee.id, 0);
       }
     } catch (err) {
       console.error('Error calculating increment:', err);
+      // Fail safe
+      updateIncrementState(employee.id, 0);
     }
   };
 
@@ -356,22 +371,19 @@ const TeamAppraisal = () => {
                              <option value="BE">Below Expectations (BE)</option>
                            </select>
                          </div>
-                         <div>
-                            <label className="block text-xs font-bold text-gray-700 mb-1 uppercase">Annual Increment %</label>
-                             <div className="relative rounded-md shadow-sm">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                  <span className="text-gray-500 sm:text-sm font-bold">%</span>
-                                </div>
-                                <input
-                                  type="text"
-                                  value={selectedEmployee.incrementPercentage || 0}
-                                  disabled
-                                  className="block w-full pl-8 border-gray-300 rounded-md shadow-sm focus:ring-[#262760] focus:border-[#262760] sm:text-sm p-2.5 bg-gray-100 text-gray-800 font-bold"
-                                />
-                             </div>
-                             <p className="mt-1 text-xs text-gray-500">Auto-fetched based on designation & rating</p>
-                         </div>
+                          
                       </div>
+                      
+                      {/* Increment Percentage Display (Read-Only for Manager) */}
+                      {selectedEmployee.incrementPercentage > 0 && (
+                        <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mt-4 flex items-center">
+                           <DollarSign className="h-5 w-5 text-indigo-600 mr-3" />
+                           <div>
+                             <p className="text-xs font-bold text-indigo-800 uppercase">Calculated Increment</p>
+                             <p className="text-lg font-bold text-indigo-900">{selectedEmployee.incrementPercentage}%</p>
+                           </div>
+                        </div>
+                      )}
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                          <div>

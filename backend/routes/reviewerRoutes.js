@@ -4,6 +4,8 @@ const auth = require('../middleware/auth');
 const SelfAppraisal = require('../models/SelfAppraisal');
 const Employee = require('../models/Employee');
 
+const { calculateIncrement } = require('../utils/incrementUtils');
+
 // @desc    Get reviewer appraisals (for reviewers/HR)
 // @route   GET /api/performance/reviewer
 // @access  Private (Reviewer/Admin)
@@ -12,10 +14,14 @@ router.get('/', auth, async (req, res) => {
     // Check permissions if needed (e.g. req.user.role === 'Admin' or 'Reviewer')
     
     // Strict Visibility Rule: Only assigned Reviewer can view
-    // Strict Sequential Flow: Only show appraisals in 'APPRAISER_COMPLETED' stage
+    // Strict Sequential Flow: Show appraisals in 'APPRAISER_COMPLETED' (Pending) and 'REVIEWER_COMPLETED' (Submitted)
     const query = {
       $and: [
-        { status: 'APPRAISER_COMPLETED' },
+        { 
+          status: { 
+            $in: ['APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED'] 
+          } 
+        },
         {
           $or: [
             { reviewerId: req.user.employeeId },
@@ -30,9 +36,29 @@ router.get('/', auth, async (req, res) => {
       .populate('employeeId', 'name employeeId designation department avatar ctc');
 
     // Transform to frontend format
-    const formattedAppraisals = appraisals.map(app => {
+    // Use Promise.all to handle async calculation
+    const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
       const emp = app.employeeId || {};
       
+      // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
+      // This ensures old records or records where Manager didn't trigger calculation are fixed
+      let finalIncrementPercentage = app.incrementPercentage || 0;
+      
+      if (finalIncrementPercentage === 0 && app.appraiserRating && app.year && emp.designation) {
+         try {
+           const calculated = await calculateIncrement(app.year, emp.designation, app.appraiserRating);
+           if (calculated > 0) {
+             finalIncrementPercentage = calculated;
+             // Update the DB record silently so it is fixed for good
+             // We can do this async without awaiting if we want faster response, 
+             // but awaiting ensures consistency for this request.
+             await SelfAppraisal.updateOne({ _id: app._id }, { $set: { incrementPercentage: calculated } });
+           }
+         } catch (err) {
+           console.error(`Auto-calc failed for appraisal ${app._id}:`, err);
+         }
+      }
+
       return {
         id: app._id,
         financialYr: app.year,
@@ -50,12 +76,12 @@ router.get('/', auth, async (req, res) => {
         // Reviewer content
         reviewerComments: app.reviewerComments || '',
         currentSalary: emp.ctc || 0, // Using CTC as current salary
-        incrementPercentage: app.incrementPercentage || 0,
+        incrementPercentage: finalIncrementPercentage,
         incrementCorrectionPercentage: app.incrementCorrectionPercentage || 0,
         incrementAmount: app.incrementAmount || 0,
         revisedSalary: app.revisedSalary || 0
       };
-    });
+    }));
 
     res.json(formattedAppraisals);
   } catch (error) {
@@ -82,9 +108,9 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Appraisal not found' });
     }
 
-    // Update fields
+    // Update fields - Prevent Reviewer from changing incrementPercentage directly
     if (reviewerComments !== undefined) appraisal.reviewerComments = reviewerComments;
-    if (incrementPercentage !== undefined) appraisal.incrementPercentage = incrementPercentage;
+    // incrementPercentage is READ-ONLY for Reviewer - it comes from Manager/System
     if (incrementCorrectionPercentage !== undefined) appraisal.incrementCorrectionPercentage = incrementCorrectionPercentage;
     if (incrementAmount !== undefined) appraisal.incrementAmount = incrementAmount;
     if (revisedSalary !== undefined) appraisal.revisedSalary = revisedSalary;

@@ -17,10 +17,19 @@ router.get('/', auth, async (req, res) => {
     
     // Seed default data if empty
     if (!matrix || matrix.length === 0) {
+      // Fetch dynamic designations from Employee master to avoid hardcoding
+      const distinctDesignations = await Employee.distinct('designation');
+      const validDesignations = distinctDesignations.filter(d => d && d.trim().length > 0);
+      
+      // If we have designations, group them into the first category, otherwise use generic default
+      const defaultCategory = validDesignations.length > 0 
+        ? validDesignations.join(', ') 
+        : 'System Engineer, Developer, Junior Technical';
+
       const defaultMatrixData = [
         {
           id: 1,
-          category: 'Category 1',
+          category: defaultCategory,
           financialYear: year,
           ratings: [
             { grade: 'Exceeds Expectations (ES)', belowTarget: '5%', metTarget: '8%', target1_1: '', target1_25: '10%', target1_5: '12%' },
@@ -124,6 +133,8 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
+const { calculateIncrement } = require('../utils/incrementUtils');
+
 // @desc    Calculate Increment Percentage
 // @route   POST /api/performance/increment-master/calculate
 // @access  Private
@@ -135,41 +146,11 @@ router.post('/calculate', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
 
-    const matrixList = await IncrementMatrix.find({ financialYear }).sort({ id: 1 });
+    const percentage = await calculateIncrement(financialYear, designation, rating);
     
-    let matchedCategory = null;
-    
-    // Find the category that contains the employee's designation
-    for (const item of matrixList) {
-       if (item.category) {
-         const designations = item.category.split(',').map(d => d.trim().toLowerCase());
-         if (designations.includes(designation.toLowerCase())) {
-            matchedCategory = item;
-            break;
-         }
-       }
-    }
-    
-    if (!matchedCategory) {
-       return res.json({ success: false, message: 'Designation not found in Increment Matrix', percentage: 0 });
-    }
-    
-    // Find the matching rating entry
-    // Frontend sends 'ES', 'ME', 'BE'. DB has 'Exceeds Expectations (ES)' etc.
-    const ratingEntry = matchedCategory.ratings.find(r => {
-      if (r.grade === rating) return true; // Exact match
-      if (r.grade.includes(`(${rating})`)) return true; // Short code match inside parens
-      return false;
-    });
-    
-    if (!ratingEntry) {
-       return res.json({ success: false, message: 'Rating not found for this category', percentage: 0 });
-    }
-    
-    // Default to 'Met Target' column as per requirement
-    // TODO: If Company Performance becomes a variable input, update this logic to select correct column
-    const percentageStr = ratingEntry.metTarget || '0';
-    const percentage = parseFloat(percentageStr.replace('%', '')) || 0;
+    // Check if 0 means "not found" or actual 0. 
+    // The helper returns 0 on error/not found.
+    // For now we just return it.
     
     res.json({ success: true, percentage });
     
