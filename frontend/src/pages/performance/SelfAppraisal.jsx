@@ -567,7 +567,7 @@ const SelfAppraisal = () => {
                     Actions
                   </th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                    Appraisal Letter
+                    Release Letter
                   </th>
                 </tr>
               </thead>
@@ -615,13 +615,13 @@ const SelfAppraisal = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                      {appraisal.status === 'Released' ? (
+                      {appraisal.status === 'DIRECTOR_APPROVED' || appraisal.status === 'Released' ? (
                         <button 
                           onClick={() => handleDownloadLetter(appraisal)}
                           className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
                         >
                           <Download className="h-4 w-4 mr-1" />
-                          Download
+                          Download Release Letter
                         </button>
                       ) : (
                         <span className="text-gray-400 text-xs italic">Pending Release</span>
