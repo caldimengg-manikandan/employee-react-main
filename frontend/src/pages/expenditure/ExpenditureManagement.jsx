@@ -74,6 +74,7 @@ const ExpenditureManagement = () => {
   const [year, setYear] = useState("");
   const [location, setLocation] = useState("");
   const [budgetAllocated, setBudgetAllocated] = useState("");
+  const [openingBalance, setOpeningBalance] = useState(0);
 
   const [expenditures, setExpenditures] = useState([]);
   const [saveLoading, setSaveLoading] = useState(false);
@@ -86,9 +87,9 @@ const ExpenditureManagement = () => {
     amount: "",
     documentType: "",
     file: null,
+    fileData: "",
     fileName: "",
-    file: null,
-    fileName: "",
+    filePath: "",
     remarks: "",
     date: ""
   });
@@ -158,11 +159,29 @@ const ExpenditureManagement = () => {
     }
   }, [month, year, location]);
 
+  const calculateOpeningBalanceFromSummary = (records, currentMonth) => {
+    if (!records || !currentMonth) return 0;
+    const monthIndex = monthMap[currentMonth];
+    if (monthIndex === undefined || monthIndex === 0) return 0;
+    const prevMonth = months[monthIndex - 1];
+    const prevRecord = records.find(r => r.month === prevMonth);
+    if (!prevRecord) return 0;
+    const totalExpenditure = prevRecord.expenditures?.reduce(
+      (sum, e) => sum + parseFloat(e.amount || 0),
+      0
+    ) || 0;
+    const prevBudgetAllocated = prevRecord.budget || prevRecord.budgetAllocated || 0;
+    const balance = prevBudgetAllocated - totalExpenditure;
+    return balance > 0 ? balance : 0;
+  };
+
   const checkExistingRecord = async () => {
     try {
       // Check if a record already exists for this combination
       const res = await expenditureAPI.getSummary({ year, location });
       if (res.data && res.data.success) {
+        const opening = calculateOpeningBalanceFromSummary(res.data.data, month);
+        setOpeningBalance(opening);
         // Look for exact match on month
         const existing = res.data.data.find(r => r.month === month);
 
@@ -271,7 +290,8 @@ const ExpenditureManagement = () => {
           ...newExpense,
           file: file,
           fileData: reader.result,
-          fileName: file.name
+          fileName: file.name,
+          filePath: ""
         });
       };
       reader.readAsDataURL(file);
@@ -311,6 +331,7 @@ const ExpenditureManagement = () => {
     }
 
     let fileData = newExpense.fileData || "";
+    let filePath = newExpense.filePath || "";
 
     if (editingExpenditureId) {
       // Update existing
@@ -324,6 +345,7 @@ const ExpenditureManagement = () => {
           documentType: newExpense.documentType || 'Not Applicable',
           fileData: fileData,
           fileName: newExpense.fileName,
+          filePath: filePath,
           remarks: newExpense.remarks
         } : exp
       ));
@@ -339,6 +361,7 @@ const ExpenditureManagement = () => {
         documentType: newExpense.documentType || 'Not Applicable',
         fileData: fileData,
         fileName: newExpense.fileName,
+        filePath: filePath,
         remarks: newExpense.remarks,
         sNo: expenditures.length + 1
       };
@@ -355,6 +378,7 @@ const ExpenditureManagement = () => {
       file: null,
       fileData: "",
       fileName: "",
+      filePath: "",
       remarks: "",
       date: ""
     });
@@ -383,6 +407,7 @@ const ExpenditureManagement = () => {
         file: null, // Reset file input
         fileData: expenseToEdit.fileData,
         fileName: expenseToEdit.fileName,
+        filePath: expenseToEdit.filePath || "",
         remarks: expenseToEdit.remarks,
         date: expenseToEdit.date
       });
@@ -397,6 +422,7 @@ const ExpenditureManagement = () => {
     setYear("");
     setLocation("");
     setBudgetAllocated("");
+    setOpeningBalance(0);
     setExpenditures([]);
     setSelectedRecord(null);
     setViewMode(false);
@@ -409,6 +435,7 @@ const ExpenditureManagement = () => {
       file: null,
       fileData: "",
       fileName: "",
+        filePath: "",
       remarks: "",
       date: ""
     });
@@ -427,6 +454,7 @@ const ExpenditureManagement = () => {
       file: null,
       fileData: "",
       fileName: "",
+        filePath: "",
       remarks: "",
       date: ""
     });
@@ -461,6 +489,7 @@ const ExpenditureManagement = () => {
         documentType: e.documentType || 'Not Applicable',
         fileName: e.fileName || '',
         fileData: e.fileData || '',
+        filePath: e.filePath || '',
         remarks: e.remarks || ''
         // Note: file object is not included as it needs separate handling
       }))
@@ -964,7 +993,7 @@ const ExpenditureManagement = () => {
             </div>
 
             {/* Financial Summary Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
               <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
                 <div className="flex items-center justify-between">
                   <div>
@@ -1006,6 +1035,19 @@ const ExpenditureManagement = () => {
                   ) : (
                     <CheckCircle className="w-8 h-8 text-green-500" />
                   )}
+                </div>
+              </div>
+
+              <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-purple-700 mb-1">Opening Balance</p>
+                    <p className="text-2xl font-bold text-purple-800">
+                      ₹{openingBalance.toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-xs text-purple-600">From previous month</p>
+                  </div>
+                  <Wallet className="w-8 h-8 text-purple-500" />
                 </div>
               </div>
             </div>
@@ -1201,10 +1243,10 @@ const ExpenditureManagement = () => {
                           ₹{parseFloat(exp.amount || 0).toLocaleString('en-IN')}
                         </td>
                         <td className="px-4 py-3">
-                            {exp.fileData ? (
+                            {(exp.fileData || exp.filePath) ? (
                               <div className="flex items-center gap-2">
                                 <button
-                                  onClick={() => viewUploadedFile(exp.fileData, exp.fileName)}
+                                  onClick={() => viewUploadedFile(exp.fileData || (exp.filePath ? `${BASE_URL}${exp.filePath}` : null), exp.fileName)}
                                   className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
                                   title="View Document"
                                 >
@@ -1627,10 +1669,10 @@ const ExpenditureManagement = () => {
                             ₹{Number(exp.amount || 0).toLocaleString('en-IN')}
                           </td>
                           <td className="px-4 py-3">
-                            {exp.fileData ? (
+                            {(exp.fileData || exp.filePath) ? (
                               <div className="flex items-center gap-2">
                                 <button
-                                  onClick={() => viewUploadedFile(exp.fileData, exp.fileName)}
+                                  onClick={() => viewUploadedFile(exp.fileData || (exp.filePath ? `${BASE_URL}${exp.filePath}` : null), exp.fileName)}
                                   className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
                                   title="View Document"
                                 >

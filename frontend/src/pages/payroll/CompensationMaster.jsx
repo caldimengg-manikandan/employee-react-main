@@ -1382,9 +1382,12 @@ HR Team`;
               </div>
 
                <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
-                  <strong>4. Probation Period</strong>
+                  <strong>4. Probation and Confirmation</strong>
                   <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
-                      You will be on probation for a period of 6 months from your date of joining. Upon successful completion, your employment will be confirmed in writing.
+                      For employees with prior experience in the relevant field, the probation period shall be six (6) months from the date of joining. For trainees or freshers, the training period shall be one (1) year from the date of joining.
+During the probation or training period, either party may terminate the employment by giving seven (7) days’ written notice or salary in lieu thereof. Upon successful completion of the probation or training period,
+confirmation of employment will be communicated in writing.
+
                   </div>
               </div>
 
