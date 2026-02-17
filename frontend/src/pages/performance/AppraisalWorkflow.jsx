@@ -45,7 +45,6 @@ const AppraisalWorkflow = () => {
             setRows(formattedRows);
             setFilteredRows(formattedRows);
             
-            // Extract unique options for filters
             const divisions = [...new Set(employees.map(e => e.division).filter(Boolean))].sort();
             const designations = [...new Set(employees.map(e => e.designation).filter(Boolean))].sort();
             const locations = [...new Set(employees.map(e => e.location).filter(Boolean))].sort();
@@ -53,12 +52,38 @@ const AppraisalWorkflow = () => {
             setDivisionOptions(divisions);
             setDesignationOptions(designations);
             setLocationOptions(locations);
+
+            const allowedAppraiserNames = [
+                'Arunkumar.D',
+                'Harisankaran',
+                'Gopinath.D',
+                'Arunkumar.P',
+                'Uvaraj',
+                'Balasubiramaniyam'
+            ];
+
+            const normalizeName = (name) => (name || '').trim().toUpperCase();
+
+            const appraiserOptionsList = allowedAppraiserNames.map(targetName => {
+                const match = employees.find(emp => normalizeName(emp.name) === normalizeName(targetName));
+                if (match) {
+                    return {
+                        name: match.name,
+                        label: `${match.name.toUpperCase()} (${match.employeeId})`
+                    };
+                }
+                return {
+                    name: targetName,
+                    label: targetName.toUpperCase()
+                };
+            });
+
+            setAppraiserOptions(appraiserOptionsList);
             
-            // Helper to filter and map employees
             const getFilteredOptions = (designations) => {
                 const filtered = employees
                     .filter(emp => {
-                        const designation = emp.designation || emp.role || emp.position;
+                        const designation = (emp.designation || emp.role || emp.position || '').trim().toUpperCase();
                         return designations.includes(designation);
                     })
                     .map(emp => ({
@@ -67,28 +92,14 @@ const AppraisalWorkflow = () => {
                     }))
                     .sort((a, b) => a.name.localeCompare(b.name));
                 
-                // Remove duplicates based on name
                 return Array.from(new Set(filtered.map(item => item.name)))
                     .map(name => filtered.find(item => item.name === name));
             };
-            
-            // Appraiser Designations
-            const appraiserDesignations = [
-                'Managing Director (MD)', 
-                'Managing Director MD',
-                'General Manager (GM)', 
-                'General Manager GM',
-                'BRANCH MANAGER', 
-                'Sr.Project Manager'
-            ];
-            setAppraiserOptions(getFilteredOptions(appraiserDesignations));
 
-            // Reviewer Designations
-            const reviewerDesignations = ['General Manager (GM)', 'General Manager GM'];
+            const reviewerDesignations = ['GENERAL MANAGER (GM)', 'GENERAL MANAGER GM'];
             setReviewerOptions(getFilteredOptions(reviewerDesignations));
 
-            // Director Designations
-            const directorDesignations = ['Managing Director (MD)', 'Managing Director MD'];
+            const directorDesignations = ['MANAGING DIRECTOR (MD)', 'MANAGING DIRECTOR MD'];
             setDirectorOptions(getFilteredOptions(directorDesignations));
 
         } catch (error) {
