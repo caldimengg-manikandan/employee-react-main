@@ -90,6 +90,7 @@ app.use("/api/performance/team-appraisals", require("./routes/teamAppraisalRoute
 app.use("/api/performance/reviewer", require("./routes/reviewerRoutes"));
 app.use("/api/performance/director", require("./routes/directorRoutes"));
 app.use("/api/performance/increment-master", require("./routes/incrementRoutes"));
+app.use("/api/performance/increment-summary", require("./routes/incrementSummaryRoutes"));
 
 // Base Route
 app.get("/", (req, res) => {

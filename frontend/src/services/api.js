@@ -233,6 +233,8 @@ export const performanceAPI = {
   getIncrementMatrix: (params) => api.get('/performance/increment-master', { params }),
   saveIncrementMatrix: (data) => api.post('/performance/increment-master', data),
   calculateIncrement: (data) => api.post('/performance/increment-master/calculate', data),
+
+  getIncrementSummary: (params) => api.get('/performance/increment-summary', { params }),
 };
 
 export const payrollAPI = {

@@ -712,10 +712,57 @@ HR Team`;
   const calcNetSalary = calcTotalEarnings - calcTotalDeductions;
   const calcCTC = calcTotalEarnings + calcGratuity;
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const viewSummary = useMemo(() => {
+    if (!viewItem) return null;
+    const basic = parseFloat(viewItem.basicDA) || 0;
+    const hra = parseFloat(viewItem.hra) || 0;
+    const special = parseFloat(viewItem.specialAllowance) || 0;
+    const gratuity = parseFloat(viewItem.gratuity) || 0;
+    const pf = parseFloat(viewItem.pf) || 0;
+    const esi = parseFloat(viewItem.esi) || 0;
+    const tax = parseFloat(viewItem.tax) || 0;
+    const professionalTax = parseFloat(viewItem.professionalTax) || 0;
+
+    const totalEarnings = basic + hra + special;
+    const totalDeductions = pf + esi + tax + professionalTax;
+    const netSalary = totalEarnings - totalDeductions;
+    const ctc = totalEarnings + gratuity;
+
+    return {
+      totalEarnings,
+      totalDeductions,
+      netSalary,
+      ctc
+    };
+  }, [viewItem]);
+
+  const formatViewDate = (value) => {
+    if (!value) return "-";
+    const dateObj = new Date(value);
+    if (!isNaN(dateObj.getTime())) {
+      return dateObj.toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+      });
+    }
+    const str = String(value);
+    return str.includes("T") ? str.split("T")[0] : str;
+  };
+
+  const activeFilterCount = useMemo(
+    () =>
+      [filterDepartment, filterDesignation, filterLocation].filter(Boolean)
+        .length,
+    [filterDepartment, filterDesignation, filterLocation]
+  );
+
   return (
     <div className="p-6">
-      <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-end">
-        <div className="flex items-center gap-2">
+      <div className="bg-white p-4 rounded-lg shadow mb-4 flex flex-wrap gap-4 items-center">
+        <div className="flex items-center gap-2 flex-1 min-w-[260px]">
           <Search size={18} />
           <input
             value={search}
@@ -724,46 +771,27 @@ HR Team`;
             className="border rounded px-3 py-2 w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Department</label>
-          <select
-            className="border rounded px-3 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={filterDepartment}
-            onChange={(e) => setFilterDepartment(e.target.value)}
-          >
-            <option value="">All</option>
-            {departments.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Designation</label>
-          <select
-            className="border rounded px-3 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={filterDesignation}
-            onChange={(e) => setFilterDesignation(e.target.value)}
-          >
-            <option value="">All</option>
-            {designations.map((d) => (
-              <option key={d} value={d}>{d}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Location</label>
-          <select
-            className="border rounded px-3 py-2 w-48 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={filterLocation}
-            onChange={(e) => setFilterLocation(e.target.value)}
-          >
-            <option value="">All</option>
-            {locations.map((l) => (
-              <option key={l} value={l}>{l}</option>
-            ))}
-          </select>
-        </div>
-        <div className="ml-auto flex gap-2">
+
+        <button
+          onClick={() => setFiltersOpen((v) => !v)}
+          className="flex items-center gap-2 px-4 py-2 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 shadow-sm transition"
+        >
+          <Filter size={16} />
+          <span className="text-sm font-medium">Filters</span>
+          {activeFilterCount > 0 && (
+            <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-indigo-600 text-white">
+              {activeFilterCount}
+            </span>
+          )}
+          <ChevronDown
+            size={14}
+            className={`transition-transform duration-200 ${
+              filtersOpen ? "rotate-180" : ""
+            }`}
+          />
+        </button>
+
+        <div className="ml-auto flex gap-2 mt-2 sm:mt-0">
           <button
             onClick={handleOpenAdd}
             className="bg-[#262760] text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-[#1e2050]"
@@ -780,6 +808,77 @@ HR Team`;
           </button>
         </div>
       </div>
+
+      {filtersOpen && (
+        <div className="bg-indigo-50/80 border border-indigo-100 rounded-xl px-4 py-3 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-xs font-semibold text-indigo-900 mb-1 tracking-wide">
+              Department
+            </label>
+            <select
+              className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
+            >
+              <option value="">All</option>
+              {departments.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-indigo-900 mb-1 tracking-wide">
+              Designation
+            </label>
+            <select
+              className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              value={filterDesignation}
+              onChange={(e) => setFilterDesignation(e.target.value)}
+            >
+              <option value="">All</option>
+              {designations.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-indigo-900 mb-1 tracking-wide">
+              Location
+            </label>
+            <select
+              className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              value={filterLocation}
+              onChange={(e) => setFilterLocation(e.target.value)}
+            >
+              <option value="">All</option>
+              {locations.map((l) => (
+                <option key={l} value={l}>
+                  {l}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-end justify-start sm:justify-end">
+            <button
+              onClick={() => {
+                setFilterDepartment("");
+                setFilterDesignation("");
+                setFilterLocation("");
+              }}
+              className="px-4 py-2 text-sm rounded-lg border border-indigo-300 text-indigo-700 bg-white hover:bg-indigo-50 transition"
+            >
+              Clear filters
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
@@ -1097,33 +1196,184 @@ HR Team`;
 
       {viewItem && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl w-full max-w-2xl shadow-2xl overflow-hidden">
-            <div className="p-4 border-b flex justify-between items-center">
-              <div className="font-semibold text-lg">Compensation</div>
-              <button onClick={() => setViewItem(null)} className="p-2 text-gray-500 hover:text-gray-700">
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div><div className="text-xs text-gray-500">Name</div><div className="font-semibold">{viewItem.name || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Effective</div><div className="font-semibold">{viewItem.effectiveDate || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Department</div><div className="font-semibold">{viewItem.department || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Designation</div><div className="font-semibold">{viewItem.designation || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Grade</div><div className="font-semibold">{viewItem.grade || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Location</div><div className="font-semibold">{viewItem.location || "-"}</div></div>
+          <div className="relative w-full max-w-3xl">
+            <div className="absolute -inset-[1px] rounded-3xl bg-gradient-to-r from-indigo-400 via-fuchsia-400 to-amber-300 opacity-80 blur-md"></div>
+            <div className="relative bg-white rounded-3xl shadow-2xl overflow-hidden border border-slate-200">
+              <div className="bg-[#262760] px-6 py-4 flex items-center justify-between">
+                <div className="flex flex-col">
+                  <span className="text-xs font-semibold tracking-widest text-indigo-100/80 uppercase">
+                    Compensation Snapshot
+                  </span>
+                  <span className="text-xl font-bold text-white">
+                    {viewItem.name || "Compensation"}
+                  </span>
+                  
+                </div>
+                <button
+                  onClick={() => setViewItem(null)}
+                  className="p-2 rounded-full bg-black/15 hover:bg-black/25 text-white transition"
+                >
+                  <X className="h-5 w-5" />
+                </button>
               </div>
-              <div className="grid grid-cols-2 gap-4 mt-2">
-                <div><div className="text-xs text-gray-500">Basic/DA</div><div className="font-semibold">{viewItem.basicDA || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">HRA</div><div className="font-semibold">{viewItem.hra || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Special Allowance</div><div className="font-semibold">{viewItem.specialAllowance || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Gratuity</div><div className="font-semibold">{viewItem.gratuity || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">PF</div><div className="font-semibold">{viewItem.pf || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">ESI</div><div className="font-semibold">{viewItem.esi || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Tax</div><div className="font-semibold">{viewItem.tax || "-"}</div></div>
-                <div><div className="text-xs text-gray-500">Professional Tax</div><div className="font-semibold">{viewItem.professionalTax || "-"}</div></div>
-                
-                
+
+              <div className="px-6 pt-4 pb-6 bg-white">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+                  <div className="bg-slate-900/80 rounded-2xl px-3 py-2.5 border border-indigo-700/40">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
+                      Effective From
+                    </div>
+                    <div className="text-sm font-semibold text-indigo-100 mt-0.5">
+                      {formatViewDate(viewItem.effectiveDate)}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/80 rounded-2xl px-3 py-2.5 border border-emerald-600/40">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                      Department
+                    </div>
+                    <div className="text-sm font-semibold text-emerald-100 mt-0.5">
+                      {viewItem.department || "-"}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/80 rounded-2xl px-3 py-2.5 border border-fuchsia-700/40">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-fuchsia-300">
+                      Designation
+                    </div>
+                    <div className="text-sm font-semibold text-fuchsia-100 mt-0.5">
+                      {viewItem.designation || "-"}
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/80 rounded-2xl px-3 py-2.5 border border-amber-500/50">
+                    <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                      Location
+                    </div>
+                    <div className="text-sm font-semibold text-amber-100 mt-0.5">
+                      {viewItem.location || "-"}
+                    </div>
+                  </div>
+                </div>
+
+                {viewSummary && (
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
+                    <div className="bg-slate-900 rounded-2xl px-3 py-2.5 border border-indigo-600/60">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-indigo-300">
+                        Total Earnings
+                      </div>
+                      <div className="text-sm font-semibold text-indigo-100 mt-0.5">
+                        ₹ {viewSummary.totalEarnings.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div className="bg-slate-900 rounded-2xl px-3 py-2.5 border border-rose-600/60">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-rose-300">
+                        Total Deductions
+                      </div>
+                      <div className="text-sm font-semibold text-rose-100 mt-0.5">
+                        ₹ {viewSummary.totalDeductions.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div className="bg-slate-900 rounded-2xl px-3 py-2.5 border border-emerald-600/60">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-emerald-300">
+                        Net Salary
+                      </div>
+                      <div className="text-sm font-semibold text-emerald-100 mt-0.5">
+                        ₹ {viewSummary.netSalary.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                    <div className="bg-slate-900 rounded-2xl px-3 py-2.5 border border-amber-500/70">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                        CTC
+                      </div>
+                      <div className="text-sm font-semibold text-amber-100 mt-0.5">
+                        ₹ {viewSummary.ctc.toLocaleString("en-IN")}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="bg-slate-900/80 rounded-2xl border border-slate-800/70 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-semibold text-indigo-200 uppercase tracking-wide">
+                        Earnings
+                      </span>
+                      <div className="flex items-center gap-1 text-[11px] text-indigo-300">
+                        <Calculator className="w-3 h-3" />
+                        Monthly
+                      </div>
+                    </div>
+                    <div className="space-y-2.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-200">Basic / DA</span>
+                        <span className="font-semibold text-indigo-100">
+                          {viewItem.basicDA || "-"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-200">HRA</span>
+                        <span className="font-semibold text-indigo-100">
+                          {viewItem.hra || "-"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-200">Special Allowance</span>
+                        <span className="font-semibold text-indigo-100">
+                          {viewItem.specialAllowance || "-"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t border-slate-700 pt-2 mt-1">
+                        <span className="text-slate-100 font-semibold">
+                          Gratuity
+                        </span>
+                        <span className="font-semibold text-emerald-300">
+                          {viewItem.gratuity || "-"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-900/80 rounded-2xl border border-slate-800/70 p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-xs font-semibold text-rose-200 uppercase tracking-wide">
+                        Deductions
+                      </span>
+                      <div className="flex items-center gap-1 text-[11px] text-rose-300">
+                        <FileText className="w-3 h-3" />
+                        Statutory
+                      </div>
+                    </div>
+                    <div className="space-y-2.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-slate-200">PF</span>
+                        <span className="font-semibold text-rose-100">
+                          {viewItem.pf || "-"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-200">ESI</span>
+                        <span className="font-semibold text-rose-100">
+                          {viewItem.esi || "-"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-200">Professional Tax</span>
+                        <span className="font-semibold text-rose-100">
+                          {viewItem.professionalTax || "-"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t border-slate-700 pt-2 mt-1">
+                        <span className="text-slate-100 font-semibold">
+                          Income Tax
+                        </span>
+                        <span className="font-semibold text-amber-300">
+                          {viewItem.tax || "-"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1293,7 +1543,7 @@ HR Team`;
 
               <div style={{ marginBottom: '15px', fontSize: '12pt', lineHeight: '1.6', color: '#374151', textAlign: 'justify' }}>
                  Dear {selectedCompensation?.name},<br /><br />
-                 We are pleased to offer you employment with Caldim Engineering Private Limited (“the Company”) for the position of <strong>{selectedCompensation?.designation}</strong>, effective from <strong>{formatDate(selectedCompensation?.dateOfJoining)}</strong>.
+                 We are pleased to offer you employment with Caldim Engineering Private Limited for the position of <strong>{selectedCompensation?.designation}</strong>, effective from <strong>{formatDate(selectedCompensation?.effectiveDate || selectedCompensation?.dateOfJoining)}</strong>.
                  <br/><br/>
                  Your appointment will be governed by the terms and conditions outlined below and further detailed in the Annexure – Terms & Conditions of Employment.
               </div>
