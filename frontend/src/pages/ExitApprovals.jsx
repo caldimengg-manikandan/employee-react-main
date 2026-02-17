@@ -26,6 +26,8 @@ const ExitApproval = () => {
   const [selectedForm, setSelectedForm] = useState(null);
   const [showRelievingLetter, setShowRelievingLetter] = useState(false);
   const [letterData, setLetterData] = useState(null);
+  const [showExperienceLetter, setShowExperienceLetter] = useState(false);
+  const [experienceLetterData, setExperienceLetterData] = useState(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [filters, setFilters] = useState({ 
     employeeName: '',
@@ -43,9 +45,9 @@ const ExitApproval = () => {
   // Get current user role
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const userRole = user.role || '';
-  const companyName = sessionStorage.getItem('companyName') || 'Your Company Name';
+  const companyName = sessionStorage.getItem('companyName') || 'Caldim Engineering Private.Ltd';
   const companyAddress = sessionStorage.getItem('companyAddress') || 'Your Company Address';
-  const hrManager = sessionStorage.getItem('hrManager') || 'HR Manager';
+  const hrManager = sessionStorage.getItem('hrManager') || "DIRECTOR";
 
   // Divisions list
   const divisions = ['Engineering', 'HR', 'Sales', 'Marketing', 'Finance', 'Operations'];
@@ -115,6 +117,22 @@ const ExitApproval = () => {
     } catch (error) {
       console.error('Error fetching employees:', error);
     }
+  };
+
+  const formatLongDateWithSuffix = (d) => {
+    if (!d) return '-';
+    const date = new Date(d);
+    if (isNaN(date.getTime())) return '-';
+    const day = date.getDate();
+    const j = day % 10;
+    const k = day % 100;
+    let suffix = 'th';
+    if (j === 1 && k !== 11) suffix = 'st';
+    else if (j === 2 && k !== 12) suffix = 'nd';
+    else if (j === 3 && k !== 13) suffix = 'rd';
+    const month = date.toLocaleString('en-GB', { month: 'long' });
+    const year = date.getFullYear();
+    return `${day}${suffix} ${month} ${year}`;
   };
 
   const filterForms = () => {
@@ -188,6 +206,88 @@ const ExitApproval = () => {
     setShowRelievingLetter(true);
   };
 
+  const handleGenerateExperienceLetter = (form) => {
+    if (form.status !== 'completed') {
+      message.warning("Experience letter can only be generated for completed exit requests.");
+      return;
+    }
+
+    const employeeId = form.employeeId?.employeeId;
+    const empRecord = form.employeeDetails || employees.find(e => e.employeeId === employeeId);
+
+    const joinDateRaw =
+      empRecord?.dateOfJoining ||
+      form.employeeDetails?.dateOfJoining ||
+      form.joinDate;
+    const lastWorkingRaw =
+      form.proposedLastWorkingDay ||
+      form.lastWorkingDay ||
+      form.relievingDate;
+
+    const joinDateObj = joinDateRaw ? new Date(joinDateRaw) : null;
+    const lastWorkingObj = lastWorkingRaw ? new Date(lastWorkingRaw) : null;
+
+    let experienceText = '';
+    if (joinDateObj && lastWorkingObj && !isNaN(joinDateObj.getTime()) && !isNaN(lastWorkingObj.getTime())) {
+      let years = lastWorkingObj.getFullYear() - joinDateObj.getFullYear();
+      let months = lastWorkingObj.getMonth() - joinDateObj.getMonth();
+      let days = lastWorkingObj.getDate() - joinDateObj.getDate();
+
+      if (days < 0) {
+        months -= 1;
+      }
+      if (months < 0) {
+        years -= 1;
+        months += 12;
+      }
+
+      const parts = [];
+      if (years > 0) {
+        parts.push(`${years} year${years > 1 ? 's' : ''}`);
+      }
+      if (months > 0) {
+        parts.push(`${months} month${months > 1 ? 's' : ''}`);
+      }
+      if (parts.length === 0) {
+        parts.push('less than one year');
+      }
+      experienceText = parts.join(' ');
+    }
+
+    const gender = (empRecord?.gender || '').toLowerCase();
+
+    let prefix = '';
+    let pronounSubject = 'their';
+    let pronounPossessive = 'their';
+
+    if (gender === 'male' || gender === 'm') {
+      prefix = 'Mr. ';
+      pronounSubject = 'his';
+      pronounPossessive = 'his';
+    } else if (gender === 'female' || gender === 'f') {
+      prefix = 'Ms. ';
+      pronounSubject = 'her';
+      pronounPossessive = 'her';
+    }
+
+    const data = {
+      date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      employeeName: form.employeeName,
+      designation: form.employeeDetails?.position || form.position || '',
+      joinDate: formatLongDateWithSuffix(joinDateRaw),
+      lastWorkingDate: formatLongDateWithSuffix(lastWorkingRaw),
+      prefix,
+      pronounSubject,
+      pronounPossessive,
+      experienceText,
+      companyName,
+      hrManager
+    };
+
+    setExperienceLetterData(data);
+    setShowExperienceLetter(true);
+  };
+
   const downloadRelievingLetter = async () => {
     try {
       const element = document.getElementById('relieving-letter-template');
@@ -203,17 +303,62 @@ const ExitApproval = () => {
       });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
-      let imgWidth = 210;
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      let imgHeight = (canvas.height * imgWidth) / canvas.width;
-      if (imgHeight > pageHeight) {
-        imgHeight = pageHeight;
-        imgWidth = (canvas.width * imgHeight) / canvas.height;
-      }
       const pageWidth = pdf.internal.pageSize.getWidth();
-      const x = (pageWidth - imgWidth) / 2;
-      pdf.addImage(imgData, 'PNG', x, 0, imgWidth, imgHeight);
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let renderWidth = imgWidth;
+      let renderHeight = imgHeight;
+
+      if (imgHeight > pageHeight) {
+        const ratio = pageHeight / imgHeight;
+        renderWidth = imgWidth * ratio;
+        renderHeight = imgHeight * ratio;
+      }
+
+      const x = (pageWidth - renderWidth) / 2;
+      pdf.addImage(imgData, 'PNG', x, 0, renderWidth, renderHeight);
       const filename = `Relieving_Letter_${letterData.employeeId}_${letterData.employeeName.replace(/\s+/g, '_')}.pdf`;
+      pdf.save(filename);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      message.error('Failed to generate PDF. Please try again.');
+    }
+  };
+
+  const downloadExperienceLetter = async () => {
+    try {
+      const element = document.getElementById('experience-letter-template');
+      if (!element) {
+        message.error("Error generating letter. Please try again.");
+        return;
+      }
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+      let renderWidth = imgWidth;
+      let renderHeight = imgHeight;
+
+      if (imgHeight > pageHeight) {
+        const ratio = pageHeight / imgHeight;
+        renderWidth = imgWidth * ratio;
+        renderHeight = imgHeight * ratio;
+      }
+
+      const x = (pageWidth - renderWidth) / 2;
+      pdf.addImage(imgData, 'PNG', x, 0, renderWidth, renderHeight);
+      const filename = `Experience_Letter_${experienceLetterData.employeeName.replace(/\s+/g, '_')}.pdf`;
       pdf.save(filename);
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -517,15 +662,23 @@ const ExitApproval = () => {
                           </button>
                         )}
 
-                        {/* Download Relieving Letter */}
                         {form.status === 'completed' && (
-                          <button
-                            onClick={() => handleGenerateRelievingLetter(form)}
-                            className="text-purple-600 hover:text-purple-900 p-1 rounded-full hover:bg-purple-50"
-                            title="Generate Relieving Letter"
-                          >
-                            <DocumentTextIcon className="h-5 w-5" />
-                          </button>
+                          <>
+                            <button
+                              onClick={() => handleGenerateRelievingLetter(form)}
+                              className="text-purple-600 hover:text-purple-900 p-1 rounded-full hover:bg-purple-50"
+                              title="Generate Relieving Letter"
+                            >
+                              <DocumentTextIcon className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => handleGenerateExperienceLetter(form)}
+                              className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50"
+                              title="Generate Experience Letter"
+                            >
+                              <DocumentArrowDownIcon className="h-5 w-5" />
+                            </button>
+                          </>
                         )}
                       </div>
                     </td>
@@ -573,31 +726,74 @@ const ExitApproval = () => {
               </div>
               <div className="relative z-10 flex flex-col h-full justify-between min-h-[1120px]">
                 <div className="w-full flex h-32 relative overflow-hidden">
-                  <div className="relative w-[60%] bg-[#1e2b58] flex items-center pl-8 pr-12" style={{ clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}>
+                  <div className="absolute inset-0 z-0">
+                    <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
+                      <path d="M0,0 L400,0 L340,128 L0,128 Z" fill="#1e2b58" />
+                      <path d="M400,0 L430,0 L370,128 L340,128 Z" fill="#f37021" />
+                    </svg>
+                  </div>
+
+                  <div className="relative w-[60%] flex items-center pl-8 pr-12 z-10">
                     <div className="flex items-center gap-4">
-                      <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" />
+                      <img
+                        src="/images/steel-logo.png"
+                        alt="CALDIM"
+                        className="h-16 w-auto brightness-0 invert"
+                        crossOrigin="anonymous"
+                        style={{ display: 'block' }}
+                      />
                       <div className="text-white">
                         <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
-                        <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">ENGINEERING PRIVATE LIMITED</p>
+                        <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">
+                          ENGINEERING PRIVATE LIMITED
+                        </p>
                       </div>
                     </div>
                   </div>
-                  <div className="absolute left-[50%] top-0 h-32 w-16 bg-[#f37021] z-[-1]" style={{ clipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)' }}></div>
-                  <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2">
+
+                  <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2 z-10">
                     <div className="flex items-center mb-2">
                       <span className="font-bold text-gray-800 mr-3 text-lg">044-47860455</span>
                       <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                          className="w-4 h-4"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"
+                          />
                         </svg>
                       </div>
                     </div>
                     <div className="flex items-start justify-end text-right">
-                      <span className="text-sm font-semibold text-gray-700 w-64 leading-tight">No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
+                      <span className="text-sm font-semibold text-gray-700 w-64 leading-tight">
+                        No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.
+                      </span>
                       <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                          className="w-4 h-4"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                          />
                         </svg>
                       </div>
                     </div>
@@ -631,7 +827,6 @@ const ExitApproval = () => {
                         <div className="w-56 border-t border-gray-900 mb-2"></div>
                         <div className="font-bold">{letterData.hrManager}</div>
                         <div className="text-gray-600">Authorized Signatory</div>
-                        <div className="text-gray-600">{companyName}</div>
                       </div>
                     </div>
                   </div>
@@ -649,8 +844,159 @@ const ExitApproval = () => {
         </div>
       )}
 
+      {/* Experience Letter Modal */}
+      {showExperienceLetter && experienceLetterData && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100] backdrop-blur-sm">
+          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+            <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Experience Letter</h2>
+                <p className="text-sm text-gray-500">Preview and download</p>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={downloadExperienceLetter}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-2"
+                >
+                  <DocumentArrowDownIcon className="h-4 w-4" />
+                  Download PDF
+                </button>
+                <button 
+                  onClick={() => setShowExperienceLetter(false)}
+                  className="p-2 text-gray-400 hover:text-gray-600"
+                >
+                  <XCircleIcon className="h-8 w-8" />
+                </button>
+              </div>
+            </div>
+            
+            <div id="experience-letter-template" className="bg-white relative min-h-[1120px] w-[794px] mx-auto shadow-lg">
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+                <img 
+                  src="/images/steel-logo.png" 
+                  alt="" 
+                  className="w-[500px] opacity-[0.05] grayscale"
+                />
+              </div>
+              <div className="relative z-10 flex flex-col h-full justify-between min-h-[1120px]">
+                <div className="w-full flex h-32 relative overflow-hidden">
+                  <div className="absolute inset-0 z-0">
+                    <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
+                      <path d="M0,0 L400,0 L340,128 L0,128 Z" fill="#1e2b58" />
+                      <path d="M400,0 L430,0 L370,128 L340,128 Z" fill="#f37021" />
+                    </svg>
+                  </div>
+
+                  <div className="relative w-[60%] flex items-center pl-8 pr-12 z-10">
+                    <div className="flex items-center gap-4">
+                      <img
+                        src="/images/steel-logo.png"
+                        alt="CALDIM"
+                        className="h-16 w-auto brightness-0 invert"
+                        crossOrigin="anonymous"
+                        style={{ display: 'block' }}
+                      />
+                      <div className="text-white">
+                        <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
+                        <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">
+                          ENGINEERING PRIVATE LIMITED
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2 z-10">
+                    <div className="flex items-center mb-2">
+                      <span className="font-bold text-gray-800 mr-3 text-lg">044-47860455</span>
+                      <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                          className="w-4 h-4"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                    <div className="flex items-start justify-end text-right">
+                      <span className="text-sm font-semibold text-gray-700 w-64 leading-tight">
+                        No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.
+                      </span>
+                      <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          strokeWidth={2}
+                          stroke="currentColor"
+                          className="w-4 h-4"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
+                          />
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="px-12 py-6 flex-grow">
+                  <div className="flex justify-between mb-10">
+                    <div />
+                    <div className="text-gray-700">Date: <span className="font-bold">{experienceLetterData.date}</span></div>
+                  </div>
+                  <div className="mb-8 text-center">
+                    <div className="text-lg font-bold tracking-wide">WHOMSOEVER IT MAY CONCERN</div>
+                  </div>
+                  <div className="space-y-6 mb-10 text-justify text-[14px] leading-7">
+                    <p>
+                      This is to certify that <span className="font-semibold">{experienceLetterData.prefix}{experienceLetterData.employeeName}</span> has worked as a <span className="font-semibold">{experienceLetterData.designation}</span> in our organization from <span className="font-semibold">{experienceLetterData.joinDate}</span> to <span className="font-semibold">{experienceLetterData.lastWorkingDate}</span>. During {experienceLetterData.pronounPossessive} tenure, {experienceLetterData.pronounSubject} performance and conduct were found to be satisfactory.
+                    </p>
+                    {experienceLetterData.experienceText && (
+                      <p>
+                        The total period of employment with our organization is{' '}
+                        <span className="font-semibold">{experienceLetterData.experienceText}</span>.
+                      </p>
+                    )}
+                    <p>We wish you all success in your future endeavors.</p>
+                    <p>Thanking you,</p>
+                    <p>For {experienceLetterData.companyName}</p>
+                  </div>
+                  <div className="mt-16 flex justify-start">
+                    <div className="text-left">
+                      <div className="w-56 border-t border-gray-900 mb-2"></div>
+                      <div className="text-gray-700">Authorized Signatory</div>
+                    </div>
+                  </div>
+                </div>
+                <div className="w-full flex items-end mt-auto">
+                  <div className="h-3 bg-[#f37021] flex-1 mb-0"></div>
+                  <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center" style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', minWidth: '450px' }}>
+                    <div className="text-sm font-medium tracking-wide">Website : www.caldimengg.com</div>
+                    <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Details Modal */}
-      {selectedForm && !showRelievingLetter && (
+      {selectedForm && !showRelievingLetter && !showExperienceLetter && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
             <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">

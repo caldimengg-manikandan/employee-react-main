@@ -88,9 +88,17 @@ const HolidaysAllowance = () => {
           accountNumber: emp.bankAccount || emp.bankDetails?.accountNumber || '-',
           grossSalary: gross,
           
-          // Editable Fields
+          // Holiday Working Fields
           holidayDays: 0,
           perDayAmount: defaultPerDay,
+          holidayTotal: 0,
+
+          // Shift Allowance Fields
+          shiftAllottedAmount: 0,
+          shiftDays: 0,
+          shiftTotal: 0,
+
+          // Combined Total
           totalAmount: 0,
           
           status: 'Draft'
@@ -112,16 +120,28 @@ const HolidaysAllowance = () => {
     const newData = [...tableData];
     const row = newData[index];
 
+    const recalcTotals = () => {
+      row.holidayTotal = Math.round((row.holidayDays || 0) * (row.perDayAmount || 0));
+      row.shiftTotal = Math.round((row.shiftAllottedAmount || 0) * (row.shiftDays || 0));
+      row.totalAmount = row.holidayTotal + row.shiftTotal;
+    };
+
     if (field === 'holidayDays') {
       const days = parseFloat(value) || 0;
       row.holidayDays = days;
-      // Recalculate total
-      row.totalAmount = Math.round(days * row.perDayAmount);
+      recalcTotals();
     } else if (field === 'perDayAmount') {
       const amount = parseFloat(value) || 0;
       row.perDayAmount = amount;
-      // Recalculate total
-      row.totalAmount = Math.round(row.holidayDays * amount);
+      recalcTotals();
+    } else if (field === 'shiftAllottedAmount') {
+      const amount = parseFloat(value) || 0;
+      row.shiftAllottedAmount = amount;
+      recalcTotals();
+    } else if (field === 'shiftDays') {
+      const days = parseFloat(value) || 0;
+      row.shiftDays = days;
+      recalcTotals();
     }
 
     setTableData(newData);
@@ -142,6 +162,10 @@ const HolidaysAllowance = () => {
           grossSalary: row.grossSalary,
           holidayDays: row.holidayDays,
           perDayAmount: row.perDayAmount,
+          holidayTotal: row.holidayTotal,
+          shiftAllottedAmount: row.shiftAllottedAmount,
+          shiftDays: row.shiftDays,
+          shiftTotal: row.shiftTotal,
           totalAmount: row.totalAmount
         }))
       };
@@ -241,12 +265,7 @@ const HolidaysAllowance = () => {
       {/* Table Section */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         {/* Table Header Title */}
-        <div className="bg-[#1e2050] px-6 py-3">
-          <h2 className="text-white font-medium flex items-center">
-            <span className="mr-2">📅</span>
-            Employee Holiday Working
-          </h2>
-        </div>
+        
 
         {/* Table */}
         <div className="overflow-x-auto">
@@ -262,18 +281,24 @@ const HolidaysAllowance = () => {
                 <th colSpan="3" className="px-4 py-2 text-center border-r border-gray-500 border-b border-gray-500">
                   Holiday Working
                 </th>
+                <th colSpan="3" className="px-4 py-2 text-center border-r border-gray-500 border-b border-gray-500">
+                  Shift Allowance
+                </th>
                 <th rowSpan="2" className="px-4 py-3">Total Amount</th>
               </tr>
               <tr>
                 <th className="px-4 py-2 border-r border-gray-500 text-center">No. of Days</th>
                 <th className="px-4 py-2 border-r border-gray-500 text-center">Per Day Amount</th>
                 <th className="px-4 py-2 border-r border-gray-500 text-center">Total</th>
+                <th className="px-4 py-2 border-r border-gray-500 text-center">Allotted Amount</th>
+                <th className="px-4 py-2 border-r border-gray-500 text-center">No. of Days</th>
+                <th className="px-4 py-2 border-r border-gray-500 text-center">Total</th>
               </tr>
             </thead>
             <tbody>
               {tableData.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="13" className="px-6 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center">
                       <span className="text-4xl mb-2">📋</span>
                       <p>Select location and click "Load Employees" to load data</p>
@@ -310,7 +335,30 @@ const HolidaysAllowance = () => {
                       />
                     </td>
                     <td className="px-4 py-3 border-r text-right font-medium text-gray-700 bg-gray-50">
-                      {row.totalAmount?.toLocaleString()}
+                      {row.holidayTotal?.toLocaleString()}
+                    </td>
+
+                    {/* Shift Allowance Inputs */}
+                    <td className="px-2 py-2 border-r">
+                      <input 
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1 border rounded focus:ring-[#1e2050] focus:border-[#1e2050] text-right"
+                        value={row.shiftAllottedAmount}
+                        onChange={(e) => handleInputChange(index, 'shiftAllottedAmount', e.target.value)}
+                      />
+                    </td>
+                    <td className="px-2 py-2 border-r">
+                      <input 
+                        type="number"
+                        min="0"
+                        className="w-full px-2 py-1 border rounded focus:ring-[#1e2050] focus:border-[#1e2050] text-center"
+                        value={row.shiftDays}
+                        onChange={(e) => handleInputChange(index, 'shiftDays', e.target.value)}
+                      />
+                    </td>
+                    <td className="px-4 py-3 border-r text-right font-medium text-gray-700 bg-gray-50">
+                      {row.shiftTotal?.toLocaleString()}
                     </td>
                     
                     {/* Final Total */}
