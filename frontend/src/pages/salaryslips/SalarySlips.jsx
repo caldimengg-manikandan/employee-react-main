@@ -324,6 +324,9 @@ const SalarySlips = () => {
       <div className="relative z-10 flex flex-col h-full justify-between min-h-[1120px] print:min-h-0">
         {/* Header */}
         <div className="w-full flex h-32 relative overflow-hidden">
+            {/* Orange Top Bar - simpler shape so it appears in PDF */}
+            <div className="absolute top-0 left-0 w-full h-2 bg-[#f37021] z-0"></div>
+
             {/* Left Part: Blue Background */}
             <div className="relative w-[60%] bg-[#1e2b58] flex items-center pl-8 pr-12 z-10" style={{ clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}>
                 <div className="flex items-center gap-4">
@@ -334,9 +337,6 @@ const SalarySlips = () => {
                     </div>
                 </div>
             </div>
-            
-            {/* Orange Accent */}
-            <div className="absolute left-[50%] top-0 h-32 w-16 bg-[#f37021]" style={{ clipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)', zIndex: 0 }}></div>
           
             {/* Right Part: Address */}
             <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2 z-10">
