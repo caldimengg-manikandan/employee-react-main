@@ -66,12 +66,14 @@ const ExpenditureManagement = () => {
     "May": "May", "Jun": "June", "Jul": "July", "Aug": "August",
     "Sep": "September", "Oct": "October", "Nov": "November", "Dec": "December"
   };
-  const currentYear = new Date().getFullYear();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = months[now.getMonth()];
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
   /* ---------------- MANAGE TAB STATES ---------------- */
-  const [month, setMonth] = useState("");
-  const [year, setYear] = useState("");
+  const [month, setMonth] = useState(currentMonth);
+  const [year, setYear] = useState(currentYear.toString());
   const [location, setLocation] = useState("");
   const [budgetAllocated, setBudgetAllocated] = useState("");
   const [openingBalance, setOpeningBalance] = useState(0);
@@ -418,8 +420,8 @@ const ExpenditureManagement = () => {
   };
 
   const clearForm = () => {
-    setMonth("");
-    setYear("");
+    setMonth(currentMonth);
+    setYear(currentYear.toString());
     setLocation("");
     setBudgetAllocated("");
     setOpeningBalance(0);
