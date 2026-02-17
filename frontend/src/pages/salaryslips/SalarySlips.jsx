@@ -325,7 +325,7 @@ const SalarySlips = () => {
         {/* Header */}
         <div className="w-full flex h-32 relative overflow-hidden">
             {/* Left Part: Blue Background */}
-            <div className="relative w-[60%] bg-[#1e2b58] flex items-center pl-8 pr-12" style={{ clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}>
+            <div className="relative w-[60%] bg-[#1e2b58] flex items-center pl-8 pr-12 z-10" style={{ clipPath: 'polygon(0 0, 100% 0, 85% 100%, 0% 100%)' }}>
                 <div className="flex items-center gap-4">
                     <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" />
                     <div className="text-white">
@@ -336,10 +336,10 @@ const SalarySlips = () => {
             </div>
             
             {/* Orange Accent */}
-            <div className="absolute left-[50%] top-0 h-32 w-16 bg-[#f37021] z-[-1]" style={{ clipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)' }}></div>
-
+            <div className="absolute left-[50%] top-0 h-32 w-16 bg-[#f37021]" style={{ clipPath: 'polygon(40% 0, 100% 0, 60% 100%, 0% 100%)', zIndex: 0 }}></div>
+          
             {/* Right Part: Address */}
-            <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2">
+            <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2 z-10">
                  <div className="flex items-center mb-2">
                      <span className="font-bold text-gray-800 mr-3 text-lg">044-47860455</span>
                      <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md">
