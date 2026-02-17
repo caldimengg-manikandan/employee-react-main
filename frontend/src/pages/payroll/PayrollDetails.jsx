@@ -1071,7 +1071,8 @@ const PayrollDetails = () => {
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             name={field.name}
                             maxLength={7}
                             value={formData[field.name]}
@@ -1100,7 +1101,8 @@ const PayrollDetails = () => {
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             name={field.name}
                             maxLength={7}
                             value={formData[field.name]}
@@ -1132,7 +1134,8 @@ const PayrollDetails = () => {
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="decimal"
                             name={field.name}
                             maxLength={7}
                             value={formData[field.name]}
