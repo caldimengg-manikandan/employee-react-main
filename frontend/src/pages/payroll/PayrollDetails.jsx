@@ -766,6 +766,9 @@ const PayrollDetails = () => {
                   Net Salary
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  Account No
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                   Location
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -795,10 +798,17 @@ const PayrollDetails = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-gray-900">
-                      {employeeList.find(e => e.employeeId === record.employeeId)?.location || 
-                       record.location || 
-                       employeeList.find(e => e.employeeId === record.employeeId)?.address || 
-                       'Unknown'}
+                      {record.accountNumber ||
+                        employeeList.find(e => e.employeeId === record.employeeId)?.bankAccount ||
+                        "-"}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-gray-900">
+                      {employeeList.find(e => e.employeeId === record.employeeId)?.location ||
+                        record.location ||
+                        employeeList.find(e => e.employeeId === record.employeeId)?.address ||
+                        "Unknown"}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">

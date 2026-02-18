@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { employeeAPI } from '../services/api';
+import { employeeAPI, holidayAllowanceAPI } from '../services/api';
 import { 
   CurrencyDollarIcon,
   MagnifyingGlassIcon,
@@ -68,16 +68,16 @@ const HolidaysAllowance = () => {
       // Note: getAllEmployees fetches all, we filter client side if API doesn't support it
       const empResponse = await employeeAPI.getAllEmployees();
       let filteredEmps = empResponse.data || [];
-      
+      const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+
       if (selectedLocation) {
         filteredEmps = filteredEmps.filter(e => e.location === selectedLocation);
       }
 
       // 3. Create Table Data
       const merged = filteredEmps.map((emp, index) => {
-        // Calculate per day amount: Gross / 30
         const gross = emp.totalEarnings || emp.ctc || 0;
-        const defaultPerDay = gross > 0 ? Math.round(gross / 30) : 0;
+        const defaultPerDay = gross > 0 && daysInMonth > 0 ? Math.round(gross / daysInMonth) : 0;
 
         return {
           id: emp._id, // Employee DB ID
@@ -94,7 +94,7 @@ const HolidaysAllowance = () => {
           holidayTotal: 0,
 
           // Shift Allowance Fields
-          shiftAllottedAmount: 0,
+          shiftAllottedAmount: 50,
           shiftDays: 0,
           shiftTotal: 0,
 
@@ -149,8 +149,6 @@ const HolidaysAllowance = () => {
 
   const saveData = async () => {
     try {
-      // Filter out rows with 0 days to save space? Or save all? 
-      // Let's save all rows that have been loaded to preserve state (even 0s)
       const payload = {
         month: selectedMonth,
         year: selectedYear,
@@ -170,10 +168,9 @@ const HolidaysAllowance = () => {
         }))
       };
 
-      // Backend connection removed as per request
-      // await holidayAllowanceAPI.saveBulk(payload);
-      console.log("Data to save:", payload);
-      alert("Data is ready to save (Backend disabled)");
+      const res = await holidayAllowanceAPI.saveBulk(payload);
+      const message = res?.data?.message || 'Holiday allowances saved successfully';
+      alert(message);
       
     } catch (error) {
       console.error("Error saving data:", error);

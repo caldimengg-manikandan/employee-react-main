@@ -254,6 +254,10 @@ export const monthlyPayrollAPI = {
   delete: (month) => api.delete(`/monthly-payroll/${month}`)
 };
 
+export const holidayAllowanceAPI = {
+  saveBulk: (data) => api.post('/holiday-allowances/bulk-save', data),
+};
+
 export const loanAPI = {
   list: (params) => api.get('/loans', { params }),
   getById: (id) => api.get(`/loans/${id}`),
