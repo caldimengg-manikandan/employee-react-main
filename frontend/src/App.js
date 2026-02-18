@@ -40,6 +40,7 @@ import SalarySlips from "./pages/salaryslips/SalarySlips";
 import PFGratuitySummary from "./pages/salaryslips/PFGratuitySummary";
 import ExpenditureManagement from "./pages/expenditure/ExpenditureManagement"
 import EmployeeRewardTracker from "./pages/rewards/EmployeeRewardTracker";
+import BankRepository from "./pages/bankrepository/BankRepository";
 
 // Payroll
 import PayrollDetails from "./pages/payroll/PayrollDetails";
@@ -250,6 +251,18 @@ function App() {
                   roles={["admin", "hr", "finance"]}
                 >
                   <ExpenditureManagement />
+                </ProtectedRoute>
+              } 
+            />
+
+            <Route 
+              path="bank-of-resumes" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["resume_access"]} 
+                  roles={["admin", "hr"]}
+                >
+                  <BankRepository />
                 </ProtectedRoute>
               } 
             />

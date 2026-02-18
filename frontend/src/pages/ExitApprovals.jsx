@@ -1209,7 +1209,7 @@ const ExitApproval = () => {
           <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-indigo-100">
             <div className="p-6 border-b border-indigo-200 flex justify-between items-center sticky top-0 bg-gradient-to-r from-[#262760] via-indigo-600 to-[#f37021] text-white z-10">
               <div>
-                <h2 className="text-xl font-bold">Employee Salary History</h2>
+                <h2 className="text-xl font-bold">Employee Departure Records</h2>
                 <p className="text-sm opacity-90">
                   {historyEmployee.employeeName} • {historyEmployee.employeeId}
                 </p>

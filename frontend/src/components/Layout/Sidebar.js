@@ -99,6 +99,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Monthly Payroll": PresentationChartLineIcon,
     "Announcements": NewspaperIcon,
     "Intern Reference": DocumentTextIcon,
+    "Resume Repository": DocumentTextIcon,
     "Holidays Allowance": CalendarDaysIcon,
     // NEW ICONS FOR EXIT MANAGEMENT
     "Employee Exit Form": ArrowRightOnRectangleIcon,
@@ -348,6 +349,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/admin/interns",
       icon: getIconForMenu("Intern Reference"),
       showForRoles: ["admin", "hr", "manager"],
+    },
+    {
+      name: "Resume Repository",
+      path: "/bank-of-resumes",
+      icon: getIconForMenu("Resume Repository"),
+      permission: "resume_access",
+      showForRoles: ["admin", "hr"],
     },
     // EMPLOYEE EXIT FORM - Top level for employees
     {

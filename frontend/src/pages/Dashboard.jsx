@@ -239,6 +239,7 @@ const ProjectDashboard = () => {
         // Insurance & Policy
         { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'insurance_access', allowEmployeeRole: true, category: 'Company & Resources' },
         { name: policyModuleName, description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, allowEmployeeRole: true, category: 'Company & Resources' },
+        { name: 'Resume Repository', description: 'Central resume repository', path: '/bank-of-resumes', icon: DocumentTextIcon, permission: 'resume_access', showForRoles: ['admin', 'hr'], category: 'Company & Resources' },
         
         // Payroll
         { name: 'Salary Slips', description: 'View payslips', path: '/salaryslips', icon: BanknotesIcon, allowEmployeeRole: true, category: 'Finance & Payroll' },

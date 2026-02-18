@@ -57,6 +57,7 @@ const Header = ({ onMenuClick }) => {
       '/performance/increment-master': 'Increment Master',
       '/performance/increment-summary': 'Increment Summary',
       '/internship/InternReference': 'Intern Reference',
+      '/bank-of-resumes': 'Resume Repository',
       
     };
     

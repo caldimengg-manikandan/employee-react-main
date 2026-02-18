@@ -78,6 +78,9 @@ app.use("/api/expenditure", require("./routes/expenditureRoutes"));
 // Internship Routes
 app.use("/api/interns", require("./routes/internship"));
 
+// Resume Repository Routes
+app.use("/api/resumes", require("./routes/resume"));
+
 // Exit Formalities Routes
 app.use("/api/exit-formalities", require("./routes/exitFormalities"));
 

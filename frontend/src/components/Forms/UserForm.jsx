@@ -81,6 +81,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     // Intern Reference
     { key: 'dashboard', label: 'Intern Reference' }, // Generic permission
 
+    // Resume Repository
+    { key: 'resume_access', label: 'Resume Repository' },
+
     // Exit Management
     { key: 'exit_form_access', label: 'Employee Exit Form', alwaysOn: true },
     { key: 'exit_approval_access', label: 'Exit Approval' },
