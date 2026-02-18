@@ -12,9 +12,10 @@ import {
   BuildingOfficeIcon,
   CheckIcon,
   XMarkIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  ClockIcon
 } from '@heroicons/react/24/outline';
-import { exitFormalityAPI, employeeAPI } from '../services/api';
+import { exitFormalityAPI, employeeAPI, monthlyPayrollAPI } from '../services/api';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Modal, message, Input } from 'antd';
@@ -37,10 +38,12 @@ const ExitApproval = () => {
     location: ''
   });
   const [employees, setEmployees] = useState([]);
-  
-  // Modal states
   const [rejectModal, setRejectModal] = useState({ visible: false, formId: null, reason: '' });
   const [clearanceModal, setClearanceModal] = useState({ visible: false, formId: null, department: '', status: '', remarks: '' });
+  const [historyVisible, setHistoryVisible] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyEmployee, setHistoryEmployee] = useState(null);
+  const [salaryHistory, setSalaryHistory] = useState([]);
 
   // Get current user role
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
@@ -134,6 +137,30 @@ const ExitApproval = () => {
     const year = date.getFullYear();
     return `${day}${suffix} ${month} ${year}`;
   };
+
+  const formatSalaryMonth = (salaryMonth) => {
+    if (!salaryMonth) return '-';
+    const parts = String(salaryMonth).split('-');
+    if (parts.length < 2) return salaryMonth;
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    if (isNaN(year) || isNaN(month)) return salaryMonth;
+    const date = new Date(year, month, 1);
+    return date.toLocaleString('en-GB', { month: 'short', year: 'numeric' });
+  };
+
+  const salarySummary = React.useMemo(() => {
+    if (!salaryHistory || salaryHistory.length === 0) {
+      return { totalMonths: 0, totalNet: 0, totalCtc: 0 };
+    }
+    const totalNet = salaryHistory.reduce((sum, r) => sum + (Number(r.netSalary) || 0), 0);
+    const totalCtc = salaryHistory.reduce((sum, r) => sum + (Number(r.ctc) || 0), 0);
+    return {
+      totalMonths: salaryHistory.length,
+      totalNet,
+      totalCtc
+    };
+  }, [salaryHistory]);
 
   const filterForms = () => {
     let result = [...exitForms];
@@ -482,6 +509,74 @@ const ExitApproval = () => {
     }
   };
 
+  const getClearanceStatusClass = (status) => {
+    const value = (status || '').toLowerCase();
+    if (value === 'pending') return 'bg-red-100 text-red-700';
+    if (value === 'completed' || value === 'cleared' || value === 'approved') return 'bg-green-100 text-green-700';
+    if (value === 'in_progress' || value === 'in progress') return 'bg-yellow-100 text-yellow-700';
+    return 'bg-gray-100 text-gray-700';
+  };
+
+  const handleViewHistory = async (form) => {
+    const empId = form.employeeId?.employeeId || form.employeeDetails?.employeeId || '';
+    if (!empId) {
+      message.error('Employee ID not available for history.');
+      return;
+    }
+    const employeeName = form.employeeName || form.employeeDetails?.name || '';
+    const division = form.department || form.division || form.employeeDetails?.department || '';
+    const position = form.position || form.employeeDetails?.position || '';
+    const location = (() => {
+      if (form.location) return form.location;
+      const emp = employees.find(e => e.employeeId === empId);
+      return emp?.location || emp?.address || '';
+    })();
+    setHistoryEmployee({
+      employeeId: empId,
+      employeeName,
+      division,
+      position,
+      location
+    });
+    setSalaryHistory([]);
+    setHistoryVisible(true);
+    setHistoryLoading(true);
+    try {
+      let salaryRecords = [];
+      try {
+        const response = await monthlyPayrollAPI.getEmployeeHistory(empId);
+        salaryRecords = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response)
+          ? response
+          : [];
+      } catch (err) {
+        if (err.response && (err.response.status === 404 || err.response.status === 500)) {
+          const response = await monthlyPayrollAPI.list({});
+          const allRecords = Array.isArray(response?.data)
+            ? response.data
+            : Array.isArray(response)
+            ? response
+            : [];
+          salaryRecords = allRecords.filter(r => String(r.employeeId) === String(empId));
+        } else {
+          throw err;
+        }
+      }
+      salaryRecords.sort((a, b) => {
+        const am = a.salaryMonth || '';
+        const bm = b.salaryMonth || '';
+        return String(am).localeCompare(String(bm));
+      });
+      setSalaryHistory(salaryRecords);
+    } catch (error) {
+      console.error('Error fetching salary history:', error);
+      message.error('Failed to load salary history.');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800';
@@ -573,6 +668,7 @@ const ExitApproval = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-[#1e2050]">
               <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">S.No</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Division</th>
@@ -584,12 +680,15 @@ const ExitApproval = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
-                <tr><td colSpan="7" className="px-6 py-4 text-center">Loading...</td></tr>
+                <tr><td colSpan="8" className="px-6 py-4 text-center">Loading...</td></tr>
               ) : filteredForms.length === 0 ? (
-                <tr><td colSpan="7" className="px-6 py-4 text-center text-gray-500">No requests found</td></tr>
+                <tr><td colSpan="8" className="px-6 py-4 text-center text-gray-500">No requests found</td></tr>
               ) : (
-                filteredForms.map((form) => (
+                filteredForms.map((form, index) => (
                   <tr key={form._id} className="hover:bg-indigo-50 transition-colors">
+                    <td className="px-4 py-4 text-sm text-gray-700">
+                      {index + 1}
+                    </td>
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       {form.employeeId?.employeeId || '-'}
                     </td>
@@ -618,6 +717,13 @@ const ExitApproval = () => {
                           title="View Details"
                         >
                           <EyeIcon className="h-5 w-5" />
+                        </button>
+                        <button
+                          onClick={() => handleViewHistory(form)}
+                          className="text-amber-600 hover:text-amber-900 p-1 rounded-full hover:bg-amber-50"
+                          title="View History"
+                        >
+                          <ClockIcon className="h-5 w-5" />
                         </button>
                         
                         {/* Inline Approve Action */}
@@ -998,52 +1104,60 @@ const ExitApproval = () => {
       {/* Details Modal */}
       {selectedForm && !showRelievingLetter && !showExperienceLetter && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center sticky top-0 bg-white z-10">
+          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-indigo-100">
+            <div className="p-6 border-b border-indigo-200 flex justify-between items-center sticky top-0 bg-gradient-to-r from-[#262760] via-indigo-600 to-[#f37021] text-white z-10">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Exit Request</h2>
-                <p className="text-sm text-gray-500">{selectedForm.employeeName} • {selectedForm.employeeId?.employeeId || '-'}</p>
+                <h2 className="text-xl font-bold">Exit Request</h2>
+                <p className="text-sm opacity-90">{selectedForm.employeeName} • {selectedForm.employeeId?.employeeId || '-'}</p>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setSelectedForm(null)}
-                  className="p-2 text-gray-400 hover:text-gray-600"
+                  className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full"
                 >
                   <XCircleIcon className="h-8 w-8" />
                 </button>
               </div>
             </div>
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-6 bg-gradient-to-b from-indigo-50/60 via-white to-orange-50/60">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border rounded-lg p-4">
-                  <p className="text-sm text-gray-500">Division</p>
-                  <p className="font-semibold">{selectedForm.division || selectedForm.department || '-'}</p>
+                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
+                  <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">Division</p>
+                  <p className="font-semibold text-sm mt-1 text-gray-900">{selectedForm.division || selectedForm.department || '-'}</p>
                 </div>
-                <div className="border rounded-lg p-4">
-                  <p className="text-sm text-gray-500">Position</p>
-                  <p className="font-semibold">{selectedForm.position || '-'}</p>
+                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
+                  <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">Position</p>
+                  <p className="font-semibold text-sm mt-1 text-gray-900">{selectedForm.position || '-'}</p>
                 </div>
-                <div className="border rounded-lg p-4">
-                  <p className="text-sm text-gray-500">Proposed LWD</p>
-                  <p className="font-semibold">{selectedForm.proposedLastWorkingDay ? new Date(selectedForm.proposedLastWorkingDay).toLocaleDateString() : '-'}</p>
+                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
+                  <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">Proposed LWD</p>
+                  <p className="font-semibold text-sm mt-1 text-gray-900">
+                    {selectedForm.proposedLastWorkingDay ? new Date(selectedForm.proposedLastWorkingDay).toLocaleDateString() : '-'}
+                  </p>
                 </div>
-                <div className="border rounded-lg p-4">
-                  <p className="text-sm text-gray-500">Status</p>
-                  <p className="font-semibold">{selectedForm.status}</p>
+                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
+                  <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">Status</p>
+                  <div className="mt-2">
+                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedForm.status)}`}>
+                      {selectedForm.status?.toUpperCase().replace(/_/g, ' ')}
+                    </span>
+                  </div>
                 </div>
               </div>
-              <div className="border rounded-lg p-4">
-                <p className="text-sm text-gray-500">Reason</p>
-                <p className="font-semibold">{selectedForm.reasonForLeaving?.replace(/_/g,' ') || '-'}</p>
-                <p className="text-sm mt-2">{selectedForm.reasonDetails || '-'}</p>
+              <div className="border border-indigo-100 rounded-xl p-4 bg-white/90 shadow-sm">
+                <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-2">Reason for Exit</p>
+                <p className="font-semibold text-sm text-gray-900">{selectedForm.reasonForLeaving?.replace(/_/g,' ') || '-'}</p>
+                <p className="text-sm mt-2 text-gray-700">{selectedForm.reasonDetails || '-'}</p>
               </div>
-              <div className="border rounded-lg p-4">
-                <p className="text-sm font-semibold mb-3">Clearance</p>
+              <div className="border border-indigo-100 rounded-xl p-4 bg-white/90 shadow-sm">
+                <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-3">Clearance Status</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {(selectedForm.clearanceDepartments || []).map((c, i) => (
-                    <div key={i} className="flex items-center justify-between border rounded-md px-3 py-2">
-                      <span className="text-sm capitalize">{c.department}</span>
-                      <span className="text-xs px-2 py-1 rounded-full bg-gray-100">{c.status}</span>
+                    <div key={i} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2 bg-gray-50">
+                      <span className="text-sm font-medium text-gray-800 capitalize">{c.department}</span>
+                      <span className={`text-xs px-2 py-1 rounded-full font-semibold ${getClearanceStatusClass(c.status)}`}>
+                        {c.status}
+                      </span>
                     </div>
                   ))}
                 </div>
@@ -1086,6 +1200,154 @@ const ExitApproval = () => {
                   </button>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {historyVisible && historyEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-indigo-100">
+            <div className="p-6 border-b border-indigo-200 flex justify-between items-center sticky top-0 bg-gradient-to-r from-[#262760] via-indigo-600 to-[#f37021] text-white z-10">
+              <div>
+                <h2 className="text-xl font-bold">Employee Salary History</h2>
+                <p className="text-sm opacity-90">
+                  {historyEmployee.employeeName} • {historyEmployee.employeeId}
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setHistoryVisible(false);
+                  setHistoryEmployee(null);
+                  setSalaryHistory([]);
+                }}
+                className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full"
+              >
+                <XCircleIcon className="h-7 w-7" />
+              </button>
+            </div>
+            <div className="p-6 space-y-6 bg-gradient-to-b from-indigo-50/60 via-white to-orange-50/60">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
+                  <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Employee ID</p>
+                  <p className="font-semibold text-sm mt-1 text-gray-900">{historyEmployee.employeeId}</p>
+                </div>
+                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
+                  <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Name</p>
+                  <p className="font-semibold text-sm mt-1 text-gray-900">{historyEmployee.employeeName}</p>
+                </div>
+                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
+                  <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Division</p>
+                  <p className="font-semibold text-sm mt-1 text-gray-900">{historyEmployee.division || '-'}</p>
+                </div>
+                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
+                  <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Position</p>
+                  <p className="font-semibold text-sm mt-1 text-gray-900">{historyEmployee.position || '-'}</p>
+                </div>
+                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
+                  <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Location</p>
+                  <p className="font-semibold text-sm mt-1 text-gray-900">{historyEmployee.location || '-'}</p>
+                </div>
+                <div className="border border-indigo-100 rounded-xl p-4 bg-indigo-50 shadow-sm">
+                  <p className="text-[11px] font-semibold text-indigo-700 uppercase tracking-wide">Salary Months</p>
+                  <p className="font-bold text-lg mt-1 text-indigo-900">{salarySummary.totalMonths}</p>
+                </div>
+                <div className="border border-green-100 rounded-xl p-4 bg-green-50 shadow-sm">
+                  <p className="text-[11px] font-semibold text-green-700 uppercase tracking-wide">Total Net Salary</p>
+                  <p className="font-bold text-lg mt-1 text-green-700">
+                    ₹{salarySummary.totalNet.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+                <div className="border border-orange-100 rounded-xl p-4 bg-orange-50 shadow-sm">
+                  <p className="text-[11px] font-semibold text-orange-700 uppercase tracking-wide">Total CTC</p>
+                  <p className="font-bold text-lg mt-1 text-orange-700">
+                    ₹{salarySummary.totalCtc.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                  </p>
+                </div>
+              </div>
+
+              {historyLoading ? (
+                <div className="py-10 flex items-center justify-center text-gray-600">
+                  <div className="flex items-center gap-3">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#262760]"></div>
+                    <span className="text-sm font-medium">Loading salary history...</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-[#262760]">Salary History</h3>
+                    {salaryHistory.length > 0 && (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        Latest Month:&nbsp;
+                        {formatSalaryMonth(salaryHistory[salaryHistory.length - 1].salaryMonth)}
+                      </span>
+                    )}
+                  </div>
+                  <div className="border border-indigo-100 rounded-xl overflow-hidden shadow-sm bg-white/90">
+                    <table className="min-w-full divide-y divide-gray-200">
+                      <thead className="bg-[#262760]">
+                        <tr>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-white uppercase tracking-wider">Month</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-white uppercase tracking-wider">Basic+DA</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-white uppercase tracking-wider">Total Earnings</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-white uppercase tracking-wider">Total Deductions</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-white uppercase tracking-wider">Net Salary</th>
+                          <th className="px-4 py-2 text-right text-xs font-medium text-white uppercase tracking-wider">CTC</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-100">
+                        {salaryHistory.length === 0 ? (
+                          <tr>
+                            <td colSpan="6" className="px-4 py-6 text-center text-gray-500 text-sm">
+                              No salary history found.
+                            </td>
+                          </tr>
+                        ) : (
+                          <>
+                            {salaryHistory.map((record, index) => (
+                              <tr
+                                key={record.id || record._id || record.salaryMonth}
+                                className={index % 2 === 0 ? 'bg-white' : 'bg-indigo-50/40'}
+                              >
+                                <td className="px-4 py-2 text-sm text-gray-800">
+                                  {formatSalaryMonth(record.salaryMonth)}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-right text-gray-700">
+                                  {Number(record.basicDA || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-right text-gray-700">
+                                  {Number(record.totalEarnings || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-right text-gray-700">
+                                  {Number(record.totalDeductions || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-right font-semibold text-green-700">
+                                  {Number(record.netSalary || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </td>
+                                <td className="px-4 py-2 text-sm text-right font-semibold text-orange-700">
+                                  {Number(record.ctc || 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </td>
+                              </tr>
+                            ))}
+                            <tr className="bg-indigo-50/80 font-semibold">
+                              <td className="px-4 py-3 text-sm text-[#262760]">Total</td>
+                              <td className="px-4 py-3 text-sm text-right text-gray-800"></td>
+                              <td className="px-4 py-3 text-sm text-right text-gray-800"></td>
+                              <td className="px-4 py-3 text-sm text-right text-gray-800"></td>
+                              <td className="px-4 py-3 text-sm text-right text-green-700">
+                                ₹{salarySummary.totalNet.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                              </td>
+                              <td className="px-4 py-3 text-sm text-right text-orange-700">
+                                ₹{salarySummary.totalCtc.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                              </td>
+                            </tr>
+                          </>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
