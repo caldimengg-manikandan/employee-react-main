@@ -56,6 +56,7 @@ import InternReference from "./pages/internship/InternReference";
 import ExitForm from "./pages/EmployeeExitForms";
 import ExitApproval from "./pages/ExitApprovals";
 import HolidaysAllowance from "./pages/HolidaysAllowance";
+import HolidaysAllowanceSummary from "./pages/HolidaysAllowanceSummary";
 
 //performance Management
 import SelfAppraisal from "./pages/performance/SelfAppraisal";
@@ -359,6 +360,18 @@ function App() {
                   allowEmployeeRole
                 >
                   <HolidaysAllowance />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="holidays-allowance/summary" 
+              element={
+                <ProtectedRoute 
+                  requiredPermissions={["payroll_view"]} 
+                  roles={["admin", "hr", "manager"]}
+                  allowEmployeeRole
+                >
+                  <HolidaysAllowanceSummary />
                 </ProtectedRoute>
               } 
             />

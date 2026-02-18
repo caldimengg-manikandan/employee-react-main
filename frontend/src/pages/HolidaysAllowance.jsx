@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { employeeAPI, holidayAllowanceAPI } from '../services/api';
 import { 
   CurrencyDollarIcon,
@@ -11,6 +12,8 @@ import {
 } from '@heroicons/react/24/outline';
 
 const HolidaysAllowance = () => {
+  const navigate = useNavigate();
+
   // Filters
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-12
@@ -61,6 +64,17 @@ const HolidaysAllowance = () => {
     }
   };
 
+  const calculatePerDayAmount = (grossSalary, year, month) => {
+    if (!grossSalary) {
+      return 0;
+    }
+    const daysInMonth = new Date(year, month, 0).getDate();
+    if (!daysInMonth) {
+      return 0;
+    }
+    return Math.round(grossSalary / daysInMonth);
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -68,16 +82,39 @@ const HolidaysAllowance = () => {
       // Note: getAllEmployees fetches all, we filter client side if API doesn't support it
       const empResponse = await employeeAPI.getAllEmployees();
       let filteredEmps = empResponse.data || [];
-      const daysInMonth = new Date(selectedYear, selectedMonth, 0).getDate();
+
+      const params = {
+        month: selectedMonth,
+        year: selectedYear,
+      };
 
       if (selectedLocation) {
         filteredEmps = filteredEmps.filter(e => e.location === selectedLocation);
+        params.location = selectedLocation;
       }
+
+      let savedRecords = [];
+      try {
+        const savedRes = await holidayAllowanceAPI.list(params);
+        if (savedRes && savedRes.data) {
+          savedRecords = savedRes.data.data || savedRes.data;
+        }
+      } catch (err) {
+        console.error("Error fetching saved holiday allowances:", err);
+      }
+
+      const savedMap = new Map();
+      savedRecords.forEach(item => {
+        if (item && item.employeeId) {
+          savedMap.set(item.employeeId, item);
+        }
+      });
 
       // 3. Create Table Data
       const merged = filteredEmps.map((emp, index) => {
         const gross = emp.totalEarnings || emp.ctc || 0;
-        const defaultPerDay = gross > 0 && daysInMonth > 0 ? Math.round(gross / daysInMonth) : 0;
+        const saved = savedMap.get(emp.employeeId);
+        const defaultPerDay = calculatePerDayAmount(gross, selectedYear, selectedMonth);
 
         return {
           id: emp._id, // Employee DB ID
@@ -86,22 +123,22 @@ const HolidaysAllowance = () => {
           employeeName: emp.name || emp.employeename,
           location: emp.location || '-',
           accountNumber: emp.bankAccount || emp.bankDetails?.accountNumber || '-',
-          grossSalary: gross,
+          grossSalary: saved?.grossSalary ?? gross,
           
           // Holiday Working Fields
-          holidayDays: 0,
-          perDayAmount: defaultPerDay,
-          holidayTotal: 0,
+          holidayDays: saved?.holidayDays ?? 0,
+          perDayAmount: saved?.perDayAmount ?? defaultPerDay,
+          holidayTotal: saved?.holidayTotal ?? 0,
 
           // Shift Allowance Fields
-          shiftAllottedAmount: 50,
-          shiftDays: 0,
-          shiftTotal: 0,
+          shiftAllottedAmount: saved?.shiftAllottedAmount ?? 50,
+          shiftDays: saved?.shiftDays ?? 0,
+          shiftTotal: saved?.shiftTotal ?? 0,
 
           // Combined Total
-          totalAmount: 0,
+          totalAmount: saved?.totalAmount ?? 0,
           
-          status: 'Draft'
+          status: saved ? 'Saved' : 'Draft'
         };
       });
 
@@ -178,6 +215,16 @@ const HolidaysAllowance = () => {
     }
   };
 
+  const handleViewSummary = () => {
+    const params = new URLSearchParams();
+    if (selectedLocation) {
+      params.set('location', selectedLocation);
+    }
+    params.set('month', String(selectedMonth));
+    params.set('year', String(selectedYear));
+    navigate(`/holidays-allowance/summary?${params.toString()}`);
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       {/* Header */}
@@ -252,6 +299,7 @@ const HolidaysAllowance = () => {
         </button>
 
         <button 
+          onClick={handleViewSummary}
           className="flex items-center bg-[#1e2050] text-white px-4 py-2 rounded-md hover:bg-[#262760] transition-colors"
         >
           <UserGroupIcon className="h-5 w-5 mr-2" />

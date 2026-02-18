@@ -256,6 +256,8 @@ export const monthlyPayrollAPI = {
 
 export const holidayAllowanceAPI = {
   saveBulk: (data) => api.post('/holiday-allowances/bulk-save', data),
+  list: (params) => api.get('/holiday-allowances', { params }),
+  getSummary: (params) => api.get('/holiday-allowances/summary', { params }),
 };
 
 export const loanAPI = {
