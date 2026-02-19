@@ -492,6 +492,10 @@ HR Team`;
                    <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb; color: #312e81;"><strong>${formatCurrency(netSalary)}</strong></td>
                 </tr>
                 <tr>
+                   <td style="padding: 12px; border: 1px solid #e5e7eb;">Gratuity (Part of CTC)</td>
+                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(gratuity)}</td>
+                </tr>
+                <tr>
                    <td style="padding: 12px; border: 1px solid #e5e7eb;">CTC (Monthly)</td>
                    <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(ctc)}</td>
                 </tr>
@@ -1577,6 +1581,10 @@ HR Team`;
                     <tr>
                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>PF Contribution </td>
                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcPF).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                    </tr>
+                    <tr>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Gratuity (Part of CTC)</td>
+                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcGratuity).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
                     </tr>
                     <tr style={{ backgroundColor: '#eef2ff' }}>
                        <td style={{ border: '1px solid #d1d5db', padding: '6px', color: '#312e81' }}><strong>Total CTC (Cost to Company)</strong></td>

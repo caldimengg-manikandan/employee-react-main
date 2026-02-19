@@ -26,6 +26,13 @@ const ALLOWED_COMPENSATION_VIEWERS = ['arunkumar.p', 'balasubiramaniyam', 'uvara
 
 import { performanceAPI } from '../../services/api';
 
+const getCurrentFinancialYear = () => {
+  const today = new Date();
+  const yearStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  const yearEnd = String(yearStart + 1).slice(2);
+  return `${yearStart}-${yearEnd}`;
+};
+
 const TeamAppraisal = () => {
   // Get current user from session
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
@@ -34,14 +41,13 @@ const TeamAppraisal = () => {
   // Helper to check if current user has access
   const hasCompensationAccess = ALLOWED_COMPENSATION_VIEWERS.includes(currentUser.toLowerCase());
 
-  // State for employees list
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // State for modal
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isEditable, setIsEditable] = useState(false);
+  const [selectedFinancialYr, setSelectedFinancialYr] = useState(getCurrentFinancialYear());
 
   // Effect to fetch employees
   React.useEffect(() => {
@@ -167,16 +173,38 @@ const TeamAppraisal = () => {
     }
   };
 
+  const financialYears = Array.from(
+    new Set(
+      [selectedFinancialYr, ...employees.map(emp => emp.financialYr).filter(Boolean)]
+    )
+  );
+
   const filteredEmployees = employees.filter(emp => 
-    emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.empId.toLowerCase().includes(searchTerm.toLowerCase())
+    emp.financialYr === selectedFinancialYr &&
+    (
+      emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.empId.toLowerCase().includes(searchTerm.toLowerCase())
+    )
   );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
-         
+          <div className="flex items-center space-x-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Financial Year</label>
+              <select
+                value={selectedFinancialYr}
+                onChange={(e) => setSelectedFinancialYr(e.target.value)}
+                className="block w-40 pl-3 pr-8 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm"
+              >
+                {financialYears.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input

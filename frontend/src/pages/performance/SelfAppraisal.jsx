@@ -18,7 +18,15 @@ import {
   X,
   ChevronLeft,
   CheckCircle,
-  XCircle
+  XCircle,
+  Users,
+  Code,
+  TrendingUp,
+  Building2,
+  Star,
+  BarChart3,
+  Target,
+  Lightbulb
 } from 'lucide-react';
 
 // Colorful Modal Component
@@ -29,7 +37,9 @@ const Modal = ({ isOpen, onClose, title, children, icon: Icon, colorTheme = "blu
     blue: "from-[#262760] to-[#1e2050]",
     purple: "from-purple-600 to-indigo-600",
     green: "from-emerald-500 to-teal-600",
-    red: "from-red-500 to-rose-600"
+    red: "from-red-500 to-rose-600",
+    orange: "from-orange-500 to-red-600",
+    teal: "from-teal-500 to-cyan-600"
   };
 
   const headerGradient = themeColors[colorTheme] || themeColors.blue;
@@ -69,6 +79,38 @@ const Modal = ({ isOpen, onClose, title, children, icon: Icon, colorTheme = "blu
           </div>
         </div>
       </div>
+    </div>
+  );
+};
+
+// Rating Component
+const RatingStars = ({ value, onChange, readOnly = false }) => {
+  const stars = [1, 2, 3, 4, 5];
+  
+  return (
+    <div className="flex items-center space-x-1">
+      {stars.map((star) => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => !readOnly && onChange(star)}
+          className={`${!readOnly ? 'cursor-pointer hover:scale-110' : 'cursor-default'} transition-transform`}
+          disabled={readOnly}
+        >
+          <Star
+            className={`h-5 w-5 ${
+              star <= value
+                ? 'text-yellow-400 fill-yellow-400'
+                : 'text-gray-300'
+            }`}
+          />
+        </button>
+      ))}
+      {!readOnly && (
+        <span className="ml-2 text-sm text-gray-500">
+          {value ? `${value}/5` : 'Not rated'}
+        </span>
+      )}
     </div>
   );
 };
@@ -215,6 +257,7 @@ const SelfAppraisal = () => {
         {
           id: 1,
           year: '2024-25',
+          division: 'Software',
           appraiser: 'John Doe',
           status: 'Submitted',
           releaseLetter: 'appraisal_2024-25.pdf',
@@ -222,18 +265,77 @@ const SelfAppraisal = () => {
             { id: 101, name: 'Project Alpha', contribution: 'Lead developer, implemented core features.' },
             { id: 102, name: 'Project Beta', contribution: 'Fixed critical bugs and improved performance.' }
           ],
-          overallContribution: 'Successfully delivered two major projects and mentored junior developers.'
+          overallContribution: 'Successfully delivered two major projects and mentored junior developers.',
+          // New attributes
+          behaviourBased: {
+            communication: 4,
+            teamwork: 5,
+            leadership: 4,
+            adaptability: 4,
+            initiatives: 5,
+            comments: 'Excellent team player, always willing to help others.'
+          },
+          processAdherence: {
+            timesheet: 4,
+            reportStatus: 4,
+            meeting: 5,
+            comments: 'Consistently updates timesheets and attends meetings on time.'
+          },
+          technicalBased: {
+            codingSkills: 4,
+            testing: 4,
+            debugging: 5,
+            sds: 4,
+            tekla: 4,
+            comments: 'Strong debugging skills, good understanding of core concepts.'
+          },
+          growthBased: {
+            learningNewTech: 5,
+            certifications: 2,
+            careerGoals: 'Aspiring to become technical architect',
+            comments: 'Actively learning new technologies and pursuing certifications.'
+          }
         },
         {
           id: 2,
           year: '2023-24',
+          division: 'SDS',
           appraiser: 'Jane Smith',
           status: 'Released',
           releaseLetter: 'appraisal_2023-24.pdf',
           projects: [
              { id: 201, name: 'Legacy System Migration', contribution: 'Migrated database to new server.' }
           ],
-          overallContribution: 'Completed migration ahead of schedule.'
+          overallContribution: 'Completed migration ahead of schedule.',
+          // New attributes for second appraisal
+          behaviourBased: {
+            communication: 4,
+            teamwork: 4,
+            leadership: 3,
+            adaptability: 5,
+            initiatives: 4,
+            comments: 'Adapts quickly to changing requirements.'
+          },
+          processAdherence: {
+            timesheet: 3,
+            reportStatus: 4,
+            meeting: 4,
+            comments: 'Good at following reporting processes.'
+          },
+          technicalBased: {
+            codingSkills: 4,
+            testing: 3,
+            debugging: 4,
+            sds: 3,
+            tekla: 3,
+            comments: 'Solid technical foundation.'
+          },
+          growthBased: {
+            learningNewTech: 4,
+            certifications: 3,
+            careerGoals: 'Want to specialize in database technologies',
+            comments: 'Good progress in learning and certifications.'
+          }
         }
       ]);
     } finally {
@@ -241,12 +343,42 @@ const SelfAppraisal = () => {
     }
   };
 
-  // Form Data State
+  // Form Data State - Enhanced with new attributes
   const [formData, setFormData] = useState({
     year: '2025-26',
+    division: '',
     projects: [],
     overallContribution: '',
-    status: 'Draft'
+    status: 'Draft',
+    // New attributes with default values
+    behaviourBased: {
+      communication: 0,
+      teamwork: 0,
+      leadership: 0,
+      adaptability: 0,
+      initiatives: 0,
+      comments: ''
+    },
+    processAdherence: {
+      timesheet: 0,
+      reportStatus: 0,
+      meeting: 0,
+      comments: ''
+    },
+    technicalBased: {
+      codingSkills: 0,
+      testing: 0,
+      debugging: 0,
+      sds: 0,
+      tekla: 0,
+      comments: ''
+    },
+    growthBased: {
+      learningNewTech: 0,
+      certifications: 0,
+      careerGoals: '',
+      comments: ''
+    }
   });
 
   const currentStageId = getStageFromStatus(formData.status);
@@ -257,6 +389,12 @@ const SelfAppraisal = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [viewData, setViewData] = useState(null);
   const [currentProject, setCurrentProject] = useState({ id: null, name: '', contribution: '' });
+
+  // New Modal States for each category
+  const [showBehaviourModal, setShowBehaviourModal] = useState(false);
+  const [showTechnicalModal, setShowTechnicalModal] = useState(false);
+  const [showGrowthModal, setShowGrowthModal] = useState(false);
+  const [showProcessModal, setShowProcessModal] = useState(false);
 
   // Status Popup State
   const [statusPopup, setStatusPopup] = useState({ isOpen: false, status: 'success', message: '' });
@@ -286,13 +424,19 @@ const SelfAppraisal = () => {
       const id = appraisal._id || appraisal.id;
       if (!id) throw new Error("Appraisal ID not found");
       const response = await performanceAPI.getSelfAppraisalById(id);
-      setFormData(response.data);
+      setFormData({
+        division: response.data.division || 'Software',
+        ...response.data
+      });
       setIsReadOnly(false);
       setViewMode('edit');
     } catch (error) {
       console.error("Failed to fetch appraisal details", error);
-      // Fallback: use passed data if API fails (or for demo)
-      setFormData({ ...formData, ...appraisal }); 
+      setFormData({ 
+        ...formData, 
+        division: appraisal.division || formData.division || 'Software',
+        ...appraisal 
+      }); 
       setIsReadOnly(false);
       setViewMode('edit');
     }
@@ -496,8 +640,105 @@ const SelfAppraisal = () => {
     setShowContributionModal(false);
   };
 
+  // Category Handlers
+  const updateBehaviourRating = (field, value) => {
+    setFormData({
+      ...formData,
+      behaviourBased: {
+        ...formData.behaviourBased,
+        [field]: value
+      }
+    });
+  };
+
+  const updateTechnicalRating = (field, value) => {
+    setFormData({
+      ...formData,
+      technicalBased: {
+        ...formData.technicalBased,
+        [field]: value
+      }
+    });
+  };
+
+  const updateGrowthRating = (field, value) => {
+    setFormData({
+      ...formData,
+      growthBased: {
+        ...formData.growthBased,
+        [field]: value
+      }
+    });
+  };
+
+  const updateProcessRating = (field, value) => {
+    setFormData({
+      ...formData,
+      processAdherence: {
+        ...formData.processAdherence,
+        [field]: value
+      }
+    });
+  };
+
+  const getTechnicalFieldsForDivision = (division) => {
+    const d = division || 'Software';
+    if (d === 'SDS') {
+      return [
+        { key: 'codingSkills', label: 'Structural Drawing Accuracy' },
+        { key: 'testing', label: 'Steel Connection Knowledge' },
+        { key: 'debugging', label: 'Bolt & Weld Detailing Accuracy' },
+        { key: 'sds', label: 'GA / Shop / Erection Drawing Quality' },
+        { key: 'tekla', label: 'Drawing Revision & Error Reduction' }
+      ];
+    }
+    if (d === 'Tekla') {
+      return [
+        { key: 'codingSkills', label: '3D Modeling Accuracy' },
+        { key: 'testing', label: 'Clash Detection Handling' },
+        { key: 'debugging', label: 'Model Integrity & Cleanliness' },
+        { key: 'sds', label: 'Complex Connection Modeling' },
+        { key: 'tekla', label: 'Anchor Bolt Layout & Output' }
+      ];
+    }
+    return [
+      { key: 'codingSkills', label: 'Code Quality' },
+      { key: 'testing', label: 'System Architecture Understanding' },
+      { key: 'debugging', label: 'Debugging & Issue Resolution' },
+      { key: 'sds', label: 'API Integration Skills' },
+      { key: 'tekla', label: 'Testing & Validation' }
+    ];
+  };
+
   const handleSubmit = async (action) => {
     try {
+      const missingSections = [];
+
+      if (!formData.division || !formData.division.trim()) {
+        missingSections.push('Division');
+      }
+      if (!formData.behaviourBased?.comments || !formData.behaviourBased.comments.trim()) {
+        missingSections.push('Knowledge Sharing Assessment');
+      }
+      if (!formData.processAdherence?.comments || !formData.processAdherence.comments.trim()) {
+        missingSections.push('Process Adherence Assessment');
+      }
+      if (!formData.technicalBased?.comments || !formData.technicalBased.comments.trim()) {
+        missingSections.push('Technical Based Assessment');
+      }
+      if (!formData.growthBased?.comments || !formData.growthBased.comments.trim()) {
+        missingSections.push('Growth Based Assessment');
+      }
+
+      if (missingSections.length > 0) {
+        setStatusPopup({
+          isOpen: true,
+          status: 'error',
+          message: `Please fill Appraisee Comments for: ${missingSections.join(', ')}.`
+        });
+        return;
+      }
+
       const payload = { 
         ...formData, 
         status: action === 'Submit' ? 'Submitted' : 'Draft' 
@@ -536,7 +777,25 @@ const SelfAppraisal = () => {
             
             <button
               onClick={() => {
-                setFormData({ year: '2026-27', projects: [], overallContribution: '', status: 'Draft' });
+                setFormData({ 
+                  year: '2026-27', 
+                  division: '',
+                  projects: [], 
+                  overallContribution: '', 
+                  status: 'Draft',
+                  behaviourBased: {
+                    communication: 0, teamwork: 0, leadership: 0, adaptability: 0, initiatives: 0, comments: ''
+                  },
+                  processAdherence: {
+                    timesheet: 0, reportStatus: 0, meeting: 0, comments: ''
+                  },
+                  technicalBased: {
+                    codingSkills: 0, testing: 0, debugging: 0, sds: 0, tekla: 0, comments: ''
+                  },
+                  growthBased: {
+                    learningNewTech: 0, certifications: 0, careerGoals: '', comments: ''
+                  }
+                });
                 setIsReadOnly(false);
                 setViewMode('edit');
               }}
@@ -567,7 +826,7 @@ const SelfAppraisal = () => {
                     Actions
                   </th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                    Release Letter
+                    Appraisal Letter
                   </th>
                 </tr>
               </thead>
@@ -615,13 +874,13 @@ const SelfAppraisal = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                      {appraisal.status === 'DIRECTOR_APPROVED' || appraisal.status === 'Released' ? (
+                      {appraisal.status === 'Released' ? (
                         <button 
                           onClick={() => handleDownloadLetter(appraisal)}
                           className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
                         >
                           <Download className="h-4 w-4 mr-1" />
-                          Download Release Letter
+                          Download
                         </button>
                       ) : (
                         <span className="text-gray-400 text-xs italic">Pending Release</span>
@@ -642,10 +901,10 @@ const SelfAppraisal = () => {
           title={`Appraisal Details - FY ${viewData?.year || ''}`}
           icon={Eye}
           colorTheme="blue"
-          maxWidth="max-w-4xl"
+          maxWidth="max-w-6xl"
         >
           {viewData && (
-            <div className="space-y-6">
+            <div className="space-y-6 max-h-[70vh] overflow-y-auto px-1">
               {/* Workflow Status Tracker */}
               <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
                 <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-2">Approval Status</h4>
@@ -679,6 +938,99 @@ const SelfAppraisal = () => {
                 </div>
               </div>
 
+              {/* Behaviour Based Section */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                  <Users className="h-5 w-5 mr-2 text-purple-600" />
+                  Knowledge Sharing Assessment
+                </h3>
+                <div className="bg-purple-50 rounded-lg p-5 border border-purple-100 shadow-sm">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div><span className="font-semibold">Knowledge Sharing:</span> {viewData.behaviourBased?.communication}/5</div>
+                    <div><span className="font-semibold">Mentoring:</span> {viewData.behaviourBased?.teamwork}/5</div>
+                    <div><span className="font-semibold">Leadership:</span> {viewData.behaviourBased?.leadership}/5</div>
+                    <div><span className="font-semibold">Adaptability:</span> {viewData.behaviourBased?.adaptability}/5</div>
+                    <div><span className="font-semibold">Initiative:</span> {viewData.behaviourBased?.initiatives}/5</div>
+                  </div>
+                  {viewData.behaviourBased?.comments && (
+                    <div className="mt-2 p-3 bg-white rounded border border-purple-100">
+                      <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                      <p className="text-sm text-gray-700 italic">"{viewData.behaviourBased.comments}"</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Process Adherence Section */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                  <BarChart3 className="h-5 w-5 mr-2 text-orange-600" />
+                  Process Adherence
+                </h3>
+                <div className="bg-orange-50 rounded-lg p-5 border border-orange-100 shadow-sm">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div><span className="font-semibold">Timesheet:</span> {viewData.processAdherence?.timesheet}/5</div>
+                    <div><span className="font-semibold">Report Status:</span> {viewData.processAdherence?.reportStatus}/5</div>
+                    <div><span className="font-semibold">Meeting:</span> {viewData.processAdherence?.meeting}/5</div>
+                  </div>
+                  {viewData.processAdherence?.comments && (
+                    <div className="mt-2 p-3 bg-white rounded border border-orange-100">
+                      <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                      <p className="text-sm text-gray-700 italic">"{viewData.processAdherence.comments}"</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Technical Based Section */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                  <Code className="h-5 w-5 mr-2 text-blue-600" />
+                  Technical Based Assessment
+                </h3>
+                <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    {getTechnicalFieldsForDivision(viewData.division).map((field) => (
+                      <div key={field.key}>
+                        <span className="font-semibold">{field.label}:</span> {viewData.technicalBased?.[field.key]}/5
+                      </div>
+                    ))}
+                  </div>
+                  {viewData.technicalBased?.comments && (
+                    <div className="mt-2 p-3 bg-white rounded border border-blue-100">
+                      <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                      <p className="text-sm text-gray-700 italic">"{viewData.technicalBased.comments}"</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Growth Based Section */}
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                  <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                  Growth Based Assessment
+                </h3>
+                <div className="bg-green-50 rounded-lg p-5 border border-green-100 shadow-sm">
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div><span className="font-semibold">Learning New Tech:</span> {viewData.growthBased?.learningNewTech}/5</div>
+                    <div><span className="font-semibold">Certifications:</span> {viewData.growthBased?.certifications}/5</div>
+                  </div>
+                  {viewData.growthBased?.careerGoals && (
+                    <div className="mt-2">
+                      <span className="font-semibold">Career Goals:</span>
+                      <p className="text-gray-700 mt-1">{viewData.growthBased.careerGoals}</p>
+                    </div>
+                  )}
+                  {viewData.growthBased?.comments && (
+                    <div className="mt-2 p-3 bg-white rounded border border-green-100">
+                      <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                      <p className="text-sm text-gray-700 italic">"{viewData.growthBased.comments}"</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {/* Overall Contribution Section */}
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
@@ -695,6 +1047,117 @@ const SelfAppraisal = () => {
                   )}
                 </div>
               </div>
+
+              {/* Manager Assessment - Ratings & Comments */}
+              {(viewData.appraiserRating ||
+                viewData.leadership ||
+                viewData.attitude ||
+                viewData.communication ||
+                viewData.managerComments ||
+                viewData.keyPerformance ||
+                viewData.appraiseeComments) && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <Star className="h-5 w-5 mr-2 text-blue-600" />
+                    Manager Assessment
+                  </h3>
+                  <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm space-y-4">
+                    {(viewData.appraiserRating ||
+                      viewData.leadership ||
+                      viewData.attitude ||
+                      viewData.communication) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {viewData.appraiserRating && (
+                          <div>
+                            <span className="font-semibold">Performance Rating:</span>{' '}
+                            <span className="text-gray-800">{viewData.appraiserRating}</span>
+                          </div>
+                        )}
+                        {viewData.leadership && (
+                          <div>
+                            <span className="font-semibold">Leadership Potential:</span>{' '}
+                            <span className="text-gray-800">{viewData.leadership}</span>
+                          </div>
+                        )}
+                        {viewData.attitude && (
+                          <div>
+                            <span className="font-semibold">Attitude:</span>{' '}
+                            <span className="text-gray-800">{viewData.attitude}</span>
+                          </div>
+                        )}
+                        {viewData.communication && (
+                          <div>
+                            <span className="font-semibold">Communication:</span>{' '}
+                            <span className="text-gray-800">{viewData.communication}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {(viewData.keyPerformance || viewData.appraiseeComments) && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {viewData.keyPerformance && (
+                          <div className="bg-white rounded border border-blue-100 p-3">
+                            <p className="text-xs font-semibold text-gray-600 mb-1">Key Achievements</p>
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                              {viewData.keyPerformance}
+                            </p>
+                          </div>
+                        )}
+                        {viewData.appraiseeComments && (
+                          <div className="bg-white rounded border border-blue-100 p-3">
+                            <p className="text-xs font-semibold text-gray-600 mb-1">Employee Comments</p>
+                            <p className="text-sm text-gray-800 whitespace-pre-wrap italic">
+                              "{viewData.appraiseeComments}"
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {viewData.managerComments && (
+                      <div className="bg-white rounded border border-blue-100 p-3">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Manager Comments</p>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap italic">
+                          "{viewData.managerComments}"
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Reviewer & Director Comments */}
+              {(viewData.reviewerComments || viewData.directorComments) && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-[#262760]" />
+                    Reviewer & Director Comments
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {viewData.reviewerComments && (
+                      <div className="bg-blue-50 rounded-lg p-4 border border-blue-100 shadow-sm">
+                        <p className="text-xs font-semibold text-blue-800 uppercase mb-1">
+                          Reviewer Comments
+                        </p>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap">
+                          {viewData.reviewerComments}
+                        </p>
+                      </div>
+                    )}
+                    {viewData.directorComments && (
+                      <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-100 shadow-sm">
+                        <p className="text-xs font-semibold text-indigo-800 uppercase mb-1">
+                          Director Comments
+                        </p>
+                        <p className="text-sm text-gray-800 whitespace-pre-wrap font-medium">
+                          {viewData.directorComments}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end pt-4 border-t border-gray-100">
                 <button
@@ -1067,7 +1530,8 @@ I take this opportunity to thank you for the contribution made by you during the
                 <ChevronLeft className="h-6 w-6" />
                 <span className="ml-2">Back</span>
               </button>
-              <div className="flex items-center ml-2">
+            <div className="flex items-center ml-2 space-x-8">
+              <div className="flex items-center">
                 <span className="text-xl font-bold text-gray-900 mr-2">Financial Year:</span>
                 {isReadOnly ? (
                   <span className="text-lg font-bold text-[#262760] py-1 pl-3 pr-10">{formData.year}</span>
@@ -1083,6 +1547,26 @@ I take this opportunity to thank you for the contribution made by you during the
                   </select>
                 )}
               </div>
+              <div className="flex flex-col">
+                <span className="text-sm font-medium text-red-600 mb-1">Division *</span>
+                {isReadOnly ? (
+                  <span className="text-base font-semibold text-[#262760]">
+                    {formData.division || '-'}
+                  </span>
+                ) : (
+                  <select
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
+                    value={formData.division || ''}
+                    onChange={(e) => setFormData({ ...formData, division: e.target.value })}
+                  >
+                    <option value="">Select Division</option>
+                    <option value="Software">Software</option>
+                    <option value="SDS">SDS (Steel Detailing)</option>
+                    <option value="Tekla">Tekla (3D Modeling)</option>
+                  </select>
+                )}
+              </div>
+            </div>
             </div>
           </div>
         </div>
@@ -1092,7 +1576,7 @@ I take this opportunity to thank you for the contribution made by you during the
         <WorkflowTracker currentStageId={currentStageId} userFlow={userFlow} />
 
         {/* Projects Section */}
-        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-900">Key Projects</h2>
             {!isReadOnly && (
@@ -1134,6 +1618,178 @@ I take this opportunity to thank you for the contribution made by you during the
                   )}
                 </div>
               ))
+            )}
+          </div>
+        </div>
+
+        {/* NEW: Behaviour Based Section */}
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <Users className="h-6 w-6 mr-2 text-purple-600" />
+              Knowledge Sharing Assessment
+            </h2>
+            {!isReadOnly && (
+              <button 
+                onClick={() => setShowBehaviourModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                {Object.values(formData.behaviourBased).some(v => v !== 0 && v !== '') ? 'Edit Ratings' : 'Add Ratings'}
+              </button>
+            )}
+          </div>
+
+          <div className="bg-purple-50 rounded-lg p-5 border border-purple-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Knowledge Sharing:</span>
+                <RatingStars value={formData.behaviourBased.communication} onChange={() => {}} readOnly={true} />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Mentoring:</span>
+                <RatingStars value={formData.behaviourBased.teamwork} onChange={() => {}} readOnly={true} />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Leadership:</span>
+                <RatingStars value={formData.behaviourBased.leadership} onChange={() => {}} readOnly={true} />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Adaptability:</span>
+                <RatingStars value={formData.behaviourBased.adaptability} onChange={() => {}} readOnly={true} />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Initiative:</span>
+                <RatingStars value={formData.behaviourBased.initiatives} onChange={() => {}} readOnly={true} />
+              </div>
+            </div>
+            {formData.behaviourBased.comments && (
+              <div className="mt-4 p-3 bg-white rounded border border-purple-100">
+                <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                <p className="text-sm text-gray-700 italic">"{formData.behaviourBased.comments}"</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* NEW: Process Adherence Section */}
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <BarChart3 className="h-6 w-6 mr-2 text-orange-600" />
+              Process Adherence
+            </h2>
+            {!isReadOnly && (
+              <button 
+                onClick={() => setShowProcessModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                {Object.values(formData.processAdherence || {}).some(v => v !== 0 && v !== '') ? 'Edit Ratings' : 'Add Ratings'}
+              </button>
+            )}
+          </div>
+
+          <div className="bg-orange-50 rounded-lg p-5 border border-orange-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Timesheet:</span>
+                <RatingStars value={formData.processAdherence?.timesheet || 0} onChange={() => {}} readOnly={true} />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Report Status:</span>
+                <RatingStars value={formData.processAdherence?.reportStatus || 0} onChange={() => {}} readOnly={true} />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Meeting:</span>
+                <RatingStars value={formData.processAdherence?.meeting || 0} onChange={() => {}} readOnly={true} />
+              </div>
+            </div>
+            {formData.processAdherence?.comments && (
+              <div className="mt-4 p-3 bg-white rounded border border-orange-100">
+                <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                <p className="text-sm text-gray-700 italic">"{formData.processAdherence.comments}"</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* NEW: Technical Based Section */}
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <Code className="h-6 w-6 mr-2 text-blue-600" />
+              Technical Based Assessment
+            </h2>
+            {!isReadOnly && (
+              <button 
+                onClick={() => setShowTechnicalModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                {Object.values(formData.technicalBased).some(v => v !== 0 && v !== '') ? 'Edit Ratings' : 'Add Ratings'}
+              </button>
+            )}
+          </div>
+
+          <div className="bg-blue-50 rounded-lg p-5 border border-blue-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {getTechnicalFieldsForDivision(formData.division).map((field) => (
+                <div className="flex justify-between items-center" key={field.key}>
+                  <span className="font-medium text-gray-700">{field.label}:</span>
+                  <RatingStars value={formData.technicalBased[field.key]} onChange={() => {}} readOnly={true} />
+                </div>
+              ))}
+            </div>
+            {formData.technicalBased.comments && (
+              <div className="mt-4 p-3 bg-white rounded border border-blue-100">
+                <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                <p className="text-sm text-gray-700 italic">"{formData.technicalBased.comments}"</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* NEW: Growth Based Section */}
+        <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <TrendingUp className="h-6 w-6 mr-2 text-green-600" />
+              Growth Based Assessment
+            </h2>
+            {!isReadOnly && (
+              <button 
+                onClick={() => setShowGrowthModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+              >
+                <Edit className="h-4 w-4 mr-2" />
+                {Object.values(formData.growthBased).some(v => v !== 0 && v !== '') ? 'Edit Ratings' : 'Add Ratings'}
+              </button>
+            )}
+          </div>
+
+          <div className="bg-green-50 rounded-lg p-5 border border-green-100">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Learning New Tech:</span>
+                <RatingStars value={formData.growthBased.learningNewTech} onChange={() => {}} readOnly={true} />
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="font-medium text-gray-700">Certifications:</span>
+                <RatingStars value={formData.growthBased.certifications} onChange={() => {}} readOnly={true} />
+              </div>
+            </div>
+            {formData.growthBased.careerGoals && (
+              <div className="mt-3">
+                <span className="font-medium text-gray-700">Career Goals:</span>
+                <p className="text-sm text-gray-700 mt-1">{formData.growthBased.careerGoals}</p>
+              </div>
+            )}
+            {formData.growthBased.comments && (
+              <div className="mt-3 p-3 bg-white rounded border border-green-100">
+                <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                <p className="text-sm text-gray-700 italic">"{formData.growthBased.comments}"</p>
+              </div>
             )}
           </div>
         </div>
@@ -1230,6 +1886,280 @@ I take this opportunity to thank you for the contribution made by you during the
         </div>
       </Modal>
 
+      {/* Knowledge Sharing Modal */}
+      <Modal
+        isOpen={showBehaviourModal}
+        onClose={() => setShowBehaviourModal(false)}
+        title="Knowledge Sharing Assessment"
+        icon={Users}
+        colorTheme="purple"
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Knowledge Sharing</label>
+            <RatingStars 
+              value={formData.behaviourBased.communication} 
+              onChange={(value) => updateBehaviourRating('communication', value)} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Mentoring</label>
+            <RatingStars 
+              value={formData.behaviourBased.teamwork} 
+              onChange={(value) => updateBehaviourRating('teamwork', value)} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Leadership & Influence</label>
+            <RatingStars 
+              value={formData.behaviourBased.leadership} 
+              onChange={(value) => updateBehaviourRating('leadership', value)} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Adaptability & Flexibility</label>
+            <RatingStars 
+              value={formData.behaviourBased.adaptability} 
+              onChange={(value) => updateBehaviourRating('adaptability', value)} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Initiative & Proactiveness</label>
+            <RatingStars 
+              value={formData.behaviourBased.initiatives} 
+              onChange={(value) => updateBehaviourRating('initiatives', value)} 
+            />
+          </div>
+          <div className="rounded-md bg-purple-50 border border-purple-100 p-3 text-xs text-gray-700">
+            <span className="font-semibold">KPP Description: </span>
+            This assessment covers knowledge sharing, mentoring, leadership, adaptability and initiative
+            shown while working with team members and stakeholders.
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-red-600 mb-1">Appraisee Comments *</label>
+            <textarea
+              rows={3}
+              value={formData.behaviourBased.comments}
+              onChange={(e) => updateBehaviourRating('comments', e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] sm:text-sm p-2 border"
+              placeholder="Enter your comments about your knowledge sharing and behavioral performance..."
+            />
+          </div>
+          <div className="mt-5 sm:mt-6 flex justify-end space-x-2">
+            <button
+              type="button"
+              className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:text-sm"
+              onClick={() => setShowBehaviourModal(false)}
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm"
+              onClick={() => setShowBehaviourModal(false)}
+            >
+              Save & Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Process Adherence Modal */}
+      <Modal
+        isOpen={showProcessModal}
+        onClose={() => setShowProcessModal(false)}
+        title="Process Adherence"
+        icon={BarChart3}
+        colorTheme="orange"
+        maxWidth="max-w-2xl"
+      >
+          <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Timesheet</label>
+            <p className="text-xs text-gray-500 mb-1">
+              Timely submission, accurate entries, daily discipline, correct project allocation, minimal missed timesheets.
+            </p>
+            <RatingStars 
+              value={formData.processAdherence?.timesheet || 0} 
+              onChange={(value) => updateProcessRating('timesheet', value)} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Report Status</label>
+            <p className="text-xs text-gray-500 mb-1">
+              Daily/weekly report timeliness, accuracy, clarity of progress, delay justification, report format compliance.
+            </p>
+            <p className="text-[11px] text-gray-500 mb-1">
+              SDS/Tekla: Drawing status reports. Software: Sprint / task reports.
+            </p>
+            <RatingStars 
+              value={formData.processAdherence?.reportStatus || 0} 
+              onChange={(value) => updateProcessRating('reportStatus', value)} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Meeting</label>
+            <p className="text-xs text-gray-500 mb-1">
+              Attendance and punctuality, active participation, action item completion, MOM follow-up.
+            </p>
+            <RatingStars 
+              value={formData.processAdherence?.meeting || 0} 
+              onChange={(value) => updateProcessRating('meeting', value)} 
+            />
+          </div>
+          <div className="rounded-md bg-orange-50 border border-orange-100 p-3 text-xs text-gray-700">
+            <span className="font-semibold">KPP Description: </span>
+            Overall adherence to company processes for timesheets, reporting and meeting discipline.
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-red-600 mb-1">Appraisee Comments *</label>
+            <textarea
+              rows={3}
+              value={formData.processAdherence?.comments || ''}
+              onChange={(e) => updateProcessRating('comments', e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] sm:text-sm p-2 border"
+              placeholder="Enter your comments about your process adherence..."
+            />
+          </div>
+          <div className="mt-5 sm:mt-6 flex justify-end space-x-2">
+            <button
+              type="button"
+              className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:text-sm"
+              onClick={() => setShowProcessModal(false)}
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm"
+              onClick={() => setShowProcessModal(false)}
+            >
+              Save & Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Technical Based Modal */}
+      <Modal
+        isOpen={showTechnicalModal}
+        onClose={() => setShowTechnicalModal(false)}
+        title="Technical Based Assessment"
+        icon={Code}
+        colorTheme="blue"
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-6">
+          {getTechnicalFieldsForDivision(formData.division).map((field) => (
+            <div key={field.key}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">{field.label}</label>
+              <RatingStars 
+                value={formData.technicalBased[field.key]} 
+                onChange={(value) => updateTechnicalRating(field.key, value)} 
+              />
+            </div>
+          ))}
+          <div className="rounded-md bg-blue-50 border border-blue-100 p-3 text-xs text-gray-700">
+            <span className="font-semibold">KPP Description: </span>
+            Technical attributes based on selected division (Software / SDS / Tekla).
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-red-600 mb-1">Appraisee Comments *</label>
+            <textarea
+              rows={3}
+              value={formData.technicalBased.comments}
+              onChange={(e) => updateTechnicalRating('comments', e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] sm:text-sm p-2 border"
+              placeholder="Enter your comments about your technical performance..."
+            />
+          </div>
+          <div className="mt-5 sm:mt-6 flex justify-end space-x-2">
+            <button
+              type="button"
+              className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:text-sm"
+              onClick={() => setShowTechnicalModal(false)}
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm"
+              onClick={() => setShowTechnicalModal(false)}
+            >
+              Save & Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Growth Based Modal */}
+      <Modal
+        isOpen={showGrowthModal}
+        onClose={() => setShowGrowthModal(false)}
+        title="Growth Based Assessment"
+        icon={TrendingUp}
+        colorTheme="green"
+        maxWidth="max-w-2xl"
+      >
+        <div className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Learning New Technologies</label>
+            <RatingStars 
+              value={formData.growthBased.learningNewTech} 
+              onChange={(value) => updateGrowthRating('learningNewTech', value)} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Certifications & Courses</label>
+            <RatingStars 
+              value={formData.growthBased.certifications} 
+              onChange={(value) => updateGrowthRating('certifications', value)} 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Career Goals & Aspirations</label>
+            <textarea
+              rows={2}
+              value={formData.growthBased.careerGoals}
+              onChange={(e) => updateGrowthRating('careerGoals', e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] sm:text-sm p-2 border"
+              placeholder="Describe your career goals for the next 1-3 years..."
+            />
+          </div>
+          <div className="rounded-md bg-green-50 border border-green-100 p-3 text-xs text-gray-700">
+            <span className="font-semibold">KPP Description: </span>
+            This assessment covers learning new technologies and pursuing relevant certifications for growth.
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-red-600 mb-1">Appraisee Comments *</label>
+            <textarea
+              rows={2}
+              value={formData.growthBased.comments}
+              onChange={(e) => updateGrowthRating('comments', e.target.value)}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] sm:text-sm p-2 border"
+              placeholder="Enter your comments about your growth and development..."
+            />
+          </div>
+          <div className="mt-5 sm:mt-6 flex justify-end space-x-2">
+            <button
+              type="button"
+              className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:text-sm"
+              onClick={() => setShowGrowthModal(false)}
+            >
+              Close
+            </button>
+            <button
+              type="button"
+              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm"
+              onClick={() => setShowGrowthModal(false)}
+            >
+              Save & Close
+            </button>
+          </div>
+        </div>
+      </Modal>
+
       {/* Overall Contribution Modal */}
       <Modal
         isOpen={showContributionModal}
@@ -1247,7 +2177,7 @@ I take this opportunity to thank you for the contribution made by you during the
               value={formData.overallContribution}
               onChange={(e) => setFormData({ ...formData, overallContribution: e.target.value })}
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] sm:text-sm p-2 border"
-              placeholder="Summarize your performance..."
+              placeholder="Summarize your overall performance for the year. Include key achievements, challenges overcome, and value added to the organization..."
             />
           </div>
           <div className="mt-5 sm:mt-6 flex justify-end space-x-2">
@@ -1276,8 +2206,6 @@ I take this opportunity to thank you for the contribution made by you during the
         status={statusPopup.status}
         message={statusPopup.message}
       />
-
-
     </div>
   );
 };

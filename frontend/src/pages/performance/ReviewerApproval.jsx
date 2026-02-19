@@ -14,11 +14,18 @@ import {
 } from 'lucide-react';
 import { performanceAPI } from '../../services/api';
 
+const getCurrentFinancialYear = () => {
+  const today = new Date();
+  const yearStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  const yearEnd = String(yearStart + 1).slice(2);
+  return `${yearStart}-${yearEnd}`;
+};
+
 const ReviewerApproval = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFinancialYr, setSelectedFinancialYr] = useState('2025-26');
+  const [selectedFinancialYr, setSelectedFinancialYr] = useState(getCurrentFinancialYear());
   const [selectedRows, setSelectedRows] = useState([]);
   
   // Inline Editing State
