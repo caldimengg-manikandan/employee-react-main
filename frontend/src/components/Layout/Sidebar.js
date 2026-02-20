@@ -207,7 +207,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
           showForRoles: ["admin", "hr", "director"]
         },
         { 
-          name: "Increment Master", 
+          name: "Appraisal Master", 
           path: "/performance/increment-master",
           showForRoles: ["admin", "hr"]
         },

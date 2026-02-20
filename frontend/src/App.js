@@ -64,7 +64,7 @@ import TeamAppraisal from "./pages/performance/TeamAppraisal";
 import AppraisalWorkflow from "./pages/performance/AppraisalWorkflow";
 import ReviewerApproval from "./pages/performance/ReviewerApproval";
 import DirectorApproval from "./pages/performance/DirectorApproval";
-import IncrementMaster from "./pages/performance/IncrementMaster";
+import AppraisalMaster from "./pages/performance/AppraisalMaster";
 import IncrementSummary from "./pages/performance/IncrementSummary";
 import AttendanceSummary from "./pages/performance/AttendanceSummary";
 
@@ -513,7 +513,7 @@ function App() {
               path="performance/increment-master"
               element={
                 <ProtectedRoute roles={["admin", "hr"]}>
-                  <IncrementMaster />
+                  <AppraisalMaster />
                 </ProtectedRoute>
               }
             />

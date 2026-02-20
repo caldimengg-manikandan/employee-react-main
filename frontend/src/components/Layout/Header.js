@@ -54,7 +54,7 @@ const Header = ({ onMenuClick }) => {
       '/performance/reviewer-approval': 'Reviewer Approval',
       '/performance/director-approval': 'Director Approval',
       '/performance/appraisal-workflow': 'Appraisal Workflow',
-      '/performance/increment-master': 'Increment Master',
+      '/performance/increment-master': 'Appraisal Master',
       '/performance/increment-summary': 'Increment Summary',
       '/performance/attendance-summary': 'Attendance Summary',
       '/internship/InternReference': 'Intern Reference',
