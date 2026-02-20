@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { employeeAPI, holidayAllowanceAPI } from '../services/api';
+import { employeeAPI, holidayAllowanceAPI, payrollAPI } from '../services/api';
 import { 
   CurrencyDollarIcon,
   MagnifyingGlassIcon,
@@ -78,10 +78,22 @@ const HolidaysAllowance = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      // 2. Filter employees by location
-      // Note: getAllEmployees fetches all, we filter client side if API doesn't support it
-      const empResponse = await employeeAPI.getAllEmployees();
+      const [empResponse, payrollResponse] = await Promise.all([
+        employeeAPI.getAllEmployees(),
+        payrollAPI.list()
+      ]);
+
       let filteredEmps = empResponse.data || [];
+      const payrolls = Array.isArray(payrollResponse.data) ? payrollResponse.data : [];
+
+      const payrollMap = new Map();
+      payrolls.forEach((p) => {
+        const empId = p.employeeId;
+        if (!empId) return;
+        if (!payrollMap.has(empId)) {
+          payrollMap.set(empId, p);
+        }
+      });
 
       const params = {
         month: selectedMonth,
@@ -110,9 +122,11 @@ const HolidaysAllowance = () => {
         }
       });
 
-      // 3. Create Table Data
       const merged = filteredEmps.map((emp, index) => {
-        const gross = emp.totalEarnings || emp.ctc || 0;
+        const payroll = payrollMap.get(emp.employeeId);
+        const grossFromPayroll =
+          payroll && (payroll.totalEarnings || payroll.netSalary || payroll.ctc || 0);
+        const gross = grossFromPayroll || emp.totalEarnings || emp.netSalary || emp.ctc || 0;
         const saved = savedMap.get(emp.employeeId);
         const defaultPerDay = calculatePerDayAmount(gross, selectedYear, selectedMonth);
 
@@ -121,8 +135,9 @@ const HolidaysAllowance = () => {
           sNo: index + 1,
           employeeId: emp.employeeId,
           employeeName: emp.name || emp.employeename,
-          location: emp.location || '-',
-          accountNumber: emp.bankAccount || emp.bankDetails?.accountNumber || '-',
+          location: payroll?.location || emp.location || '-',
+          accountNumber:
+            payroll?.accountNumber || emp.bankAccount || emp.bankDetails?.accountNumber || '-',
           grossSalary: saved?.grossSalary ?? gross,
           
           // Holiday Working Fields

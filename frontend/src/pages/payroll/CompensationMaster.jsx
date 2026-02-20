@@ -801,7 +801,7 @@ HR Team`;
             className="bg-[#262760] text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-[#1e2050]"
           >
             <Plus size={18} />
-            Add Compensator
+            Add Compensation
           </button>
           <button
             onClick={exportCSV}
@@ -887,9 +887,9 @@ HR Team`;
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-[#262760]">
+          <thead className="bg-[#262760]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Compensator Name</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Candidate Name</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Department</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Designation</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Location</th>
@@ -900,19 +900,19 @@ HR Team`;
                 <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">ESI</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Tax</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Gratuity</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="px-6 py-8 text-center text-gray-500">No compensation found</td>
+                  <td colSpan={13} className="px-6 py-8 text-center text-gray-500">No compensation found</td>
                 </tr>
               ) : filtered.map((t, idx) => (
                 <tr key={idx} className="hover:bg-indigo-50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="font-semibold">{t.name}</div>
-                   
                   </td>
                   <td className="px-6 py-4">{t.department || "-"}</td>
                   <td className="px-6 py-4">{t.designation || "-"}</td>
@@ -924,6 +924,7 @@ HR Team`;
                   <td className="px-6 py-4 text-right">{t.esi || "-"}</td>
                   <td className="px-6 py-4 text-right">{t.tax || "-"}</td>
                   <td className="px-6 py-4 text-right">{t.gratuity || "-"}</td>
+                  <td className="px-6 py-4 text-center">Joined</td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2 justify-center">
                       <button
@@ -984,12 +985,12 @@ HR Team`;
             <div className="p-6 space-y-6">
                 {/* Employee Details */}
                 <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-4">Compensator Details</h3>
+                  <h3 className="text-lg font-medium text-gray-900 mb-4">Candidate Details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Compensator Name *
+                        Candidate Name *
                       </label>
                       <input
                         type="text"

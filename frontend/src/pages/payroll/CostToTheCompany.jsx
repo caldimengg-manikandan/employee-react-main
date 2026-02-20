@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Calendar, Filter, ChevronDown, ChevronRight } from "lucide-react";
+import { Calendar, Filter, ChevronDown, ChevronRight, Download } from "lucide-react";
 import { monthlyPayrollAPI, employeeAPI } from "../../services/api";
+import * as XLSX from "xlsx";
 
 const CostToTheCompany = () => {
   const [month, setMonth] = useState("");
@@ -225,6 +226,93 @@ const CostToTheCompany = () => {
     setEmployees([]);
   };
 
+  const handleDownloadExcel = () => {
+    if (summary.length === 0 && employees.length === 0) {
+      alert("No data available to download.");
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    if (summary.length > 0) {
+      const summaryData = summary.map((row) => ({
+        Location: row.location,
+        "Total PF Deduction": Number(row.totalPF || 0),
+        "Total Tax Deduction": Number(row.totalTax || 0),
+        "Total CTC": Number(row.totalCTC || 0),
+      }));
+
+      const wsSummary = XLSX.utils.json_to_sheet(summaryData);
+      wsSummary["!cols"] = [
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 20 },
+        { wch: 20 },
+      ];
+      XLSX.utils.book_append_sheet(workbook, wsSummary, "Summary");
+    }
+
+    if (employees.length > 0) {
+      const employeesData = employees.map((e, index) => ({
+        "S.No": index + 1,
+        "Employee ID": e.employeeId,
+        "Employee Name": e.employeeName,
+        Designation: e.designation || "",
+        Location: e.location || "",
+        "Total Earnings": Number(e.totalEarnings || 0),
+        PF: Number(e.pf || 0),
+        Tax: Number(e.tax || 0),
+        Gratuity: Number(e.gratuity || 0),
+        "Net Salary": Number(e.netSalary || 0),
+        CTC: Number(e.ctc || 0),
+      }));
+
+      const wsEmployees = XLSX.utils.json_to_sheet(employeesData);
+      wsEmployees["!cols"] = [
+        { wch: 6 },
+        { wch: 12 },
+        { wch: 22 },
+        { wch: 18 },
+        { wch: 16 },
+        { wch: 18 },
+        { wch: 14 },
+        { wch: 14 },
+        { wch: 16 },
+        { wch: 18 },
+        { wch: 18 },
+      ];
+      XLSX.utils.book_append_sheet(workbook, wsEmployees, "Employees");
+    }
+
+    const monthNames = [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
+    ];
+
+    let periodLabel = "All";
+    const monthIndex = Number(month);
+    if (year && monthIndex >= 1 && monthIndex <= 12) {
+      periodLabel = `${monthNames[monthIndex - 1]}_${year}`;
+    } else if (year) {
+      periodLabel = `${year}`;
+    } else if (monthIndex >= 1 && monthIndex <= 12) {
+      periodLabel = `${monthNames[monthIndex - 1]}`;
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    XLSX.writeFile(workbook, `CTC_Report_${periodLabel}_${today}.xlsx`);
+  };
+
   const toggleRow = (employeeId) => {
     const newExpanded = new Set(expandedRows);
     if (newExpanded.has(employeeId)) {
@@ -343,6 +431,15 @@ const CostToTheCompany = () => {
             className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition-colors"
           >
             Clear
+          </button>
+
+          <button
+            onClick={handleDownloadExcel}
+            className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            disabled={summary.length === 0 && employees.length === 0}
+          >
+            <Download size={18} />
+            Download Excel
           </button>
         </div>
       </div>

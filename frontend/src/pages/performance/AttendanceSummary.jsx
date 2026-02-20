@@ -179,18 +179,31 @@ const AttendanceSummary = () => {
       const override = rowOverrides[row.empId];
 
       let present = row.yearlyPresent;
-      if (override && typeof override.yearlyPresent === 'number') {
-        present = override.yearlyPresent;
-      }
-
       let absent = row.yearlyAbsent;
 
       if (financialYear === '2025-26') {
-        if (override && typeof override.yearlyPresent === 'number') {
-          absent = Math.max(0, workingDaysYear - present);
+        if (override && typeof override.yearlyAbsent === 'number') {
+          const clampedAbsent = Math.max(
+            0,
+            Math.min(workingDaysYear, override.yearlyAbsent)
+          );
+          absent = clampedAbsent;
+          present =
+            workingDaysYear > 0
+              ? Math.max(0, workingDaysYear - clampedAbsent)
+              : 0;
         } else if (row.hasManualRecord) {
-          absent = Math.max(0, workingDaysYear - present);
+          present = row.yearlyPresent;
+          const derivedAbsent =
+            workingDaysYear > 0
+              ? Math.max(
+                  0,
+                  Math.min(workingDaysYear, workingDaysYear - present)
+                )
+              : 0;
+          absent = derivedAbsent;
         } else {
+          present = 0;
           absent = 0;
         }
       }
@@ -237,7 +250,10 @@ const AttendanceSummary = () => {
       return;
     }
     const numeric = Number(value);
-    const safeValue = Number.isFinite(numeric) && numeric >= 0 ? numeric : 0;
+    const safeValue =
+      Number.isFinite(numeric) && numeric >= 0
+        ? Math.min(numeric, workingDaysYear)
+        : 0;
 
     setRowOverrides((prev) => {
       const current = prev[empId] || {};
@@ -422,7 +438,7 @@ const AttendanceSummary = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-[#262760] sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     S.No
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
@@ -431,19 +447,19 @@ const AttendanceSummary = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Employee Name
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
                     Present Days (Year)
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
                     Absent Days (Year)
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
                     Yearly Attendance %
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
@@ -473,7 +489,7 @@ const AttendanceSummary = () => {
 
                     return (
                       <tr key={row.empId} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500 text-center">
                           {index + 1}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -482,13 +498,16 @@ const AttendanceSummary = () => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                           {row.name}
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {row.yearlyPresent}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
                           <input
                             type="number"
                             min="0"
-                            value={row.yearlyPresent}
+                            value={row.yearlyAbsent}
                             onChange={(e) =>
-                              handleDaysChange(row.empId, 'yearlyPresent', e.target.value)
+                              handleDaysChange(row.empId, 'yearlyAbsent', e.target.value)
                             }
                             disabled={financialYear !== '2025-26' || !editMap[row.empId]}
                             className={`w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-right ${
@@ -499,19 +518,16 @@ const AttendanceSummary = () => {
                           />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                          {row.yearlyAbsent}
-                        </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                           {row.yearlyPct.toFixed(1)}%
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center">
                           <span
                             className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${yearlyStatus.className}`}
                           >
                             {yearlyStatus.label}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center">
                           {financialYear === '2025-26' ? (
                             editMap[row.empId] ? (
                               <div className="flex items-center space-x-2">

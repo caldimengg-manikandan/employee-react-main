@@ -17,6 +17,7 @@ const HolidaysAllowanceSummary = () => {
   const [yearFilter, setYearFilter] = useState(initialYear);
   const [locations, setLocations] = useState([]);
   const [summary, setSummary] = useState(null);
+  const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const months = [
@@ -58,11 +59,35 @@ const HolidaysAllowanceSummary = () => {
       if (locationFilter) {
         params.location = locationFilter;
       }
-      const res = await holidayAllowanceAPI.getSummary(params);
-      if (res && res.data && res.data.summary) {
-        setSummary(res.data.summary);
+      const [summaryRes, listRes] = await Promise.all([
+        holidayAllowanceAPI.getSummary(params),
+        holidayAllowanceAPI.list(params),
+      ]);
+      if (summaryRes && summaryRes.data && summaryRes.data.summary) {
+        setSummary(summaryRes.data.summary);
       } else {
         setSummary(null);
+      }
+      if (listRes && listRes.data) {
+        const data = listRes.data;
+        const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        const applicableRows = rows.filter((row) => {
+          const holidayDays = Number(row.holidayDays || 0);
+          const shiftDays = Number(row.shiftDays || 0);
+          const holidayTotal = Number(row.holidayTotal || 0);
+          const shiftTotal = Number(row.shiftTotal || 0);
+          const totalAmount = Number(row.totalAmount || 0);
+          return (
+            holidayDays > 0 ||
+            shiftDays > 0 ||
+            holidayTotal > 0 ||
+            shiftTotal > 0 ||
+            totalAmount > 0
+          );
+        });
+        setRecords(applicableRows);
+      } else {
+        setRecords([]);
       }
     } catch (error) {
       console.error('Error fetching allowance summary:', error);
@@ -186,9 +211,80 @@ const HolidaysAllowanceSummary = () => {
           </div>
         </div>
       </div>
+
+      <div className="mt-6 bg-white rounded-lg shadow overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full text-sm text-left">
+            <thead className="bg-[#1e2050] text-white text-xs uppercase">
+              <tr>
+                <th className="px-4 py-3">S.No</th>
+                <th className="px-4 py-3">Employee ID</th>
+                <th className="px-4 py-3">Employee Name</th>
+                <th className="px-4 py-3">Account Number</th>
+                <th className="px-4 py-3">Location</th>
+                <th className="px-4 py-3">Month</th>
+                <th className="px-4 py-3">Year</th>
+                <th className="px-4 py-3 text-right">Holiday Days</th>
+                <th className="px-4 py-3 text-right">Holiday Amount</th>
+                <th className="px-4 py-3 text-right">Shift Days</th>
+                <th className="px-4 py-3 text-right">Shift Amount</th>
+                <th className="px-4 py-3 text-right">Total Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {records.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={12}
+                    className="px-6 py-10 text-center text-gray-500"
+                  >
+                    <div className="flex flex-col items-center gap-2">
+                      <span className="text-2xl">ℹ️</span>
+                      <span>No data available for the selected filters</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                records.map((row, index) => (
+                  <tr
+                    key={row._id || row.employeeId || index}
+                    className="border-b hover:bg-gray-50"
+                  >
+                    <td className="px-4 py-3">{index + 1}</td>
+                    <td className="px-4 py-3 font-medium text-gray-900">
+                      {row.employeeId}
+                    </td>
+                    <td className="px-4 py-3">{row.employeeName}</td>
+                    <td className="px-4 py-3 font-mono">{row.accountNumber}</td>
+                    <td className="px-4 py-3">{row.location}</td>
+                    <td className="px-4 py-3">
+                      {months.find(m => m.value === row.month)?.label || row.month}
+                    </td>
+                    <td className="px-4 py-3">{row.year}</td>
+                    <td className="px-4 py-3 text-right">
+                      {row.holidayDays ?? 0}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      ₹{(row.holidayTotal || 0).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {row.shiftDays ?? 0}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      ₹{(row.shiftTotal || 0).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-right font-semibold text-[#1e2050]">
+                      ₹{(row.totalAmount || 0).toFixed(2)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
 
 export default HolidaysAllowanceSummary;
-
