@@ -9,15 +9,43 @@ import {
   MessageSquare,
   CheckCircle,
   User,
-  Send
+  Send,
+  FileText
 } from 'lucide-react';
-import { performanceAPI } from '../../services/api';
+import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
 
 const getCurrentFinancialYear = () => {
   const today = new Date();
   const yearStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
   const yearEnd = String(yearStart + 1).slice(2);
   return `${yearStart}-${yearEnd}`;
+};
+
+const formatDisplayDate = (value) => {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const deriveEffectiveDateForAppraisal = (financialYear, updatedAt, effectiveDateField) => {
+  if (effectiveDateField) {
+    const d = new Date(effectiveDateField);
+    if (!Number.isNaN(d.getTime())) return formatDisplayDate(d);
+  }
+  if (updatedAt) {
+    const d = new Date(updatedAt);
+    if (!Number.isNaN(d.getTime())) return formatDisplayDate(d);
+  }
+  if (financialYear && String(financialYear).includes('-')) {
+    const parts = String(financialYear).split(/[-/]/);
+    const yearStart = parseInt(parts[0], 10);
+    if (!Number.isNaN(yearStart)) {
+      const d = new Date(yearStart, 3, 1);
+      return formatDisplayDate(d);
+    }
+  }
+  return '';
 };
 
 const DirectorApproval = () => {
@@ -39,10 +67,22 @@ const DirectorApproval = () => {
   // View Details Modal State
   const [viewModalData, setViewModalData] = useState(null);
 
+  const [showReleaseLetter, setShowReleaseLetter] = useState(false);
+  const [letterData, setLetterData] = useState(null);
+
   // Fetch data
   useEffect(() => {
     fetchDirectorAppraisals();
   }, []);
+
+  useEffect(() => {
+    if (employees.length > 0) {
+      const years = Array.from(new Set(employees.map(e => e.financialYr).filter(Boolean)));
+      if (years.length > 0 && !years.includes(selectedFinancialYr)) {
+        setSelectedFinancialYr(years[0]);
+      }
+    }
+  }, [employees]);
 
   const fetchDirectorAppraisals = async () => {
     setLoading(true);
@@ -137,6 +177,158 @@ const DirectorApproval = () => {
     } catch (error) {
       console.error('Error saving comment:', error);
       alert('Failed to save comment');
+    }
+  };
+
+  const handlePreviewLetter = async (emp) => {
+    try {
+      let employeeDetails = {};
+
+      try {
+        if (emp.employeeId) {
+          const res = await employeeAPI.getEmployeeById(emp.employeeId);
+          employeeDetails = res.data;
+        } else {
+          employeeDetails = { ...emp };
+        }
+      } catch (err) {
+        console.error('Failed to fetch employee details for letter', err);
+        employeeDetails = { ...emp };
+      }
+
+      const financialYear = emp.financialYr || selectedFinancialYr || getCurrentFinancialYear();
+
+      const today = new Date();
+      const letterDate = formatDisplayDate(today);
+
+      const employeeIdValue =
+        employeeDetails.employeeId ||
+        employeeDetails.empId ||
+        emp.empId ||
+        emp.employeeId;
+
+      let salaryOld = {
+        basic: 0,
+        hra: 0,
+        special: 0,
+        gross: 0,
+        empPF: 0,
+        employerPF: 0,
+        net: 0,
+        gratuity: 0,
+        ctc: 0
+      };
+
+      try {
+        if (employeeIdValue) {
+          const payrollRes = await payrollAPI.list();
+          const items = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+          const empIdNorm = String(employeeIdValue).toLowerCase();
+          const record = items.find(
+            (p) => String(p.employeeId || '').toLowerCase() === empIdNorm
+          );
+
+          if (record) {
+            const basic = Number(record.basicDA || 0);
+            const hra = Number(record.hra || 0);
+            const special = Number(record.specialAllowance || 0);
+            const gross = Number(
+              record.totalEarnings !== undefined
+                ? record.totalEarnings
+                : basic + hra + special
+            );
+            const empPF = Number(record.pf || 0);
+            const employerPF = Number(record.employerPF || record.pf || 0);
+            const net = Number(record.netSalary || gross);
+            const gratuity = Number(record.gratuity || 0);
+            const ctc = Number(
+              record.ctc !== undefined ? record.ctc : gross + gratuity
+            );
+
+            salaryOld = {
+              basic,
+              hra,
+              special,
+              gross,
+              empPF,
+              employerPF,
+              net,
+              gratuity,
+              ctc
+            };
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch payroll details for letter', err);
+      }
+
+      if (!salaryOld.ctc) {
+        const currentSalary =
+          Number(emp.currentSalary || 0) || Number(emp.salary || 0);
+        if (currentSalary) {
+          salaryOld = {
+            basic: 0,
+            hra: 0,
+            special: 0,
+            gross: currentSalary,
+            empPF: 0,
+            employerPF: 0,
+            net: currentSalary,
+            gratuity: 0,
+            ctc: currentSalary
+          };
+        }
+      }
+
+      const baseCtc = salaryOld.ctc || 0;
+      const basePct = Number(emp.incrementPercentage || 0);
+      const correctionPct = Number(emp.incrementCorrectionPercentage || 0);
+      let totalPct = basePct + correctionPct;
+
+      const revisedFromAppraisal = Number(emp.revisedSalary || 0);
+
+      let factor = 1;
+      if (baseCtc && totalPct > 0) {
+        factor = 1 + totalPct / 100;
+      } else if (baseCtc && revisedFromAppraisal > 0) {
+        factor = revisedFromAppraisal / baseCtc;
+      }
+
+      const revisedCtc = Math.round(baseCtc * factor);
+      const incrementAmount = revisedCtc - baseCtc;
+
+      const salaryNew = {
+        basic: Math.round((salaryOld.basic || 0) * factor),
+        hra: Math.round((salaryOld.hra || 0) * factor),
+        special: Math.round((salaryOld.special || 0) * factor),
+        gross: Math.round((salaryOld.gross || baseCtc) * factor),
+        empPF: Math.round((salaryOld.empPF || 0) * factor),
+        employerPF: Math.round((salaryOld.employerPF || 0) * factor),
+        net: Math.round((salaryOld.net || baseCtc) * factor),
+        gratuity: Math.round((salaryOld.gratuity || 0) * factor),
+        ctc: revisedCtc
+      };
+
+      const data = {
+        date: letterDate,
+        employeeName: employeeDetails.name || employeeDetails.fullName || emp.name,
+        employeeId: employeeIdValue || 'EMP-001',
+        designation: employeeDetails.designation || employeeDetails.role || emp.designation,
+        location: employeeDetails.location || employeeDetails.branch || emp.location || 'Chennai',
+        financialYear: financialYear,
+        effectiveDate: '1st April 2026',
+        incrementPercentage: totalPct,
+        incrementAmount,
+        salary: {
+          old: salaryOld,
+          new: salaryNew
+        }
+      };
+      setLetterData(data);
+      setShowReleaseLetter(true);
+    } catch (error) {
+      console.error('Error preparing letter', error);
+      alert('Failed to prepare release letter');
     }
   };
 
@@ -384,17 +576,24 @@ const DirectorApproval = () => {
                               >
                                 <Eye className="h-5 w-5" />
                               </button>
+                              <button
+                                onClick={() => handlePreviewLetter(emp)}
+                                className="text-[#262760] hover:text-[#1e2050]"
+                                title="Preview Appraisal Letter"
+                              >
+                                <FileText className="h-5 w-5" />
+                              </button>
                               <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900" title="Edit">
                                 <Edit className="h-5 w-5" />
                               </button>
-                              {emp.status !== 'Released' ? (
+                              {['DIRECTOR_APPROVED', 'Released', 'RELEASED'].includes(emp.status || '') ? (
+                                <span className="text-green-600" title="Approved">
+                                  <CheckCircle className="h-5 w-5 fill-green-100" />
+                                </span>
+                              ) : (
                                 <button onClick={() => handleApproveRelease(emp)} className="text-green-600 hover:text-green-900" title="Approve & Release">
                                   <CheckCircle className="h-5 w-5" />
                                 </button>
-                              ) : (
-                                <span className="text-green-600" title="Released">
-                                  <CheckCircle className="h-5 w-5 fill-green-100" />
-                                </span>
                               )}
                             </>
                           )}
@@ -531,6 +730,293 @@ const DirectorApproval = () => {
               >
                 Close
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showReleaseLetter && letterData && (
+        <div className="fixed inset-0 bg-black/80 z-50 overflow-y-auto backdrop-blur-sm flex justify-center items-start py-8">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl relative mx-4">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-20 rounded-t-lg">
+              <h2 className="text-xl font-bold text-gray-800">Appraisal Letter Preview</h2>
+              <button
+                onClick={() => setShowReleaseLetter(false)}
+                className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="p-8 bg-gray-100 overflow-x-auto flex flex-col items-center gap-8">
+              <div id="release-letter-page-1" className="bg-white relative min-h-[1120px] w-[794px] shadow-lg flex-shrink-0 flex flex-col">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+                  <img 
+                    src="/images/steel-logo.png" 
+                    alt="" 
+                    className="w-[500px] opacity-[0.05] grayscale"
+                  />
+                </div>
+                
+                <div className="relative z-10 flex flex-col h-full justify-between flex-grow">
+                  <div className="w-full flex h-32 relative overflow-hidden">
+                    <div className="absolute inset-0 z-0">
+                      <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
+                        <path d="M0,0 L400,0 L340,128 L0,128 Z" fill="#1e2b58" />
+                        <path d="M400,0 L430,0 L370,128 L340,128 Z" fill="#f37021" />
+                      </svg>
+                    </div>
+
+                    <div className="relative w-[60%] flex items-center pl-8 pr-12 z-10">
+                      <div className="flex items-center gap-4">
+                        <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ display: 'block' }} />
+                        <div className="text-white">
+                          <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
+                          <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">ENGINEERING PRIVATE LIMITED</p>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2 z-10">
+                      <div className="flex items-center mb-2">
+                        <span className="font-bold text-gray-800 mr-3 text-lg">044-47860455</span>
+                        <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex items-start justify-end text-right">
+                        <span className="text-sm font-semibold text-gray-700 w-64 leading-tight">No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
+                        <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-12 py-6 flex-grow">
+                    <div className="flex justify-between mb-6">
+                      <div />
+                      <div className="text-gray-700">Date: <span className="font-bold">{letterData.date}</span></div>
+                    </div>
+                    
+                    <div className="mb-6">
+                      <div className="font-bold text-gray-800 mb-4">To:</div>
+                      <div className="inline-block min-w-[300px]">
+                        <div className="grid grid-cols-[100px_1fr] gap-y-1">
+                          <div className="text-gray-500 font-medium">Name</div>
+                          <div className="text-gray-900 font-bold">: {letterData.employeeName}</div>
+
+                          <div className="text-gray-500 font-medium">Employee ID</div>
+                          <div className="text-gray-900 font-bold">: {letterData.employeeId}</div>
+                          
+                          <div className="text-gray-500 font-medium">Designation</div>
+                          <div className="text-gray-900 font-bold">: {letterData.designation}</div>
+                          
+                          <div className="text-gray-500 font-medium">Location</div>
+                          <div className="text-gray-900 font-bold">: {letterData.location}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mb-8 text-center">
+                      <div className="font-bold text-xl underline decoration-1 underline-offset-4">PERFORMANCE APPRAISAL LETTER</div>
+                    </div>
+
+                    <div className="mb-6">
+                      <div className="mb-4">Dear <span className="font-semibold">{letterData.employeeName}</span>,</div>
+                      <p className="text-justify text-[14px] leading-6 mb-4">
+                        The Performance Review for the financial year {letterData.financialYear} has been completed.
+                      </p>
+                      <p className="text-justify text-[14px] leading-6 mb-4">
+                        We are pleased to inform you that based on the available benchmarks in the industry and your performance appraisal, we have revised your compensation effective {letterData.effectiveDate}.
+                      </p>
+                      <p className="text-justify text-[14px] leading-6 mb-4">
+                        Details are provided in the attached Annexure.
+
+                        We draw your attention to the fact that your compensation is personal to you.
+
+                        As this information is confidential, we expect you to refrain from sharing the same with your colleagues.
+
+                        I take this opportunity to thank you for the contribution made by you during the year of review and wish you success for the year ahead.
+                      </p>
+                    </div>
+                    
+                    <div className="mb-8 text-justify text-[14px] leading-6">
+                      <p>
+                        We look forward to your continued dedication and commitment to the organization.
+                      </p>
+                      <p className="mt-4">
+                        All other terms and conditions of your employment remain unchanged.
+                      </p>
+                    </div>
+
+                    <div className="mt-12 flex justify-end">
+                      <div className="text-right">
+                        <div className="mb-2 text-sm text-gray-700">For CALDIM ENGINEERING PRIVATE LIMITED</div>
+                        <div className="mt-16">
+                          <div className="font-bold">Authorized Signatory</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="w-full h-24 relative mt-auto overflow-hidden">
+                    <div className="absolute inset-0 z-0">
+                      <svg width="100%" height="100%" viewBox="0 0 794 96" preserveAspectRatio="none">
+                        <rect x="0" y="84" width="350" height="12" fill="#f37021" />
+                        <path d="M350,0 L794,0 L794,96 L290,96 Z" fill="#1e2b58" />
+                      </svg>
+                    </div>
+
+                    <div className="relative z-10 w-full h-full flex items-center justify-end pr-10 pt-4">
+                      <div className="text-white text-right">
+                        <div className="text-sm font-medium tracking-wide">Website : www.caldimengg.com</div>
+                        <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div id="release-letter-page-2" className="bg-white relative min-h-[1120px] w-[794px] shadow-lg flex-shrink-0 flex flex-col">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+                  <img 
+                    src="/images/steel-logo.png" 
+                    alt="" 
+                    className="w-[500px] opacity-[0.05] grayscale"
+                  />
+                </div>
+                
+                <div className="relative z-10 flex flex-col h-full justify-between flex-grow">
+                  <div className="w-full flex h-32 relative overflow-hidden">
+                    <div className="absolute inset-0 z-0">
+                      <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
+                        <path d="M0,0 L400,0 L340,128 L0,128 Z" fill="#1e2b58" />
+                        <path d="M400,0 L430,0 L370,128 L340,128 Z" fill="#f37021" />
+                      </svg>
+                    </div>
+
+                    <div className="relative w-[60%] flex items-center pl-8 pr-12 z-10">
+                      <div className="flex items-center gap-4">
+                        <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ display: 'block' }} />
+                        <div className="text-white">
+                          <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
+                          <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">ENGINEERING PRIVATE LIMITED</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2 z-10">
+                      <div className="flex items-center mb-2">
+                        <span className="font-bold text-gray-800 mr-3 text-lg">044-47860455</span>
+                        <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex items-start justify-end text-right">
+                        <span className="text-sm font-semibold text-gray-700 w-64 leading-tight">No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
+                        <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md">
+                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                          </svg>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="px-12 py-4 flex-grow">
+                    <div className="mb-4 text-center">
+                      <div className="font-bold text-xl underline decoration-1 underline-offset-4">ANNEXURE - SALARY REVISION DETAILS</div>
+                    </div>
+
+                    <div className="mb-4">
+                      <p className="text-[14px] leading-6 mb-4">
+                        Name: <span className="font-semibold">{letterData.employeeName}</span><br/>
+                        Employee ID: <span className="font-semibold">{letterData.employeeId}</span>
+                      </p>
+                      <p className="text-[14px] leading-6 mb-4">
+                        Revised compensation details with effect from <span className="font-semibold">{letterData.effectiveDate}</span>:
+                      </p>
+                    </div>
+
+                    <div className="mb-4">
+                      <table className="w-full border-collapse border border-gray-300 text-sm">
+                        <thead>
+                          <tr className="bg-[#1e2b58] text-white">
+                            <th className="border border-gray-300 px-4 py-2 text-left w-1/3">Salary Component</th>
+                            <th className="border border-gray-300 px-4 py-2 text-right w-1/3">Current (Monthly)</th>
+                            <th className="border border-gray-300 px-4 py-2 text-right w-1/3">Revised (Monthly)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {[
+                            { label: 'Basic Salary', key: 'basic' },
+                            { label: 'HRA', key: 'hra' },
+                            { label: 'Special Allowance', key: 'special' },
+                            { label: 'Gross Salary', key: 'gross', isBold: true },
+                            { label: 'Employee PF', key: 'empPF' },
+                            { label: 'Employer PF', key: 'employerPF' },
+                            { label: 'Net Salary', key: 'net', isBold: true },
+                            { label: 'Gratuity', key: 'gratuity' },
+                            { label: 'CTC', key: 'ctc', isBold: true, isTotal: true }
+                          ].map((row, index) => (
+                            <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
+                              <td className={`border border-gray-300 px-4 py-2 ${row.isBold ? 'font-bold' : ''}`}>{row.label}</td>
+                              <td className={`border border-gray-300 px-4 py-2 text-right ${row.isBold ? 'font-bold' : ''}`}>
+                                {letterData.salary.old[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                              </td>
+                              <td className={`border border-gray-300 px-4 py-2 text-right ${row.isBold ? 'font-bold' : ''}`}>
+                                {letterData.salary.new[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="mt-4 text-[13px] text-gray-800 leading-relaxed">
+                      <div className="mb-4">
+                        <p className="font-bold underline mb-1">Notes:</p>
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li>CTC includes employer contributions wherever applicable.</li>
+                          <li>All statutory deductions will be as per prevailing laws.</li>
+                          <li>Any variable components are subject to performance and company policy.</li>
+                        </ul>
+                      </div>
+
+                      <div className="mt-6">
+                        <p className="mb-4">
+                          This is a system-generated annexure and does not require a physical signature.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="w-full h-24 relative mt-auto overflow-hidden">
+                    <div className="absolute inset-0 z-0">
+                      <svg width="100%" height="100%" viewBox="0 0 794 96" preserveAspectRatio="none">
+                        <rect x="0" y="84" width="350" height="12" fill="#f37021" />
+                        <path d="M350,0 L794,0 L794,96 L290,96 Z" fill="#1e2b58" />
+                      </svg>
+                    </div>
+
+                    <div className="relative z-10 w-full h-full flex items-center justify-end pr-10 pt-4">
+                      <div className="text-white text-right">
+                        <div className="text-sm font-medium tracking-wide">Website : www.caldimengg.com</div>
+                        <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

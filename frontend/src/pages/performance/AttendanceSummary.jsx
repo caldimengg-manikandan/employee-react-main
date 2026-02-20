@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Calendar, Filter, RefreshCw, Users, MapPin } from 'lucide-react';
-import { employeeAPI, leaveAPI } from '../../services/api';
+import { BarChart3, Calendar, RefreshCw, Users, MapPin } from 'lucide-react';
+import { employeeAPI, attendanceAPI } from '../../services/api';
 
 const FINANCIAL_YEARS = ['2023-24', '2024-25', '2025-26'];
 
@@ -43,7 +43,7 @@ const AttendanceSummary = () => {
   });
 
   const [employees, setEmployees] = useState([]);
-  const [leaves, setLeaves] = useState([]);
+  const [attendanceSummary, setAttendanceSummary] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [filters, setFilters] = useState({
@@ -53,24 +53,38 @@ const AttendanceSummary = () => {
   });
 
   const [refreshToken, setRefreshToken] = useState(0);
-  const [showFilters, setShowFilters] = useState(false);
   const [rowOverrides, setRowOverrides] = useState({});
+  const [savingMap, setSavingMap] = useState({});
+  const [editMap, setEditMap] = useState({});
 
   useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
-        const [empRes, leaveRes] = await Promise.all([
+        const { start, end } = getFinancialYearRange(financialYear);
+        const startDate = start.toISOString().slice(0, 10);
+        const endDate = end.toISOString().slice(0, 10);
+
+        const summaryParams =
+          financialYear === '2025-26'
+            ? { financialYear }
+            : { startDate, endDate, financialYear };
+
+        const [empRes, summaryRes] = await Promise.all([
           employeeAPI.getAllEmployees(),
-          leaveAPI.list(),
+          attendanceAPI.getSummary(summaryParams),
         ]);
+
         const empData = Array.isArray(empRes.data) ? empRes.data : [];
-        const leaveData = Array.isArray(leaveRes.data) ? leaveRes.data : [];
+        const summaryData = Array.isArray(summaryRes.data?.summary)
+          ? summaryRes.data.summary
+          : [];
+
         setEmployees(empData);
-        setLeaves(leaveData);
+        setAttendanceSummary(summaryData);
       } catch (error) {
         setEmployees([]);
-        setLeaves([]);
+        setAttendanceSummary([]);
       } finally {
         setLoading(false);
       }
@@ -89,14 +103,11 @@ const AttendanceSummary = () => {
 
   const locationOptions = useMemo(() => {
     const set = new Set();
-    leaves.forEach((l) => {
-      if (l.location || l.branch) set.add(l.location || l.branch);
-    });
     employees.forEach((e) => {
-      if (e.location) set.add(e.location);
+      if (e.location || e.branch) set.add(e.location || e.branch);
     });
     return Array.from(set).sort();
-  }, [employees, leaves]);
+  }, [employees]);
 
   const { workingDaysYear, officeHolidaysYear, rows } = useMemo(() => {
     const range = getFinancialYearRange(financialYear);
@@ -104,65 +115,86 @@ const AttendanceSummary = () => {
     const totalDaysYear = getTotalDaysBetween(range.start, range.end);
     const officeHolidays = Math.max(0, totalDaysYear - workingYear);
 
-    const leaveMap = {};
-    leaves.forEach((l) => {
-      if (!l.employeeId || l.status !== 'Approved') return;
-      const empId = String(l.employeeId);
-      if (!leaveMap[empId]) {
-        leaveMap[empId] = { yearly: 0 };
+    const attendanceMap = {};
+    attendanceSummary.forEach((item) => {
+      const rawId = item.employeeId || item.employeeCode || '';
+      const key = String(rawId || '').toLowerCase();
+      if (!key) return;
+      const present =
+        financialYear === '2025-26'
+          ? Number(item.yearlyPresent || 0)
+          : Number(item.inCount || 0);
+      if (!attendanceMap[key]) {
+        attendanceMap[key] = { yearlyPresent: 0, hasManual: false };
       }
-
-      const startISO = l.startDate || l.startDateRaw;
-      if (!startISO) return;
-      const startDate = new Date(startISO);
-      const leaveDays = l.totalDays || l.days || l.totalLeaveDays || 0;
-
-      if (startDate >= range.start && startDate <= range.end) {
-        leaveMap[empId].yearly += leaveDays;
+      attendanceMap[key].yearlyPresent += present;
+      if (financialYear === '2025-26') {
+        attendanceMap[key].hasManual = true;
       }
     });
 
-    const computedRows = employees.map((emp) => {
-      const empId = emp.employeeId || emp.empId || emp.id || '';
-      if (!empId) {
-        return null;
-      }
-      const key = String(empId);
-      const leaveInfo = leaveMap[key] || { yearly: 0 };
+    const computedRows = employees
+      .map((emp) => {
+        const rawEmpId = emp.employeeId || emp.empId || emp.id || '';
+        const empId = rawEmpId ? String(rawEmpId) : '';
+        if (!empId) {
+          return null;
+        }
+        const key = empId.toLowerCase();
+        const attInfo = attendanceMap[key] || { yearlyPresent: 0, hasManual: false };
 
-      const yearlyLeaveDays = leaveInfo.yearly;
+        const basePresent = Math.max(0, Math.min(workingYear, attInfo.yearlyPresent));
+        let baseAbsent;
+        if (financialYear === '2025-26') {
+          baseAbsent = 0;
+        } else {
+          baseAbsent = Math.max(0, workingYear - basePresent);
+        }
 
-      const yearlyPresent = Math.max(0, workingYear - yearlyLeaveDays);
-      const yearlyAbsent = yearlyLeaveDays;
+        const yearlyPct =
+          workingYear > 0 ? Math.max(0, Math.min(100, (basePresent / workingYear) * 100)) : 0;
 
-      const yearlyPct =
-        workingYear > 0 ? Math.max(0, Math.min(100, (yearlyPresent / workingYear) * 100)) : 0;
-
-      return {
-        empId: key,
-        name: emp.name || emp.employeeName || '',
-        division: emp.division || '',
-        location: emp.location || emp.branch || '',
-        yearlyPresent,
-        yearlyAbsent,
-        yearlyPct,
-      };
-    }).filter(Boolean);
+        return {
+          empId,
+          name: emp.name || emp.employeeName || '',
+          division: emp.division || '',
+          location: emp.location || emp.branch || '',
+          yearlyPresent: basePresent,
+          yearlyAbsent: baseAbsent,
+          yearlyPct,
+          hasManualRecord: !!attInfo.hasManual,
+        };
+      })
+      .filter(Boolean);
 
     return {
       workingDaysYear: workingYear,
       officeHolidaysYear: officeHolidays,
       rows: computedRows,
     };
-  }, [employees, leaves, financialYear]);
+  }, [employees, attendanceSummary, financialYear]);
 
   const filteredRows = useMemo(() => {
     const adjustedRows = rows.map((row) => {
       const override = rowOverrides[row.empId];
-      if (!override) return row;
 
-      const present = override.yearlyPresent ?? row.yearlyPresent;
-      const absent = override.yearlyAbsent ?? row.yearlyAbsent;
+      let present = row.yearlyPresent;
+      if (override && typeof override.yearlyPresent === 'number') {
+        present = override.yearlyPresent;
+      }
+
+      let absent = row.yearlyAbsent;
+
+      if (financialYear === '2025-26') {
+        if (override && typeof override.yearlyPresent === 'number') {
+          absent = Math.max(0, workingDaysYear - present);
+        } else if (row.hasManualRecord) {
+          absent = Math.max(0, workingDaysYear - present);
+        } else {
+          absent = 0;
+        }
+      }
+
       const pct =
         workingDaysYear > 0
           ? Math.max(0, Math.min(100, (present / workingDaysYear) * 100))
@@ -198,9 +230,12 @@ const AttendanceSummary = () => {
         if (idA > idB) return 1;
         return 0;
       });
-  }, [rows, filters, rowOverrides, workingDaysYear]);
+  }, [rows, filters, rowOverrides, workingDaysYear, financialYear]);
 
   const handleDaysChange = (empId, field, value) => {
+    if (financialYear !== '2025-26') {
+      return;
+    }
     const numeric = Number(value);
     const safeValue = Number.isFinite(numeric) && numeric >= 0 ? numeric : 0;
 
@@ -220,23 +255,76 @@ const AttendanceSummary = () => {
     setRefreshToken((x) => x + 1);
   };
 
+  const handleEditRow = (empId) => {
+    if (financialYear !== '2025-26') return;
+    setEditMap((prev) => ({ ...prev, [empId]: true }));
+  };
+
+  const handleCancelEdit = (empId) => {
+    setEditMap((prev) => ({ ...prev, [empId]: false }));
+    setRowOverrides((prev) => {
+      const next = { ...prev };
+      delete next[empId];
+      return next;
+    });
+  };
+
+  const handleSaveRow = async (row) => {
+    if (financialYear !== '2025-26') return;
+    const empId = row.empId;
+    if (!empId) return;
+
+    setSavingMap((prev) => ({ ...prev, [empId]: true }));
+    try {
+      await attendanceAPI.saveYearSummary(empId, {
+        financialYear,
+        yearlyPresent: row.yearlyPresent,
+        yearlyAbsent: row.yearlyAbsent,
+      });
+    } catch (error) {
+      console.error('Failed to save year summary', error);
+      window.alert('Failed to save year summary');
+    } finally {
+      setSavingMap((prev) => ({ ...prev, [empId]: false }));
+      setEditMap((prev) => ({ ...prev, [empId]: false }));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
       <div className="w-full mx-auto">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center space-x-3">
-            
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
+          <div className="flex items-end gap-4">
+            <div className="flex-1 min-w-[240px]">
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Employee Name / ID
+              </label>
+              <div className="relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Users className="h-4 w-4 text-gray-400" />
+                </div>
+                <input
+                  type="text"
+                  value={filters.search}
+                  onChange={(e) =>
+                    setFilters((prev) => ({ ...prev, search: e.target.value }))
+                  }
+                  className="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#262760] focus:border-[#262760] text-sm"
+                  placeholder="Search by name or ID"
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-end gap-4 justify-end w-full md:w-auto">
             <div className="flex items-center">
               <Calendar className="h-5 w-5 text-gray-500 mr-2" />
-              <div className="flex items-center space-x-2">
-                <span className="text-sm font-medium text-gray-700">Financial Year</span>
+              <div className="flex flex-col">
+                <span className="text-xs font-medium text-gray-600">Financial Year</span>
                 <select
                   value={financialYear}
                   onChange={(e) => setFinancialYear(e.target.value)}
-                  className="rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm font-medium text-[#262760] py-1 pl-3 pr-8 cursor-pointer bg-white"
+                  className="mt-1 rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm font-medium text-[#262760] py-1 pl-3 pr-8 cursor-pointer bg-white"
                 >
                   {FINANCIAL_YEARS.map((fy) => (
                     <option key={fy} value={fy}>
@@ -246,13 +334,47 @@ const AttendanceSummary = () => {
                 </select>
               </div>
             </div>
-            <button
-              onClick={() => setShowFilters((prev) => !prev)}
-              className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-            >
-              <Filter className="h-4 w-4 mr-2 text-gray-500" />
-              {showFilters ? 'Hide Filters' : 'Show Filters'}
-            </button>
+            <div className="w-full md:w-44">
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Division
+              </label>
+              <select
+                value={filters.division}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, division: e.target.value }))
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
+              >
+                <option value="all">All Divisions</option>
+                {divisionOptions.map((division) => (
+                  <option key={division} value={division}>
+                    {division}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-full md:w-44">
+              <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center">
+                <MapPin className="h-3 w-3 mr-1 text-gray-500" />
+                Location
+              </label>
+              <select
+                value={filters.location}
+                onChange={(e) =>
+                  setFilters((prev) => ({ ...prev, location: e.target.value }))
+                }
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
+              >
+                <option value="all">All Locations</option>
+                {locationOptions.map((loc) => (
+                  <option key={loc} value={loc}>
+                    {loc}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <button
               onClick={handleRefresh}
               className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
@@ -264,101 +386,34 @@ const AttendanceSummary = () => {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-semibold text-gray-500 uppercase mb-1">
+          <div className="rounded-xl shadow-sm border border-indigo-100 bg-indigo-50 p-4 text-indigo-900">
+            <div className="text-[11px] font-semibold uppercase mb-1">
               Financial Year Working Days
             </div>
-            <div className="text-lg font-bold text-gray-900">{workingDaysYear}</div>
-            <div className="text-sm text-gray-600 mt-1">
+            <div className="text-2xl font-bold">{workingDaysYear}</div>
+            <div className="text-sm mt-1 text-indigo-800/80">
               Monday to Friday between FY start and end.
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-semibold text-gray-500 uppercase mb-1">
+          <div className="rounded-xl shadow-sm border border-amber-100 bg-amber-50 p-4 text-amber-900">
+            <div className="text-[11px] font-semibold uppercase mb-1">
               Office Holidays (Year)
             </div>
-            <div className="text-lg font-bold text-gray-900">{officeHolidaysYear}</div>
-            <div className="text-sm text-gray-600 mt-1">
+            <div className="text-2xl font-bold">{officeHolidaysYear}</div>
+            <div className="text-sm mt-1 text-amber-800/80">
               Weekends and other non-working days.
             </div>
           </div>
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-            <div className="text-xs font-semibold text-gray-500 uppercase mb-1">Employees</div>
-            <div className="text-lg font-bold text-gray-900">{filteredRows.length}</div>
-            <div className="text-sm text-gray-600 mt-1">
+          <div className="rounded-xl shadow-sm border border-emerald-100 bg-emerald-50 p-4 text-emerald-900">
+            <div className="text-[11px] font-semibold uppercase mb-1">
+              Employees
+            </div>
+            <div className="text-2xl font-bold">{filteredRows.length}</div>
+            <div className="text-sm mt-1 text-emerald-800/80">
               Matching current filters.
             </div>
           </div>
         </div>
-
-        {showFilters && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-            <div className="flex flex-wrap items-end gap-4">
-              <div className="flex items-center text-gray-700 font-medium mb-1 w-full">
-                <Filter className="h-4 w-4 mr-2 text-gray-500" />
-                Filters
-              </div>
-              <div className="flex-1 min-w-[220px]">
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Employee Name / ID
-                </label>
-                <div className="relative rounded-md shadow-sm">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Users className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, search: e.target.value }))
-                    }
-                    className="block w-full pl-9 pr-3 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-[#262760] focus:border-[#262760] text-sm"
-                    placeholder="Search by name or ID"
-                  />
-                </div>
-              </div>
-              <div className="w-full md:w-56">
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Division
-                </label>
-                <select
-                  value={filters.division}
-                  onChange={(e) =>
-                    setFilters((prev) => ({ ...prev, division: e.target.value }))
-                  }
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
-                >
-                  <option value="all">All Divisions</option>
-                  {divisionOptions.map((division) => (
-                    <option key={division} value={division}>
-                      {division}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="w-full md:w-56">
-                <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center">
-                  <MapPin className="h-3 w-3 mr-1 text-gray-500" />
-                  Location
-                </label>
-                <select
-                  value={filters.location}
-                  onChange={(e) =>
-                    setFilters((prev) => ({ ...prev, location: e.target.value }))
-                  }
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
-                >
-                  <option value="all">All Locations</option>
-                  {locationOptions.map((loc) => (
-                    <option key={loc} value={loc}>
-                      {loc}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-        )}
 
         <div className="bg-white shadow border-b border-gray-200 sm:rounded-lg overflow-auto max-h-[75vh]">
           {loading ? (
@@ -388,13 +443,16 @@ const AttendanceSummary = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredRows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-6 py-8 text-center text-sm text-gray-500"
                     >
                       No records found for current filters.
@@ -432,19 +490,16 @@ const AttendanceSummary = () => {
                             onChange={(e) =>
                               handleDaysChange(row.empId, 'yearlyPresent', e.target.value)
                             }
-                            className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-right"
+                            disabled={financialYear !== '2025-26' || !editMap[row.empId]}
+                            className={`w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-right ${
+                              financialYear !== '2025-26' || !editMap[row.empId]
+                                ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
+                                : ''
+                            }`}
                           />
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
-                          <input
-                            type="number"
-                            min="0"
-                            value={row.yearlyAbsent}
-                            onChange={(e) =>
-                              handleDaysChange(row.empId, 'yearlyAbsent', e.target.value)
-                            }
-                            className="w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-right"
-                          />
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {row.yearlyAbsent}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                           {row.yearlyPct.toFixed(1)}%
@@ -455,6 +510,37 @@ const AttendanceSummary = () => {
                           >
                             {yearlyStatus.label}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {financialYear === '2025-26' ? (
+                            editMap[row.empId] ? (
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  onClick={() => handleSaveRow(row)}
+                                  disabled={!!savingMap[row.empId]}
+                                  className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium text-white bg-[#262760] hover:bg-[#1e2050] disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                  {savingMap[row.empId] ? 'Saving...' : 'Save'}
+                                </button>
+                                <button
+                                  onClick={() => handleCancelEdit(row.empId)}
+                                  disabled={!!savingMap[row.empId]}
+                                  className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                                >
+                                  Cancel
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handleEditRow(row.empId)}
+                                className="inline-flex items-center px-3 py-1.5 rounded-md text-xs font-medium text-[#262760] border border-[#262760] hover:bg-[#262760] hover:text-white"
+                              >
+                                Edit
+                              </button>
+                            )
+                          ) : (
+                            <span className="text-xs text-gray-400">Auto</span>
+                          )}
                         </td>
                       </tr>
                     );

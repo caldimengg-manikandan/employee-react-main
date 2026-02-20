@@ -168,7 +168,10 @@ export const attendanceAPI = {
   // Local attendance records
   getAll: (params) => api.get('/attendance', { params }),
   create: (data) => api.post('/attendance', data),
-  getSummary: () => api.get('/attendance/summary'),
+  getSummary: (params) => api.get('/attendance/summary', params ? { params } : undefined),
+  getYearSummary: (employeeId, params) =>
+    api.get(`/attendance/year-summary/${encodeURIComponent(employeeId)}`, { params }),
+  saveYearSummary: (employeeId, data) => api.put(`/attendance/year-summary/${encodeURIComponent(employeeId)}`, data),
   regularize: (data) => api.post('/attendance/regularize', data),
 
   // Hikvision integration

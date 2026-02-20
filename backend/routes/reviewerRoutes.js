@@ -13,23 +13,29 @@ router.get('/', auth, async (req, res) => {
   try {
     // Check permissions if needed (e.g. req.user.role === 'Admin' or 'Reviewer')
     
-    // Strict Visibility Rule: Only assigned Reviewer can view
-    // Strict Sequential Flow: Show appraisals in 'APPRAISER_COMPLETED' (Pending) and 'REVIEWER_COMPLETED' (Submitted)
-    const query = {
-      $and: [
-        { 
-          status: { 
-            $in: ['APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED'] 
-          } 
-        },
-        {
-          $or: [
-            { reviewerId: req.user.employeeId },
-            { reviewer: req.user.name }
-          ]
-        }
-      ]
+    const statusFilter = { 
+      $in: ['APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED', 'Reviewed'] 
     };
+
+    const role = (req.user.role || '').toLowerCase();
+    const isReviewerRole = ['reviewer', 'manager', 'lead'].includes(role);
+
+    let query = { status: statusFilter };
+
+    if (isReviewerRole) {
+      // Strict Visibility Rule for Reviewer-type roles: only assigned Reviewer can view
+      query = {
+        $and: [
+          { status: statusFilter },
+          {
+            $or: [
+              { reviewerId: req.user.employeeId },
+              { reviewer: req.user.name }
+            ]
+          }
+        ]
+      };
+    }
 
     // Populate employee details
     const appraisals = await SelfAppraisal.find(query)

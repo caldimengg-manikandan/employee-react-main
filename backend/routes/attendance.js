@@ -1,6 +1,7 @@
 const express = require("express");
 const Attendance = require("../models/Attendance");
 const Employee = require("../models/Employee");
+const AttendanceYearSummary = require("../models/AttendanceYearSummary");
 const auth = require("../middleware/auth");
 
 const router = express.Router();
@@ -167,7 +168,7 @@ router.post("/save-hikvision-attendance", async (req, res) => {
  */
 router.get("/summary", async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, financialYear } = req.query;
     
     const matchStage = {};
     if (startDate || endDate) {
@@ -176,35 +177,43 @@ router.get("/summary", async (req, res) => {
       if (endDate) matchStage.punchTime.$lte = new Date(endDate + "T23:59:59.999Z");
     }
     
-    const summary = await Attendance.aggregate([
-      { $match: matchStage },
-      {
-        $group: {
-          _id: {
-            employeeId: "$employeeId",
-            direction: "$direction"
-          },
-          count: { $sum: 1 },
-          lastPunch: { $max: "$punchTime" }
-        }
-      },
-      {
-        $group: {
-          _id: "$_id.employeeId",
-          totalPunches: { $sum: "$count" },
-          inCount: {
-            $sum: { $cond: [{ $eq: ["$_id.direction", "in"] }, "$count", 0] }
-          },
-          outCount: {
-            $sum: { $cond: [{ $eq: ["$_id.direction", "out"] }, "$count", 0] }
-          },
-          lastPunch: { $max: "$lastPunch" }
-        }
-      },
-      { $sort: { lastPunch: -1 } }
-    ]);
+    let summary = [];
+
+    if (financialYear === "2025-26") {
+      // For FY 2025-26, use manual year summary only
+      summary = await AttendanceYearSummary.find({ financialYear }).lean();
+    } else {
+      // Default aggregated summary from raw attendance
+      summary = await Attendance.aggregate([
+        { $match: matchStage },
+        {
+          $group: {
+            _id: {
+              employeeId: "$employeeId",
+              direction: "$direction"
+            },
+            count: { $sum: 1 },
+            lastPunch: { $max: "$punchTime" }
+          }
+        },
+        {
+          $group: {
+            _id: "$_id.employeeId",
+            totalPunches: { $sum: "$count" },
+            inCount: {
+              $sum: { $cond: [{ $eq: ["$_id.direction", "in"] }, "$count", 0] }
+            },
+            outCount: {
+              $sum: { $cond: [{ $eq: ["$_id.direction", "out"] }, "$count", 0] }
+            },
+            lastPunch: { $max: "$lastPunch" }
+          }
+        },
+        { $sort: { lastPunch: -1 } }
+      ]);
+    }
     
-    const employeeIds = summary.map(item => item._id);
+    const employeeIds = summary.map(item => item._id || item.employeeId);
     const employees = await Employee.find({ 
       employeeId: { $in: employeeIds } 
     }).select('employeeId name');
@@ -214,19 +223,33 @@ router.get("/summary", async (req, res) => {
       return map;
     }, {});
     
-    const enrichedSummary = summary.map(item => ({
-      employeeId: item._id,
-      employeeName: employeeMap[item._id] || "Unknown Employee",
-      totalPunches: item.totalPunches,
-      inCount: item.inCount,
-      outCount: item.outCount,
-      lastPunch: item.lastPunch
-    }));
+    const enrichedSummary = summary.map(item => {
+      const employeeId = item._id || item.employeeId;
+
+      if (financialYear === "2025-26") {
+        return {
+          employeeId,
+          employeeName: employeeMap[employeeId] || "Unknown Employee",
+          yearlyPresent: item.yearlyPresent || 0,
+          yearlyAbsent: item.yearlyAbsent || 0,
+        };
+      }
+
+      return {
+        employeeId,
+        employeeName: employeeMap[employeeId] || "Unknown Employee",
+        totalPunches: item.totalPunches,
+        inCount: item.inCount,
+        outCount: item.outCount,
+        lastPunch: item.lastPunch
+      };
+    });
     
     res.json({
       success: true,
       summary: enrichedSummary,
-      totalEmployees: enrichedSummary.length
+      totalEmployees: enrichedSummary.length,
+      source: financialYear === "2025-26" ? "manual" : "aggregated"
     });
     
   } catch (error) {
@@ -235,6 +258,84 @@ router.get("/summary", async (req, res) => {
       success: false, 
       message: "Failed to generate attendance summary",
       error: error.message 
+    });
+  }
+});
+
+/**
+ * ✏️ SAVE / UPDATE YEAR SUMMARY (Manual)
+ */
+router.put("/year-summary/:employeeId", async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const { financialYear, yearlyPresent, yearlyAbsent, updatedBy } = req.body;
+
+    if (!financialYear) {
+      return res.status(400).json({
+        success: false,
+        message: "financialYear is required",
+      });
+    }
+
+    const payload = {
+      employeeId,
+      financialYear,
+      yearlyPresent: Number(yearlyPresent) || 0,
+      yearlyAbsent: Number(yearlyAbsent) || 0,
+      updatedBy: updatedBy || "",
+    };
+
+    const doc = await AttendanceYearSummary.findOneAndUpdate(
+      { employeeId, financialYear },
+      payload,
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({
+      success: true,
+      message: "Year summary saved successfully",
+      data: doc,
+    });
+  } catch (error) {
+    console.error("Save Attendance Year Summary Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to save year summary",
+      error: error.message,
+    });
+  }
+});
+
+/**
+ * 📄 GET YEAR SUMMARY FOR EMPLOYEE
+ */
+router.get("/year-summary/:employeeId", async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const { financialYear } = req.query;
+
+    if (!financialYear) {
+      return res.status(400).json({
+        success: false,
+        message: "financialYear is required",
+      });
+    }
+
+    const doc = await AttendanceYearSummary.findOne({
+      employeeId,
+      financialYear,
+    }).lean();
+
+    res.json({
+      success: true,
+      data: doc || null,
+    });
+  } catch (error) {
+    console.error("Get Attendance Year Summary Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to get year summary",
+      error: error.message,
     });
   }
 });

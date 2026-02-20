@@ -440,6 +440,7 @@ const TeamAppraisal = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee Name</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Self Appraisee Comments</th>
+                  <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Manager Comments</th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -450,7 +451,12 @@ const TeamAppraisal = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.financialYr}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{emp.empId}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.name}</td>
-                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">{emp.selfAppraiseeComments}</td>
+                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                      {emp.selfAppraiseeComments || '-'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                      {emp.managerComments || '-'}
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                       <div className="flex justify-center items-center space-x-2">
                         <button 

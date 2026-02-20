@@ -11,19 +11,30 @@ const { calculateIncrement } = require('../utils/incrementUtils');
 // @access  Private (Manager)
 router.get('/', auth, async (req, res) => {
   try {
-    // Strict Visibility Rule: Only assigned Appraiser can view
-    // Strict Sequential Flow: Only show appraisals in 'SUBMITTED' stage
-    const query = {
-      $and: [
-        { status: { $in: ['Submitted', 'SUBMITTED', 'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'Released'] } },
-        {
-          $or: [
-            { appraiserId: req.user.employeeId },
-            { appraiser: req.user.name }
-          ]
-        }
-      ]
+    // Strict Visibility Rule: Only assigned Appraiser can view (for manager roles)
+    // Sequential Flow: Include all post-submission stages including final Reviewed state
+    const statusFilter = { 
+      $in: ['Submitted', 'SUBMITTED', 'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'Released', 'Reviewed'] 
     };
+
+    const role = (req.user.role || '').toLowerCase();
+    const isManagerRole = ['manager', 'lead', 'appraiser'].includes(role);
+
+    let query = { status: statusFilter };
+
+    if (isManagerRole) {
+      query = {
+        $and: [
+          { status: statusFilter },
+          {
+            $or: [
+              { appraiserId: req.user.employeeId },
+              { appraiser: req.user.name }
+            ]
+          }
+        ]
+      };
+    }
 
     // Populate employee details
     // Note: employeeId in SelfAppraisal is a ref to Employee model

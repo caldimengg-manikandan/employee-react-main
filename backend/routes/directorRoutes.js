@@ -12,18 +12,24 @@ router.get('/', auth, async (req, res) => {
     // In a real app, you might check req.user.role === 'Director'
     
     // Strict Visibility Rule: Only assigned Director can view
-    // Strict Sequential Flow: Only show appraisals in 'REVIEWER_COMPLETED' stage
-    const query = {
-      $and: [
-        { status: 'REVIEWER_COMPLETED' },
-        {
-          $or: [
-            { directorId: req.user.employeeId },
-            { director: req.user.name }
-          ]
-        }
-      ]
-    };
+    // Sequential Flow: Include all post-review stages including final Reviewed state
+    const statusFilter = { $in: ['REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED', 'Reviewed'] };
+
+    let query = { status: statusFilter };
+
+    if (req.user.role && req.user.role.toLowerCase() === 'director') {
+      query = {
+        $and: [
+          { status: statusFilter },
+          {
+            $or: [
+              { directorId: req.user.employeeId },
+              { director: req.user.name }
+            ]
+          }
+        ]
+      };
+    }
 
     // Populate employee details
     const appraisals = await SelfAppraisal.find(query)

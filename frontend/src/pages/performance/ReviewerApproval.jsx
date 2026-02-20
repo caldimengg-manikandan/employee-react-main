@@ -45,6 +45,15 @@ const ReviewerApproval = () => {
     fetchReviewerAppraisals();
   }, []);
 
+  useEffect(() => {
+    if (employees.length > 0) {
+      const years = Array.from(new Set(employees.map(e => e.financialYr).filter(Boolean)));
+      if (years.length > 0 && !years.includes(selectedFinancialYr)) {
+        setSelectedFinancialYr(years[0]);
+      }
+    }
+  }, [employees]);
+
   const fetchReviewerAppraisals = async () => {
     setLoading(true);
     try {

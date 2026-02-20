@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import WorkflowTracker from '../../components/Performance/WorkflowTracker';
 import { getWorkflowForUser, APPRAISAL_STAGES } from '../../utils/performanceUtils';
-import { performanceAPI, employeeAPI, leaveAPI, payrollAPI } from '../../services/api';
+import { performanceAPI, employeeAPI, leaveAPI, payrollAPI, attendanceAPI } from '../../services/api';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { 
@@ -248,14 +248,38 @@ const SelfAppraisal = () => {
   const [viewMode, setViewMode] = useState('list');
   const [isReadOnly, setIsReadOnly] = useState(false);
   
-  // Get user info from session storage
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
-  const employeeInfo = {
-    name: user.name || 'Employee',
-    designation: user.designation || user.role || 'Designation',
-    department: user.department || 'Department',
+  const [employeeInfo, setEmployeeInfo] = useState({
+    name: user.name || user.employeeName || 'Employee',
+    employeeId: user.employeeId || user.empId || user.id || '',
+    designation: user.designation || user.role || user.position || '',
+    department: user.department || '',
+    division: user.division || '',
+    location: user.location || user.branch || '',
     ...user
-  };
+  });
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await employeeAPI.getMyProfile();
+        const data = res.data || {};
+        setEmployeeInfo(prev => ({
+          ...prev,
+          ...data,
+          name: data.name || data.employeeName || prev.name,
+          employeeId: data.employeeId || data.empId || prev.employeeId,
+          designation: data.designation || data.role || data.position || prev.designation,
+          department: data.department || prev.department,
+          division: data.division || prev.division,
+          location: data.location || data.branch || prev.location
+        }));
+      } catch (err) {
+        console.error('Failed to fetch employee profile for self appraisal', err);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   const employeeDisplayName = employeeInfo.name || employeeInfo.employeeName || '';
   const employeeInitials = employeeDisplayName
@@ -469,6 +493,7 @@ const SelfAppraisal = () => {
   // Letter State
   const [showReleaseLetter, setShowReleaseLetter] = useState(false);
   const [letterData, setLetterData] = useState(null);
+  const [autoDownload, setAutoDownload] = useState(false);
   const [newAppraisalYear, setNewAppraisalYear] = useState(getCurrentFinancialYearLabel());
   const [newAppraisalDivision, setNewAppraisalDivision] = useState(employeeInfo.division || '');
   const [newAppraisalAttendance, setNewAppraisalAttendance] = useState({
@@ -542,20 +567,27 @@ const SelfAppraisal = () => {
         const range = getFinancialYearRange(fy);
         const workingDays = getWorkingDaysBetween(range.start, range.end);
 
-        const res = await performanceAPI.getMySelfAppraisals();
-        const items = Array.isArray(res.data) ? res.data : [];
-
         let present = 0;
         let absent = 0;
         let pct = 0;
 
-        const match = items.find((a) => a.year === fy);
-        if (match && typeof match.attendancePresent === 'number') {
-          present = match.attendancePresent;
-          absent = match.attendanceAbsent || 0;
-          if (workingDays > 0) {
-            pct = Math.max(0, Math.min(100, (present / workingDays) * 100));
+        try {
+          const yearRes = await attendanceAPI.getYearSummary(employeeId, {
+            financialYear: fy,
+          });
+          const doc = yearRes.data && yearRes.data.data;
+          if (doc) {
+            present = Number(doc.yearlyPresent || 0);
+            absent = Number(doc.yearlyAbsent || 0);
           }
+        } catch (e) {
+        }
+
+        if (workingDays > 0) {
+          if (present > 0 && absent === 0) {
+            absent = Math.max(0, workingDays - present);
+          }
+          pct = Math.max(0, Math.min(100, (present / workingDays) * 100));
         }
 
         setNewAppraisalAttendance({
@@ -664,11 +696,6 @@ const SelfAppraisal = () => {
       }
 
       const financialYear = appraisal.year || getCurrentFinancialYearLabel();
-      const effectiveDate = deriveEffectiveDateForAppraisal(
-        financialYear,
-        appraisal.updatedAt,
-        appraisal.effectiveDate
-      );
 
       const today = new Date();
       const letterDate = formatDisplayDate(today);
@@ -789,7 +816,7 @@ const SelfAppraisal = () => {
         designation: employeeDetails.designation || employeeDetails.role || employeeInfo.designation,
         location: employeeDetails.location || employeeDetails.branch || employeeInfo.location || 'Chennai',
         financialYear: financialYear,
-        effectiveDate: effectiveDate,
+        effectiveDate: '1st April 2026',
         incrementPercentage: totalPct,
         incrementAmount,
         salary: {
@@ -807,24 +834,6 @@ const SelfAppraisal = () => {
 
   const downloadReleaseLetter = async () => {
     try {
-      const currentAppraisal = appraisals.find(
-        (a) =>
-          (a.employeeId || a.empId) &&
-          String(a.employeeId || a.empId) === String(letterData.employeeId)
-      );
-
-      if (
-        !currentAppraisal ||
-        !['DIRECTOR_APPROVED', 'Released', 'Reviewed'].includes(currentAppraisal.status || '')
-      ) {
-        setStatusPopup({
-          isOpen: true,
-          status: 'error',
-          message: "PDF export is available only after Director approval."
-        });
-        return;
-      }
-
       const page1 = document.getElementById('release-letter-page-1');
       const page2 = document.getElementById('release-letter-page-2');
 
@@ -903,6 +912,24 @@ const SelfAppraisal = () => {
       setStatusPopup({ isOpen: true, status: 'error', message: "Failed to generate PDF." });
     }
   };
+
+  const handleDownloadPdf = async (appraisal) => {
+    await handleDownloadLetter(appraisal);
+    setAutoDownload(true);
+  };
+
+  useEffect(() => {
+    if (showReleaseLetter && letterData && autoDownload) {
+      (async () => {
+        try {
+          await downloadReleaseLetter();
+        } finally {
+          setAutoDownload(false);
+          setShowReleaseLetter(false);
+        }
+      })();
+    }
+  }, [showReleaseLetter, letterData, autoDownload]);
 
 
   // Project Modal Handlers
@@ -1190,7 +1217,7 @@ const SelfAppraisal = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                       {appraisal.status === 'Released' || appraisal.status === 'Reviewed' || appraisal.status === 'DIRECTOR_APPROVED' ? (
                         <button 
-                          onClick={() => handleDownloadLetter(appraisal)}
+                          onClick={() => handleDownloadPdf(appraisal)}
                           className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
                         >
                           <Download className="h-4 w-4 mr-1" />
@@ -1233,6 +1260,9 @@ const SelfAppraisal = () => {
                   </div>
                   <div className="text-[11px] text-indigo-100 mt-1">
                     ID: {employeeInfo.employeeId || employeeInfo.empId || 'N/A'}
+                  </div>
+                  <div className="text-[11px] text-indigo-100 mt-1">
+                    Designation: {employeeInfo.designation || employeeInfo.role || employeeInfo.position || 'N/A'}
                   </div>
                 </div>
               </div>
@@ -1594,17 +1624,9 @@ const SelfAppraisal = () => {
         {/* Release Letter Modal */}
         {showReleaseLetter && letterData && (
           <div className="fixed inset-0 bg-black/80 z-50 overflow-y-auto backdrop-blur-sm flex justify-center items-start py-8">
-            <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl relative mx-4">
-              <div className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-20 rounded-t-lg">
-                <h2 className="text-xl font-bold text-gray-800">Release Letter Preview</h2>
-                <div className="flex gap-3">
-                  <button
-                    onClick={downloadReleaseLetter}
-                    className="flex items-center gap-2 px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] transition-colors"
-                  >
-                    <Download className="w-4 h-4" />
-                    Download PDF
-                  </button>
+              <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl relative mx-4">
+                <div className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-20 rounded-t-lg">
+                  <h2 className="text-xl font-bold text-gray-800">Release Letter Preview</h2>
                   <button
                     onClick={() => setShowReleaseLetter(false)}
                     className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
@@ -1612,7 +1634,6 @@ const SelfAppraisal = () => {
                     <X className="w-6 h-6" />
                   </button>
                 </div>
-              </div>
               
               <div className="p-8 bg-gray-100 overflow-x-auto flex flex-col items-center gap-8">
                 
