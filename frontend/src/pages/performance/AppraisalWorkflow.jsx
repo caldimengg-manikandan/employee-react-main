@@ -53,33 +53,6 @@ const AppraisalWorkflow = () => {
             setDesignationOptions(designations);
             setLocationOptions(locations);
 
-            const allowedAppraiserNames = [
-                'Arunkumar.D',
-                'Harisankaran',
-                'Gopinath.D',
-                'Arunkumar.P',
-                'Uvaraj',
-                'Balasubiramaniyam'
-            ];
-
-            const normalizeName = (name) => (name || '').trim().toUpperCase();
-
-            const appraiserOptionsList = allowedAppraiserNames.map(targetName => {
-                const match = employees.find(emp => normalizeName(emp.name) === normalizeName(targetName));
-                if (match) {
-                    return {
-                        name: match.name,
-                        label: `${match.name.toUpperCase()} (${match.employeeId})`
-                    };
-                }
-                return {
-                    name: targetName,
-                    label: targetName.toUpperCase()
-                };
-            });
-
-            setAppraiserOptions(appraiserOptionsList);
-            
             const getFilteredOptions = (designations) => {
                 const filtered = employees
                     .filter(emp => {
@@ -95,6 +68,16 @@ const AppraisalWorkflow = () => {
                 return Array.from(new Set(filtered.map(item => item.name)))
                     .map(name => filtered.find(item => item.name === name));
             };
+
+            const appraiserDesignations = [
+                'GENERAL MANAGER (GM)',
+                'GENERAL MANAGER GM',
+                'MANAGING DIRECTOR (MD)',
+                'MANAGING DIRECTOR MD',
+                'SR PROJECT MANAGER'
+            ];
+
+            setAppraiserOptions(getFilteredOptions(appraiserDesignations));
 
             const reviewerDesignations = ['GENERAL MANAGER (GM)', 'GENERAL MANAGER GM'];
             setReviewerOptions(getFilteredOptions(reviewerDesignations));

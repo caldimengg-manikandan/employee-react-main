@@ -105,7 +105,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Employee Exit Form": ArrowRightOnRectangleIcon,
     "Exit Approval": DocumentMagnifyingGlassIcon,
     "Exit Management": UserCircleIcon,
-    "Performance Management": StarIcon
+    "Performance Management": StarIcon,
+    "Attendance Summary": ChartBarIcon
   };
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
@@ -213,6 +214,11 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         { 
           name: "Increment Summary", 
           path: "/performance/increment-summary",
+          showForRoles: ["admin", "hr", "manager"]
+        },
+        {
+          name: "Attendance Summary",
+          path: "/performance/attendance-summary",
           showForRoles: ["admin", "hr", "manager"]
         },
       ],

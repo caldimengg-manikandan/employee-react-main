@@ -60,7 +60,9 @@ router.get('/', auth, async (req, res) => {
         avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
         designation: emp.designation || 'N/A',
         department: emp.department || 'N/A',
+        division: app.division || '',
         status: app.status,
+        overallContribution: app.overallContribution || '',
         selfAppraiseeComments: app.overallContribution || '',
         managerComments: app.managerComments || '',
         keyPerformance: app.keyPerformance || '',
@@ -70,6 +72,30 @@ router.get('/', auth, async (req, res) => {
         attitude: app.attitude || '',
         communication: app.communication || '',
         incrementPercentage: finalIncrementPercentage,
+
+        behaviourBased: app.behaviourBased || {},
+        processAdherence: app.processAdherence || {},
+        technicalBased: app.technicalBased || {},
+        growthBased: app.growthBased || {},
+
+        behaviourCommunicationManager: app.behaviourCommunicationManager || 0,
+        behaviourTeamworkManager: app.behaviourTeamworkManager || 0,
+        behaviourLeadershipManager: app.behaviourLeadershipManager || 0,
+        behaviourAdaptabilityManager: app.behaviourAdaptabilityManager || 0,
+        behaviourInitiativesManager: app.behaviourInitiativesManager || 0,
+
+        processTimesheetManager: app.processTimesheetManager || 0,
+        processReportStatusManager: app.processReportStatusManager || 0,
+        processMeetingManager: app.processMeetingManager || 0,
+
+        technicalCodingManager: app.technicalCodingManager || 0,
+        technicalTestingManager: app.technicalTestingManager || 0,
+        technicalDebuggingManager: app.technicalDebuggingManager || 0,
+        technicalSdsManager: app.technicalSdsManager || 0,
+        technicalTeklaManager: app.technicalTeklaManager || 0,
+
+        growthLearningNewTechManager: app.growthLearningNewTechManager || 0,
+        growthCertificationsManager: app.growthCertificationsManager || 0,
       };
     }));
 
@@ -94,7 +120,26 @@ router.put('/:id', auth, async (req, res) => {
       attitude, 
       communication,
       status,
-      incrementPercentage 
+      incrementPercentage,
+
+      behaviourCommunicationManager,
+      behaviourTeamworkManager,
+      behaviourLeadershipManager,
+      behaviourAdaptabilityManager,
+      behaviourInitiativesManager,
+
+      processTimesheetManager,
+      processReportStatusManager,
+      processMeetingManager,
+
+      technicalCodingManager,
+      technicalTestingManager,
+      technicalDebuggingManager,
+      technicalSdsManager,
+      technicalTeklaManager,
+
+      growthLearningNewTechManager,
+      growthCertificationsManager
     } = req.body;
 
     let appraisal = await SelfAppraisal.findById(req.params.id);
@@ -112,6 +157,25 @@ router.put('/:id', auth, async (req, res) => {
     if (communication !== undefined) appraisal.communication = communication;
     if (status !== undefined) appraisal.status = status;
     if (incrementPercentage !== undefined) appraisal.incrementPercentage = incrementPercentage;
+
+    if (behaviourCommunicationManager !== undefined) appraisal.behaviourCommunicationManager = behaviourCommunicationManager;
+    if (behaviourTeamworkManager !== undefined) appraisal.behaviourTeamworkManager = behaviourTeamworkManager;
+    if (behaviourLeadershipManager !== undefined) appraisal.behaviourLeadershipManager = behaviourLeadershipManager;
+    if (behaviourAdaptabilityManager !== undefined) appraisal.behaviourAdaptabilityManager = behaviourAdaptabilityManager;
+    if (behaviourInitiativesManager !== undefined) appraisal.behaviourInitiativesManager = behaviourInitiativesManager;
+
+    if (processTimesheetManager !== undefined) appraisal.processTimesheetManager = processTimesheetManager;
+    if (processReportStatusManager !== undefined) appraisal.processReportStatusManager = processReportStatusManager;
+    if (processMeetingManager !== undefined) appraisal.processMeetingManager = processMeetingManager;
+
+    if (technicalCodingManager !== undefined) appraisal.technicalCodingManager = technicalCodingManager;
+    if (technicalTestingManager !== undefined) appraisal.technicalTestingManager = technicalTestingManager;
+    if (technicalDebuggingManager !== undefined) appraisal.technicalDebuggingManager = technicalDebuggingManager;
+    if (technicalSdsManager !== undefined) appraisal.technicalSdsManager = technicalSdsManager;
+    if (technicalTeklaManager !== undefined) appraisal.technicalTeklaManager = technicalTeklaManager;
+
+    if (growthLearningNewTechManager !== undefined) appraisal.growthLearningNewTechManager = growthLearningNewTechManager;
+    if (growthCertificationsManager !== undefined) appraisal.growthCertificationsManager = growthCertificationsManager;
 
     appraisal.updatedAt = Date.now();
     

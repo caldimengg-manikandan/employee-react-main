@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import WorkflowTracker from '../../components/Performance/WorkflowTracker';
 import { getWorkflowForUser, APPRAISAL_STAGES } from '../../utils/performanceUtils';
-import { performanceAPI, employeeAPI } from '../../services/api';
+import { performanceAPI, employeeAPI, leaveAPI, payrollAPI } from '../../services/api';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { 
@@ -187,6 +187,61 @@ const StatusPopup = ({ isOpen, onClose, status, message }) => {
   );
 };
 
+const getFinancialYearRange = (financialYear) => {
+  const parts = String(financialYear || '').split('-');
+  const startYear = parseInt(parts[0], 10) || new Date().getFullYear();
+  const start = new Date(startYear, 3, 1);
+  const end = new Date(startYear + 1, 2, 31, 23, 59, 59, 999);
+  return { start, end };
+};
+
+const getWorkingDaysBetween = (start, end) => {
+  let count = 0;
+  const current = new Date(start.getTime());
+  while (current <= end) {
+    const day = current.getDay();
+    if (day !== 0 && day !== 6) {
+      count += 1;
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return count;
+};
+
+const formatDisplayDate = (value) => {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const deriveEffectiveDateForAppraisal = (financialYear, updatedAt, effectiveDateField) => {
+  if (effectiveDateField) {
+    const d = new Date(effectiveDateField);
+    if (!Number.isNaN(d.getTime())) return formatDisplayDate(d);
+  }
+  if (updatedAt) {
+    const d = new Date(updatedAt);
+    if (!Number.isNaN(d.getTime())) return formatDisplayDate(d);
+  }
+  if (financialYear && String(financialYear).includes('-')) {
+    const parts = String(financialYear).split(/[-/]/);
+    const yearStart = parseInt(parts[0], 10);
+    if (!Number.isNaN(yearStart)) {
+      const d = new Date(yearStart, 3, 1);
+      return formatDisplayDate(d);
+    }
+  }
+  return '';
+};
+
+const getCurrentFinancialYearLabel = () => {
+  const now = new Date();
+  const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const nextYear = year + 1;
+  return `${year}-${String(nextYear).slice(-2)}`;
+};
+
 const SelfAppraisal = () => {
   
   // View State: 'list' or 'edit'
@@ -201,6 +256,16 @@ const SelfAppraisal = () => {
     department: user.department || 'Department',
     ...user
   };
+
+  const employeeDisplayName = employeeInfo.name || employeeInfo.employeeName || '';
+  const employeeInitials = employeeDisplayName
+    ? employeeDisplayName
+        .split(' ')
+        .map((part) => part[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
+    : 'EM';
 
   const userFlowConfig = getWorkflowForUser(employeeInfo.department, employeeInfo.designation);
   const userFlow = APPRAISAL_STAGES.map(stage => {
@@ -230,6 +295,7 @@ const SelfAppraisal = () => {
       
       case 'DIRECTOR_APPROVED': 
       case 'Released': 
+      case 'Reviewed':
         return 'release';
         
       default: return 'appraisee';
@@ -384,6 +450,7 @@ const SelfAppraisal = () => {
   const currentStageId = getStageFromStatus(formData.status);
 
   // Modal States
+  const [showNewAppraisalModal, setShowNewAppraisalModal] = useState(false);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [showContributionModal, setShowContributionModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
@@ -402,8 +469,109 @@ const SelfAppraisal = () => {
   // Letter State
   const [showReleaseLetter, setShowReleaseLetter] = useState(false);
   const [letterData, setLetterData] = useState(null);
+  const [newAppraisalYear, setNewAppraisalYear] = useState(getCurrentFinancialYearLabel());
+  const [newAppraisalDivision, setNewAppraisalDivision] = useState(employeeInfo.division || '');
+  const [newAppraisalAttendance, setNewAppraisalAttendance] = useState({
+    workingDays: 0,
+    presentDays: 0,
+    absentDays: 0,
+    attendancePct: 0,
+    loading: false,
+  });
 
   // --- Handlers ---
+
+  const startNewAppraisal = () => {
+    setFormData({
+      year: newAppraisalYear,
+      division: newAppraisalDivision,
+      projects: [],
+      overallContribution: '',
+      status: 'Draft',
+      behaviourBased: {
+        communication: 0,
+        teamwork: 0,
+        leadership: 0,
+        adaptability: 0,
+        initiatives: 0,
+        comments: '',
+      },
+      processAdherence: {
+        timesheet: 0,
+        reportStatus: 0,
+        meeting: 0,
+        comments: '',
+      },
+      technicalBased: {
+        codingSkills: 0,
+        testing: 0,
+        debugging: 0,
+        sds: 0,
+        tekla: 0,
+        comments: '',
+      },
+      growthBased: {
+        learningNewTech: 0,
+        certifications: 0,
+        careerGoals: '',
+        comments: '',
+      },
+    });
+    setIsReadOnly(false);
+    setViewMode('edit');
+  };
+
+  useEffect(() => {
+    const loadNewAppraisalAttendance = async () => {
+      const fy = newAppraisalYear;
+      const employeeId =
+        employeeInfo.employeeId || employeeInfo.empId || employeeInfo.id || '';
+      if (!fy || !employeeId) {
+        setNewAppraisalAttendance({
+          workingDays: 0,
+          presentDays: 0,
+          absentDays: 0,
+          attendancePct: 0,
+          loading: false,
+        });
+        return;
+      }
+
+      try {
+        setNewAppraisalAttendance((prev) => ({ ...prev, loading: true }));
+        const range = getFinancialYearRange(fy);
+        const workingDays = getWorkingDaysBetween(range.start, range.end);
+
+        const res = await performanceAPI.getMySelfAppraisals();
+        const items = Array.isArray(res.data) ? res.data : [];
+
+        let present = 0;
+        let absent = 0;
+        let pct = 0;
+
+        const match = items.find((a) => a.year === fy);
+        if (match && typeof match.attendancePresent === 'number') {
+          present = match.attendancePresent;
+          absent = match.attendanceAbsent || 0;
+          if (workingDays > 0) {
+            pct = Math.max(0, Math.min(100, (present / workingDays) * 100));
+          }
+        }
+
+        setNewAppraisalAttendance({
+          workingDays,
+          presentDays: present,
+          absentDays: absent,
+          attendancePct: pct,
+          loading: false,
+        });
+      } catch {
+        setNewAppraisalAttendance((prev) => ({ ...prev, loading: false }));
+      }
+    };
+
+    loadNewAppraisalAttendance();
+  }, [newAppraisalYear, employeeInfo.employeeId, employeeInfo.empId, employeeInfo.id]);
 
   const handleViewAppraisal = async (appraisal) => {
     try {
@@ -456,9 +624,29 @@ const SelfAppraisal = () => {
     }
   };
 
+  const handleAcceptAppraisal = async (appraisal) => {
+    const id = appraisal._id || appraisal.id;
+    if (!id) return;
+
+    if (window.confirm('Do you accept this appraisal and release letter?')) {
+      try {
+        await performanceAPI.updateSelfAppraisal(id, { status: 'Reviewed' });
+        fetchAppraisals();
+        setStatusPopup({ 
+          isOpen: true, 
+          status: 'success', 
+          message: 'Appraisal accepted successfully.' 
+        });
+      } catch (error) {
+        console.error("Failed to accept appraisal", error);
+        const errorMsg = error.response?.data?.message || 'Failed to accept appraisal.';
+        setStatusPopup({ isOpen: true, status: 'error', message: errorMsg });
+      }
+    }
+  };
+
   const handleDownloadLetter = async (appraisal) => {
     try {
-      // Fetch employee details from Employee Management API
       let employeeDetails = {};
       
       try {
@@ -472,41 +660,141 @@ const SelfAppraisal = () => {
         }
       } catch (err) {
         console.error("Failed to fetch fresh employee details, using available info", err);
-        // Fallback to existing info if API fails
         employeeDetails = { ...employeeInfo, ...appraisal };
       }
 
-      // Construct letter data
+      const financialYear = appraisal.year || getCurrentFinancialYearLabel();
+      const effectiveDate = deriveEffectiveDateForAppraisal(
+        financialYear,
+        appraisal.updatedAt,
+        appraisal.effectiveDate
+      );
+
+      const today = new Date();
+      const letterDate = formatDisplayDate(today);
+
+      const employeeIdValue =
+        employeeDetails.employeeId ||
+        employeeDetails.empId ||
+        appraisal.empId ||
+        employeeInfo.employeeId ||
+        appraisal.employeeId;
+
+      let salaryOld = {
+        basic: 0,
+        hra: 0,
+        special: 0,
+        gross: 0,
+        empPF: 0,
+        employerPF: 0,
+        net: 0,
+        gratuity: 0,
+        ctc: 0
+      };
+
+      try {
+        if (employeeIdValue) {
+          const payrollRes = await payrollAPI.list();
+          const items = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+          const empIdNorm = String(employeeIdValue).toLowerCase();
+          const record = items.find(
+            (p) => String(p.employeeId || '').toLowerCase() === empIdNorm
+          );
+
+          if (record) {
+            const basic = Number(record.basicDA || 0);
+            const hra = Number(record.hra || 0);
+            const special = Number(record.specialAllowance || 0);
+            const gross = Number(
+              record.totalEarnings !== undefined
+                ? record.totalEarnings
+                : basic + hra + special
+            );
+            const empPF = Number(record.pf || 0);
+            const employerPF = Number(record.employerPF || record.pf || 0);
+            const net = Number(record.netSalary || gross);
+            const gratuity = Number(record.gratuity || 0);
+            const ctc = Number(
+              record.ctc !== undefined ? record.ctc : gross + gratuity
+            );
+
+            salaryOld = {
+              basic,
+              hra,
+              special,
+              gross,
+              empPF,
+              employerPF,
+              net,
+              gratuity,
+              ctc
+            };
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch payroll details for letter', err);
+      }
+
+      if (!salaryOld.ctc) {
+        const currentSalary =
+          Number(appraisal.currentSalary || 0) || Number(appraisal.salary || 0);
+        if (currentSalary) {
+          salaryOld = {
+            basic: 0,
+            hra: 0,
+            special: 0,
+            gross: currentSalary,
+            empPF: 0,
+            employerPF: 0,
+            net: currentSalary,
+            gratuity: 0,
+            ctc: currentSalary
+          };
+        }
+      }
+
+      const baseCtc = salaryOld.ctc || 0;
+      const basePct = Number(appraisal.incrementPercentage || 0);
+      const correctionPct = Number(appraisal.incrementCorrectionPercentage || 0);
+      let totalPct = basePct + correctionPct;
+
+      const revisedFromAppraisal = Number(appraisal.revisedSalary || 0);
+
+      let factor = 1;
+      if (baseCtc && totalPct > 0) {
+        factor = 1 + totalPct / 100;
+      } else if (baseCtc && revisedFromAppraisal > 0) {
+        factor = revisedFromAppraisal / baseCtc;
+      }
+
+      const revisedCtc = Math.round(baseCtc * factor);
+      const incrementAmount = revisedCtc - baseCtc;
+
+      const salaryNew = {
+        basic: Math.round((salaryOld.basic || 0) * factor),
+        hra: Math.round((salaryOld.hra || 0) * factor),
+        special: Math.round((salaryOld.special || 0) * factor),
+        gross: Math.round((salaryOld.gross || baseCtc) * factor),
+        empPF: Math.round((salaryOld.empPF || 0) * factor),
+        employerPF: Math.round((salaryOld.employerPF || 0) * factor),
+        net: Math.round((salaryOld.net || baseCtc) * factor),
+        gratuity: Math.round((salaryOld.gratuity || 0) * factor),
+        ctc: revisedCtc
+      };
+
       const data = {
-        date: '01.04.2025',
+        date: letterDate,
         employeeName: employeeDetails.name || employeeDetails.fullName || employeeInfo.name,
         employeeId: employeeDetails.employeeId || employeeDetails.empId || employeeInfo.employeeId || 'EMP-001',
         designation: employeeDetails.designation || employeeDetails.role || employeeInfo.designation,
         location: employeeDetails.location || employeeDetails.branch || employeeInfo.location || 'Chennai',
-        effectiveDate: '1st April 2025',
+        financialYear: financialYear,
+        effectiveDate: effectiveDate,
+        incrementPercentage: totalPct,
+        incrementAmount,
         salary: {
-          old: {
-            basic: 41500,
-            hra: 31125,
-            special: 31125,
-            gross: 103750,
-            empPF: 1800,
-            employerPF: 1950,
-            net: 100000,
-            gratuity: 1995,
-            ctc: 105745
-          },
-          new: {
-            basic: 50000,
-            hra: 37500,
-            special: 37500,
-            gross: 125000,
-            empPF: 1800,
-            employerPF: 1950,
-            net: 121250,
-            gratuity: 2404,
-            ctc: 127404
-          }
+          old: salaryOld,
+          new: salaryNew
         }
       };
       setLetterData(data);
@@ -519,6 +807,24 @@ const SelfAppraisal = () => {
 
   const downloadReleaseLetter = async () => {
     try {
+      const currentAppraisal = appraisals.find(
+        (a) =>
+          (a.employeeId || a.empId) &&
+          String(a.employeeId || a.empId) === String(letterData.employeeId)
+      );
+
+      if (
+        !currentAppraisal ||
+        !['DIRECTOR_APPROVED', 'Released', 'Reviewed'].includes(currentAppraisal.status || '')
+      ) {
+        setStatusPopup({
+          isOpen: true,
+          status: 'error',
+          message: "PDF export is available only after Director approval."
+        });
+        return;
+      }
+
       const page1 = document.getElementById('release-letter-page-1');
       const page2 = document.getElementById('release-letter-page-2');
 
@@ -774,32 +1080,9 @@ const SelfAppraisal = () => {
       <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
         <div className="w-full mx-auto">
           <div className="flex justify-between items-center mb-6">
-            
             <button
-              onClick={() => {
-                setFormData({ 
-                  year: '2026-27', 
-                  division: '',
-                  projects: [], 
-                  overallContribution: '', 
-                  status: 'Draft',
-                  behaviourBased: {
-                    communication: 0, teamwork: 0, leadership: 0, adaptability: 0, initiatives: 0, comments: ''
-                  },
-                  processAdherence: {
-                    timesheet: 0, reportStatus: 0, meeting: 0, comments: ''
-                  },
-                  technicalBased: {
-                    codingSkills: 0, testing: 0, debugging: 0, sds: 0, tekla: 0, comments: ''
-                  },
-                  growthBased: {
-                    learningNewTech: 0, certifications: 0, careerGoals: '', comments: ''
-                  }
-                });
-                setIsReadOnly(false);
-                setViewMode('edit');
-              }}
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none"
+              onClick={() => setShowNewAppraisalModal(true)}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-full text-white bg-gradient-to-r from-[#262760] to-indigo-600 hover:from-[#1e2050] hover:to-[#262760] focus:outline-none"
             >
               <Plus className="h-4 w-4 mr-2" />
               New Appraisal
@@ -850,31 +1133,62 @@ const SelfAppraisal = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                       <div className="flex justify-center space-x-3">
-                        <button 
-                          onClick={() => handleEditAppraisal(appraisal)}
-                          className="text-[#262760] hover:text-[#1e2050]"
-                          title="Edit"
-                        >
-                          <Edit className="h-5 w-5" />
-                        </button>
-                        <button 
-                          onClick={() => handleViewAppraisal(appraisal)}
-                          className="text-gray-600 hover:text-gray-900"
-                          title="View"
-                        >
-                          <Eye className="h-5 w-5" />
-                        </button>
-                        <button 
-                          onClick={() => handleDeleteAppraisal(appraisal._id || appraisal.id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete"
-                        >
-                          <Trash2 className="h-5 w-5" />
-                        </button>
+                        {(!['DIRECTOR_APPROVED', 'Released', 'Reviewed'].includes(appraisal.status || '')) && (
+                          <>
+                            <button 
+                              onClick={() => handleEditAppraisal(appraisal)}
+                              className="text-[#262760] hover:text-[#1e2050]"
+                              title="Edit"
+                            >
+                              <Edit className="h-5 w-5" />
+                            </button>
+                            <button 
+                              onClick={() => handleViewAppraisal(appraisal)}
+                              className="text-gray-600 hover:text-gray-900"
+                              title="View"
+                            >
+                              <Eye className="h-5 w-5" />
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteAppraisal(appraisal._id || appraisal.id)}
+                              className="text-red-600 hover:text-red-900"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          </>
+                        )}
+                        {['DIRECTOR_APPROVED', 'Released', 'Reviewed'].includes(appraisal.status || '') && (
+                          <>
+                            <button 
+                              onClick={() => handleViewAppraisal(appraisal)}
+                              className="text-gray-600 hover:text-gray-900"
+                              title="View"
+                            >
+                              <Eye className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDownloadLetter(appraisal)}
+                              className="text-[#262760] hover:text-[#1e2050]"
+                              title="Preview Appraisal Letter"
+                            >
+                              <FileText className="h-5 w-5" />
+                            </button>
+                            {appraisal.status !== 'Reviewed' && (
+                              <button
+                                onClick={() => handleAcceptAppraisal(appraisal)}
+                                className="text-emerald-600 hover:text-emerald-800"
+                                title="Accept"
+                              >
+                                <CheckCircle className="h-5 w-5" />
+                              </button>
+                            )}
+                          </>
+                        )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                      {appraisal.status === 'Released' ? (
+                      {appraisal.status === 'Released' || appraisal.status === 'Reviewed' || appraisal.status === 'DIRECTOR_APPROVED' ? (
                         <button 
                           onClick={() => handleDownloadLetter(appraisal)}
                           className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
@@ -893,6 +1207,164 @@ const SelfAppraisal = () => {
             )}
           </div>
         </div>
+
+        <Modal
+          isOpen={showNewAppraisalModal}
+          onClose={() => setShowNewAppraisalModal(false)}
+          title="Start New Self Appraisal"
+          icon={Award}
+          colorTheme="purple"
+          maxWidth="max-w-2xl"
+        >
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gradient-to-br from-[#262760] to-indigo-600 rounded-2xl p-4 text-white flex items-center shadow-md">
+                <div className="flex-shrink-0 mr-4">
+                  <div className="h-12 w-12 rounded-full bg-white/15 flex items-center justify-center text-lg font-bold">
+                    {employeeInitials}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-[11px] uppercase tracking-wide text-indigo-100 mb-1">
+                    Employee
+                  </div>
+                  <div className="text-base font-semibold">
+                    {employeeInfo.name || employeeInfo.employeeName || 'Employee'}
+                  </div>
+                  <div className="text-[11px] text-indigo-100 mt-1">
+                    ID: {employeeInfo.employeeId || employeeInfo.empId || 'N/A'}
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-2xl border border-gray-200 p-4 flex flex-col justify-between shadow-sm">
+                <div>
+                  <div className="text-[11px] font-semibold text-gray-500 uppercase mb-1">
+                    New Appraisal Draft
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    A fresh self appraisal will be created for you. You can add projects,
+                    ratings and comments in the next screen.
+                  </p>
+                </div>
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    Status: Draft
+                  </span>
+                  <span className="text-[11px] text-gray-400">
+                    Step 1 of 2
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+                <div className="text-[11px] font-semibold text-gray-500 uppercase mb-2">
+                  Appraisal Settings
+                </div>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                      Financial Year
+                    </label>
+                    <select
+                      value={newAppraisalYear}
+                      onChange={(e) => setNewAppraisalYear(e.target.value)}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm font-semibold text-[#262760]"
+                    >
+                      {[getCurrentFinancialYearLabel(), '2025-26', '2026-27', '2027-28']
+                        .filter((v, i, arr) => arr.indexOf(v) === i)
+                        .map((year) => (
+                          <option key={year} value={year}>
+                            {year}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-medium text-gray-600 mb-1">
+                      Division
+                    </label>
+                    <select
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
+                      value={newAppraisalDivision}
+                      onChange={(e) => setNewAppraisalDivision(e.target.value)}
+                    >
+                      <option value="">Select Division</option>
+                      <option value="Software">Software</option>
+                      <option value="SDS">SDS (Steel Detailing)</option>
+                      <option value="Tekla">Tekla (3D Modeling)</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-2xl border border-blue-100 p-4 shadow-sm">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-[11px] font-semibold text-gray-500 uppercase">
+                    Attendance Snapshot
+                  </span>
+                  <span className="text-[11px] text-gray-400">
+                    FY {newAppraisalYear}
+                  </span>
+                </div>
+                {newAppraisalAttendance.loading ? (
+                  <div className="text-sm text-gray-500 mt-2">Loading attendance...</div>
+                ) : (
+                  <div className="mt-2 space-y-2 text-sm text-gray-700">
+                    <div className="flex justify-between">
+                      <span>Present Days</span>
+                      <span className="font-semibold">{newAppraisalAttendance.presentDays}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Absent Days</span>
+                      <span className="font-semibold">{newAppraisalAttendance.absentDays}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Attendance %</span>
+                      <span className="font-semibold">
+                        {newAppraisalAttendance.attendancePct.toFixed(1)}%
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2 border-t border-dashed border-gray-200">
+              <div className="flex items-center space-x-2 text-[11px] text-gray-500">
+                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                <span>Next: Fill self appraisal details and submit to appraiser</span>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowNewAppraisalModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-full hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    if (!newAppraisalDivision || !newAppraisalDivision.trim()) {
+                      setStatusPopup({
+                        isOpen: true,
+                        status: 'error',
+                        message: 'Please select Division before creating self appraisal.',
+                      });
+                      return;
+                    }
+                    setShowNewAppraisalModal(false);
+                    startNewAppraisal();
+                  }}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-semibold rounded-full shadow-sm text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none"
+                >
+                  <CheckCircle className="h-4 w-4 mr-2" />
+                  Create Appraisal
+                </button>
+              </div>
+            </div>
+          </div>
+        </Modal>
 
         {/* View Appraisal Modal */}
         <Modal
@@ -945,12 +1417,32 @@ const SelfAppraisal = () => {
                   Knowledge Sharing Assessment
                 </h3>
                 <div className="bg-purple-50 rounded-lg p-5 border border-purple-100 shadow-sm">
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div><span className="font-semibold">Knowledge Sharing:</span> {viewData.behaviourBased?.communication}/5</div>
-                    <div><span className="font-semibold">Mentoring:</span> {viewData.behaviourBased?.teamwork}/5</div>
-                    <div><span className="font-semibold">Leadership:</span> {viewData.behaviourBased?.leadership}/5</div>
-                    <div><span className="font-semibold">Adaptability:</span> {viewData.behaviourBased?.adaptability}/5</div>
-                    <div><span className="font-semibold">Initiative:</span> {viewData.behaviourBased?.initiatives}/5</div>
+                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                    <div>
+                      <span className="font-semibold">Knowledge Sharing:</span>
+                      <span className="ml-1">Self {viewData.behaviourBased?.communication}/5</span>
+                      <span className="ml-2 text-gray-600">Manager {viewData.behaviourCommunicationManager || 0}/5</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Mentoring:</span>
+                      <span className="ml-1">Self {viewData.behaviourBased?.teamwork}/5</span>
+                      <span className="ml-2 text-gray-600">Manager {viewData.behaviourTeamworkManager || 0}/5</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Leadership:</span>
+                      <span className="ml-1">Self {viewData.behaviourBased?.leadership}/5</span>
+                      <span className="ml-2 text-gray-600">Manager {viewData.behaviourLeadershipManager || 0}/5</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Adaptability:</span>
+                      <span className="ml-1">Self {viewData.behaviourBased?.adaptability}/5</span>
+                      <span className="ml-2 text-gray-600">Manager {viewData.behaviourAdaptabilityManager || 0}/5</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Initiative:</span>
+                      <span className="ml-1">Self {viewData.behaviourBased?.initiatives}/5</span>
+                      <span className="ml-2 text-gray-600">Manager {viewData.behaviourInitiativesManager || 0}/5</span>
+                    </div>
                   </div>
                   {viewData.behaviourBased?.comments && (
                     <div className="mt-2 p-3 bg-white rounded border border-purple-100">
@@ -968,10 +1460,22 @@ const SelfAppraisal = () => {
                   Process Adherence
                 </h3>
                 <div className="bg-orange-50 rounded-lg p-5 border border-orange-100 shadow-sm">
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div><span className="font-semibold">Timesheet:</span> {viewData.processAdherence?.timesheet}/5</div>
-                    <div><span className="font-semibold">Report Status:</span> {viewData.processAdherence?.reportStatus}/5</div>
-                    <div><span className="font-semibold">Meeting:</span> {viewData.processAdherence?.meeting}/5</div>
+                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                    <div>
+                      <span className="font-semibold">Timesheet:</span>
+                      <span className="ml-1">Self {viewData.processAdherence?.timesheet}/5</span>
+                      <span className="ml-2 text-gray-600">Manager {viewData.processTimesheetManager || 0}/5</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Report Status:</span>
+                      <span className="ml-1">Self {viewData.processAdherence?.reportStatus}/5</span>
+                      <span className="ml-2 text-gray-600">Manager {viewData.processReportStatusManager || 0}/5</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Meeting:</span>
+                      <span className="ml-1">Self {viewData.processAdherence?.meeting}/5</span>
+                      <span className="ml-2 text-gray-600">Manager {viewData.processMeetingManager || 0}/5</span>
+                    </div>
                   </div>
                   {viewData.processAdherence?.comments && (
                     <div className="mt-2 p-3 bg-white rounded border border-orange-100">
@@ -989,10 +1493,14 @@ const SelfAppraisal = () => {
                   Technical Based Assessment
                 </h3>
                 <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm">
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                     {getTechnicalFieldsForDivision(viewData.division).map((field) => (
                       <div key={field.key}>
-                        <span className="font-semibold">{field.label}:</span> {viewData.technicalBased?.[field.key]}/5
+                        <span className="font-semibold">{field.label}:</span>
+                        <span className="ml-1">Self {viewData.technicalBased?.[field.key]}/5</span>
+                        <span className="ml-2 text-gray-600">
+                          Manager {viewData[`technical${field.key.charAt(0).toUpperCase() + field.key.slice(1)}Manager`] || 0}/5
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -1012,9 +1520,17 @@ const SelfAppraisal = () => {
                   Growth Based Assessment
                 </h3>
                 <div className="bg-green-50 rounded-lg p-5 border border-green-100 shadow-sm">
-                  <div className="grid grid-cols-2 gap-4 mb-4">
-                    <div><span className="font-semibold">Learning New Tech:</span> {viewData.growthBased?.learningNewTech}/5</div>
-                    <div><span className="font-semibold">Certifications:</span> {viewData.growthBased?.certifications}/5</div>
+                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                    <div>
+                      <span className="font-semibold">Learning New Tech:</span>
+                      <span className="ml-1">Self {viewData.growthBased?.learningNewTech}/5</span>
+                      <span className="ml-2 text-gray-600">Manager {viewData.growthLearningNewTechManager || 0}/5</span>
+                    </div>
+                    <div>
+                      <span className="font-semibold">Certifications:</span>
+                      <span className="ml-1">Self {viewData.growthBased?.certifications}/5</span>
+                      <span className="ml-2 text-gray-600">Manager {viewData.growthCertificationsManager || 0}/5</span>
+                    </div>
                   </div>
                   {viewData.growthBased?.careerGoals && (
                     <div className="mt-2">
@@ -1048,113 +1564,16 @@ const SelfAppraisal = () => {
                 </div>
               </div>
 
-              {/* Manager Assessment - Ratings & Comments */}
-              {(viewData.appraiserRating ||
-                viewData.leadership ||
-                viewData.attitude ||
-                viewData.communication ||
-                viewData.managerComments ||
-                viewData.keyPerformance ||
-                viewData.appraiseeComments) && (
+              {viewData.managerComments && getStageFromStatus(viewData.status) === 'release' && (
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                    <Star className="h-5 w-5 mr-2 text-blue-600" />
-                    Manager Assessment
+                    <FileText className="h-5 w-5 mr-2 text-blue-600" />
+                    Manager Comments
                   </h3>
-                  <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm space-y-4">
-                    {(viewData.appraiserRating ||
-                      viewData.leadership ||
-                      viewData.attitude ||
-                      viewData.communication) && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {viewData.appraiserRating && (
-                          <div>
-                            <span className="font-semibold">Performance Rating:</span>{' '}
-                            <span className="text-gray-800">{viewData.appraiserRating}</span>
-                          </div>
-                        )}
-                        {viewData.leadership && (
-                          <div>
-                            <span className="font-semibold">Leadership Potential:</span>{' '}
-                            <span className="text-gray-800">{viewData.leadership}</span>
-                          </div>
-                        )}
-                        {viewData.attitude && (
-                          <div>
-                            <span className="font-semibold">Attitude:</span>{' '}
-                            <span className="text-gray-800">{viewData.attitude}</span>
-                          </div>
-                        )}
-                        {viewData.communication && (
-                          <div>
-                            <span className="font-semibold">Communication:</span>{' '}
-                            <span className="text-gray-800">{viewData.communication}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {(viewData.keyPerformance || viewData.appraiseeComments) && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {viewData.keyPerformance && (
-                          <div className="bg-white rounded border border-blue-100 p-3">
-                            <p className="text-xs font-semibold text-gray-600 mb-1">Key Achievements</p>
-                            <p className="text-sm text-gray-800 whitespace-pre-wrap">
-                              {viewData.keyPerformance}
-                            </p>
-                          </div>
-                        )}
-                        {viewData.appraiseeComments && (
-                          <div className="bg-white rounded border border-blue-100 p-3">
-                            <p className="text-xs font-semibold text-gray-600 mb-1">Employee Comments</p>
-                            <p className="text-sm text-gray-800 whitespace-pre-wrap italic">
-                              "{viewData.appraiseeComments}"
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {viewData.managerComments && (
-                      <div className="bg-white rounded border border-blue-100 p-3">
-                        <p className="text-xs font-semibold text-gray-600 mb-1">Manager Comments</p>
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap italic">
-                          "{viewData.managerComments}"
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Reviewer & Director Comments */}
-              {(viewData.reviewerComments || viewData.directorComments) && (
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                    <FileText className="h-5 w-5 mr-2 text-[#262760]" />
-                    Reviewer & Director Comments
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {viewData.reviewerComments && (
-                      <div className="bg-blue-50 rounded-lg p-4 border border-blue-100 shadow-sm">
-                        <p className="text-xs font-semibold text-blue-800 uppercase mb-1">
-                          Reviewer Comments
-                        </p>
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap">
-                          {viewData.reviewerComments}
-                        </p>
-                      </div>
-                    )}
-                    {viewData.directorComments && (
-                      <div className="bg-indigo-50 rounded-lg p-4 border border-indigo-100 shadow-sm">
-                        <p className="text-xs font-semibold text-indigo-800 uppercase mb-1">
-                          Director Comments
-                        </p>
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap font-medium">
-                          {viewData.directorComments}
-                        </p>
-                      </div>
-                    )}
+                  <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm">
+                    <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-base italic">
+                      "{viewData.managerComments}"
+                    </p>
                   </div>
                 </div>
               )}
@@ -1285,10 +1704,10 @@ const SelfAppraisal = () => {
                       <div className="mb-6">
                         <div className="mb-4">Dear <span className="font-semibold">{letterData.employeeName}</span>,</div>
                         <p className="text-justify text-[14px] leading-6 mb-4">
-                          The Performance Review for the financial year 2023-24 has been completed. 
+                          The Performance Review for the financial year {letterData.financialYear} has been completed.
                         </p>
                         <p className="text-justify text-[14px] leading-6 mb-4">
-                          We are pleased to inform you that based on the available benchmarks in the industry and your performance appraisal, we have revised your compensation effective 1st August 2024 .
+                          We are pleased to inform you that based on the available benchmarks in the industry and your performance appraisal, we have revised your compensation effective {letterData.effectiveDate}.
                         </p>
                         <p className="text-justify text-[14px] leading-6 mb-4">
                         Details are provided in the attached Annexure.
@@ -1530,43 +1949,6 @@ I take this opportunity to thank you for the contribution made by you during the
                 <ChevronLeft className="h-6 w-6" />
                 <span className="ml-2">Back</span>
               </button>
-            <div className="flex items-center ml-2 space-x-8">
-              <div className="flex items-center">
-                <span className="text-xl font-bold text-gray-900 mr-2">Financial Year:</span>
-                {isReadOnly ? (
-                  <span className="text-lg font-bold text-[#262760] py-1 pl-3 pr-10">{formData.year}</span>
-                ) : (
-                  <select
-                    value={formData.year}
-                    onChange={(e) => setFormData({ ...formData, year: e.target.value })}
-                    className="rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-lg font-bold text-[#262760] py-1 pl-3 pr-10 cursor-pointer"
-                  >
-                    {['2025-26', '2026-27', '2027-28'].map((year) => (
-                      <option key={year} value={year}>{year}</option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div className="flex flex-col">
-                <span className="text-sm font-medium text-red-600 mb-1">Division *</span>
-                {isReadOnly ? (
-                  <span className="text-base font-semibold text-[#262760]">
-                    {formData.division || '-'}
-                  </span>
-                ) : (
-                  <select
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
-                    value={formData.division || ''}
-                    onChange={(e) => setFormData({ ...formData, division: e.target.value })}
-                  >
-                    <option value="">Select Division</option>
-                    <option value="Software">Software</option>
-                    <option value="SDS">SDS (Steel Detailing)</option>
-                    <option value="Tekla">Tekla (3D Modeling)</option>
-                  </select>
-                )}
-              </div>
-            </div>
             </div>
           </div>
         </div>
@@ -1891,7 +2273,7 @@ I take this opportunity to thank you for the contribution made by you during the
         isOpen={showBehaviourModal}
         onClose={() => setShowBehaviourModal(false)}
         title="Knowledge Sharing Assessment"
-        icon={Users}
+        icon={Users}a
         colorTheme="purple"
         maxWidth="max-w-2xl"
       >

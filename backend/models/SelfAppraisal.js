@@ -15,6 +15,9 @@ const SelfAppraisalSchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  division: {
+    type: String
+  },
   projects: [{
     id: String,
     name: String,
@@ -22,6 +25,34 @@ const SelfAppraisalSchema = new mongoose.Schema({
   }],
   overallContribution: {
     type: String
+  },
+  behaviourBased: {
+    communication: { type: Number, default: 0 },
+    teamwork: { type: Number, default: 0 },
+    leadership: { type: Number, default: 0 },
+    adaptability: { type: Number, default: 0 },
+    initiatives: { type: Number, default: 0 },
+    comments: { type: String, default: '' }
+  },
+  processAdherence: {
+    timesheet: { type: Number, default: 0 },
+    reportStatus: { type: Number, default: 0 },
+    meeting: { type: Number, default: 0 },
+    comments: { type: String, default: '' }
+  },
+  technicalBased: {
+    codingSkills: { type: Number, default: 0 },
+    testing: { type: Number, default: 0 },
+    debugging: { type: Number, default: 0 },
+    sds: { type: Number, default: 0 },
+    tekla: { type: Number, default: 0 },
+    comments: { type: String, default: '' }
+  },
+  growthBased: {
+    learningNewTech: { type: Number, default: 0 },
+    certifications: { type: Number, default: 0 },
+    careerGoals: { type: String, default: '' },
+    comments: { type: String, default: '' }
   },
   status: {
     type: String,
@@ -65,6 +96,26 @@ const SelfAppraisalSchema = new mongoose.Schema({
   leadership: { type: String, default: '' },
   attitude: { type: String, default: '' },
   communication: { type: String, default: '' },
+
+  // Detailed Manager Ratings (per attribute)
+  behaviourCommunicationManager: { type: Number, default: 0 },
+  behaviourTeamworkManager: { type: Number, default: 0 },
+  behaviourLeadershipManager: { type: Number, default: 0 },
+  behaviourAdaptabilityManager: { type: Number, default: 0 },
+  behaviourInitiativesManager: { type: Number, default: 0 },
+
+  processTimesheetManager: { type: Number, default: 0 },
+  processReportStatusManager: { type: Number, default: 0 },
+  processMeetingManager: { type: Number, default: 0 },
+
+  technicalCodingManager: { type: Number, default: 0 },
+  technicalTestingManager: { type: Number, default: 0 },
+  technicalDebuggingManager: { type: Number, default: 0 },
+  technicalSdsManager: { type: Number, default: 0 },
+  technicalTeklaManager: { type: Number, default: 0 },
+
+  growthLearningNewTechManager: { type: Number, default: 0 },
+  growthCertificationsManager: { type: Number, default: 0 },
 
   // Reviewer Fields
   reviewerComments: { type: String, default: '' },

@@ -66,6 +66,7 @@ import ReviewerApproval from "./pages/performance/ReviewerApproval";
 import DirectorApproval from "./pages/performance/DirectorApproval";
 import IncrementMaster from "./pages/performance/IncrementMaster";
 import IncrementSummary from "./pages/performance/IncrementSummary";
+import AttendanceSummary from "./pages/performance/AttendanceSummary";
 
 
 
@@ -521,6 +522,14 @@ function App() {
               element={
                 <ProtectedRoute roles={["admin", "hr", "manager"]}>
                   <IncrementSummary />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="performance/attendance-summary"
+              element={
+                <ProtectedRoute roles={["admin", "hr", "manager"]}>
+                  <AttendanceSummary />
                 </ProtectedRoute>
               }
             />

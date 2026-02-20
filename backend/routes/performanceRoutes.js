@@ -69,7 +69,21 @@ router.get('/self-appraisals/:id', auth, async (req, res) => {
 // @access  Private
 router.post('/self-appraisals', auth, async (req, res) => {
   try {
-    const { year, projects, overallContribution, status } = req.body;
+    const { 
+      year, 
+      division,
+      projects, 
+      overallContribution, 
+      status,
+      behaviourBased,
+      processAdherence,
+      technicalBased,
+      growthBased
+    } = req.body;
+
+    if (!division || !division.trim()) {
+      return res.status(400).json({ success: false, message: 'Division is required for self appraisal' });
+    }
 
     const employee = await Employee.findOne({ employeeId: req.user.employeeId });
     if (!employee) {
@@ -105,9 +119,14 @@ router.post('/self-appraisals', auth, async (req, res) => {
     const newAppraisal = new SelfAppraisal({
       employeeId: employee._id,
       year,
+      division,
       projects,
       overallContribution,
       status: status || 'Draft',
+      behaviourBased,
+      processAdherence,
+      technicalBased,
+      growthBased,
       appraiser: employee.appraiser || 'Pending Assignment',
       appraiserId,
       reviewer: employee.reviewer,
@@ -134,16 +153,33 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid Appraisal ID' });
     }
 
-    const { projects, overallContribution, status } = req.body;
+    const { 
+      projects, 
+      overallContribution, 
+      status,
+      division,
+      behaviourBased,
+      processAdherence,
+      technicalBased,
+      growthBased
+    } = req.body;
 
     let appraisal = await SelfAppraisal.findById(req.params.id);
     if (!appraisal) {
       return res.status(404).json({ success: false, message: 'Appraisal not found' });
     }
 
-    // Update fields
+    if (division !== undefined && (!division || !division.trim())) {
+      return res.status(400).json({ success: false, message: 'Division is required for self appraisal' });
+    }
+
     if (projects) appraisal.projects = projects;
     if (overallContribution !== undefined) appraisal.overallContribution = overallContribution;
+    if (division !== undefined) appraisal.division = division;
+    if (behaviourBased !== undefined) appraisal.behaviourBased = behaviourBased;
+    if (processAdherence !== undefined) appraisal.processAdherence = processAdherence;
+    if (technicalBased !== undefined) appraisal.technicalBased = technicalBased;
+    if (growthBased !== undefined) appraisal.growthBased = growthBased;
     if (status) appraisal.status = status;
     
     // If submitting, refresh workflow routing from Employee profile
