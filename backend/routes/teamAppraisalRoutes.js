@@ -18,23 +18,35 @@ router.get('/', auth, async (req, res) => {
     };
 
     const role = (req.user.role || '').toLowerCase();
-    const isManagerRole = ['manager', 'lead', 'appraiser'].includes(role);
+    const hasManagerLikeRole = [
+      'manager',
+      'lead',
+      'appraiser',
+      'projectmanager',
+      'project_manager',
+      'admin'
+    ].includes(role);
 
-    let query = { status: statusFilter };
+    const hasManagerPermission =
+      Array.isArray(req.user.permissions) &&
+      (req.user.permissions.includes('project_access') ||
+       req.user.permissions.includes('employee_access'));
 
-    if (isManagerRole) {
-      query = {
-        $and: [
-          { status: statusFilter },
-          {
-            $or: [
-              { appraiserId: req.user.employeeId },
-              { appraiser: req.user.name }
-            ]
-          }
-        ]
-      };
+    if (!hasManagerLikeRole && !hasManagerPermission) {
+      return res.status(403).json({ success: false, message: 'Not authorized to view team appraisals' });
     }
+
+    const query = {
+      $and: [
+        { status: statusFilter },
+        {
+          $or: [
+            { appraiserId: req.user.employeeId },
+            { appraiser: req.user.name }
+          ]
+        }
+      ]
+    };
 
     // Populate employee details
     // Note: employeeId in SelfAppraisal is a ref to Employee model
@@ -156,6 +168,19 @@ router.put('/:id', auth, async (req, res) => {
     let appraisal = await SelfAppraisal.findById(req.params.id);
     if (!appraisal) {
       return res.status(404).json({ success: false, message: 'Appraisal not found' });
+    }
+
+    const userEmployeeId = req.user.employeeId;
+    const userName = req.user.name;
+
+    const isAppraiser =
+      (appraisal.appraiserId && appraisal.appraiserId === userEmployeeId) ||
+      (appraisal.appraiser && appraisal.appraiser === userName);
+
+    if (!isAppraiser) {
+      return res
+        .status(403)
+        .json({ success: false, message: 'Not authorized to update this appraisal' });
     }
 
     // Update fields

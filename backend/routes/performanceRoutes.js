@@ -57,6 +57,31 @@ router.get('/self-appraisals/:id', auth, async (req, res) => {
     //    return res.status(403).json({ success: false, message: 'Not authorized' });
     // }
 
+    const isOwner =
+      appraisal.employeeId &&
+      appraisal.employeeId.toString() === employee._id.toString();
+
+    const userEmployeeId = req.user.employeeId;
+    const userName = req.user.name;
+
+    const isAppraiser =
+      (appraisal.appraiserId && appraisal.appraiserId === userEmployeeId) ||
+      (appraisal.appraiser && appraisal.appraiser === userName);
+
+    const isReviewer =
+      (appraisal.reviewerId && appraisal.reviewerId === userEmployeeId) ||
+      (appraisal.reviewer && appraisal.reviewer === userName);
+
+    const isDirector =
+      (appraisal.directorId && appraisal.directorId === userEmployeeId) ||
+      (appraisal.director && appraisal.director === userName);
+
+    if (!isOwner && !isAppraiser && !isReviewer && !isDirector) {
+      return res
+        .status(403)
+        .json({ success: false, message: 'Not authorized to view this appraisal' });
+    }
+
     res.json(appraisal);
   } catch (error) {
     console.error('Error fetching appraisal:', error);
@@ -161,12 +186,25 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
       behaviourBased,
       processAdherence,
       technicalBased,
-      growthBased
+      growthBased,
+      employeeAcceptanceStatus,
+      finalStatus
     } = req.body;
 
     let appraisal = await SelfAppraisal.findById(req.params.id);
     if (!appraisal) {
       return res.status(404).json({ success: false, message: 'Appraisal not found' });
+    }
+
+    const employee = await Employee.findOne({ employeeId: req.user.employeeId });
+    if (!employee) {
+      return res.status(404).json({ success: false, message: 'Employee profile not found' });
+    }
+
+    if (!appraisal.employeeId || appraisal.employeeId.toString() !== employee._id.toString()) {
+      return res
+        .status(403)
+        .json({ success: false, message: 'Not authorized to update this appraisal' });
     }
 
     if (division !== undefined && (!division || !division.trim())) {
@@ -181,6 +219,8 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
     if (technicalBased !== undefined) appraisal.technicalBased = technicalBased;
     if (growthBased !== undefined) appraisal.growthBased = growthBased;
     if (status) appraisal.status = status;
+    if (employeeAcceptanceStatus !== undefined) appraisal.employeeAcceptanceStatus = employeeAcceptanceStatus;
+    if (finalStatus !== undefined) appraisal.finalStatus = finalStatus;
     
     // If submitting, refresh workflow routing from Employee profile
     if (status === 'Submitted' || status === 'SUBMITTED') {

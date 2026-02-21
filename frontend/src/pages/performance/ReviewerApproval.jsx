@@ -8,11 +8,84 @@ import {
   X,
   MessageSquare,
   CheckCircle,
+  AlertCircle,
+  XCircle,
   Filter,
   User,
   Star
 } from 'lucide-react';
 import { performanceAPI } from '../../services/api';
+
+const StatusPopup = ({ isOpen, onClose, status, message }) => {
+  if (!isOpen) return null;
+
+  const config = {
+    success: {
+      icon: CheckCircle,
+      color: "text-green-500",
+      bg: "bg-green-50",
+      border: "border-green-200",
+      title: "Success"
+    },
+    error: {
+      icon: XCircle,
+      color: "text-red-500",
+      bg: "bg-red-50",
+      border: "border-red-200",
+      title: "Error"
+    },
+    info: {
+      icon: AlertCircle,
+      color: "text-blue-500",
+      bg: "bg-blue-50",
+      border: "border-blue-200",
+      title: "Information"
+    }
+  };
+
+  const { icon: Icon, color, bg, border, title } = config[status] || config.info;
+
+  return (
+    <div className="fixed inset-0 z-[60] overflow-y-auto">
+      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div className="absolute inset-0 bg-gray-900 opacity-40" onClick={onClose}></div>
+        </div>
+
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <div className={`inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-sm sm:w-full border-2 ${border}`}>
+          <div className={`${bg} px-4 pt-5 pb-4 sm:p-6 sm:pb-4`}>
+            <div className="sm:flex sm:items-start">
+              <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-white ${color} sm:mx-0 sm:h-10 sm:w-10 shadow-sm`}>
+                <Icon className="h-6 w-6" />
+              </div>
+              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                <h3 className={`text-lg leading-6 font-bold ${color}`}>
+                  {title}
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600 font-medium">
+                    {message}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button
+              type="button"
+              className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none sm:ml-3 sm:w-auto sm:text-sm transition-colors ${status === 'error' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#262760] hover:bg-[#1e2050]'}`}
+              onClick={onClose}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const getCurrentFinancialYear = () => {
   const today = new Date();
@@ -27,6 +100,16 @@ const ReviewerApproval = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFinancialYr, setSelectedFinancialYr] = useState(getCurrentFinancialYear());
   const [selectedRows, setSelectedRows] = useState([]);
+  const [statusPopup, setStatusPopup] = useState({
+    isOpen: false,
+    status: 'info',
+    message: ''
+  });
+  const [submitConfirm, setSubmitConfirm] = useState({
+    isOpen: false,
+    count: 0,
+    ids: []
+  });
   
   // Inline Editing State
   const [editingRowId, setEditingRowId] = useState(null);
@@ -58,7 +141,26 @@ const ReviewerApproval = () => {
     setLoading(true);
     try {
       const response = await performanceAPI.getReviewerAppraisals();
-      setEmployees(response.data);
+      const raw = response.data || [];
+      const enhanced = raw.map(emp => {
+        const current = emp.currentSalary || 0;
+        const pct = emp.incrementPercentage || 0;
+        const correctionPct = emp.incrementCorrectionPercentage || 0;
+        if (current > 0 && (pct !== 0 || correctionPct !== 0)) {
+          const { incrementAmount, revisedSalary } = calculateFinancials(
+            current,
+            pct,
+            correctionPct
+          );
+          return {
+            ...emp,
+            incrementAmount,
+            revisedSalary
+          };
+        }
+        return emp;
+      });
+      setEmployees(enhanced);
     } catch (error) {
       console.error('Error fetching appraisals:', error);
       alert('Failed to fetch appraisals');
@@ -117,10 +219,18 @@ const ReviewerApproval = () => {
       ));
       setEditingRowId(null);
       setEditFormData({});
-      alert("Row saved successfully!");
+      setStatusPopup({
+        isOpen: true,
+        status: 'success',
+        message: 'Review saved successfully!'
+      });
     } catch (error) {
       console.error('Error saving row:', error);
-      alert("Failed to save row");
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: 'Failed to save row. Please try again.'
+      });
     }
   };
 
@@ -173,14 +283,22 @@ const ReviewerApproval = () => {
         emp.id === currentCommentEmpId ? { ...emp, reviewerComments: tempComment } : emp
       ));
       setIsCommentModalOpen(false);
+      setStatusPopup({
+        isOpen: true,
+        status: 'success',
+        message: 'Review comments saved successfully!'
+      });
     } catch (error) {
       console.error('Error saving comment:', error);
-      alert('Failed to save comment');
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: 'Failed to save comment. Please try again.'
+      });
     }
   };
 
-  const handleSubmitToDirector = async () => {
-    // Only consider pending records
+  const handleSubmitToDirector = () => {
     const candidates = selectedRows.length > 0 
       ? employees.filter(emp => selectedRows.includes(emp.id))
       : employees;
@@ -189,24 +307,45 @@ const ReviewerApproval = () => {
       
     const count = rowsToSubmit.length;
     if (count === 0) {
-      alert("No pending records to submit.");
+      setStatusPopup({
+        isOpen: true,
+        status: 'info',
+        message: 'No pending records to submit.'
+      });
       return;
     }
 
-    if(window.confirm(`Submit ${count} record(s) to Director?`)) {
-      try {
-        const ids = rowsToSubmit.map(e => e.id);
-        await performanceAPI.submitToDirector(ids);
-        
-        alert(`${count} record(s) submitted to Director successfully!`);
-        
-        // Refresh data or update local status
-        fetchReviewerAppraisals();
-        setSelectedRows([]);
-      } catch (error) {
-        console.error('Error submitting to Director:', error);
-        alert('Failed to submit to Director');
-      }
+    const ids = rowsToSubmit.map(e => e.id);
+    setSubmitConfirm({
+      isOpen: true,
+      count,
+      ids
+    });
+  };
+
+  const confirmSubmitToDirector = async () => {
+    if (!submitConfirm.isOpen || !submitConfirm.ids.length) {
+      setSubmitConfirm({ isOpen: false, count: 0, ids: [] });
+      return;
+    }
+    try {
+      await performanceAPI.submitToDirector(submitConfirm.ids);
+      setStatusPopup({
+        isOpen: true,
+        status: 'success',
+        message: `${submitConfirm.count} record(s) submitted to Director successfully!`
+      });
+      setSubmitConfirm({ isOpen: false, count: 0, ids: [] });
+      fetchReviewerAppraisals();
+      setSelectedRows([]);
+    } catch (error) {
+      console.error('Error submitting to Director:', error);
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: 'Failed to submit to Director. Please try again.'
+      });
+      setSubmitConfirm({ isOpen: false, count: 0, ids: [] });
     }
   };
 
@@ -443,6 +582,43 @@ const ReviewerApproval = () => {
           )}
         </div>
       </div>
+
+      <StatusPopup
+        isOpen={statusPopup.isOpen}
+        onClose={() => setStatusPopup({ ...statusPopup, isOpen: false })}
+        status={statusPopup.status}
+        message={statusPopup.message}
+      />
+
+      {submitConfirm.isOpen && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="px-6 py-4 bg-[#262760] text-white flex items-center">
+              <CheckCircle className="h-5 w-5 mr-2" />
+              <h3 className="text-lg font-semibold">Submit to Director</h3>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-700">
+                Submit {submitConfirm.count} record(s) to Director?
+              </p>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+              <button
+                onClick={() => setSubmitConfirm({ isOpen: false, count: 0, ids: [] })}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmSubmitToDirector}
+                className="px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] text-sm font-medium"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Reviewer Comment Modal */}
       {isCommentModalOpen && (

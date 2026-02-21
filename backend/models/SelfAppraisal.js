@@ -70,6 +70,14 @@ const SelfAppraisalSchema = new mongoose.Schema({
     ],
     default: 'Draft'
   },
+  employeeAcceptanceStatus: {
+    type: String,
+    enum: ['PENDING', 'ACCEPTED', 'NOT_ACCEPTED']
+  },
+  finalStatus: {
+    type: String,
+    enum: ['COMPLETED']
+  },
   appraiser: {
     type: String
   },

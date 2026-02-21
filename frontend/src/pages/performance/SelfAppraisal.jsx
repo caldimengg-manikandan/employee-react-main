@@ -299,7 +299,6 @@ const SelfAppraisal = () => {
     return stage;
   });
 
-  // Helper to determine workflow stage based on status
   const getStageFromStatus = (status) => {
     switch(status) {
       case 'Draft': return 'appraisee';
@@ -324,6 +323,14 @@ const SelfAppraisal = () => {
         
       default: return 'appraisee';
     }
+  };
+
+  const getEffectiveAcceptanceStatus = (appraisal) => {
+    if (!appraisal) return null;
+    if (appraisal.employeeAcceptanceStatus) return appraisal.employeeAcceptanceStatus;
+    const status = appraisal.status || '';
+    if (status === 'Released' || status === 'Reviewed') return 'ACCEPTED';
+    return null;
   };
 
   // Appraisals List State
@@ -504,6 +511,12 @@ const SelfAppraisal = () => {
     loading: false,
   });
 
+  useEffect(() => {
+    if (employeeInfo.division && !newAppraisalDivision) {
+      setNewAppraisalDivision(employeeInfo.division);
+    }
+  }, [employeeInfo.division, newAppraisalDivision]);
+
   // --- Handlers ---
 
   const startNewAppraisal = () => {
@@ -656,24 +669,37 @@ const SelfAppraisal = () => {
     }
   };
 
-  const handleAcceptAppraisal = async (appraisal) => {
-    const id = appraisal._id || appraisal.id;
-    if (!id) return;
+  const updateAcceptanceStatus = async (appraisalId, newStatus) => {
+    if (!appraisalId) return;
 
-    if (window.confirm('Do you accept this appraisal and release letter?')) {
-      try {
-        await performanceAPI.updateSelfAppraisal(id, { status: 'Reviewed' });
-        fetchAppraisals();
-        setStatusPopup({ 
-          isOpen: true, 
-          status: 'success', 
-          message: 'Appraisal accepted successfully.' 
-        });
-      } catch (error) {
-        console.error("Failed to accept appraisal", error);
-        const errorMsg = error.response?.data?.message || 'Failed to accept appraisal.';
-        setStatusPopup({ isOpen: true, status: 'error', message: errorMsg });
+    try {
+      const payload = { employeeAcceptanceStatus: newStatus };
+      if (newStatus === 'ACCEPTED') {
+        payload.finalStatus = 'COMPLETED';
       }
+
+      await performanceAPI.updateSelfAppraisal(appraisalId, payload);
+      await fetchAppraisals();
+
+      const message =
+        newStatus === 'ACCEPTED'
+          ? 'Appraisal accepted successfully.'
+          : 'Appraisal marked as not accepted. HR/Admin will review.';
+
+      setStatusPopup({
+        isOpen: true,
+        status: 'success',
+        message
+      });
+      setShowReleaseLetter(false);
+    } catch (error) {
+      console.error("Failed to update appraisal acceptance", error);
+      const errorMsg =
+        error.response?.data?.message ||
+        (newStatus === 'ACCEPTED'
+          ? 'Failed to accept appraisal.'
+          : 'Failed to update acceptance.');
+      setStatusPopup({ isOpen: true, status: 'error', message: errorMsg });
     }
   };
 
@@ -819,6 +845,9 @@ const SelfAppraisal = () => {
         effectiveDate: '1st April 2026',
         incrementPercentage: totalPct,
         incrementAmount,
+        appraisalId: appraisal._id || appraisal.id,
+        appraisalStatus: appraisal.status || '',
+        employeeAcceptanceStatus: appraisal.employeeAcceptanceStatus || null,
         salary: {
           old: salaryOld,
           new: salaryNew
@@ -914,6 +943,15 @@ const SelfAppraisal = () => {
   };
 
   const handleDownloadPdf = async (appraisal) => {
+    const acceptanceStatus = getEffectiveAcceptanceStatus(appraisal);
+    if (acceptanceStatus !== 'ACCEPTED') {
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: 'Please accept your appraisal before downloading.'
+      });
+      return;
+    }
     await handleDownloadLetter(appraisal);
     setAutoDownload(true);
   };
@@ -1141,7 +1179,13 @@ const SelfAppraisal = () => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {appraisals.map((appraisal) => (
+                {appraisals.map((appraisal) => {
+                  const statusValue = appraisal.status || '';
+                  const acceptanceStatus = getEffectiveAcceptanceStatus(appraisal);
+                  const canPreviewLetter = ['DIRECTOR_APPROVED', 'Released', 'Reviewed'].includes(statusValue);
+                  const canDownloadLetter = acceptanceStatus === 'ACCEPTED';
+
+                  return (
                   <tr key={appraisal._id || appraisal.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                       FY {appraisal.year}
@@ -1160,7 +1204,7 @@ const SelfAppraisal = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                       <div className="flex justify-center space-x-3">
-                        {(!['DIRECTOR_APPROVED', 'Released', 'Reviewed'].includes(appraisal.status || '')) && (
+                        {!canPreviewLetter && (
                           <>
                             <button 
                               onClick={() => handleEditAppraisal(appraisal)}
@@ -1185,7 +1229,7 @@ const SelfAppraisal = () => {
                             </button>
                           </>
                         )}
-                        {['DIRECTOR_APPROVED', 'Released', 'Reviewed'].includes(appraisal.status || '') && (
+                        {canPreviewLetter && (
                           <>
                             <button 
                               onClick={() => handleViewAppraisal(appraisal)}
@@ -1197,38 +1241,36 @@ const SelfAppraisal = () => {
                             <button
                               onClick={() => handleDownloadLetter(appraisal)}
                               className="text-[#262760] hover:text-[#1e2050]"
-                              title="Preview Appraisal Letter"
+                              title="Preview My Appraisal"
                             >
                               <FileText className="h-5 w-5" />
                             </button>
-                            {appraisal.status !== 'Reviewed' && (
-                              <button
-                                onClick={() => handleAcceptAppraisal(appraisal)}
-                                className="text-emerald-600 hover:text-emerald-800"
-                                title="Accept"
-                              >
-                                <CheckCircle className="h-5 w-5" />
-                              </button>
-                            )}
                           </>
                         )}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                      {appraisal.status === 'Released' || appraisal.status === 'Reviewed' || appraisal.status === 'DIRECTOR_APPROVED' ? (
-                        <button 
-                          onClick={() => handleDownloadPdf(appraisal)}
-                          className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
-                        >
-                          <Download className="h-4 w-4 mr-1" />
-                          Download
-                        </button>
+                      {canPreviewLetter ? (
+                        canDownloadLetter ? (
+                          <button 
+                            onClick={() => handleDownloadPdf(appraisal)}
+                            className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                          >
+                            <Download className="h-4 w-4 mr-1" />
+                            Download
+                          </button>
+                        ) : (
+                          <span className="text-gray-400 text-xs italic">
+                            Awaiting your acceptance
+                          </span>
+                        )
                       ) : (
-                        <span className="text-gray-400 text-xs italic">Pending Release</span>
+                        <span className="text-gray-400 text-xs italic">Pending Director approval</span>
                       )}
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
             )}
@@ -1315,16 +1357,9 @@ const SelfAppraisal = () => {
                     <label className="block text-[11px] font-medium text-gray-600 mb-1">
                       Division
                     </label>
-                    <select
-                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
-                      value={newAppraisalDivision}
-                      onChange={(e) => setNewAppraisalDivision(e.target.value)}
-                    >
-                      <option value="">Select Division</option>
-                      <option value="Software">Software</option>
-                      <option value="SDS">SDS (Steel Detailing)</option>
-                      <option value="Tekla">Tekla (3D Modeling)</option>
-                    </select>
+                    <div className="mt-1 block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-[#262760]">
+                      {newAppraisalDivision || 'Not Available'}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1594,7 +1629,7 @@ const SelfAppraisal = () => {
                 </div>
               </div>
 
-              {viewData.managerComments && getStageFromStatus(viewData.status) === 'release' && (
+              {viewData.managerComments && (
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <FileText className="h-5 w-5 mr-2 text-blue-600" />
@@ -1637,7 +1672,6 @@ const SelfAppraisal = () => {
               
               <div className="p-8 bg-gray-100 overflow-x-auto flex flex-col items-center gap-8">
                 
-                {/* PAGE 1: Appreciation Letter */}
                 <div id="release-letter-page-1" className="bg-white relative min-h-[1120px] w-[794px] shadow-lg flex-shrink-0 flex flex-col">
                    {/* Background Logo */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
@@ -1783,7 +1817,6 @@ I take this opportunity to thank you for the contribution made by you during the
                   </div>
                 </div>
 
-                {/* PAGE 2: Salary Revision Table */}
                 <div id="release-letter-page-2" className="bg-white relative min-h-[1120px] w-[794px] shadow-lg flex-shrink-0 flex flex-col">
                    {/* Background Logo */}
                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
@@ -1940,6 +1973,39 @@ I take this opportunity to thank you for the contribution made by you during the
                   </div>
                 </div>
               </div>
+
+              {letterData.appraisalStatus === 'DIRECTOR_APPROVED' &&
+               (!letterData.employeeAcceptanceStatus || letterData.employeeAcceptanceStatus === 'PENDING') && (
+                <div className="px-8 pb-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white rounded-b-lg">
+                  <div className="text-sm font-medium text-gray-800">
+                    Do you accept this appraisal?
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (letterData.appraisalId) {
+                          updateAcceptanceStatus(letterData.appraisalId, 'NOT_ACCEPTED');
+                        }
+                      }}
+                      className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (letterData.appraisalId) {
+                          updateAcceptanceStatus(letterData.appraisalId, 'ACCEPTED');
+                        }
+                      }}
+                      className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-emerald-600 text-sm font-medium text-white hover:bg-emerald-700"
+                    >
+                      Accept
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

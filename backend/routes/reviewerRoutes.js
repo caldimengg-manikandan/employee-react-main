@@ -17,25 +17,17 @@ router.get('/', auth, async (req, res) => {
       $in: ['APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED', 'Reviewed'] 
     };
 
-    const role = (req.user.role || '').toLowerCase();
-    const isReviewerRole = ['reviewer', 'manager', 'lead'].includes(role);
-
-    let query = { status: statusFilter };
-
-    if (isReviewerRole) {
-      // Strict Visibility Rule for Reviewer-type roles: only assigned Reviewer can view
-      query = {
-        $and: [
-          { status: statusFilter },
-          {
-            $or: [
-              { reviewerId: req.user.employeeId },
-              { reviewer: req.user.name }
-            ]
-          }
-        ]
-      };
-    }
+    const query = {
+      $and: [
+        { status: statusFilter },
+        {
+          $or: [
+            { reviewerId: req.user.employeeId },
+            { reviewer: req.user.name }
+          ]
+        }
+      ]
+    };
 
     // Populate employee details
     const appraisals = await SelfAppraisal.find(query)
@@ -43,51 +35,97 @@ router.get('/', auth, async (req, res) => {
 
     // Transform to frontend format
     // Use Promise.all to handle async calculation
-    const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
-      const emp = app.employeeId || {};
-      
-      // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
-      // This ensures old records or records where Manager didn't trigger calculation are fixed
-      let finalIncrementPercentage = app.incrementPercentage || 0;
-      
-      if (finalIncrementPercentage === 0 && app.appraiserRating && app.year && emp.designation) {
-         try {
-           const calculated = await calculateIncrement(app.year, emp.designation, app.appraiserRating);
-           if (calculated > 0) {
-             finalIncrementPercentage = calculated;
-             // Update the DB record silently so it is fixed for good
-             // We can do this async without awaiting if we want faster response, 
-             // but awaiting ensures consistency for this request.
-             await SelfAppraisal.updateOne({ _id: app._id }, { $set: { incrementPercentage: calculated } });
-           }
-         } catch (err) {
-           console.error(`Auto-calc failed for appraisal ${app._id}:`, err);
-         }
-      }
+    const formattedAppraisals = await Promise.all(
+      appraisals.map(async (app) => {
+        const emp = app.employeeId || {};
+        const baseSalary = Number(emp.ctc || 0);
 
-      return {
-        id: app._id,
-        financialYr: app.year,
-        empId: emp.employeeId || 'N/A',
-        name: emp.name || 'Unknown',
-        avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
-        designation: emp.designation || 'N/A',
-        department: emp.department || 'N/A',
-        status: app.status,
-        
-        // Appraisal content
-        selfAppraiseeComments: app.overallContribution || '',
-        managerComments: app.managerComments || '',
-        
-        // Reviewer content
-        reviewerComments: app.reviewerComments || '',
-        currentSalary: emp.ctc || 0, // Using CTC as current salary
-        incrementPercentage: finalIncrementPercentage,
-        incrementCorrectionPercentage: app.incrementCorrectionPercentage || 0,
-        incrementAmount: app.incrementAmount || 0,
-        revisedSalary: app.revisedSalary || 0
-      };
-    }));
+        // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
+        // This ensures old records or records where Manager didn't trigger calculation are fixed
+        let finalIncrementPercentage = app.incrementPercentage || 0;
+
+        if (
+          finalIncrementPercentage === 0 &&
+          app.appraiserRating &&
+          app.year &&
+          emp.designation
+        ) {
+          try {
+            const calculated = await calculateIncrement(
+              app.year,
+              emp.designation,
+              app.appraiserRating
+            );
+            if (calculated > 0) {
+              finalIncrementPercentage = calculated;
+              await SelfAppraisal.updateOne(
+                { _id: app._id },
+                { $set: { incrementPercentage: calculated } }
+              );
+            }
+          } catch (err) {
+            console.error(`Auto-calc failed for appraisal ${app._id}:`, err);
+          }
+        }
+
+        let incrementCorrectionPercentage = app.incrementCorrectionPercentage || 0;
+        let incrementAmount = app.incrementAmount || 0;
+        let revisedSalary = app.revisedSalary || 0;
+
+        // AUTO-CALC: Derive increment amount and revised salary if missing but we have salary and %
+        if (baseSalary > 0) {
+          const totalPct = finalIncrementPercentage + incrementCorrectionPercentage;
+          const updateDoc = {};
+
+          if (incrementAmount === 0 && totalPct !== 0) {
+            incrementAmount = Math.round((baseSalary * totalPct) / 100);
+            updateDoc.incrementAmount = incrementAmount;
+          }
+
+          if (revisedSalary === 0 && (incrementAmount !== 0 || totalPct !== 0)) {
+            revisedSalary = Math.round(baseSalary + incrementAmount);
+            updateDoc.revisedSalary = revisedSalary;
+          }
+
+          if (Object.keys(updateDoc).length > 0) {
+            try {
+              await SelfAppraisal.updateOne(
+                { _id: app._id },
+                { $set: updateDoc }
+              );
+            } catch (err) {
+              console.error(
+                `Auto-calc amount/revised failed for appraisal ${app._id}:`,
+                err
+              );
+            }
+          }
+        }
+
+        return {
+          id: app._id,
+          financialYr: app.year,
+          empId: emp.employeeId || 'N/A',
+          name: emp.name || 'Unknown',
+          avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
+          designation: emp.designation || 'N/A',
+          department: emp.department || 'N/A',
+          status: app.status,
+
+          // Appraisal content
+          selfAppraiseeComments: app.overallContribution || '',
+          managerComments: app.managerComments || '',
+
+          // Reviewer content
+          reviewerComments: app.reviewerComments || '',
+          currentSalary: baseSalary,
+          incrementPercentage: finalIncrementPercentage,
+          incrementCorrectionPercentage,
+          incrementAmount,
+          revisedSalary
+        };
+      })
+    );
 
     res.json(formattedAppraisals);
   } catch (error) {
@@ -112,6 +150,19 @@ router.put('/:id', auth, async (req, res) => {
     let appraisal = await SelfAppraisal.findById(req.params.id);
     if (!appraisal) {
       return res.status(404).json({ success: false, message: 'Appraisal not found' });
+    }
+
+    const userEmployeeId = req.user.employeeId;
+    const userName = req.user.name;
+
+    const isReviewer =
+      (appraisal.reviewerId && appraisal.reviewerId === userEmployeeId) ||
+      (appraisal.reviewer && appraisal.reviewer === userName);
+
+    if (!isReviewer) {
+      return res
+        .status(403)
+        .json({ success: false, message: 'Not authorized to update this appraisal' });
     }
 
     // Update fields - Prevent Reviewer from changing incrementPercentage directly
@@ -143,8 +194,25 @@ router.post('/submit-director', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'No records selected' });
     }
 
+    const userEmployeeId = req.user.employeeId;
+    const userName = req.user.name;
+
+    const allowedAppraisals = await SelfAppraisal.find({
+      _id: { $in: ids },
+      $or: [
+        { reviewerId: userEmployeeId },
+        { reviewer: userName }
+      ]
+    }).select('_id');
+
+    const allowedIds = allowedAppraisals.map(a => a._id);
+
+    if (!allowedIds.length) {
+      return res.status(403).json({ success: false, message: 'No authorized appraisals to submit' });
+    }
+
     const result = await SelfAppraisal.updateMany(
-      { _id: { $in: ids } },
+      { _id: { $in: allowedIds } },
       { 
         $set: { 
           status: 'REVIEWER_COMPLETED',

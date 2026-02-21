@@ -10,9 +10,82 @@ import {
   CheckCircle,
   User,
   Send,
-  FileText
+  FileText,
+  AlertCircle,
+  XCircle
 } from 'lucide-react';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
+
+const StatusPopup = ({ isOpen, onClose, status, message }) => {
+  if (!isOpen) return null;
+
+  const config = {
+    success: {
+      icon: CheckCircle,
+      color: "text-green-500",
+      bg: "bg-green-50",
+      border: "border-green-200",
+      title: "Success"
+    },
+    error: {
+      icon: XCircle,
+      color: "text-red-500",
+      bg: "bg-red-50",
+      border: "border-red-200",
+      title: "Error"
+    },
+    info: {
+      icon: AlertCircle,
+      color: "text-blue-500",
+      bg: "bg-blue-50",
+      border: "border-blue-200",
+      title: "Information"
+    }
+  };
+
+  const { icon: Icon, color, bg, border, title } = config[status] || config.info;
+
+  return (
+    <div className="fixed inset-0 z-[60] overflow-y-auto">
+      <div className="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+        <div className="fixed inset-0 transition-opacity" aria-hidden="true">
+          <div className="absolute inset-0 bg-gray-900 opacity-40" onClick={onClose}></div>
+        </div>
+
+        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+        <div className={`inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-sm sm:w-full border-2 ${border}`}>
+          <div className={`${bg} px-4 pt-5 pb-4 sm:p-6 sm:pb-4`}>
+            <div className="sm:flex sm:items-start">
+              <div className={`mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-white ${color} sm:mx-0 sm:h-10 sm:w-10 shadow-sm`}>
+                <Icon className="h-6 w-6" />
+              </div>
+              <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left w-full">
+                <h3 className={`text-lg leading-6 font-bold ${color}`}>
+                  {title}
+                </h3>
+                <div className="mt-2">
+                  <p className="text-sm text-gray-600 font-medium">
+                    {message}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse">
+            <button
+              type="button"
+              className={`w-full inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 text-base font-medium text-white focus:outline-none sm:ml-3 sm:w-auto sm:text-sm transition-colors ${status === 'error' ? 'bg-red-600 hover:bg-red-700' : 'bg-[#262760] hover:bg-[#1e2050]'}`}
+              onClick={onClose}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const getCurrentFinancialYear = () => {
   const today = new Date();
@@ -54,6 +127,16 @@ const DirectorApproval = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFinancialYr, setSelectedFinancialYr] = useState(getCurrentFinancialYear());
   const [selectedRows, setSelectedRows] = useState([]);
+  const [statusPopup, setStatusPopup] = useState({
+    isOpen: false,
+    status: 'info',
+    message: ''
+  });
+  const [releaseConfirm, setReleaseConfirm] = useState({
+    isOpen: false,
+    count: 0,
+    ids: []
+  });
   
   // Inline Editing State
   const [editingRowId, setEditingRowId] = useState(null);
@@ -131,10 +214,18 @@ const DirectorApproval = () => {
       ));
       setEditingRowId(null);
       setEditFormData({});
-      alert("Row saved successfully!");
+      setStatusPopup({
+        isOpen: true,
+        status: 'success',
+        message: 'Row saved successfully!'
+      });
     } catch (error) {
       console.error('Error saving row:', error);
-      alert('Failed to save changes');
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: 'Failed to save changes'
+      });
     }
   };
 
@@ -174,9 +265,18 @@ const DirectorApproval = () => {
         ));
       }
       setIsCommentModalOpen(false);
+      setStatusPopup({
+        isOpen: true,
+        status: 'success',
+        message: 'Director comments saved successfully!'
+      });
     } catch (error) {
       console.error('Error saving comment:', error);
-      alert('Failed to save comment');
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: 'Failed to save comment'
+      });
     }
   };
 
@@ -332,49 +432,70 @@ const DirectorApproval = () => {
     }
   };
 
-  const handleApproveRelease = async (emp) => {
-    if(window.confirm(`Are you sure you want to approve and release the letter for ${emp.name}?`)) {
-      try {
-        await performanceAPI.updateDirectorAppraisal(emp.id, { status: 'DIRECTOR_APPROVED' });
-        setEmployees(employees.map(e => 
-          e.id === emp.id ? { ...e, status: 'DIRECTOR_APPROVED' } : e
-        ));
-        alert(`Appraisal approved for ${emp.name}!`);
-      } catch (error) {
-        console.error('Error approving appraisal:', error);
-        alert('Failed to approve appraisal');
-      }
-    }
+  const handleApproveRelease = (emp) => {
+    setReleaseConfirm({
+      isOpen: true,
+      count: 1,
+      ids: [emp.id]
+    });
   };
 
-  const handleBulkApprove = async () => {
+  const handleBulkApprove = () => {
     const rowsToSubmit = selectedRows.length > 0 
       ? employees.filter(emp => selectedRows.includes(emp.id))
       : employees;
       
     const count = rowsToSubmit.length;
     if (count === 0) {
-      alert("No records to approve.");
+      setStatusPopup({
+        isOpen: true,
+        status: 'info',
+        message: 'No records to approve.'
+      });
       return;
     }
 
-    if(window.confirm(`Approve and Release Letters for ${count} employee(s)?`)) {
-      try {
-        await Promise.all(rowsToSubmit.map(emp => 
-           performanceAPI.updateDirectorAppraisal(emp.id, { status: 'DIRECTOR_APPROVED' })
-        ));
-        
-        setEmployees(employees.map(emp => 
-          (selectedRows.length === 0 || selectedRows.includes(emp.id)) 
-            ? { ...emp, status: 'DIRECTOR_APPROVED' } 
-            : emp
-        ));
-        alert(`${count} appraisals approved successfully!`);
-        setSelectedRows([]);
-      } catch (error) {
-        console.error('Error approving appraisals:', error);
-        alert('Failed to approve appraisals');
-      }
+    setReleaseConfirm({
+      isOpen: true,
+      count,
+      ids: rowsToSubmit.map(e => e.id)
+    });
+  };
+
+  const confirmRelease = async () => {
+    if (!releaseConfirm.isOpen || !releaseConfirm.ids.length) {
+      setReleaseConfirm({ isOpen: false, count: 0, ids: [] });
+      return;
+    }
+    try {
+      await Promise.all(
+        releaseConfirm.ids.map(id =>
+          performanceAPI.updateDirectorAppraisal(id, { status: 'DIRECTOR_APPROVED' })
+        )
+      );
+
+      setEmployees(employees.map(emp =>
+        releaseConfirm.ids.includes(emp.id)
+          ? { ...emp, status: 'DIRECTOR_APPROVED' }
+          : emp
+      ));
+
+      setStatusPopup({
+        isOpen: true,
+        status: 'success',
+        message: `${releaseConfirm.count} appraisal(s) approved successfully!`
+      });
+
+      setSelectedRows([]);
+    } catch (error) {
+      console.error('Error approving appraisals:', error);
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: 'Failed to approve appraisals'
+      });
+    } finally {
+      setReleaseConfirm({ isOpen: false, count: 0, ids: [] });
     }
   };
 
@@ -607,6 +728,45 @@ const DirectorApproval = () => {
           )}
         </div>
       </div>
+
+      <StatusPopup
+        isOpen={statusPopup.isOpen}
+        onClose={() => setStatusPopup({ ...statusPopup, isOpen: false })}
+        status={statusPopup.status}
+        message={statusPopup.message}
+      />
+
+      {releaseConfirm.isOpen && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
+            <div className="px-6 py-4 bg-[#262760] text-white flex items-center">
+              <CheckCircle className="h-5 w-5 mr-2" />
+              <h3 className="text-lg font-semibold">Approve & Release</h3>
+            </div>
+            <div className="px-6 py-5">
+              <p className="text-sm text-gray-700">
+                Approve and Release Letters for {releaseConfirm.count} employee(s)?
+              </p>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-100"
+                onClick={() => setReleaseConfirm({ isOpen: false, count: 0, ids: [] })}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-white bg-[#262760] hover:bg-[#1e2050] rounded-md shadow-sm"
+                onClick={confirmRelease}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Director Comment Modal */}
       {isCommentModalOpen && (

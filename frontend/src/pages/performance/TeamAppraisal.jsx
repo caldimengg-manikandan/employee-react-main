@@ -35,6 +35,8 @@ const ALLOWED_COMPENSATION_VIEWERS = ['arunkumar.p', 'balasubiramaniyam', 'uvara
 
 import { performanceAPI } from '../../services/api';
 
+const TAB_ORDER = ['knowledge', 'process', 'technical', 'growth', 'summary'];
+
 // Enhanced Rating Stars Component with Labels
 const RatingStars = ({ value, onChange, readOnly = false, size = "h-5 w-5", showValue = true }) => {
   const stars = [1, 2, 3, 4, 5];
@@ -345,27 +347,38 @@ const TeamAppraisal = () => {
   const handleSave = async () => {
     try {
       await performanceAPI.updateTeamAppraisal(selectedEmployee.id, selectedEmployee);
-      alert('Review saved successfully!');
+      setNotification({ type: 'success', message: 'Review saved successfully!' });
       fetchTeamAppraisals();
     } catch (error) {
       console.error("Failed to save review", error);
-      alert("Failed to save review");
+      setNotification({ type: 'error', message: 'Failed to save review' });
     }
   };
 
-  const handleSubmit = async () => {
-    if (window.confirm('Are you sure you want to submit this review? This will mark it as Completed.')) {
-      try {
-        const payload = { ...selectedEmployee, status: 'APPRAISER_COMPLETED' };
-        await performanceAPI.updateTeamAppraisal(selectedEmployee.id, payload);
-        alert('Review submitted successfully!');
-        setSelectedEmployee(null);
-        fetchTeamAppraisals();
-      } catch (error) {
-        console.error("Failed to submit review", error);
-        alert("Failed to submit review");
-      }
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [submitLoading, setSubmitLoading] = useState(false);
+  const [notification, setNotification] = useState(null);
+
+  const performSubmitReview = async () => {
+    if (!selectedEmployee) return;
+    try {
+      setSubmitLoading(true);
+      const payload = { ...selectedEmployee, status: 'APPRAISER_COMPLETED' };
+      await performanceAPI.updateTeamAppraisal(selectedEmployee.id, payload);
+      setNotification({ type: 'success', message: 'Review submitted successfully!' });
+      setSelectedEmployee(null);
+      fetchTeamAppraisals();
+    } catch (error) {
+      console.error("Failed to submit review", error);
+      setNotification({ type: 'error', message: 'Failed to submit review' });
+    } finally {
+      setSubmitLoading(false);
+      setShowSubmitConfirm(false);
     }
+  };
+
+  const handleSubmit = () => {
+    setShowSubmitConfirm(true);
   };
 
   const getStatusColor = (status) => {
@@ -411,6 +424,16 @@ const TeamAppraisal = () => {
       { key: 'tekla', label: 'Testing & Validation' }
     ];
   };
+
+  const goToNextTab = () => {
+    const currentIndex = TAB_ORDER.indexOf(activeTab);
+    if (currentIndex === -1) return;
+    if (currentIndex < TAB_ORDER.length - 1) {
+      setActiveTab(TAB_ORDER[currentIndex + 1]);
+    }
+  };
+
+  const canSubmitReview = isEditable && activeTab === 'summary' && !!(selectedEmployee && selectedEmployee.appraiserRating);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
@@ -953,16 +976,89 @@ const TeamAppraisal = () => {
                       >
                         Save Draft
                       </button>
-                      <button
-                        onClick={handleSubmit}
-                        className="px-4 py-2 bg-[#262760] text-white rounded-md shadow-sm text-sm font-medium hover:bg-[#1e2050] focus:outline-none"
-                      >
-                        Submit Review
-                      </button>
+                      {activeTab !== 'summary' ? (
+                        <button
+                          onClick={goToNextTab}
+                          className="px-4 py-2 bg-[#262760] text-white rounded-md shadow-sm text-sm font-medium hover:bg-[#1e2050] focus:outline-none"
+                        >
+                          Next
+                        </button>
+                      ) : (
+                        canSubmitReview && (
+                          <button
+                            onClick={handleSubmit}
+                            className="px-4 py-2 bg-[#262760] text-white rounded-md shadow-sm text-sm font-medium hover:bg-[#1e2050] focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                            disabled={submitLoading}
+                          >
+                            {submitLoading ? 'Submitting...' : 'Submit Review'}
+                          </button>
+                        )
+                      )}
                     </>
                   )}
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showSubmitConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+            <div className="flex items-start">
+              <AlertCircle className="h-6 w-6 text-[#262760] mt-1 mr-3" />
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 mb-1">
+                  Submit Review?
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Are you sure you want to submit this review? This will mark it as Completed.
+                </p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md shadow-sm hover:bg-gray-50 focus:outline-none"
+                onClick={() => setShowSubmitConfirm(false)}
+                disabled={submitLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-white bg-[#262760] rounded-md shadow-sm hover:bg-[#1e2050] focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
+                onClick={performSubmitReview}
+                disabled={submitLoading}
+              >
+                {submitLoading ? 'Submitting...' : 'Yes, Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {notification && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black bg-opacity-30">
+          <div className="bg-white rounded-lg shadow-xl max-w-sm w-full p-6">
+            <div className="flex items-start">
+              <AlertCircle className="h-6 w-6 text-[#262760] mt-1 mr-3" />
+              <div>
+                <h3 className="text-base font-semibold text-gray-900 mb-1">
+                  {notification.type === 'error' ? 'Error' : 'Success'}
+                </h3>
+                <p className="text-sm text-gray-600">{notification.message}</p>
+              </div>
+            </div>
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                className="px-4 py-2 text-sm font-medium text-white bg-[#262760] rounded-md shadow-sm hover:bg-[#1e2050] focus:outline-none"
+                onClick={() => setNotification(null)}
+              >
+                OK
+              </button>
             </div>
           </div>
         </div>
