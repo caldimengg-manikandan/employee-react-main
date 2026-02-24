@@ -326,15 +326,40 @@ const CompensationMaster = () => {
     });
     
     // Default introductory message for Offer Letter
+    const joiningDate = emp?.dateOfJoining ? new Date(emp.dateOfJoining).toLocaleDateString('en-GB') : "[Date]";
+    
     const message = `Dear ${comp.name},
 
-We are pleased to offer you employment with Caldim Engineering Private Limited.
-Please find the detailed Offer Letter attached.
+We are delighted to welcome you to Caldim and officially extend our offer for the position of ${comp.designation} in the ${comp.department}. We look forward to your valuable contributions and a successful association with our organization.
 
-Should you have any questions, feel free to reach out to us.
+<b>Joining & Reporting Details</b>
 
-Best regards,
-HR Team`;
+Joining Date  : ${joiningDate}
+Work Location : ${comp.location || "[Office Location]"}
+Reporting To  : HR Department
+
+<b>Onboarding & Document Submission</b>
+
+To ensure a smooth onboarding process, please bring the following documents on your first day:
+
+• Two passport-size photographs
+• Copies of all educational certificates (from school to degree)
+• Aadhar Card copy
+• PAN Card copy
+• Updated Resume
+• Relieving order (Mandatory)
+
+Please find your detailed Offer Letter attached for review.
+
+<b>Next Steps</b>
+
+Upon arrival, please report to the HR Department to complete the onboarding formalities.
+
+For any queries or clarifications, feel free to contact us at +91 9994479432.
+
+We’re excited to have you join our team and look forward to your growth and success with Caldim Engineering Private Limited.
+
+<b>Kindly confirm your acceptance by replying to kumaresan.t@caldimengg.in.</b>`;
 
     setEmailData({
       to: email,
@@ -416,9 +441,7 @@ HR Team`;
         </div>
         
         <div style="padding: 30px;">
-          <div style="font-size: 16px; line-height: 1.6; color: #555; white-space: pre-wrap;">
-            ${message.replace(/\n/g, '<br>')}
-          </div>
+          <div style="font-size: 16px; line-height: 1.6; color: #555; white-space: pre-wrap;">${message.replace(/\n/g, '<br>')}</div>
 
           <div style="margin-top: 30px; background-color: #f9fafb; padding: 20px; border-radius: 8px;">
             <h3 style="margin-top: 0; color: #262760; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Employee Details</h3>
