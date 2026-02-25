@@ -14,7 +14,7 @@ router.get('/', auth, async (req, res) => {
     // Check permissions if needed (e.g. req.user.role === 'Admin' or 'Reviewer')
     
     const statusFilter = { 
-      $in: ['APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED', 'Reviewed'] 
+      $in: ['Submitted', 'SUBMITTED', 'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED', 'Reviewed'] 
     };
 
     const query = {

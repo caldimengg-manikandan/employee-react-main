@@ -28,6 +28,8 @@ import {
   Target,
   Lightbulb
 } from 'lucide-react';
+import balaSignature from '../../bala signature.png';
+import uvarajSignature from '../../uvaraj signature.png';
 
 // Colorful Modal Component
 const Modal = ({ isOpen, onClose, title, children, icon: Icon, colorTheme = "blue", maxWidth = "max-w-lg" }) => {
@@ -863,8 +865,13 @@ const SelfAppraisal = () => {
 
   const downloadReleaseLetter = async () => {
     try {
+      // Wait for images to load
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       const page1 = document.getElementById('release-letter-page-1');
       const page2 = document.getElementById('release-letter-page-2');
+
+      console.log('Generating letter for location:', letterData?.location);
 
       if (!page1 || !page2) {
         setStatusPopup({ isOpen: true, status: 'error', message: "Template not found." });
@@ -1451,6 +1458,38 @@ const SelfAppraisal = () => {
                 />
               </div>
 
+              {/* Increment Summary Section - Visible only after Director Approval */}
+              {['DIRECTOR_APPROVED', 'Released', 'Reviewed'].includes(viewData.status) && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                    Increment Summary
+                  </h3>
+                  <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-5 border border-green-100 shadow-sm">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bg-white p-4 rounded-lg border border-green-100 shadow-sm">
+                        <p className="text-sm font-medium text-gray-500 mb-1">Current Salary</p>
+                        <p className="text-xl font-bold text-gray-700">
+                          ₹{((viewData.revisedSalary || 0) - (viewData.incrementAmount || 0)).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="bg-white p-4 rounded-lg border border-green-100 shadow-sm">
+                        <p className="text-sm font-medium text-gray-500 mb-1">Increment %</p>
+                        <p className="text-xl font-bold text-green-600">
+                          {((viewData.incrementPercentage || 0) + (viewData.incrementCorrectionPercentage || 0)).toFixed(1)}%
+                        </p>
+                      </div>
+                      <div className="bg-white p-4 rounded-lg border border-green-100 shadow-sm">
+                        <p className="text-sm font-medium text-gray-500 mb-1">Revised Salary</p>
+                        <p className="text-xl font-bold text-[#262760]">
+                          ₹{(viewData.revisedSalary || 0).toLocaleString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Projects Section */}
               <div>
                 <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
@@ -1786,9 +1825,29 @@ I take this opportunity to thank you for the contribution made by you during the
 
                       {/* Signatory */}
                       <div className="mt-12 flex justify-end">
-                        <div className="text-right">
+                        <div className="text-right relative">
                           <div className="mb-2 text-sm text-gray-700">For CALDIM ENGINEERING PRIVATE LIMITED</div>
-                          <div className="mt-16">
+                          <div className="mt-8 flex flex-col items-end min-h-[80px]">
+                            {letterData.location && letterData.location.toLowerCase().includes('hosur') && (
+                              <img 
+                                src={balaSignature} 
+                                alt="Authorized Signatory" 
+                                className="h-16 mb-2 object-contain" 
+                                crossOrigin="anonymous"
+                              />
+                            )}
+                            {letterData.location && letterData.location.toLowerCase().includes('chennai') && (
+                              <img 
+                                src={uvarajSignature} 
+                                alt="Authorized Signatory" 
+                                className="h-16 mb-2 object-contain" 
+                                crossOrigin="anonymous"
+                              />
+                            )}
+                            {/* Spacer if no signature matches to maintain layout */}
+                            {(!letterData.location || (!letterData.location.toLowerCase().includes('hosur') && !letterData.location.toLowerCase().includes('chennai'))) && (
+                               <div className="h-16 mb-2"></div>
+                            )}
                             <div className="font-bold">Authorized Signatory</div>
                           </div>
                         </div>
@@ -1983,11 +2042,7 @@ I take this opportunity to thank you for the contribution made by you during the
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
-                      onClick={() => {
-                        if (letterData.appraisalId) {
-                          updateAcceptanceStatus(letterData.appraisalId, 'NOT_ACCEPTED');
-                        }
-                      }}
+                      onClick={() => setShowReleaseLetter(false)}
                       className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                     >
                       Cancel

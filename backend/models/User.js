@@ -56,7 +56,12 @@ const userSchema = new mongoose.Schema({
       'gratuity_view',
       'announcement_manage',
       'reward_access',
-      'team_access'
+      'team_access',
+      'admin_timesheet_access',
+      'performance_access',
+      'insurance_access',
+      'payroll_manage',
+      'resume_access'
     ]
   }],
   lastLogin: {

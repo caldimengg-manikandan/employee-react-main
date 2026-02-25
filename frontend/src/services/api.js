@@ -309,6 +309,13 @@ export const compensationAPI = {
   delete: (id) => api.delete(`/compensation/${id}`),
 };
 
+export const insuranceAPI = {
+  getAll: () => api.get('/insurance'),
+  create: (data) => api.post('/insurance', data),
+  update: (id, data) => api.put(`/insurance/${id}`, data),
+  delete: (id) => api.delete(`/insurance/${id}`),
+};
+
 // Announcements (management + public active list)
 authAPI.announcement = {
   getAll: async () => {

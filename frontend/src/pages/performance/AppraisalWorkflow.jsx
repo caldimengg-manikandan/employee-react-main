@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Trash2 } from 'lucide-react';
+import { Save, Trash2, Search } from 'lucide-react';
 import { employeeAPI } from '../../services/api';
 
 const FINANCIAL_YEARS = ['2023-24', '2024-25', '2025-26'];
 
 const AppraisalWorkflow = () => {
   const [selectedFinancialYear, setSelectedFinancialYear] = useState('2025-26');
+  const [searchQuery, setSearchQuery] = useState('');
   const [appraiserOptions, setAppraiserOptions] = useState([]);
   const [reviewerOptions, setReviewerOptions] = useState([]);
   const [directorOptions, setDirectorOptions] = useState([]);
@@ -42,6 +43,14 @@ const AppraisalWorkflow = () => {
                 designation: emp.designation || '',
                 location: emp.location || ''
             }));
+
+            // Sort by Employee ID (CDE001, CDE002, etc.)
+            formattedRows.sort((a, b) => {
+                const idA = a.empId || '';
+                const idB = b.empId || '';
+                return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+            });
+
             setRows(formattedRows);
             setFilteredRows(formattedRows);
             
@@ -98,6 +107,14 @@ const AppraisalWorkflow = () => {
   useEffect(() => {
     let result = rows;
     
+    if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        result = result.filter(row => 
+            (row.empId && row.empId.toLowerCase().includes(query)) || 
+            (row.name && row.name.toLowerCase().includes(query))
+        );
+    }
+
     if (filters.division) {
         result = result.filter(row => row.division === filters.division);
     }
@@ -109,7 +126,7 @@ const AppraisalWorkflow = () => {
     }
     
     setFilteredRows(result);
-  }, [filters, rows]);
+  }, [filters, rows, searchQuery]);
 
   const handleFilterChange = (field, value) => {
     setFilters(prev => ({
@@ -154,6 +171,23 @@ const AppraisalWorkflow = () => {
         <div className="w-full mx-auto">
 
              <div className="mb-6 bg-white p-4 rounded-lg shadow-sm border border-gray-200 flex flex-wrap items-center gap-4">
+                <div className="flex flex-col relative">
+                    <label htmlFor="search" className="text-xs font-semibold text-gray-500 mb-1">Search Employee</label>
+                    <div className="relative">
+                        <input
+                            type="text"
+                            id="search"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search by ID or Name..."
+                            className="block w-64 pl-10 pr-3 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm"
+                        />
+                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <Search className="h-4 w-4 text-gray-400" />
+                        </div>
+                    </div>
+                </div>
+
                 <div className="flex flex-col">
                     <label htmlFor="financialYear" className="text-xs font-semibold text-gray-500 mb-1">Financial Year</label>
                     <select

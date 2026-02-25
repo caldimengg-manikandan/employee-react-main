@@ -363,6 +363,9 @@ const ReviewerApproval = () => {
 
   const getStatusBadge = (status) => {
     switch (status) {
+      case 'Submitted':
+      case 'SUBMITTED':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Pending Appraiser</span>;
       case 'APPRAISER_COMPLETED':
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending Review</span>;
       case 'REVIEWER_COMPLETED':

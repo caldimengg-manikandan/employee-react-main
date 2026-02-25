@@ -20,10 +20,15 @@ import {
   UserIcon,
   BuildingLibraryIcon,
   BuildingOfficeIcon,
-  DocumentArrowDownIcon
+  DocumentArrowDownIcon,
+  EnvelopeIcon,
+  PhoneIcon,
+  UserGroupIcon,
+  FunnelIcon,
+  MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
-import { message } from 'antd';
-import { employeeAPI } from '../../services/api';
+import { message, Modal } from 'antd';
+import { employeeAPI, insuranceAPI } from '../../services/api';
 
 const InsuranceManagement = () => {
   const [currentView, setCurrentView] = useState('main'); // 'main', 'newClaim', 'claimHistory'
@@ -33,16 +38,39 @@ const InsuranceManagement = () => {
   const [errors, setErrors] = useState({});
   const [employees, setEmployees] = useState([]);
 
+  // Extract unique departments and branches for filters
+  const uniqueDepartments = ['SDS', 'TEKLA', 'DAS(Software)', 'HR/Admin', 'Electrical']; // Hardcoded as per user request for Division
+  const uniqueBranches = ['Hosur', 'Chennai']; // Hardcoded as per user request for Location
+
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
         const response = await employeeAPI.getAllEmployees();
-        setEmployees(response.data);
+        // Sort employees by ID in ascending order (CDE001 -> CDE002 -> etc)
+        const sortedEmployees = response.data.sort((a, b) => {
+          const idA = a.employeeId || '';
+          const idB = b.employeeId || '';
+          return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+        setEmployees(sortedEmployees);
       } catch (error) {
         console.error("Error fetching employees:", error);
       }
     };
     fetchEmployees();
+  }, []);
+
+  // Fetch Insurance Records
+  useEffect(() => {
+    const fetchInsuranceRecords = async () => {
+      try {
+        const response = await insuranceAPI.getAll();
+        setInsuranceRecords(response.data);
+      } catch (error) {
+        console.error("Error fetching insurance records:", error);
+      }
+    };
+    fetchInsuranceRecords();
   }, []);
 
   // Clear errors when changing steps to prevent initial validation errors (Issue 1)
@@ -244,6 +272,58 @@ const InsuranceManagement = () => {
     }
   ]);
 
+  const initialRecordFormState = {
+    employeeId: '',
+    employeeName: '',
+    department: '',
+    designation: '',
+    branch: '',
+    dateOfJoining: '',
+    dateOfBirth: '',
+    mobileNumber: '',
+    email: '',
+    nomineeName: '',
+    nomineeRelationship: '',
+    nomineeMobileNumber: '',
+    insuredAmount: '₹2,00,000'
+  };
+
+  const [insuranceRecords, setInsuranceRecords] = useState([]);
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState({
+    employeeName: '',
+    employeeId: '',
+    department: '',
+    branch: ''
+  });
+
+  const filteredRecords = insuranceRecords.filter(record => {
+    return (
+      (filters.employeeName === '' || (record.employeeName && record.employeeName.toLowerCase().includes(filters.employeeName.toLowerCase()))) &&
+      (filters.employeeId === '' || (record.employeeId && record.employeeId.toLowerCase().includes(filters.employeeId.toLowerCase()))) &&
+      (filters.department === '' || (record.department && record.department.toLowerCase().includes(filters.department.toLowerCase()))) &&
+      (filters.branch === '' || (record.branch && record.branch.toLowerCase().includes(filters.branch.toLowerCase())))
+    );
+  });
+
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      employeeName: '',
+      employeeId: '',
+      department: '',
+      branch: ''
+    });
+  };
+  const [recordForm, setRecordForm] = useState(initialRecordFormState);
+  const [recordFormErrors, setRecordFormErrors] = useState({});
+  const [isRecordModalOpen, setIsRecordModalOpen] = useState(false);
+  const [editingRecordIndex, setEditingRecordIndex] = useState(null);
+  const [viewingRecord, setViewingRecord] = useState(null);
+
   // Multi-step Form Components for New Claim
   const steps = [
     { number: 1, title: 'EMPLOYEE DETAILS', icon: UserCircleIcon },
@@ -267,6 +347,166 @@ const InsuranceManagement = () => {
       case 'Pending': return 'bg-yellow-100 text-yellow-800';
       case 'Rejected': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  const handleRecordInputChange = (field, value) => {
+    if (field === 'mobileNumber' || field === 'nomineeMobileNumber') {
+      if (!/^\d*$/.test(value)) return;
+      if (value.length > 10) return;
+    }
+
+    setRecordForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
+
+    if (recordFormErrors[field]) {
+      setRecordFormErrors(prev => {
+        const updated = { ...prev };
+        delete updated[field];
+        return updated;
+      });
+    }
+  };
+
+  const openCreateRecordModal = () => {
+    setRecordForm(initialRecordFormState);
+    setEditingRecordIndex(null);
+    setRecordFormErrors({});
+    setIsRecordModalOpen(true);
+  };
+
+  const openEditRecordModal = (record) => {
+    const index = insuranceRecords.findIndex(r => r._id === record._id);
+    const formattedRecord = {
+      ...record,
+      dateOfJoining: record.dateOfJoining ? record.dateOfJoining.split('T')[0] : '',
+      dateOfBirth: record.dateOfBirth ? record.dateOfBirth.split('T')[0] : ''
+    };
+    setRecordForm(formattedRecord);
+    setEditingRecordIndex(index);
+    setRecordFormErrors({});
+    setIsRecordModalOpen(true);
+  };
+
+  const handleDeleteRecord = async (record) => {
+    Modal.confirm({
+      title: 'Confirm Delete',
+      content: 'Are you sure you want to delete this insurance record?',
+      okText: 'Yes',
+      cancelText: 'No',
+      onOk: async () => {
+        try {
+          if (record._id) {
+            await insuranceAPI.delete(record._id);
+            Modal.success({
+              title: 'Success',
+              content: 'Insurance record deleted successfully',
+            });
+            setInsuranceRecords(prev => prev.filter(r => r._id !== record._id));
+          }
+        } catch (error) {
+          console.error("Error deleting insurance record:", error);
+          message.error('Failed to delete insurance record');
+        }
+      }
+    });
+  };
+
+  const handleRecordEmployeeSelect = (employeeId) => {
+    const employee = employees.find(emp => emp.employeeId === employeeId);
+
+    if (employee) {
+      setRecordForm(prev => ({
+        ...prev,
+        employeeId: employee.employeeId,
+        employeeName: employee.name || '',
+        department: employee.department || employee.division || '',
+        designation: employee.designation || '',
+        branch: uniqueBranches.find(b => b.toLowerCase() === (employee.location || '').toLowerCase()) || employee.location || '',
+        dateOfJoining: employee.dateOfJoining ? employee.dateOfJoining.split('T')[0] : '',
+        dateOfBirth: employee.dob || employee.dateOfBirth ? (employee.dob || employee.dateOfBirth).split('T')[0] : '',
+        mobileNumber: employee.mobileNo || employee.contactNumber || employee.mobile || '',
+        email: employee.email || '',
+      }));
+
+      // Clear errors for autofilled fields
+      setRecordFormErrors(prev => {
+        const newErrors = { ...prev };
+        ['employeeId', 'employeeName', 'department', 'designation', 'branch', 'dateOfJoining', 'dateOfBirth', 'mobileNumber', 'email'].forEach(key => delete newErrors[key]);
+        return newErrors;
+      });
+    } else {
+      setRecordForm(prev => ({
+        ...prev,
+        employeeId: employeeId
+      }));
+    }
+  };
+
+  const handleSubmitRecord = async (e) => {
+    e.preventDefault();
+
+    const requiredFields = [
+      'employeeId',
+      'employeeName',
+      'department',
+      'designation',
+      'branch',
+      'dateOfJoining',
+      'dateOfBirth',
+      'mobileNumber',
+      'email',
+      'nomineeName',
+      'nomineeRelationship',
+      'nomineeMobileNumber'
+    ];
+
+    const newErrors = {};
+    requiredFields.forEach((field) => {
+      if (!recordForm[field]) {
+        newErrors[field] = true;
+      }
+    });
+
+    if (Object.keys(newErrors).length > 0) {
+      setRecordFormErrors(newErrors);
+      return;
+    }
+
+    const recordToSave = {
+      ...recordForm,
+      insuredAmount: '₹2,00,000'
+    };
+
+    try {
+      if (editingRecordIndex !== null) {
+        const record = insuranceRecords[editingRecordIndex];
+        const response = await insuranceAPI.update(record._id, recordToSave);
+        setInsuranceRecords(prev => prev.map((item, index) =>
+          index === editingRecordIndex ? response.data : item
+        ));
+        Modal.success({
+          title: 'Success',
+          content: 'Insurance record updated successfully',
+        });
+      } else {
+        const response = await insuranceAPI.create(recordToSave);
+        setInsuranceRecords(prev => [response.data, ...prev]);
+        Modal.success({
+          title: 'Success',
+          content: 'Insurance record added successfully',
+        });
+      }
+
+      setIsRecordModalOpen(false);
+      setRecordForm(initialRecordFormState);
+      setEditingRecordIndex(null);
+      setRecordFormErrors({});
+    } catch (error) {
+      console.error("Error saving insurance record:", error);
+      message.error('Failed to save insurance record');
     }
   };
 
@@ -2017,47 +2257,77 @@ const InsuranceManagement = () => {
   // Main Landing Page
   if (currentView === 'main') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-4 md:p-6">
-        <div className="max-w-6xl mx-auto">
-          {/* Removed the header text and paragraph */}
+      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-6 md:p-10">
+        <div className="max-w-6xl mx-auto space-y-10">
+          <div className="text-center space-y-4">
+            <h1 className="text-3xl md:text-5xl font-bold text-gray-900">Insurance Management</h1>
+            
+          </div>
 
-          {/* Action Cards - Increased height */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-            {/* New Insurance Claim Card - Increased height */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 md:p-10 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 min-h-[320px] flex flex-col justify-center">
-              <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-gradient-to-r from-[#262760]/10 to-[#262760]/20 mb-8 shadow-inner">
-                  <PlusIcon className="h-12 w-12 text-[#262760]" />
+          <div className="bg-white rounded-3xl shadow-xl border border-gray-200 p-6 md:p-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5 md:gap-8">
+              <button
+                onClick={() => {
+                  setCurrentView('newClaim');
+                  setErrors({});
+                }}
+                className="group flex items-center justify-between w-full px-6 py-6 rounded-2xl border border-gray-200 hover:border-[#262760] hover:bg-[#262760]/5 transition-all duration-200 text-left"
+              >
+                <div className="flex items-center space-x-5">
+                  <div className="flex items-center justify-center h-14 w-14 rounded-full bg-[#262760]/10 text-[#262760]">
+                    <PlusIcon className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <div className="text-base md:text-lg font-semibold text-gray-900">New Insurance Claim</div>
+                    <div className="text-xs md:text-sm text-gray-500">
+                      Start a fresh insurance claim for an employee.
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">New Insurance Claim</h3>
-                <button
-                  onClick={() => {
-                    setCurrentView('newClaim');
-                    setErrors({});
-                  }}
-                  className="w-full inline-flex items-center justify-center px-8 py-5 border border-transparent text-lg font-medium rounded-xl text-white bg-gradient-to-r from-[#262760] to-[#1e2050] hover:from-[#1e2050] hover:to-[#1a1b40] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760] transition-all duration-200 shadow-md hover:shadow-lg"
-                >
-                  <PlusIcon className="h-6 w-6 mr-3" />
-                  Create New Claim
-                </button>
-              </div>
-            </div>
+                <span className="ml-4 text-[#262760] text-xl group-hover:translate-x-1 transition-transform duration-200">
+                  →
+                </span>
+              </button>
 
-            {/* Claim History Card - Increased height */}
-            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 p-8 md:p-10 hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 min-h-[320px] flex flex-col justify-center">
-              <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-24 w-24 rounded-full bg-gradient-to-r from-[#262760]/10 to-[#262760]/20 mb-8 shadow-inner">
-                  <DocumentTextIcon className="h-12 w-12 text-[#262760]" />
+              <button
+                onClick={() => setCurrentView('claimHistory')}
+                className="group flex items-center justify-between w-full px-6 py-6 rounded-2xl border border-gray-200 hover:border-[#262760] hover:bg-[#262760]/5 transition-all duration-200 text-left"
+              >
+                <div className="flex items-center space-x-5">
+                  <div className="flex items-center justify-center h-14 w-14 rounded-full bg-[#262760]/10 text-[#262760]">
+                    <DocumentTextIcon className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <div className="text-base md:text-lg font-semibold text-gray-900">Claim History</div>
+                    <div className="text-xs md:text-sm text-gray-500">
+                      View and manage all submitted insurance claims.
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-2xl md:text-3xl font-bold text-gray-900 mb-6">Claim History</h3>
-                <button
-                  onClick={() => setCurrentView('claimHistory')}
-                  className="w-full inline-flex items-center justify-center px-8 py-5 border border-transparent text-lg font-medium rounded-xl text-white bg-gradient-to-r from-[#262760] to-[#1e2050] hover:from-[#1e2050] hover:to-[#1a1b40] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760] transition-all duration-200 shadow-md hover:shadow-lg"
-                >
-                  <DocumentTextIcon className="h-6 w-6 mr-3" />
-                  View Claim History
-                </button>
-              </div>
+                <span className="ml-4 text-[#262760] text-xl group-hover:translate-x-1 transition-transform duration-200">
+                  →
+                </span>
+              </button>
+
+              <button
+                onClick={() => setCurrentView('insuranceRecords')}
+                className="group flex items-center justify-between w-full px-6 py-6 rounded-2xl border border-gray-200 hover:border-[#262760] hover:bg-[#262760]/5 transition-all duration-200 text-left"
+              >
+                <div className="flex items-center space-x-5">
+                  <div className="flex items-center justify-center h-14 w-14 rounded-full bg-[#262760]/10 text-[#262760]">
+                    <UserIcon className="h-7 w-7" />
+                  </div>
+                  <div>
+                    <div className="text-base md:text-lg font-semibold text-gray-900">Insurance Records</div>
+                    <div className="text-xs md:text-sm text-gray-500">
+                      Maintain member records and coverage details.
+                    </div>
+                  </div>
+                </div>
+                <span className="ml-4 text-[#262760] text-xl group-hover:translate-x-1 transition-transform duration-200">
+                  →
+                </span>
+              </button>
             </div>
           </div>
         </div>
@@ -2187,7 +2457,6 @@ const InsuranceManagement = () => {
     return (
       <div className="min-h-screen bg-gray-50 p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
-          {/* Header with Back Button */}
           <div className="flex items-center mb-6 md:mb-8">
             <button
               onClick={() => setCurrentView('main')}
@@ -2198,414 +2467,419 @@ const InsuranceManagement = () => {
             </button>
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Claim History</h1>
-              {/* Removed paragraph text */}
             </div>
           </div>
 
-          {/* Claims Table - Increased height */}
-          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px]">
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-[#262760]">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                      S.No
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                      Employee ID
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                      Employee Name
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                      Claim No
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                      Treatment
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                      Insured Amount
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                      Dates
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                      Claim Status
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                      Payment Status
-                    </th>
-                    <th className="px-6 py-4 text-right text-xs font-semibold text-white uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {claims.map((claim, index) => (
-                    <tr key={claim.id} className="hover:bg-[#262760]/5 transition-colors duration-150">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {index + 1}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {claim.employeeId}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {claim.employeeName}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {claim.claimNumber}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
-                        {claim.treatment}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        ₹{claim.sumInsured?.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                        {new Date(claim.claimDate).toLocaleDateString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(claim.status)}`}>
-                          {claim.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(claim.paymentStatus)}`}>
-                          {claim.paymentStatus}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <div className="flex justify-end space-x-2">
-                          <button
-                            onClick={() => setViewingClaim(claim)}
-                            className="p-2 bg-[#262760] text-white hover:bg-[#1e2050] rounded-lg shadow-sm transition-all duration-150"
-                            title="View Claim Details"
-                          >
-                            <EyeIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDownloadPDF(claim)}
-                            className="p-2 text-[#262760] hover:text-[#1e2050] hover:bg-[#262760]/10 rounded-lg transition-colors duration-150"
-                            title="Download PDF"
-                          >
-                            <DocumentArrowDownIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingClaim(claim);
-                              // Set all form data for editing
-                              setEditFormData({
-                                employeeName: claim.employeeName || '',
-                                employeeId: claim.employeeId || '',
-                                mobile: claim.mobile || '',
-                                bankName: claim.bankName || '',
-                                accountNumber: claim.accountNumber || '',
-                                relationship: claim.relationship || 'Single',
-                                spouseName: claim.spouseName || '',
-                                children: claim.children || [{ name: '', age: '' }],
-                                memberName: claim.memberName || '',
-                                claimNumber: claim.claimNumber || '',
-                                treatment: claim.treatment || '',
-                                sumInsured: claim.sumInsured || '',
-                                dateOfAdmission: claim.dateOfAdmission || '',
-                                dateOfDischarge: claim.dateOfDischarge || '',
-                                requestedAmount: claim.requestedAmount || '',
-                                claimDate: claim.claimDate || '',
-                                closeDate: claim.closeDate || '',
-                                claimStatus: claim.status || 'Pending',
-                                paymentStatus: claim.paymentStatus || 'Unpaid',
-                                hospitalAddress: claim.hospitalAddress || '',
-                                typeOfIllness: claim.typeOfIllness || '',
-                                otherIllness: claim.otherIllness || '',
-                                documents: claim.documents || {
-                                  employeePhoto: null,
-                                  dischargeBill: null,
-                                  pharmacyBill: null,
-                                  paymentReceipt: null
-                                }
-                              });
-                            }}
-                            className="p-2 text-[#262760] hover:text-[#1e2050] hover:bg-[#262760]/10 rounded-lg transition-colors duration-150"
-                            title="Edit Claim"
-                          >
-                            <PencilIcon className="h-5 w-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteClaim(claim.id)}
-                            className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-lg transition-colors duration-150"
-                            title="Delete Claim"
-                          >
-                            <TrashIcon className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </td>
+            <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px]">
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-[#262760]">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                        S.No
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                        Employee ID
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                        Employee Name
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                        Claim No
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                        Treatment
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                        Insured Amount
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                        Dates
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                        Claim Status
+                      </th>
+                      <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                        Payment Status
+                      </th>
+                      <th className="px-6 py-4 text-right text-xs font-semibold text-white uppercase tracking-wider">
+                        Actions
+                      </th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {claims.length === 0 && (
-                <div className="text-center py-16">
-                  <div className="text-gray-400 mb-4">
-                    <DocumentTextIcon className="h-16 w-16 mx-auto" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No claim history</h3>
-                  <p className="text-gray-600 mb-6">Start by submitting your first insurance claim.</p>
-                  <button
-                    onClick={() => setCurrentView('newClaim')}
-                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-lg hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md"
-                  >
-                    <PlusIcon className="h-5 w-5 mr-2" />
-                    Create First Claim
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* View Claim Modal */}
-        {viewingClaim && (
-          <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto transform transition-all">
-              <div className="p-6 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-t-3xl">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2 bg-white/10 rounded-lg">
-                      <DocumentTextIcon className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-bold">Claim Details</h2>
-                      <p className="text-white/80 text-sm">#{viewingClaim.claimNumber}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => setViewingClaim(null)}
-                    className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all duration-200"
-                  >
-                    <XMarkIcon className="h-6 w-6" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-8 space-y-8 bg-gray-50/50">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Claim Information */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
-                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
-                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
-                        <DocumentTextIcon className="h-4 w-4 text-[#262760]" />
-                      </span>
-                      Claim Information
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
-                        <span className="text-sm font-medium text-gray-500">Claim Number</span>
-                        <span className="text-sm font-bold text-gray-900 font-mono bg-gray-50 px-2 py-1 rounded">{viewingClaim.claimNumber}</span>
-                      </div>
-                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
-                        <span className="text-sm font-medium text-gray-500">Member Name</span>
-                        <span className="text-sm font-semibold text-gray-900">{viewingClaim.memberName}</span>
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium text-gray-500 block mb-1">Treatment</span>
-                        <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100">{viewingClaim.treatment}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Financial Details */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
-                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
-                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
-                        <BanknotesIcon className="h-4 w-4 text-[#262760]" />
-                      </span>
-                      Financial Details
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border border-green-100">
-                        <span className="text-sm font-medium text-green-800">Sum Insured</span>
-                        <span className="text-lg font-bold text-green-700">₹{viewingClaim.sumInsured?.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-100">
-                        <span className="text-sm font-medium text-blue-800">Requested Amount</span>
-                        <span className="text-lg font-bold text-blue-700">₹{viewingClaim.requestedAmount?.toLocaleString()}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Treatment Dates */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
-                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
-                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
-                        <ClockIcon className="h-4 w-4 text-[#262760]" />
-                      </span>
-                      Treatment Dates
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
-                        <span className="text-sm font-medium text-gray-500">Admission Date</span>
-                        <span className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.dateOfAdmission).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
-                        <span className="text-sm font-medium text-gray-500">Discharge Date</span>
-                        <span className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.dateOfDischarge).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Claim Status */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
-                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
-                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
-                        <ExclamationCircleIcon className="h-4 w-4 text-[#262760]" />
-                      </span>
-                      Claim Status
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-500">Claim Status</span>
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getStatusColor(viewingClaim.status)}`}>
-                          {viewingClaim.status}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-500">Payment Status</span>
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${getPaymentStatusColor(viewingClaim.paymentStatus)}`}>
-                          {viewingClaim.paymentStatus}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center pt-2 border-t border-gray-50">
-                        <span className="text-xs text-gray-400">Claim Date: {new Date(viewingClaim.claimDate).toLocaleDateString()}</span>
-                        <span className="text-xs text-gray-400">
-                          {viewingClaim.closeDate ? `Closed: ${new Date(viewingClaim.closeDate).toLocaleDateString()}` : 'Open'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Medical Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Hospital Information */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
-                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
-                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
-                        <BuildingOfficeIcon className="h-4 w-4 text-[#262760]" />
-                      </span>
-                      Hospital Information
-                    </h4>
-                    <div className="space-y-4">
-                      <div>
-                        <span className="text-sm font-medium text-gray-500 block mb-1">Hospital Address</span>
-                        <p className="text-sm text-gray-900 bg-gray-50 p-3 rounded-lg border border-gray-100">{viewingClaim.hospitalAddress}</p>
-                      </div>
-                      <div className="flex justify-between items-center border-t border-gray-50 pt-2">
-                        <span className="text-sm font-medium text-gray-500">Type of Illness</span>
-                        <span className="text-sm font-semibold text-gray-900 px-2 py-1 bg-purple-50 text-purple-700 rounded">{viewingClaim.typeOfIllness}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Employee Information */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
-                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
-                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
-                        <UserIcon className="h-4 w-4 text-[#262760]" />
-                      </span>
-                      Employee Information
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
-                        <span className="text-sm font-medium text-gray-500">Employee Name</span>
-                        <span className="text-sm font-bold text-gray-900">{viewingClaim.employeeName}</span>
-                      </div>
-                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
-                        <span className="text-sm font-medium text-gray-500">Employee ID</span>
-                        <span className="text-sm font-mono text-gray-600 bg-gray-50 px-2 py-1 rounded">{viewingClaim.employeeId}</span>
-                      </div>
-                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
-                        <span className="text-sm font-medium text-gray-500">Mobile</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.mobile}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-500">Relationship</span>
-                        <span className="text-sm text-gray-900">{viewingClaim.relationship}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Additional Information */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Bank Information */}
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
-                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
-                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
-                        <BuildingLibraryIcon className="h-4 w-4 text-[#262760]" />
-                      </span>
-                      Bank Information
-                    </h4>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center border-b border-gray-50 pb-2">
-                        <span className="text-sm font-medium text-gray-500">Bank Name</span>
-                        <span className="text-sm font-semibold text-gray-900">{viewingClaim.bankName}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-sm font-medium text-gray-500">Account Number</span>
-                        <span className="text-sm font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded">{viewingClaim.accountNumber}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Family Details */}
-                {(viewingClaim.spouseName || (viewingClaim.children && viewingClaim.children.length > 0)) && (
-                  <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
-                    <h4 className="text-sm font-bold text-[#262760] mb-4 flex items-center uppercase tracking-wider">
-                      <span className="w-8 h-8 rounded-full bg-[#262760]/10 flex items-center justify-center mr-3">
-                        <UserGroupIcon className="h-4 w-4 text-[#262760]" />
-                      </span>
-                      Family Details
-                    </h4>
-                    <div className="space-y-4">
-                      {viewingClaim.spouseName && (
-                        <div className="flex justify-between items-center p-3 bg-pink-50 rounded-lg border border-pink-100">
-                          <span className="text-sm font-medium text-pink-800">Spouse Name</span>
-                          <span className="text-sm font-bold text-pink-900">{viewingClaim.spouseName}</span>
-                        </div>
-                      )}
-                      {viewingClaim.children && viewingClaim.children.length > 0 && (
-                        <div>
-                          <span className="text-sm font-medium text-gray-500 mb-2 block">Children</span>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            {viewingClaim.children.map((child, index) => (
-                              <div key={index} className="bg-blue-50 p-3 rounded-lg border border-blue-100 flex justify-between items-center">
-                                <div className="font-semibold text-blue-900">{child.name}</div>
-                                <div className="text-xs font-medium text-blue-700 bg-white/50 px-2 py-1 rounded-full">{child.age} yrs</div>
-                              </div>
-                            ))}
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {claims.map((claim, index) => (
+                      <tr key={claim.id} className="hover:bg-[#262760]/5 transition-colors duration-150">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {index + 1}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {claim.employeeId}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {claim.employeeName}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {claim.claimNumber}
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-900">
+                          {claim.treatment}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          ₹{claim.sumInsured?.toLocaleString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {new Date(claim.claimDate).toLocaleDateString()}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(claim.status)}`}>
+                            {claim.status}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getPaymentStatusColor(claim.paymentStatus)}`}>
+                            {claim.paymentStatus}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          <div className="flex justify-end space-x-2">
+                            <button
+                              onClick={() => setViewingClaim(claim)}
+                              className="p-2 bg-[#262760] text-white hover:bg-[#1e2050] rounded-lg shadow-sm transition-all duration-150"
+                              title="View Claim Details"
+                            >
+                              <EyeIcon className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDownloadPDF(claim)}
+                              className="p-2 text-[#262760] hover:text-[#1e2050] hover:bg-[#262760]/10 rounded-lg transition-colors duration-150"
+                              title="Download PDF"
+                            >
+                              <DocumentArrowDownIcon className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setEditingClaim(claim);
+                                setEditFormData({
+                                  employeeName: claim.employeeName || '',
+                                  employeeId: claim.employeeId || '',
+                                  mobile: claim.mobile || '',
+                                  bankName: claim.bankName || '',
+                                  accountNumber: claim.accountNumber || '',
+                                  relationship: claim.relationship || 'Single',
+                                  spouseName: claim.spouseName || '',
+                                  children: claim.children || [{ name: '', age: '' }],
+                                  memberName: claim.memberName || '',
+                                  claimNumber: claim.claimNumber || '',
+                                  treatment: claim.treatment || '',
+                                  sumInsured: claim.sumInsured || '',
+                                  dateOfAdmission: claim.dateOfAdmission || '',
+                                  dateOfDischarge: claim.dateOfDischarge || '',
+                                  requestedAmount: claim.requestedAmount || '',
+                                  claimDate: claim.claimDate || '',
+                                  closeDate: claim.closeDate || '',
+                                  claimStatus: claim.status || 'Pending',
+                                  paymentStatus: claim.paymentStatus || 'Unpaid',
+                                  hospitalAddress: claim.hospitalAddress || '',
+                                  typeOfIllness: claim.typeOfIllness || '',
+                                  otherIllness: claim.otherIllness || '',
+                                  documents: claim.documents || {
+                                    employeePhoto: null,
+                                    dischargeBill: null,
+                                    pharmacyBill: null,
+                                    paymentReceipt: null
+                                  }
+                                });
+                              }}
+                              className="p-2 text-[#262760] hover:text-[#1e2050] hover:bg-[#262760]/10 rounded-lg transition-colors duration-150"
+                              title="Edit Claim"
+                            >
+                              <PencilIcon className="h-5 w-5" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteClaim(claim.id)}
+                              className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-lg transition-colors duration-150"
+                              title="Delete Claim"
+                            >
+                              <TrashIcon className="h-5 w-5" />
+                            </button>
                           </div>
-                        </div>
-                      )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {claims.length === 0 && (
+                  <div className="text-center py-16">
+                    <div className="text-gray-400 mb-4">
+                      <DocumentTextIcon className="h-16 w-16 mx-auto" />
                     </div>
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">No claim history</h3>
+                    <p className="text-gray-600 mb-6">Start by submitting your first insurance claim.</p>
+                    <button
+                      onClick={() => setCurrentView('newClaim')}
+                      className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-lg hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md"
+                    >
+                      <PlusIcon className="h-5 w-5 mr-2" />
+                      Create First Claim
+                    </button>
                   </div>
                 )}
               </div>
+            </div>
+        </div>
 
-              <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-3xl flex justify-between items-center">
-                <button
+        {viewingClaim && (
+          <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50 transition-opacity duration-300">
+            <div className="bg-white rounded-3xl shadow-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto transform transition-all scale-100">
+              
+              {/* Modern Header with Gradient */}
+              <div className="relative overflow-hidden bg-gradient-to-br from-[#262760] via-[#4f46e5] to-[#7c3aed] p-8 text-white">
+                <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-pink-500/20 rounded-full blur-3xl"></div>
+                
+                <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                  <div className="flex items-center space-x-5">
+                    <div className="p-3 bg-white/20 backdrop-blur-md rounded-2xl shadow-inner border border-white/10">
+                      <DocumentTextIcon className="h-8 w-8 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="text-3xl font-bold tracking-tight text-white">Claim Details</h2>
+                      <div className="flex items-center mt-2 space-x-3 text-sm">
+                        <span className="bg-black/20 px-3 py-1 rounded-md font-mono text-white/90 backdrop-blur-sm">#{viewingClaim.claimNumber}</span>
+                        <span className="text-white/40">|</span>
+                        <span className="text-white/90 flex items-center bg-white/10 px-3 py-1 rounded-md">
+                          <ClockIcon className="w-4 h-4 mr-1.5" />
+                          {new Date(viewingClaim.claimDate).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center space-x-4">
+                     <div className={`px-4 py-2 rounded-xl text-sm font-bold shadow-lg backdrop-blur-md border border-white/20 flex items-center ${
+                        viewingClaim.status === 'Approved' ? 'bg-green-500/20 text-green-50 border-green-400/30' : 
+                        viewingClaim.status === 'Rejected' ? 'bg-red-500/20 text-red-50 border-red-400/30' : 'bg-yellow-500/20 text-yellow-50 border-yellow-400/30'
+                     }`}>
+                        <span className={`w-2 h-2 rounded-full mr-2 ${
+                            viewingClaim.status === 'Approved' ? 'bg-green-400' : 
+                            viewingClaim.status === 'Rejected' ? 'bg-red-400' : 'bg-yellow-400'
+                        }`}></span>
+                        {viewingClaim.status}
+                     </div>
+                     <button
+                      onClick={() => setViewingClaim(null)}
+                      className="group p-2 bg-white/10 hover:bg-white/20 rounded-full transition-all duration-200 text-white/80 hover:text-white border border-white/5 hover:border-white/20"
+                    >
+                      <XMarkIcon className="h-6 w-6 transform group-hover:rotate-90 transition-transform duration-300" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-8 bg-gray-50/50">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
+                  
+                  {/* Left Column: Key Info & Status (4 cols) */}
+                  <div className="md:col-span-4 space-y-6">
+                    
+                    {/* Status Card */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 overflow-hidden relative group hover:shadow-lg transition-all duration-300">
+                      <div className={`absolute top-0 left-0 w-1.5 h-full ${getPaymentStatusColor(viewingClaim.paymentStatus).includes('green') ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                      <h4 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-4 flex items-center">
+                        Payment Status
+                      </h4>
+                      <div className="flex flex-col items-center justify-center py-4 bg-gray-50 rounded-xl border border-gray-100/50">
+                        <div className={`text-2xl font-bold mb-1 ${getPaymentStatusColor(viewingClaim.paymentStatus).includes('green') ? 'text-green-600' : 'text-orange-600'}`}>
+                          {viewingClaim.paymentStatus}
+                        </div>
+                        <p className="text-xs text-gray-400 text-center font-medium">
+                          {viewingClaim.closeDate ? `Closed: ${new Date(viewingClaim.closeDate).toLocaleDateString()}` : 'Processing Request'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Financial Summary */}
+                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300 group">
+                      <h4 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-4 flex items-center group-hover:text-[#262760] transition-colors">
+                        <BanknotesIcon className="w-4 h-4 mr-2" /> Financial Overview
+                      </h4>
+                      <div className="space-y-4">
+                        <div className="p-4 rounded-xl bg-gray-50 border border-gray-100">
+                           <p className="text-xs text-gray-500 mb-1 font-medium">Sum Insured</p>
+                           <p className="text-lg font-bold text-gray-700">₹{viewingClaim.sumInsured?.toLocaleString()}</p>
+                        </div>
+                        <div className="p-4 rounded-xl bg-gradient-to-br from-[#262760]/5 to-[#4f46e5]/10 border border-[#262760]/10">
+                           <p className="text-xs text-[#262760]/70 mb-1 font-bold uppercase">Requested Amount</p>
+                           <p className="text-2xl font-bold text-[#262760]">₹{viewingClaim.requestedAmount?.toLocaleString()}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Timeline */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300">
+                       <h4 className="text-gray-400 text-xs font-bold uppercase tracking-wider mb-6 flex items-center">
+                        <ClockIcon className="w-4 h-4 mr-2" /> Treatment Timeline
+                      </h4>
+                      <div className="relative pl-4 border-l-2 border-gray-100 space-y-8 ml-2">
+                        
+                        <div className="relative">
+                           <div className="absolute -left-[21px] top-1 w-4 h-4 bg-white border-2 border-green-500 rounded-full shadow-sm"></div>
+                           <p className="text-xs text-green-600 font-bold uppercase mb-0.5">Admission</p>
+                           <p className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.dateOfAdmission).toLocaleDateString()}</p>
+                        </div>
+                        
+                        <div className="relative">
+                           <div className="absolute -left-[21px] top-1 w-4 h-4 bg-white border-2 border-blue-500 rounded-full shadow-sm"></div>
+                           <p className="text-xs text-blue-600 font-bold uppercase mb-0.5">Discharge</p>
+                           <p className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.dateOfDischarge).toLocaleDateString()}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Details (8 cols) */}
+                  <div className="md:col-span-8 space-y-6">
+                    
+                    {/* Main Details Grid */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 hover:shadow-lg transition-all duration-300">
+                      <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-50">
+                         <div className="p-2 bg-indigo-50 rounded-lg text-indigo-600">
+                            <UserIcon className="w-5 h-5" />
+                         </div>
+                         <h3 className="text-lg font-bold text-gray-900">Beneficiary Information</h3>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                        <div className="group">
+                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 block group-hover:text-indigo-600 transition-colors">Employee Name</label>
+                           <div className="text-base font-semibold text-gray-800 bg-gray-50/50 p-2.5 rounded-lg border border-transparent group-hover:border-indigo-100 group-hover:bg-indigo-50/30 transition-all">{viewingClaim.employeeName}</div>
+                        </div>
+
+                        <div className="group">
+                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 block group-hover:text-indigo-600 transition-colors">Member Name</label>
+                           <div className="text-base font-semibold text-gray-800 bg-gray-50/50 p-2.5 rounded-lg border border-transparent group-hover:border-indigo-100 group-hover:bg-indigo-50/30 transition-all">{viewingClaim.memberName}</div>
+                        </div>
+                        
+                        <div className="group">
+                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 block group-hover:text-indigo-600 transition-colors">Relationship</label>
+                           <div className="text-base font-semibold text-gray-800 bg-gray-50/50 p-2.5 rounded-lg border border-transparent group-hover:border-indigo-100 group-hover:bg-indigo-50/30 transition-all">{viewingClaim.relationship}</div>
+                        </div>
+
+                        <div className="group">
+                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 block group-hover:text-indigo-600 transition-colors">Contact Mobile</label>
+                           <div className="text-base font-semibold text-gray-800 bg-gray-50/50 p-2.5 rounded-lg border border-transparent group-hover:border-indigo-100 group-hover:bg-indigo-50/30 transition-all">{viewingClaim.mobile}</div>
+                        </div>
+                        
+                        <div className="group md:col-span-2">
+                           <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 block group-hover:text-indigo-600 transition-colors">Employee ID</label>
+                           <div className="text-base font-mono font-semibold text-gray-600 bg-gray-100 px-3 py-1.5 rounded-lg inline-block border border-gray-200">{viewingClaim.employeeId}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Medical & Hospital */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 hover:shadow-lg transition-all duration-300">
+                      <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-50">
+                         <div className="p-2 bg-pink-50 rounded-lg text-pink-600">
+                            <BuildingOfficeIcon className="w-5 h-5" />
+                         </div>
+                         <h3 className="text-lg font-bold text-gray-900">Medical Details</h3>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                         <div className="md:col-span-2">
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2 block">Hospital Address</label>
+                            <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-700 leading-relaxed border border-gray-100">
+                              {viewingClaim.hospitalAddress}
+                            </div>
+                         </div>
+
+                         <div>
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 block">Treatment / Procedure</label>
+                            <div className="text-base font-semibold text-gray-800">{viewingClaim.treatment}</div>
+                         </div>
+
+                         <div>
+                            <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 block">Illness Type</label>
+                            <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-semibold bg-purple-50 text-purple-700 border border-purple-100">
+                              {viewingClaim.typeOfIllness}
+                            </span>
+                         </div>
+                      </div>
+                    </div>
+
+                    {/* Bank Info */}
+                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 hover:shadow-lg transition-all duration-300">
+                        <div className="flex items-center space-x-3 mb-6 pb-4 border-b border-gray-50">
+                         <div className="p-2 bg-teal-50 rounded-lg text-teal-600">
+                            <BuildingLibraryIcon className="w-5 h-5" />
+                         </div>
+                         <h3 className="text-lg font-bold text-gray-900">Bank Account</h3>
+                      </div>
+
+                        <div className="flex flex-col md:flex-row gap-8">
+                           <div className="flex-1">
+                              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 block">Bank Name</label>
+                              <div className="text-base font-semibold text-gray-800">{viewingClaim.bankName}</div>
+                           </div>
+                           <div className="flex-1">
+                              <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1.5 block">Account Number</label>
+                              <div className="font-mono text-base font-semibold text-gray-800 bg-gray-100 px-4 py-2 rounded-lg tracking-wide border border-gray-200">{viewingClaim.accountNumber}</div>
+                           </div>
+                        </div>
+                     </div>
+
+                  </div>
+                </div>
+
+                {/* Family Section if exists */}
+                 {(viewingClaim.spouseName || (viewingClaim.children && viewingClaim.children.length > 0)) && (
+                  <div className="mt-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-6 hover:shadow-lg transition-all duration-300">
+                    <h4 className="text-sm font-bold text-gray-900 mb-6 flex items-center">
+                      <UserGroupIcon className="w-5 h-5 mr-2 text-orange-500" />
+                      Family Members
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {viewingClaim.spouseName && (
+                        <div className="flex items-center p-4 bg-pink-50/50 rounded-xl border border-pink-100 hover:bg-pink-50 transition-colors">
+                          <div className="w-10 h-10 rounded-full bg-pink-100 flex items-center justify-center text-pink-600 font-bold mr-4 text-sm border border-pink-200">SP</div>
+                          <div>
+                            <p className="text-[10px] text-pink-500 font-bold uppercase tracking-wider">Spouse</p>
+                            <p className="text-sm font-bold text-gray-800">{viewingClaim.spouseName}</p>
+                          </div>
+                        </div>
+                      )}
+                      {viewingClaim.children && viewingClaim.children.map((child, index) => (
+                        <div key={index} className="flex items-center p-4 bg-blue-50/50 rounded-xl border border-blue-100 hover:bg-blue-50 transition-colors">
+                          <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-bold mr-4 text-sm border border-blue-200">C{index+1}</div>
+                          <div>
+                            <p className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">Child ({child.age}y)</p>
+                            <p className="text-sm font-bold text-gray-800">{child.name}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              {/* Footer Actions */}
+              <div className="p-6 bg-white border-t border-gray-100 rounded-b-3xl flex justify-between items-center sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                 <button
                   onClick={() => handleDownloadPDF(viewingClaim)}
-                  className="inline-flex items-center px-6 py-3 border-2 border-[#262760] text-[#262760] font-semibold rounded-xl hover:bg-[#262760] hover:text-white transition-all duration-200 shadow-sm hover:shadow-md"
+                  className="inline-flex items-center px-6 py-3 border border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 group"
                 >
-                  <DocumentArrowDownIcon className="w-5 h-5 mr-2" />
+                  <DocumentArrowDownIcon className="w-5 h-5 mr-2 text-gray-400 group-hover:text-gray-600" />
                   Download PDF
                 </button>
                 <button
                   onClick={() => setViewingClaim(null)}
-                  className="px-8 py-3 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white font-semibold rounded-xl hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+                  className="px-8 py-3 bg-gradient-to-r from-[#262760] to-[#4f46e5] text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-indigo-500/30 transform hover:-translate-y-0.5 transition-all duration-200"
                 >
-                  Close
+                  Close Details
                 </button>
               </div>
             </div>
@@ -2680,6 +2954,880 @@ const InsuranceManagement = () => {
             </div>
           </div>
         )}
+
+        {isRecordModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                <h2 className="text-xl font-semibold text-gray-800">
+                  {editingRecordIndex !== null ? 'Edit Insurance Member' : 'Add New Insurance Member'}
+                </h2>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsRecordModalOpen(false);
+                    setRecordForm(initialRecordFormState);
+                    setEditingRecordIndex(null);
+                    setRecordFormErrors({});
+                  }}
+                  className="text-gray-400 hover:text-gray-600 transition-colors duration-200"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
+              </div>
+              <div className="p-6">
+                <form onSubmit={handleSubmitRecord}>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Employee ID
+                      </label>
+                      <select
+                        value={recordForm.employeeId}
+                        onChange={(e) => handleRecordEmployeeSelect(e.target.value)}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.employeeId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                      >
+                        <option value="">Select Employee</option>
+                        {employees.map((emp) => (
+                          <option key={emp.employeeId} value={emp.employeeId}>
+                            {emp.employeeId} - {emp.name}
+                          </option>
+                        ))}
+                      </select>
+                      {recordFormErrors.employeeId && (
+                        <p className="mt-1 text-xs text-red-500">Employee ID is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Employee Name
+                      </label>
+                      <input
+                        type="text"
+                        value={recordForm.employeeName}
+                        onChange={(e) => handleRecordInputChange('employeeName', e.target.value)}
+                        disabled={!!recordForm.employeeId}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.employeeName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760] ${recordForm.employeeId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                        placeholder="Enter employee name"
+                      />
+                      {recordFormErrors.employeeName && (
+                        <p className="mt-1 text-xs text-red-500">Employee Name is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Division
+                      </label>
+                      <select
+                        value={recordForm.department}
+                        onChange={(e) => handleRecordInputChange('department', e.target.value)}
+                        disabled={!!recordForm.employeeId}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.department ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760] ${recordForm.employeeId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      >
+                        <option value="">Select division</option>
+                        {uniqueDepartments.map((dept, idx) => (
+                          <option key={idx} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                      {recordFormErrors.department && (
+                        <p className="mt-1 text-xs text-red-500">Division is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Designation
+                      </label>
+                      <input
+                        type="text"
+                        value={recordForm.designation}
+                        onChange={(e) => handleRecordInputChange('designation', e.target.value)}
+                        disabled={!!recordForm.employeeId}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.designation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760] ${recordForm.employeeId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                        placeholder="Enter designation"
+                      />
+                      {recordFormErrors.designation && (
+                        <p className="mt-1 text-xs text-red-500">Designation is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Location
+                      </label>
+                      <select
+                        value={recordForm.branch}
+                        onChange={(e) => handleRecordInputChange('branch', e.target.value)}
+                        disabled={!!recordForm.employeeId}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.branch ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760] ${recordForm.employeeId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      >
+                        <option value="">Select location</option>
+                        <option value="Hosur">Hosur</option>
+                        <option value="Chennai">Chennai</option>
+                      </select>
+                      {recordFormErrors.branch && (
+                        <p className="mt-1 text-xs text-red-500">Location is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Date of Joining
+                      </label>
+                      <input
+                        type="date"
+                        value={recordForm.dateOfJoining}
+                        onChange={(e) => handleRecordInputChange('dateOfJoining', e.target.value)}
+                        disabled={!!recordForm.employeeId}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.dateOfJoining ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760] ${recordForm.employeeId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      />
+                      {recordFormErrors.dateOfJoining && (
+                        <p className="mt-1 text-xs text-red-500">Date of Joining is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Date of Birth
+                      </label>
+                      <input
+                        type="date"
+                        value={recordForm.dateOfBirth}
+                        onChange={(e) => handleRecordInputChange('dateOfBirth', e.target.value)}
+                        disabled={!!recordForm.employeeId}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760] ${recordForm.employeeId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                      />
+                      {recordFormErrors.dateOfBirth && (
+                        <p className="mt-1 text-xs text-red-500">Date of Birth is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Mobile Number
+                      </label>
+                      <input
+                        type="number"
+                        value={recordForm.mobileNumber}
+                        onChange={(e) => handleRecordInputChange('mobileNumber', e.target.value)}
+                        disabled={!!recordForm.employeeId}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.mobileNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760] ${recordForm.employeeId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                        placeholder="Enter mobile number"
+                      />
+                      {recordFormErrors.mobileNumber && (
+                        <p className="mt-1 text-xs text-red-500">Mobile Number is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        value={recordForm.email}
+                        onChange={(e) => handleRecordInputChange('email', e.target.value)}
+                        disabled={!!recordForm.employeeId}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.email ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760] ${recordForm.employeeId ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+                        placeholder="Enter email address"
+                      />
+                      {recordFormErrors.email && (
+                        <p className="mt-1 text-xs text-red-500">Email is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nominee Name
+                      </label>
+                      <input
+                        type="text"
+                        value={recordForm.nomineeName}
+                        onChange={(e) => handleRecordInputChange('nomineeName', e.target.value)}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.nomineeName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                        placeholder="Enter nominee name"
+                      />
+                      {recordFormErrors.nomineeName && (
+                        <p className="mt-1 text-xs text-red-500">Nominee Name is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nominee Relationship
+                      </label>
+                      <input
+                        type="text"
+                        value={recordForm.nomineeRelationship}
+                        onChange={(e) => handleRecordInputChange('nomineeRelationship', e.target.value)}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.nomineeRelationship ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                        placeholder="Enter relationship"
+                      />
+                      {recordFormErrors.nomineeRelationship && (
+                        <p className="mt-1 text-xs text-red-500">Nominee Relationship is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Nominee Mobile Number
+                      </label>
+                      <input
+                        type="number"
+                        value={recordForm.nomineeMobileNumber}
+                        onChange={(e) => handleRecordInputChange('nomineeMobileNumber', e.target.value)}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.nomineeMobileNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                        placeholder="Enter nominee mobile number"
+                      />
+                      {recordFormErrors.nomineeMobileNumber && (
+                        <p className="mt-1 text-xs text-red-500">Nominee Mobile Number is required</p>
+                      )}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Insured Amount
+                      </label>
+                      <input
+                        type="text"
+                        value="₹2,00,000"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 cursor-not-allowed"
+                      />
+                    </div>
+                  </div>
+                  <div className="mt-6 flex justify-end space-x-4">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsRecordModalOpen(false);
+                        setRecordForm(initialRecordFormState);
+                        setEditingRecordIndex(null);
+                        setRecordFormErrors({});
+                      }}
+                      className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-3 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-lg hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md"
+                    >
+                      {editingRecordIndex !== null ? 'Update Member' : 'Save Member'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  // Insurance Records View
+  if (currentView === 'insuranceRecords') {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+        <div className="max-w-7xl mx-auto">
+          <div className="flex items-center mb-6 md:mb-8">
+            <button
+              onClick={() => setCurrentView('main')}
+              className="inline-flex items-center px-4 py-2.5 border border-gray-300 text-sm font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 mr-4 shadow-sm"
+            >
+              <ArrowLeftIcon className="h-5 w-5 mr-2" />
+              Back
+            </button>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Insurance Records</h1>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden min-h-[600px]">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold text-gray-900">Insurance Records</h2>
+              <div className="flex items-center">
+                <button
+                  type="button"
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760] mr-3 ${showFilters ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'}`}
+                >
+                  <FunnelIcon className="h-5 w-5 mr-2" />
+                  Filters
+                </button>
+                <button
+                  type="button"
+                  onClick={openCreateRecordModal}
+                  className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white text-sm font-medium rounded-lg shadow-sm hover:from-[#1e2050] hover:to-[#1a1b40] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760]"
+                >
+                  <PlusIcon className="h-5 w-5 mr-2" />
+                  Add New Member
+                </button>
+              </div>
+            </div>
+            
+            {showFilters && (
+              <div className="bg-gray-50 p-4 border-b border-gray-200">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Employee Name</label>
+                    <input
+                      type="text"
+                      value={filters.employeeName}
+                      onChange={(e) => handleFilterChange('employeeName', e.target.value)}
+                      placeholder="Filter by name..."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Employee ID</label>
+                    <input
+                      type="text"
+                      value={filters.employeeId}
+                      onChange={(e) => handleFilterChange('employeeId', e.target.value)}
+                      placeholder="Filter by ID..."
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Division</label>
+                    <select
+                      value={filters.department}
+                      onChange={(e) => handleFilterChange('department', e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
+                    >
+                      <option value="">All Divisions</option>
+                      {uniqueDepartments.map((dept, idx) => (
+                        <option key={idx} value={dept}>{dept}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Location</label>
+                    <select
+                      value={filters.branch}
+                      onChange={(e) => handleFilterChange('branch', e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
+                    >
+                      <option value="">All Locations</option>
+                      {uniqueBranches.map((branch, idx) => (
+                        <option key={idx} value={branch}>{branch}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                <div className="mt-3 flex justify-end">
+                  <button
+                    onClick={clearFilters}
+                    className="text-xs text-red-600 hover:text-red-800 font-medium"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+              </div>
+            )}
+            <div className="overflow-x-auto">
+              {insuranceRecords.length > 0 ? (
+                <div className="max-h-[480px] overflow-y-auto">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-[#262760] sticky top-0 z-10">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                          S.No
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                          Employee ID
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                          Employee Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                          Division
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                          Designation
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                          Nominee Name
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                          Nominee Relationship
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-semibold text-white uppercase tracking-wider">
+                          Insured Amount
+                        </th>
+                        <th className="px-6 py-3 text-right text-xs font-semibold text-white uppercase tracking-wider">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {filteredRecords.length > 0 ? (
+                        filteredRecords.map((record, index) => (
+                        <tr key={`${record.employeeId}-${index}`} className="hover:bg-[#262760]/5 transition-colors duration-150">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {index + 1}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {record.employeeId}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {record.employeeName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {record.department}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {record.designation}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                            {record.nomineeName}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm">
+                            <span className="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
+                              {record.nomineeRelationship}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">
+                            ₹2,00,000
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <div className="flex justify-end space-x-2">
+                              <button
+                                type="button"
+                                onClick={() => setViewingRecord(record)}
+                                className="p-2 text-indigo-600 hover:text-indigo-800 hover:bg-indigo-100 rounded-lg transition-colors duration-150"
+                                title="View Member Details"
+                              >
+                                <EyeIcon className="h-5 w-5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openEditRecordModal(record)}
+                                className="p-2 text-[#262760] hover:text-[#1e2050] hover:bg-[#262760]/10 rounded-lg transition-colors duration-150"
+                                title="Edit Member"
+                              >
+                                <PencilIcon className="h-5 w-5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteRecord(record)}
+                                className="p-2 text-red-600 hover:text-red-800 hover:bg-red-100 rounded-lg transition-colors duration-150"
+                                title="Delete Member"
+                              >
+                                <TrashIcon className="h-5 w-5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                      ) : (
+                        <tr>
+                          <td colSpan="9" className="px-6 py-10 text-center text-gray-500">
+                            <div className="flex flex-col items-center justify-center">
+                              <MagnifyingGlassIcon className="h-10 w-10 text-gray-300 mb-2" />
+                              <p className="text-sm">No matching records found</p>
+                              <button 
+                                onClick={clearFilters}
+                                className="mt-2 text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+                              >
+                                Clear filters
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="py-16 text-center">
+                  <div className="text-gray-400 mb-4">
+                    <UserIcon className="h-16 w-16 mx-auto" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">No insurance records</h3>
+                  <p className="text-gray-600 mb-6">Add members to manage insurance coverage records.</p>
+                  <button
+                    type="button"
+                    onClick={openCreateRecordModal}
+                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-lg hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md"
+                  >
+                    <PlusIcon className="h-5 w-5 mr-2" />
+                    Add New Member
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {viewingRecord && (
+            <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto transform transition-all">
+                {/* Header */}
+                <div className="relative bg-gradient-to-r from-[#262760] to-[#1e2050] p-8 overflow-hidden rounded-t-2xl">
+                  <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+                  <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-white/10 rounded-full blur-3xl"></div>
+                  
+                  <div className="relative z-10 flex justify-between items-start">
+                    <div className="flex items-center space-x-4">
+                      <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm border border-white/10">
+                        <UserIcon className="h-8 w-8 text-white" />
+                      </div>
+                      <div>
+                        <h2 className="text-2xl font-bold text-white tracking-tight">{viewingRecord.employeeName}</h2>
+                        <p className="text-indigo-200 text-sm mt-1 flex items-center">
+                          <span className="bg-white/10 px-2 py-0.5 rounded text-xs mr-2 border border-white/10">{viewingRecord.employeeId}</span>
+                          {viewingRecord.designation} • {viewingRecord.department}
+                        </p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => setViewingRecord(null)}
+                      className="text-white/70 hover:text-white bg-white/10 hover:bg-white/20 p-2 rounded-full transition-all duration-200"
+                    >
+                      <XMarkIcon className="h-6 w-6" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="p-8 space-y-8 bg-gray-50/50">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Personal Information */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+                      <h4 className="text-sm font-bold text-[#262760] mb-6 flex items-center uppercase tracking-wider border-b border-gray-100 pb-3">
+                        <UserCircleIcon className="h-5 w-5 mr-2 text-[#262760]" />
+                        Personal Details
+                      </h4>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Location</span>
+                            <span className="text-sm font-medium text-gray-900">{viewingRecord.branch}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Date of Joining</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {viewingRecord.dateOfJoining ? new Date(viewingRecord.dateOfJoining).toLocaleDateString() : ''}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Date of Birth</span>
+                            <span className="text-sm font-medium text-gray-900">
+                              {viewingRecord.dateOfBirth ? new Date(viewingRecord.dateOfBirth).toLocaleDateString() : ''}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Insured Amount</span>
+                            <span className="text-sm font-bold text-green-600 bg-green-50 px-2 py-1 rounded inline-block">₹2,00,000</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Contact Information */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200">
+                      <h4 className="text-sm font-bold text-[#262760] mb-6 flex items-center uppercase tracking-wider border-b border-gray-100 pb-3">
+                        <EnvelopeIcon className="h-5 w-5 mr-2 text-[#262760]" />
+                        Contact Information
+                      </h4>
+                      <div className="space-y-4">
+                        <div className="flex flex-col space-y-4">
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Email Address</span>
+                            <div className="flex items-center text-sm font-medium text-gray-900">
+                              <EnvelopeIcon className="h-4 w-4 mr-2 text-gray-400" />
+                              {viewingRecord.email}
+                            </div>
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Mobile Number</span>
+                            <div className="flex items-center text-sm font-medium text-gray-900">
+                              <PhoneIcon className="h-4 w-4 mr-2 text-gray-400" />
+                              {viewingRecord.mobileNumber}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* Nominee Information */}
+                    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow duration-200 md:col-span-2">
+                      <h4 className="text-sm font-bold text-[#262760] mb-6 flex items-center uppercase tracking-wider border-b border-gray-100 pb-3">
+                        <UserGroupIcon className="h-5 w-5 mr-2 text-[#262760]" />
+                        Nominee Details
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Nominee Name</span>
+                            <span className="text-sm font-medium text-gray-900">{viewingRecord.nomineeName}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Relationship</span>
+                            <span className="text-sm font-medium text-gray-900">{viewingRecord.nomineeRelationship}</span>
+                          </div>
+                          <div>
+                            <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider block mb-1">Nominee Mobile</span>
+                            <div className="flex items-center text-sm font-medium text-gray-900">
+                              <PhoneIcon className="h-4 w-4 mr-2 text-gray-400" />
+                              {viewingRecord.nomineeMobileNumber}
+                            </div>
+                          </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="p-6 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex justify-end">
+                  <button
+                    onClick={() => setViewingRecord(null)}
+                    className="px-8 py-2.5 bg-[#262760] text-white font-medium rounded-xl hover:bg-[#1e2050] transition-colors duration-200 shadow-lg shadow-indigo-500/20"
+                  >
+                    Close Details
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isRecordModalOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+              <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+                  <h2 className="text-xl font-semibold text-gray-800">
+                    {editingRecordIndex !== null ? 'Edit Insurance Member' : 'Add New Insurance Member'}
+                  </h2>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsRecordModalOpen(false);
+                      setRecordForm(initialRecordFormState);
+                      setEditingRecordIndex(null);
+                      setRecordFormErrors({});
+                    }}
+                    className="text-gray-400 hover:text-gray-600 transition-colors	duration-200"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+                <div className="p-6">
+                  <form onSubmit={handleSubmitRecord}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Employee ID
+                        </label>
+                        <select
+                          value={recordForm.employeeId}
+                          onChange={(e) => handleRecordEmployeeSelect(e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.employeeId ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                        >
+                          <option value="">Select Employee</option>
+                          {employees.map((emp) => (
+                            <option key={emp.employeeId} value={emp.employeeId}>
+                              {emp.employeeId} - {emp.name}
+                            </option>
+                          ))}
+                        </select>
+                        {recordFormErrors.employeeId && (
+                          <p className="mt-1 text-xs text-red-500">Employee ID is required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Employee Name
+                        </label>
+                        <input
+                          type="text"
+                          value={recordForm.employeeName}
+                          onChange={(e) => handleRecordInputChange('employeeName', e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.employeeName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                          placeholder="Enter employee name"
+                        />
+                        {recordFormErrors.employeeName && (
+                          <p className="mt-1 text-xs text-red-500">Employee Name is required</p>
+                        )}
+                      </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Division
+                      </label>
+                      <select
+                        value={recordForm.department}
+                        onChange={(e) => handleRecordInputChange('department', e.target.value)}
+                        className={`w-full px-3 py-2 border ${recordFormErrors.department ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                      >
+                        <option value="">Select division</option>
+                        {uniqueDepartments.map((dept, idx) => (
+                          <option key={idx} value={dept}>{dept}</option>
+                        ))}
+                      </select>
+                      {recordFormErrors.department && (
+                        <p className="mt-1 text-xs text-red-500">Division is required</p>
+                      )}
+                    </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Designation
+                        </label>
+                        <input
+                          type="text"
+                          value={recordForm.designation}
+                          onChange={(e) => handleRecordInputChange('designation', e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.designation ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                          placeholder="Enter designation"
+                        />
+                        {recordFormErrors.designation && (
+                          <p className="mt-1 text-xs text-red-500">Designation is required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Location
+                        </label>
+                        <select
+                          value={recordForm.branch}
+                          onChange={(e) => handleRecordInputChange('branch', e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.branch ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                        >
+                          <option value="">Select location</option>
+                          <option value="Hosur">Hosur</option>
+                          <option value="Chennai">Chennai</option>
+                        </select>
+                        {recordFormErrors.branch && (
+                          <p className="mt-1 text-xs text-red-500">Location is required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Date of Joining
+                        </label>
+                        <input
+                          type="date"
+                          value={recordForm.dateOfJoining}
+                          onChange={(e) => handleRecordInputChange('dateOfJoining', e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.dateOfJoining ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                        />
+                        {recordFormErrors.dateOfJoining && (
+                          <p className="mt-1 text-xs text-red-500">Date of Joining is required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Date of Birth
+                        </label>
+                        <input
+                          type="date"
+                          value={recordForm.dateOfBirth}
+                          onChange={(e) => handleRecordInputChange('dateOfBirth', e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.dateOfBirth ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                        />
+                        {recordFormErrors.dateOfBirth && (
+                          <p className="mt-1 text-xs text-red-500">Date of Birth is required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Mobile Number
+                        </label>
+                        <input
+                          type="number"
+                          value={recordForm.mobileNumber}
+                          onChange={(e) => handleRecordInputChange('mobileNumber', e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.mobileNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                          placeholder="Enter mobile number"
+                        />
+                        {recordFormErrors.mobileNumber && (
+                          <p className="mt-1 text-xs text-red-500">Mobile Number is required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Email
+                        </label>
+                        <input
+                          type="email"
+                          value={recordForm.email}
+                          onChange={(e) => handleRecordInputChange('email', e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.email ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                          placeholder="Enter email address"
+                        />
+                        {recordFormErrors.email && (
+                          <p className="mt-1 text-xs text-red-500">Email is required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Nominee Name
+                        </label>
+                        <input
+                          type="text"
+                          value={recordForm.nomineeName}
+                          onChange={(e) => handleRecordInputChange('nomineeName', e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.nomineeName ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                          placeholder="Enter nominee name"
+                        />
+                        {recordFormErrors.nomineeName && (
+                          <p className="mt-1 text-xs text-red-500">Nominee Name is required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Nominee Relationship
+                        </label>
+                        <input
+                          type="text"
+                          value={recordForm.nomineeRelationship}
+                          onChange={(e) => handleRecordInputChange('nomineeRelationship', e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.nomineeRelationship ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                          placeholder="Enter relationship"
+                        />
+                        {recordFormErrors.nomineeRelationship && (
+                          <p className="mt-1 text-xs text-red-500">Nominee Relationship is required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Nominee Mobile Number
+                        </label>
+                        <input
+                          type="number"
+                          value={recordForm.nomineeMobileNumber}
+                          onChange={(e) => handleRecordInputChange('nomineeMobileNumber', e.target.value)}
+                          className={`w-full px-3 py-2 border ${recordFormErrors.nomineeMobileNumber ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+                          placeholder="Enter nominee mobile number"
+                        />
+                        {recordFormErrors.nomineeMobileNumber && (
+                          <p className="mt-1 text-xs text-red-500">Nominee Mobile Number is required</p>
+                        )}
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Insured Amount
+                        </label>
+                        <input
+                          type="text"
+                          value="₹2,00,000"
+                          disabled
+                          className="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-100 text-gray-700 cursor-not-allowed"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-6 flex justify-end space-x-4">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsRecordModalOpen(false);
+                          setRecordForm(initialRecordFormState);
+                          setEditingRecordIndex(null);
+                          setRecordFormErrors({});
+                        }}
+                        className="px-6 py-3 border border-gray-300 rounded-lg text-gray-700 bg-white hover:bg-gray-50 transition-colors duration-200"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="px-6 py-3 bg-gradient-to-r from-[#262760] to-[#1e2050] text-white rounded-lg hover:from-[#1e2050] hover:to-[#1a1b40] transition-all duration-200 shadow-md"
+                      >
+                        {editingRecordIndex !== null ? 'Update Member' : 'Save Member'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }

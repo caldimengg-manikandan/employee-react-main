@@ -26,6 +26,10 @@ router.get('/', auth, async (req, res) => {
         'position': 1,
         'division': 1,
         'branch': 1,
+        'location': 1,
+        'dateOfJoining': 1,
+        'dateOfBirth': 1,
+        'mobileNo': 1,
         '_id': 1
       }).sort({ name: 1 });
       return res.json(employees);

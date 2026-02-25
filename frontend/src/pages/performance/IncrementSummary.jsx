@@ -15,6 +15,8 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { performanceAPI, employeeAPI } from '../../services/api';
+import balaSignature from '../../bala signature.png';
+import uvarajSignature from '../../uvaraj signature.png';
 
 const IncrementSummary = () => {
   const [records, setRecords] = useState([]);
@@ -75,32 +77,43 @@ const IncrementSummary = () => {
         setLoading(true);
         setError('');
 
-        const [reviewerRes, employeesRes] = await Promise.all([
-          performanceAPI.getReviewerAppraisals(),
+        const [summaryRes, employeesRes] = await Promise.all([
+          performanceAPI.getIncrementSummary(appliedFilters),
           employeeAPI.getAllEmployees()
         ]);
 
-        const data = Array.isArray(reviewerRes.data) ? reviewerRes.data : [];
-        const mapped = data
-          .map((app) => {
-            const status = mapStatus(app.status);
-            return {
-              id: app.id,
-              empId: app.empId || '',
-              name: app.name || '',
-              designation: app.designation || '',
-              division: app.department || '',
-              location: app.location || '',
-              currentSalary: Number(app.currentSalary || 0),
-              revisedSalary: Number(app.revisedSalary || 0),
-              incrementAmount: Number(app.incrementAmount || 0),
-              incrementPercentage: Number(app.incrementPercentage || 0),
-              financialYear: app.financialYr || '',
-              status,
-              effectiveDate: deriveEffectiveDate(app.financialYr, app.updatedAt)
-            };
-          })
-          .filter(item => item.status === 'Approved' || item.status === 'Released');
+        const data = Array.isArray(summaryRes.data) ? summaryRes.data : [];
+        const mapped = data.map((item) => {
+          const status = mapStatus(item.status);
+          
+          // Normalize financial year to YYYY-YYYY format if it is YYYY-YY (e.g. 2025-26 -> 2025-2026)
+          let fYear = item.financialYr || item.financialYear || '';
+          if (fYear && fYear.length === 7 && fYear.indexOf('-') === 4) {
+             const parts = fYear.split('-');
+             if (parts[1].length === 2) {
+               fYear = `${parts[0]}-20${parts[1]}`;
+             }
+          }
+
+          return {
+            id: item.id,
+            empId: item.empId || '',
+            name: item.name || '',
+            designation: item.designation || '',
+            division: item.division || '',
+            location: item.location || '',
+            currentSalary: Number(item.currentSalary || 0),
+            revisedSalary: Number(item.revisedSalary || 0),
+            incrementAmount: Number(item.incrementAmount || 0),
+            incrementPercentage: Number(item.incrementPercentage || 0),
+            financialYear: fYear,
+            status,
+            effectiveDate: deriveEffectiveDate(item.financialYr || item.financialYear, item.updatedAt)
+          };
+        });
+        // Backend already filters by status if provided, but we can keep client filter or rely on backend.
+        // Current backend defaults to Approved/Released if no status provided.
+        // So 'mapped' should be correct.
 
         const employeesData = Array.isArray(employeesRes.data) ? employeesRes.data : [];
 
@@ -172,6 +185,16 @@ const IncrementSummary = () => {
 
       const mapped = data.map((item) => {
         const mappedStatus = mapStatus(item.status);
+        
+        // Normalize financial year to YYYY-YYYY format if it is YYYY-YY (e.g. 2025-26 -> 2025-2026)
+        let fYear = item.financialYr || item.financialYear || '';
+        if (fYear && fYear.length === 7 && fYear.indexOf('-') === 4) {
+           const parts = fYear.split('-');
+           if (parts[1].length === 2) {
+             fYear = `${parts[0]}-20${parts[1]}`;
+           }
+        }
+
         return {
           id: item.id,
           empId: item.empId || '',
@@ -183,7 +206,7 @@ const IncrementSummary = () => {
           revisedSalary: Number(item.revisedSalary || 0),
           incrementAmount: Number(item.incrementAmount || 0),
           incrementPercentage: Number(item.incrementPercentage || 0),
-          financialYear: item.financialYr || item.financialYear || '',
+          financialYear: fYear,
           status: mappedStatus,
           effectiveDate: deriveEffectiveDate(item.financialYr || item.financialYear, item.updatedAt),
         };
@@ -291,6 +314,9 @@ const IncrementSummary = () => {
 
   const downloadReleaseLetter = async () => {
     try {
+      // Wait for images to load
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       const page1 = document.getElementById('release-letter-page-1');
       const page2 = document.getElementById('release-letter-page-2');
 
@@ -739,7 +765,27 @@ const IncrementSummary = () => {
                     <div className="mt-12 flex justify-end">
                       <div className="text-right">
                         <div className="mb-2 text-sm text-gray-700">For CALDIM ENGINEERING PRIVATE LIMITED</div>
-                        <div className="mt-16">
+                        <div className="mt-8 flex flex-col items-end min-h-[80px]">
+                          {letterData.location && letterData.location.toLowerCase().includes('hosur') && (
+                            <img 
+                              src={balaSignature} 
+                              alt="Authorized Signatory" 
+                              className="h-16 mb-2 object-contain" 
+                              crossOrigin="anonymous"
+                            />
+                          )}
+                          {letterData.location && letterData.location.toLowerCase().includes('chennai') && (
+                            <img 
+                              src={uvarajSignature} 
+                              alt="Authorized Signatory" 
+                              className="h-16 mb-2 object-contain" 
+                              crossOrigin="anonymous"
+                            />
+                          )}
+                          {/* Spacer if no signature matches to maintain layout */}
+                          {(!letterData.location || (!letterData.location.toLowerCase().includes('hosur') && !letterData.location.toLowerCase().includes('chennai'))) && (
+                              <div className="h-16 mb-2"></div>
+                          )}
                           <div className="font-bold">Authorized Signatory</div>
                         </div>
                       </div>

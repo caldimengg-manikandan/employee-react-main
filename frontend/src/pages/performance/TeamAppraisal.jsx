@@ -437,7 +437,7 @@ const TeamAppraisal = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
-      <div className="max-w-7xl mx-auto">
+      <div className="w-full">
         <div className="flex justify-between items-center mb-6">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
