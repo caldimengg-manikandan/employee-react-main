@@ -18,6 +18,8 @@ import {
 import { employeeAPI, compensationAPI, mailAPI } from "../../services/api";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import balaSignature from '../../bala signature.png';
+import uvarajSignature from '../../uvaraj signature.png';
 
 // Salary Calculation Functions
 const calculateSalaryFields = (salaryData) => {
@@ -1685,6 +1687,22 @@ confirmation of employment will be communicated in writing.
                   <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
                       Your employment is subject to the rules and regulations of the Company as applicable from time to time. You will be required to sign a Non-Disclosure Agreement (NDA) and other standard employment documents.
                   </div>
+              </div>
+
+              <div style={{ marginTop: '30px' }}>
+                <div style={{ fontSize: '12pt', fontWeight: 'bold' }}>For Caldim Engineering Pvt Ltd</div>
+                
+                <div style={{ marginTop: '10px', height: '60px', display: 'flex', alignItems: 'flex-end' }}>
+                  {selectedCompensation?.location === 'Hosur' ? (
+                    <img src={balaSignature} alt="Authorized Signature" style={{ maxHeight: '60px' }} />
+                  ) : selectedCompensation?.location === 'Chennai' ? (
+                    <img src={uvarajSignature} alt="Authorized Signature" style={{ maxHeight: '90px' }} />
+                  ) : (
+                    <div style={{ height: '60px' }}></div>
+                  )}
+                </div>
+
+                <div style={{ fontSize: '12pt', fontWeight: 'bold' }}>Authorized Signatory</div>
               </div>
 
               <div style={{ marginTop: '30px', fontSize: '11pt' }}>
