@@ -1361,15 +1361,21 @@ const Timesheet = () => {
         .filter(r => r.task === "Permission")
         .reduce((sum, r) => sum + (Number(r.hours?.[i]) || 0), 0);
       const permissionMinutes = Math.round(permissionHours * 60);
+
+      // Calculate other leave minutes (excluding permission) to add to on-premises time for validation
+      const otherLeaveHours = timesheetRows
+        .filter(r => (r.type === 'leave' || r.project === 'Leave' || r.task === 'Office Holiday' || r.project === 'Office Holiday') && r.task !== 'Permission')
+        .reduce((sum, r) => sum + (Number(r.hours?.[i]) || 0), 0);
+      const otherLeaveMinutes = Math.round(otherLeaveHours * 60);
       
-      const adjustedOpMinutes = opMinutes + permissionMinutes;
+      const adjustedOpMinutes = opMinutes + permissionMinutes + otherLeaveMinutes;
       
       // Check for mismatch > 2 minutes
       // Only check if on-premises time is present. If op is 0, we'll hit the "Project hours not allowed" check below.
       if (opMinutes > 0 && Math.abs(adjustedOpMinutes - totalMinutes) > 2) {
         showError(
           `Time Mismatch for ${days[i]}:\n` +
-          `On-Premises Time (${formatHoursHHMM(op)}) + Permission (${formatHoursHHMM(permissionHours)}): ${formatHoursHHMM(op + permissionHours)}\n` +
+          `On-Premises (${formatHoursHHMM(op)}) + Permission (${formatHoursHHMM(permissionHours)}) + Leave (${formatHoursHHMM(otherLeaveHours)}): ${formatHoursHHMM(op + permissionHours + otherLeaveHours)}\n` +
           `Total Hours (Work + Break): ${formatHoursHHMM(totalWithBreak)}\n\n` +
           `These values must match within 2 minutes.`
         );
@@ -1703,7 +1709,14 @@ const Timesheet = () => {
           .filter(r => r.task === "Permission")
           .reduce((sum, r) => sum + (Number(r.hours?.[dayIndex]) || 0), 0);
         const permissionMinutes = Math.round(permissionHours * 60);
-        const adjustedOnPremisesMinutes = onPremisesMinutes + permissionMinutes;
+
+        // Calculate other leave minutes (excluding permission) to add to on-premises time for validation
+        const otherLeaveHours = timesheetRows
+          .filter(r => (r.type === 'leave' || r.project === 'Leave' || r.task === 'Office Holiday' || r.project === 'Office Holiday') && r.task !== 'Permission')
+          .reduce((sum, r) => sum + (Number(r.hours?.[dayIndex]) || 0), 0);
+        const otherLeaveMinutes = Math.round(otherLeaveHours * 60);
+
+        const adjustedOnPremisesMinutes = onPremisesMinutes + permissionMinutes + otherLeaveMinutes;
 
         if ((onPremisesMinutes > 0 || currentMinutes > 0) && Math.abs(adjustedOnPremisesMinutes - currentMinutes) > 2) {
           return "bg-red-50 text-red-600 font-bold";
