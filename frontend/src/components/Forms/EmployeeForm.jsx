@@ -157,7 +157,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       if (!/^\d{6}$/.test(v)) return 'Must be 6 digits';
     }
     if (field === 'uan') {
-      if (!/^\d{12}$/.test(v)) return 'Must be exactly 12 digits';
+      if (v && !/^\d{12}$/.test(v)) return 'Must be exactly 12 digits';
     }
     return '';
   };
@@ -204,7 +204,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       }
       e.pan = validateField('pan', formData.pan);
       e.aadhaar = validateField('aadhaar', formData.aadhaar);
-      e.uan = validateField('uan', formData.uan);
+      // UAN is optional
+      const uanErr = validateField('uan', formData.uan);
+      if (uanErr) e.uan = uanErr;
     }
     if (step === 2) {
       if (!formData.designation) e.designation = 'Designation is required';
@@ -1207,14 +1209,13 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">UAN Number <span className="text-red-600">*</span></label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">UAN Number</label>
                   <input
                     type="text"
                     value={formData.uan}
                     onChange={(e) => handleInputChange('uan', e.target.value)}
                     inputMode="numeric"
                     maxLength={12}
-                    required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.uan ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                     placeholder="101147215588"
                   />

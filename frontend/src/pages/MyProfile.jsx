@@ -549,7 +549,7 @@ const MyProfile = () => {
       if (!/^\d{6}$/.test(v)) return 'Must be 6 digits';
     }
     if (field === 'uan') {
-      if (!/^\d{12}$/.test(v)) return 'Must be exactly 12 digits';
+      if (v && !/^\d{12}$/.test(v)) return 'Must be exactly 12 digits';
     }
     return '';
   };
@@ -1149,7 +1149,6 @@ const MyProfile = () => {
                     <div>
                       <label className="block text-sm text-gray-700 mb-1" > 
                         UAN Number
-                        <span className="text-red-600">*</span>
                       </label> 
                       <input
                         type="text"
