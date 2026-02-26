@@ -13,6 +13,7 @@ const SalarySlips = () => {
   const [employeeId, setEmployeeId] = useState('');
   const [panNumber, setPanNumber] = useState('');
   const [uanNumber, setUanNumber] = useState('');
+  const [joiningDate, setJoiningDate] = useState('');
   const [payslipData, setPayslipData] = useState(null);
   const [showPayslip, setShowPayslip] = useState(false);
   const [availableYears, setAvailableYears] = useState([]);
@@ -36,6 +37,7 @@ const SalarySlips = () => {
         if (me?.data) {
           setPanNumber(me.data.pan || '');
           setUanNumber(me.data.uan || '');
+          setJoiningDate(me.data.dateOfJoining || me.data.dateofjoin || '');
         }
       } catch (err) {
         const fallbackId = user.employeeId || user.username || user.id;
@@ -103,6 +105,7 @@ const SalarySlips = () => {
         department: rec.department || '',
         panNumber: panNumber || 'N/A',
         uanNumber: uanNumber || 'N/A',
+        joiningDate: joiningDate || 'N/A',
         month: selectedMonth,
         year: selectedYear,
         financialYear,
@@ -147,6 +150,7 @@ const SalarySlips = () => {
       department: "IT",
       panNumber: panNumber || 'N/A',
       uanNumber: uanNumber || 'N/A',
+      joiningDate: joiningDate || 'N/A',
       month: selectedMonth,
       year: selectedYear,
       financialYear: financialYear,
@@ -181,9 +185,10 @@ const SalarySlips = () => {
         ...prev,
         panNumber: panNumber || prev?.panNumber || 'N/A',
         uanNumber: uanNumber || prev?.uanNumber || 'N/A',
+        joiningDate: joiningDate || prev?.joiningDate || 'N/A',
       }));
     }
-  }, [panNumber, uanNumber]); 
+  }, [panNumber, uanNumber, joiningDate]); 
 
   const handleMonthChange = (selectedMonth) => {
     setMonth(selectedMonth);
@@ -420,6 +425,7 @@ const SalarySlips = () => {
                    {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">Department:</span> <span className="font-bold text-gray-800">{data.department}</span></div> */}
                    <div className="flex"><span className="w-32 text-gray-500 font-medium">PAN Number:</span> <span className="font-bold text-gray-800">{data.panNumber}</span></div>
                    <div className="flex"><span className="w-32 text-gray-500 font-medium">UAN:</span> <span className="font-bold text-gray-800">{data.uanNumber}</span></div>
+                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Date of Joining:</span> <span className="font-bold text-gray-800">{data.joiningDate ? new Date(data.joiningDate).toLocaleDateString('en-GB') : 'N/A'}</span></div>
                 </div>
               </div>
 
