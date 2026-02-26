@@ -109,6 +109,21 @@ const MyProfile = () => {
     return { line, city, state, pincode };
   };
 
+  const toInputDate = (d) => {
+    if (!d) return '';
+    const date = new Date(d);
+    if (isNaN(date.getTime())) {
+      const s = String(d);
+      const p = s.split('T')[0];
+      if (/^\d{4}-\d{2}-\d{2}$/.test(p)) return p;
+      return '';
+    }
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const da = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${da}`;
+  };
+
   // Populate form data
   useEffect(() => {
     const load = async () => {
@@ -167,7 +182,7 @@ const MyProfile = () => {
           const mappedData = {
             employeeId: emp.employeeId || base.employeeId,
             name: emp.name || emp.employeename || base.name,
-            dateOfBirth: (emp.dateOfBirth || emp.dob) ? new Date(emp.dateOfBirth || emp.dob).toISOString().split('T')[0] : base.dateOfBirth,
+            dateOfBirth: toInputDate(emp.dateOfBirth || emp.dob) || toInputDate(base.dateOfBirth),
             qualification: emp.qualification || emp.highestQualification || base.qualification,
             bloodGroup: emp.bloodGroup || base.bloodGroup,
             location: emp.location || base.location,
@@ -195,7 +210,7 @@ const MyProfile = () => {
             uan: emp.uan || base.uan,
             designation: emp.designation || base.designation,
             division: emp.division || base.division,
-            dateOfJoining: (emp.dateOfJoining || emp.dateofjoin) ? new Date(emp.dateOfJoining || emp.dateofjoin).toISOString().split('T')[0] : base.dateOfJoining,
+            dateOfJoining: toInputDate(emp.dateOfJoining || emp.dateofjoin) || toInputDate(base.dateOfJoining),
             previousExperience: emp.previousExperience || base.previousExperience,
             previousOrganizations: emp.previousOrganizations || base.previousOrganizations,
             currentExperience: emp.currentExperience || base.currentExperience,
@@ -210,8 +225,8 @@ const MyProfile = () => {
             setOrganizations(mappedData.previousOrganizations.map(org => ({
               organization: org.organization || '',
               designation: org.designation || org.role || '',
-              startDate: org.startDate || '',
-              endDate: org.endDate || ''
+              startDate: toInputDate(org.startDate),
+              endDate: toInputDate(org.endDate)
             })));
           } else {
             setOrganizations([{ organization: '', designation: '', startDate: '', endDate: '' }]);
@@ -220,7 +235,11 @@ const MyProfile = () => {
         } else {
           setEmployeeDoc(null);
           setMaritalStatus(base.maritalStatus || 'single');
-          setOrganizations(base.previousOrganizations && base.previousOrganizations.length > 0 ? base.previousOrganizations : [{ organization: '', designation: '', startDate: '', endDate: '' }]);
+          setOrganizations(base.previousOrganizations && base.previousOrganizations.length > 0 ? base.previousOrganizations.map(org => ({
+            ...org,
+            startDate: toInputDate(org.startDate),
+            endDate: toInputDate(org.endDate)
+          })) : [{ organization: '', designation: '', startDate: '', endDate: '' }]);
           setFormData(base);
         }
       } catch (err) {
