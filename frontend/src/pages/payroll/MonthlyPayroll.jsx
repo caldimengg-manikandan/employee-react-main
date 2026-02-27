@@ -32,10 +32,14 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
 
   // Pro-rate standard deductions based on attendance
   // This ensures that if earnings are 0 (full LOP), deductions are also 0
-  const pf = Math.round(stdPf * attendanceRatio);
-  const esi = Math.round(stdEsi * attendanceRatio);
-  const tax = Math.round(stdTax * attendanceRatio);
-  const professionalTax = Math.round(stdProfessionalTax * attendanceRatio);
+  // UPDATE: User requirement implies deductions should NOT be pro-rated for partial LOP.
+  // Net Salary = (Gross - Std Deductions) - LOP.
+  const isFullLop = attendanceRatio === 0;
+  
+  const pf = isFullLop ? 0 : stdPf;
+  const esi = isFullLop ? 0 : stdEsi;
+  const tax = isFullLop ? 0 : stdTax;
+  const professionalTax = isFullLop ? 0 : stdProfessionalTax;
 
   // Loan deduction: Cap at remaining salary (Net Earnings before loan)
   // Net Earnings before loan = (Total Earnings - LOP) - (PF + ESI + Tax + PT)
