@@ -184,11 +184,7 @@ async function getLockedDaysForUser(userId, weekStartDate, weekEndDate) {
         
         // Check if currentDate is within leave period
         if (currentDate >= start && currentDate <= end) {
-          // Skip weekends if needed (optional)
-          const dayOfWeek = currentDate.getDay();
-          if (dayOfWeek !== 0 && dayOfWeek !== 6) { // Monday-Friday
-            lockedDays[i] = true;
-          }
+          lockedDays[i] = true;
         }
       }
     });
@@ -362,8 +358,7 @@ function countWorkingDays(startDate, endDate, dayType) {
   let count = 0;
   const cur = new Date(s);
   while (cur <= e) {
-    const d = cur.getDay();
-    if (d !== 0 && d !== 6) count++;
+    count++;
     cur.setDate(cur.getDate() + 1);
   }
   if (dayType === 'Half Day' && count === 1) return 0.5;

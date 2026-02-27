@@ -67,6 +67,7 @@ app.use("/api/monthly-payroll", monthlyPayrollRoutes);
 app.use("/api/loans", loanRoutes);
 app.use("/api/holiday-allowances", require("./routes/holidayAllowanceRoutes"));
 app.use("/api/insurance", require("./routes/insurance"));
+app.use("/api/insurance-claims", require("./routes/insuranceClaims"));
 
 
 // Announcements Routes
@@ -94,6 +95,8 @@ app.use("/api/performance/reviewer", require("./routes/reviewerRoutes"));
 app.use("/api/performance/director", require("./routes/directorRoutes"));
 app.use("/api/performance/increment-master", require("./routes/incrementRoutes"));
 app.use("/api/performance/increment-summary", require("./routes/incrementSummaryRoutes"));
+
+app.use("/api/special-permissions", require("./routes/specialPermissions"));
 
 // Base Route
 app.get("/", (req, res) => {
@@ -217,7 +220,8 @@ app.post("/api/hikvision/attendance", async (req, res) => {
                    name: personInfo.name || "Unknown",
                    direction: "out",
                    source: "hikvision_sync",
-                   correspondingInTime: null
+                   correspondingInTime: null,
+                   workDurationSeconds: item.allDurationTime
                  }
                },
                { upsert: true, new: true }

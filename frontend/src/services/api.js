@@ -186,6 +186,14 @@ export const adminTimesheetAPI = {
   summary: (params) => api.get('/admin-timesheet/summary', { params }),
 };
 
+export const specialPermissionAPI = {
+  create: (formData) => api.post('/special-permissions', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  my: (params) => api.get('/special-permissions/my', { params }),
+  list: (params) => api.get('/special-permissions/list', { params }),
+  approve: (id) => api.put(`/special-permissions/approve/${id}`),
+  reject: (id, reason) => api.put(`/special-permissions/reject/${id}`, { reason }),
+};
+
 export const attendanceApprovalAPI = {
   request: (data) => api.post('/attendance-approval/request', data),
   list: (params) => api.get('/attendance-approval/list', { params }),
@@ -314,6 +322,13 @@ export const insuranceAPI = {
   create: (data) => api.post('/insurance', data),
   update: (id, data) => api.put(`/insurance/${id}`, data),
   delete: (id) => api.delete(`/insurance/${id}`),
+};
+
+export const insuranceClaimAPI = {
+  getAll: () => api.get('/insurance-claims'),
+  create: (data) => api.post('/insurance-claims', data),
+  update: (id, data) => api.put(`/insurance-claims/${id}`, data),
+  delete: (id) => api.delete(`/insurance-claims/${id}`),
 };
 
 // Announcements (management + public active list)

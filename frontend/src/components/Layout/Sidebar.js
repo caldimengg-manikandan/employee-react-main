@@ -159,6 +159,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       children: [
         { name: "Admin Timesheet", path: "/admin/timesheet" },
         { name: "Timesheet Summary", path: "/admin/timesheet/approval" },
+        { name: "Special Permission", path: "/admin/special-permissions" },
       ],
     },
     {

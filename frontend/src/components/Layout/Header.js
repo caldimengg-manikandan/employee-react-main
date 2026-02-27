@@ -59,6 +59,7 @@ const Header = ({ onMenuClick }) => {
       '/performance/attendance-summary': 'Attendance Summary',
       '/internship/InternReference': 'Intern Reference',
       '/bank-of-resumes': 'Resume Repository',
+      '/admin/special-permissions': 'Special Permission Approval',
       
     };
     

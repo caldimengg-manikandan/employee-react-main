@@ -165,29 +165,8 @@ const TimesheetHistory = () => {
   };
 
   const computeBreakForDayFromTimesheet = (timesheet, dayIndex) => {
-    if (!timesheet) return 0;
-    const entries = Array.isArray(timesheet.entries) ? timesheet.entries : [];
-
-    const hasWork = entries.some(
-      (e) =>
-        e.type === 'project' &&
-        (e.task || '') !== 'Office Holiday' &&
-        Number(e.hours?.[dayIndex] || 0) > 0
-    );
-
-    const hasApprovedLeave = entries.some(
-      (e) =>
-        (e.task || '').startsWith('Leave Approved') &&
-        Number(e.hours?.[dayIndex] || 0) > 0
-    );
-
-    const shifts = Array.isArray(timesheet.dailyShiftTypes)
-      ? timesheet.dailyShiftTypes
-      : [];
-    const shiftForDay = shifts[dayIndex] || timesheet.shiftType || '';
-
-    const breakByShift = getShiftBreakHours(shiftForDay);
-    return hasWork && !hasApprovedLeave ? breakByShift : 0;
+    // Break time removed per requirement
+    return 0;
   };
 
   const computeWeeklyBreakFromTimesheet = (timesheet) => {
@@ -216,7 +195,8 @@ const TimesheetHistory = () => {
       0
     );
 
-    const weeklyBreak = computeWeeklyBreakFromTimesheet(timesheet);
+    // Break time removed per requirement
+    const weeklyBreak = 0; // computeWeeklyBreakFromTimesheet(timesheet);
 
     return weeklyWork + weeklyBreak;
   };
@@ -1007,8 +987,8 @@ const TimesheetHistory = () => {
                     })}
                   </tbody>
                   <tfoot className="bg-gray-50">
-                    {/* Break Time (Auto) */}
-                    <tr>
+                    {/* Break Time (Auto) - Removed per requirement */}
+                    {/* <tr>
                       <td colSpan="3" className="p-3 text-sm font-semibold text-gray-700">Break Time (Auto)</td>
                       {Array.from({ length: 7 }, (_, i) => {
                         const hasWork = (selectedTimesheet.entries || []).some(
@@ -1045,23 +1025,16 @@ const TimesheetHistory = () => {
                           return hasWork && !hasApprovedLeave ? getShiftBreakHours(shift) : 0;
                         }).reduce((sum, b) => sum + b, 0))}
                       </td>
-                    </tr>
-                    {/* Total Hours (Work + Break) */}
+                    </tr> */}
+                    {/* Total Hours */}
                     <tr>
-                      <td colSpan="3" className="p-3 text-sm font-semibold text-gray-700">Total Hours (Work + Break)</td>
+                      <td colSpan="3" className="p-3 text-sm font-semibold text-gray-700">Total Hours</td>
                       {Array.from({ length: 7 }, (_, i) => {
                         const dayWork = (selectedTimesheet.entries || []).reduce((sum, e) => sum + (Number(e.hours?.[i]) || 0), 0);
-                        const hasWork = (selectedTimesheet.entries || []).some(
-                          (e) => e.type === 'project' && ((e.hours?.[i] || 0) > 0)
-                        );
-                        const hasApprovedLeave = (selectedTimesheet.entries || []).some(
-                          (e) => (e.task || "").startsWith("Leave Approved") && ((e.hours?.[i] || 0) > 0)
-                        );
-                        const shifts = Array.isArray(selectedTimesheet.dailyShiftTypes) ? selectedTimesheet.dailyShiftTypes : [];
-                        const shift = shifts[i] || selectedTimesheet.shiftType || "";
-                        const breakHours = hasWork && !hasApprovedLeave ? getShiftBreakHours(shift) : 0;
+                        // Break hours removed
+                        const breakHours = 0;
                         return (
-                          <td key={i} className={`p-3 text-sm text-center ${dayWork + breakHours >= 20 ? 'text-yellow-800 font-semibold' : 'text-blue-700 font-semibold'}`}>{toHHMM(dayWork + breakHours)}</td>
+                          <td key={i} className={`p-3 text-sm text-center ${dayWork + breakHours >= 20 ? 'text-yellow-800 font-semibold' : 'text-blue-700 font-semibold'}`}>{toHHMM(dayWork)}</td>
                         );
                       })}
                       <td className="p-3 text-sm font-bold text-blue-700 text-center">
@@ -1075,7 +1048,7 @@ const TimesheetHistory = () => {
               {/* Summary */}
               <div className="mt-6 p-4 bg-gray-50 rounded-lg">
               <div className="flex flex-col sm:flex-row justify-between items-center gap-2">
-                <span className="text-lg font-semibold text-gray-800">Total Hours (Work + Break):</span>
+                <span className="text-lg font-semibold text-gray-800">Total Hours:</span>
                 <span className="text-lg font-bold text-gray-900">
                   {toHHMM(calculateWeeklyTotalWithBreak(selectedTimesheet))}
                 </span>

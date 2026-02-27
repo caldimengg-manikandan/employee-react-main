@@ -269,11 +269,7 @@ import Notification from '../../components/Notifications/Notification';
     const current = new Date(startDate);
 
     while (current <= endDate) {
-      const day = current.getDay();
-      // Skip weekends (0=Sunday, 6=Saturday)
-      if (day !== 0 && day !== 6) {
-        count++;
-      }
+      count++;
       current.setDate(current.getDate() + 1);
     }
 

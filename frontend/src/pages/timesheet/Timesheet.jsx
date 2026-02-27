@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { timesheetAPI, allocationAPI, employeeAPI } from "../../services/api";
+import { timesheetAPI, allocationAPI, employeeAPI, specialPermissionAPI } from "../../services/api";
 import { ChevronLeft, ChevronRight, Calendar, Plus, Trash2, Save, Send, ChevronUp, ChevronDown } from "lucide-react";
 
 // Holiday Calendar 2026 data
@@ -65,6 +65,17 @@ const Timesheet = () => {
   const [showErrorDialog, setShowErrorDialog] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [errorTitle, setErrorTitle] = useState("Validation Error");
+  const [showSpecialModal, setShowSpecialModal] = useState(false);
+  const [spDate, setSpDate] = useState(null);
+  const [spReason, setSpReason] = useState("");
+  const [spFile, setSpFile] = useState(null);
+  const [spCalculation, setSpCalculation] = useState({ required: 0, onPremises: 0, balance: 0, shift: "", allowed: true, message: "" });
+  const [mySpecials, setMySpecials] = useState([]);
+  
+  // Debug log to verify state initialization
+  useEffect(() => {
+    console.log("Timesheet component mounted. mySpecials state:", mySpecials);
+  }, [mySpecials]);
 
   const showError = (message, title = "Validation Error") => {
     setErrorMessage(message);
@@ -119,7 +130,7 @@ const Timesheet = () => {
 
   // ✅ Check if add leave button should be disabled
   const isAddLeaveDisabled = () => {
-    const hasPermission = timesheetRows.some(row => row.task === "Permission");
+    const hasPermission = timesheetRows.some(row => row.task === "Permission" && row.type !== "special");
     // Allow up to 4 leave rows, but only 1 Permission row
     return getLeaveRowCount() >= 4 || isSubmitted || isLeaveAutoDraft || hasPermission;
   };
@@ -143,8 +154,8 @@ const Timesheet = () => {
         prevSunday.setDate(prevSunday.getDate() - 1);
         const attendanceStartStr = normalizeToUTCDateOnly(prevSunday);
 
-        // Run both requests in parallel to avoid race conditions
-        const [timesheetRes, attendanceRes] = await Promise.allSettled([
+        // Run all requests in parallel to avoid race conditions
+        const [timesheetRes, attendanceRes, specialRes] = await Promise.allSettled([
           timesheetAPI.getTimesheet({
             weekStart: weekStartStr,
             weekEnd: weekEndStr,
@@ -154,8 +165,19 @@ const Timesheet = () => {
             startDate: attendanceStartStr, // Fetch from prev Sunday
             endDate: weekEndStr,
             _t: Date.now()
+          }),
+          specialPermissionAPI.my({
+             weekStart: weekStartStr,
+             weekEnd: weekEndStr,
+             _t: Date.now()
           })
         ]);
+
+        if (specialRes.status === "fulfilled" && specialRes.value) {
+            setMySpecials(Array.isArray(specialRes.value.data?.data) ? specialRes.value.data.data : []);
+        } else {
+            setMySpecials([]);
+        }
 
         // --- Process Timesheet Data ---
         let sheet = {};
@@ -280,6 +302,40 @@ const Timesheet = () => {
           });
         }
 
+        // --- Prepare Special Permission Rows ---
+        const specialRows = [];
+        if (specialRes.status === "fulfilled" && specialRes.value) {
+            const specials = Array.isArray(specialRes.value.data?.data) ? specialRes.value.data.data : [];
+            const approvedSpecials = specials.filter(s => s.status === 'APPROVED');
+            
+            approvedSpecials.forEach(sp => {
+                const spDate = new Date(sp.date);
+                const spDateStr = spDate.toDateString();
+                const dayIndex = wd.findIndex(d => d.toDateString() === spDateStr);
+                
+                if (dayIndex !== -1) {
+                    const taskName = (sp.fromTime && sp.toTime) 
+                      ? `Permission (${sp.fromTime} - ${sp.toTime})` 
+                      : 'Permission';
+                    
+                    const hours = [0, 0, 0, 0, 0, 0, 0];
+                    hours[dayIndex] = Number(sp.totalHours) || 0;
+
+                    specialRows.push({
+                        id: `sp-${sp._id || Date.now()}-${dayIndex}`,
+                        project: 'Special Permission',
+                        projectCode: 'SP',
+                        task: taskName,
+                        type: 'special',
+                        shiftType: '',
+                        hours: hours,
+                        locked: true,
+                        lockedDays: [false, false, false, false, false, false, false].map((_, i) => i === dayIndex)
+                    });
+                }
+            });
+        }
+
         // --- Set Timesheet Rows ---
         if (rows.length === 0) {
           const weekDates = getWeekDates(currentWeek);
@@ -309,6 +365,9 @@ const Timesheet = () => {
             shiftType: ""
           });
 
+          // Append special permissions
+          initialRows.push(...specialRows);
+
           setTimesheetRows(initialRows);
           setOriginalData(JSON.stringify(initialRows));
           setHasUnsavedChanges(false);
@@ -330,6 +389,10 @@ const Timesheet = () => {
               locked: true
             });
           }
+
+          // Filter out old special permissions and add new ones
+          rows = rows.filter(r => r.type !== 'special' && r.project !== 'Special Permission');
+          rows.push(...specialRows);
 
           setTimesheetRows(rows);
           setOriginalData(JSON.stringify(rows));
@@ -454,6 +517,104 @@ const Timesheet = () => {
     const mm = String(m).padStart(2, "0");
     return `${h}:${mm}`;
   };
+
+  const calculateSpecialPermission = (dateStr) => {
+    if (!dateStr) {
+      setSpCalculation({ required: 0, onPremises: 0, balance: 0, shift: "", allowed: true, message: "" });
+      return;
+    }
+    
+    // Find index in current week
+    // Ensure we match local date parts
+    const d = new Date(dateStr);
+    // If dateStr is YYYY-MM-DD, new Date() might treat as UTC.
+    // We want to match with weekDates which are local.
+    // Let's rely on date string comparison or careful extraction
+    
+    // dateStr comes from input type="date" value or ISO split, which is YYYY-MM-DD
+    // If we use new Date("2026-02-23"), it is UTC 00:00.
+    // If we use d.getDate(), it converts to local.
+    // So if local is +5:30, it is 5:30 AM. Date is 23. Correct.
+    // If local is -5:00, it is Feb 22 19:00. Date is 22. WRONG.
+    
+    // To be safe, parse YYYY-MM-DD manually
+    const [y, m, day] = dateStr.split('-').map(Number);
+    // Create local date for comparison
+    const targetDate = new Date(y, m - 1, day);
+
+    const dayIndex = weekDates.findIndex(wd => 
+      wd.getDate() === targetDate.getDate() && 
+      wd.getMonth() === targetDate.getMonth() && 
+      wd.getFullYear() === targetDate.getFullYear()
+    );
+
+    if (dayIndex === -1) {
+      setSpCalculation({ required: 0, onPremises: 0, balance: 0, shift: "", allowed: true, message: "" });
+      return;
+    }
+
+    const shift = dailyShiftTypes?.[dayIndex] || shiftType || "";
+    const onPremises = Number(onPremisesTime?.daily?.[dayIndex] || 0);
+    const required = getSpecialPermissionRequiredHours(shift);
+    
+    let balance = 0;
+    let allowed = true;
+    let message = "";
+
+    if (required > 0) {
+      if (onPremises >= required) {
+        allowed = false;
+        message = "Minimum shift hours already completed. No special permission required.";
+        balance = 0;
+      } else {
+        // Convert to minutes for precise calculation
+        const reqMins = Math.round(required * 60);
+        const opMins = Math.round(onPremises * 60);
+        const balMins = Math.max(0, reqMins - opMins);
+        balance = balMins / 60;
+      }
+    } else {
+      // If no shift or unknown shift, maybe allow? or logic undefined.
+      // Assuming allow if no shift defined, or maybe not. 
+      // User prompt implies logic depends on shift.
+      // If no shift, required is 0. If onPremises >= 0, allowed = false?
+      // Let's assume if shift is missing, we can't calculate shortage, so maybe open?
+      // But user says "System detects Employee shift type".
+      // If balance is 0, allowed is false.
+      if (onPremises > 0) {
+          allowed = false;
+          message = "No shift detected or 0 required hours.";
+      }
+    }
+
+    setSpCalculation({
+      required,
+      onPremises,
+      balance,
+      shift,
+      allowed,
+      message
+    });
+
+    // Auto-set time if allowed and balance > 0
+    if (allowed && balance > 0) {
+      // Default fromTime could be end of on-premises? Hard to know when they left.
+      // We'll leave fromTime/toTime empty or maybe set duration?
+      // The user says "Auto Fill... Balance Hours: 0:40... Allow request only for the balance hours"
+      // We can't easily auto-set From/To without knowing WHEN. 
+      // But we can validate the duration.
+    }
+  };
+
+  useEffect(() => {
+    if (showSpecialModal && spDate) {
+        // Format to YYYY-MM-DD local
+        const y = spDate.getFullYear();
+        const m = String(spDate.getMonth() + 1).padStart(2, '0');
+        const d = String(spDate.getDate()).padStart(2, '0');
+        calculateSpecialPermission(`${y}-${m}-${d}`);
+    }
+  }, [showSpecialModal, spDate, dailyShiftTypes, onPremisesTime]);
 
   const parseTime = (t) => {
     if (!t) return null;
@@ -690,7 +851,8 @@ const Timesheet = () => {
     const weekDates = getWeekDates();
 
     timesheetRows.forEach((row) => {
-      if (row.task === "Permission") {
+      // Check for any Permission task (generic or dynamic) but EXCLUDE Special Permission rows
+      if (row.task && (row.task === "Permission" || row.task.toLowerCase().includes("permission")) && row.type !== 'special' && row.project !== 'Special Permission') {
         row.hours.forEach((hours, dayIndex) => {
           // Use weekDates to determine the exact date of this column
           const date = weekDates[dayIndex];
@@ -891,15 +1053,15 @@ const Timesheet = () => {
     const newTotalWithBreakAll = newWorkTotalAll + currentBreakHours;
 
     if (newTotalWithBreakAll > 24) {
-      const currentTotalWithBreak = (currentDailyAllTotal + currentBreakHours).toFixed(1);
-      showError(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${currentBreakHours.toFixed(1)}h)\nAfter update: ${newTotalWithBreakAll.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+      const currentTotal = currentDailyAllTotal.toFixed(1);
+      showError(`Daily total cannot exceed 24 hours.\n\nCurrent: ${currentTotal}h\nAfter update: ${newTotalWithBreakAll.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
       return; // Don't update if it would exceed 24 hours
     }
 
     // Warning when approaching 24 hours (within 2 hours)
     if (newTotalWithBreakAll >= 22 && newTotalWithBreakAll <= 24) {
       const remainingHours = (24 - newTotalWithBreakAll).toFixed(1);
-      showError(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newTotalWithBreakAll.toFixed(1)}h (only ${remainingHours}h remaining)\n\nThis includes Work (${newWorkTotalAll.toFixed(1)}h) + Break (${currentBreakHours.toFixed(1)}h)`, "Warning");
+      showError(`⚠️ Warning: You are approaching the 24-hour daily limit.\n\nAfter this update: ${newTotalWithBreakAll.toFixed(1)}h (only ${remainingHours}h remaining)`, "Warning");
     }
 
     // Handle leave types
@@ -955,7 +1117,8 @@ const Timesheet = () => {
         const weekDates = getWeekDates();
 
         timesheetRows.forEach((r) => {
-          if (r.task !== "Permission") return;
+          // Only count standard Permission task, exclude Special Permission rows
+          if (r.task !== "Permission" || r.type === 'special' || r.project === 'Special Permission') return;
           r.hours.forEach((h, idx) => {
             const date = weekDates[idx];
             if (date && date.getMonth() === currentMonth && date.getFullYear() === currentYear) {
@@ -990,9 +1153,8 @@ const Timesheet = () => {
       (r) => (r.task || "").startsWith("Leave Approved") && (r.id === id ? numValue : Number(r.hours?.[dayIndex] || 0)) > 0
     );
 
-    const shiftForDay = dailyShiftTypes?.[dayIndex] || shiftType || "";
-    const breakByShift = getShiftBreakHours(shiftForDay);
-    const breakAfterUpdate = hasWorkAfterUpdate && !hasApprovedLeave ? breakByShift : 0;
+    // Break time is disabled/removed per requirement
+    const breakAfterUpdate = 0;
 
     // Shift-based caps removed in favor of on-premises enforcement
     // Enforce on-premises cap: project work + auto break must not exceed on-premises time
@@ -1022,8 +1184,8 @@ const Timesheet = () => {
     // Shift-based caps removed
 
     if (finalTotalWithBreak > 24) {
-      const currentTotalWithBreak = (currentDailyAllTotal + computeBreakForDay(dayIndex)).toFixed(1);
-      showError(`Daily total (Work + Break) cannot exceed 24 hours.\n\nCurrent: ${currentTotalWithBreak}h (Work: ${currentDailyAllTotal.toFixed(1)}h + Break: ${computeBreakForDay(dayIndex).toFixed(1)}h)\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
+      const currentTotal = currentDailyAllTotal.toFixed(1);
+      showError(`Daily total cannot exceed 24 hours.\n\nCurrent: ${currentTotal}h\nAfter update: ${finalTotalWithBreak.toFixed(1)}h\n\nPlease reduce hours to stay within 24 hours limit.`);
       return;
     }
 
@@ -1098,8 +1260,9 @@ const Timesheet = () => {
 
     timesheetRows.forEach((row) => {
       row.hours.forEach((hours, index) => {
-        dailyTotals[index] += hours;
-        weeklyTotal += hours;
+        const h = Number(hours) || 0;
+        dailyTotals[index] += h;
+        weeklyTotal += h;
       });
     });
 
@@ -1358,13 +1521,15 @@ const Timesheet = () => {
 
       // Calculate permission minutes for the day
       const permissionHours = timesheetRows
-        .filter(r => r.task === "Permission")
+        .filter(r => (r.task && (r.task === "Permission" || r.task.toLowerCase().includes("permission"))) || r.type === 'special')
         .reduce((sum, r) => sum + (Number(r.hours?.[i]) || 0), 0);
       const permissionMinutes = Math.round(permissionHours * 60);
 
       // Calculate other leave minutes (excluding permission) to add to on-premises time for validation
       const otherLeaveHours = timesheetRows
-        .filter(r => (r.type === 'leave' || r.project === 'Leave' || r.task === 'Office Holiday' || r.project === 'Office Holiday') && r.task !== 'Permission')
+        .filter(r => (r.type === 'leave' || r.project === 'Leave' || r.task === 'Office Holiday' || r.project === 'Office Holiday') && 
+                     !(r.task && (r.task === "Permission" || r.task.toLowerCase().includes("permission"))) && 
+                     r.type !== 'special')
         .reduce((sum, r) => sum + (Number(r.hours?.[i]) || 0), 0);
       const otherLeaveMinutes = Math.round(otherLeaveHours * 60);
       
@@ -1465,6 +1630,18 @@ const Timesheet = () => {
     return 0;
   };
 
+  const getSpecialPermissionRequiredHours = (shift) => {
+    if (!shift) return 0;
+    const s = String(shift).toLowerCase();
+    // First Shift: 7:25
+    if (s.startsWith("first shift")) return 7 + 25/60;
+    // Second Shift: 7:30
+    if (s.startsWith("second shift") || s.startsWith("secend shift")) return 7 + 30/60;
+    // General Shift: 8:30
+    if (s.startsWith("general shift")) return 8 + 30/60;
+    return 0;
+  };
+
   const getShiftMaxHours = (shift) => {
     if (!shift) return 24;
     const s = String(shift);
@@ -1516,16 +1693,8 @@ const Timesheet = () => {
   };
 
   const computeBreakForDay = (dayIndex) => {
-    const hasWork = timesheetRows.some(
-      (row) => row.type === "project" && row.task !== "Office Holiday" && Number(row.hours?.[dayIndex] || 0) > 0
-    );
-    // No break for approved leave days (Full or Half)
-    const hasApprovedLeave = timesheetRows.some(
-      (row) => (row.task || "").startsWith("Leave Approved") && Number(row.hours?.[dayIndex] || 0) > 0
-    );
-    const shiftForDay = dailyShiftTypes?.[dayIndex] || shiftType || "";
-    const breakByShift = getShiftBreakHours(shiftForDay);
-    return hasWork && !hasApprovedLeave ? breakByShift : 0;
+    // Break time is disabled/removed per requirement
+    return 0;
   };
 
   // Calculate weekly break total
@@ -1611,16 +1780,24 @@ const Timesheet = () => {
 
       // Calculate permission minutes for the day
       const permissionHours = timesheetRows
-        .filter(r => r.task === "Permission")
+        .filter(r => (r.task && (r.task === "Permission" || r.task.toLowerCase().includes("permission"))) || r.type === 'special')
         .reduce((sum, r) => sum + (Number(r.hours?.[i]) || 0), 0);
       const permissionMinutes = Math.round(permissionHours * 60);
 
+      // Calculate other leave minutes (excluding permission) to add to on-premises time for validation
+      const otherLeaveHours = timesheetRows
+        .filter(r => (r.type === 'leave' || r.project === 'Leave' || r.task === 'Office Holiday' || r.project === 'Office Holiday') && 
+                     !(r.task && (r.task === "Permission" || r.task.toLowerCase().includes("permission"))) && 
+                     r.type !== 'special')
+        .reduce((sum, r) => sum + (Number(r.hours?.[i]) || 0), 0);
+      const otherLeaveMinutes = Math.round(otherLeaveHours * 60);
+      
       // Check if On-Premises Time matches Total Hours (Work + Break) within 2 mins cushion
       const onPremisesHours = onPremisesTime.daily?.[i] || 0;
       const onPremisesMinutes = Math.round(onPremisesHours * 60);
       
-      // If permission exists, add it to on-premises time for validation (since permission is time away)
-      const adjustedOnPremisesMinutes = onPremisesMinutes + permissionMinutes;
+      // If permission/leave exists, add it to on-premises time for validation (since permission is time away)
+      const adjustedOnPremisesMinutes = onPremisesMinutes + permissionMinutes + otherLeaveMinutes;
 
       if ((onPremisesMinutes > 0 || currentMinutes > 0) && Math.abs(adjustedOnPremisesMinutes - currentMinutes) > 2) {
         return false;
@@ -1705,10 +1882,21 @@ const Timesheet = () => {
         const onPremisesMinutes = Math.round(onPremisesHours * 60);
 
         // Calculate permission minutes
-        const permissionHours = timesheetRows
+        const permissionHoursRow = timesheetRows
           .filter(r => r.task === "Permission")
           .reduce((sum, r) => sum + (Number(r.hours?.[dayIndex]) || 0), 0);
-        const permissionMinutes = Math.round(permissionHours * 60);
+        
+        let specialPermissionHours = 0;
+        if (mySpecials && mySpecials.length > 0) {
+             const currentDate = weekDates[dayIndex];
+             const approvedSpecials = mySpecials.filter(sp => 
+                sp.status === 'APPROVED' && 
+                new Date(sp.date).toDateString() === currentDate.toDateString()
+             );
+             specialPermissionHours = approvedSpecials.reduce((sum, sp) => sum + (Number(sp.totalHours) || 0), 0);
+        }
+        
+        const permissionMinutes = Math.round((permissionHoursRow + specialPermissionHours) * 60);
 
         // Calculate other leave minutes (excluding permission) to add to on-premises time for validation
         const otherLeaveHours = timesheetRows
@@ -1873,21 +2061,44 @@ const Timesheet = () => {
               ADD PROJECT
             </button>
 
-            <div className="flex flex-col items-center">
-              <button
-                onClick={addLeaveRow}
-                disabled={isAddLeaveDisabled()}
-                className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isAddLeaveDisabled()
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : "bg-blue-700 hover:bg-blue-800 text-white"
-                  }`}
-                title={isAddLeaveDisabled() ? "Cannot add leave row (Limit reached or Permission active)" : "Add Leave Row"}
-              >
-                <Plus className="w-4 h-4" />
-                ADD PERMISSION
-              </button>
+            <button
+              onClick={addLeaveRow}
+              disabled={isAddLeaveDisabled()}
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isAddLeaveDisabled()
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-blue-700 hover:bg-blue-800 text-white"
+                }`}
+              title={isAddLeaveDisabled() ? "Cannot add leave row (Limit reached or Permission active)" : "Add Leave Row"}
+            >
+              <Plus className="w-4 h-4" />
+              ADD PERMISSION
+            </button>
 
-            </div>
+            <button
+              onClick={() => {
+                const today = new Date();
+                const inWeek = weekDates.some(d => d.toDateString() === today.toDateString());
+                const initialDate = inWeek ? today : weekDates[0];
+                setSpDate(initialDate);
+                // Format to YYYY-MM-DD local
+                const y = initialDate.getFullYear();
+                const m = String(initialDate.getMonth() + 1).padStart(2, '0');
+                const d = String(initialDate.getDate()).padStart(2, '0');
+                const dateStr = `${y}-${m}-${d}`;
+                
+                calculateSpecialPermission(dateStr);
+                setSpReason("");
+                setSpFile(null);
+                setShowSpecialModal(true);
+              }}
+              disabled={isSubmitted}
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isSubmitted ? "bg-gray-400 cursor-not-allowed text-white" : "bg-blue-700 hover:bg-blue-800 text-white"}`}
+              title={isSubmitted ? "Timesheet already submitted" : "Request Special Permission"}
+            >
+              <Plus className="w-4 h-4" />
+              ADD SPECIAL PERMISSION
+            </button>
+
 
             <button
               onClick={saveAsDraft}
@@ -1972,6 +2183,10 @@ const Timesheet = () => {
                       <div className="w-full p-2 text-blue-800 rounded text-sm font-semibold text-center">
                         Leave
                       </div>
+                    ) : row.type === "special" ? (
+                      <div className="w-full p-2 text-purple-800 rounded text-sm font-semibold text-center bg-purple-100">
+                        Special Permission
+                      </div>
                     ) : row.project === "Office Holiday" ? (
                       <div className="w-full p-2 text-green-800 rounded text-sm font-semibold text-center">
                         Office Holiday
@@ -1994,8 +2209,8 @@ const Timesheet = () => {
                   </td>
 
                   <td className="p-2 border border-gray-200">
-                    {row.task === "Office Holiday" || row.task === "Permission" ? (
-                      <div className={`w-full p-2 ${row.task === "Office Holiday" ? "text-green-800" : "text-blue-800"} rounded text-sm font-semibold text-center`}>
+                    {row.task === "Office Holiday" || row.task === "Permission" || row.type === "special" ? (
+                      <div className={`w-full p-2 ${row.task === "Office Holiday" ? "text-green-800" : row.type === "special" ? "text-purple-800 bg-purple-100" : "text-blue-800"} rounded text-sm font-semibold text-center`}>
                         {row.task}
                       </div>
                     ) : (
@@ -2135,7 +2350,7 @@ const Timesheet = () => {
                             isSubmitted
                               ? "Timesheet already submitted"
                               : row.locked
-                                ? "Locked due to approved leave"
+                                ? (row.type === "special" ? "Locked due to approved special permission" : "Locked due to approved leave")
                                 : (row.lockedDays && row.lockedDays[dayIndex])
                                   ? "Locked due to full day leave"
                                   : (row.type === "project" ? (!row.project || !row.task) : (!row.task))
@@ -2266,8 +2481,8 @@ const Timesheet = () => {
                 <td className="p-3 border border-gray-200"></td>
               </tr>
 
-              {/* Break Time Row */}
-              <tr className="font-semibold">
+              {/* Break Time Row - Removed per requirement */}
+              {/* <tr className="font-semibold">
                 <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
                   Break Time (Auto)
                 </td>
@@ -2280,12 +2495,12 @@ const Timesheet = () => {
                   {formatHoursHHMM(computeWeeklyBreak())}
                 </td>
                 <td className="p-3 border border-gray-200"></td>
-              </tr>
+              </tr> */}
 
-              {/* Total Hours (Work + Break) */}
+              {/* Total Hours */}
               <tr className="font-semibold bg-blue-50">
                 <td colSpan="3" className="p-3 border border-gray-200 text-gray-900">
-                  Total Hours (Work + Break)
+                  Total Hours
                 </td>
                 {totals.daily.map((total, index) => (
                   <td key={index} className={`p-3 border border-gray-200 text-center ${getDailyTotalWarningClass(index)}`}>
@@ -2329,8 +2544,9 @@ const Timesheet = () => {
 
           <button
             onClick={submitTimesheet}
-            disabled={loading || isSubmitted || isLeaveAutoDraft}
+            disabled={loading || isSubmitted || isLeaveAutoDraft || mySpecials.some(s => s.status === 'PENDING')}
             className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(loading || isSubmitted || isLeaveAutoDraft)
+              || mySpecials.some(s => s.status === 'PENDING')
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-700 hover:bg-blue-800 text-white"
               }`}
@@ -2345,14 +2561,169 @@ const Timesheet = () => {
             ) : (
               <>
                 <Send className="w-4 h-4" />
-                SUBMIT WEEK ({getWeeklyTotalWithBreak()})
+                {mySpecials.some(s => s.status === 'PENDING') ? "SPECIAL PERMISSION PENDING" : `SUBMIT WEEK (${getWeeklyTotalWithBreak()})`}
               </>
             )}
           </button>
         </div>
       </div>
+      
+      {showSpecialModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-lg w-full max-w-lg">
+            <div className="p-4 border-b flex justify-between items-center">
+              <div className="text-lg font-semibold text-gray-800">Special Permission Request</div>
+              <button className="text-gray-500 hover:text-gray-700" onClick={() => setShowSpecialModal(false)}>✕</button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+                <select
+                  value={spDate ? new Date(spDate.getTime() - spDate.getTimezoneOffset() * 60000).toISOString().split('T')[0] : ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val) {
+                        // Manually parse YYYY-MM-DD to create local date
+                        const [y, m, d] = val.split('-').map(Number);
+                        const localDate = new Date(y, m - 1, d);
+                        setSpDate(localDate);
+                        calculateSpecialPermission(val);
+                    } else {
+                        setSpDate(null);
+                    }
+                  }}
+                  className="w-full p-2 border border-gray-300 rounded text-sm"
+                >
+                  {weekDates.map((d, idx) => {
+                    // Adjust to local ISO string for value
+                    const localISO = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+                    return (
+                      <option key={idx} value={localISO}>
+                        {d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+
+              {/* Auto Calculation Display */}
+              {spDate && (
+                <div className="bg-blue-50 p-3 rounded text-sm space-y-1 border border-blue-100">
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Shift:</span>
+                        <span className="font-medium">{spCalculation.shift || "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">On-Premises Hours:</span>
+                        <span className="font-medium">{formatHoursHHMM(spCalculation.onPremises)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                        <span className="text-gray-600">Required Minimum:</span>
+                        <span className="font-medium">{formatHoursHHMM(spCalculation.required)}</span>
+                    </div>
+                    <div className="flex justify-between border-t border-blue-200 pt-1 mt-1">
+                        <span className="text-blue-800 font-semibold">Balance (Shortage):</span>
+                        <span className="text-blue-800 font-bold">{formatHoursHHMM(spCalculation.balance)}</span>
+                    </div>
+                    {!spCalculation.allowed && (
+                        <div className="text-red-600 font-semibold mt-2 text-center">
+                            {spCalculation.message}
+                        </div>
+                    )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason</label>
+                <textarea
+                  value={spReason}
+                  onChange={(e) => setSpReason(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded text-sm"
+                  rows={3}
+                />
+              </div>
+              
+            </div>
+            <div className="p-4 border-t flex justify-end gap-2">
+              <button className="px-4 py-2 rounded border" onClick={() => setShowSpecialModal(false)}>Cancel</button>
+              <button
+                className={`px-4 py-2 rounded text-white ${!spCalculation.allowed ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-700 hover:bg-blue-800'}`}
+                disabled={!spCalculation.allowed}
+                onClick={async () => {
+                  if (!spDate || !spReason.trim()) {
+                    showError("Please fill all required fields (Date, Reason).");
+                    return;
+                  }
+                  
+                  // Use balance directly as request amount
+                  const requestHours = spCalculation.balance;
+                  
+                  if (requestHours <= 0) {
+                      showError("No shortage hours to request.");
+                      return;
+                  }
+
+                  try {
+                    const fd = new FormData();
+                    const d = new Date(spDate);
+                    const isoDate = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString();
+                    fd.append('date', isoDate);
+                    fd.append('shift', spCalculation.shift || "");
+                    // Send dummy times or empty strings as backend now accepts optional times
+                    fd.append('fromTime', ""); 
+                    fd.append('toTime', "");
+                    fd.append('totalHours', requestHours);
+                    fd.append('reason', spReason.trim());
+                    if (spFile) fd.append('attachment', spFile);
+                    await specialPermissionAPI.create(fd);
+                    const weekStartStr = new Date(Date.UTC(weekDates[0].getFullYear(), weekDates[0].getMonth(), weekDates[0].getDate())).toISOString();
+                    const weekEndStr = new Date(Date.UTC(weekDates[6].getFullYear(), weekDates[6].getMonth(), weekDates[6].getDate())).toISOString();
+                    const spRes = await specialPermissionAPI.my({ weekStart: weekStartStr, weekEnd: weekEndStr, _t: Date.now() });
+                    setMySpecials(Array.isArray(spRes.data?.data) ? spRes.data.data : []);
+                    setShowSpecialModal(false);
+                    showError("Special Permission submitted for approval.", "Success");
+                  } catch (err) {
+                    showError("Failed to submit Special Permission.");
+                  }
+                }}
+              >
+                Submit Request ({formatHoursHHMM(spCalculation.balance)})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-4">
+        <div className="bg-white rounded-lg border border-gray-200">
+          <div className="p-4 border-b text-sm font-semibold text-gray-800">Special Permission Requests (This Week)</div>
+          <div className="p-4">
+            {mySpecials.length === 0 ? (
+              <div className="text-sm text-gray-500">No special permissions for this week.</div>
+            ) : (
+              <div className="space-y-2">
+                {mySpecials.map((sp) => {
+                  const d = new Date(sp.date);
+                  const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                  const hh = String(Math.floor(Number(sp.totalHours || 0))).padStart(2, '0');
+                  const mm = String(Math.round(((Number(sp.totalHours || 0)) - Math.floor(Number(sp.totalHours || 0))) * 60)).padStart(2, '0');
+                  return (
+                    <div key={sp._id} className="flex items-center justify-between text-sm border rounded p-2">
+                      <div className="text-gray-700">{dateStr} • {hh}:{mm} • {sp.reason}</div>
+                      <div className={`font-semibold ${sp.status === 'APPROVED' ? 'text-green-600' : sp.status === 'REJECTED' ? 'text-red-600' : 'text-yellow-600'}`}>
+                        {sp.status}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
       {/* Important Notes Section */}
       <div className="p-4  border-t border-gray-200">
+        <h3 className="text-sm font-semibold text-gray-900 mb-2">Important Notes:</h3>
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Important Notes:</h3>
         <ul className="text-xs text-gray-600 space-y-1">
           <li>• Break time: Maximum 1 hour 15 minutes (1.15h) allowed per day</li>

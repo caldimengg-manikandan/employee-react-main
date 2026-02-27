@@ -28,7 +28,7 @@ import {
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import { message, Modal } from 'antd';
-import { employeeAPI, insuranceAPI } from '../../services/api';
+import { employeeAPI, insuranceAPI, insuranceClaimAPI } from '../../services/api';
 
 const InsuranceManagement = () => {
   const [currentView, setCurrentView] = useState('main'); // 'main', 'newClaim', 'claimHistory'
@@ -173,104 +173,25 @@ const InsuranceManagement = () => {
   ];
 
   // Claims data state
-  const [claims, setClaims] = useState([
-    {
-      id: 'CLM-001',
-      employeeName: 'John Doe',
-      employeeId: 'EMP001',
-      claimNumber: 'IC-2024-001',
-      memberName: 'John Doe',
-      treatment: 'Dental Surgery',
-      sumInsured: 50000,
-      requestedAmount: 45000,
-      claimDate: '2024-01-15',
-      closeDate: '2024-02-01',
-      status: 'Approved',
-      paymentStatus: 'Paid',
-      dateOfAdmission: '2024-01-10',
-      dateOfDischarge: '2024-01-14',
-      bankName: 'HDFC Bank',
-      accountNumber: 'XXXXXX1234',
-      relationship: 'Single',
-      mobile: '+91 9876543210',
-      hospitalAddress: 'Apollo Hospital, Chennai',
-      typeOfIllness: 'Surgery',
-      otherIllness: '',
-      documents: {
-        employeePhoto: { name: 'john_photo.jpg' },
-        dischargeBill: { name: 'discharge_bill.pdf' },
-        pharmacyBill: { name: 'pharmacy_bill.pdf' },
-        paymentReceipt: { name: 'payment_receipt.pdf' }
-      }
-    },
-    {
-      id: 'CLM-002',
-      employeeName: 'Jane Smith',
-      employeeId: 'EMP002',
-      claimNumber: 'IC-2024-002',
-      memberName: 'Jane Smith',
-      treatment: 'Eye Checkup',
-      sumInsured: 30000,
-      requestedAmount: 12000,
-      claimDate: '2024-01-20',
-      closeDate: '2024-02-05',
-      status: 'Approved',
-      paymentStatus: 'Paid',
-      dateOfAdmission: '2024-01-18',
-      dateOfDischarge: '2024-01-18',
-      bankName: 'ICICI Bank',
-      accountNumber: 'XXXXXX5678',
-      relationship: 'Married',
-      mobile: '+91 9876543211',
-      spouseName: 'Mike Smith',
-      hospitalAddress: 'Fortis Hospital, Mumbai',
-      typeOfIllness: 'Allergy',
-      otherIllness: '',
-      children: [
-        { name: 'Emma Smith', age: '8' },
-        { name: 'Noah Smith', age: '5' }
-      ],
-      documents: {
-        employeePhoto: { name: 'jane_photo.jpg' },
-        dischargeBill: { name: 'discharge_bill.pdf' },
-        pharmacyBill: { name: 'pharmacy_bill.pdf' },
-        paymentReceipt: { name: 'payment_receipt.pdf' }
-      }
-    },
-    {
-      id: 'CLM-003',
-      employeeName: 'Robert Wilson',
-      employeeId: 'EMP003',
-      claimNumber: 'IC-2024-003',
-      memberName: 'Robert Wilson',
-      treatment: 'Heart Surgery',
-      sumInsured: 200000,
-      requestedAmount: 185000,
-      claimDate: '2024-02-01',
-      closeDate: '',
-      status: 'Pending',
-      paymentStatus: 'Pending',
-      dateOfAdmission: '2024-01-28',
-      dateOfDischarge: '2024-02-05',
-      bankName: 'SBI',
-      accountNumber: 'XXXXXX9012',
-      relationship: 'Married',
-      mobile: '+91 9876543212',
-      spouseName: 'Sarah Wilson',
-      hospitalAddress: 'Manipal Hospital, Bangalore',
-      typeOfIllness: 'Heart Disease',
-      otherIllness: '',
-      children: [
-        { name: 'Liam Wilson', age: '12' }
-      ],
-      documents: {
-        employeePhoto: { name: 'robert_photo.jpg' },
-        dischargeBill: { name: 'discharge_bill.pdf' },
-        pharmacyBill: { name: 'pharmacy_bill.pdf' },
-        paymentReceipt: { name: 'payment_receipt.pdf' }
-      }
+  const [claims, setClaims] = useState([]);
+
+  useEffect(() => {
+    fetchClaims();
+  }, []);
+
+  const fetchClaims = async () => {
+    try {
+      const response = await insuranceClaimAPI.getAll();
+      const mappedClaims = response.data.map(claim => ({
+        ...claim,
+        id: claim._id
+      }));
+      setClaims(mappedClaims);
+    } catch (error) {
+      console.error("Error fetching claims:", error);
+      message.error("Failed to fetch insurance claims");
     }
-  ]);
+  };
 
   const initialRecordFormState = {
     employeeId: '',
@@ -1023,7 +944,7 @@ const InsuranceManagement = () => {
   };
 
   // Form Submission Handlers
-  const handleSubmitClaim = (e) => {
+  const handleSubmitClaim = async (e) => {
     e.preventDefault();
 
     const newErrors = {};
@@ -1079,77 +1000,88 @@ const InsuranceManagement = () => {
       return;
     }
 
-    const newClaim = {
-      id: `CLM-${Date.now()}`,
-      employeeName: formData.employeeName,
-      employeeId: formData.employeeId,
-      claimNumber: formData.claimNumber,
-      memberName: formData.memberName,
-      treatment: formData.treatment,
-      sumInsured: parseFloat(formData.sumInsured) || 0,
-      requestedAmount: parseFloat(formData.requestedAmount) || 0,
-      claimDate: formData.claimDate,
-      closeDate: formData.closeDate,
-      status: formData.claimStatus,
-      paymentStatus: formData.paymentStatus,
-      dateOfAdmission: formData.dateOfAdmission,
-      dateOfDischarge: formData.dateOfDischarge,
-      bankName: formData.bankName,
-      accountNumber: formData.accountNumber,
-      relationship: formData.relationship,
-      mobile: formData.mobile,
-      spouseName: formData.spouseName || '',
-      hospitalAddress: formData.hospitalAddress,
-      typeOfIllness: formData.typeOfIllness === 'Other' ? formData.otherIllness : formData.typeOfIllness,
-      otherIllness: formData.typeOfIllness === 'Other' ? formData.otherIllness : '',
-      children: formData.children || [],
-      documents: formData.documents || {
-        employeePhoto: null,
-        dischargeBill: null,
-        pharmacyBill: null,
-        paymentReceipt: null
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('employeeName', formData.employeeName);
+      formDataToSend.append('employeeId', formData.employeeId);
+      formDataToSend.append('claimNumber', formData.claimNumber);
+      formDataToSend.append('memberName', formData.memberName);
+      formDataToSend.append('treatment', formData.treatment);
+      formDataToSend.append('sumInsured', formData.sumInsured);
+      formDataToSend.append('requestedAmount', formData.requestedAmount);
+      formDataToSend.append('claimDate', formData.claimDate);
+      formDataToSend.append('closeDate', formData.closeDate || '');
+      formDataToSend.append('status', formData.claimStatus);
+      formDataToSend.append('paymentStatus', formData.paymentStatus);
+      formDataToSend.append('dateOfAdmission', formData.dateOfAdmission);
+      formDataToSend.append('dateOfDischarge', formData.dateOfDischarge);
+      formDataToSend.append('bankName', formData.bankName);
+      formDataToSend.append('accountNumber', formData.accountNumber);
+      formDataToSend.append('relationship', formData.relationship);
+      formDataToSend.append('mobile', formData.mobile);
+      formDataToSend.append('spouseName', formData.spouseName || '');
+      formDataToSend.append('hospitalAddress', formData.hospitalAddress);
+      
+      const typeOfIllness = formData.typeOfIllness === 'Other' ? formData.otherIllness : formData.typeOfIllness;
+      formDataToSend.append('typeOfIllness', typeOfIllness);
+      if (formData.typeOfIllness === 'Other') {
+        formDataToSend.append('otherIllness', formData.otherIllness);
       }
-    };
 
-    setClaims(prev => [newClaim, ...prev]);
-    message.success('Claim submitted successfully!');
+      formDataToSend.append('children', JSON.stringify(formData.children || []));
 
-    // Reset form
-    setFormData({
-      employeeName: '',
-      employeeId: '',
-      mobile: '',
-      bankName: '',
-      accountNumber: '',
-      relationship: 'Single',
-      spouseName: '',
-      children: [{ name: '', age: '' }],
-      memberName: '',
-      claimNumber: '',
-      treatment: '',
-      sumInsured: '',
-      dateOfAdmission: '',
-      dateOfDischarge: '',
-      requestedAmount: '',
-      claimDate: '',
-      closeDate: '',
-      claimStatus: 'Pending',
-      paymentStatus: 'Unpaid',
-      hospitalAddress: '',
-      typeOfIllness: '',
-      otherIllness: '',
-      documents: {
-        employeePhoto: null,
-        dischargeBill: null,
-        pharmacyBill: null,
-        paymentReceipt: null
-      }
-    });
-    setCurrentStep(1);
-    setCurrentView('claimHistory');
+      // Append files
+      if (formData.documents.employeePhoto) formDataToSend.append('employeePhoto', formData.documents.employeePhoto);
+      if (formData.documents.dischargeBill) formDataToSend.append('dischargeBill', formData.documents.dischargeBill);
+      if (formData.documents.pharmacyBill) formDataToSend.append('pharmacyBill', formData.documents.pharmacyBill);
+      if (formData.documents.paymentReceipt) formDataToSend.append('paymentReceipt', formData.documents.paymentReceipt);
+
+      const response = await insuranceClaimAPI.create(formDataToSend);
+      const savedClaim = { ...response.data, id: response.data._id };
+      
+      setClaims(prev => [savedClaim, ...prev]);
+      message.success('Claim submitted successfully!');
+
+      // Reset form
+      setFormData({
+        employeeName: '',
+        employeeId: '',
+        mobile: '',
+        bankName: '',
+        accountNumber: '',
+        relationship: 'Single',
+        spouseName: '',
+        children: [{ name: '', age: '' }],
+        memberName: '',
+        claimNumber: '',
+        treatment: '',
+        sumInsured: '',
+        dateOfAdmission: '',
+        dateOfDischarge: '',
+        requestedAmount: '',
+        claimDate: '',
+        closeDate: '',
+        claimStatus: 'Pending',
+        paymentStatus: 'Unpaid',
+        hospitalAddress: '',
+        typeOfIllness: '',
+        otherIllness: '',
+        documents: {
+          employeePhoto: null,
+          dischargeBill: null,
+          pharmacyBill: null,
+          paymentReceipt: null
+        }
+      });
+      setCurrentStep(1);
+      setCurrentView('claimHistory');
+    } catch (error) {
+      console.error("Error creating claim:", error);
+      message.error(error.response?.data?.message || 'Failed to submit claim');
+    }
   };
 
-  const handleUpdateClaim = (e) => {
+  const handleUpdateClaim = async (e) => {
     e.preventDefault();
 
     const newErrors = {};
@@ -1190,44 +1122,67 @@ const InsuranceManagement = () => {
       return;
     }
 
-    setClaims(prev => prev.map(claim =>
-      claim.id === editingClaim.id
-        ? {
-          ...claim,
-          employeeName: editFormData.employeeName,
-          employeeId: editFormData.employeeId,
-          mobile: editFormData.mobile,
-          bankName: editFormData.bankName,
-          accountNumber: editFormData.accountNumber,
-          relationship: editFormData.relationship,
-          spouseName: editFormData.spouseName || '',
-          children: editFormData.children || [],
-          memberName: editFormData.memberName,
-          claimNumber: editFormData.claimNumber,
-          treatment: editFormData.treatment,
-          sumInsured: parseFloat(editFormData.sumInsured) || 0,
-          requestedAmount: parseFloat(editFormData.requestedAmount) || 0,
-          dateOfAdmission: editFormData.dateOfAdmission,
-          dateOfDischarge: editFormData.dateOfDischarge,
-          claimDate: editFormData.claimDate,
-          closeDate: editFormData.closeDate,
-          status: editFormData.claimStatus,
-          paymentStatus: editFormData.paymentStatus,
-          hospitalAddress: editFormData.hospitalAddress,
-          typeOfIllness: editFormData.typeOfIllness === 'Other' ? editFormData.otherIllness : editFormData.typeOfIllness,
-          otherIllness: editFormData.typeOfIllness === 'Other' ? editFormData.otherIllness : '',
-          documents: editFormData.documents || claim.documents
-        }
-        : claim
-    ));
-    setEditingClaim(null);
-    message.success('Claim updated successfully!');
+    try {
+      const formDataToSend = new FormData();
+      formDataToSend.append('employeeName', editFormData.employeeName);
+      formDataToSend.append('employeeId', editFormData.employeeId);
+      formDataToSend.append('claimNumber', editFormData.claimNumber);
+      formDataToSend.append('memberName', editFormData.memberName);
+      formDataToSend.append('treatment', editFormData.treatment);
+      formDataToSend.append('sumInsured', editFormData.sumInsured);
+      formDataToSend.append('requestedAmount', editFormData.requestedAmount);
+      formDataToSend.append('claimDate', editFormData.claimDate);
+      formDataToSend.append('closeDate', editFormData.closeDate || '');
+      formDataToSend.append('status', editFormData.claimStatus);
+      formDataToSend.append('paymentStatus', editFormData.paymentStatus);
+      formDataToSend.append('dateOfAdmission', editFormData.dateOfAdmission);
+      formDataToSend.append('dateOfDischarge', editFormData.dateOfDischarge);
+      formDataToSend.append('bankName', editFormData.bankName);
+      formDataToSend.append('accountNumber', editFormData.accountNumber);
+      formDataToSend.append('relationship', editFormData.relationship);
+      formDataToSend.append('mobile', editFormData.mobile);
+      formDataToSend.append('spouseName', editFormData.spouseName || '');
+      formDataToSend.append('hospitalAddress', editFormData.hospitalAddress);
+      
+      const typeOfIllness = editFormData.typeOfIllness === 'Other' ? editFormData.otherIllness : editFormData.typeOfIllness;
+      formDataToSend.append('typeOfIllness', typeOfIllness);
+      if (editFormData.typeOfIllness === 'Other') {
+        formDataToSend.append('otherIllness', editFormData.otherIllness);
+      }
+
+      formDataToSend.append('children', JSON.stringify(editFormData.children || []));
+
+      // Append files only if they are File objects (newly uploaded)
+      // If it's existing file (object with name property but not File), we don't send it, backend preserves old path
+      if (editFormData.documents.employeePhoto instanceof File) formDataToSend.append('employeePhoto', editFormData.documents.employeePhoto);
+      if (editFormData.documents.dischargeBill instanceof File) formDataToSend.append('dischargeBill', editFormData.documents.dischargeBill);
+      if (editFormData.documents.pharmacyBill instanceof File) formDataToSend.append('pharmacyBill', editFormData.documents.pharmacyBill);
+      if (editFormData.documents.paymentReceipt instanceof File) formDataToSend.append('paymentReceipt', editFormData.documents.paymentReceipt);
+
+      const response = await insuranceClaimAPI.update(editingClaim.id, formDataToSend);
+      const updatedClaim = { ...response.data, id: response.data._id };
+
+      setClaims(prev => prev.map(claim =>
+        claim.id === editingClaim.id ? updatedClaim : claim
+      ));
+      setEditingClaim(null);
+      message.success('Claim updated successfully!');
+    } catch (error) {
+      console.error("Error updating claim:", error);
+      message.error(error.response?.data?.message || 'Failed to update claim');
+    }
   };
 
-  const handleDeleteClaim = (claimId) => {
+  const handleDeleteClaim = async (claimId) => {
     if (window.confirm('Are you sure you want to delete this claim?')) {
-      setClaims(prev => prev.filter(claim => claim.id !== claimId));
-      message.success('Claim deleted successfully');
+      try {
+        await insuranceClaimAPI.delete(claimId);
+        setClaims(prev => prev.filter(claim => claim.id !== claimId));
+        message.success('Claim deleted successfully');
+      } catch (error) {
+        console.error("Error deleting claim:", error);
+        message.error("Failed to delete claim");
+      }
     }
   };
 

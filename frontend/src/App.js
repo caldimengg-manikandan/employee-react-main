@@ -31,6 +31,8 @@ import TraineeManagement from './pages/leavemanagement/TraineeManagement';
 // Admin Timesheet Pages
 import AdminTimesheet from './pages/admin-timesheet/AdminTimesheet';
 import TimesheetSummary from './pages/admin-timesheet/TimesheetSummary';
+import AdminSpecialPermission from './pages/special-permission/AdminSpecialPermission';
+
 // Insurance & Policy Pages
 import InsuranceManagement from './pages/insurance/InsuranceManagement';
 import PolicyPortal from './pages/PolicyPortal';
@@ -67,7 +69,6 @@ import DirectorApproval from "./pages/performance/DirectorApproval";
 import AppraisalMaster from "./pages/performance/AppraisalMaster";
 import IncrementSummary from "./pages/performance/IncrementSummary";
 import AttendanceSummary from "./pages/performance/AttendanceSummary";
-
 
 
 function App() {
@@ -153,6 +154,17 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            
+            {/* Special Permission Approval */}
+            <Route 
+              path="admin/special-permissions"
+              element={
+                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
+                  <AdminSpecialPermission />
+                </ProtectedRoute>
+              }
+            />
+
             
             <Route
               path="admin/interns"
