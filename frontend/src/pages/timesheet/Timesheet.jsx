@@ -1412,6 +1412,11 @@ const Timesheet = () => {
 
   // ✅ Submit timesheet to backend
   const submitTimesheet = async () => {
+    if (!allDaysSatisfied) {
+      showError("Minimum hours not met for one or more days. Please ensure all working days meet the shift requirements.");
+      return;
+    }
+
     const invalidRows = timesheetRows.filter(
       (row) => !row.project || (row.type === "project" && !row.task)
     );
@@ -1633,12 +1638,12 @@ const Timesheet = () => {
   const getSpecialPermissionRequiredHours = (shift) => {
     if (!shift) return 0;
     const s = String(shift).toLowerCase();
-    // First Shift: 7:25
-    if (s.startsWith("first shift")) return 7 + 25/60;
-    // Second Shift: 7:30
-    if (s.startsWith("second shift") || s.startsWith("secend shift")) return 7 + 30/60;
-    // General Shift: 8:30
-    if (s.startsWith("general shift")) return 8 + 30/60;
+    // First Shift: 7:15
+    if (s.startsWith("first shift")) return 7 + 15/60;
+    // Second Shift: 7:15
+    if (s.startsWith("second shift") || s.startsWith("secend shift")) return 7 + 15/60;
+    // General Shift: 8:00
+    if (s.startsWith("general shift")) return 8 + 0/60;
     return 0;
   };
 
@@ -1665,6 +1670,12 @@ const Timesheet = () => {
         });
       }
       if (row.type === "leave") {
+        row.hours.forEach((h, idx) => {
+          const n = Number(h) || 0;
+          totals[idx] += n;
+        });
+      }
+      if (row.type === "special") {
         row.hours.forEach((h, idx) => {
           const n = Number(h) || 0;
           totals[idx] += n;
@@ -1751,29 +1762,14 @@ const Timesheet = () => {
       const totalWithBreak = totals.daily[i] + computeBreakForDay(i);
       const currentMinutes = Math.round(totalWithBreak * 60);
 
-      // Determine previous day's on-premises hours
-      let prevDayHours = 0;
-      if (i === 0) {
-        prevDayHours = onPremisesTime.prevSunday || 0;
-      } else {
-        prevDayHours = onPremisesTime.daily?.[i - 1] || 0;
-      }
-
+      // Determine minimum minutes based on shift
+      // First/Second Shift: 7h 15m (435m)
+      // General Shift: 8h (480m)
       let minMinutes = 0;
-      if (prevDayHours > 14) {
-        // Reduced minimums if previous day > 14 hours
-        if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
-          minMinutes = 7 * 60; // 7 hours
-        } else if (shift.startsWith("General Shift")) {
-          minMinutes = 8 * 60; // 8 hours
-        }
-      } else {
-        // Standard minimums
-        if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
-          minMinutes = (8 * 60) + 25;
-        } else if (shift.startsWith("General Shift")) {
-          minMinutes = (9 * 60) + 25;
-        }
+      if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
+        minMinutes = (7 * 60) + 15; // 435
+      } else if (shift.startsWith("General Shift")) {
+        minMinutes = 8 * 60; // 480
       }
 
       if (minMinutes > 0 && currentMinutes < minMinutes) return false;
@@ -1855,21 +1851,14 @@ const Timesheet = () => {
       const shift = dailyShiftTypes?.[dayIndex] || shiftType || "";
       if (shift && shift !== "Select Shift") {
         
-        // Determine previous day's on-premises hours
-        let prevDayHours = 0;
-        if (dayIndex === 0) {
-          prevDayHours = onPremisesTime.prevSunday || 0;
-        } else {
-          prevDayHours = onPremisesTime.daily?.[dayIndex - 1] || 0;
-        }
-
+        // Determine minimum minutes based on shift
+        // First/Second Shift: 7h 15m (435m)
+        // General Shift: 8h (480m)
         let minMinutes = 0;
-        if (prevDayHours > 14) {
-           if (shift.startsWith("General Shift")) minMinutes = 8 * 60;
-           else if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) minMinutes = 7 * 60;
-        } else {
-           if (shift.startsWith("General Shift")) minMinutes = (9 * 60) + 25;
-           else if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) minMinutes = (8 * 60) + 25;
+        if (shift.startsWith("First Shift") || shift.startsWith("Second Shift")) {
+          minMinutes = (7 * 60) + 15; // 435
+        } else if (shift.startsWith("General Shift")) {
+          minMinutes = 8 * 60; // 480
         }
 
         if (minMinutes > 0 && Math.round(totalWithBreak * 60) < minMinutes) {
@@ -2544,8 +2533,8 @@ const Timesheet = () => {
 
           <button
             onClick={submitTimesheet}
-            disabled={loading || isSubmitted || isLeaveAutoDraft || mySpecials.some(s => s.status === 'PENDING')}
-            className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(loading || isSubmitted || isLeaveAutoDraft)
+            disabled={!allDaysSatisfied || loading || isSubmitted || isLeaveAutoDraft || mySpecials.some(s => s.status === 'PENDING')}
+            className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(!allDaysSatisfied || loading || isSubmitted || isLeaveAutoDraft)
               || mySpecials.some(s => s.status === 'PENDING')
               ? "bg-gray-400 cursor-not-allowed"
               : "bg-blue-700 hover:bg-blue-800 text-white"
@@ -2724,14 +2713,13 @@ const Timesheet = () => {
       {/* Important Notes Section */}
       <div className="p-4  border-t border-gray-200">
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Important Notes:</h3>
-        <h3 className="text-sm font-semibold text-gray-900 mb-2">Important Notes:</h3>
         <ul className="text-xs text-gray-600 space-y-1">
           <li>• Break time: Maximum 1 hour 15 minutes (1.15h) allowed per day</li>
           <li>• Shift timings:
             <ul className="ml-4 mt-1 space-y-1">
-              <li>First Shift: 7:00 AM - 3:30 PM</li>
-              <li>Second Shift: 3:00 PM - 11:30 PM</li>
-              <li>General Shift: 9:30 AM - 7:00 PM</li>
+              <li>First Shift: 7:00 AM - 3:30 PM (Minimum 7h 15m required)</li>
+              <li>Second Shift: 3:00 PM - 11:30 PM (Minimum 7h 15m required)</li>
+              <li>General Shift: 9:30 AM - 7:00 PM (Minimum 8h 00m required)</li>
             </ul>
           </li>
           <li>• Monthly permission limit: Maximum 3 permission counts allowed per month</li>
@@ -2799,3 +2787,4 @@ const Timesheet = () => {
 };
 
 export default Timesheet;
+0

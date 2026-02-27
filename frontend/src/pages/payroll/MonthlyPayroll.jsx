@@ -443,6 +443,7 @@ export default function MonthlyPayroll() {
         };
 
         let lopDaysInMonth = 0;
+        let plLopDaysInMonth = 0;
 
         // Replay Logic
         let clUsed = 0, slUsed = 0, plUsed = 0;
@@ -533,11 +534,32 @@ export default function MonthlyPayroll() {
                 // If this day contributes to LOP and falls in the selected month, add to count
                 if (lopAmount > 0 && isDateInMonth(currentD)) {
                     lopDaysInMonth += lopAmount;
+                    if (type === 'PL') {
+                        plLopDaysInMonth += lopAmount;
+                    }
                 }
                 
                 currentD.setDate(currentD.getDate() + 1);
             }
         });
+
+        // Negative PL Balance Correction:
+        // If the employee has a negative PL balance, this indicates excess usage that must be treated as LOP.
+        // We override the simulated PL LOP with the actual negative balance if the debt is greater.
+        let plBalance = 0;
+        if (empBalances && empBalances.privilege) {
+             plBalance = Number(empBalances.privilege.balance || 0);
+        }
+        
+        if (plBalance < 0) {
+            const totalDebt = Math.abs(plBalance);
+            // If the total debt is greater than what simulation found for this month, use the total debt.
+            // This covers carry-forward negative balances or simulation discrepancies.
+            if (totalDebt > plLopDaysInMonth) {
+                // Remove the simulated PL component and add the full debt
+                lopDaysInMonth = (lopDaysInMonth - plLopDaysInMonth) + totalDebt;
+            }
+        }
 
         // Total LOP days = calculated from replay + Pre-DOJ days
         const lopDays = lopDaysInMonth + preDojDays;

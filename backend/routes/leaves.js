@@ -619,7 +619,7 @@ router.get('/balance', auth, async (req, res) => {
       // If so, we bypass stored balances to ensure monthly reset logic is strictly followed
       const isNoCarryForward = (systemCalc.regularMonths || 0) < 6;
 
-      if (!isNoCarryForward && stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
+      if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
         // Calculate what the system WOULD have allocated at the time of last update
         const lastUpdateDate = stored.lastUpdated ? new Date(stored.lastUpdated) : new Date(stored.createdAt);
         // We pass empty array for used leaves because we only care about allocation
@@ -661,6 +661,8 @@ router.get('/balance', auth, async (req, res) => {
         const slBal = Number(mergedBalances.sick?.balance) || 0;
         const plBal = Number(mergedBalances.privilege?.balance) || 0;
         mergedBalances.totalBalance = clBal + slBal + plBal;
+        // Ensure isMonthlyExpiry flag is passed to frontend for correct LOP calculation
+        mergedBalances.isMonthlyExpiry = isNoCarryForward;
 
         return {
           employeeId: emp.employeeId || '',
