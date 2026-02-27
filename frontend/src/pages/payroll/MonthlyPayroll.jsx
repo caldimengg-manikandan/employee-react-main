@@ -377,7 +377,10 @@ export default function MonthlyPayroll() {
       const balanceMap = new Map();
       balancesList.forEach(item => {
         if (item.employeeId && item.balances) {
-          balanceMap.set(item.employeeId, item.balances);
+          const empId = String(item.employeeId).trim();
+          // Check if isMonthlyExpiry is at root or inside balances
+          const isMonthly = item.isMonthlyExpiry !== undefined ? item.isMonthlyExpiry : item.balances.isMonthlyExpiry;
+          balanceMap.set(empId, { ...item.balances, isMonthlyExpiry: isMonthly });
         }
       });
       setSimulatedBalances(balanceMap);
@@ -421,13 +424,16 @@ export default function MonthlyPayroll() {
         // Get initial balances (Allocation)
         // Note: The balance API returns CURRENT balance (Allocated - Used).
         // We need the Allocated amount to replay.
-        const empBalances = balanceMap.get(rec.employeeId);
+        const empId = String(rec.employeeId || '').trim();
+        const empBalances = balanceMap.get(empId);
         let clAlloc = 0, slAlloc = 0, plAlloc = 0;
         
         if (empBalances) {
           clAlloc = Number(empBalances.casual?.allocated || 0);
           slAlloc = Number(empBalances.sick?.allocated || 0);
           plAlloc = Number(empBalances.privilege?.allocated || 0);
+        } else {
+             console.warn(`[Payroll Simulation] No balance found for employee: ${empId}`);
         }
 
         // Helper to check date intersection with selected month
@@ -454,6 +460,13 @@ export default function MonthlyPayroll() {
             
             const currentD = new Date(startD);
             while (currentD <= endD) {
+                // If monthly expiry (Probation/Trainee), only consider leaves in the current month against the allocation
+                // Leaves outside the current month should not consume the current month's allocation
+                if (empBalances?.isMonthlyExpiry && !isDateInMonth(currentD)) {
+                     currentD.setDate(currentD.getDate() + 1);
+                     continue;
+                }
+
                 // If the day is before DOJ, ignore it (it's covered by preDojDays)
                 if (joiningDate && currentD < joiningDate) {
                     currentD.setDate(currentD.getDate() + 1);

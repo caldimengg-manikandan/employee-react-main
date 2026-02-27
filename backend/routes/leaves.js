@@ -365,24 +365,23 @@ function countWorkingDays(startDate, endDate, dayType) {
   return count;
 }
 
-function monthsBetween(startDate) {
+function monthsBetween(startDate, endDate) {
   const start = new Date(startDate);
-  if (isNaN(start.getTime())) return 0;
-  const now = new Date();
-  const years = now.getFullYear() - start.getFullYear();
-  const months = now.getMonth() - start.getMonth();
-  const total = years * 12 + months;
-  return Math.max(0, total);
+  const end = endDate ? new Date(endDate) : new Date();
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return 0;
+  
+  let months = (end.getFullYear() - start.getFullYear()) * 12;
+  months -= start.getMonth();
+  months += end.getMonth();
+  
+  if (end.getDate() < start.getDate()) {
+    months--;
+  }
+  return Math.max(0, months);
 }
 
 function monthsBetweenRange(startDate, endDate) {
-  const start = new Date(startDate);
-  const end = new Date(endDate || new Date());
-  if (isNaN(start.getTime()) || isNaN(end.getTime()) || end < start) return 0;
-  const years = end.getFullYear() - start.getFullYear();
-  const months = end.getMonth() - start.getMonth();
-  const total = years * 12 + months;
-  return Math.max(0, total);
+  return monthsBetween(startDate, endDate);
 }
 
 function toLower(s) {
@@ -487,9 +486,11 @@ function calcBalanceForEmployee(emp, approvedLeaves = [], calculationDate = new 
   const sixMonthThreshold = new Date(dojDate);
   sixMonthThreshold.setMonth(sixMonthThreshold.getMonth() + 6);
   
-  if (currentDate < sixMonthThreshold) {
-      // Rule 1: < 6 months. Expire monthly.
-      plAllocated = 1; 
+  if (isTrainee) {
+      // Rule 1: Trainee Designation
+      // Monthly Leave Credit: 1 day (PL)
+      // Carry Forward: Not Allowed (Expires monthly)
+      plAllocated = 1;
       
       const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const currentMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
@@ -502,19 +503,38 @@ function calcBalanceForEmployee(emp, approvedLeaves = [], calculationDate = new 
           })
            .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
            
-       plBalance = (plAllocated - plUsed);
-   } else {
-      // Rule 2: > 6 months. Carry forward.
-      const monthsAfterThreshold = monthsBetweenRange(sixMonthThreshold, currentDate);
-      plAllocated = monthsAfterThreshold * 1.25;
-      
-      plUsed = approvedLeaves
-          .filter(l => l.leaveType === 'PL')
-          .filter(l => new Date(l.startDate) >= sixMonthThreshold)
-           .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
-       
-       plBalance = (plAllocated - plUsed);
-   }
+       plBalance = plAllocated - plUsed;
+      } else {
+          // Rule 2: Other Designations
+          if (currentDate < sixMonthThreshold) {
+              // First 6 months: No Carry Forward (Expires monthly)
+              plAllocated = 1; // Assuming 1 day monthly credit for first 6 months
+              
+              const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+              const currentMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+              
+              plUsed = approvedLeaves
+                  .filter(l => l.leaveType === 'PL')
+                  .filter(l => {
+                      const d = new Date(l.startDate);
+                      return d >= currentMonthStart && d <= currentMonthEnd;
+                  })
+                   .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+                   
+               plBalance = plAllocated - plUsed;
+          } else {
+              // After 6 months: Carry Forward Allowed
+              const monthsAfterThreshold = monthsBetweenRange(sixMonthThreshold, currentDate);
+              plAllocated = monthsAfterThreshold * 1.25;
+              
+              plUsed = approvedLeaves
+                  .filter(l => l.leaveType === 'PL')
+                  .filter(l => new Date(l.startDate) >= sixMonthThreshold)
+                   .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
+               
+               plBalance = plAllocated - plUsed;
+          }
+      }
    
    allocated.privilege = plAllocated;
    
@@ -545,6 +565,7 @@ function calcBalanceForEmployee(emp, approvedLeaves = [], calculationDate = new 
         carryAllocated: allocated.privilege,
         carryForwardEligibleBalance: balance.privilege
       },
+      isMonthlyExpiry: (postTraineeMonths || 0) < 6,
       totalBalance
     }
   };
@@ -593,8 +614,12 @@ router.get('/balance', auth, async (req, res) => {
       const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
 
       const systemCalc = calcBalanceForEmployee(emp, usedMap[emp.employeeId] || []);
+      
+      // Check if employee is in "No Carry Forward" period (Trainee or < 6 months)
+      // If so, we bypass stored balances to ensure monthly reset logic is strictly followed
+      const isNoCarryForward = (systemCalc.regularMonths || 0) < 6;
 
-      if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
+      if (!isNoCarryForward && stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
         // Calculate what the system WOULD have allocated at the time of last update
         const lastUpdateDate = stored.lastUpdated ? new Date(stored.lastUpdated) : new Date(stored.createdAt);
         // We pass empty array for used leaves because we only care about allocation
