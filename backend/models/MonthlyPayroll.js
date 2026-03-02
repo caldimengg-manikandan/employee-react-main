@@ -37,13 +37,6 @@ const MonthlyPayrollSchema = new mongoose.Schema(
     lopDays: Number,
     gratuity: Number,
 
-    // Leave Balances Snapshot
-    plAllocated: Number,
-    plUsedTotal: Number,
-    plBalance: Number,
-    plLopCorrection: Number,
-    plLopDays: Number,
-
     // Calculated
     totalEarnings: Number,
     totalDeductions: Number,

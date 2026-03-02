@@ -80,10 +80,10 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
 
   // Create headers exactly as in your sample
   const headers = [
-    ["SL .NO", "LOCATION", "NAME OF THE", "UAN", "BANK ACCOUNT NUMBER", "ID NUMBAR", "ACL", "PL ELIGIBLE", "PL USED", "PL BALANCE", "WORKING DAYS", "GROSS", 
-     "BASIC +DA", "HRA", "CEILING", "DEDUCTION", "EPS", "EPF", "ADMIN", "ESI", "VOLUNTARY", "TDS", 
+    ["SL .NO", "LOCATION", "NAME OF THE", "UAN", "BANK ACCOUNT NUMBER", "ID NUMBAR", "ACL", "WORKING DAYS", "GROSS", 
+     "BASIC +DA", "HRA", "CEILING", "DEDUCTION (LOP+)", "EPS", "EPF", "ADMIN", "ESI", "VOLUNTARY", "TDS", 
      "PROFESSIONALTAX", "LOAN", "TOTAL", "ROUND OFF VALUE", "NET", "EMPLOYEE SIGNATURE"],
-    ["", "", "EMPLOYEE'S", "NO", "SALARY", "", "SALARY", "", "", "", "", "", "", "BASIC", "EPF", "ESI", "8.33%", "3.67%", 
+    ["", "", "EMPLOYEE'S", "NO", "SALARY", "", "SALARY", "", "", "BASIC", "EPF", "ESI", "8.33%", "3.67%", 
      "CHARGES", "3.25%", "CON", "DEDUC", "DEDUC", "", "DEDUC", "SALARY", "", "", ""]
   ];
   
@@ -128,9 +128,6 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
       record.accountNumber || "", // BANK ACCOUNT NUMBER
       record.employeeId || "", // ID NUMBAR
       0, // ACL
-      record.plAllocated || 0, // PL ELIGIBLE
-      record.plUsedTotal || 0, // PL USED
-      record.plBalance || 0,   // PL BALANCE
       workingDays, // WORKING DAYS
       record.totalEarnings || 0, // GROSS SALARY
       record.basicDA || 0, // BASIC +DA
@@ -200,10 +197,7 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
     "", 
     "", 
     "", 
-    "", // ACL
-    "", // PL ELIGIBLE
-    "", // PL USED
-    "", // PL BALANCE
+    "", 
     totals.workingDays, // WORKING DAYS total
     totals.gross, // GROSS total
     totals.basic, // BASIC +DA total
@@ -239,9 +233,6 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
     { wch: 20 }, // BANK ACCOUNT
     { wch: 15 }, // ID NUMBER
     { wch: 8 },  // ACL
-    { wch: 10 }, // PL ELIGIBLE
-    { wch: 10 }, // PL USED
-    { wch: 10 }, // PL BALANCE
     { wch: 12 }, // WORKING DAYS
     { wch: 12 }, // GROSS
     { wch: 15 }, // BASIC+DA
@@ -486,11 +477,16 @@ export default function MonthlyPayroll() {
         const empId = String(rec.employeeId || '').trim();
         const empBalances = balanceMap.get(empId);
         let clAlloc = 0, slAlloc = 0, plAlloc = 0;
+        let clUsedFromBalance = 0, slUsedFromBalance = 0, plUsedFromBalance = 0;
         
         if (empBalances) {
           clAlloc = Number(empBalances.casual?.allocated || 0);
           slAlloc = Number(empBalances.sick?.allocated || 0);
           plAlloc = Number(empBalances.privilege?.allocated || 0);
+          
+          clUsedFromBalance = Number(empBalances.casual?.used || 0);
+          slUsedFromBalance = Number(empBalances.sick?.used || 0);
+          plUsedFromBalance = Number(empBalances.privilege?.used || 0);
         } else {
              console.warn(`[Payroll Simulation] No balance found for employee: ${empId}`);
         }
@@ -505,7 +501,41 @@ export default function MonthlyPayroll() {
         let plLopDaysInMonth = 0;
 
         // Replay Logic
-        let clUsed = 0, slUsed = 0, plUsed = 0;
+        // Initialize 'used' counters with historical usage (Total - Current Month Usage)
+        // This sets the baseline to "Usage outside the selected month" (Prior + Future).
+        
+        const calcUsedInMonth = (type) => {
+             let count = 0;
+             employeeLeaves
+                .filter(l => (l.leaveType || '').toUpperCase().trim() === type)
+                .forEach(leave => {
+                    const start = new Date(leave.startDate);
+                    const end = new Date(leave.endDate);
+                    start.setHours(0,0,0,0);
+                    end.setHours(0,0,0,0);
+                    
+                    let curr = new Date(start);
+                    while (curr <= end) {
+                        if (isDateInMonth(curr)) {
+                            const day = curr.getDay();
+                            // Skip weekends
+                            if (day !== 0 && day !== 6) {
+                                count += (leave.dayType === 'Half Day' ? 0.5 : 1);
+                            }
+                        }
+                        curr.setDate(curr.getDate() + 1);
+                    }
+                });
+             return count;
+        };
+
+        const clUsedInMonth = calcUsedInMonth('CL');
+        const slUsedInMonth = calcUsedInMonth('SL');
+        const plUsedInMonth = calcUsedInMonth('PL');
+
+        let clUsed = Math.max(0, clUsedFromBalance - clUsedInMonth);
+        let slUsed = Math.max(0, slUsedFromBalance - slUsedInMonth);
+        let plUsed = Math.max(0, plUsedFromBalance - plUsedInMonth);
 
         employeeLeaves.forEach(leave => {
             // Determine leave type category
@@ -520,6 +550,13 @@ export default function MonthlyPayroll() {
             
             const currentD = new Date(startD);
             while (currentD <= endD) {
+                // We only process days within the selected month because the initial balance 
+                // is set to (Total - Month). Adding days outside the month would double-count them.
+                if (!isDateInMonth(currentD)) {
+                     currentD.setDate(currentD.getDate() + 1);
+                     continue;
+                }
+
                 // If monthly expiry (Probation/Trainee), only consider leaves in the current month against the allocation
                 // Leaves outside the current month should not consume the current month's allocation
                 if (empBalances?.isMonthlyExpiry && !isDateInMonth(currentD)) {
@@ -602,21 +639,23 @@ export default function MonthlyPayroll() {
             }
         });
 
-        // PL Stats from Leave Balances
+        // Negative PL Balance Correction:
+        // If the employee has a negative PL balance, this indicates excess usage that must be treated as LOP.
+        // We override the simulated PL LOP with the actual negative balance if the debt is greater.
         let plBalance = 0;
-        let plAllocated = 0;
-        let plUsedTotal = 0;
-        
         if (empBalances && empBalances.privilege) {
              plBalance = Number(empBalances.privilege.balance || 0);
-             plAllocated = Number(empBalances.privilege.allocated || 0);
-             plUsedTotal = Number(empBalances.privilege.used || 0);
         }
         
-        // Use simulated PL LOP (Excess PL usage in this month)
-        // No manual correction for past debt to avoid double deduction.
-        // The replay logic naturally captures excess usage in the current month.
-        const plLopDays = plLopDaysInMonth;
+        if (plBalance < 0) {
+            const totalDebt = Math.abs(plBalance);
+            // If the total debt is greater than what simulation found for this month, use the total debt.
+            // This covers carry-forward negative balances or simulation discrepancies.
+            if (totalDebt > plLopDaysInMonth) {
+                // Remove the simulated PL component and add the full debt
+                lopDaysInMonth = (lopDaysInMonth - plLopDaysInMonth) + totalDebt;
+            }
+        }
 
         // Total LOP days = calculated from replay + Pre-DOJ days
         const lopDays = lopDaysInMonth + preDojDays;
@@ -631,14 +670,9 @@ export default function MonthlyPayroll() {
         adjusted.ifscCode = rec.ifscCode || '';
         adjusted.bankName = rec.bankName || 'HDFC Bank';
 
-        // Add debug info and PL stats
+        // Add debug info
         adjusted.doj = rec.dateOfJoining;
         adjusted.preDojDays = preDojDays;
-        adjusted.plAllocated = plAllocated;
-        adjusted.plUsedTotal = plUsedTotal;
-        adjusted.plBalance = plBalance;
-        adjusted.plLopCorrection = 0;
-        adjusted.plLopDays = plLopDays;
         
         return adjusted;
       });
@@ -939,7 +973,6 @@ Payroll Department
     const header = [
       'Employee ID', 'Name', 'Designation', 'Salary Month', 'Payment Date',
       'Basic+DA', 'HRA', 'Special Allowance', 'Total Earnings',
-      'PL Eligible', 'PL Used', 'PL Balance',
       'PF', 'ESI', 'Tax', 'Professional Tax', 'Loan Deduction', 'LOP', 'Gratuity',
       'Total Deductions', 'Net Salary', 'CTC', 'Account Number', 'IFSC Code', 'Bank Name'
     ];
@@ -947,7 +980,6 @@ Payroll Department
     const rows = simulation.results.map(r => [
       r.employeeId, r.employeeName, r.designation, r.salaryMonth, r.paymentDate,
       r.basicDA, r.hra, r.specialAllowance, r.totalEarnings,
-      r.plAllocated || 0, r.plUsedTotal || 0, r.plBalance || 0,
       r.pf, r.esi, r.tax, r.professionalTax, r.loanDeduction, r.lop, r.gratuity,
       r.totalDeductions, r.netSalary, r.ctc,
       r.accountNumber, r.ifscCode, r.bankName
@@ -1349,7 +1381,13 @@ Payroll Department
                   )}
                   Save
                 </button>
-                
+                <button 
+                  onClick={exportSimulationCSV} 
+                  className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Export CSV
+                </button>
                 <button 
                   onClick={handleSendPaymentClick}
                   className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors flex items-center gap-2"
@@ -1380,15 +1418,6 @@ Payroll Department
                     </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                         Total Earnings
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        PL Eligible
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        PL Used
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        PL Balance
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                         LOP Days
@@ -1424,17 +1453,6 @@ Payroll Department
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           {formatCurrency(result.totalEarnings)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-gray-600">
-                          {result.plAllocated !== undefined ? result.plAllocated : '-'}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-gray-600">
-                          {result.plUsedTotal !== undefined ? result.plUsedTotal : '-'}
-                        </td>
-                        <td className={`px-6 py-4 whitespace-nowrap text-right font-medium ${
-                          (result.plBalance || 0) < 0 ? 'text-red-600' : 'text-green-600'
-                        }`}>
-                          {result.plBalance !== undefined ? result.plBalance : '-'}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-red-600 font-medium">
                           {result.lopDays || 0}
