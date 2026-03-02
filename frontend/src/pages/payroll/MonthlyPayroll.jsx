@@ -406,15 +406,17 @@ export default function MonthlyPayroll() {
     const [year, month] = selectedMonth.split('-');
     
     try {
-      // Fetch approved leaves for the whole year to correctly replay balance
-      const yearStart = new Date(parseInt(year), 0, 1);
-      const yearEnd = new Date(parseInt(year), 11, 31, 23, 59, 59);
+      // Fetch approved leaves for the selected month
+      // We only fetch leaves overlapping with the selected month to minimize data payload.
+      // Use UTC dates to avoid timezone offsets shifting the date (e.g. 2026-03-01 -> 2026-02-28T18:30:00Z)
+      const monthStartQuery = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, 1));
+      const monthEnd = new Date(Date.UTC(parseInt(year), parseInt(month), 0, 23, 59, 59, 999));
 
       const [leavesResponse, balancesResponse] = await Promise.all([
         leaveAPI.list({
           status: 'Approved',
-          startDate: yearStart.toISOString(),
-          endDate: yearEnd.toISOString(),
+          startDate: monthStartQuery.toISOString(),
+          endDate: monthEnd.toISOString(),
           overlap: 'true'
         }),
         leaveAPI.getBalance()
@@ -501,9 +503,12 @@ export default function MonthlyPayroll() {
         let plLopDaysInMonth = 0;
 
         // Replay Logic
-        // Initialize 'used' counters with historical usage (Total - Current Month Usage)
-        // This sets the baseline to "Usage outside the selected month" (Prior + Future).
+        // Since we only fetched leaves for the current month, we calculate 'UsedInMonth'
+        // and subtract it from the Total Balance (which is YTD) to get the starting point.
+        // Starting Point = Total Used (from Balance API) - Used This Month (from List)
         
+        const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
+
         const calcUsedInMonth = (type) => {
              let count = 0;
              employeeLeaves
@@ -516,6 +521,7 @@ export default function MonthlyPayroll() {
                     
                     let curr = new Date(start);
                     while (curr <= end) {
+                        // Only count days within the selected month
                         if (isDateInMonth(curr)) {
                             const day = curr.getDay();
                             // Skip weekends
@@ -533,6 +539,8 @@ export default function MonthlyPayroll() {
         const slUsedInMonth = calcUsedInMonth('SL');
         const plUsedInMonth = calcUsedInMonth('PL');
 
+        // Note: If balance API includes future leaves, this subtraction might be imperfect,
+        // but it is the best we can do without fetching the full history.
         let clUsed = Math.max(0, clUsedFromBalance - clUsedInMonth);
         let slUsed = Math.max(0, slUsedFromBalance - slUsedInMonth);
         let plUsed = Math.max(0, plUsedFromBalance - plUsedInMonth);
