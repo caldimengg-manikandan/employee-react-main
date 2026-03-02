@@ -253,7 +253,10 @@ app.use((err, req, res, next) => {
 
 // --------------------- CRON JOBS --------------------- //
 const setupTimesheetReminder = require("./cron/timesheetReminder");
+const setupLeaveBalanceSync = require("./cron/leaveBalanceSync");
+
 setupTimesheetReminder();
+setupLeaveBalanceSync();
 
 // --------------------- START SERVER --------------------- //
 const PORT = process.env.PORT || 5003;

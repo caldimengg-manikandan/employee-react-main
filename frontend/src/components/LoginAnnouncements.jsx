@@ -15,23 +15,14 @@ const LoginAnnouncements = ({ title = '📢 Company Announcements', mode = 'list
     try {
       const data = await authAPI.announcement.getActive();
       
-      // Ensure Pongal announcement is displayed
-      const pongalAnnouncement = {
-        _id: 'pongal-2026',
-        title: 'CALDIM PONGAL CELEBRATION 2026',
-        message: 'PARTICIPATE ✨ ENJOY 🎈😊'
-      };
+      
       
       const allAnnouncements = Array.isArray(data) ? [pongalAnnouncement, ...data] : [pongalAnnouncement];
       setAnnouncements(allAnnouncements);
     } catch (error) {
       console.error('Failed to fetch announcements:', error);
       // Fallback to Pongal announcement on error
-      setAnnouncements([{
-        _id: 'pongal-2026',
-        title: 'CALDIM PONGAL CELEBRATION 2026',
-        message: 'PARTICIPATE ✨ ENJOY 🎈😊'
-      }]);
+     
     } finally {
       setIsLoading(false);
     }

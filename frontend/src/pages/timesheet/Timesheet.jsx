@@ -308,7 +308,14 @@ const Timesheet = () => {
             const specials = Array.isArray(specialRes.value.data?.data) ? specialRes.value.data.data : [];
             const approvedSpecials = specials.filter(s => s.status === 'APPROVED');
             
-            approvedSpecials.forEach(sp => {
+            // Filter to keep only the latest approved permission per day
+            const uniqueApprovedSpecials = approvedSpecials.filter((sp, index, self) => 
+                index === self.findIndex((t) => (
+                    new Date(t.date).toDateString() === new Date(sp.date).toDateString()
+                ))
+            );
+            
+            uniqueApprovedSpecials.forEach(sp => {
                 const spDate = new Date(sp.date);
                 const spDateStr = spDate.toDateString();
                 const dayIndex = wd.findIndex(d => d.toDateString() === spDateStr);
@@ -1882,7 +1889,9 @@ const Timesheet = () => {
                 sp.status === 'APPROVED' && 
                 new Date(sp.date).toDateString() === currentDate.toDateString()
              );
-             specialPermissionHours = approvedSpecials.reduce((sum, sp) => sum + (Number(sp.totalHours) || 0), 0);
+             // Use only the latest approved permission for calculation
+             const latestApproved = approvedSpecials.length > 0 ? [approvedSpecials[0]] : [];
+             specialPermissionHours = latestApproved.reduce((sum, sp) => sum + (Number(sp.totalHours) || 0), 0);
         }
         
         const permissionMinutes = Math.round((permissionHoursRow + specialPermissionHours) * 60);
@@ -2691,7 +2700,13 @@ const Timesheet = () => {
               <div className="text-sm text-gray-500">No special permissions for this week.</div>
             ) : (
               <div className="space-y-2">
-                {mySpecials.map((sp) => {
+                {mySpecials
+                  .filter((sp, index, self) => 
+                    index === self.findIndex((t) => (
+                      new Date(t.date).toDateString() === new Date(sp.date).toDateString()
+                    ))
+                  )
+                  .map((sp) => {
                   const d = new Date(sp.date);
                   const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                   const hh = String(Math.floor(Number(sp.totalHours || 0))).padStart(2, '0');
