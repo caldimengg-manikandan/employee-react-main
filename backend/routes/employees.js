@@ -69,6 +69,33 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
+// Get employees for timesheet purposes only (limited data)
+router.get('/timesheet/employees', auth, async (req, res) => {
+  try {
+    // Check if user has timesheet access
+    if (!req.user.permissions?.includes('timesheet_access')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Return only basic employee info needed for timesheets
+    const employees = await Employee.find({}, {
+      'name': 1,
+      'employeeId': 1,
+      'email': 1,
+      'department': 1,
+      'designation': 1,
+      'position': 1,
+      'division': 1,
+      'location': 1,
+      '_id': 1
+    }).sort({ name: 1 });
+    
+    res.json(employees);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 // Get employee by ID - restricted based on user permissions
 router.get('/:id', auth, async (req, res) => {
   try {
@@ -361,31 +388,6 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Employee not found' });
     }
     res.json({ message: 'Employee deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-});
-
-// Get employees for timesheet purposes only (limited data)
-router.get('/timesheet/employees', auth, async (req, res) => {
-  try {
-    // Check if user has timesheet access
-    if (!req.user.permissions?.includes('timesheet_access')) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
-
-    // Return only basic employee info needed for timesheets
-    const employees = await Employee.find({}, {
-      'name': 1,
-      'employeeId': 1,
-      'email': 1,
-      'department': 1,
-      'designation': 1,
-      'position': 1,
-      '_id': 1
-    }).sort({ name: 1 });
-    
-    res.json(employees);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { adminTimesheetAPI } from '../../services/api';
+import { adminTimesheetAPI, employeeAPI } from '../../services/api';
 import { 
   BarChart3, 
   Clock, 
@@ -54,6 +54,23 @@ const AdminTimesheet = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [allEmployees, setAllEmployees] = useState([]);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const res = await employeeAPI.getTimesheetEmployees();
+        if (Array.isArray(res.data)) {
+          setAllEmployees(res.data);
+        } else if (res.data?.success) {
+          setAllEmployees(res.data.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching employees:", error);
+      }
+    };
+    fetchEmployees();
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -365,6 +382,10 @@ const AdminTimesheet = () => {
       backgroundColor: '#feebc8',
       color: '#744210'
     },
+    notSubmittedBadge: {
+      backgroundColor: '#e2e8f0',
+      color: '#4a5568'
+    },
     // Modal Styles
     modalOverlay: {
       position: 'fixed',
@@ -555,6 +576,12 @@ const AdminTimesheet = () => {
     try {
       setLoading(true);
       const params = { ...filters };
+      
+      // If filtering by Not Submitted, we need all timesheets first to compare
+      if (filters.status === 'Not Submitted') {
+        params.status = 'All Status';
+      }
+
       const res = await adminTimesheetAPI.list(params);
       let data = res.data?.data || [];
 
@@ -573,7 +600,38 @@ const AdminTimesheet = () => {
         });
       }
 
+      // Handle Not Submitted Logic
+      if (filters.status === 'Not Submitted') {
+        const submittedEmployeeIds = new Set(data.map(r => r.employeeId));
+        
+        // Filter employees who haven't submitted
+        const missingEmployees = allEmployees.filter(emp => {
+          // Apply other filters to the employee list
+          if (filters.division !== 'All Division' && emp.division !== filters.division) return false;
+          if (filters.location !== 'All Locations' && emp.location !== filters.location) return false;
+          if (filters.employeeId !== '' && emp.employeeId !== filters.employeeId) return false;
+          
+          return !submittedEmployeeIds.has(emp.employeeId);
+        });
+
+        // Transform into table-compatible format
+        data = missingEmployees.map(emp => ({
+          _id: `missing-${emp.employeeId}`,
+          employeeId: emp.employeeId,
+          employeeName: emp.name,
+          division: emp.division,
+          location: emp.location,
+          week: filters.week === 'All Weeks' ? '-' : filters.week,
+          status: 'Not Submitted',
+          timeEntries: [],
+          weeklyTotal: 0,
+          submittedDate: null
+        }));
+      }
+
       if (filters.employeeId === '') {
+        // If Not Submitted, we use data (which is missing employees)
+        // If normal, we use data (which is timesheets)
         const uniqueIds = Array.from(new Set(data.map(r => r.employeeId).filter(Boolean))).sort();
         setEmployeeIdOptions(['', ...uniqueIds]);
       }
@@ -598,8 +656,12 @@ const AdminTimesheet = () => {
       }
 
       if (filters.week === 'All Weeks') {
-        const uniqueWeeks = Array.from(new Set(data.map(r => r.week).filter(Boolean))).sort().reverse();
-        setWeekOptions(["All Weeks", ...uniqueWeeks]);
+        // For Not Submitted, we might not have week info in data if we generated it manually with '-'
+        // But usually we don't filter week for Not Submitted unless selected
+        if (filters.status !== 'Not Submitted') {
+          const uniqueWeeks = Array.from(new Set(data.map(r => r.week).filter(Boolean))).sort().reverse();
+          setWeekOptions(["All Weeks", ...uniqueWeeks]);
+        }
       }
 
       const totalTimesheets = data.length;
@@ -608,10 +670,25 @@ const AdminTimesheet = () => {
         if (s === 'approved') acc.approved++;
         else if (s === 'rejected') acc.rejected++;
         else if (s === 'pending' || s === 'submitted') acc.pending++;
+        else if (s === 'not submitted') acc.notSubmitted++;
         else acc.pending++;
         return acc;
-      }, { approved: 0, rejected: 0, pending: 0 });
-      const totalEmployees = new Set(data.map(r => r.employeeId).filter(Boolean)).size;
+      }, { approved: 0, rejected: 0, pending: 0, notSubmitted: 0 });
+      
+      const totalEmployees = (() => {
+        // Calculate filtered employees from the master list (allEmployees)
+        if (allEmployees.length > 0) {
+          return allEmployees.filter(emp => {
+            if (filters.division !== 'All Division' && emp.division !== filters.division) return false;
+            if (filters.location !== 'All Locations' && emp.location !== filters.location) return false;
+            if (filters.employeeId !== '' && emp.employeeId !== filters.employeeId) return false;
+            return true;
+          }).length;
+        }
+        // Fallback to data if master list not loaded yet
+        return new Set(data.map(r => r.employeeId).filter(Boolean)).size;
+      })();
+
       const projectHours = data.reduce((sum, r) => {
         const s = (r.status || '').toLowerCase();
         const includeRow = s === 'approved' || s === 'submitted';
@@ -665,7 +742,7 @@ const AdminTimesheet = () => {
       else acc.pending++;
       return acc;
     }, { approved: 0, rejected: 0, pending: 0 });
-    const totalEmployees = new Set(list.map(r => r.employeeId).filter(Boolean)).size;
+    const totalEmployees = stats.totalEmployees; // Keep existing headcount
     const projectHours = list.reduce((sum, r) => {
       const s = (r.status || '').toLowerCase();
       const includeRow = s === 'approved' || s === 'submitted' || s === 'pending';
@@ -698,7 +775,7 @@ const AdminTimesheet = () => {
 
   useEffect(() => {
     fetchTimesheets();
-  }, [filters]);
+  }, [filters, allEmployees]);
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -882,6 +959,8 @@ const AdminTimesheet = () => {
       case 'pending':
       case 'submitted':
         return { ...baseStyle, ...styles.pendingBadge };
+      case 'not submitted':
+        return { ...baseStyle, ...styles.notSubmittedBadge };
       default:
         return baseStyle;
     }
@@ -1012,9 +1091,10 @@ const AdminTimesheet = () => {
               style={styles.filterInput}
             >
               <option>All Status</option>
-              <option>Submitted</option>
+              <option value="Submitted">Pending</option>
               <option>Approved</option>
               <option>Rejected</option>
+              <option>Not Submitted</option>
             </select>
           </div>
 
@@ -1171,7 +1251,7 @@ const AdminTimesheet = () => {
                     </td>
                     <td style={styles.tableCell}>
                       <span style={getStatusBadge(timesheet.status)}>
-                        {timesheet.status || '—'}
+                        {timesheet.status === 'Submitted' ? 'Pending' : (timesheet.status || '—')}
                       </span>
                     </td>
                     <td style={styles.tableCell}>
@@ -1183,7 +1263,7 @@ const AdminTimesheet = () => {
                         >
                           <Eye size={12} />
                         </button>
-                        {(!['approved','rejected'].includes((timesheet.status || '').toLowerCase())) && (
+                        {(!['approved','rejected', 'not submitted'].includes((timesheet.status || '').toLowerCase())) && (
                           <>
                             <button 
                               style={styles.rejectBtn}
