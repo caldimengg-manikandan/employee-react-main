@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { internAPI } from "../../services/api";
+import { internAPI, mailAPI } from "../../services/api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import {
@@ -20,7 +20,8 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   ArrowDownTrayIcon,
-  BuildingLibraryIcon
+  BuildingLibraryIcon,
+  PaperAirplaneIcon
 } from "@heroicons/react/24/outline";
 import { Popconfirm } from "antd";
 import { EyeIcon } from "lucide-react";
@@ -56,6 +57,15 @@ const InternReference = () => {
   });
 
   const [errors, setErrors] = useState({});
+
+  // Email Modal State
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailData, setEmailData] = useState({
+    to: "",
+    subject: "",
+    message: ""
+  });
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   // Show notification
   const showNotification = (message, type = "success") => {
@@ -199,6 +209,46 @@ const InternReference = () => {
   const handleView = (intern) => {
     setViewIntern(intern);
     setShowViewModal(true);
+  };
+
+  const handleOpenEmailModal = (intern) => {
+    setEmailData({
+      to: intern.contactEmail || "",
+      subject: "Internship Update",
+      message: `Dear ${intern.fullName},\n\n`
+    });
+    setShowEmailModal(true);
+  };
+
+  const handleSendEmail = async () => {
+    if (!emailData.to) {
+      showNotification("Please enter a recipient email", "error");
+      return;
+    }
+    if (!emailData.subject) {
+      showNotification("Please enter a subject", "error");
+      return;
+    }
+    if (!emailData.message) {
+      showNotification("Please enter a message", "error");
+      return;
+    }
+
+    try {
+      setSendingEmail(true);
+      await mailAPI.send({
+        email: emailData.to,
+        subject: emailData.subject,
+        message: emailData.message
+      });
+      showNotification("Email sent successfully!");
+      setShowEmailModal(false);
+    } catch (error) {
+      console.error("Error sending email:", error);
+      showNotification("Failed to send email", "error");
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   const resetForm = () => {
@@ -835,6 +885,97 @@ const InternReference = () => {
         </div>
       )}
 
+      {/* Email Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
+            <div
+              className="fixed inset-0 transition-opacity bg-gray-900 bg-opacity-75 backdrop-blur-sm"
+              onClick={() => setShowEmailModal(false)}
+            />
+            <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-2xl transform transition-all sm:my-8 sm:align-middle sm:max-w-xl sm:w-full">
+              <div className="bg-[#262760] px-6 py-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <EnvelopeIcon className="h-8 w-8 text-white" />
+                    <h3 className="text-xl font-bold text-white">
+                      Send Letter
+                    </h3>
+                  </div>
+                  <button
+                    onClick={() => setShowEmailModal(false)}
+                    className="text-white hover:text-blue-100 transition-colors"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
+              <div className="p-6">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      To
+                    </label>
+                    <input
+                      type="email"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={emailData.to}
+                      onChange={e => setEmailData({ ...emailData, to: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Subject
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={emailData.subject}
+                      onChange={e => setEmailData({ ...emailData, subject: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Message
+                    </label>
+                    <textarea
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none min-h-[200px]"
+                      value={emailData.message}
+                      onChange={e => setEmailData({ ...emailData, message: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    onClick={() => setShowEmailModal(false)}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSendEmail}
+                    disabled={sendingEmail}
+                    className="flex items-center gap-2 px-6 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] transition-colors disabled:opacity-50"
+                  >
+                    {sendingEmail ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <PaperAirplaneIcon className="h-4 w-4" />
+                        Send Email
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search and Filter */}
       <div className="bg-white rounded-xl shadow-md p-2 mb-2 border border-gray-200">
         <div className="flex flex-col md:flex-row gap-4">
@@ -981,6 +1122,13 @@ const InternReference = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
+                        <button
+                          onClick={() => handleOpenEmailModal(intern)}
+                          className="text-indigo-600 hover:text-indigo-800 transition-colors"
+                          title="Send Letter"
+                        >
+                          <PaperAirplaneIcon className="h-5 w-5" />
+                        </button>
                         <button
                           onClick={() => handleView(intern)}
                           className="text-teal-600 hover:text-teal-800 transition-colors"
