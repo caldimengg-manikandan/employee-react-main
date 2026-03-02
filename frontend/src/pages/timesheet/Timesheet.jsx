@@ -2714,7 +2714,7 @@ const Timesheet = () => {
       <div className="p-4  border-t border-gray-200">
         <h3 className="text-sm font-semibold text-gray-900 mb-2">Important Notes:</h3>
         <ul className="text-xs text-gray-600 space-y-1">
-          <li>• Break time: Maximum 1 hour 15 minutes (1.15h) allowed per day</li>
+          
           <li>• Shift timings:
             <ul className="ml-4 mt-1 space-y-1">
               <li>First Shift: 7:00 AM - 3:30 PM (Minimum 7h 15m required)</li>
