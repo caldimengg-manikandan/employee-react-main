@@ -459,8 +459,8 @@ async function sendPermissionUsageEmail(user, sheet) {
     // Only proceed if the submitted sheet contains any Permission entries
     const entries = Array.isArray(sheet.entries) ? sheet.entries : [];
     const hasPermission = entries.some((e) => 
-      ((e.type || 'project') === 'leave' || e.type === 'special') && 
-      (e.task || '').toLowerCase().includes('permission')
+      ((e.type || 'project') === 'leave') && 
+      (e.task || '').toLowerCase().includes('permission') && e.type !== 'special' && e.project !== 'Special Permission'
     );
     if (!hasPermission) {
       return { success: false, skipped: true, reason: 'No permission entries in sheet' };
@@ -476,8 +476,8 @@ async function sendPermissionUsageEmail(user, sheet) {
     const countPermissionsInEntries = (entriesList) => {
       let count = 0;
       (entriesList || []).forEach((e) => {
-        const isPermission = ((e.type || 'project') === 'leave' || e.type === 'special') && 
-                             (e.task || '').toLowerCase().includes('permission');
+        const isPermission = ((e.type || 'project') === 'leave') && 
+                             (e.task || '').toLowerCase().includes('permission') && e.type !== 'special' && e.project !== 'Special Permission';
         if (!isPermission) return;
         const hrs = Array.isArray(e.hours) ? e.hours : [];
         for (let i = 0; i < 7; i++) {
@@ -652,8 +652,8 @@ router.post("/", auth, async (req, res) => {
     const countPermissionsInEntriesForMonth = (entriesList, sheetWeekStart, targetMonth, targetYear) => {
       let count = 0;
       (entriesList || []).forEach((e) => {
-        const isPermission = ((e.type || "project") === "leave" || e.type === "special") && 
-                             (e.task || "").toLowerCase().includes("permission");
+        const isPermission = ((e.type || "project") === "leave") && 
+                             (e.task || "").toLowerCase().includes("permission") && e.type !== 'special' && e.project !== 'Special Permission';
         if (!isPermission) return;
         const hrs = Array.isArray(e.hours) ? e.hours : [];
         for (let i = 0; i < 7; i++) {
@@ -1009,7 +1009,7 @@ router.get("/permissions/usage", auth, async (req, res) => {
       const sheetStart = new Date(sheet.weekStartDate);
 
       (sheet.entries || []).forEach(entry => {
-        if (entry.task && (entry.task === "Permission" || entry.task.toLowerCase().includes("permission"))) {
+        if (entry.task && (entry.task === "Permission" || entry.task.toLowerCase().includes("permission")) && entry.type !== 'special' && entry.project !== 'Special Permission') {
           (entry.hours || []).forEach((hours, dayIndex) => {
             if (hours > 0) {
               const entryDate = new Date(sheetStart);

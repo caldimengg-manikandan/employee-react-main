@@ -20,9 +20,13 @@ import {
   Banknote,
   Receipt,
   File,
-  ExternalLink
+  ExternalLink,
+  FileSpreadsheet
 } from "lucide-react";
 import { message, Popconfirm, Modal } from "antd";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
 import { expenditureAPI, BASE_URL } from "../../services/api";
 
 const ExpenditureManagement = () => {
@@ -846,6 +850,133 @@ const ExpenditureManagement = () => {
     URL.revokeObjectURL(url);
   };
 
+  const downloadRowPDF = (row) => {
+    const doc = new jsPDF();
+    const monthName = monthNames[row.month] || row.month;
+    const title = `Expenditure Report - ${monthName} ${summaryYear}`;
+
+    // Add Company/Report Header
+    doc.setFontSize(18);
+    doc.text(title, 14, 20);
+
+    // Add Summary Details
+    doc.setFontSize(12);
+    doc.text(`Location: ${row.location}`, 14, 30);
+    doc.text(`Budget Allocated: Rs. ${row.budgetAllocated?.toLocaleString('en-IN')}`, 14, 40);
+    doc.text(`Total Expenditure: Rs. ${row.totalExpenditure?.toLocaleString('en-IN')}`, 14, 50);
+    doc.text(`Balance: Rs. ${row.totalBalance?.toLocaleString('en-IN')}`, 14, 60);
+    
+    // Fix: Replace Rupee symbol with "Rs." to avoid encoding issues in PDF
+    const safeStatusText = (row.statusText || "").replace(/₹/g, "Rs.");
+    doc.text(`Status: ${safeStatusText}`, 14, 70);
+
+    // Prepare table data
+    const tableColumn = ["S.No", "Date", "Type", "Payment Mode", "Amount (Rs.)", "Remarks"];
+    const tableRows = [];
+
+    if (row.expenditures && row.expenditures.length > 0) {
+      row.expenditures.forEach((exp, index) => {
+        // Format date to be readable (DD-MM-YYYY)
+        const dateObj = new Date(exp.date);
+        const formattedDate = !isNaN(dateObj.getTime()) 
+          ? dateObj.toLocaleDateString('en-GB') // DD/MM/YYYY
+          : exp.date;
+
+        const expData = [
+          index + 1,
+          formattedDate,
+          exp.type,
+          exp.paymentMode,
+          parseFloat(exp.amount || 0).toFixed(2),
+          exp.remarks || "-"
+        ];
+        tableRows.push(expData);
+      });
+    }
+
+    // Add Table
+    autoTable(doc, {
+      startY: 80,
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'grid',
+      headStyles: { fillColor: [38, 39, 96] }, // #262760
+      styles: { fontSize: 10 },
+      foot: [['', '', '', 'Total', row.totalExpenditure?.toFixed(2), '']],
+      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
+    });
+
+    doc.save(`Expenditure_Report_${row.location}_${monthName}_${summaryYear}.pdf`);
+  };
+
+  const downloadRowExcel = (row) => {
+    const monthName = monthNames[row.month] || row.month;
+    
+    // Create workbook and worksheet
+    const wb = XLSX.utils.book_new();
+    const wsData = [];
+
+    // Add Header Info
+    wsData.push(["Expenditure Report", `${monthName} ${summaryYear}`]);
+    wsData.push(["Location", row.location]);
+    wsData.push(["Generated On", new Date().toLocaleDateString()]);
+    wsData.push([]); // Empty row
+
+    // Add Summary Stats
+    wsData.push(["Budget Summary"]);
+    wsData.push(["Budget Allocated", row.budgetAllocated]);
+    wsData.push(["Total Expenditure", row.totalExpenditure]);
+    wsData.push(["Balance", row.totalBalance]);
+    wsData.push(["Status", row.statusText]);
+    wsData.push([]); // Empty row
+
+    // Add Expenditures Table Header
+    wsData.push(["S.No", "Date", "Type", "Payment Mode", "Amount", "Remarks"]);
+
+    // Add Expenditures Data
+    if (row.expenditures && row.expenditures.length > 0) {
+      row.expenditures.forEach((exp, index) => {
+        // Format date to be readable (DD-MM-YYYY)
+        const dateObj = new Date(exp.date);
+        const formattedDate = !isNaN(dateObj.getTime()) 
+          ? dateObj.toLocaleDateString('en-GB') // DD/MM/YYYY
+          : exp.date;
+
+        wsData.push([
+          index + 1,
+          formattedDate,
+          exp.type,
+          exp.paymentMode,
+          parseFloat(exp.amount || 0),
+          exp.remarks || "-"
+        ]);
+      });
+    }
+
+    // Add Total Row
+    wsData.push(["", "", "", "Total", row.totalExpenditure, ""]);
+
+    // Create worksheet
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Set column widths
+    const wscols = [
+      { wch: 8 },  // S.No
+      { wch: 15 }, // Date
+      { wch: 20 }, // Type
+      { wch: 15 }, // Payment Mode
+      { wch: 15 }, // Amount
+      { wch: 30 }  // Remarks
+    ];
+    ws['!cols'] = wscols;
+
+    // Add worksheet to workbook
+    XLSX.utils.book_append_sheet(wb, ws, "Expenditure Report");
+
+    // Save file
+    XLSX.writeFile(wb, `Expenditure_Report_${row.location}_${monthName}_${summaryYear}.xlsx`);
+  };
+
   return (
     <div className="p-6">
       {/* Tabs */}
@@ -1509,6 +1640,20 @@ const ExpenditureManagement = () => {
                           </td>
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => downloadRowPDF(row)}
+                                className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors"
+                                title="Download PDF"
+                              >
+                                <FileText className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => downloadRowExcel(row)}
+                                className="p-1 text-green-600 hover:text-green-800 hover:bg-green-50 rounded transition-colors"
+                                title="Download Excel"
+                              >
+                                <FileSpreadsheet className="w-4 h-4" />
+                              </button>
                               <button
                                 onClick={() => viewRecordDetails(row.id)}
                                 className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded transition-colors"
