@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { BASE_URL } from '../../services/api';
 
 // SVG Icons (keep your existing icon components)
 const ViewIcon = () => (
@@ -51,7 +52,7 @@ const EmployeeRewardTracker = () => {
     nominatedBy: ''
   });
 
-  const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5003';
+  const API_BASE_URL = BASE_URL || 'http://localhost:5003';
 
   // Predefined nominators
   const predefinedNominators = ['Arunkumar.P', 'Arunkumar.D', 'Harishankar', 'Gopinath'];
