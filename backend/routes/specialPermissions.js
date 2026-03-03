@@ -8,6 +8,7 @@ const SpecialPermission = require('../models/SpecialPermission');
 const Timesheet = require('../models/Timesheet');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
+const Team = require('../models/Team');
 const Attendance = require('../models/Attendance');
 
 const storage = multer.diskStorage({
@@ -39,6 +40,31 @@ const dayIndexInWeek = (monday, target) => {
   const idx = Math.floor((targetUTC - monday) / ms);
   return Math.max(0, Math.min(6, idx));
 };
+
+async function getTeamManagementAssignmentSets(userEmployeeId) {
+  const teams = await Team.find({ teamCode: { $regex: /^TEAM-/i } })
+    .select('leaderEmployeeId members')
+    .lean();
+
+  const allAssigned = new Set();
+  const mine = new Set();
+
+  for (const t of teams) {
+    const members = Array.isArray(t.members) ? t.members : [];
+    for (const m of members) {
+      if (!m) continue;
+      allAssigned.add(m);
+      if (userEmployeeId && t.leaderEmployeeId === userEmployeeId) {
+        mine.add(m);
+      }
+    }
+  }
+
+  return {
+    allAssignedMemberIds: Array.from(allAssigned),
+    myAssignedMemberIds: Array.from(mine)
+  };
+}
 
 router.post('/', auth, upload.single('attachment'), async (req, res) => {
   try {
@@ -108,41 +134,33 @@ router.get('/list', auth, async (req, res) => {
     const { status, employeeId, start, end } = req.query;
     const q = {};
 
-    // PM Filtering
-    const isPM = userRole === 'projectmanager' || userRole === 'project_manager';
-    if (isPM && req.user.employeeId) {
-      try {
-        const pmEmp = await Employee.findOne({ employeeId: req.user.employeeId }).select('division location');
-        if (pmEmp) {
-          const empQuery = {};
-          if (pmEmp.division) empQuery.division = pmEmp.division;
-          if (pmEmp.location) empQuery.location = pmEmp.location;
-          
-          // Find all employees under this PM's division/location
-          const subordinates = await Employee.find(empQuery).select('employeeId');
-          const subIds = subordinates.map(e => e.employeeId);
-          
-          if (employeeId) {
-             // If searching for specific employee, ensure they are in scope
-             if (!subIds.includes(employeeId)) {
-                 return res.json({ success: true, data: [] });
-             }
-             q.employeeId = employeeId;
-          } else {
-             // Restrict to all subordinates
-             q.employeeId = { $in: subIds };
+    const role = String(userRole || '').toLowerCase();
+    const isAdmin = role === 'admin';
+    const isPM = role === 'projectmanager' || role === 'project_manager';
+    if (!isAdmin) {
+      const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      if (isPM) {
+        if (employeeId) {
+          if (!myAssignedMemberIds.includes(employeeId)) {
+            return res.json({ success: true, data: [] });
           }
+          q.employeeId = employeeId;
         } else {
-          // PM employee record not found
-          return res.json({ success: true, data: [] });
+          if (myAssignedMemberIds.length === 0) {
+            return res.json({ success: true, data: [] });
+          }
+          q.employeeId = { $in: myAssignedMemberIds };
         }
-      } catch (err) {
-        console.error("PM Filter Error:", err);
-        return res.status(500).json({ success: false, message: 'Error applying filters' });
+      } else {
+        if (employeeId) {
+          if (allAssignedMemberIds.includes(employeeId)) {
+            return res.json({ success: true, data: [] });
+          }
+          q.employeeId = employeeId;
+        } else if (allAssignedMemberIds.length > 0) {
+          q.employeeId = { $nin: allAssignedMemberIds };
+        }
       }
-    } else {
-      // Admin/HR/Manager: No implicit filtering, respect query param
-      if (employeeId) q.employeeId = employeeId;
     }
 
     if (status && status !== 'All') q.status = status.toUpperCase();
@@ -314,23 +332,21 @@ router.put('/approve/:id', auth, async (req, res) => {
     const sp = await SpecialPermission.findById(req.params.id);
     if (!sp) return res.status(404).json({ success: false, message: 'Request not found' });
 
-    // PM Scope Check
-    const isPM = userRole === 'projectmanager' || userRole === 'project_manager';
-    if (isPM && req.user.employeeId) {
-        const pmEmp = await Employee.findOne({ employeeId: req.user.employeeId }).select('division location');
-        const targetEmp = await Employee.findOne({ employeeId: sp.employeeId }).select('division location');
-        
-        if (!pmEmp) return res.status(403).json({ success: false, message: 'Access denied: PM record not found' });
-        
-        // If target employee exists, check division/location match
-        if (targetEmp) {
-            if (pmEmp.division && pmEmp.division !== targetEmp.division) {
-                return res.status(403).json({ success: false, message: 'Access denied: Different Division' });
-            }
-            if (pmEmp.location && pmEmp.location !== targetEmp.location) {
-                return res.status(403).json({ success: false, message: 'Access denied: Different Location' });
-            }
+    const role = String(userRole || '').toLowerCase();
+    const isAdmin = role === 'admin';
+    const isPM = role === 'projectmanager' || role === 'project_manager';
+    const targetEmployeeId = String(sp.employeeId || '');
+    if (!isAdmin && targetEmployeeId) {
+      const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      if (isPM) {
+        if (!myAssignedMemberIds.includes(targetEmployeeId)) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
         }
+      } else {
+        if (allAssignedMemberIds.includes(targetEmployeeId)) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+      }
     }
     
     if (sp.status !== 'PENDING') {
@@ -362,22 +378,21 @@ router.put('/reject/:id', auth, async (req, res) => {
     const sp = await SpecialPermission.findById(req.params.id);
     if (!sp) return res.status(404).json({ success: false, message: 'Request not found' });
 
-    // PM Scope Check
-    const isPM = userRole === 'projectmanager' || userRole === 'project_manager';
-    if (isPM && req.user.employeeId) {
-        const pmEmp = await Employee.findOne({ employeeId: req.user.employeeId }).select('division location');
-        const targetEmp = await Employee.findOne({ employeeId: sp.employeeId }).select('division location');
-        
-        if (!pmEmp) return res.status(403).json({ success: false, message: 'Access denied: PM record not found' });
-        
-        if (targetEmp) {
-            if (pmEmp.division && pmEmp.division !== targetEmp.division) {
-                return res.status(403).json({ success: false, message: 'Access denied: Different Division' });
-            }
-            if (pmEmp.location && pmEmp.location !== targetEmp.location) {
-                return res.status(403).json({ success: false, message: 'Access denied: Different Location' });
-            }
+    const role = String(userRole || '').toLowerCase();
+    const isAdmin = role === 'admin';
+    const isPM = role === 'projectmanager' || role === 'project_manager';
+    const targetEmployeeId = String(sp.employeeId || '');
+    if (!isAdmin && targetEmployeeId) {
+      const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      if (isPM) {
+        if (!myAssignedMemberIds.includes(targetEmployeeId)) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
         }
+      } else {
+        if (allAssignedMemberIds.includes(targetEmployeeId)) {
+          return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+      }
     }
 
     if (sp.status !== 'PENDING') return res.status(400).json({ success: false, message: 'Request already processed' });
@@ -393,4 +408,3 @@ router.put('/reject/:id', auth, async (req, res) => {
 });
 
 module.exports = router;
-

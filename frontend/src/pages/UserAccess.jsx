@@ -54,6 +54,21 @@ const UserAccess = () => {
     locations: []
   });
 
+  const normalizeEmployeeIdForSort = (value) => {
+    const id = (value ?? '').toString().trim();
+    if (!id || id === '—') return null;
+    return id;
+  };
+
+  const compareEmployeeIdStrings = (a, b) => {
+    const ia = normalizeEmployeeIdForSort(a);
+    const ib = normalizeEmployeeIdForSort(b);
+    if (!ia && !ib) return 0;
+    if (!ia) return 1;
+    if (!ib) return -1;
+    return ia.localeCompare(ib, undefined, { numeric: true, sensitivity: 'base' });
+  };
+
   useEffect(() => {
     // Extract unique values for dropdowns
     const names = new Set();
@@ -74,7 +89,7 @@ const UserAccess = () => {
 
     setUniqueOptions({
       names: Array.from(names).sort(),
-      employeeIds: Array.from(employeeIds).sort(),
+      employeeIds: Array.from(employeeIds).sort(compareEmployeeIdStrings),
       divisions: Array.from(divisions).sort(),
       locations: Array.from(locations).sort()
     });
@@ -210,6 +225,19 @@ const UserAccess = () => {
     return user.name || '—';
   };
 
+  const normalizeRole = (r) => {
+    const role = String(r || '').toLowerCase();
+    return role === 'project_manager' ? 'projectmanager' : role;
+  };
+
+  const getRoleLabel = (r) => {
+    const role = normalizeRole(r);
+    if (role === 'admin') return 'Admin';
+    if (role === 'projectmanager') return 'Reporting Manager';
+    if (role === 'employees') return 'Employee';
+    return String(r || '—').replace(/_/g, ' ');
+  };
+
   const getEmployeeRecord = (user) => {
     if (!user) return null;
     const candidates = [user.employeeId, user.employeeCode, user.empId, user.id, user.email];
@@ -263,9 +291,8 @@ const UserAccess = () => {
     }
 
     if (filters.role) {
-      filtered = filtered.filter(user =>
-        user.role === filters.role
-      );
+      const targetRole = normalizeRole(filters.role);
+      filtered = filtered.filter(user => normalizeRole(user.role) === targetRole);
     }
 
     if (filters.employeeId) {
@@ -290,7 +317,13 @@ const UserAccess = () => {
       });
     }
 
-    setFilteredUsers(filtered);
+    const sorted = [...filtered].sort((a, b) => {
+      const empIdCompare = compareEmployeeIdStrings(getDisplayEmployeeId(a), getDisplayEmployeeId(b));
+      if (empIdCompare !== 0) return empIdCompare;
+      return String(getDisplayEmployeeName(a) || '').localeCompare(String(getDisplayEmployeeName(b) || ''), undefined, { sensitivity: 'base' });
+    });
+
+    setFilteredUsers(sorted);
   };
 
   const handleFilterChange = (key, value) => {
@@ -309,7 +342,13 @@ const UserAccess = () => {
       division: '',
       location: ''
     });
-    setFilteredUsers(users); // Reset to all users
+    setFilteredUsers(
+      [...users].sort((a, b) => {
+        const empIdCompare = compareEmployeeIdStrings(getDisplayEmployeeId(a), getDisplayEmployeeId(b));
+        if (empIdCompare !== 0) return empIdCompare;
+        return String(getDisplayEmployeeName(a) || '').localeCompare(String(getDisplayEmployeeName(b) || ''), undefined, { sensitivity: 'base' });
+      })
+    );
   };
 
   // Export CSV functions
@@ -552,9 +591,9 @@ const UserAccess = () => {
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3"
                   >
                     <option value="">All Roles</option>
-                    <option value="project_manager">Project Manager</option>
                     <option value="admin">Admin</option>
-                    <option value="employees">employees</option>
+                    <option value="projectmanager">Reporting Manager</option>
+                    <option value="employees">Employee</option>
                     {/* <option value="principal">Principal</option>
                     <option value="3d_model">3D Model</option>
                     <option value="artist">Artist</option>
@@ -610,7 +649,7 @@ const UserAccess = () => {
                 <thead className="bg-[#262760] sticky top-0 z-10 shadow-sm">
                   <tr>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">S.No</th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">User</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee Name</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Role</th>
                     <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Division</th>
@@ -637,7 +676,7 @@ const UserAccess = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
-                            {user.role.replace('_', ' ')}
+                            {getRoleLabel(user.role)}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -733,7 +772,7 @@ const UserAccess = () => {
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
                       <div>
-                        <span className="font-medium">Role:</span> {user.role.replace('_', ' ')}
+                        <span className="font-medium">Role:</span> {getRoleLabel(user.role)}
                       </div>
                       <div>
                         <span className="font-medium">Division:</span> {(emp && emp.division) || '—'}
@@ -846,7 +885,7 @@ const UserAccess = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wider">Role</h4>
-                <p className="text-sm font-medium text-gray-900 capitalize mt-1">{viewingUser.role.replace('_', ' ')}</p>
+                <p className="text-sm font-medium text-gray-900 mt-1">{getRoleLabel(viewingUser.role)}</p>
               </div>
 
               <div className="bg-gray-50 p-4 rounded-lg">

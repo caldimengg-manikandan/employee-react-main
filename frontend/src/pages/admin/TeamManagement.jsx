@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { teamAPI, employeeAPI } from '../../services/api';
+import { teamAPI, employeeAPI, authAPI } from '../../services/api';
 
 const TeamManagement = () => {
   const [leaders, setLeaders] = useState([]);
   const [teams, setTeams] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [users, setUsers] = useState([]);
   const [selectedTeamCode, setSelectedTeamCode] = useState('');
   const [teamDetails, setTeamDetails] = useState(null);
   const [form, setForm] = useState({ teamCode: '', leaderEmployeeId: '', division: '' });
@@ -27,6 +28,12 @@ const TeamManagement = () => {
       setLeaders(leadersRes.data || []);
       setTeams(teamsRes.data || []);
       setEmployees(employeesRes.data || []);
+      try {
+        const usersRes = await authAPI.getAllUsers();
+        setUsers(usersRes.data || []);
+      } catch (e) {
+        setUsers([]);
+      }
     } catch (e) {
       setError('Failed to load data');
     } finally {
@@ -69,6 +76,74 @@ const TeamManagement = () => {
     if (na !== nb) return na - nb;
     return String(a.employeeId).localeCompare(String(b.employeeId));
   });
+
+  const employeesById = employees.reduce((acc, emp) => {
+    acc[emp.employeeId] = emp;
+    return acc;
+  }, {});
+
+  const adminPmOptions = Array.from(
+    new Map(
+      users
+        .filter(u => ['admin', 'projectmanager'].includes(u.role) && u.employeeId)
+        .map(u => [u.employeeId, u])
+    ).values()
+  )
+    .map(u => {
+      const emp = employeesById[u.employeeId];
+      const displayName = emp?.name || u.name || u.employeeId;
+      const roleLabel = u.role === 'admin' ? 'Admin' : 'Reporting Manager';
+      return { value: u.employeeId, label: `${u.employeeId} - ${displayName} (${roleLabel})` };
+    })
+    .sort((a, b) => a.label.localeCompare(b.label));
+
+  const getAssignedManagerEmpId = (employeeId) => {
+    const team = teams.find(t => (t.members || []).includes(employeeId));
+    return team?.leaderEmployeeId || '';
+  };
+
+  const getLeaderLabel = (leaderEmployeeId) => {
+    if (!leaderEmployeeId) return '';
+    const emp = employeesById[leaderEmployeeId];
+    if (emp?.name) return `${leaderEmployeeId} - ${emp.name}`;
+    const leader = leaders.find(l => l.employeeId === leaderEmployeeId);
+    return leader?.name ? `${leaderEmployeeId} - ${leader.name}` : leaderEmployeeId;
+  };
+
+  const handleAssignManager = async (employeeId, leaderEmployeeId) => {
+    try {
+      setLoading(true);
+      setError('');
+
+      const currentTeam = teams.find(t => (t.members || []).includes(employeeId));
+      const currentLeader = currentTeam?.leaderEmployeeId || '';
+      const nextLeader = String(leaderEmployeeId || '');
+
+      if (currentTeam && currentLeader && currentLeader !== nextLeader) {
+        await teamAPI.removeMember(currentTeam.teamCode, employeeId);
+      }
+
+      if (!nextLeader) {
+        await loadData();
+        return;
+      }
+
+      let targetTeam = teams.find(t => t.leaderEmployeeId === nextLeader);
+      if (!targetTeam) {
+        const division = employeesById[nextLeader]?.division || leaders.find(l => l.employeeId === nextLeader)?.division || '';
+        const teamCode = `TEAM-${nextLeader}`;
+        await teamAPI.upsert({ teamCode, leaderEmployeeId: nextLeader, division });
+        targetTeam = { teamCode, leaderEmployeeId: nextLeader, members: [] };
+      }
+
+      await teamAPI.addMember(targetTeam.teamCode, employeeId);
+      await loadData();
+    } catch (e) {
+      setError('Failed to assign Admin/PM');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     const s = filters.search.trim();
@@ -178,7 +253,7 @@ const TeamManagement = () => {
 
         <div className=" bg-white rounded-lg shadow p-4">
           {/* <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-medium text-gray-700">Sr.Project Managers</h2>
+            <h2 className="text-lg font-medium text-gray-700">Reporting Managers</h2>
             <button onClick={loadData} disabled={loading} className="px-3 py-2 rounded bg-gray-700 text-white">Refresh</button>
           </div> */}
           {/* <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
@@ -274,7 +349,7 @@ const TeamManagement = () => {
                 onChange={(e) => setEmpFilters(prev => ({ ...prev, managerEmpId: e.target.value }))}
                 className="w-full border rounded px-3 py-2"
               >
-                <option value="">All Project Managers</option>
+                <option value="">All Reporting Managers</option>
                 {leaders.map(l => (
                   <option key={l._id} value={l.employeeId}>{l.employeeId} - {l.name}</option>
                 ))}
@@ -286,24 +361,47 @@ const TeamManagement = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-[#262760] sticky top-0 z-10">
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-white uppercase bg-[#262760]">Employee ID</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-white uppercase bg-[#262760]">Name</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-white uppercase bg-[#262760]">Division</th>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-white uppercase bg-[#262760]">Location</th>
+                        <th className="px-4 py-2 text-left text-m font-medium text-white uppercase bg-[#262760]">Employee ID</th>
+                        <th className="px-4 py-2 text-left text-m font-medium text-white uppercase bg-[#262760]">Employee Name</th>
+                        <th className="px-4 py-2 text-left text-m font-medium text-white uppercase bg-[#262760]">Division</th>
+                        <th className="px-4 py-2 text-left text-m font-medium text-white uppercase bg-[#262760]">Location</th>
+                        <th className="px-4 py-2 text-left text-m font-medium text-white uppercase bg-[#262760]">Reporting Manager</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
-                      {sortedEmployees.map(e => (
-                        <tr key={e._id} className="hover:bg-gray-50">
-                          <td className="px-4 py-2 text-sm text-gray-900">{e.employeeId}</td>
-                          <td className="px-4 py-2 text-sm text-gray-900">{e.name}</td>
-                          <td className="px-4 py-2 text-sm text-gray-900">{e.division || '-'}</td>
-                          <td className="px-4 py-2 text-sm text-gray-900">{e.location || '-'}</td>
-                        </tr>
-                      ))}
+                      {sortedEmployees.map(e => {
+                        const assignedManagerEmpId = getAssignedManagerEmpId(e.employeeId);
+                        const hasManagerInOptions = assignedManagerEmpId
+                          ? adminPmOptions.some(o => o.value === assignedManagerEmpId)
+                          : true;
+                        return (
+                          <tr key={e._id} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 text-sm text-gray-900">{e.employeeId}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{e.name}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{e.division || '-'}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">{e.location || '-'}</td>
+                            <td className="px-4 py-2 text-sm text-gray-900">
+                              <select
+                                className="w-full border rounded px-2 py-1"
+                                value={assignedManagerEmpId}
+                                disabled={loading}
+                                onChange={(ev) => handleAssignManager(e.employeeId, ev.target.value)}
+                              >
+                                <option value="">Unassigned</option>
+                                {assignedManagerEmpId && !hasManagerInOptions && (
+                                  <option value={assignedManagerEmpId}>{getLeaderLabel(assignedManagerEmpId)}</option>
+                                )}
+                                {adminPmOptions.map(opt => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {filteredEmployees.length === 0 && (
                         <tr>
-                          <td className="px-4 py-4 text-sm text-gray-500" colSpan={4}>No employees found</td>
+                          <td className="px-4 py-4 text-sm text-gray-500" colSpan={5}>No employees found</td>
                         </tr>
                       )}
                     </tbody>

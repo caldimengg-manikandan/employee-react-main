@@ -5,11 +5,37 @@ const Employee = require('../models/Employee');
 const LeaveBalance = require('../models/LeaveBalance');
 const Timesheet = require('../models/Timesheet');
 const User = require('../models/User');
+const Team = require('../models/Team');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const { monthsBetween, calcBalanceForEmployee, mergeBalances } = require('../services/leaveService');
 
 const router = express.Router();
+
+async function getTeamManagementAssignmentSets(userEmployeeId) {
+  const teams = await Team.find({ teamCode: { $regex: /^TEAM-/i } })
+    .select('leaderEmployeeId members')
+    .lean();
+
+  const allAssigned = new Set();
+  const mine = new Set();
+
+  for (const t of teams) {
+    const members = Array.isArray(t.members) ? t.members : [];
+    for (const m of members) {
+      if (!m) continue;
+      allAssigned.add(m);
+      if (userEmployeeId && t.leaderEmployeeId === userEmployeeId) {
+        mine.add(m);
+      }
+    }
+  }
+
+  return {
+    allAssignedMemberIds: Array.from(allAssigned),
+    myAssignedMemberIds: Array.from(mine)
+  };
+}
 
 const mailer = nodemailer.createTransport({
   host: process.env.EMAIL_HOST,
@@ -703,36 +729,31 @@ router.get('/', auth, async (req, res) => {
     if (employeeId) filter.employeeId = employeeId;
     if (status && status !== 'all') filter.status = status;
     if (leaveType && leaveType !== 'all') filter.leaveType = leaveType;
-    
-    // PROJECT MANAGER FILTERING
-    if (req.user.role === 'projectmanager') {
-      const pmEmp = await Employee.findOne({ employeeId: req.user.employeeId });
-      if (!pmEmp) {
-        // If Project Manager has no linked employee record, they shouldn't see any data
-        return res.json([]);
-      }
-      
-      // Find all employees in same division and location
-      const division = pmEmp.division;
-      const location = pmEmp.location;
-      
-      // Find employees with matching division and location
-      // Note: We use case-insensitive matching just in case
-      const empFilter = {};
-      if (division) empFilter.division = division;
-      if (location) empFilter.location = location;
-      
-      const authorizedEmployees = await Employee.find(empFilter).select('employeeId');
-      const authorizedEmpIds = authorizedEmployees.map(e => e.employeeId).filter(Boolean);
-      
-      // Restrict query to these employee IDs
-      if (filter.employeeId) {
-          // If specific employee requested, verify they are in the list
-          if (!authorizedEmpIds.includes(filter.employeeId)) {
-              return res.json([]); // Not authorized to view this employee
+
+    const role = String(req.user.role || '').toLowerCase();
+    const isAdmin = role === 'admin';
+    const isPM = role === 'projectmanager' || role === 'project_manager';
+    if (!isAdmin) {
+      const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      if (isPM) {
+        if (filter.employeeId) {
+          if (!myAssignedMemberIds.includes(filter.employeeId)) {
+            return res.json([]);
           }
+        } else {
+          if (myAssignedMemberIds.length === 0) {
+            return res.json([]);
+          }
+          filter.employeeId = { $in: myAssignedMemberIds };
+        }
       } else {
-          filter.employeeId = { $in: authorizedEmpIds };
+        if (filter.employeeId) {
+          if (allAssignedMemberIds.includes(filter.employeeId)) {
+            return res.json([]);
+          }
+        } else if (allAssignedMemberIds.length > 0) {
+          filter.employeeId = { $nin: allAssignedMemberIds };
+        }
       }
     }
 
@@ -838,6 +859,32 @@ router.put('/:id/status', auth, async (req, res) => {
     if (!allowed.includes(status)) {
       return res.status(400).json({ error: 'Invalid status' });
     }
+
+    const existing = await LeaveApplication.findById(req.params.id).select('employeeId userId').lean();
+    if (!existing) return res.status(404).json({ error: 'Leave application not found' });
+
+    let targetEmployeeId = String(existing.employeeId || '');
+    if (!targetEmployeeId && existing.userId) {
+      const u = await User.findById(existing.userId).select('employeeId').lean();
+      targetEmployeeId = String(u?.employeeId || '');
+    }
+
+    const role = String(req.user.role || '').toLowerCase();
+    const isAdmin = role === 'admin';
+    const isPM = role === 'projectmanager' || role === 'project_manager';
+    if (!isAdmin && targetEmployeeId) {
+      const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      if (isPM) {
+        if (!myAssignedMemberIds.includes(targetEmployeeId)) {
+          return res.status(403).json({ message: 'Access denied' });
+        }
+      } else {
+        if (allAssignedMemberIds.includes(targetEmployeeId)) {
+          return res.status(403).json({ message: 'Access denied' });
+        }
+      }
+    }
+
     const updated = await LeaveApplication.findByIdAndUpdate(
       req.params.id,
       { status, ...(status === 'Rejected' ? { rejectionReason: rejectionReason || '' } : { rejectionReason: '' }) },

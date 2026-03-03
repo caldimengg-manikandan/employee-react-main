@@ -127,9 +127,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   };
 
   const roleOptions = [
-    { value: 'projectmanager', label: 'Project Manager' },
-    { value: 'admin', label: 'ADMIN' },
-    { value: 'employees', label: 'employees' }
+    { value: 'admin', label: 'Admin' },
+    { value: 'projectmanager', label: 'Reporting Manager' },
+    { value: 'employees', label: 'Employee' }
   ];
 
   useEffect(() => {
