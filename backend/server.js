@@ -95,6 +95,9 @@ app.use("/api/performance/reviewer", require("./routes/reviewerRoutes"));
 app.use("/api/performance/director", require("./routes/directorRoutes"));
 app.use("/api/performance/increment-master", require("./routes/incrementRoutes"));
 app.use("/api/performance/increment-summary", require("./routes/incrementSummaryRoutes"));
+app.use("/api/performance/attributes", require("./routes/appraisalAttributeRoutes"));
+
+app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 app.use("/api/special-permissions", require("./routes/specialPermissions"));
 

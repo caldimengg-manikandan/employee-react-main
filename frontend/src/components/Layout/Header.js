@@ -1,15 +1,19 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Bars3Icon } from '@heroicons/react/24/outline';
+import { Bars3Icon, BellIcon } from '@heroicons/react/24/outline';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeftIcon } from '@heroicons/react/24/outline';
-import { employeeAPI } from '../../services/api';
+import { employeeAPI, notificationAPI } from '../../services/api';
+import NotificationList from '../Notifications/NotificationList';
 
 const Header = ({ onMenuClick }) => {
   const location = useLocation();
   const user = JSON.parse(sessionStorage.getItem('user') || '{"name":"John Doe","email":"john.doe@example.com","role":"Employee"}');
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [currentTime, setCurrentTime] = useState(new Date());
   const profileRef = useRef(null);
+  const notificationRef = useRef(null);
   const navigate = useNavigate();
   const [profileEmployeeId, setProfileEmployeeId] = useState('');
 
@@ -106,11 +110,32 @@ const Header = ({ onMenuClick }) => {
     fetchProfileEmployeeId();
   }, []);
 
+  // Fetch unread notifications count
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const res = await notificationAPI.getAll();
+        const unread = res.data.filter(n => !n.isRead).length;
+        setUnreadCount(unread);
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
+    };
+
+    fetchUnreadCount();
+    // Poll every minute for new notifications
+    const interval = setInterval(fetchUnreadCount, 60000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Close profile dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (profileRef.current && !profileRef.current.contains(event.target)) {
         setIsProfileOpen(false);
+      }
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setIsNotificationOpen(false);
       }
     };
 
@@ -190,6 +215,24 @@ const Header = ({ onMenuClick }) => {
             {/* Mobile Time Display */}
             <div className="sm:hidden flex flex-col items-end">
               <span className="text-sm text-gray-600">{formattedTime}</span>
+            </div>
+
+            {/* Notification Section */}
+            <div className="relative" ref={notificationRef}>
+              <button
+                onClick={() => setIsNotificationOpen(!isNotificationOpen)}
+                className="flex items-center p-2 rounded-full hover:bg-gray-100 transition-colors relative"
+                aria-label="Notifications"
+              >
+                <BellIcon className="h-6 w-6 text-gray-600" />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                )}
+              </button>
+
+              {isNotificationOpen && (
+                <NotificationList onClose={() => setIsNotificationOpen(false)} />
+              )}
             </div>
 
             {/* Profile Section */}

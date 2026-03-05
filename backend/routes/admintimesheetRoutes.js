@@ -3,6 +3,7 @@ const express = require("express");
 const AdminTimesheet = require("../models/AdminTimesheet");
 const Timesheet = require("../models/Timesheet");
 const User = require("../models/User");
+const Notification = require("../models/Notification");
 const Employee = require("../models/Employee");
 const Team = require("../models/Team");
 const nodemailer = require("nodemailer");
@@ -422,6 +423,22 @@ router.put("/approve/:id", auth, async (req, res) => {
     }
 
     await sendStatusEmail(updated, "Approved");
+
+    // Create notification to applicant
+    try {
+      const user = await User.findOne({ employeeId: updated.employeeId });
+      if (user) {
+        await Notification.create({
+          recipient: user._id,
+          title: 'Timesheet Approved',
+          message: `Your timesheet for week ${updated.week} has been approved.`,
+          type: 'TIMESHEET_APPROVED'
+        });
+      }
+    } catch (err) {
+      console.error('Error creating timesheet approval notification:', err);
+    }
+
     res.json({ success: true, message: "Timesheet approved", data: updated });
 
   } catch (err) {
@@ -557,6 +574,22 @@ router.put("/reject/:id", auth, async (req, res) => {
     }
 
     await sendStatusEmail(updated, "Rejected");
+
+    // Create notification
+    try {
+      const user = await User.findOne({ employeeId: updated.employeeId });
+      if (user) {
+        await Notification.create({
+          recipient: user._id,
+          title: 'Timesheet Rejected',
+          message: `Your timesheet for week ${updated.week} has been rejected. Reason: ${reason || 'No reason provided'}`,
+          type: 'TIMESHEET_REJECTED'
+        });
+      }
+    } catch (err) {
+      console.error('Error creating timesheet rejection notification:', err);
+    }
+
     res.json({ success: true, message: "Timesheet rejected", data: updated });
 
   } catch (err) {

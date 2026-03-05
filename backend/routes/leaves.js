@@ -6,6 +6,7 @@ const LeaveBalance = require('../models/LeaveBalance');
 const Timesheet = require('../models/Timesheet');
 const User = require('../models/User');
 const Team = require('../models/Team');
+const Notification = require('../models/Notification');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const { monthsBetween, calcBalanceForEmployee, mergeBalances } = require('../services/leaveService');
@@ -77,6 +78,51 @@ async function getHrRecipients(employeeProfile) {
   const admins = await User.find({ role: 'admin' }).select('email');
   const emails = admins.map(u => u.email).filter(e => e && emailRegex.test(e));
   return Array.from(new Set(emails));
+}
+
+async function getAdminAndPMUserIds(employeeProfile) {
+  const recipientIds = new Set();
+  try {
+    // 1. Get Admins
+    const isHosur = String(employeeProfile?.location || '').trim().toLowerCase() === 'hosur';
+    if (isHosur) {
+      const admin = await User.findOne({ role: 'admin', employeeId: 'CDE025' }).select('_id');
+      if (admin) recipientIds.add(admin._id.toString());
+    } else {
+      const admins = await User.find({ role: 'admin' }).select('_id');
+      admins.forEach(u => recipientIds.add(u._id.toString()));
+    }
+
+    // 2. Get Project Managers
+    const division = employeeProfile?.division;
+    const location = employeeProfile?.location;
+
+    const roleRegex = /project\s*manager/i;
+    const empPMs = await Employee.find({
+      division: division || '',
+      location: location || '',
+      $or: [
+        { role: { $regex: roleRegex } },
+        { designation: { $regex: roleRegex } },
+        { position: { $regex: roleRegex } }
+      ]
+    }).select('employeeId');
+    
+    const empIds = empPMs.map(e => e.employeeId).filter(Boolean);
+    
+    if (empIds.length > 0) {
+      const userPMs = await User.find({ 
+        $or: [
+          { role: 'projectmanager', employeeId: { $in: empIds } },
+          { role: 'project_manager', employeeId: { $in: empIds } }
+        ]
+      }).select('_id');
+      userPMs.forEach(u => recipientIds.add(u._id.toString()));
+    }
+  } catch (err) {
+    console.error('Error finding notification recipients:', err);
+  }
+  return Array.from(recipientIds);
 }
 
 async function sendLeaveSubmissionEmail(createdDoc, user, employeeProfile) {
@@ -893,6 +939,22 @@ router.put('/:id/status', auth, async (req, res) => {
     if (updated) {
        await syncTimesheetWithLeave(updated);
        // try { await sendLeaveStatusEmail(updated); } catch (_) {}
+
+       // Create Notification
+       try {
+        const notifType = status === 'Approved' ? 'LEAVE_APPROVED' : status === 'Rejected' ? 'LEAVE_REJECTED' : 'OTHER';
+        if (notifType !== 'OTHER') {
+          await Notification.create({
+            recipient: existing.userId,
+            title: status === 'Approved' ? 'Leave Approved' : 'Leave Rejected',
+            message: `Your leave request from ${new Date(updated.startDate).toLocaleDateString()} to ${new Date(updated.endDate).toLocaleDateString()} has been ${status.toLowerCase()}.`,
+            type: notifType,
+            isRead: false
+          });
+        }
+      } catch (err) {
+        console.error('Error creating notification:', err);
+      }
     }
     if (!updated) return res.status(404).json({ error: 'Leave application not found' });
     res.json(updated);
@@ -973,6 +1035,36 @@ router.post('/', auth, async (req, res) => {
     // try {
     //   await sendLeaveSubmissionEmail(created, req.user, emp || {});
     // } catch (_) {}
+
+    // Create Notification
+    try {
+      // 1. Notify Applicant (Employee)
+      await Notification.create({
+        recipient: req.user._id,
+        title: 'Leave Applied',
+        message: `Your leave application for ${leaveType} from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()} has been submitted.`,
+        type: 'LEAVE_APPLY',
+        isRead: false
+      });
+
+      // 2. Notify Admins and Reporting Managers
+      const recipients = await getAdminAndPMUserIds(emp);
+      for (const recipientId of recipients) {
+        // Avoid sending duplicate if admin is also the applicant
+        if (recipientId === req.user._id.toString()) continue;
+
+        await Notification.create({
+          recipient: recipientId,
+          title: 'New Leave Request',
+          message: `${employeeName} applied for ${leaveType} (${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}).`,
+          type: 'LEAVE_APPLY',
+          isRead: false
+        });
+      }
+    } catch (err) {
+      console.error('Error creating notification:', err);
+    }
+    
     res.status(201).json(created);
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1021,6 +1113,25 @@ router.get('/email-action', async (req, res) => {
       try { await syncTimesheetWithLeave(updated); } catch (_) {}
     }
     // try { if (updated) await sendLeaveStatusEmail(updated); } catch (_) {}
+    
+    // Create Notification
+    try {
+      if (updated) {
+        const notifType = action === 'Approved' ? 'LEAVE_APPROVED' : action === 'Rejected' ? 'LEAVE_REJECTED' : 'OTHER';
+        if (notifType !== 'OTHER') {
+          await Notification.create({
+            recipient: updated.userId,
+            title: action === 'Approved' ? 'Leave Approved' : 'Leave Rejected',
+            message: `Your leave request from ${new Date(updated.startDate).toLocaleDateString()} to ${new Date(updated.endDate).toLocaleDateString()} has been ${action.toLowerCase()}.`,
+            type: notifType,
+            isRead: false
+          });
+        }
+      }
+    } catch (err) {
+      console.error('Error creating notification:', err);
+    }
+    
     const msg = action === 'Approved' ? 'Leave approved successfully.' : 'Leave rejected successfully.';
     return res.send(`<div style="font-family:Arial;padding:20px;"><h3>${msg}</h3><p>Employee: ${updated.employeeName}</p><p>Type: ${updated.leaveType}</p><p>Days: ${updated.totalDays}</p></div>`);
   } catch (err) {

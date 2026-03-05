@@ -10,6 +10,7 @@ const User = require('../models/User');
 const Employee = require('../models/Employee');
 const Team = require('../models/Team');
 const Attendance = require('../models/Attendance');
+const Notification = require('../models/Notification');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -103,6 +104,20 @@ router.post('/', auth, upload.single('attachment'), async (req, res) => {
       attachmentPath,
       status: 'PENDING'
     });
+
+    try {
+      const admins = await User.find({ role: 'admin' }).select('_id');
+      for (const admin of admins) {
+        await Notification.create({
+          recipient: admin._id,
+          title: 'Special Permission Submitted',
+          message: `${user.name} submitted a special permission request for ${new Date(date).toLocaleDateString()}.`,
+          type: 'SPECIAL_PERMISSION_SUBMIT'
+        });
+      }
+    } catch (err) {
+      console.error('Error creating special permission submission notifications:', err);
+    }
 
     res.status(201).json({ success: true, data: doc });
   } catch (err) {
@@ -360,6 +375,19 @@ router.put('/approve/:id', auth, async (req, res) => {
 
     await ensureTimesheetUpdatedWithSpecialPermission(sp);
 
+    try {
+      if (sp.userId) {
+        await Notification.create({
+          recipient: sp.userId,
+          title: 'Special Permission Approved',
+          message: `Your special permission on ${new Date(sp.date).toLocaleDateString()} has been approved.`,
+          type: 'SPECIAL_PERMISSION_APPROVED'
+        });
+      }
+    } catch (err) {
+      console.error('Error creating special permission approval notification:', err);
+    }
+
     res.json({ success: true, message: 'Approved and timesheet updated', data: sp });
   } catch (err) {
     console.error(err);
@@ -401,6 +429,18 @@ router.put('/reject/:id', auth, async (req, res) => {
     sp.approvedBy = null;
     sp.approvedAt = null;
     await sp.save();
+    try {
+      if (sp.userId) {
+        await Notification.create({
+          recipient: sp.userId,
+          title: 'Special Permission Rejected',
+          message: `Your special permission on ${new Date(sp.date).toLocaleDateString()} has been rejected.${reason ? ` Reason: ${reason}` : ''}`,
+          type: 'SPECIAL_PERMISSION_REJECTED'
+        });
+      }
+    } catch (err) {
+      console.error('Error creating special permission rejection notification:', err);
+    }
     res.json({ success: true, message: 'Rejected', data: sp });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Server error', error: err.message });

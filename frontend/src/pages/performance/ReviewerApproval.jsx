@@ -99,6 +99,8 @@ const ReviewerApproval = () => {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFinancialYr, setSelectedFinancialYr] = useState(getCurrentFinancialYear());
+  const [selectedDivision, setSelectedDivision] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedRows, setSelectedRows] = useState([]);
   const [statusPopup, setStatusPopup] = useState({
     isOpen: false,
@@ -387,8 +389,19 @@ const ReviewerApproval = () => {
     }
   };
 
+  const uniqueDivisions = [...new Set(employees.map(e => e.division).filter(Boolean))].sort();
+  const uniqueLocations = [...new Set(employees.map(e => e.location).filter(Boolean))].sort();
+  const uniqueYears = [...new Set(employees.map(e => e.financialYr).filter(Boolean))].sort().reverse();
+  
+  // Ensure current year is in the list if no data
+  if (uniqueYears.length === 0) {
+    uniqueYears.push(getCurrentFinancialYear());
+  }
+
   const filteredEmployees = employees.filter(emp => 
     (emp.financialYr === selectedFinancialYr) &&
+    (selectedDivision === '' || emp.division === selectedDivision) &&
+    (selectedLocation === '' || emp.location === selectedLocation) &&
     (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
      emp.empId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -400,19 +413,18 @@ const ReviewerApproval = () => {
         
         {/* Top Controls */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-wrap items-center gap-4">
             {/* Financial Year Selector */}
             <select 
               value={selectedFinancialYr}
               onChange={(e) => setSelectedFinancialYr(e.target.value)}
-              className="block w-48 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
+              className="block w-40 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
             >
-              <option value="2023-24">2023-2024</option>
-              <option value="2024-25">2024-2025</option>
-              <option value="2025-26">2025-2026</option>
-              <option value="2026-27">2026-2027</option>
-              <option value="2027-28">2027-2028</option>
+              {uniqueYears.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
             </select>
+
 
             {/* Search Box */}
             <div className="relative">
@@ -425,6 +437,32 @@ const ReviewerApproval = () => {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+
+            {/* Division Selector */}
+            <select 
+              value={selectedDivision}
+              onChange={(e) => setSelectedDivision(e.target.value)}
+              className="block w-40 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
+            >
+              <option value="">All Divisions</option>
+              {uniqueDivisions.map(div => (
+                <option key={div} value={div}>{div}</option>
+              ))}
+            </select>
+
+            {/* Location Selector */}
+            <select 
+              value={selectedLocation}
+              onChange={(e) => setSelectedLocation(e.target.value)}
+              className="block w-40 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
+            >
+              <option value="">All Locations</option>
+              {uniqueLocations.map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+
+            
           </div>
 
           {/* Submit Button */}
@@ -557,22 +595,19 @@ const ReviewerApproval = () => {
                           ) : (
                             <>
                               <button 
-                                className="text-gray-400 hover:text-gray-600" 
+                                className="text-blue-400 hover:text-gray-600" 
                                 title="View Details" 
                                 onClick={() => setViewModalData(emp)}
                               >
                                 <Eye className="h-5 w-5" />
                               </button>
                               {isEditable && (
-                                <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900" title="Edit">
-                                  <Edit className="h-5 w-5" />
+                                <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900 flex items-center gap-1" title="Edit">
+                                  <Edit className="h-4 w-4" />
+                                  <span>Edit</span>
                                 </button>
                               )}
-                              {isEditable && (
-                                <button onClick={() => handleDelete(emp.id)} className="text-red-600 hover:text-red-900" title="Delete">
-                                  <Trash2 className="h-5 w-5" />
-                                </button>
-                              )}
+                              
                             </>
                           )}
                         </div>

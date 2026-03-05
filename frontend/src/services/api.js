@@ -246,6 +246,14 @@ export const performanceAPI = {
   calculateIncrement: (data) => api.post('/performance/increment-master/calculate', data),
 
   getIncrementSummary: (params) => api.get('/performance/increment-summary', { params }),
+
+  // Attributes
+  getAttributes: (designation) => api.get(`/performance/attributes/${designation}`),
+  saveAttributes: (data) => api.post('/performance/attributes', data),
+  saveBulkSubItem: (data) => api.post('/performance/attributes/bulk-subitem', data),
+  getMasterAttributes: () => api.get('/performance/attributes/master'),
+  addMasterAttribute: (data) => api.post('/performance/attributes/master/add', data),
+  deleteMasterAttribute: (section, key) => api.delete(`/performance/attributes/master/${section}/${key}`),
 };
 
 export const payrollAPI = {
@@ -353,6 +361,13 @@ authAPI.announcement = {
     const res = await api.delete(`/announcements/${id}`);
     return res.data;
   }
+};
+
+export const notificationAPI = {
+  getAll: () => api.get('/notifications'),
+  markAsRead: (id) => api.put(`/notifications/${id}/read`),
+  markAllAsRead: () => api.put('/notifications/read-all'),
+  delete: (id) => api.delete(`/notifications/${id}`)
 };
 
 export default api;

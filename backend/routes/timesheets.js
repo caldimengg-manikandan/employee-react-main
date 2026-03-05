@@ -3,6 +3,7 @@ const Timesheet = require("../models/Timesheet");
 const AdminTimesheet = require("../models/AdminTimesheet");
 const SpecialPermission = require("../models/SpecialPermission");
 const Employee = require("../models/Employee");
+const Notification = require("../models/Notification");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
 const nodemailer = require("nodemailer");
@@ -788,6 +789,27 @@ router.post("/", auth, async (req, res) => {
         } else {
           console.log("⚠️ Timesheet submitted but email may not have been sent:", emailResult?.error);
         }
+
+        // Create notification
+        try {
+          await Notification.create({
+            recipient: req.user._id,
+            title: 'Timesheet Submitted',
+            message: `Your timesheet for week starting ${new Date(sheet.weekStartDate).toLocaleDateString()} has been submitted.`,
+            type: 'TIMESHEET_SUBMIT'
+          });
+          const admins = await User.find({ role: 'admin' }).select('_id');
+          for (const admin of admins) {
+            await Notification.create({
+              recipient: admin._id,
+              title: 'Timesheet Submitted',
+              message: `${req.user.name} submitted timesheet for week starting ${new Date(sheet.weekStartDate).toLocaleDateString()}.`,
+              type: 'TIMESHEET_SUBMIT'
+            });
+          }
+        } catch (err) {
+          console.error('Error creating timesheet submission notification:', err);
+        }
       }
 
       return res.json({
@@ -868,6 +890,18 @@ router.post("/", auth, async (req, res) => {
         console.log("✅ Email sent successfully for new timesheet");
       } else {
         console.log("⚠️ Timesheet submitted but email may not have been sent:", emailResult?.error);
+      }
+
+      // Create notification
+      try {
+        await Notification.create({
+          recipient: req.user._id,
+          title: 'Timesheet Submitted',
+          message: `Your timesheet for week starting ${new Date(sheet.weekStartDate).toLocaleDateString()} has been submitted.`,
+          type: 'TIMESHEET_SUBMIT'
+        });
+      } catch (err) {
+        console.error('Error creating timesheet submission notification:', err);
       }
     }
 

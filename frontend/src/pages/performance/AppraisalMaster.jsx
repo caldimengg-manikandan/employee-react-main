@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Save, Loader2, Plus, X, Search, Check, Edit } from 'lucide-react';
+import { Save, Loader2, Plus, X, Search, Check, Edit, Settings, Trash2 } from 'lucide-react';
 import { performanceAPI, employeeAPI } from '../../services/api';
 
 const AppraisalMaster = () => {
@@ -43,6 +43,247 @@ const AppraisalMaster = () => {
     message: ''
   });
   const [searchTerm, setSearchTerm] = useState('');
+
+  // Attribute Modal State
+  const [showAttributesModal, setShowAttributesModal] = useState(false);
+  const [selectedAttributeDesignation, setSelectedAttributeDesignation] = useState(null);
+  const [attributeSections, setAttributeSections] = useState({
+    selfAppraisal: true,
+    knowledgeSharing: true,
+    knowledgeSubItems: {
+      knowledgeSharing: true,
+      leadership: true
+    },
+    processAdherence: true,
+    processSubItems: {
+      timesheet: true,
+      reportStatus: true,
+      meeting: true
+    },
+    technicalAssessment: true,
+    technicalSubItems: {
+      codingSkills: true,
+      testing: true,
+      debugging: true,
+      sds: true,
+      tekla: true
+    },
+    growthAssessment: true,
+    growthSubItems: {
+      learningNewTech: true,
+      certifications: true
+    }
+  });
+  const [loadingAttributes, setLoadingAttributes] = useState(false);
+  const [attributeSearchTerm, setAttributeSearchTerm] = useState('');
+  const [showSubItemPicker, setShowSubItemPicker] = useState(false);
+  const [attributesOnly, setAttributesOnly] = useState(false);
+  const [showAddAttributesModal, setShowAddAttributesModal] = useState(false);
+  const [showChildPanel, setShowChildPanel] = useState({
+    knowledgeSharing: false,
+    processAdherence: false,
+    technicalAssessment: false,
+    growthAssessment: false
+  });
+
+  const [availableKnowledge, setAvailableKnowledge] = useState([]);
+  const [newKnowledgeLabel, setNewKnowledgeLabel] = useState('');
+  const [availableProcess, setAvailableProcess] = useState([]);
+  const [newProcessLabel, setNewProcessLabel] = useState('');
+  const [availableTechnical, setAvailableTechnical] = useState([]);
+  const [newTechnicalLabel, setNewTechnicalLabel] = useState('');
+  const [availableGrowth, setAvailableGrowth] = useState([]);
+  const [newGrowthLabel, setNewGrowthLabel] = useState('');
+
+  const [deleteConfirmationModal, setDeleteConfirmationModal] = useState({
+    isOpen: false,
+    section: null,
+    key: null
+  });
+
+  useEffect(() => {
+    fetchMasterAttributes();
+  }, []);
+
+  const fetchMasterAttributes = async () => {
+    try {
+      const response = await performanceAPI.getMasterAttributes();
+      if (response.data) {
+        setAvailableKnowledge(response.data.knowledgeSubItems || []);
+        setAvailableProcess(response.data.processSubItems || []);
+        setAvailableTechnical(response.data.technicalSubItems || []);
+        setAvailableGrowth(response.data.growthSubItems || []);
+      }
+    } catch (error) {
+      console.error("Error fetching master attributes", error);
+    }
+  };
+
+  const handleAddMasterAttribute = async (section, label, setLabel, setList) => {
+    if (!label.trim()) return;
+    
+    // Create camelCase key
+    const key = label
+      .replace(/[^a-zA-Z0-9 ]/g, ' ')
+      .trim()
+      .split(/\s+/)
+      .map((w, i) => i === 0 ? w.toLowerCase() : (w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+      .join('');
+
+    try {
+      await performanceAPI.addMasterAttribute({
+        section, // e.g. 'knowledgeSubItems'
+        key,
+        label
+      });
+      
+      // Refresh master list
+      fetchMasterAttributes();
+      setLabel('');
+      setSuccessModal({ isOpen: true, message: 'Attribute added successfully!' });
+      
+      // If we are currently editing a designation, we might need to refresh its attributes to ensure consistency, 
+      // though fetchMasterAttributes handles the list. 
+      // The new attribute will appear unchecked (false) by default.
+    } catch (error) {
+      console.error("Error adding master attribute", error);
+    }
+  };
+
+  const handleDeleteMasterAttribute = (section, key) => {
+    setDeleteConfirmationModal({
+      isOpen: true,
+      section,
+      key
+    });
+  };
+
+  const confirmDeleteMasterAttribute = async () => {
+    const { section, key } = deleteConfirmationModal;
+    if (!section || !key) return;
+
+    try {
+      await performanceAPI.deleteMasterAttribute(section, key);
+      
+      // Refresh master list
+      fetchMasterAttributes();
+      setSuccessModal({ isOpen: true, message: 'Attribute deleted successfully!' });
+    } catch (error) {
+      console.error("Error deleting master attribute", error);
+      alert("Failed to delete attribute");
+    } finally {
+      setDeleteConfirmationModal({ isOpen: false, section: null, key: null });
+    }
+  };
+
+
+  const handleAttributesOpen = () => {
+    setShowAttributesModal(true);
+    setSelectedAttributeDesignation(null);
+    setAttributeSearchTerm('');
+  };
+
+  const handleDesignationSelect = async (designation) => {
+    setSelectedAttributeDesignation(designation);
+    setLoadingAttributes(true);
+    try {
+      const response = await performanceAPI.getAttributes(designation);
+      if (response.data && response.data.sections) {
+        const s = response.data.sections;
+        setAttributeSections({
+          selfAppraisal: s.selfAppraisal ?? true,
+          knowledgeSharing: s.knowledgeSharing ?? true,
+          knowledgeSubItems: s?.knowledgeSubItems || {},
+          processAdherence: s.processAdherence ?? true,
+          processSubItems: s?.processSubItems || {},
+          technicalAssessment: s.technicalAssessment ?? true,
+          technicalSubItems: s?.technicalSubItems || {},
+          growthAssessment: s.growthAssessment ?? true,
+          growthSubItems: s?.growthSubItems || {}
+        });
+      } else {
+        setAttributeSections({
+          selfAppraisal: true,
+          knowledgeSharing: true,
+          knowledgeSubItems: {
+            knowledgeSharing: true,
+            leadership: true
+          },
+          processAdherence: true,
+          processSubItems: {
+            timesheet: true,
+            reportStatus: true,
+            meeting: true
+          },
+          technicalAssessment: true,
+          technicalSubItems: {
+            codingSkills: true,
+            testing: true,
+            debugging: true,
+            sds: true,
+            tekla: true
+          },
+          growthAssessment: true,
+          growthSubItems: {
+            learningNewTech: true,
+            certifications: true
+          }
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching attributes", error);
+    } finally {
+      setLoadingAttributes(false);
+    }
+  };
+
+  const handleSaveAttributes = async () => {
+    if (!selectedAttributeDesignation) return;
+    setLoadingAttributes(true);
+    try {
+      await performanceAPI.saveAttributes({
+        designation: selectedAttributeDesignation,
+        sections: attributeSections
+      });
+      try {
+        const response = await performanceAPI.getAttributes(selectedAttributeDesignation);
+        if (response.data && response.data.sections) {
+          const s = response.data.sections;
+          setAttributeSections({
+            selfAppraisal: s.selfAppraisal ?? true,
+            knowledgeSharing: s.knowledgeSharing ?? true,
+            knowledgeSubItems: s?.knowledgeSubItems || {},
+            processAdherence: s.processAdherence ?? true,
+            processSubItems: s?.processSubItems || {},
+            technicalAssessment: s.technicalAssessment ?? true,
+            technicalSubItems: s?.technicalSubItems || {},
+            growthAssessment: s.growthAssessment ?? true,
+            growthSubItems: s?.growthSubItems || {}
+          });
+        }
+      } catch (e) {
+        console.error("Error refreshing attributes after save", e);
+      }
+      setSuccessModal({ isOpen: true, message: 'Attributes saved successfully!' });
+    } catch (error) {
+      console.error("Error saving attributes", error);
+    } finally {
+      setLoadingAttributes(false);
+    }
+  };
+
+  const saveAttributesImmediate = async (sections) => {
+    if (!selectedAttributeDesignation) return;
+    try {
+      await performanceAPI.saveAttributes({
+        designation: selectedAttributeDesignation,
+        sections
+      });
+      setAttributeSections(sections);
+    } catch (error) {
+      console.error("Immediate save failed", error);
+    }
+  };
 
   useEffect(() => {
     fetchMatrix();
@@ -292,7 +533,7 @@ const AppraisalMaster = () => {
           <tr>
             <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Category</th>
             <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Ratings</th>
-            <th colSpan={Object.values(enabledColumns).filter(Boolean).length} className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" sstyle={{width: '20%'}}>Annual Increment %</th>
+            <th colSpan={Object.values(enabledColumns).filter(Boolean).length} className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100">Annual Increment %</th>
           </tr>
           <tr>
             <th className="border border-gray-300 bg-white"></th>
@@ -378,17 +619,26 @@ const AppraisalMaster = () => {
               </select>
             </div>
           </div>
-          <button
-            onClick={handleEditOpen}
-            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none"
-          >
-            <Edit className="h-4 w-4 mr-2" />
-            Edit
-          </button>
+          <div className="flex space-x-2">
+            <button
+              onClick={handleAttributesOpen}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none"
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Attributes
+            </button>
+            <button
+              onClick={handleEditOpen}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none"
+            >
+              <Edit className="h-4 w-4 mr-2" />
+              Edit
+            </button>
+          </div>
         </div>
 
         {renderViewTable()}
-    </div>
+      </div>
 
       {/* Edit Matrix Modal */}
       {isEditMode && (
@@ -634,6 +884,472 @@ const AppraisalMaster = () => {
         </div>
       )}
 
+      {/* Attributes Modal */}
+      {showAttributesModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col border border-gray-200 overflow-hidden">
+            <div className="flex justify-between items-center p-5 border-b border-gray-100">
+              <h3 className="text-xl font-bold text-gray-900">Appraisal Attributes</h3>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowAddAttributesModal(true)}
+                  className={`px-3 py-1.5 rounded-md text-sm border ${
+                    attributesOnly ? 'bg-[#262760] text-white border-[#262760]' : 'bg-white text-gray-700 border-gray-300'
+                  }`}
+                >
+                  Add Attributes
+                </button>
+                <button 
+                  onClick={() => setShowAttributesModal(false)}
+                  className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+            
+            <div className="flex flex-1 overflow-hidden">
+              {/* Left Column: Designation List */}
+              <div className="w-1/2 flex flex-col bg-white border-r border-gray-200">
+                <div className="p-4 border-b border-gray-100">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={16} />
+                    <input
+                      type="text"
+                      placeholder="Search designations..."
+                      className="w-full pl-9 pr-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-transparent"
+                      value={attributeSearchTerm}
+                      onChange={(e) => setAttributeSearchTerm(e.target.value)}
+                    />
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-2">
+                  <div className="space-y-1">
+                    {designations
+                      .filter(d => d.toLowerCase().includes(attributeSearchTerm.toLowerCase()))
+                      .map((designation) => (
+                        <button
+                          key={designation}
+                          onClick={() => handleDesignationSelect(designation)}
+                          className={`w-full text-left px-4 py-3 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
+                            selectedAttributeDesignation === designation
+                              ? 'bg-[#262760] text-white shadow-md'
+                              : 'hover:bg-gray-100 text-gray-700 hover:pl-5'
+                          }`}
+                        >
+                          <span className="font-medium truncate mr-2">{designation}</span>
+                          {selectedAttributeDesignation === designation ? (
+                            <Edit className="h-4 w-4 opacity-100" />
+                          ) : (
+                            <Edit className="h-4 w-4 opacity-0 group-hover:opacity-50 transition-opacity" />
+                          )}
+                        </button>
+                      ))}
+                    {designations.length === 0 && (
+                      <div className="text-center py-8 text-gray-500 text-sm">
+                        No designations found.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column: Configuration */}
+              <div className="w-1/2 p-6 overflow-y-auto bg-gray-50">
+                {selectedAttributeDesignation ? (
+                  <div className="space-y-6">
+                    <div>
+                      <h4 className="text-lg font-semibold text-[#262760] mb-1">{selectedAttributeDesignation}</h4>
+                      <p className="text-sm text-gray-500">Configure visible appraisal sections for this designation.</p>
+                    </div>
+                    
+                    {loadingAttributes ? (
+                      <div className="flex justify-center py-10">
+                        <Loader2 className="h-8 w-8 animate-spin text-[#262760]" />
+                      </div>
+                    ) : (
+                      <div className="space-y-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+                        {/* Knowledge Sharing Sub Items */}
+                          <div className="mt-2 border border-purple-100 rounded-md p-3 bg-purple-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-xs font-semibold text-purple-700">Knowledge Sharing Sub Items</div>
+                              
+                            </div>
+                            {/* Iterate over Master List */}
+                            {availableKnowledge.length > 0 ? (
+                              availableKnowledge.map((sub) => (
+                                <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-purple-100 bg-white mb-1">
+                                  <label htmlFor={`attr-ks-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
+                                    {sub.label}
+                                  </label>
+                                  <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input
+                                      type="checkbox"
+                                      name={sub.key}
+                                      id={`attr-ks-${sub.key}`}
+                                      checked={attributeSections?.knowledgeSubItems?.[sub.key] ?? false}
+                                      onChange={(e) => setAttributeSections({
+                                        ...attributeSections,
+                                        knowledgeSubItems: {
+                                          ...(attributeSections.knowledgeSubItems || {}),
+                                          [sub.key]: e.target.checked
+                                        }
+                                      })}
+                                      className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                      style={{
+                                        right: (attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? '0' : 'auto',
+                                        left: (attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? 'auto' : '0',
+                                        borderColor: (attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
+                                      }}
+                                    />
+                                    <label 
+                                      htmlFor={`attr-ks-${sub.key}`} 
+                                      className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                                    ></label>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
+                            )}
+                          </div>
+
+                        {/* Process Adherence Sub Items */}
+                          <div className="mt-3 border border-orange-100 rounded-md p-3 bg-orange-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-xs font-semibold text-orange-700">Process Adherence Sub Items</div>
+                            </div>
+                            {availableProcess.length > 0 ? (
+                              availableProcess.map((sub) => (
+                                <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-orange-100 bg-white mb-1">
+                                  <label htmlFor={`attr-pa-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
+                                    {sub.label}
+                                  </label>
+                                  <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input
+                                      type="checkbox"
+                                      id={`attr-pa-${sub.key}`}
+                                      checked={attributeSections?.processSubItems?.[sub.key] ?? false}
+                                      onChange={(e) => setAttributeSections(prev => ({
+                                        ...prev,
+                                        processSubItems: {
+                                          ...(prev.processSubItems || {}),
+                                          [sub.key]: e.target.checked
+                                        }
+                                      }))}
+                                      className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                      style={{
+                                        right: (attributeSections?.processSubItems?.[sub.key] ?? false) ? '0' : 'auto',
+                                        left: (attributeSections?.processSubItems?.[sub.key] ?? false) ? 'auto' : '0',
+                                        borderColor: (attributeSections?.processSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
+                                      }}
+                                    />
+                                    <label 
+                                      htmlFor={`attr-pa-${sub.key}`} 
+                                      className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.processSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                                    ></label>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
+                            )}
+                          </div>
+
+                        {/* Technical Assessment Sub Items */}
+                          <div className="mt-3 border border-blue-100 rounded-md p-3 bg-blue-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-xs font-semibold text-blue-700">Technical Assessment Sub Items</div>
+                            </div>
+                            {availableTechnical.length > 0 ? (
+                              availableTechnical.map((sub) => (
+                                <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-blue-100 bg-white mb-1">
+                                  <label htmlFor={`attr-ta-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
+                                    {sub.label}
+                                  </label>
+                                  <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input
+                                      type="checkbox"
+                                      id={`attr-ta-${sub.key}`}
+                                      checked={attributeSections?.technicalSubItems?.[sub.key] ?? false}
+                                      onChange={(e) => setAttributeSections(prev => ({
+                                        ...prev,
+                                        technicalSubItems: {
+                                          ...(prev.technicalSubItems || {}),
+                                          [sub.key]: e.target.checked
+                                        }
+                                      }))}
+                                      className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                      style={{
+                                        right: (attributeSections?.technicalSubItems?.[sub.key] ?? false) ? '0' : 'auto',
+                                        left: (attributeSections?.technicalSubItems?.[sub.key] ?? false) ? 'auto' : '0',
+                                        borderColor: (attributeSections?.technicalSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
+                                      }}
+                                    />
+                                    <label 
+                                      htmlFor={`attr-ta-${sub.key}`} 
+                                      className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.technicalSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                                    ></label>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
+                            )}
+                          </div>
+
+                        {/* Growth Assessment Sub Items */}
+                          <div className="mt-3 border border-green-100 rounded-md p-3 bg-green-50">
+                            <div className="flex items-center justify-between mb-2">
+                              <div className="text-xs font-semibold text-green-700">Growth Assessment Sub Items</div>
+                            </div>
+                            {availableGrowth.length > 0 ? (
+                              availableGrowth.map((sub) => (
+                                <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-green-100 bg-white mb-1">
+                                  <label htmlFor={`attr-ga-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
+                                    {sub.label}
+                                  </label>
+                                  <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                    <input
+                                      type="checkbox"
+                                      id={`attr-ga-${sub.key}`}
+                                      checked={attributeSections?.growthSubItems?.[sub.key] ?? false}
+                                      onChange={(e) => setAttributeSections(prev => ({
+                                        ...prev,
+                                        growthSubItems: {
+                                          ...(prev.growthSubItems || {}),
+                                          [sub.key]: e.target.checked
+                                        }
+                                      }))}
+                                      className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                      style={{
+                                        right: (attributeSections?.growthSubItems?.[sub.key] ?? false) ? '0' : 'auto',
+                                        left: (attributeSections?.growthSubItems?.[sub.key] ?? false) ? 'auto' : '0',
+                                        borderColor: (attributeSections?.growthSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
+                                      }}
+                                    />
+                                    <label 
+                                      htmlFor={`attr-ga-${sub.key}`} 
+                                      className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.growthSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                                    ></label>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
+                            )}
+                          </div>
+                      </div>
+                    )}
+                    
+                    <div className="pt-4 flex justify-end">
+                      <button
+                        onClick={handleSaveAttributes}
+                        disabled={loadingAttributes}
+                        className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none disabled:opacity-50"
+                      >
+                        {loadingAttributes ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                        Save Changes
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-gray-400 text-center p-8">
+                    <Edit className="h-12 w-12 mb-4 opacity-20" />
+                    <p className="text-lg font-medium">No Designation Selected</p>
+                    <p className="text-sm mt-2">Select a designation from the list on the left to configure its attributes.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Add Attributes Popup */}
+            {showAddAttributesModal && (
+              <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/20">
+                <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] border border-gray-200 flex flex-col">
+                  <div className="flex justify-between items-center p-4 border-b border-gray-100">
+                    <h4 className="text-lg font-semibold text-gray-900">Manage Master Attributes</h4>
+                    <button 
+                      onClick={() => setShowAddAttributesModal(false)}
+                      className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+                  
+                  <div className="p-4 bg-blue-50 text-blue-800 text-xs mb-0">
+                    <p>Attributes added here will be available for all designations. Use the checkboxes in the main window to enable them for specific designations.</p>
+                  </div>
+
+                  <div className="p-4 space-y-3 flex-1 overflow-y-auto">
+                    {/* Knowledge Sharing */}
+                    <div className="mt-2 border border-purple-100 rounded-md p-3 bg-purple-50">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-semibold text-purple-700">Knowledge Sharing ({availableKnowledge.length})</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newKnowledgeLabel}
+                          onChange={(e) => setNewKnowledgeLabel(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddMasterAttribute('knowledgeSubItems', newKnowledgeLabel, setNewKnowledgeLabel, setAvailableKnowledge)}
+                          placeholder="Add new attribute..."
+                          className="flex-1 px-2 h-9 border rounded text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddMasterAttribute('knowledgeSubItems', newKnowledgeLabel, setNewKnowledgeLabel, setAvailableKnowledge)}
+                          className="px-3 h-9 rounded bg-[#262760] text-white text-xs whitespace-nowrap"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
+                         {availableKnowledge.map(sub => (
+                            <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-purple-100 rounded group">
+                                <span>{sub.label}</span>
+                                <button 
+                                  onClick={() => handleDeleteMasterAttribute('knowledgeSubItems', sub.key)}
+                                  className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                  title="Delete attribute"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                            </div>
+                         ))}
+                      </div>
+                    </div>
+
+                    {/* Process Adherence */}
+                    <div className="mt-3 border border-orange-100 rounded-md p-3 bg-orange-50">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-semibold text-orange-700">Process Adherence ({availableProcess.length})</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newProcessLabel}
+                          onChange={(e) => setNewProcessLabel(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddMasterAttribute('processSubItems', newProcessLabel, setNewProcessLabel, setAvailableProcess)}
+                          placeholder="Add new attribute..."
+                          className="flex-1 px-2 h-9 border rounded text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddMasterAttribute('processSubItems', newProcessLabel, setNewProcessLabel, setAvailableProcess)}
+                          className="px-3 h-9 rounded bg-[#262760] text-white text-xs whitespace-nowrap"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
+                         {availableProcess.map(sub => (
+                            <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-orange-100 rounded group">
+                                <span>{sub.label}</span>
+                                <button 
+                                  onClick={() => handleDeleteMasterAttribute('processSubItems', sub.key)}
+                                  className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                  title="Delete attribute"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                            </div>
+                         ))}
+                      </div>
+                    </div>
+
+                    {/* Technical Assessment */}
+                    <div className="mt-3 border border-blue-100 rounded-md p-3 bg-blue-50">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-semibold text-blue-700">Technical Assessment ({availableTechnical.length})</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newTechnicalLabel}
+                          onChange={(e) => setNewTechnicalLabel(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddMasterAttribute('technicalSubItems', newTechnicalLabel, setNewTechnicalLabel, setAvailableTechnical)}
+                          placeholder="Add new attribute..."
+                          className="flex-1 px-2 h-9 border rounded text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddMasterAttribute('technicalSubItems', newTechnicalLabel, setNewTechnicalLabel, setAvailableTechnical)}
+                          className="px-3 h-9 rounded bg-[#262760] text-white text-xs whitespace-nowrap"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
+                         {availableTechnical.map(sub => (
+                            <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-blue-100 rounded group">
+                                <span>{sub.label}</span>
+                                <button 
+                                  onClick={() => handleDeleteMasterAttribute('technicalSubItems', sub.key)}
+                                  className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                  title="Delete attribute"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                            </div>
+                         ))}
+                      </div>
+                    </div>
+
+                    {/* Growth Assessment */}
+                    <div className="mt-3 border border-green-100 rounded-md p-3 bg-green-50">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-semibold text-green-700">Growth Assessment ({availableGrowth.length})</div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={newGrowthLabel}
+                          onChange={(e) => setNewGrowthLabel(e.target.value)}
+                          onKeyDown={(e) => e.key === 'Enter' && handleAddMasterAttribute('growthSubItems', newGrowthLabel, setNewGrowthLabel, setAvailableGrowth)}
+                          placeholder="Add new attribute..."
+                          className="flex-1 px-2 h-9 border rounded text-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleAddMasterAttribute('growthSubItems', newGrowthLabel, setNewGrowthLabel, setAvailableGrowth)}
+                          className="px-3 h-9 rounded bg-[#262760] text-white text-xs whitespace-nowrap"
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
+                         {availableGrowth.map(sub => (
+                            <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-green-100 rounded group">
+                                <span>{sub.label}</span>
+                                <button 
+                                  onClick={() => handleDeleteMasterAttribute('growthSubItems', sub.key)}
+                                  className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                  title="Delete attribute"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                            </div>
+                         ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-4 border-t border-gray-100 flex justify-end gap-2">
+                    <button
+                      onClick={() => setShowAddAttributesModal(false)}
+                      className="px-4 py-2 border border-gray-300 rounded-md text-sm text-gray-700 bg-white hover:bg-gray-50"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Success Modal */}
       {successModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -689,30 +1405,31 @@ const AppraisalMaster = () => {
                   .map(designation => {
                     const isDisabled = disabledDesignations.includes(designation);
                     return (
-                    <label 
-                      key={designation} 
-                      className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                        isDisabled 
-                          ? 'bg-gray-50 text-gray-400 cursor-not-allowed' 
-                          : tempSelectedDesignations.includes(designation)
-                            ? 'bg-indigo-50 text-[#262760]' 
-                            : 'hover:bg-gray-50 text-gray-700'
-                      }`}
-                    >
-                      <span className="text-sm">{designation}</span>
-                      {!isDisabled && (
-                        <input
-                          type="checkbox"
-                          checked={tempSelectedDesignations.includes(designation)}
-                          onChange={() => handleDesignationToggle(designation)}
-                          className="h-4 w-4 text-[#262760] border-gray-300 rounded focus:ring-[#262760]"
-                        />
-                      )}
-                      {isDisabled && (
-                        <span className="text-[10px] text-gray-400 ml-2">Already used</span>
-                      )}
-                    </label>
-                  )})}
+                      <label 
+                        key={designation} 
+                        className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                          isDisabled 
+                            ? 'bg-gray-50 text-gray-400 cursor-not-allowed' 
+                            : tempSelectedDesignations.includes(designation)
+                              ? 'bg-indigo-50 text-[#262760]' 
+                              : 'hover:bg-gray-50 text-gray-700'
+                        }`}
+                      >
+                        <span className="text-sm">{designation}</span>
+                        {!isDisabled && (
+                          <input
+                            type="checkbox"
+                            checked={tempSelectedDesignations.includes(designation)}
+                            onChange={() => handleDesignationToggle(designation)}
+                            className="h-4 w-4 text-[#262760] border-gray-300 rounded focus:ring-[#262760]"
+                          />
+                        )}
+                        {isDisabled && (
+                          <span className="text-[10px] text-gray-400 ml-2">Already used</span>
+                        )}
+                      </label>
+                    );
+                  })}
               </div>
             </div>
 
@@ -728,6 +1445,67 @@ const AppraisalMaster = () => {
                 className="px-5 py-2.5 bg-[#262760] text-white rounded-lg text-sm font-medium hover:bg-[#1e2050] shadow-sm hover:shadow transition-all"
               >
                 Save Changes ({tempSelectedDesignations.length})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal */}
+      {confirmationModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Enable Column</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Are you sure you want to enable "{confirmationModal.columnName}" column? Only one column can be enabled at a time.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setConfirmationModal({ isOpen: false, columnKey: null, columnName: '' })}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmEnableEditColumn}
+                className="px-4 py-2 bg-[#262760] text-white rounded-md text-sm font-medium hover:bg-[#1e2050]"
+              >
+                Enable
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteConfirmationModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 z-[60]">
+          <div className="bg-white rounded-xl shadow-xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-red-100 rounded-full">
+              <Trash2 className="w-6 h-6 text-red-600" />
+            </div>
+            <div className="mt-3 text-center sm:mt-5">
+              <h3 className="text-lg font-medium leading-6 text-gray-900">Delete Attribute</h3>
+              <div className="mt-2">
+                <p className="text-sm text-gray-500">
+                  Are you sure you want to delete this attribute? It will be removed from all designations and cannot be undone.
+                </p>
+              </div>
+            </div>
+            <div className="mt-5 sm:mt-6 flex justify-end space-x-3">
+              <button
+                type="button"
+                className="inline-flex justify-center w-full rounded-md border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 focus:outline-none sm:text-sm sm:w-auto"
+                onClick={() => setDeleteConfirmationModal({ isOpen: false, section: null, key: null })}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="inline-flex justify-center w-full rounded-md border border-transparent shadow-sm px-4 py-2 bg-red-600 text-base font-medium text-white hover:bg-red-700 focus:outline-none sm:text-sm sm:w-auto"
+                onClick={confirmDeleteMasterAttribute}
+              >
+                Delete
               </button>
             </div>
           </div>

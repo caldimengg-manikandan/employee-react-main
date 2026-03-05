@@ -116,7 +116,7 @@ const SelfAppraisalSchema = new mongoose.Schema({
   processReportStatusManager: { type: Number, default: 0 },
   processMeetingManager: { type: Number, default: 0 },
 
-  technicalCodingManager: { type: Number, default: 0 },
+  technicalCodingSkillsManager: { type: Number, default: 0 },
   technicalTestingManager: { type: Number, default: 0 },
   technicalDebuggingManager: { type: Number, default: 0 },
   technicalSdsManager: { type: Number, default: 0 },
@@ -124,6 +124,11 @@ const SelfAppraisalSchema = new mongoose.Schema({
 
   growthLearningNewTechManager: { type: Number, default: 0 },
   growthCertificationsManager: { type: Number, default: 0 },
+
+  behaviourManagerComments: { type: String, default: '' },
+  processManagerComments: { type: String, default: '' },
+  technicalManagerComments: { type: String, default: '' },
+  growthManagerComments: { type: String, default: '' },
 
   // Reviewer Fields
   reviewerComments: { type: String, default: '' },

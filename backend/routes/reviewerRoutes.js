@@ -31,7 +31,7 @@ router.get('/', auth, async (req, res) => {
 
     // Populate employee details
     const appraisals = await SelfAppraisal.find(query)
-      .populate('employeeId', 'name employeeId designation department avatar ctc');
+      .populate('employeeId', 'name employeeId designation department division location avatar ctc');
 
     // Transform to frontend format
     // Use Promise.all to handle async calculation
@@ -110,6 +110,8 @@ router.get('/', auth, async (req, res) => {
           avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
           designation: emp.designation || 'N/A',
           department: emp.department || 'N/A',
+          division: emp.division || 'N/A',
+          location: emp.location || 'N/A',
           status: app.status,
 
           // Appraisal content

@@ -35,7 +35,7 @@ const ALLOWED_COMPENSATION_VIEWERS = ['arunkumar.p', 'balasubiramaniyam', 'uvara
 
 import { performanceAPI } from '../../services/api';
 
-const TAB_ORDER = ['knowledge', 'process', 'technical', 'growth', 'summary'];
+const TAB_ORDER = ['knowledge', 'process', 'technical', 'growth', 'projects', 'summary'];
 
 // Enhanced Rating Stars Component with Labels
 const RatingStars = ({ value, onChange, readOnly = false, size = "h-5 w-5", showValue = true }) => {
@@ -226,6 +226,9 @@ const TeamAppraisal = () => {
 
   // State for modal
   const [searchTerm, setSearchTerm] = useState('');
+  const [divisionFilter, setDivisionFilter] = useState('');
+  const [locationFilter, setLocationFilter] = useState('');
+  const [financialYearFilter, setFinancialYearFilter] = useState('');
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isEditable, setIsEditable] = useState(false);
   const [activeTab, setActiveTab] = useState('knowledge'); // knowledge, process, technical, growth, summary
@@ -378,6 +381,19 @@ const TeamAppraisal = () => {
   };
 
   const handleSubmit = () => {
+    // Validate mandatory manager fields
+    if (
+      !selectedEmployee.appraiserRating || 
+      !selectedEmployee.leadership || 
+      !selectedEmployee.attitude || 
+      !selectedEmployee.communication
+    ) {
+      setNotification({ 
+        type: 'error', 
+        message: 'Please complete all mandatory fields: Performance Rating, Leadership Potential, Attitude, and Communication.' 
+      });
+      return;
+    }
     setShowSubmitConfirm(true);
   };
 
@@ -390,10 +406,19 @@ const TeamAppraisal = () => {
     }
   };
 
-  const filteredEmployees = employees.filter(emp => 
-    emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    emp.empId?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter Logic
+  const uniqueDivisions = [...new Set(employees.map(e => e.division).filter(Boolean))].sort();
+  const uniqueLocations = [...new Set(employees.map(e => e.location).filter(Boolean))].sort();
+  const uniqueYears = [...new Set(employees.map(e => e.financialYr).filter(Boolean))].sort().reverse();
+
+  const filteredEmployees = employees.filter(emp => {
+    const matchesSearch = emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      emp.empId?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesDivision = !divisionFilter || emp.division === divisionFilter;
+    const matchesLocation = !locationFilter || emp.location === locationFilter;
+    const matchesYear = !financialYearFilter || emp.financialYr === financialYearFilter;
+    return matchesSearch && matchesDivision && matchesLocation && matchesYear;
+  });
 
   // Get technical fields based on division
   const getTechnicalFields = (division) => {
@@ -433,21 +458,67 @@ const TeamAppraisal = () => {
     }
   };
 
-  const canSubmitReview = isEditable && activeTab === 'summary' && !!(selectedEmployee && selectedEmployee.appraiserRating);
+  const canSubmitReview = isEditable && activeTab === 'summary' && !!(
+    selectedEmployee && 
+    selectedEmployee.appraiserRating &&
+    selectedEmployee.leadership &&
+    selectedEmployee.attitude &&
+    selectedEmployee.communication
+  );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
       <div className="w-full">
         <div className="flex justify-between items-center mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search employee..."
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#262760] w-64"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+          <div className="flex items-center space-x-4">
+
+            {/* Financial Year Filter */}
+            <select
+              value={financialYearFilter}
+              onChange={(e) => setFinancialYearFilter(e.target.value)}
+              className="border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#262760] py-2 px-3"
+            >
+              <option value="">All Years</option>
+              {uniqueYears.map(year => (
+                <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search employee..."
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#262760] w-64"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            {/* Division Filter */}
+            <select
+              value={divisionFilter}
+              onChange={(e) => setDivisionFilter(e.target.value)}
+              className="border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#262760] py-2 px-3"
+            >
+              <option value="">All Divisions</option>
+              {uniqueDivisions.map(div => (
+                <option key={div} value={div}>{div}</option>
+              ))}
+            </select>
+
+            {/* Location Filter */}
+            <select
+              value={locationFilter}
+              onChange={(e) => setLocationFilter(e.target.value)}
+              className="border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#262760] py-2 px-3"
+            >
+              <option value="">All Locations</option>
+              {uniqueLocations.map(loc => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+
+            
           </div>
         </div>
 
@@ -484,24 +555,22 @@ const TeamAppraisal = () => {
                       <div className="flex justify-center items-center space-x-2">
                         <button 
                           onClick={() => handleView(emp)}
-                          className="text-gray-400 hover:text-gray-600" 
+                          className="text-blue-400 hover:text-gray-600" 
                           title="View"
                         >
                           <Eye className="h-5 w-5" />
                         </button>
-                        <button 
-                          onClick={() => handleEdit(emp)}
-                          className="text-blue-600 hover:text-blue-800" 
-                          title="Edit"
-                        >
-                          <Edit className="h-5 w-5" />
-                        </button>
-                        <button 
-                          onClick={() => handleEdit(emp)}
-                          className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none shadow-sm"
-                        >
-                          Review
-                        </button>
+                        {['Submitted', 'SUBMITTED'].includes(emp.status) && (
+                          <>
+                            
+                            <button 
+                              onClick={() => handleEdit(emp)}
+                              className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none shadow-sm"
+                            >
+                              Review
+                            </button>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -596,6 +665,17 @@ const TeamAppraisal = () => {
                     >
                       <TrendingUp className="h-4 w-4 inline mr-2" />
                       Growth Assessment
+                    </button>
+                    <button
+                      onClick={() => setActiveTab('projects')}
+                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
+                        activeTab === 'projects'
+                          ? 'border-[#262760] text-[#262760]'
+                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <Briefcase className="h-4 w-4 inline mr-2" />
+                      Key Projects
                     </button>
                     <button
                       onClick={() => setActiveTab('summary')}
@@ -832,6 +912,41 @@ const TeamAppraisal = () => {
                     </div>
                   )}
 
+                  {/* Key Projects Tab */}
+                  {activeTab === 'projects' && (
+                    <div className="space-y-6">
+                      <SectionHeader icon={Briefcase} title="Key Projects" color="blue">
+                        <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full">View Only</span>
+                      </SectionHeader>
+
+                      <div className="bg-white rounded-lg border border-gray-200 overflow-hidden shadow-sm">
+                        {selectedEmployee.projects && selectedEmployee.projects.length > 0 ? (
+                          <div className="divide-y divide-gray-200">
+                            {selectedEmployee.projects.map((project, index) => (
+                              <div key={index} className="p-6 hover:bg-gray-50 transition-colors">
+                                <h4 className="font-bold text-[#262760] text-lg mb-3 flex items-center">
+                                  <span className="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded border border-blue-200">
+                                    Project {index + 1}
+                                  </span>
+                                  {project.name}
+                                </h4>
+                                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
+                                   <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">{project.contribution}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="p-12 text-center">
+                            <Briefcase className="mx-auto h-12 w-12 text-gray-300" />
+                            <h3 className="mt-2 text-sm font-medium text-gray-900">No projects recorded</h3>
+                            <p className="mt-1 text-sm text-gray-500">The employee has not added any key projects for this appraisal period.</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Summary & Rating Tab */}
                   {activeTab === 'summary' && (
                     <div className="space-y-6">
@@ -874,11 +989,12 @@ const TeamAppraisal = () => {
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-2">Leadership Potential</label>
                             <select 
-                              value={selectedEmployee.leadership}
+                              value={selectedEmployee.leadership || ''}
                               onChange={(e) => handleInputChange(selectedEmployee.id, 'leadership', e.target.value)}
                               disabled={!isEditable}
                               className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#262760] focus:border-[#262760] text-sm p-2.5 bg-white border disabled:bg-gray-100"
                             >
+                              <option value="">Select Leadership...</option>
                               <option value="Ready to Lead">Ready to Lead</option>
                               <option value="Under Development">Under Development</option>
                               <option value="Not yet reach the level">Not yet reach the level</option>
@@ -888,11 +1004,12 @@ const TeamAppraisal = () => {
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-2">Attitude</label>
                             <select 
-                              value={selectedEmployee.attitude}
+                              value={selectedEmployee.attitude || ''}
                               onChange={(e) => handleInputChange(selectedEmployee.id, 'attitude', e.target.value)}
                               disabled={!isEditable}
                               className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#262760] focus:border-[#262760] text-sm p-2.5 bg-white border disabled:bg-gray-100"
                             >
+                              <option value="">Select Attitude...</option>
                               <option value="Excellent">Excellent</option>
                               <option value="Average">Average</option>
                               <option value="Poor">Poor</option>
@@ -902,11 +1019,12 @@ const TeamAppraisal = () => {
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-2">Communication</label>
                             <select 
-                              value={selectedEmployee.communication}
+                              value={selectedEmployee.communication || ''}
                               onChange={(e) => handleInputChange(selectedEmployee.id, 'communication', e.target.value)}
                               disabled={!isEditable}
                               className="block w-full border-gray-300 rounded-md shadow-sm focus:ring-[#262760] focus:border-[#262760] text-sm p-2.5 bg-white border disabled:bg-gray-100"
                             >
+                              <option value="">Select Communication...</option>
                               <option value="Excellent">Excellent</option>
                               <option value="Average">Average</option>
                               <option value="Poor">Poor</option>
@@ -915,7 +1033,7 @@ const TeamAppraisal = () => {
                         </div>
 
                         {/* Increment Display */}
-                        {selectedEmployee.incrementPercentage > 0 && (
+                        {/* {selectedEmployee.incrementPercentage > 0 && (
                           <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mb-6 flex items-center">
                             <DollarSign className="h-5 w-5 text-indigo-600 mr-3" />
                             <div>
@@ -923,7 +1041,7 @@ const TeamAppraisal = () => {
                               <p className="text-lg font-bold text-indigo-900">{selectedEmployee.incrementPercentage}%</p>
                             </div>
                           </div>
-                        )}
+                        )} */}
 
                         {/* Final Manager Comments */}
                         <div>

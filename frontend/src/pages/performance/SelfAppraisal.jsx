@@ -244,6 +244,35 @@ const getCurrentFinancialYearLabel = () => {
   return `${year}-${String(nextYear).slice(-2)}`;
 };
 
+const getTechnicalFieldsForDivision = (division) => {
+  const div = division || 'Software';
+  if (div === 'SDS') {
+    return [
+      { key: 'codingSkills', label: 'Structural Drawing Accuracy' },
+      { key: 'testing', label: 'Steel Connection Knowledge' },
+      { key: 'debugging', label: 'Bolt & Weld Detailing Accuracy' },
+      { key: 'sds', label: 'GA / Shop / Erection Drawing Quality' },
+      { key: 'tekla', label: 'Drawing Revision & Error Reduction' }
+    ];
+  }
+  if (div === 'Tekla') {
+    return [
+      { key: 'codingSkills', label: '3D Modeling Accuracy' },
+      { key: 'testing', label: 'Clash Detection Handling' },
+      { key: 'debugging', label: 'Model Integrity & Cleanliness' },
+      { key: 'sds', label: 'Complex Connection Modeling' },
+      { key: 'tekla', label: 'Anchor Bolt Layout & Output' }
+    ];
+  }
+  return [
+    { key: 'codingSkills', label: 'Code Quality' },
+    { key: 'testing', label: 'System Architecture Understanding' },
+    { key: 'debugging', label: 'Debugging & Issue Resolution' },
+    { key: 'sds', label: 'API Integration Skills' },
+    { key: 'tekla', label: 'Testing & Validation' }
+  ];
+};
+
 const SelfAppraisal = () => {
   
   // View State: 'list' or 'edit'
@@ -260,6 +289,80 @@ const SelfAppraisal = () => {
     location: user.location || user.branch || '',
     ...user
   });
+
+  // Attribute Configuration State
+  const [enabledSections, setEnabledSections] = useState({
+    selfAppraisal: true,
+    knowledgeSharing: true,
+    knowledgeSubItems: {
+      knowledgeSharing: true,
+      leadership: true
+    },
+    processAdherence: true,
+    processSubItems: {
+      timesheet: true,
+      reportStatus: true,
+      meeting: true
+    },
+    technicalAssessment: true,
+    technicalSubItems: {},
+    growthAssessment: true,
+    growthSubItems: {}
+  });
+
+  const [masterAttributes, setMasterAttributes] = useState({
+    knowledgeSubItems: [],
+    processSubItems: [],
+    technicalSubItems: [],
+    growthSubItems: []
+  });
+
+  useEffect(() => {
+    const fetchMasterAttrs = async () => {
+      try {
+        const res = await performanceAPI.getMasterAttributes();
+        if (res.data) {
+          setMasterAttributes({
+            knowledgeSubItems: res.data.knowledgeSubItems || [],
+            processSubItems: res.data.processSubItems || [],
+            technicalSubItems: res.data.technicalSubItems || [],
+            growthSubItems: res.data.growthSubItems || []
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch master attributes", err);
+      }
+    };
+    fetchMasterAttrs();
+  }, []);
+
+  useEffect(() => {
+    const fetchAttributes = async () => {
+      if (!employeeInfo.designation) return;
+      try {
+        const response = await performanceAPI.getAttributes(employeeInfo.designation);
+        if (response.data && response.data.sections) {
+          setEnabledSections({
+            selfAppraisal: response.data.sections.selfAppraisal ?? true,
+            knowledgeSharing: response.data.sections.knowledgeSharing ?? true,
+            knowledgeSubItems: response.data.sections?.knowledgeSubItems || {
+              knowledgeSharing: true,
+              leadership: true
+            },
+            processAdherence: response.data.sections.processAdherence ?? true,
+            processSubItems: response.data.sections?.processSubItems || {},
+            technicalAssessment: response.data.sections.technicalAssessment ?? true,
+            technicalSubItems: response.data.sections?.technicalSubItems || {},
+            growthAssessment: response.data.sections.growthAssessment ?? true,
+            growthSubItems: response.data.sections?.growthSubItems || {}
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching attributes", error);
+      }
+    };
+    fetchAttributes();
+  }, [employeeInfo.designation]);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -522,6 +625,14 @@ const SelfAppraisal = () => {
   // --- Handlers ---
 
   const startNewAppraisal = () => {
+    if (!enabledSections.selfAppraisal) {
+      setStatusPopup({
+        isOpen: true,
+        status: 'info',
+        message: 'Self appraisal is not enabled for your designation.'
+      });
+      return;
+    }
     setFormData({
       year: newAppraisalYear,
       division: newAppraisalDivision,
@@ -635,6 +746,14 @@ const SelfAppraisal = () => {
   };
 
   const handleEditAppraisal = async (appraisal) => {
+    if (!enabledSections.selfAppraisal) {
+      setStatusPopup({
+        isOpen: true,
+        status: 'info',
+        message: 'Self appraisal is not enabled for your designation.'
+      });
+      return;
+    }
     try {
       const id = appraisal._id || appraisal.id;
       if (!id) throw new Error("Appraisal ID not found");
@@ -1059,33 +1178,23 @@ const SelfAppraisal = () => {
     });
   };
 
-  const getTechnicalFieldsForDivision = (division) => {
-    const d = division || 'Software';
-    if (d === 'SDS') {
-      return [
-        { key: 'codingSkills', label: 'Structural Drawing Accuracy' },
-        { key: 'testing', label: 'Steel Connection Knowledge' },
-        { key: 'debugging', label: 'Bolt & Weld Detailing Accuracy' },
-        { key: 'sds', label: 'GA / Shop / Erection Drawing Quality' },
-        { key: 'tekla', label: 'Drawing Revision & Error Reduction' }
-      ];
-    }
-    if (d === 'Tekla') {
-      return [
-        { key: 'codingSkills', label: '3D Modeling Accuracy' },
-        { key: 'testing', label: 'Clash Detection Handling' },
-        { key: 'debugging', label: 'Model Integrity & Cleanliness' },
-        { key: 'sds', label: 'Complex Connection Modeling' },
-        { key: 'tekla', label: 'Anchor Bolt Layout & Output' }
-      ];
-    }
-    return [
-      { key: 'codingSkills', label: 'Code Quality' },
-      { key: 'testing', label: 'System Architecture Understanding' },
-      { key: 'debugging', label: 'Debugging & Issue Resolution' },
-      { key: 'sds', label: 'API Integration Skills' },
-      { key: 'tekla', label: 'Testing & Validation' }
-    ];
+
+
+  const getAttributeLabel = (section, key) => {
+    const item = masterAttributes[section]?.find(i => i.key === key);
+    if (item) return item.label;
+    // Fallback for legacy keys if not in master
+    const legacyMap = {
+      knowledgeSharing: 'Knowledge Sharing',
+      leadership: 'Leadership & Influence',
+      mentoring: 'Mentoring',
+      adaptability: 'Adaptability',
+      initiatives: 'Initiatives'
+    };
+    if (section === 'knowledgeSubItems' && legacyMap[key]) return legacyMap[key];
+    
+    // Generic fallback
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
   };
 
   const handleSubmit = async (action) => {
@@ -1095,16 +1204,16 @@ const SelfAppraisal = () => {
       if (!formData.division || !formData.division.trim()) {
         missingSections.push('Division');
       }
-      if (!formData.behaviourBased?.comments || !formData.behaviourBased.comments.trim()) {
+      if (enabledSections.knowledgeSharing && (!formData.behaviourBased?.comments || !formData.behaviourBased.comments.trim())) {
         missingSections.push('Knowledge Sharing Assessment');
       }
-      if (!formData.processAdherence?.comments || !formData.processAdherence.comments.trim()) {
+      if (enabledSections.processAdherence && (!formData.processAdherence?.comments || !formData.processAdherence.comments.trim())) {
         missingSections.push('Process Adherence Assessment');
       }
-      if (!formData.technicalBased?.comments || !formData.technicalBased.comments.trim()) {
+      if (enabledSections.technicalAssessment && (!formData.technicalBased?.comments || !formData.technicalBased.comments.trim())) {
         missingSections.push('Technical Based Assessment');
       }
-      if (!formData.growthBased?.comments || !formData.growthBased.comments.trim()) {
+      if (enabledSections.growthAssessment && (!formData.growthBased?.comments || !formData.growthBased.comments.trim())) {
         missingSections.push('Growth Based Assessment');
       }
 
@@ -1152,13 +1261,19 @@ const SelfAppraisal = () => {
       <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
         <div className="w-full mx-auto">
           <div className="flex justify-between items-center mb-6">
-            <button
-              onClick={() => setShowNewAppraisalModal(true)}
-              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-full text-white bg-gradient-to-r from-[#262760] to-indigo-600 hover:from-[#1e2050] hover:to-[#262760] focus:outline-none"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              New Appraisal
-            </button>
+            {enabledSections.selfAppraisal ? (
+              <button
+                onClick={() => setShowNewAppraisalModal(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-full text-white bg-gradient-to-r from-[#262760] to-indigo-600 hover:from-[#1e2050] hover:to-[#262760] focus:outline-none"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                New Appraisal
+              </button>
+            ) : (
+              <div className="text-sm font-semibold text-gray-600 bg-white border border-gray-200 rounded-lg px-4 py-3 shadow-sm">
+                Self appraisal is disabled for your designation.
+              </div>
+            )}
           </div>
 
           <div className="bg-white shadow border-b border-gray-200 sm:rounded-lg overflow-auto max-h-[75vh]">
@@ -1490,183 +1605,227 @@ const SelfAppraisal = () => {
                 </div>
               )}
 
-              {/* Projects Section */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                  <Award className="h-5 w-5 mr-2 text-[#262760]" />
-                  Key Projects
-                </h3>
-                <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
-                  {viewData.projects && viewData.projects.length > 0 ? (
-                    <div className="divide-y divide-gray-200">
-                      {viewData.projects.map((project, index) => (
-                        <div key={index} className="p-4 hover:bg-white transition-colors">
-                          <h4 className="font-bold text-[#262760] text-lg mb-2">{index + 1}. {project.name}</h4>
-                          <div className="bg-white p-3 rounded border border-gray-100 shadow-sm">
-                             <p className="text-gray-700 whitespace-pre-wrap">{project.contribution}</p>
+              {enabledSections.selfAppraisal && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <Award className="h-5 w-5 mr-2 text-[#262760]" />
+                    Key Projects
+                  </h3>
+                  <div className="bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+                    {viewData.projects && viewData.projects.length > 0 ? (
+                      <div className="divide-y divide-gray-200">
+                        {viewData.projects.map((project, index) => (
+                          <div key={index} className="p-4 hover:bg-white transition-colors">
+                            <h4 className="font-bold text-[#262760] text-lg mb-2">{index + 1}. {project.name}</h4>
+                            <div className="bg-white p-3 rounded border border-gray-100 shadow-sm">
+                               <p className="text-gray-700 whitespace-pre-wrap">{project.contribution}</p>
+                            </div>
                           </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="p-4 text-gray-500 italic">No projects recorded.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Behaviour Based Section */}
+              {enabledSections.knowledgeSharing && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <Users className="h-5 w-5 mr-2 text-purple-600" />
+                    Knowledge Sharing Assessment
+                  </h3>
+                  <div className="bg-purple-50 rounded-lg p-5 border border-purple-100 shadow-sm">
+                    {/* Percent summary */}
+                    <div className="mb-4">
+                      <div className="text-xs font-semibold text-purple-700">Score</div>
+                      <div className="flex items-center space-x-3">
+                        {(() => {
+                          const map = {
+                            knowledgeSharing: 'communication',
+                            leadership: 'leadership',
+                            mentoring: 'teamwork',
+                            adaptability: 'adaptability',
+                            initiatives: 'initiatives'
+                          };
+                          const enabledKeys = Object.entries(enabledSections?.knowledgeSubItems || {})
+                            .filter(([k, v]) => v && map[k])
+                            .map(([k]) => map[k]);
+                          const values = enabledKeys.map(k => Number(viewData.behaviourBased?.[k] || 0)).filter(v => v > 0);
+                          const avg = values.length ? (values.reduce((a,b)=>a+b,0)/values.length) : 0;
+                          const percent = Math.round((avg / 5) * 100);
+                          return (
+                            <div className="bg-white px-3 py-2 rounded border border-purple-200 text-sm">
+                              <span className="font-bold text-purple-700">{percent}%</span>
+                              <span className="ml-2 text-gray-500">based on enabled items</span>
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                      {Object.entries(enabledSections?.knowledgeSubItems || {}).map(([k, v]) => {
+                        if (!v) return null;
+                        const labelMap = {
+                          knowledgeSharing: 'Knowledge Sharing',
+                          leadership: 'Leadership',
+                          mentoring: 'Mentoring',
+                          adaptability: 'Adaptability',
+                          initiatives: 'Initiatives'
+                        };
+                        const selfMap = {
+                          knowledgeSharing: viewData.behaviourBased?.communication,
+                          leadership: viewData.behaviourBased?.leadership,
+                          mentoring: viewData.behaviourBased?.teamwork,
+                          adaptability: viewData.behaviourBased?.adaptability,
+                          initiatives: viewData.behaviourBased?.initiatives
+                        };
+                        const mgrMap = {
+                          knowledgeSharing: viewData.behaviourCommunicationManager || 0,
+                          leadership: viewData.behaviourLeadershipManager || 0,
+                          mentoring: viewData.behaviourTeamworkManager || 0,
+                          adaptability: viewData.behaviourAdaptabilityManager || 0,
+                          initiatives: viewData.behaviourInitiativesManager || 0
+                        };
+                        return (
+                          <div key={k}>
+                            <span className="font-semibold">{labelMap[k] || k}:</span>
+                            <span className="ml-1">Self {selfMap[k]}/5</span>
+                            <span className="ml-2 text-gray-600">Manager {mgrMap[k]}/5</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {viewData.behaviourBased?.comments && (
+                      <div className="mt-2 p-3 bg-white rounded border border-purple-100">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                        <p className="text-sm text-gray-700 italic">"{viewData.behaviourBased.comments}"</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Process Adherence Section */}
+              {enabledSections.processAdherence && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <BarChart3 className="h-5 w-5 mr-2 text-orange-600" />
+                    Process Adherence
+                  </h3>
+                  <div className="bg-orange-50 rounded-lg p-5 border border-orange-100 shadow-sm">
+                    <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                      <div>
+                        <span className="font-semibold">Timesheet:</span>
+                        <span className="ml-1">Self {viewData.processAdherence?.timesheet}/5</span>
+                        <span className="ml-2 text-gray-600">Manager {viewData.processTimesheetManager || 0}/5</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Report Status:</span>
+                        <span className="ml-1">Self {viewData.processAdherence?.reportStatus}/5</span>
+                        <span className="ml-2 text-gray-600">Manager {viewData.processReportStatusManager || 0}/5</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Meeting:</span>
+                        <span className="ml-1">Self {viewData.processAdherence?.meeting}/5</span>
+                        <span className="ml-2 text-gray-600">Manager {viewData.processMeetingManager || 0}/5</span>
+                      </div>
+                    </div>
+                    {viewData.processAdherence?.comments && (
+                      <div className="mt-2 p-3 bg-white rounded border border-orange-100">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                        <p className="text-sm text-gray-700 italic">"{viewData.processAdherence.comments}"</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Technical Based Section */}
+              {enabledSections.technicalAssessment && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <Code className="h-5 w-5 mr-2 text-blue-600" />
+                    Technical Based Assessment
+                  </h3>
+                  <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm">
+                    <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                      {getTechnicalFieldsForDivision(viewData.division).map((field) => (
+                        <div key={field.key}>
+                          <span className="font-semibold">{field.label}:</span>
+                          <span className="ml-1">Self {viewData.technicalBased?.[field.key]}/5</span>
+                          <span className="ml-2 text-gray-600">
+                            Manager {viewData[`technical${field.key.charAt(0).toUpperCase() + field.key.slice(1)}Manager`] || 0}/5
+                          </span>
                         </div>
                       ))}
                     </div>
-                  ) : (
-                    <p className="p-4 text-gray-500 italic">No projects recorded.</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Behaviour Based Section */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                  <Users className="h-5 w-5 mr-2 text-purple-600" />
-                  Knowledge Sharing Assessment
-                </h3>
-                <div className="bg-purple-50 rounded-lg p-5 border border-purple-100 shadow-sm">
-                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                    <div>
-                      <span className="font-semibold">Knowledge Sharing:</span>
-                      <span className="ml-1">Self {viewData.behaviourBased?.communication}/5</span>
-                      <span className="ml-2 text-gray-600">Manager {viewData.behaviourCommunicationManager || 0}/5</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold">Mentoring:</span>
-                      <span className="ml-1">Self {viewData.behaviourBased?.teamwork}/5</span>
-                      <span className="ml-2 text-gray-600">Manager {viewData.behaviourTeamworkManager || 0}/5</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold">Leadership:</span>
-                      <span className="ml-1">Self {viewData.behaviourBased?.leadership}/5</span>
-                      <span className="ml-2 text-gray-600">Manager {viewData.behaviourLeadershipManager || 0}/5</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold">Adaptability:</span>
-                      <span className="ml-1">Self {viewData.behaviourBased?.adaptability}/5</span>
-                      <span className="ml-2 text-gray-600">Manager {viewData.behaviourAdaptabilityManager || 0}/5</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold">Initiative:</span>
-                      <span className="ml-1">Self {viewData.behaviourBased?.initiatives}/5</span>
-                      <span className="ml-2 text-gray-600">Manager {viewData.behaviourInitiativesManager || 0}/5</span>
-                    </div>
-                  </div>
-                  {viewData.behaviourBased?.comments && (
-                    <div className="mt-2 p-3 bg-white rounded border border-purple-100">
-                      <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
-                      <p className="text-sm text-gray-700 italic">"{viewData.behaviourBased.comments}"</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Process Adherence Section */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                  <BarChart3 className="h-5 w-5 mr-2 text-orange-600" />
-                  Process Adherence
-                </h3>
-                <div className="bg-orange-50 rounded-lg p-5 border border-orange-100 shadow-sm">
-                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                    <div>
-                      <span className="font-semibold">Timesheet:</span>
-                      <span className="ml-1">Self {viewData.processAdherence?.timesheet}/5</span>
-                      <span className="ml-2 text-gray-600">Manager {viewData.processTimesheetManager || 0}/5</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold">Report Status:</span>
-                      <span className="ml-1">Self {viewData.processAdherence?.reportStatus}/5</span>
-                      <span className="ml-2 text-gray-600">Manager {viewData.processReportStatusManager || 0}/5</span>
-                    </div>
-                    <div>
-                      <span className="font-semibold">Meeting:</span>
-                      <span className="ml-1">Self {viewData.processAdherence?.meeting}/5</span>
-                      <span className="ml-2 text-gray-600">Manager {viewData.processMeetingManager || 0}/5</span>
-                    </div>
-                  </div>
-                  {viewData.processAdherence?.comments && (
-                    <div className="mt-2 p-3 bg-white rounded border border-orange-100">
-                      <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
-                      <p className="text-sm text-gray-700 italic">"{viewData.processAdherence.comments}"</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Technical Based Section */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                  <Code className="h-5 w-5 mr-2 text-blue-600" />
-                  Technical Based Assessment
-                </h3>
-                <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm">
-                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                    {getTechnicalFieldsForDivision(viewData.division).map((field) => (
-                      <div key={field.key}>
-                        <span className="font-semibold">{field.label}:</span>
-                        <span className="ml-1">Self {viewData.technicalBased?.[field.key]}/5</span>
-                        <span className="ml-2 text-gray-600">
-                          Manager {viewData[`technical${field.key.charAt(0).toUpperCase() + field.key.slice(1)}Manager`] || 0}/5
-                        </span>
+                    {viewData.technicalBased?.comments && (
+                      <div className="mt-2 p-3 bg-white rounded border border-blue-100">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                        <p className="text-sm text-gray-700 italic">"{viewData.technicalBased.comments}"</p>
                       </div>
-                    ))}
+                    )}
                   </div>
-                  {viewData.technicalBased?.comments && (
-                    <div className="mt-2 p-3 bg-white rounded border border-blue-100">
-                      <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
-                      <p className="text-sm text-gray-700 italic">"{viewData.technicalBased.comments}"</p>
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
 
               {/* Growth Based Section */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                  <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
-                  Growth Based Assessment
-                </h3>
-                <div className="bg-green-50 rounded-lg p-5 border border-green-100 shadow-sm">
-                  <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                    <div>
-                      <span className="font-semibold">Learning New Tech:</span>
-                      <span className="ml-1">Self {viewData.growthBased?.learningNewTech}/5</span>
-                      <span className="ml-2 text-gray-600">Manager {viewData.growthLearningNewTechManager || 0}/5</span>
+              {enabledSections.growthAssessment && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
+                    Growth Based Assessment
+                  </h3>
+                  <div className="bg-green-50 rounded-lg p-5 border border-green-100 shadow-sm">
+                    <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
+                      <div>
+                        <span className="font-semibold">Learning New Tech:</span>
+                        <span className="ml-1">Self {viewData.growthBased?.learningNewTech}/5</span>
+                        <span className="ml-2 text-gray-600">Manager {viewData.growthLearningNewTechManager || 0}/5</span>
+                      </div>
+                      <div>
+                        <span className="font-semibold">Certifications:</span>
+                        <span className="ml-1">Self {viewData.growthBased?.certifications}/5</span>
+                        <span className="ml-2 text-gray-600">Manager {viewData.growthCertificationsManager || 0}/5</span>
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-semibold">Certifications:</span>
-                      <span className="ml-1">Self {viewData.growthBased?.certifications}/5</span>
-                      <span className="ml-2 text-gray-600">Manager {viewData.growthCertificationsManager || 0}/5</span>
-                    </div>
+                    {viewData.growthBased?.careerGoals && (
+                      <div className="mt-2">
+                        <span className="font-semibold">Career Goals:</span>
+                        <p className="text-gray-700 mt-1">{viewData.growthBased.careerGoals}</p>
+                      </div>
+                    )}
+                    {viewData.growthBased?.comments && (
+                      <div className="mt-2 p-3 bg-white rounded border border-green-100">
+                        <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
+                        <p className="text-sm text-gray-700 italic">"{viewData.growthBased.comments}"</p>
+                      </div>
+                    )}
                   </div>
-                  {viewData.growthBased?.careerGoals && (
-                    <div className="mt-2">
-                      <span className="font-semibold">Career Goals:</span>
-                      <p className="text-gray-700 mt-1">{viewData.growthBased.careerGoals}</p>
-                    </div>
-                  )}
-                  {viewData.growthBased?.comments && (
-                    <div className="mt-2 p-3 bg-white rounded border border-green-100">
-                      <p className="text-xs font-semibold text-gray-600 mb-1">Appraisee Comments</p>
-                      <p className="text-sm text-gray-700 italic">"{viewData.growthBased.comments}"</p>
-                    </div>
-                  )}
                 </div>
-              </div>
+              )}
 
               {/* Overall Contribution Section */}
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
-                  <FileText className="h-5 w-5 mr-2 text-purple-600" />
-                  Overall Contribution
-                </h3>
-                <div className="bg-purple-50 rounded-lg p-5 border border-purple-100 shadow-sm">
-                  {viewData.overallContribution ? (
-                    <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-base">
-                      {viewData.overallContribution}
-                    </p>
-                  ) : (
-                    <p className="text-gray-500 italic">No overall contribution summary provided.</p>
-                  )}
+              {enabledSections.selfAppraisal && (
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
+                    <FileText className="h-5 w-5 mr-2 text-purple-600" />
+                    Overall Contribution
+                  </h3>
+                  <div className="bg-purple-50 rounded-lg p-5 border border-purple-100 shadow-sm">
+                    {viewData.overallContribution ? (
+                      <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-base">
+                        {viewData.overallContribution}
+                      </p>
+                    ) : (
+                      <p className="text-gray-500 italic">No overall contribution summary provided.</p>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {viewData.managerComments && (
                 <div>
@@ -2100,6 +2259,7 @@ I take this opportunity to thank you for the contribution made by you during the
         <WorkflowTracker currentStageId={currentStageId} userFlow={userFlow} />
 
         {/* Projects Section */}
+        {enabledSections.selfAppraisal && (
         <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-900">Key Projects</h2>
@@ -2145,8 +2305,10 @@ I take this opportunity to thank you for the contribution made by you during the
             )}
           </div>
         </div>
+        )}
 
         {/* NEW: Behaviour Based Section */}
+        {enabledSections.knowledgeSharing && (
         <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-900 flex items-center">
@@ -2166,26 +2328,23 @@ I take this opportunity to thank you for the contribution made by you during the
 
           <div className="bg-purple-50 rounded-lg p-5 border border-purple-100">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-700">Knowledge Sharing:</span>
-                <RatingStars value={formData.behaviourBased.communication} onChange={() => {}} readOnly={true} />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-700">Mentoring:</span>
-                <RatingStars value={formData.behaviourBased.teamwork} onChange={() => {}} readOnly={true} />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-700">Leadership:</span>
-                <RatingStars value={formData.behaviourBased.leadership} onChange={() => {}} readOnly={true} />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-700">Adaptability:</span>
-                <RatingStars value={formData.behaviourBased.adaptability} onChange={() => {}} readOnly={true} />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-700">Initiative:</span>
-                <RatingStars value={formData.behaviourBased.initiatives} onChange={() => {}} readOnly={true} />
-              </div>
+              {Object.entries(enabledSections.knowledgeSubItems || {}).map(([key, enabled]) => {
+                if (!enabled) return null;
+                const keyMap = {
+                  knowledgeSharing: 'communication',
+                  leadership: 'leadership',
+                  mentoring: 'teamwork',
+                  adaptability: 'adaptability',
+                  initiatives: 'initiatives'
+                };
+                const dataKey = keyMap[key] || key;
+                return (
+                  <div key={key} className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">{getAttributeLabel('knowledgeSubItems', key)}:</span>
+                    <RatingStars value={formData.behaviourBased?.[dataKey] || 0} onChange={() => {}} readOnly={true} />
+                  </div>
+                );
+              })}
             </div>
             {formData.behaviourBased.comments && (
               <div className="mt-4 p-3 bg-white rounded border border-purple-100">
@@ -2195,8 +2354,10 @@ I take this opportunity to thank you for the contribution made by you during the
             )}
           </div>
         </div>
+        )}
 
         {/* NEW: Process Adherence Section */}
+        {enabledSections.processAdherence && (
         <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-900 flex items-center">
@@ -2216,18 +2377,15 @@ I take this opportunity to thank you for the contribution made by you during the
 
           <div className="bg-orange-50 rounded-lg p-5 border border-orange-100">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-700">Timesheet:</span>
-                <RatingStars value={formData.processAdherence?.timesheet || 0} onChange={() => {}} readOnly={true} />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-700">Report Status:</span>
-                <RatingStars value={formData.processAdherence?.reportStatus || 0} onChange={() => {}} readOnly={true} />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-700">Meeting:</span>
-                <RatingStars value={formData.processAdherence?.meeting || 0} onChange={() => {}} readOnly={true} />
-              </div>
+              {Object.entries(enabledSections.processSubItems || {}).map(([key, enabled]) => {
+                if (!enabled) return null;
+                return (
+                  <div key={key} className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">{getAttributeLabel('processSubItems', key)}:</span>
+                    <RatingStars value={formData.processAdherence?.[key] || 0} onChange={() => {}} readOnly={true} />
+                  </div>
+                );
+              })}
             </div>
             {formData.processAdherence?.comments && (
               <div className="mt-4 p-3 bg-white rounded border border-orange-100">
@@ -2237,8 +2395,10 @@ I take this opportunity to thank you for the contribution made by you during the
             )}
           </div>
         </div>
+        )}
 
         {/* NEW: Technical Based Section */}
+        {enabledSections.technicalAssessment && (
         <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-900 flex items-center">
@@ -2258,12 +2418,15 @@ I take this opportunity to thank you for the contribution made by you during the
 
           <div className="bg-blue-50 rounded-lg p-5 border border-blue-100">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {getTechnicalFieldsForDivision(formData.division).map((field) => (
-                <div className="flex justify-between items-center" key={field.key}>
-                  <span className="font-medium text-gray-700">{field.label}:</span>
-                  <RatingStars value={formData.technicalBased[field.key]} onChange={() => {}} readOnly={true} />
-                </div>
-              ))}
+              {Object.entries(enabledSections.technicalSubItems || {}).map(([key, enabled]) => {
+                if (!enabled) return null;
+                return (
+                  <div key={key} className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">{getAttributeLabel('technicalSubItems', key)}:</span>
+                    <RatingStars value={formData.technicalBased?.[key] || 0} onChange={() => {}} readOnly={true} />
+                  </div>
+                );
+              })}
             </div>
             {formData.technicalBased.comments && (
               <div className="mt-4 p-3 bg-white rounded border border-blue-100">
@@ -2273,8 +2436,10 @@ I take this opportunity to thank you for the contribution made by you during the
             )}
           </div>
         </div>
+        )}
 
         {/* NEW: Growth Based Section */}
+        {enabledSections.growthAssessment && (
         <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-bold text-gray-900 flex items-center">
@@ -2294,14 +2459,15 @@ I take this opportunity to thank you for the contribution made by you during the
 
           <div className="bg-green-50 rounded-lg p-5 border border-green-100">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-700">Learning New Tech:</span>
-                <RatingStars value={formData.growthBased.learningNewTech} onChange={() => {}} readOnly={true} />
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="font-medium text-gray-700">Certifications:</span>
-                <RatingStars value={formData.growthBased.certifications} onChange={() => {}} readOnly={true} />
-              </div>
+              {Object.entries(enabledSections.growthSubItems || {}).map(([key, enabled]) => {
+                if (!enabled) return null;
+                return (
+                  <div key={key} className="flex justify-between items-center">
+                    <span className="font-medium text-gray-700">{getAttributeLabel('growthSubItems', key)}:</span>
+                    <RatingStars value={formData.growthBased?.[key] || 0} onChange={() => {}} readOnly={true} />
+                  </div>
+                );
+              })}
             </div>
             {formData.growthBased.careerGoals && (
               <div className="mt-3">
@@ -2317,6 +2483,7 @@ I take this opportunity to thank you for the contribution made by you during the
             )}
           </div>
         </div>
+        )}
 
         {/* Overall Contribution Section */}
         <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
@@ -2415,49 +2582,65 @@ I take this opportunity to thank you for the contribution made by you during the
         isOpen={showBehaviourModal}
         onClose={() => setShowBehaviourModal(false)}
         title="Knowledge Sharing Assessment"
-        icon={Users}a
+        icon={Users}
         colorTheme="purple"
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Knowledge Sharing</label>
-            <RatingStars 
-              value={formData.behaviourBased.communication} 
-              onChange={(value) => updateBehaviourRating('communication', value)} 
-            />
+          {/* Percent summary */}
+          <div className="rounded-md bg-purple-50 border border-purple-100 p-3 text-sm">
+            {(() => {
+              const map = {
+                knowledgeSharing: 'communication',
+                leadership: 'leadership',
+                mentoring: 'teamwork',
+                adaptability: 'adaptability',
+                initiatives: 'initiatives'
+              };
+              const enabledKeys = Object.entries(enabledSections?.knowledgeSubItems || {})
+                .filter(([k, v]) => v && map[k])
+                .map(([k]) => map[k]);
+              const values = enabledKeys.map(k => Number(formData.behaviourBased?.[k] || 0)).filter(v => v > 0);
+              const avg = values.length ? (values.reduce((a,b)=>a+b,0)/values.length) : 0;
+              const percent = Math.round((avg / 5) * 100);
+              return (
+                <>
+                  <span className="font-semibold text-purple-700">Score: {percent}%</span>
+                  <span className="ml-2 text-gray-600">based on enabled items</span>
+                </>
+              );
+            })()}
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Mentoring</label>
-            <RatingStars 
-              value={formData.behaviourBased.teamwork} 
-              onChange={(value) => updateBehaviourRating('teamwork', value)} 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Leadership & Influence</label>
-            <RatingStars 
-              value={formData.behaviourBased.leadership} 
-              onChange={(value) => updateBehaviourRating('leadership', value)} 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Adaptability & Flexibility</label>
-            <RatingStars 
-              value={formData.behaviourBased.adaptability} 
-              onChange={(value) => updateBehaviourRating('adaptability', value)} 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Initiative & Proactiveness</label>
-            <RatingStars 
-              value={formData.behaviourBased.initiatives} 
-              onChange={(value) => updateBehaviourRating('initiatives', value)} 
-            />
-          </div>
+          {Object.entries(enabledSections?.knowledgeSubItems || {}).map(([k, v]) => {
+            if (!v) return null;
+            const labelMap = {
+              knowledgeSharing: 'Knowledge Sharing',
+              leadership: 'Leadership & Influence',
+              mentoring: 'Mentoring',
+              adaptability: 'Adaptability',
+              initiatives: 'Initiatives'
+            };
+            const keyMap = {
+              knowledgeSharing: 'communication',
+              leadership: 'leadership',
+              mentoring: 'teamwork',
+              adaptability: 'adaptability',
+              initiatives: 'initiatives'
+            };
+            const ratingKey = keyMap[k];
+            return (
+              <div key={k}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{labelMap[k] || k}</label>
+                <RatingStars 
+                  value={formData.behaviourBased[ratingKey]} 
+                  onChange={(value) => updateBehaviourRating(ratingKey, value)} 
+                />
+              </div>
+            );
+          })}
           <div className="rounded-md bg-purple-50 border border-purple-100 p-3 text-xs text-gray-700">
             <span className="font-semibold">KPP Description: </span>
-            This assessment covers knowledge sharing, mentoring, leadership, adaptability and initiative
+            This assessment covers knowledge sharing and leadership
             shown while working with team members and stakeholders.
           </div>
           <div>
@@ -2499,39 +2682,37 @@ I take this opportunity to thank you for the contribution made by you during the
         maxWidth="max-w-2xl"
       >
           <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Timesheet</label>
-            <p className="text-xs text-gray-500 mb-1">
-              Timely submission, accurate entries, daily discipline, correct project allocation, minimal missed timesheets.
-            </p>
-            <RatingStars 
-              value={formData.processAdherence?.timesheet || 0} 
-              onChange={(value) => updateProcessRating('timesheet', value)} 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Report Status</label>
-            <p className="text-xs text-gray-500 mb-1">
-              Daily/weekly report timeliness, accuracy, clarity of progress, delay justification, report format compliance.
-            </p>
-            <p className="text-[11px] text-gray-500 mb-1">
-              SDS/Tekla: Drawing status reports. Software: Sprint / task reports.
-            </p>
-            <RatingStars 
-              value={formData.processAdherence?.reportStatus || 0} 
-              onChange={(value) => updateProcessRating('reportStatus', value)} 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Meeting</label>
-            <p className="text-xs text-gray-500 mb-1">
-              Attendance and punctuality, active participation, action item completion, MOM follow-up.
-            </p>
-            <RatingStars 
-              value={formData.processAdherence?.meeting || 0} 
-              onChange={(value) => updateProcessRating('meeting', value)} 
-            />
-          </div>
+            {Object.entries(enabledSections.processSubItems || {}).map(([key, enabled]) => {
+              if (!enabled) return null;
+              
+              const descriptions = {
+                timesheet: 'Timely submission, accurate entries, daily discipline, correct project allocation, minimal missed timesheets.',
+                reportStatus: 'Daily/weekly report timeliness, accuracy, clarity of progress, delay justification, report format compliance.',
+                meeting: 'Attendance and punctuality, active participation, action item completion, MOM follow-up.'
+              };
+
+              const subDescriptions = {
+                reportStatus: 'SDS/Tekla: Drawing status reports. Software: Sprint / task reports.'
+              };
+
+              return (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {getAttributeLabel('processSubItems', key)}
+                  </label>
+                  {descriptions[key] && (
+                    <p className="text-xs text-gray-500 mb-1">{descriptions[key]}</p>
+                  )}
+                  {subDescriptions[key] && (
+                    <p className="text-[11px] text-gray-500 mb-1">{subDescriptions[key]}</p>
+                  )}
+                  <RatingStars 
+                    value={formData.processAdherence?.[key] || 0} 
+                    onChange={(value) => updateProcessRating(key, value)} 
+                  />
+                </div>
+              );
+            })}
           <div className="rounded-md bg-orange-50 border border-orange-100 p-3 text-xs text-gray-700">
             <span className="font-semibold">KPP Description: </span>
             Overall adherence to company processes for timesheets, reporting and meeting discipline.
@@ -2575,15 +2756,18 @@ I take this opportunity to thank you for the contribution made by you during the
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          {getTechnicalFieldsForDivision(formData.division).map((field) => (
-            <div key={field.key}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">{field.label}</label>
-              <RatingStars 
-                value={formData.technicalBased[field.key]} 
-                onChange={(value) => updateTechnicalRating(field.key, value)} 
-              />
-            </div>
-          ))}
+          {Object.entries(enabledSections.technicalSubItems || {}).map(([key, enabled]) => {
+            if (!enabled) return null;
+            return (
+              <div key={key}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{getAttributeLabel('technicalSubItems', key)}</label>
+                <RatingStars 
+                  value={formData.technicalBased?.[key] || 0} 
+                  onChange={(value) => updateTechnicalRating(key, value)} 
+                />
+              </div>
+            );
+          })}
           <div className="rounded-md bg-blue-50 border border-blue-100 p-3 text-xs text-gray-700">
             <span className="font-semibold">KPP Description: </span>
             Technical attributes based on selected division (Software / SDS / Tekla).
@@ -2627,20 +2811,18 @@ I take this opportunity to thank you for the contribution made by you during the
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Learning New Technologies</label>
-            <RatingStars 
-              value={formData.growthBased.learningNewTech} 
-              onChange={(value) => updateGrowthRating('learningNewTech', value)} 
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Certifications & Courses</label>
-            <RatingStars 
-              value={formData.growthBased.certifications} 
-              onChange={(value) => updateGrowthRating('certifications', value)} 
-            />
-          </div>
+          {Object.entries(enabledSections.growthSubItems || {}).map(([key, enabled]) => {
+            if (!enabled) return null;
+            return (
+              <div key={key}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{getAttributeLabel('growthSubItems', key)}</label>
+                <RatingStars 
+                  value={formData.growthBased?.[key] || 0} 
+                  onChange={(value) => updateGrowthRating(key, value)} 
+                />
+              </div>
+            );
+          })}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Career Goals & Aspirations</label>
             <textarea

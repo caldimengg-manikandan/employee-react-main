@@ -51,7 +51,7 @@ router.get('/', auth, async (req, res) => {
     // Populate employee details
     // Note: employeeId in SelfAppraisal is a ref to Employee model
     const appraisals = await SelfAppraisal.find(query)
-      .populate('employeeId', 'name employeeId designation department avatar');
+      .populate('employeeId', 'name employeeId designation department avatar location');
 
     // Transform to frontend format
     // Use Promise.all to handle async calculation
@@ -84,8 +84,10 @@ router.get('/', auth, async (req, res) => {
         designation: emp.designation || 'N/A',
         department: emp.department || 'N/A',
         division: app.division || '',
+        location: emp.location || 'N/A',
         status: app.status,
         overallContribution: app.overallContribution || '',
+        projects: app.projects || [],
         selfAppraiseeComments: app.overallContribution || '',
         managerComments: app.managerComments || '',
         keyPerformance: app.keyPerformance || '',
@@ -101,6 +103,11 @@ router.get('/', auth, async (req, res) => {
         technicalBased: app.technicalBased || {},
         growthBased: app.growthBased || {},
 
+        behaviourManagerComments: app.behaviourManagerComments || '',
+        processManagerComments: app.processManagerComments || '',
+        technicalManagerComments: app.technicalManagerComments || '',
+        growthManagerComments: app.growthManagerComments || '',
+
         behaviourCommunicationManager: app.behaviourCommunicationManager || 0,
         behaviourTeamworkManager: app.behaviourTeamworkManager || 0,
         behaviourLeadershipManager: app.behaviourLeadershipManager || 0,
@@ -111,7 +118,7 @@ router.get('/', auth, async (req, res) => {
         processReportStatusManager: app.processReportStatusManager || 0,
         processMeetingManager: app.processMeetingManager || 0,
 
-        technicalCodingManager: app.technicalCodingManager || 0,
+        technicalCodingSkillsManager: app.technicalCodingSkillsManager || 0,
         technicalTestingManager: app.technicalTestingManager || 0,
         technicalDebuggingManager: app.technicalDebuggingManager || 0,
         technicalSdsManager: app.technicalSdsManager || 0,
@@ -145,6 +152,11 @@ router.put('/:id', auth, async (req, res) => {
       status,
       incrementPercentage,
 
+      behaviourManagerComments,
+      processManagerComments,
+      technicalManagerComments,
+      growthManagerComments,
+
       behaviourCommunicationManager,
       behaviourTeamworkManager,
       behaviourLeadershipManager,
@@ -155,7 +167,7 @@ router.put('/:id', auth, async (req, res) => {
       processReportStatusManager,
       processMeetingManager,
 
-      technicalCodingManager,
+      technicalCodingSkillsManager,
       technicalTestingManager,
       technicalDebuggingManager,
       technicalSdsManager,
@@ -194,6 +206,11 @@ router.put('/:id', auth, async (req, res) => {
     if (status !== undefined) appraisal.status = status;
     if (incrementPercentage !== undefined) appraisal.incrementPercentage = incrementPercentage;
 
+    if (behaviourManagerComments !== undefined) appraisal.behaviourManagerComments = behaviourManagerComments;
+    if (processManagerComments !== undefined) appraisal.processManagerComments = processManagerComments;
+    if (technicalManagerComments !== undefined) appraisal.technicalManagerComments = technicalManagerComments;
+    if (growthManagerComments !== undefined) appraisal.growthManagerComments = growthManagerComments;
+
     if (behaviourCommunicationManager !== undefined) appraisal.behaviourCommunicationManager = behaviourCommunicationManager;
     if (behaviourTeamworkManager !== undefined) appraisal.behaviourTeamworkManager = behaviourTeamworkManager;
     if (behaviourLeadershipManager !== undefined) appraisal.behaviourLeadershipManager = behaviourLeadershipManager;
@@ -204,7 +221,7 @@ router.put('/:id', auth, async (req, res) => {
     if (processReportStatusManager !== undefined) appraisal.processReportStatusManager = processReportStatusManager;
     if (processMeetingManager !== undefined) appraisal.processMeetingManager = processMeetingManager;
 
-    if (technicalCodingManager !== undefined) appraisal.technicalCodingManager = technicalCodingManager;
+    if (technicalCodingSkillsManager !== undefined) appraisal.technicalCodingSkillsManager = technicalCodingSkillsManager;
     if (technicalTestingManager !== undefined) appraisal.technicalTestingManager = technicalTestingManager;
     if (technicalDebuggingManager !== undefined) appraisal.technicalDebuggingManager = technicalDebuggingManager;
     if (technicalSdsManager !== undefined) appraisal.technicalSdsManager = technicalSdsManager;
