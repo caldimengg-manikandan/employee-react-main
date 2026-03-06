@@ -13,8 +13,8 @@ router.get('/', auth, async (req, res) => {
   try {
     // Strict Visibility Rule: Only assigned Appraiser can view (for manager roles)
     // Sequential Flow: Include all post-submission stages including final Reviewed state
-    const statusFilter = { 
-      $in: ['Submitted', 'SUBMITTED', 'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'Released', 'Reviewed'] 
+    const statusFilter = {
+      $in: ['Submitted', 'SUBMITTED', 'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'Released', 'Reviewed']
     };
 
     const role = (req.user.role || '').toLowerCase();
@@ -30,7 +30,7 @@ router.get('/', auth, async (req, res) => {
     const hasManagerPermission =
       Array.isArray(req.user.permissions) &&
       (req.user.permissions.includes('project_access') ||
-       req.user.permissions.includes('employee_access'));
+        req.user.permissions.includes('employee_access'));
 
     if (!hasManagerLikeRole && !hasManagerPermission) {
       return res.status(403).json({ success: false, message: 'Not authorized to view team appraisals' });
@@ -57,22 +57,22 @@ router.get('/', auth, async (req, res) => {
     // Use Promise.all to handle async calculation
     const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
       const emp = app.employeeId || {};
-      
+
       // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
       // This ensures Managers see the correct value even if they haven't opened it before
       let finalIncrementPercentage = app.incrementPercentage || 0;
-      
+
       if (finalIncrementPercentage === 0 && app.appraiserRating && app.year && emp.designation) {
-         try {
-           const calculated = await calculateIncrement(app.year, emp.designation, app.appraiserRating);
-           if (calculated > 0) {
-             finalIncrementPercentage = calculated;
-             // Update the DB record silently so it is fixed for good
-             await SelfAppraisal.updateOne({ _id: app._id }, { $set: { incrementPercentage: calculated } });
-           }
-         } catch (err) {
-           console.error(`Auto-calc failed for appraisal ${app._id}:`, err);
-         }
+        try {
+          const calculated = await calculateIncrement(app.year, emp.designation, app.appraiserRating);
+          if (calculated > 0) {
+            finalIncrementPercentage = calculated;
+            // Update the DB record silently so it is fixed for good
+            await SelfAppraisal.updateOne({ _id: app._id }, { $set: { incrementPercentage: calculated } });
+          }
+        } catch (err) {
+          console.error(`Auto-calc failed for appraisal ${app._id}:`, err);
+        }
       }
 
       return {
@@ -98,10 +98,10 @@ router.get('/', auth, async (req, res) => {
         communication: app.communication || '',
         incrementPercentage: finalIncrementPercentage,
 
-        behaviourBased: app.behaviourBased || {},
-        processAdherence: app.processAdherence || {},
-        technicalBased: app.technicalBased || {},
-        growthBased: app.growthBased || {},
+        behaviourBased: app.behaviourBased ? (app.behaviourBased.toJSON ? app.behaviourBased.toJSON() : app.behaviourBased) : {},
+        processAdherence: app.processAdherence ? (app.processAdherence.toJSON ? app.processAdherence.toJSON() : app.processAdherence) : {},
+        technicalBased: app.technicalBased ? (app.technicalBased.toJSON ? app.technicalBased.toJSON() : app.technicalBased) : {},
+        growthBased: app.growthBased ? (app.growthBased.toJSON ? app.growthBased.toJSON() : app.growthBased) : {},
 
         behaviourManagerComments: app.behaviourManagerComments || '',
         processManagerComments: app.processManagerComments || '',
@@ -126,6 +126,11 @@ router.get('/', auth, async (req, res) => {
 
         growthLearningNewTechManager: app.growthLearningNewTechManager || 0,
         growthCertificationsManager: app.growthCertificationsManager || 0,
+
+        behaviourManagerRatings: app.behaviourManagerRatings ? (app.behaviourManagerRatings.toJSON ? app.behaviourManagerRatings.toJSON() : app.behaviourManagerRatings) : {},
+        processManagerRatings: app.processManagerRatings ? (app.processManagerRatings.toJSON ? app.processManagerRatings.toJSON() : app.processManagerRatings) : {},
+        technicalManagerRatings: app.technicalManagerRatings ? (app.technicalManagerRatings.toJSON ? app.technicalManagerRatings.toJSON() : app.technicalManagerRatings) : {},
+        growthManagerRatings: app.growthManagerRatings ? (app.growthManagerRatings.toJSON ? app.growthManagerRatings.toJSON() : app.growthManagerRatings) : {},
       };
     }));
 
@@ -141,13 +146,13 @@ router.get('/', auth, async (req, res) => {
 // @access  Private (Manager)
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { 
-      managerComments, 
-      keyPerformance, 
-      appraiseeComments, 
-      appraiserRating, 
-      leadership, 
-      attitude, 
+    const {
+      managerComments,
+      keyPerformance,
+      appraiseeComments,
+      appraiserRating,
+      leadership,
+      attitude,
       communication,
       status,
       incrementPercentage,
@@ -174,7 +179,12 @@ router.put('/:id', auth, async (req, res) => {
       technicalTeklaManager,
 
       growthLearningNewTechManager,
-      growthCertificationsManager
+      growthCertificationsManager,
+
+      behaviourManagerRatings,
+      processManagerRatings,
+      technicalManagerRatings,
+      growthManagerRatings
     } = req.body;
 
     let appraisal = await SelfAppraisal.findById(req.params.id);
@@ -230,8 +240,13 @@ router.put('/:id', auth, async (req, res) => {
     if (growthLearningNewTechManager !== undefined) appraisal.growthLearningNewTechManager = growthLearningNewTechManager;
     if (growthCertificationsManager !== undefined) appraisal.growthCertificationsManager = growthCertificationsManager;
 
+    if (behaviourManagerRatings !== undefined) appraisal.behaviourManagerRatings = behaviourManagerRatings;
+    if (processManagerRatings !== undefined) appraisal.processManagerRatings = processManagerRatings;
+    if (technicalManagerRatings !== undefined) appraisal.technicalManagerRatings = technicalManagerRatings;
+    if (growthManagerRatings !== undefined) appraisal.growthManagerRatings = growthManagerRatings;
+
     appraisal.updatedAt = Date.now();
-    
+
     // Optionally record who updated it if needed
     // appraisal.appraiser = req.user.name; 
 

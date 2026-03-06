@@ -351,15 +351,7 @@ const AppraisalWorkflow = () => {
                                                 <Save className="h-4 w-4" />
                                             </div>
                                         </button>
-                                        <button 
-                                            onClick={() => handleDelete(row.id)} 
-                                            className="text-red-600 hover:text-red-900 transition-colors"
-                                            title="Delete"
-                                        >
-                                            <div className="bg-red-50 p-2 rounded-lg hover:bg-red-100">
-                                                <Trash2 className="h-4 w-4" />
-                                            </div>
-                                        </button>
+                                        
                                     </div>
                                 </td>
                             </tr>

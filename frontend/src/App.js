@@ -141,81 +141,81 @@ function App() {
             <Route
               path="admin/timesheet"
               element={
-                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin", "projectmanager", "project_manager"]}>
+                <ProtectedRoute requiredPermissions={["admin_timesheet_access", "admin_timesheet"]} roles={["admin", "projectmanager", "project_manager"]}>
                   <AdminTimesheet />
                 </ProtectedRoute>
               }
             />
-            <Route 
+            <Route
               path="admin/timesheet/approval"
               element={
-                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin"]}>
+                <ProtectedRoute requiredPermissions={["admin_timesheet_access", "timesheet_summary"]} roles={["admin"]}>
                   <TimesheetSummary />
                 </ProtectedRoute>
               }
             />
-            
+
             {/* Special Permission Approval */}
-            <Route 
+            <Route
               path="admin/special-permissions"
               element={
-                <ProtectedRoute requiredPermissions={["timesheet_access"]} roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
+                <ProtectedRoute requiredPermissions={["admin_timesheet_access", "special_permission"]} roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
                   <AdminSpecialPermission />
                 </ProtectedRoute>
               }
             />
 
-            
+
             <Route
               path="admin/interns"
               element={
-                <ProtectedRoute roles={["admin", "hr", "manager"]}>
+                <ProtectedRoute requiredPermissions={["intern_reference"]} roles={["admin", "hr", "manager"]}>
                   <InternReference />
                 </ProtectedRoute>
               }
             />
 
 
-              {/* ---------------- Exit Management ---------------- */}
-            <Route 
-              path="employee-exit/form" 
+            {/* ---------------- Exit Management ---------------- */}
+            <Route
+              path="employee-exit/form"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["exit_form_access"]} 
+                <ProtectedRoute
+                  requiredPermissions={["exit_form_access"]}
                   allowEmployeeRole
                   roles={["employees", "projectmanager", "project_manager"]}
                 >
                   <ExitForm />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="employee-exit/approval" 
+            <Route
+              path="employee-exit/approval"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["exit_approval_access"]} 
+                <ProtectedRoute
+                  requiredPermissions={["exit_access", "exit_approval_access"]}
                   roles={["admin", "hr", "manager"]}
                 >
                   <ExitApproval />
                 </ProtectedRoute>
-              } 
+              }
             />
 
             {/* ---------------- Project Allocation ---------------- */}
-            <Route 
-              path="project-allocation" 
+            <Route
+              path="project-allocation"
               element={
                 <ProtectedRoute requiredPermissions={["project_access"]} roles={["admin", "projectmanager", "project_manager"]}>
                   <ProjectAllocation />
                 </ProtectedRoute>
-              } 
+              }
             />
 
             {/* ---------------- Insurance & Policy ---------------- */}
             <Route
               path="insurance"
               element={
-                <ProtectedRoute requiredPermissions={["dashboard"]}>
+                <ProtectedRoute requiredPermissions={["insurance_access"]}>
                   <InsuranceManagement />
                 </ProtectedRoute>
               }
@@ -223,177 +223,177 @@ function App() {
             <Route
               path="policies"
               element={
-                <ProtectedRoute requiredPermissions={["dashboard"]} allowEmployeeRole>
+                <ProtectedRoute requiredPermissions={["policy_portal"]} allowEmployeeRole>
                   <PolicyPortal />
                 </ProtectedRoute>
               }
             />
 
             {/* ---------------- Salary Slips - ADDED ---------------- */}
-            <Route 
-              path="salaryslips" 
+            <Route
+              path="salaryslips"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["payroll_view"]} 
+                <ProtectedRoute
+                  requiredPermissions={["salary_slips"]}
                   roles={["admin", "hr", "employees", "projectmanager", "project_manager"]}
                   allowEmployeeRole
                 >
                   <SalarySlips />
                 </ProtectedRoute>
-              } 
+              }
             />
 
-            <Route 
-              path="salaryslips/pf-gratuity" 
+            <Route
+              path="salaryslips/pf-gratuity"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["payroll_view"]} 
+                <ProtectedRoute
+                  requiredPermissions={["salary_slips"]}
                   roles={["admin", "hr", "employees", "projectmanager", "project_manager"]}
                   allowEmployeeRole
                 >
                   <PFGratuitySummary />
                 </ProtectedRoute>
-              } 
+              }
             />
 
             {/* ---------------- Expenditure Management ---------------- */}
-            <Route 
-              path="expenditure-management" 
+            <Route
+              path="expenditure-management"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["expenditure_access"]} 
+                <ProtectedRoute
+                  requiredPermissions={["expenditure_access"]}
                   roles={["admin", "hr", "finance"]}
                 >
                   <ExpenditureManagement />
                 </ProtectedRoute>
-              } 
+              }
             />
 
-            <Route 
-              path="bank-of-resumes" 
+            <Route
+              path="bank-of-resumes"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["resume_access"]} 
+                <ProtectedRoute
+                  requiredPermissions={["resume_access"]}
                   roles={["admin", "hr"]}
                 >
                   <BankRepository />
                 </ProtectedRoute>
-              } 
+              }
             />
 
             {/* ---------------- LEAVE MANAGEMENT MODULES (NO DASHBOARD) ---------------- */}
-            
+
             {/* Edit Leave Eligibility */}
-            <Route 
-              path="leave-management/edit-eligibility" 
+            <Route
+              path="leave-management/edit-eligibility"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["leave_manage"]} 
+                <ProtectedRoute
+                  requiredPermissions={["leave_manage"]}
                   roles={["admin", "hr"]}
                 >
                   <EditLeaveEligibility />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
+
             {/* Leave Summary */}
-            <Route 
-              path="leave-management/summary" 
+            <Route
+              path="leave-management/summary"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["leave_view"]} 
+                <ProtectedRoute
+                  requiredPermissions={["leave_group_access", "leave_summary"]}
                   roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}
                 >
                   <LeaveSummary />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
+
             {/* Leave Balance */}
-            <Route 
-              path="leave-management/balance" 
+            <Route
+              path="leave-management/balance"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["leave_view"]} 
+                <ProtectedRoute
+                  requiredPermissions={["leave_group_access", "leave_balance"]}
                   roles={["admin", "hr", "manager", "employees"]}
                   allowEmployeeRole
                 >
                   <LeaveBalance />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
+
             {/* Trainees Management */}
-            <Route 
-              path="leave-management/trainees" 
+            <Route
+              path="leave-management/trainees"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["leave_manage_trainees"]} 
+                <ProtectedRoute
+                  requiredPermissions={["leave_manage_trainees"]}
                   roles={["admin", "hr"]}
                 >
                   <TraineeManagement />
                 </ProtectedRoute>
-              } 
+              }
             />
 
             {/* ---------------- Leave Application ---------------- */}
-            <Route 
-              path="leave-applications" 
+            <Route
+              path="leave-applications"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["leave_access"]} 
-                  roles={["employees", "projectmanager", "project_manager"]} 
+                <ProtectedRoute
+                  requiredPermissions={["leave_access"]}
+                  roles={["employees", "projectmanager", "project_manager"]}
                   allowEmployeeRole
                 >
                   <LeaveApplications />
                 </ProtectedRoute>
-              } 
+              }
             />
-            
+
             {/* ---------------- Employee Reward Tracker ---------------- */}
-            <Route 
-              path="employee-reward-tracker" 
+            <Route
+              path="employee-reward-tracker"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["reward_access"]} 
+                <ProtectedRoute
+                  requiredPermissions={["reward_access"]}
                   roles={["admin", "hr", "manager"]}
                 >
                   <EmployeeRewardTracker />
                 </ProtectedRoute>
-              } 
+              }
             />
 
-              {/* ---------------- Holidays Allowance ---------------- */}
-            <Route 
-              path="holidays-allowance" 
+            {/* ---------------- Holidays Allowance ---------------- */}
+            <Route
+              path="holidays-allowance"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["payroll_view"]} 
+                <ProtectedRoute
+                  requiredPermissions={["holiday_allowance"]}
                   roles={["admin", "hr", "manager"]}
                   allowEmployeeRole
                 >
                   <HolidaysAllowance />
                 </ProtectedRoute>
-              } 
+              }
             />
-            <Route 
-              path="holidays-allowance/summary" 
+            <Route
+              path="holidays-allowance/summary"
               element={
-                <ProtectedRoute 
-                  requiredPermissions={["payroll_view"]} 
+                <ProtectedRoute
+                  requiredPermissions={["holiday_allowance"]}
                   roles={["admin", "hr", "manager"]}
                   allowEmployeeRole
                 >
                   <HolidaysAllowanceSummary />
                 </ProtectedRoute>
-              } 
+              }
             />
 
             {/* PAYROLL */}
             <Route
               path="payroll/details"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "payroll_details"]} roles={["admin", "hr", "finance"]}>
                   <PayrollDetails />
                 </ProtectedRoute>
               }
@@ -401,7 +401,7 @@ function App() {
             <Route
               path="payroll/compensation-master"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "compensation_master"]} roles={["admin", "hr", "finance"]}>
                   <CompensationMaster />
                 </ProtectedRoute>
               }
@@ -409,7 +409,7 @@ function App() {
             <Route
               path="payroll/cost-to-the-company"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_view"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "cost_to_company"]} roles={["admin", "hr", "finance"]}>
                   <CostToTheCompany />
                 </ProtectedRoute>
               }
@@ -417,7 +417,7 @@ function App() {
             <Route
               path="payroll/loan-summary"
               element={
-                <ProtectedRoute requiredPermissions={["loan_view"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "loan_summary"]} roles={["admin", "hr", "finance"]}>
                   <LoanSummary />
                 </ProtectedRoute>
               }
@@ -425,7 +425,7 @@ function App() {
             <Route
               path="payroll/gratuity-summary"
               element={
-                <ProtectedRoute requiredPermissions={["gratuity_view"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "gratuity_summary"]} roles={["admin", "hr", "finance"]}>
                   <GratuitySummary />
                 </ProtectedRoute>
               }
@@ -433,13 +433,13 @@ function App() {
             <Route
               path="payroll/monthly"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "monthly_payroll"]} roles={["admin", "hr", "finance"]}>
                   <MonthlyPayroll />
                 </ProtectedRoute>
               }
             />
 
-        
+
 
             {/* ---------------- User & Employee Management ---------------- */}
             <Route
@@ -484,7 +484,7 @@ function App() {
             <Route
               path="performance/self-appraisal"
               element={
-                <ProtectedRoute allowEmployeeRole>
+                <ProtectedRoute requiredPermissions={["performance_access", "self_appraisal"]} allowEmployeeRole>
                   <SelfAppraisal />
                 </ProtectedRoute>
               }
@@ -492,7 +492,7 @@ function App() {
             <Route
               path="performance/team-appraisal"
               element={
-                <ProtectedRoute roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
+                <ProtectedRoute requiredPermissions={["performance_access", "team_appraisal"]} roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
                   <TeamAppraisal />
                 </ProtectedRoute>
               }
@@ -500,7 +500,7 @@ function App() {
             <Route
               path="performance/reviewer-approval"
               element={
-                <ProtectedRoute roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
+                <ProtectedRoute requiredPermissions={["performance_access", "reviewer_approval"]} roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
                   <ReviewerApproval />
                 </ProtectedRoute>
               }
@@ -508,7 +508,7 @@ function App() {
             <Route
               path="performance/director-approval"
               element={
-                <ProtectedRoute roles={["admin", "hr", "manager", "director"]}>
+                <ProtectedRoute requiredPermissions={["performance_access", "director_approval"]} roles={["admin", "hr", "manager", "director"]}>
                   <DirectorApproval />
                 </ProtectedRoute>
               }
@@ -516,7 +516,7 @@ function App() {
             <Route
               path="performance/appraisal-workflow"
               element={
-                <ProtectedRoute allowEmployeeRole>
+                <ProtectedRoute requiredPermissions={["performance_access", "appraisal_workflow"]} allowEmployeeRole>
                   <AppraisalWorkflow />
                 </ProtectedRoute>
               }
@@ -524,7 +524,7 @@ function App() {
             <Route
               path="performance/increment-master"
               element={
-                <ProtectedRoute roles={["admin", "hr"]}>
+                <ProtectedRoute requiredPermissions={["performance_access", "appraisal_master"]} roles={["admin", "hr"]}>
                   <AppraisalMaster />
                 </ProtectedRoute>
               }
@@ -532,7 +532,7 @@ function App() {
             <Route
               path="performance/increment-summary"
               element={
-                <ProtectedRoute roles={["admin", "hr", "manager"]}>
+                <ProtectedRoute requiredPermissions={["performance_access", "increment_summary"]} roles={["admin", "hr", "manager"]}>
                   <IncrementSummary />
                 </ProtectedRoute>
               }
@@ -540,12 +540,12 @@ function App() {
             <Route
               path="performance/attendance-summary"
               element={
-                <ProtectedRoute roles={["admin", "hr", "manager"]}>
+                <ProtectedRoute requiredPermissions={["performance_access", "attendance_summary"]} roles={["admin", "hr", "manager"]}>
                   <AttendanceSummary />
                 </ProtectedRoute>
               }
             />
-            
+
             {/* ---------------- Announcements ---------------- */}
             <Route
               path="announcements"

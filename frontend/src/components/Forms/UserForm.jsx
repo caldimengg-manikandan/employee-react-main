@@ -23,106 +23,138 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
   const [employeeSearch, setEmployeeSearch] = useState('');
 
-  const permissionOptions = [
-    // Dashboard & Profile
-    { key: 'home', label: 'Home', alwaysOn: true },
-    { key: 'my_profile', label: 'My Profile', alwaysOn: true },
-    { key: 'dashboard', label: 'Dashboard' },
-
-    // Timesheet
-    { key: 'timesheet_access', label: 'Timesheet', alwaysOn: true },
-    { key: 'timesheet_access', label: 'Timesheet History' },
-    { key: 'timesheet_access', label: 'Attendance Regularization' },
-    { key: 'attendance_access', label: 'Employee Attendance' },
-    { key: 'attendance_access', label: 'Attendance Approval' },
-    { key: 'admin_timesheet_access', label: 'Admin Timesheet' },
-    { key: 'admin_timesheet_access', label: 'Timesheet Summary' },
-
-    // Project Allocation
-    { key: 'project_access', label: 'Project Allocation' },
-
-    // Performance Management
-    { key: 'performance_access', label: 'Self Appraisal' },
-    { key: 'performance_access', label: 'Team Appraisal' },
-    { key: 'performance_access', label: 'Reviewer Approval' },
-    { key: 'performance_access', label: 'Director Approval' },
-    { key: 'performance_access', label: 'Appraisal Workflow' },
-    { key: 'performance_access', label: 'Increment Master' },
-    { key: 'performance_access', label: 'Increment Summary' },
-
-    // Leave Management
-    { key: 'leave_access', label: 'Leave Applications', alwaysOn: true },
-    { key: 'leave_view', label: 'Leave Summary' },
-    { key: 'leave_view', label: 'Leave Balance' },
-    // { key: 'leave_manage', label: 'Edit Leave Eligibility' }, // Not in sidebar explicitly, maybe part of something else?
-    // { key: 'leave_manage_trainees', label: 'Trainees Management' }, // Not in sidebar explicitly
-
-    // Insurance & Policy
-    { key: 'insurance_access', label: 'Insurance' },
-    { key: 'dashboard', label: 'Policy Portal' }, // Using dashboard as generic read permission if not specified
-
-    // Salary Slips
-    { key: 'payroll_view', label: 'Salary Slips', alwaysOn: true },
-
-    // Payroll Management
-    { key: 'payroll_manage', label: 'Payroll Details' },
-    { key: 'payroll_view', label: 'Cost to the Company' },
-    { key: 'payroll_manage', label: 'Compensation Master' },
-    { key: 'loan_view', label: 'Loan Summary' },
-    { key: 'gratuity_view', label: 'Gratuity Summary' },
-    { key: 'payroll_access', label: 'Monthly Payroll' },
-
-    // Expenditure Management
-    { key: 'expenditure_access', label: 'Expenditure Management' },
-
-    // Announcements
-    { key: 'announcement_manage', label: 'Announcements' },
-
-    // Intern Reference
-    { key: 'dashboard', label: 'Intern Reference' }, // Generic permission
-
-    // Resume Repository
-    { key: 'resume_access', label: 'Resume Repository' },
-
-    // Exit Management
-    { key: 'exit_form_access', label: 'Employee Exit Form', alwaysOn: true },
-    { key: 'exit_approval_access', label: 'Exit Approval' },
-
-    // Employee Reward Tracker
-    { key: 'reward_access', label: 'Employee Reward Tracker' },
-
-    // Holidays
-    { key: 'payroll_view', label: 'Holidays Allowance' },
-
-    // Employee Management
-    { key: 'employee_access', label: 'Employee Management' },
-
-    // User Access
-    { key: 'user_access', label: 'User Access' },
-
-    // Team Management
-    { key: 'team_access', label: 'Team Management' }
+  const moduleHierarchy = [
+    {
+      name: "Dashboard & Profile",
+      children: [
+        { key: 'home', label: 'Home', alwaysOn: true },
+        { key: 'my_profile', label: 'My Profile', alwaysOn: true },
+        { key: 'dashboard', label: 'Dashboard' },
+      ]
+    },
+    {
+      name: "Timesheet Management",
+      key: 'timesheet_access',
+      children: [
+        { key: 'timesheet_access', label: 'Timesheet' },
+        { key: 'timesheet_history', label: 'Timesheet History' },
+        { key: 'attendance_regularization', label: 'Attendance Regularization' },
+        { key: 'attendance_access', label: 'Employee Attendance' },
+        { key: 'attendance_approval', label: 'Attendance Approval' },
+      ]
+    },
+    {
+      name: "Admin Timesheet",
+      key: 'admin_timesheet_access',
+      children: [
+        { key: 'admin_timesheet', label: 'Admin Timesheet' },
+        { key: 'timesheet_summary', label: 'Timesheet Summary' },
+        { key: 'special_permission', label: 'Special Permission' }
+      ]
+    },
+    {
+      name: "Performance Management (Appraisal)",
+      key: 'performance_access',
+      children: [
+        { key: 'self_appraisal', label: 'Self Appraisal' },
+        { key: 'team_appraisal', label: 'Team Appraisal' },
+        { key: 'reviewer_approval', label: 'Reviewer Approval' },
+        { key: 'director_approval', label: 'Director Approval' },
+        { key: 'appraisal_workflow', label: 'Appraisal Workflow' },
+        { key: 'appraisal_master', label: 'Appraisal Master' },
+        { key: 'increment_summary', label: 'Increment Summary' },
+        { key: 'attendance_summary', label: 'Attendance Summary' }
+      ]
+    },
+    {
+      name: "Leave Management",
+      key: 'leave_group_access',
+      children: [
+        { key: 'leave_access', label: 'Leave Applications' },
+        { key: 'leave_summary', label: 'Leave Summary' },
+        { key: 'leave_balance', label: 'Leave Balance' }
+      ]
+    },
+    {
+      name: "Payroll Management",
+      key: 'payroll_access',
+      children: [
+        { key: 'payroll_details', label: 'Payroll Details' },
+        { key: 'cost_to_company', label: 'Cost to the Company' },
+        { key: 'compensation_master', label: 'Compensation Master' },
+        { key: 'loan_summary', label: 'Loan Summary' },
+        { key: 'gratuity_summary', label: 'Gratuity Summary' },
+        { key: 'monthly_payroll', label: 'Monthly Payroll' }
+      ]
+    },
+    {
+      name: "Exit Management",
+      key: 'exit_access',
+      children: [
+        { key: 'exit_form_access', label: 'Employee Exit Form' },
+        { key: 'exit_approval_access', label: 'Exit Approval' }
+      ]
+    },
+    {
+      name: "User & Team Management",
+      children: [
+        { key: 'employee_access', label: 'Employee Management' },
+        { key: 'team_access', label: 'Team Management' },
+        { key: 'user_access', label: 'User Access' },
+        { key: 'reward_access', label: 'Employee Reward Tracker' }
+      ]
+    },
+    {
+      name: "Other Modules",
+      children: [
+        { key: 'project_access', label: 'Project Allocation' },
+        { key: 'insurance_access', label: 'Insurance' },
+        { key: 'policy_portal', label: 'Policy Portal' },
+        { key: 'salary_slips', label: 'Salary Slips' },
+        { key: 'holiday_allowance', label: 'Holidays Allowance' },
+        { key: 'expenditure_access', label: 'Expenditure Management' },
+        { key: 'announcement_manage', label: 'Announcements' },
+        { key: 'intern_reference', label: 'Intern Reference' },
+        { key: 'resume_access', label: 'Resume Repository' }
+      ]
+    }
   ];
 
-  const alwaysOnPermissionKeys = Array.from(
-    new Set(permissionOptions.filter(p => p.alwaysOn && p.key).map(p => p.key))
-  );
+  // Helper to get flat permissions
+  const getAllPermissionKeys = () => {
+    const keys = new Set();
+    moduleHierarchy.forEach(module => {
+      if (module.key) keys.add(module.key);
+      module.children.forEach(child => keys.add(child.key));
+    });
+    return Array.from(keys);
+  };
+
+  const alwaysOnPermissionKeys = ['home', 'my_profile'];
+
 
   const rolePermissionDefaults = {
-    admin: Array.from(new Set(permissionOptions.map(p => p.key))),
+    admin: getAllPermissionKeys(),
+
     projectmanager: [
       'dashboard',
       'timesheet_access',
       'project_access',
       'leave_access',
-      'leave_view'
+      'leave_group_access',
+      'leave_summary',
+      'performance_access',
+      'self_appraisal',
+      'salary_slips'
     ],
 
     employees: [
       'dashboard',
       'timesheet_access',
       'leave_access',
-      'leave_view'
+      'performance_access',
+      'self_appraisal',
+      'salary_slips'
     ]
   };
 
@@ -219,19 +251,47 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     }
   };
 
-  const handlePermissionChange = (permission) => {
-    setFormData(prev => ({
-      ...prev,
-      permissions: prev.permissions.includes(permission)
-        ? prev.permissions.filter(p => p !== permission)
-        : [...prev.permissions, permission]
-    }));
+  const handlePermissionChange = (permission, isGroup = false) => {
+    setFormData(prev => {
+      let nextPermissions = [...prev.permissions];
+
+      if (isGroup) {
+        const group = moduleHierarchy.find(m => m.key === permission);
+        if (group) {
+          const childKeys = group.children.map(c => c.key).filter(k => !alwaysOnPermissionKeys.includes(k));
+          const allSelected = childKeys.every(k => nextPermissions.includes(k)) && nextPermissions.includes(permission);
+
+          if (allSelected) {
+            nextPermissions = nextPermissions.filter(p => p !== permission && !childKeys.includes(p));
+          } else {
+            nextPermissions = Array.from(new Set([...nextPermissions, permission, ...childKeys]));
+          }
+        }
+      } else {
+        if (nextPermissions.includes(permission)) {
+          nextPermissions = nextPermissions.filter(p => p !== permission);
+        } else {
+          nextPermissions.push(permission);
+
+          // If child is selected, ensure parent is also selected (if it has a key)
+          moduleHierarchy.forEach(module => {
+            if (module.key && module.children.some(c => c.key === permission)) {
+              if (!nextPermissions.includes(module.key)) {
+                nextPermissions.push(module.key);
+              }
+            }
+          });
+        }
+      }
+
+      return { ...prev, permissions: nextPermissions };
+    });
   };
 
   const selectAllPermissions = () => {
     setFormData(prev => ({
       ...prev,
-      permissions: Array.from(new Set(permissionOptions.map(p => p.key)))
+      permissions: getAllPermissionKeys()
     }));
   };
 
@@ -334,76 +394,133 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   return (
     <form onSubmit={handleSubmit} className="flex flex-col max-h-[80vh]">
       <div className="space-y-6 overflow-y-auto pr-2 flex-1 p-1">
-      {errors.submit && (
-        <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
-          {errors.submit}
-        </div>
-      )}
+        {errors.submit && (
+          <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded">
+            {errors.submit}
+          </div>
+        )}
 
-      {/* Employee Dropdown */}
-      <div className="relative">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Select Employee (Optional)
-        </label>
+        {/* Employee Dropdown */}
         <div className="relative">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Select Employee (Optional)
+          </label>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowEmployeeDropdown(!showEmployeeDropdown)}
+              className={`w-full bg-white border border-gray-300 rounded-md shadow-sm px-4 py-2 text-left cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 ${!!user ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`}
+              disabled={employeeLoading || !!user}
+            >
+              {formData.employeeId
+                ? `${formData.name} - ${formData.email}`
+                : employeeLoading
+                  ? 'Loading employees...'
+                  : 'Select an employee'
+              }
+              <span className="absolute inset-y-0 right-0 flex items-center pr-2">
+                <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              </span>
+            </button>
+
+            {showEmployeeDropdown && (
+              <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
+                <div className="p-2 border-b border-gray-100">
+                  <input
+                    type="text"
+                    value={employeeSearch}
+                    onChange={(e) => setEmployeeSearch(e.target.value)}
+                    placeholder="Search by name, email or ID"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                    onClick={(e) => e.stopPropagation()}
+                  />
+                </div>
+                {employees.filter(e => {
+                  const q = employeeSearch.toLowerCase();
+                  return !q ||
+                    (e.name && e.name.toLowerCase().includes(q)) ||
+                    (e.email && e.email.toLowerCase().includes(q)) ||
+                    (e.employeeId && e.employeeId.toLowerCase().includes(q));
+                }).length > 0 ? (
+                  employees
+                    .filter(e => {
+                      const q = employeeSearch.toLowerCase();
+                      return !q ||
+                        (e.name && e.name.toLowerCase().includes(q)) ||
+                        (e.email && e.email.toLowerCase().includes(q)) ||
+                        (e.employeeId && e.employeeId.toLowerCase().includes(q));
+                    })
+                    .map((employee) => (
+                      <div
+                        key={employee._id}
+                        onClick={() => handleEmployeeSelect(employee)}
+                        className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                      >
+                        <div className="font-medium text-gray-900">{employee.name}</div>
+                        <div className="text-sm text-gray-500">{employee.email}</div>
+                        <div className="text-xs text-gray-400">{employee.employeeId}</div>
+                      </div>
+                    ))
+                ) : (
+                  <div className="px-4 py-2 text-gray-500 text-center">
+                    {employeeLoading ? 'Loading...' : 'No employees found'}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+          {errors.employees && (
+            <p className="mt-1 text-sm text-red-600">{errors.employees}</p>
+          )}
+        </div>
+
+        {/* Employee ID */}
+        <div className="relative">
+          <FloatingInput
+            label="Employee ID"
+            name="employeeId"
+            value={formData.employeeId}
+            onChange={handleEmployeeIdChange}
+            disabled={!!user}
+          />
           <button
             type="button"
-            onClick={() => setShowEmployeeDropdown(!showEmployeeDropdown)}
-            className={`w-full bg-white border border-gray-300 rounded-md shadow-sm px-4 py-2 text-left cursor-pointer hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary-500 ${!!user ? 'bg-gray-100 cursor-not-allowed opacity-75' : ''}`}
+            onClick={() => setShowEmployeeIdDropdown(!showEmployeeIdDropdown)}
+            className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
             disabled={employeeLoading || !!user}
           >
-            {formData.employeeId
-              ? `${formData.name} - ${formData.email}`
-              : employeeLoading
-                ? 'Loading employees...'
-                : 'Select an employee'
-            }
-            <span className="absolute inset-y-0 right-0 flex items-center pr-2">
-              <svg className="h-5 w-5 text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-            </span>
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           </button>
-
-          {showEmployeeDropdown && (
+          {showEmployeeIdDropdown && (
             <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
               <div className="p-2 border-b border-gray-100">
                 <input
                   type="text"
-                  value={employeeSearch}
-                  onChange={(e) => setEmployeeSearch(e.target.value)}
-                  placeholder="Search by name, email or ID"
+                  value={employeeIdSearch}
+                  onChange={(e) => setEmployeeIdSearch(e.target.value)}
+                  placeholder="Search by Employee ID or name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-                  onClick={(e) => e.stopPropagation()}
                 />
               </div>
-              {employees.filter(e => {
-                const q = employeeSearch.toLowerCase();
-                return !q ||
-                  (e.name && e.name.toLowerCase().includes(q)) ||
-                  (e.email && e.email.toLowerCase().includes(q)) ||
-                  (e.employeeId && e.employeeId.toLowerCase().includes(q));
-              }).length > 0 ? (
-                employees
-                  .filter(e => {
-                    const q = employeeSearch.toLowerCase();
-                    return !q ||
-                      (e.name && e.name.toLowerCase().includes(q)) ||
-                      (e.email && e.email.toLowerCase().includes(q)) ||
-                      (e.employeeId && e.employeeId.toLowerCase().includes(q));
-                  })
-                  .map((employee) => (
-                    <div
-                      key={employee._id}
-                      onClick={() => handleEmployeeSelect(employee)}
-                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-                    >
-                      <div className="font-medium text-gray-900">{employee.name}</div>
-                      <div className="text-sm text-gray-500">{employee.email}</div>
-                      <div className="text-xs text-gray-400">{employee.employeeId}</div>
-                    </div>
-                  ))
-              ) : (
+              {(employees || []).filter(e => {
+                const q = employeeIdSearch.toLowerCase();
+                return !q || (String(e.employeeId || '').toLowerCase().includes(q) || String(e.name || '').toLowerCase().includes(q));
+              }).map((employee) => (
+                <div
+                  key={employee._id}
+                  onClick={() => handleEmployeeIdSelect(employee)}
+                  className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
+                >
+                  <div className="font-medium text-gray-900">{employee.employeeId}</div>
+                  <div className="text-sm text-gray-500">{employee.name}</div>
+                  <div className="text-xs text-gray-400">{employee.email}</div>
+                </div>
+              ))}
+              {employees && employees.length === 0 && (
                 <div className="px-4 py-2 text-gray-500 text-center">
                   {employeeLoading ? 'Loading...' : 'No employees found'}
                 </div>
@@ -411,201 +528,176 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
             </div>
           )}
         </div>
-        {errors.employees && (
-          <p className="mt-1 text-sm text-red-600">{errors.employees}</p>
-        )}
-      </div>
 
-      {/* Employee ID */}
-      <div className="relative">
-        <FloatingInput
-          label="Employee ID"
-          name="employeeId"
-          value={formData.employeeId}
-          onChange={handleEmployeeIdChange}
-          disabled={!!user}
-        />
-        <button
-          type="button"
-          onClick={() => setShowEmployeeIdDropdown(!showEmployeeIdDropdown)}
-          className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
-          disabled={employeeLoading || !!user}
-        >
-          <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-        {showEmployeeIdDropdown && (
-          <div className="absolute z-10 mt-1 w-full bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-auto">
-            <div className="p-2 border-b border-gray-100">
-              <input
-                type="text"
-                value={employeeIdSearch}
-                onChange={(e) => setEmployeeIdSearch(e.target.value)}
-                placeholder="Search by Employee ID or name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500"
-              />
-            </div>
-            {(employees || []).filter(e => {
-              const q = employeeIdSearch.toLowerCase();
-              return !q || (String(e.employeeId || '').toLowerCase().includes(q) || String(e.name || '').toLowerCase().includes(q));
-            }).map((employee) => (
-              <div
-                key={employee._id}
-                onClick={() => handleEmployeeIdSelect(employee)}
-                className="px-4 py-2 hover:bg-gray-100 cursor-pointer border-b border-gray-100 last:border-b-0"
-              >
-                <div className="font-medium text-gray-900">{employee.employeeId}</div>
-                <div className="text-sm text-gray-500">{employee.name}</div>
-                <div className="text-xs text-gray-400">{employee.email}</div>
-              </div>
-            ))}
-            {employees && employees.length === 0 && (
-              <div className="px-4 py-2 text-gray-500 text-center">
-                {employeeLoading ? 'Loading...' : 'No employees found'}
-              </div>
-            )}
-          </div>
-        )}
-      </div>
+        {/* Name */}
+        <div className="relative">
+          <FloatingInput
+            label="Name"
+            name="name"
+            value={formData.name}
+            onChange={handleChange}
+            error={errors.name}
+            required
+            disabled={!!formData.employeeId || !!user}
+          />
+          {formData.employeeId && !user && (
+            <button
+              type="button"
+              onClick={() => {
+                setFormData(prev => ({
+                  ...prev,
+                  name: '',
+                  email: '',
+                  employeeId: ''
+                }));
+              }}
+              className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
+              title="Clear employee selection"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
 
-      {/* Name */}
-      <div className="relative">
+        {/* Email */}
         <FloatingInput
-          label="Name"
-          name="name"
-          value={formData.name}
+          type="email"
+          label="Email"
+          name="email"
+          value={formData.email}
           onChange={handleChange}
-          error={errors.name}
+          error={errors.email}
           required
           disabled={!!formData.employeeId || !!user}
         />
-        {formData.employeeId && !user && (
-          <button
-            type="button"
-            onClick={() => {
-              setFormData(prev => ({
-                ...prev,
-                name: '',
-                email: '',
-                employeeId: ''
-              }));
-            }}
-            className="absolute right-2 top-2 text-gray-400 hover:text-gray-600"
-            title="Clear employee selection"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
-      </div>
 
-      {/* Email */}
-      <FloatingInput
-        type="email"
-        label="Email"
-        name="email"
-        value={formData.email}
-        onChange={handleChange}
-        error={errors.email}
-        required
-        disabled={!!formData.employeeId || !!user}
-      />
+        {/* Role */}
+        <FloatingInput
+          type="select"
+          label="Role"
+          name="role"
+          value={formData.role}
+          onChange={handleChange}
+          options={[
+            { value: '', label: 'Select a role' },
+            ...roleOptions
+          ]}
+          error={errors.role}
+          required
+        />
 
-      {/* Role */}
-      <FloatingInput
-        type="select"
-        label="Role"
-        name="role"
-        value={formData.role}
-        onChange={handleChange}
-        options={[
-          { value: '', label: 'Select a role' },
-          ...roleOptions
-        ]}
-        error={errors.role}
-        required
-      />
+        {/* Password */}
+        <FloatingInput
+          type="password"
+          label={user ? 'New Password (leave blank to keep current)' : 'Password'}
+          name="password"
+          value={formData.password}
+          onChange={handleChange}
+          error={errors.password}
+          required={!user}
 
-      {/* Password */}
-      <FloatingInput
-        type="password"
-        label={user ? 'New Password (leave blank to keep current)' : 'Password'}
-        name="password"
-        value={formData.password}
-        onChange={handleChange}
-        error={errors.password}
-        required={!user}
+        />
 
-      />
+        {/* Confirm Password */}
+        <FloatingInput
+          type="password"
+          label="Confirm Password"
+          name="confirmPassword"
+          value={formData.confirmPassword}
+          onChange={handleChange}
+          error={errors.confirmPassword}
+          required={!user || formData.password}
+        />
 
-      {/* Confirm Password */}
-      <FloatingInput
-        type="password"
-        label="Confirm Password"
-        name="confirmPassword"
-        value={formData.confirmPassword}
-        onChange={handleChange}
-        error={errors.confirmPassword}
-        required={!user || formData.password}
-      />
-
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <label className="block text-sm font-medium text-gray-700">Permissions</label>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={selectAllPermissions}
-              className="px-3 py-1 rounded-md text-sm bg-[#262760] text-white hover:bg-[#1e2050] transition-colors duration-150"
-            >
-              Select All
-            </button>
-            <button
-              type="button"
-              onClick={clearAllPermissions}
-              className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors duration-150"
-            >
-              Clear
-            </button>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {permissionOptions.map(option => {
-            const permission = option.key;
-            const isAlwaysEnabled = !!option.alwaysOn;
-            const isActive = isAlwaysEnabled || formData.permissions.includes(permission);
-            return (
-              <div
-                key={`${permission}-${option.label}`}
-                className={`flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-[#262760] transition-all duration-200 ${isAlwaysEnabled ? 'opacity-75' : ''}`}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <label className="block text-sm font-medium text-gray-700">Permissions</label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={selectAllPermissions}
+                className="px-3 py-1 rounded-md text-sm bg-[#262760] text-white hover:bg-[#1e2050] transition-colors duration-150"
               >
-                <span className="text-sm text-gray-700">
-                  {option.label} {isAlwaysEnabled && '(Always On)'}
-                </span>
-
-                <button
-                  type="button"
-                  disabled={isAlwaysEnabled}
-                  onClick={() => !isAlwaysEnabled && handlePermissionChange(permission)}
-                className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out 
-                  ${isActive ? 'bg-[#262760]' : 'bg-gray-300'} ${isAlwaysEnabled ? 'cursor-not-allowed' : ''}`}
+                Select All
+              </button>
+              <button
+                type="button"
+                onClick={clearAllPermissions}
+                className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors duration-150"
               >
-                <span
-                  aria-hidden="true"
-                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                  ${isActive ? 'translate-x-5' : 'translate-x-0'}`}
-                />
+                Clear
               </button>
             </div>
-          );
-        })}
-      </div>
-      {errors.permissions && (
-        <p className="mt-2 text-sm text-red-600">{errors.permissions}</p>
-      )}
-      </div>
+          </div>
+          <div className="space-y-6">
+            {moduleHierarchy.map(module => {
+              const hasGroupKey = !!module.key;
+              const isGroupActive = hasGroupKey && formData.permissions.includes(module.key);
+
+              return (
+                <div key={module.name} className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
+                  <div className="bg-white px-4 py-3 border-b border-gray-200 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-[#262760]">{module.name}</h3>
+                    {hasGroupKey && (
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-500 font-medium">Full Access</span>
+                        <button
+                          type="button"
+                          onClick={() => handlePermissionChange(module.key, true)}
+                          className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out 
+                            ${isGroupActive ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                        >
+                          <span
+                            aria-hidden="true"
+                            className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                              ${isGroupActive ? 'translate-x-5' : 'translate-x-0'}`}
+                          />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {module.children.map(child => {
+                      const permission = child.key;
+                      const isAlwaysEnabled = !!child.alwaysOn;
+                      const isActive = isAlwaysEnabled || formData.permissions.includes(permission);
+                      return (
+                        <div
+                          key={`${permission}-${child.label}`}
+                          className={`flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-100 hover:border-[#262760] transition-all duration-200 ${isAlwaysEnabled ? 'opacity-75' : ''}`}
+                        >
+                          <span className="text-sm text-gray-700">
+                            {child.label} {isAlwaysEnabled && '(Always On)'}
+                          </span>
+
+                          <button
+                            type="button"
+                            disabled={isAlwaysEnabled}
+                            onClick={() => !isAlwaysEnabled && handlePermissionChange(permission)}
+                            className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out 
+                          ${isActive ? 'bg-[#262760]' : 'bg-gray-300'} ${isAlwaysEnabled ? 'cursor-not-allowed' : ''}`}
+                          >
+                            <span
+                              aria-hidden="true"
+                              className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                          ${isActive ? 'translate-x-5' : 'translate-x-0'}`}
+                            />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          {errors.permissions && (
+            <p className="mt-2 text-sm text-red-600">{errors.permissions}</p>
+          )}
+        </div>
 
       </div>
       <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 mt-4">

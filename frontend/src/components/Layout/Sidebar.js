@@ -117,12 +117,14 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/dashboard",
       icon: getIconForMenu("Home"),
       allowEmployeeRole: true,
+      permission: "home"
     },
     {
       name: "My Profile",
       path: "/my-profile",
       icon: getIconForMenu("My Profile"),
       allowEmployeeRole: true,
+      permission: "my_profile"
     },
     {
       name: "Timesheet",
@@ -131,9 +133,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "timesheet_access",
       allowEmployeeRole: true,
       children: [
-        { name: "Timesheet", path: "/timesheet", allowEmployeeRole: true },
-        { name: "Timesheet History", path: "/timesheet/history", allowEmployeeRole: true },
-        { name: "Attendance Regularization", path: "/timesheet/regularization", allowEmployeeRole: true },
+        { name: "Timesheet", path: "/timesheet", allowEmployeeRole: true, permission: "timesheet_access" },
+        { name: "Timesheet History", path: "/timesheet/history", allowEmployeeRole: true, permission: "timesheet_history" },
+        { name: "Attendance Regularization", path: "/timesheet/regularization", allowEmployeeRole: true, permission: "attendance_regularization" },
       ],
     },
     {
@@ -147,7 +149,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Attendance Approval",
       path: "/timesheet/attendance-approval",
       icon: getIconForMenu("Attendance Approval"),
-      permission: "attendance_access",
+      permission: "attendance_approval",
       showForRoles: ["admin", "hr",],
     },
     {
@@ -157,9 +159,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "admin_timesheet_access",
       showForRoles: ["admin", "hr", "manager"],
       children: [
-        { name: "Admin Timesheet", path: "/admin/timesheet" },
-        { name: "Timesheet Summary", path: "/admin/timesheet/approval" },
-        { name: "Special Permission", path: "/admin/special-permissions" },
+        { name: "Admin Timesheet", path: "/admin/timesheet", permission: "admin_timesheet" },
+        { name: "Timesheet Summary", path: "/admin/timesheet/approval", permission: "timesheet_summary" },
+        { name: "Special Permission", path: "/admin/special-permissions", permission: "special_permission" },
       ],
     },
     {
@@ -168,6 +170,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Project Allocation"),
       showForRoles: ["admin", "projectmanager", "manager",],
       allowEmployeeRole: true,
+      permission: "project_access"
     },
 
 
@@ -176,51 +179,58 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Performance Management",
       hasDropdown: true,
       icon: getIconForMenu("Performance Management"),
-      // allowEmployeeRole: true,
-
+      permission: "performance_access",
+      allowEmployeeRole: true,
       children: [
-        { name: "Self Appraisal", 
-          path: "/performance/self-appraisal", 
-          // allowEmployeeRole: true
-          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"]
-        
+        {
+          name: "Self Appraisal",
+          path: "/performance/self-appraisal",
+          allowEmployeeRole: true,
+          permission: "self_appraisal"
         },
-        { 
-          name: "Team Appraisal", 
+        {
+          name: "Team Appraisal",
           path: "/performance/team-appraisal",
-          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"] 
+          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
+          permission: "team_appraisal"
         },
-        { 
-          name: "Reviewer Approval", 
+        {
+          name: "Reviewer Approval",
           path: "/performance/reviewer-approval",
-          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"]
+          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
+          permission: "reviewer_approval"
         },
-        { 
-          name: "Director Approval", 
+        {
+          name: "Director Approval",
           path: "/performance/director-approval",
-          showForRoles: ["admin", "hr", "manager", "director"]
+          showForRoles: ["admin", "hr", "manager", "director"],
+          permission: "director_approval"
         },
 
 
-        { 
-          name: "Appraisal Workflow", 
+        {
+          name: "Appraisal Workflow",
           path: "/performance/appraisal-workflow",
-          showForRoles: ["admin", "hr", "director"]
+          showForRoles: ["admin", "hr", "director"],
+          permission: "appraisal_workflow"
         },
-        { 
-          name: "Appraisal Master", 
+        {
+          name: "Appraisal Master",
           path: "/performance/increment-master",
-          showForRoles: ["admin", "hr"]
+          showForRoles: ["admin", "hr"],
+          permission: "appraisal_master"
         },
-        { 
-          name: "Increment Summary", 
+        {
+          name: "Increment Summary",
           path: "/performance/increment-summary",
-          showForRoles: ["admin", "hr", "manager"]
+          showForRoles: ["admin", "hr", "manager"],
+          permission: "increment_summary"
         },
         {
           name: "Attendance Summary",
           path: "/performance/attendance-summary",
-          showForRoles: ["admin", "hr", "manager"]
+          showForRoles: ["admin", "hr", "manager"],
+          permission: "attendance_summary"
         },
       ],
     },
@@ -229,20 +239,20 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Leave Management",
       hasDropdown: true,
       icon: getIconForMenu("Leave Management"),
-      permission: "leave_access",
+      permission: "leave_group_access",
       allowEmployeeRole: false,
       showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
       children: [
         {
           name: "Leave Summary",
           path: "/leave-management/summary",
-          permission: "leave_view",
+          permission: "leave_summary",
           showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"]
         },
         {
           name: "Leave Balance",
           path: "/leave-management/balance",
-          permission: "leave_view",
+          permission: "leave_balance",
           allowEmployeeRole: true,
           showForRoles: ["admin", "hr"]
         }
@@ -276,6 +286,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/policies",
       icon: getIconForMenu("Policy Portal"),
       allowEmployeeRole: true,
+      permission: "policy_portal"
     },
     // SALARY SLIPS
     {
@@ -283,6 +294,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/salaryslips",
       icon: getIconForMenu("Salary Slips"),
       allowEmployeeRole: true,
+      permission: "salary_slips"
     },
     // PAYROLL MANAGEMENT
     {
@@ -296,37 +308,37 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         {
           name: "Payroll Details",
           path: "/payroll/details",
-          permission: "payroll_manage",
+          permission: "payroll_details",
           showForRoles: ["admin", "hr", "finance"]
         },
         {
           name: "Cost to the Company",
           path: "/payroll/cost-to-the-company",
-          permission: "payroll_view",
+          permission: "cost_to_company",
           showForRoles: ["admin", "hr", "finance"]
         },
         {
           name: "Compensation Master",
           path: "/payroll/compensation-master",
-          permission: "payroll_manage",
+          permission: "compensation_master",
           showForRoles: ["admin", "hr", "finance"]
         },
         {
           name: "Loan Summary",
           path: "/payroll/loan-summary",
-          permission: "loan_view",
+          permission: "loan_summary",
           showForRoles: ["admin", "hr", "finance"]
         },
         {
           name: "Gratuity Summary",
           path: "/payroll/gratuity-summary",
-          permission: "gratuity_view",
+          permission: "gratuity_summary",
           showForRoles: ["admin", "hr", "finance"]
         },
         {
           name: "Monthly Payroll",
           path: "/payroll/monthly",
-          permission: "payroll_access",
+          permission: "monthly_payroll",
           showForRoles: ["admin", "hr", "finance"],
           allowEmployeeRole: false
         }
@@ -355,6 +367,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Intern Reference",
       path: "/admin/interns",
       icon: getIconForMenu("Intern Reference"),
+      permission: "intern_reference",
       showForRoles: ["admin", "hr", "manager"],
     },
     {
@@ -371,6 +384,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Employee Exit Form"),
       allowEmployeeRole: true,
       showForRoles: ["employees", "hr", "project_manager", "projectmanager"],
+      permission: "exit_form_access"
     },
     // EXIT MANAGEMENT - Admin/HR/Manager
     {
@@ -401,7 +415,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Holidays Allowance",
       path: "/holidays-allowance",
       icon: getIconForMenu("Holidays Allowance"),
-      permission: "payroll_view",
+      permission: "holiday_allowance",
       showForRoles: ["admin", "hr",],
     },
     // EMPLOYEE MANAGEMENT
@@ -431,96 +445,61 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
 
   ];
 
-  // Filter logic
-  const filteredMenuItems = menuItems.filter((item) => {
-    // Admin can see everything
-    if (role === "admin") {
-      return true;
-    }
-
-    // STRICT FILTER FOR PROJECT MANAGER
-    if (role === "projectmanager") {
-      const allowedModules = [
-        "Home",
-        "My Profile",
-        "Timesheet",
-        "Admin Timesheet",
-        "Project Allocation",
-        "Leave Applications",
-        "Policy Portal",
-        "Salary Slips",
-        "Leave Summary",
-        "Leave Management",
-        "Employee Exit Form",
-      ];
-      return allowedModules.includes(item.name);
-    }
-
-    // Check if item has showForRoles restriction
-    if (item.showForRoles && !item.showForRoles.includes(role)) {
-      return false;
-    }
-
-    // Check permission
-    if (item.permission && !permissions.includes(item.permission)) {
-      return false;
-    }
-
-    // For employees, check allowEmployeeRole
-    if (role === "employees" && !item.allowEmployeeRole) {
-      return false;
-    }
-
-    // For projectmanager
-    if (role === "projectmanager" && item.name === "Project Allocation") {
-      return true;
-    }
-
-    // For hr role
-    if (role === "hr" && item.showForRoles && item.showForRoles.includes("hr")) {
-      return true;
-    }
-
-    // For finance role
-    if (role === "finance" && item.showForRoles && item.showForRoles.includes("finance")) {
-      return true;
-    }
-
-    // For manager role
-    if (role === "manager" && item.showForRoles && item.showForRoles.includes("manager")) {
-      return true;
-    }
-
-    // Default: show if it passed permission check
-    return true;
-  });
-
   // Filter dropdown children
   const getFilteredChildren = (children) => {
     if (!children) return [];
 
     return children.filter((child) => {
-      // Admin can see everything
-      if (role === "admin") return true;
-
-      // Check if child has showForRoles restriction
-      if (child.showForRoles && !child.showForRoles.includes(role)) {
-        return false;
-      }
-
-      // Check permission
+      // 1. Permission Check (Primary) - Now enforced for everyone
       if (child.permission && !permissions.includes(child.permission)) {
         return false;
       }
 
-      // For employees, check allowEmployeeRole
-      if (role === "employees" && !child.allowEmployeeRole) {
+      // 2. Role-based restrictions (Secondary/Legacy)
+      // Admin bypasses role-based restrictions if they HAVE the permission (or if no permission set)
+      if (child.showForRoles && !child.showForRoles.includes(role)) {
+        if (role !== "admin") return false;
+      }
+
+      // 3. For employees role specifically
+      if (role === "employees" && !child.allowEmployeeRole && !child.permission) {
         return false;
       }
 
       return true;
     });
   };
+
+  // Filter logic
+  const filteredMenuItems = menuItems.filter((item) => {
+    // 1. Permission Check (Primary) - Enforced for everyone
+    if (item.permission && !permissions.includes(item.permission)) {
+      // Safety for Admin on User Access module to prevent burnout lock-out
+      if (role === "admin" && item.permission === "user_access") return true;
+      return false;
+    }
+
+    // 2. Role-based restrictions (Secondary)
+    if (item.showForRoles && !item.showForRoles.includes(role)) {
+      if (role !== "admin") return false;
+    }
+
+    // 3. Dropdown Empty Check
+    // If it has a dropdown, hide the whole parent if NO children are visible
+    if (item.hasDropdown) {
+      const visibleChildren = getFilteredChildren(item.children);
+      if (visibleChildren.length === 0) {
+        return false;
+      }
+    }
+
+    // 4. Employee specific check
+    if (role === "employees" && !item.allowEmployeeRole && !item.permission) {
+      return false;
+    }
+
+    return true;
+  });
 
   const isItemActive = (item) => {
     if (item.path) return location.pathname === item.path;

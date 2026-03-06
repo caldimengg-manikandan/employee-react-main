@@ -1,9 +1,9 @@
 export const APPRAISAL_STAGES = [
   { id: 'appraisee', label: 'Appraisee', date: '07 Apr 26', description: 'Self Appraisal Submission' },
-  { id: 'appraiser', label: 'Appraiser', date: '20 Apr 26', description: 'Manager Assessment' },
-  { id: 'reviewer', label: 'Reviewer', date: '22 Apr 26', description: 'Review & Moderation' },
-  { id: 'director', label: 'Director', date: '28 Apr 26', description: 'Final Approval' },
-  { id: 'release', label: 'Release', date: '30 Apr 26', description: 'Letter Release' },
+  { id: 'appraiser', label: 'Appraiser', date: '11 Apr 26', description: 'Manager Assessment' },
+  { id: 'reviewer', label: 'Reviewer', date: '13 Apr 26', description: 'Review & Moderation' },
+  { id: 'director', label: 'Director', date: '16 Apr 26', description: 'Final Approval' },
+  { id: 'release', label: 'Release', date: '20 Apr 26', description: 'Letter Release' },
 ];
 
 export const WORKFLOW_CONFIG = [

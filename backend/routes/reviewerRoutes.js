@@ -12,9 +12,9 @@ const { calculateIncrement } = require('../utils/incrementUtils');
 router.get('/', auth, async (req, res) => {
   try {
     // Check permissions if needed (e.g. req.user.role === 'Admin' or 'Reviewer')
-    
-    const statusFilter = { 
-      $in: ['Submitted', 'SUBMITTED', 'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED', 'Reviewed'] 
+
+    const statusFilter = {
+      $in: ['Submitted', 'SUBMITTED', 'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED', 'Reviewed']
     };
 
     const query = {
@@ -102,6 +102,18 @@ router.get('/', auth, async (req, res) => {
           }
         }
 
+        // Helper to convert Map to Object
+        const mapToObj = (map) => {
+          if (!map) return {};
+          try {
+            if (typeof map.toJSON === 'function') return map.toJSON();
+            if (map instanceof Map) return Object.fromEntries(map);
+            return map;
+          } catch (e) {
+            return map || {};
+          }
+        };
+
         return {
           id: app._id,
           financialYr: app.year,
@@ -110,13 +122,40 @@ router.get('/', auth, async (req, res) => {
           avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
           designation: emp.designation || 'N/A',
           department: emp.department || 'N/A',
-          division: emp.division || 'N/A',
+          division: app.division || emp.division || 'N/A',
           location: emp.location || 'N/A',
           status: app.status,
 
           // Appraisal content
           selfAppraiseeComments: app.overallContribution || '',
           managerComments: app.managerComments || '',
+          projects: app.projects || [],
+
+          // Full Sectional Objects - Self (Fixed Map access)
+          behaviourSelf: mapToObj(app.behaviourBased),
+          processSelf: mapToObj(app.processAdherence),
+          technicalSelf: mapToObj(app.technicalBased),
+          growthSelf: mapToObj(app.growthBased),
+
+          // Sectional Comments - Manager
+          behaviourManagerComments: app.behaviourManagerComments || '',
+          processManagerComments: app.processManagerComments || '',
+          technicalManagerComments: app.technicalManagerComments || '',
+          growthManagerComments: app.growthManagerComments || '',
+
+          // Manager Ratings (Detailed)
+          behaviourManagerRatings: mapToObj(app.behaviourManagerRatings),
+          processManagerRatings: mapToObj(app.processManagerRatings),
+          technicalManagerRatings: mapToObj(app.technicalManagerRatings),
+          growthManagerRatings: mapToObj(app.growthManagerRatings),
+
+          // Extra Manager Fields
+          keyPerformance: app.keyPerformance || '',
+          appraiseeComments: app.appraiseeComments || '',
+          appraiserRating: app.appraiserRating || '',
+          leadership: app.leadership || '',
+          attitude: app.attitude || '',
+          communication: app.communication || '',
 
           // Reviewer content
           reviewerComments: app.reviewerComments || '',
@@ -141,12 +180,12 @@ router.get('/', auth, async (req, res) => {
 // @access  Private (Reviewer)
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { 
-      reviewerComments, 
-      incrementPercentage, 
-      incrementCorrectionPercentage, 
-      incrementAmount, 
-      revisedSalary 
+    const {
+      reviewerComments,
+      incrementPercentage,
+      incrementCorrectionPercentage,
+      incrementAmount,
+      revisedSalary
     } = req.body;
 
     let appraisal = await SelfAppraisal.findById(req.params.id);
@@ -173,9 +212,9 @@ router.put('/:id', auth, async (req, res) => {
     if (incrementCorrectionPercentage !== undefined) appraisal.incrementCorrectionPercentage = incrementCorrectionPercentage;
     if (incrementAmount !== undefined) appraisal.incrementAmount = incrementAmount;
     if (revisedSalary !== undefined) appraisal.revisedSalary = revisedSalary;
-    
+
     appraisal.updatedAt = Date.now();
-    
+
     await appraisal.save();
 
     res.json(appraisal);
@@ -215,16 +254,16 @@ router.post('/submit-director', auth, async (req, res) => {
 
     const result = await SelfAppraisal.updateMany(
       { _id: { $in: allowedIds } },
-      { 
-        $set: { 
+      {
+        $set: {
           status: 'REVIEWER_COMPLETED',
           updatedAt: Date.now()
-        } 
+        }
       }
     );
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: `${result.modifiedCount} records submitted to Director`,
       modifiedCount: result.modifiedCount
     });

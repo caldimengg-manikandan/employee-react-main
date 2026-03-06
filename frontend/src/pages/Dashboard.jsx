@@ -2,10 +2,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
-    UsersIcon, ClockIcon, CalendarIcon, BanknotesIcon, KeyIcon, 
-    FolderIcon, ShieldCheckIcon, DocumentTextIcon, CurrencyDollarIcon, 
-    DocumentChartBarIcon, ClipboardDocumentCheckIcon, ChartBarIcon, 
-    ClipboardDocumentListIcon, CurrencyRupeeIcon, BriefcaseIcon, 
+    UsersIcon, ClockIcon, CalendarIcon, BanknotesIcon, KeyIcon,
+    FolderIcon, ShieldCheckIcon, DocumentTextIcon, CurrencyDollarIcon,
+    DocumentChartBarIcon, ClipboardDocumentCheckIcon, ChartBarIcon,
+    ClipboardDocumentListIcon, CurrencyRupeeIcon, BriefcaseIcon,
     UserGroupIcon, BellIcon, ChevronRightIcon, ArrowRightIcon,
     MagnifyingGlassIcon, ArrowRightOnRectangleIcon, BuildingOfficeIcon, UserIcon, StarIcon
 } from '@heroicons/react/24/outline';
@@ -29,10 +29,10 @@ const useWindowSize = () => {
                 height: window.innerHeight,
             });
         }
-        
+
         window.addEventListener("resize", handleResize);
         handleResize(); // Set initial size
-        
+
         return () => window.removeEventListener("resize", handleResize);
     }, []);
 
@@ -63,7 +63,7 @@ const CustomizedYAxisTick = (props) => {
     if (lines.length > maxLines) {
         displayedLines[maxLines - 1] += '...';
     }
-    
+
     return (
         <g transform={`translate(${x},${y})`}>
             <text x={0} y={0} dy={0} textAnchor="end" fill="#666" fontSize={12}>
@@ -94,9 +94,9 @@ const CategoryCard = ({ category, modules, onViewDetails, images }) => {
         <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
             <div className="h-40 overflow-hidden relative group">
                 <div className="absolute inset-0 bg-blue-900/20 group-hover:bg-transparent transition-colors z-10" />
-                <img 
-                    src={images[category] || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000'} 
-                    alt={category} 
+                <img
+                    src={images[category] || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000'}
+                    alt={category}
                     className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-20">
@@ -107,7 +107,7 @@ const CategoryCard = ({ category, modules, onViewDetails, images }) => {
                 <ul className="space-y-3 flex-1">
                     {displayModules.map((mod, mIdx) => (
                         <li key={mIdx}>
-                            <Link 
+                            <Link
                                 to={mod.path}
                                 className="flex items-center text-gray-600 hover:text-blue-600 transition-colors group"
                             >
@@ -117,7 +117,7 @@ const CategoryCard = ({ category, modules, onViewDetails, images }) => {
                         </li>
                     ))}
                     {modules.length > 4 && (
-                        <li 
+                        <li
                             className="text-xs text-blue-500 font-medium pt-2 cursor-pointer hover:text-blue-700 hover:underline"
                             onClick={() => setIsExpanded(!isExpanded)}
                         >
@@ -125,7 +125,7 @@ const CategoryCard = ({ category, modules, onViewDetails, images }) => {
                         </li>
                     )}
                 </ul>
-                
+
             </div>
         </div>
     );
@@ -134,11 +134,11 @@ const CategoryCard = ({ category, modules, onViewDetails, images }) => {
 // --- Main Dashboard Component ---
 const ProjectDashboard = () => {
     const navigate = useNavigate();
-    
+
     // --- STATE MANAGEMENT ---
-    const [kpis, setKpis] = useState({ 
-        totalProjects: 0, 
-        completedProjects: 0, 
+    const [kpis, setKpis] = useState({
+        totalProjects: 0,
+        completedProjects: 0,
         inProgressProjects: 0,
         pendingTasks: 0,
         pendingApprovals: 0,
@@ -162,7 +162,7 @@ const ProjectDashboard = () => {
     const [profile, setProfile] = useState(null);
     const [announcements, setAnnouncements] = useState([]);
     const [showAnnouncementsModal, setShowAnnouncementsModal] = useState(false);
-    
+
     const user = JSON.parse(sessionStorage.getItem('user') || '{}');
     const permissions = user.permissions || [];
     const role = user.role || 'employees';
@@ -223,24 +223,24 @@ const ProjectDashboard = () => {
         { name: 'Timesheet History', description: 'View past timesheets', path: '/timesheet/history', icon: DocumentChartBarIcon, permission: 'timesheet_access', allowEmployeeRole: true, category: 'Work & Productivity' },
         { name: 'Attendance Regularization', description: 'Regularize attendance', path: '/timesheet/regularization', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true, category: 'Work & Productivity' },
         { name: 'Employee Attendance', description: 'Attendance tracking', path: '/timesheet/attendance', icon: ClockIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
-        
+
         // Admin Timesheet
         { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
         { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentChartBarIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
-        
+
         // Project
         { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, showForRoles: ['admin', 'projectmanager', 'manager',], allowEmployeeRole: true, category: 'Work & Productivity' },
-        
+
         // Leave Management
         { name: 'Leave Summary', description: 'View leave summary', path: '/leave-management/summary', icon: ChartBarIcon, permission: 'leave_view', showForRoles: ['admin', 'hr', 'manager'], category: 'Leave Management' },
         { name: 'Leave Balance', description: 'Check leave balance', path: '/leave-management/balance', icon: ClipboardDocumentListIcon, permission: 'leave_view', category: 'Leave Management' },
         { name: 'Leave Applications', description: 'Apply & track leaves', path: '/leave-applications', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true, category: 'Leave Management' },
-        
+
         // Insurance & Policy
         { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'insurance_access', allowEmployeeRole: true, category: 'Company & Resources' },
         { name: policyModuleName, description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, allowEmployeeRole: true, category: 'Company & Resources' },
         { name: 'Resume Repository', description: 'Central resume repository', path: '/bank-of-resumes', icon: DocumentTextIcon, permission: 'resume_access', showForRoles: ['admin', 'hr'], category: 'Company & Resources' },
-        
+
         // Payroll
         { name: 'Salary Slips', description: 'View payslips', path: '/salaryslips', icon: BanknotesIcon, allowEmployeeRole: true, category: 'Finance & Payroll' },
         { name: 'Payroll Details', description: 'Manage payroll details', path: '/payroll/details', icon: CurrencyRupeeIcon, permission: 'payroll_manage', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
@@ -248,27 +248,29 @@ const ProjectDashboard = () => {
         { name: 'Loan Summary', description: 'View loans', path: '/payroll/loan-summary', icon: BanknotesIcon, permission: 'loan_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         { name: 'Gratuity Summary', description: 'View gratuity', path: '/payroll/gratuity-summary', icon: BanknotesIcon, permission: 'gratuity_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         { name: 'Monthly Payroll', description: 'Process monthly payroll', path: '/payroll/monthly', icon: BanknotesIcon, permission: 'payroll_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
-        
+
         // Expenditure
         { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
 
         // // Performance Management
-        // { name: 'Self Appraisal', description: 'Submit self appraisal', path: '/performance/self-appraisal', icon: StarIcon, allowEmployeeRole: true, category: 'Performance Management' },
-        // { name: 'Team Appraisal', description: 'Review team performance', path: '/performance/team-appraisal', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
-        // { name: 'Reviewer Approval', description: 'Approve appraisals', path: '/performance/reviewer-approval', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
-        // { name: 'Director Approval', description: 'Final approval', path: '/performance/director-approval', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager', 'director'], category: 'Performance Management' },
-        // { name: 'Appraisal Workflow', description: 'Track appraisal status', path: '/performance/appraisal-workflow', icon: StarIcon, allowEmployeeRole: true, category: 'Performance Management' },
-        // { name: 'Increment Master', description: 'Manage increments', path: '/performance/increment-master', icon: StarIcon, showForRoles: ['admin', 'hr'], category: 'Performance Management' },
-        // { name: 'Increment Summary', description: 'View increment summary', path: '/performance/increment-summary', icon: StarIcon, showForRoles: ['admin', 'hr', 'manager'], category: 'Performance Management' },
-        
-        
+        // { name: 'Self Appraisal', description: 'Submit self appraisal', path: '/performance/self-appraisal', icon: StarIcon, permission: 'self_appraisal', allowEmployeeRole: true, category: 'Performance Management' },
+        // { name: 'Team Appraisal', description: 'Review team performance', path: '/performance/team-appraisal', icon: StarIcon, permission: 'team_appraisal', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
+        // { name: 'Reviewer Approval', description: 'Approve appraisals', path: '/performance/reviewer-approval', icon: StarIcon, permission: 'reviewer_approval', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
+        // { name: 'Director Approval', description: 'Final approval', path: '/performance/director-approval', icon: StarIcon, permission: 'director_approval', showForRoles: ['admin', 'hr', 'manager', 'director'], category: 'Performance Management' },
+        // { name: 'Appraisal Workflow', description: 'Track appraisal status', path: '/performance/appraisal-workflow', icon: StarIcon, permission: 'appraisal_workflow', allowEmployeeRole: true, category: 'Performance Management' },
+        // { name: 'Appraisal Master', description: 'Manage increments', path: '/performance/increment-master', icon: StarIcon, permission: 'appraisal_master', showForRoles: ['admin', 'hr'], category: 'Performance Management' },
+        // { name: 'Increment Summary', description: 'View increment summary', path: '/performance/increment-summary', icon: StarIcon, permission: 'increment_summary', showForRoles: ['admin', 'hr', 'manager'], category: 'Performance Management' },
+        // { name: 'Attendance Summary', description: 'View attendance summary', path: '/performance/attendance-summary', icon: StarIcon, permission: 'attendance_summary', showForRoles: ['admin', 'hr', 'manager'], category: 'Performance Management' },
+
+
+
         // Other
-        { name: 'Exit Form', description: 'Submit exit form', path: '/employee-exit/form', icon: ArrowRightOnRectangleIcon, allowEmployeeRole: true, category: 'Company & Resources' },
+        { name: 'Exit Form', description: 'Submit exit form', path: '/employee-exit/form', icon: ArrowRightOnRectangleIcon, permission: 'exit_form_access', allowEmployeeRole: true, category: 'Company & Resources' },
         { name: 'Employee Reward Tracker', description: 'Track rewards', path: '/employee-reward-tracker', icon: BriefcaseIcon, permission: 'reward_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
         { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access', showForRoles: ['admin', 'hr'], category: 'Company & Resources' },
         { name: 'User Access', description: 'Manage user roles & permissions', path: '/user-access', icon: KeyIcon, permission: 'user_access', showForRoles: ['admin'], category: 'Company & Resources' },
         { name: 'Team Management', description: 'Manage teams', path: '/admin/team-management', icon: UserGroupIcon, permission: 'team_access', showForRoles: ['admin', 'manager'], category: 'Company & Resources' },
-        { name: 'Internships', description: 'Manage interns & references', path: '/admin/interns', icon: BriefcaseIcon, showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
+        { name: 'Internships', description: 'Manage interns & references', path: '/admin/interns', icon: BriefcaseIcon, permission: 'intern_reference', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
     ];
 
     const visibleModules = useMemo(() => {
@@ -276,36 +278,19 @@ const ProjectDashboard = () => {
             // Admin sees everything
             if (role === 'admin') return true;
 
-            // Project Manager should see the same modules as Sidebar allows
-            if (role === 'projectmanager') {
-                const pmAllowed = [
-                    'Timesheet',
-                    'Timesheet History',
-                    'Attendance Regularization',
-                    'Admin Timesheet',
-                    'Timesheet Summary',
-                    'Project Allocation',
-                    'Leave Applications',
-                    'Policy',
-                    'Policy Portal',
-                    'Salary Slips',
-                    'Leave Summary',
-                ];
-                return pmAllowed.includes(m.name);
-            }
-
-            // Check showForRoles restriction if it exists
-            if (m.showForRoles && !m.showForRoles.includes(role)) {
-                return false;
-            }
-
-            // Check permission if it exists
+            // 1. Permission Check (Primary)
+            // If module has a specific permission, user must have it
             if (m.permission && !permissions.includes(m.permission)) {
                 return false;
             }
 
-            // For employees, check allowEmployeeRole
-            if (role === 'employees' && !m.allowEmployeeRole) {
+            // 2. Role Check (Secondary Safeguard)
+            if (m.showForRoles && !m.showForRoles.includes(role)) {
+                return false;
+            }
+
+            // 3. Employee Specific Check
+            if (role === 'employees' && !m.allowEmployeeRole && !m.permission) {
                 return false;
             }
 
@@ -315,8 +300,8 @@ const ProjectDashboard = () => {
         // Filter by search term if exists
         if (searchTerm) {
             const term = searchTerm.toLowerCase().trim();
-            filtered = filtered.filter(m => 
-                m.name.toLowerCase().includes(term) || 
+            filtered = filtered.filter(m =>
+                m.name.toLowerCase().includes(term) ||
                 m.description.toLowerCase().includes(term) ||
                 m.category.toLowerCase().includes(term)
             );
@@ -416,7 +401,7 @@ const ProjectDashboard = () => {
         setSelectedProject('');
         setSelectedItem('');
     };
-    
+
     const handleTotalProjectsClick = async () => {
         setHistoryLoading(true);
         setShowHistoryModal(true);
@@ -442,8 +427,8 @@ const ProjectDashboard = () => {
 
     // --- CHILD COMPONENTS & HELPERS ---
     const KpiCard = React.memo(({ title, value, color, icon, onClick, description }) => (
-        <div 
-            onClick={onClick} 
+        <div
+            onClick={onClick}
             className={`bg-white rounded-xl shadow-lg p-6 border-l-4 ${color.border} transform hover:-translate-y-1 transition-all duration-300 flex-1 ${onClick ? 'cursor-pointer' : ''}`}
         >
             <div className="flex justify-between items-start">
@@ -460,8 +445,8 @@ const ProjectDashboard = () => {
     ));
 
     const ModuleCard = ({ module }) => (
-        <Link 
-            to={module.path} 
+        <Link
+            to={module.path}
             className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 flex flex-col h-full"
         >
             <div className="flex items-start mb-4">
@@ -538,7 +523,7 @@ const ProjectDashboard = () => {
                 return <p className="text-gray-600">{details?.message || "Select a filter to view details."}</p>;
         }
     };
-    
+
     const ProjectHistoryModal = () => (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-2xl p-6 w-full max-w-3xl max-h-[90vh] flex flex-col">
@@ -591,7 +576,7 @@ const ProjectDashboard = () => {
 
     // Helper to determine if chart is showing a quantity comparison
     const isQuantityComparison = () => {
-        return chartData.some(item => 
+        return chartData.some(item =>
             item.name === 'Consumed Quantity' || item.name === 'Remaining Quantity'
         );
     };
@@ -601,7 +586,7 @@ const ProjectDashboard = () => {
         const { width } = useWindowSize();
         const isMobile = width < 768;
         const isComparison = isQuantityComparison();
-        
+
         if (chartData.length > PIE_CHART_LIMIT && !isComparison) {
             const barHeight = 60;
             const chartHeight = barHeight * chartData.length;
@@ -647,8 +632,8 @@ const ProjectDashboard = () => {
                         labelLine={false}
                     >
                         {chartData.map((entry, index) => {
-                            const fillColor = isComparison && QUANTITY_COLORS[entry.name] 
-                                ? QUANTITY_COLORS[entry.name] 
+                            const fillColor = isComparison && QUANTITY_COLORS[entry.name]
+                                ? QUANTITY_COLORS[entry.name]
                                 : COLORS[index % COLORS.length];
                             return (
                                 <Cell key={`cell-${index}`} fill={fillColor} />
@@ -670,7 +655,7 @@ const ProjectDashboard = () => {
                         formatter={(value, entry) => {
                             const { value: quantity } = entry.payload;
                             const label = `${value}: ${quantity}`;
-                            
+
                             if (isMobile && label.length > 30) {
                                 return (
                                     <span className="text-gray-700 text-sm">
@@ -694,9 +679,9 @@ const ProjectDashboard = () => {
             {/* Hero Section */}
             <div className="relative h-[400px] w-full overflow-hidden">
                 <div className="absolute inset-0">
-                    <img 
-                        src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=2000" 
-                        alt="Hero Background" 
+                    <img
+                        src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=2000"
+                        alt="Hero Background"
                         className="w-full h-full object-cover"
                     />
                     <div className="absolute inset-0 bg-[#262760] opacity-65" />
@@ -741,7 +726,7 @@ const ProjectDashboard = () => {
                                     <p className="text-blue-200 text-sm font-medium">{profile?.designation || user.designation || 'Designation'}</p>
                                 </div>
                             </div>
-                            
+
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center bg-white/5 p-3 rounded-lg border border-white/5">
                                     <span className="text-blue-200 text-sm">Employee ID</span>
@@ -808,7 +793,7 @@ const ProjectDashboard = () => {
                 </div> */}
 
                 {/* User Profile Summary */}
-              <br />
+                <br />
 
                 {searchTerm ? (
                     // Search Results View
@@ -835,10 +820,10 @@ const ProjectDashboard = () => {
                         {/* Categorized Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
                             {Object.entries(groupedModules).map(([category, modules], idx) => (
-                                <CategoryCard 
-                                    key={category} 
-                                    category={category} 
-                                    modules={modules} 
+                                <CategoryCard
+                                    key={category}
+                                    category={category}
+                                    modules={modules}
                                     images={categoryImages}
                                     onViewDetails={(cat) => setSearchTerm(cat)}
                                 />
@@ -849,25 +834,25 @@ const ProjectDashboard = () => {
                         {ENABLE_DASHBOARD_DATA && (
                             <>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                    <KpiCard 
-                                        title="Total Projects" 
-                                        value={kpis.totalProjects} 
-                                        color={{ border: 'border-blue-500', text: 'text-blue-600', bg: 'bg-blue-50' }} 
-                                        icon={<FolderIcon className="h-6 w-6 text-blue-600" />} 
-                                        onClick={handleTotalProjectsClick} 
+                                    <KpiCard
+                                        title="Total Projects"
+                                        value={kpis.totalProjects}
+                                        color={{ border: 'border-blue-500', text: 'text-blue-600', bg: 'bg-blue-50' }}
+                                        icon={<FolderIcon className="h-6 w-6 text-blue-600" />}
+                                        onClick={handleTotalProjectsClick}
                                         description="Active Projects"
                                     />
-                                    <KpiCard 
-                                        title="Completed" 
-                                        value={kpis.completedProjects} 
-                                        color={{ border: 'border-green-500', text: 'text-green-600', bg: 'bg-green-50' }} 
-                                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>} 
+                                    <KpiCard
+                                        title="Completed"
+                                        value={kpis.completedProjects}
+                                        color={{ border: 'border-green-500', text: 'text-green-600', bg: 'bg-green-50' }}
+                                        icon={<svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
                                     />
-                                    <KpiCard 
-                                        title="In Progress" 
-                                        value={kpis.inProgressProjects} 
-                                        color={{ border: 'border-yellow-500', text: 'text-yellow-600', bg: 'bg-yellow-50' }} 
-                                        icon={<ClockIcon className="h-6 w-6 text-yellow-600" />} 
+                                    <KpiCard
+                                        title="In Progress"
+                                        value={kpis.inProgressProjects}
+                                        color={{ border: 'border-yellow-500', text: 'text-yellow-600', bg: 'bg-yellow-50' }}
+                                        icon={<ClockIcon className="h-6 w-6 text-yellow-600" />}
                                     />
                                 </div>
 
@@ -899,7 +884,7 @@ const ProjectDashboard = () => {
                                             <div className="flex justify-center items-center h-full"><p>No data available.</p></div>
                                         )}
                                     </div>
-                                    
+
                                     {infoData && !loading && (
                                         <div className="lg:col-span-2 bg-white p-6 rounded-xl shadow-md">
                                             <h2 className="text-2xl font-bold text-gray-800 mb-4">Information</h2>
@@ -915,7 +900,7 @@ const ProjectDashboard = () => {
                 {/* Footer */}
                 <div className="mt-8 border-t border-gray-200 pt-8 flex flex-col md:flex-row justify-between items-center text-gray-500 text-sm">
                     <p>© {new Date().getFullYear()} Caldim Engineering Pvt. Ltd. All rights reserved.</p>
-                    
+
                 </div>
             </div>
             {showHistoryModal && <ProjectHistoryModal />}

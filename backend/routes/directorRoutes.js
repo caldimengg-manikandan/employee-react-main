@@ -10,7 +10,7 @@ const Employee = require('../models/Employee');
 router.get('/', auth, async (req, res) => {
   try {
     // In a real app, you might check req.user.role === 'Director'
-    
+
     // Strict Visibility Rule: Only assigned Director can view
     // Sequential Flow: Include all post-review stages including final Reviewed state
     const statusFilter = { $in: ['REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED', 'Reviewed'] };
@@ -37,12 +37,12 @@ router.get('/', auth, async (req, res) => {
 
     // Populate employee details
     const appraisals = await SelfAppraisal.find(query)
-      .populate('employeeId', 'name employeeId designation department avatar ctc');
+      .populate('employeeId', 'name employeeId designation department division avatar ctc');
 
     // Transform to frontend format
     const formattedAppraisals = appraisals.map(app => {
       const emp = app.employeeId || {};
-      
+
       return {
         id: app._id,
         financialYr: app.year,
@@ -51,12 +51,13 @@ router.get('/', auth, async (req, res) => {
         avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
         designation: emp.designation || 'N/A',
         department: emp.department || 'N/A',
+        division: app.division || emp.division || 'N/A',
         status: app.status,
-        
+
         // Appraisal content
         selfAppraiseeComments: app.overallContribution || '',
         managerComments: app.managerComments || '',
-        
+
         // Reviewer content
         reviewerComments: app.reviewerComments || '',
         directorComments: app.directorComments || '',
@@ -83,8 +84,8 @@ router.get('/', auth, async (req, res) => {
 // @access  Private (Director/Admin)
 router.put('/:id', auth, async (req, res) => {
   try {
-    const { 
-      status, 
+    const {
+      status,
       directorComments,
       incrementPercentage,
       incrementCorrectionPercentage,
@@ -183,9 +184,9 @@ router.post('/release', auth, async (req, res) => {
     if (!appraisals.length) {
       return res.status(403).json({ success: false, message: 'No authorized appraisals to release' });
     }
-    
+
     let modifiedCount = 0;
-    
+
     for (const appraisal of appraisals) {
       appraisal.status = 'DIRECTOR_APPROVED';
       appraisal.employeeAcceptanceStatus = 'PENDING';

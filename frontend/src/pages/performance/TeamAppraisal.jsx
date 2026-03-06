@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, 
-  Search, 
-  Edit, 
-  Eye, 
-  Save, 
+import {
+  Users,
+  Search,
+  Edit,
+  Eye,
+  Save,
   X,
   MessageSquare,
   CheckCircle,
@@ -53,11 +53,10 @@ const RatingStars = ({ value, onChange, readOnly = false, size = "h-5 w-5", show
           disabled={readOnly}
         >
           <Star
-            className={`${size} ${
-              star <= numericValue
-                ? 'text-yellow-400 fill-yellow-400'
-                : 'text-gray-300'
-            }`}
+            className={`${size} ${star <= numericValue
+              ? 'text-yellow-400 fill-yellow-400'
+              : 'text-gray-300'
+              }`}
           />
         </button>
       ))}
@@ -84,11 +83,11 @@ const RatingComparisonRow = ({ label, selfValue, managerValue, onManagerChange, 
     <div className="col-span-5">
       <div className="flex items-center">
         <span className="text-xs text-gray-500 mr-2 w-16">Manager:</span>
-        <RatingStars 
-          value={managerValue} 
-          onChange={onManagerChange} 
+        <RatingStars
+          value={managerValue}
+          onChange={onManagerChange}
           readOnly={!isEditable}
-          size="h-4 w-4" 
+          size="h-4 w-4"
           showValue={false}
         />
         {isEditable && (
@@ -102,11 +101,11 @@ const RatingComparisonRow = ({ label, selfValue, managerValue, onManagerChange, 
 );
 
 // Comment Comparison Card Component
-const CommentComparisonCard = ({ 
-  title, 
-  selfComment, 
-  managerComment, 
-  onManagerCommentChange, 
+const CommentComparisonCard = ({
+  title,
+  selfComment,
+  managerComment,
+  onManagerCommentChange,
   isEditable,
   icon: Icon,
   color = "blue"
@@ -146,7 +145,7 @@ const CommentComparisonCard = ({
         {Icon && <Icon className={`h-5 w-5 mr-2 ${colors.icon}`} />}
         <h4 className="font-semibold text-gray-800">{title}</h4>
       </div>
-      
+
       <div className="p-4 space-y-4">
         {/* Self Comment */}
         <div>
@@ -233,6 +232,74 @@ const TeamAppraisal = () => {
   const [isEditable, setIsEditable] = useState(false);
   const [activeTab, setActiveTab] = useState('knowledge'); // knowledge, process, technical, growth, summary
 
+  // Attribute Configuration State
+  const [enabledSections, setEnabledSections] = useState({
+    knowledgeSharing: true,
+    knowledgeSubItems: {},
+    processAdherence: true,
+    processSubItems: {},
+    technicalAssessment: true,
+    technicalSubItems: {},
+    growthAssessment: true,
+    growthSubItems: {}
+  });
+
+  const [masterAttributes, setMasterAttributes] = useState({
+    knowledgeSubItems: [],
+    processSubItems: [],
+    technicalSubItems: [],
+    growthSubItems: []
+  });
+
+  useEffect(() => {
+    const fetchMasterAttrs = async () => {
+      try {
+        const res = await performanceAPI.getMasterAttributes();
+        if (res.data) {
+          setMasterAttributes({
+            knowledgeSubItems: res.data.knowledgeSubItems || [],
+            processSubItems: res.data.processSubItems || [],
+            technicalSubItems: res.data.technicalSubItems || [],
+            growthSubItems: res.data.growthSubItems || []
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch master attributes", err);
+      }
+    };
+    fetchMasterAttrs();
+  }, []);
+
+  useEffect(() => {
+    const fetchAttributes = async () => {
+      if (!selectedEmployee?.designation) return;
+      try {
+        const response = await performanceAPI.getAttributes(selectedEmployee.designation);
+        if (response.data && response.data.sections) {
+          setEnabledSections({
+            knowledgeSharing: response.data.sections.knowledgeSharing ?? true,
+            knowledgeSubItems: response.data.sections?.knowledgeSubItems || {},
+            processAdherence: response.data.sections.processAdherence ?? true,
+            processSubItems: response.data.sections?.processSubItems || {},
+            technicalAssessment: response.data.sections.technicalAssessment ?? true,
+            technicalSubItems: response.data.sections?.technicalSubItems || {},
+            growthAssessment: response.data.sections.growthAssessment ?? true,
+            growthSubItems: response.data.sections?.growthSubItems || {}
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching attributes", error);
+      }
+    };
+    fetchAttributes();
+  }, [selectedEmployee?.designation]);
+
+  const getAttributeLabel = (section, key) => {
+    const item = masterAttributes[section]?.find(i => i.key === key);
+    if (item) return item.label;
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+  };
+
   // Effect to fetch employees
   useEffect(() => {
     fetchTeamAppraisals();
@@ -271,9 +338,9 @@ const TeamAppraisal = () => {
   const handleInputChange = (id, field, value) => {
     // Update local state for immediate feedback
     setSelectedEmployee(prev => ({ ...prev, [field]: value }));
-    
+
     // Also update the list view
-    setEmployees(prev => prev.map(emp => 
+    setEmployees(prev => prev.map(emp =>
       emp.id === id ? { ...emp, [field]: value } : emp
     ));
 
@@ -286,17 +353,24 @@ const TeamAppraisal = () => {
 
   const handleManagerRatingChange = (category, field, value) => {
     const capitalizedField = field.charAt(0).toUpperCase() + field.slice(1);
-    const key = `${category}${capitalizedField}Manager`;
+    const hardcodedKey = `${category}${capitalizedField}Manager`;
+    const mapKey = `${category}ManagerRatings`;
 
-    setSelectedEmployee(prev => ({
-      ...prev,
-      [key]: value
-    }));
+    setSelectedEmployee(prev => {
+      const updatedRatings = { ...(prev[mapKey] || {}) };
+      updatedRatings[field] = value;
+      return {
+        ...prev,
+        [hardcodedKey]: value,
+        [mapKey]: updatedRatings
+      };
+    });
 
-    setEmployees(prev => prev.map(emp => 
+    setEmployees(prev => prev.map(emp =>
       emp.id === selectedEmployee.id ? {
         ...emp,
-        [key]: value
+        [hardcodedKey]: value,
+        [mapKey]: { ...(emp[mapKey] || {}), [field]: value }
       } : emp
     ));
   };
@@ -307,7 +381,7 @@ const TeamAppraisal = () => {
       [`${category}ManagerComments`]: value
     }));
 
-    setEmployees(prev => prev.map(emp => 
+    setEmployees(prev => prev.map(emp =>
       emp.id === selectedEmployee.id ? {
         ...emp,
         [`${category}ManagerComments`]: value
@@ -323,16 +397,16 @@ const TeamAppraisal = () => {
 
     try {
       const response = await performanceAPI.calculateIncrement({
-         financialYear: employee.financialYear || employee.financialYr || '2025-2026',
-         designation: employee.designation,
-         rating: rating
+        financialYear: employee.financialYear || employee.financialYr || '2025-2026',
+        designation: employee.designation,
+        rating: rating
       });
-      
+
       if (response.data && response.data.success) {
-         updateIncrementState(employee.id, response.data.percentage);
+        updateIncrementState(employee.id, response.data.percentage);
       } else {
-         console.warn("Could not calculate increment:", response.data.message);
-         updateIncrementState(employee.id, 0);
+        console.warn("Could not calculate increment:", response.data.message);
+        updateIncrementState(employee.id, 0);
       }
     } catch (err) {
       console.error('Error calculating increment:', err);
@@ -342,7 +416,7 @@ const TeamAppraisal = () => {
 
   const updateIncrementState = (id, percentage) => {
     setSelectedEmployee(prev => ({ ...prev, incrementPercentage: percentage }));
-    setEmployees(prev => prev.map(emp => 
+    setEmployees(prev => prev.map(emp =>
       emp.id === id ? { ...emp, incrementPercentage: percentage } : emp
     ));
   };
@@ -383,14 +457,14 @@ const TeamAppraisal = () => {
   const handleSubmit = () => {
     // Validate mandatory manager fields
     if (
-      !selectedEmployee.appraiserRating || 
-      !selectedEmployee.leadership || 
-      !selectedEmployee.attitude || 
+      !selectedEmployee.appraiserRating ||
+      !selectedEmployee.leadership ||
+      !selectedEmployee.attitude ||
       !selectedEmployee.communication
     ) {
-      setNotification({ 
-        type: 'error', 
-        message: 'Please complete all mandatory fields: Performance Rating, Leadership Potential, Attitude, and Communication.' 
+      setNotification({
+        type: 'error',
+        message: 'Please complete all mandatory fields: Performance Rating, Leadership Potential, Attitude, and Communication.'
       });
       return;
     }
@@ -459,7 +533,7 @@ const TeamAppraisal = () => {
   };
 
   const canSubmitReview = isEditable && activeTab === 'summary' && !!(
-    selectedEmployee && 
+    selectedEmployee &&
     selectedEmployee.appraiserRating &&
     selectedEmployee.leadership &&
     selectedEmployee.attitude &&
@@ -518,7 +592,7 @@ const TeamAppraisal = () => {
               ))}
             </select>
 
-            
+
           </div>
         </div>
 
@@ -553,17 +627,17 @@ const TeamAppraisal = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                       <div className="flex justify-center items-center space-x-2">
-                        <button 
+                        <button
                           onClick={() => handleView(emp)}
-                          className="text-blue-400 hover:text-gray-600" 
+                          className="text-blue-400 hover:text-gray-600"
                           title="View"
                         >
                           <Eye className="h-5 w-5" />
                         </button>
                         {['Submitted', 'SUBMITTED'].includes(emp.status) && (
                           <>
-                            
-                            <button 
+
+                            <button
                               onClick={() => handleEdit(emp)}
                               className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none shadow-sm"
                             >
@@ -591,7 +665,7 @@ const TeamAppraisal = () => {
 
             <div className="inline-block w-full max-w-7xl my-8 overflow-hidden text-left align-middle transition-all transform bg-white rounded-lg shadow-xl">
               <div className="flex flex-col max-h-[90vh] overflow-y-auto">
-                  
+
                 {/* Modal Header */}
                 <div className="px-6 py-6 bg-gradient-to-r from-[#262760] to-indigo-800 text-white sticky top-0 z-20">
                   <div className="flex items-start justify-between">
@@ -610,7 +684,7 @@ const TeamAppraisal = () => {
                         </div>
                       </div>
                     </div>
-                    <button 
+                    <button
                       onClick={() => setSelectedEmployee(null)}
                       className="bg-white/10 hover:bg-white/20 rounded-full p-2 text-white transition-colors focus:outline-none"
                     >
@@ -624,66 +698,60 @@ const TeamAppraisal = () => {
                   <nav className="flex space-x-6 overflow-x-auto">
                     <button
                       onClick={() => setActiveTab('knowledge')}
-                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                        activeTab === 'knowledge'
-                          ? 'border-[#262760] text-[#262760]'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
+                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'knowledge'
+                        ? 'border-[#262760] text-[#262760]'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
                     >
                       <Users className="h-4 w-4 inline mr-2" />
                       Knowledge Sharing
                     </button>
                     <button
                       onClick={() => setActiveTab('process')}
-                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                        activeTab === 'process'
-                          ? 'border-[#262760] text-[#262760]'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
+                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'process'
+                        ? 'border-[#262760] text-[#262760]'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
                     >
                       <BarChart3 className="h-4 w-4 inline mr-2" />
                       Process Adherence
                     </button>
                     <button
                       onClick={() => setActiveTab('technical')}
-                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                        activeTab === 'technical'
-                          ? 'border-[#262760] text-[#262760]'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
+                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'technical'
+                        ? 'border-[#262760] text-[#262760]'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
                     >
                       <Code className="h-4 w-4 inline mr-2" />
                       Technical Assessment
                     </button>
                     <button
                       onClick={() => setActiveTab('growth')}
-                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                        activeTab === 'growth'
-                          ? 'border-[#262760] text-[#262760]'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
+                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'growth'
+                        ? 'border-[#262760] text-[#262760]'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
                     >
                       <TrendingUp className="h-4 w-4 inline mr-2" />
                       Growth Assessment
                     </button>
                     <button
                       onClick={() => setActiveTab('projects')}
-                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                        activeTab === 'projects'
-                          ? 'border-[#262760] text-[#262760]'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
+                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'projects'
+                        ? 'border-[#262760] text-[#262760]'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
                     >
                       <Briefcase className="h-4 w-4 inline mr-2" />
                       Key Projects
                     </button>
                     <button
                       onClick={() => setActiveTab('summary')}
-                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
-                        activeTab === 'summary'
-                          ? 'border-[#262760] text-[#262760]'
-                          : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
+                      className={`py-3 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === 'summary'
+                        ? 'border-[#262760] text-[#262760]'
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
                     >
                       <Award className="h-4 w-4 inline mr-2" />
                       Summary & Rating
@@ -693,7 +761,7 @@ const TeamAppraisal = () => {
 
                 {/* Modal Content */}
                 <div className="flex-1 px-6 py-6 space-y-6 bg-gray-50">
-                  
+
                   {/* Knowledge Sharing Tab */}
                   {activeTab === 'knowledge' && (
                     <div className="space-y-6">
@@ -702,49 +770,54 @@ const TeamAppraisal = () => {
                           <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full">Editable</span>
                         )}
                       </SectionHeader>
-
                       {/* Ratings Comparison */}
                       <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
                         <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
                           <Star className="h-4 w-4 mr-2 text-yellow-500" />
                           Ratings Comparison
                         </h4>
+
+                        {/* Score Summary */}
+                        <div className="mb-6 bg-purple-50 p-4 rounded-lg border border-purple-100 shadow-sm flex items-center justify-between">
+                          <div>
+                            <div className="text-xs font-bold text-purple-700 uppercase tracking-widest mb-1">Self Assessment Score</div>
+                            {(() => {
+                              const enabledKeys = Object.entries(enabledSections?.knowledgeSubItems || {})
+                                .filter(([k, v]) => v)
+                                .map(([k]) => k);
+                              const values = enabledKeys.map(k => Number(selectedEmployee.behaviourBased?.[k] || 0)).filter(v => v > 0);
+                              const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
+                              const percent = Math.round((avg / 5) * 100);
+                              return (
+                                <div className="flex items-baseline">
+                                  <span className="text-3xl font-black text-purple-800">{percent}%</span>
+                                  <span className="ml-2 text-xs text-purple-600 font-medium">based on {values.length} attributes</span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div className="bg-white/50 p-2 rounded-full">
+                            <Users className="h-8 w-8 text-purple-300" />
+                          </div>
+                        </div>
                         <div className="space-y-2">
-                          <RatingComparisonRow
-                            label="Knowledge Sharing"
-                            selfValue={selectedEmployee.behaviourBased?.communication}
-                            managerValue={selectedEmployee.behaviourCommunicationManager}
-                            onManagerChange={(val) => handleManagerRatingChange('behaviour', 'communication', val)}
-                            isEditable={isEditable}
-                          />
-                          <RatingComparisonRow
-                            label="Mentoring"
-                            selfValue={selectedEmployee.behaviourBased?.teamwork}
-                            managerValue={selectedEmployee.behaviourTeamworkManager}
-                            onManagerChange={(val) => handleManagerRatingChange('behaviour', 'teamwork', val)}
-                            isEditable={isEditable}
-                          />
-                          <RatingComparisonRow
-                            label="Leadership"
-                            selfValue={selectedEmployee.behaviourBased?.leadership}
-                            managerValue={selectedEmployee.behaviourLeadershipManager}
-                            onManagerChange={(val) => handleManagerRatingChange('behaviour', 'leadership', val)}
-                            isEditable={isEditable}
-                          />
-                          <RatingComparisonRow
-                            label="Adaptability"
-                            selfValue={selectedEmployee.behaviourBased?.adaptability}
-                            managerValue={selectedEmployee.behaviourAdaptabilityManager}
-                            onManagerChange={(val) => handleManagerRatingChange('behaviour', 'adaptability', val)}
-                            isEditable={isEditable}
-                          />
-                          <RatingComparisonRow
-                            label="Initiative"
-                            selfValue={selectedEmployee.behaviourBased?.initiatives}
-                            managerValue={selectedEmployee.behaviourInitiativesManager}
-                            onManagerChange={(val) => handleManagerRatingChange('behaviour', 'initiatives', val)}
-                            isEditable={isEditable}
-                          />
+                          {Object.entries(enabledSections?.knowledgeSubItems || {}).map(([key, isEnabled]) => {
+                            if (!isEnabled) return null;
+                            const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
+                            const hardcodedKey = `behaviour${capitalizedField}Manager`;
+                            const managerVal = selectedEmployee.behaviourManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;
+
+                            return (
+                              <RatingComparisonRow
+                                key={key}
+                                label={getAttributeLabel('knowledgeSubItems', key)}
+                                selfValue={selectedEmployee.behaviourBased?.[key] || 0}
+                                managerValue={managerVal}
+                                onManagerChange={(val) => handleManagerRatingChange('behaviour', key, val)}
+                                isEditable={isEditable}
+                              />
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -776,28 +849,48 @@ const TeamAppraisal = () => {
                           <Star className="h-4 w-4 mr-2 text-yellow-500" />
                           Ratings Comparison
                         </h4>
+
+                        {/* Score Summary */}
+                        <div className="mb-6 bg-orange-50 p-4 rounded-lg border border-orange-100 shadow-sm flex items-center justify-between">
+                          <div>
+                            <div className="text-xs font-bold text-orange-700 uppercase tracking-widest mb-1">Self Assessment Score</div>
+                            {(() => {
+                              const enabledKeys = Object.entries(enabledSections?.processSubItems || {})
+                                .filter(([k, v]) => v)
+                                .map(([k]) => k);
+                              const values = enabledKeys.map(k => Number(selectedEmployee.processAdherence?.[k] || 0)).filter(v => v > 0);
+                              const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
+                              const percent = Math.round((avg / 5) * 100);
+                              return (
+                                <div className="flex items-baseline">
+                                  <span className="text-3xl font-black text-orange-800">{percent}%</span>
+                                  <span className="ml-2 text-xs text-orange-600 font-medium">based on {values.length} attributes</span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div className="bg-white/50 p-2 rounded-full">
+                            <BarChart3 className="h-8 w-8 text-orange-300" />
+                          </div>
+                        </div>
                         <div className="space-y-2">
-                          <RatingComparisonRow
-                            label="Timesheet"
-                            selfValue={selectedEmployee.processAdherence?.timesheet}
-                            managerValue={selectedEmployee.processTimesheetManager}
-                            onManagerChange={(val) => handleManagerRatingChange('process', 'timesheet', val)}
-                            isEditable={isEditable}
-                          />
-                          <RatingComparisonRow
-                            label="Report Status"
-                            selfValue={selectedEmployee.processAdherence?.reportStatus}
-                            managerValue={selectedEmployee.processReportStatusManager}
-                            onManagerChange={(val) => handleManagerRatingChange('process', 'reportStatus', val)}
-                            isEditable={isEditable}
-                          />
-                          <RatingComparisonRow
-                            label="Meeting"
-                            selfValue={selectedEmployee.processAdherence?.meeting}
-                            managerValue={selectedEmployee.processMeetingManager}
-                            onManagerChange={(val) => handleManagerRatingChange('process', 'meeting', val)}
-                            isEditable={isEditable}
-                          />
+                          {Object.entries(enabledSections?.processSubItems || {}).map(([key, isEnabled]) => {
+                            if (!isEnabled) return null;
+                            const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
+                            const hardcodedKey = `process${capitalizedField}Manager`;
+                            const managerVal = selectedEmployee.processManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;
+
+                            return (
+                              <RatingComparisonRow
+                                key={key}
+                                label={getAttributeLabel('processSubItems', key)}
+                                selfValue={selectedEmployee.processAdherence?.[key] || 0}
+                                managerValue={managerVal}
+                                onManagerChange={(val) => handleManagerRatingChange('process', key, val)}
+                                isEditable={isEditable}
+                              />
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -829,17 +922,48 @@ const TeamAppraisal = () => {
                           <Star className="h-4 w-4 mr-2 text-yellow-500" />
                           Ratings Comparison
                         </h4>
+
+                        {/* Score Summary */}
+                        <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100 shadow-sm flex items-center justify-between">
+                          <div>
+                            <div className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-1">Self Assessment Score</div>
+                            {(() => {
+                              const enabledKeys = Object.entries(enabledSections?.technicalSubItems || {})
+                                .filter(([k, v]) => v)
+                                .map(([k]) => k);
+                              const values = enabledKeys.map(k => Number(selectedEmployee.technicalBased?.[k] || 0)).filter(v => v > 0);
+                              const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
+                              const percent = Math.round((avg / 5) * 100);
+                              return (
+                                <div className="flex items-baseline">
+                                  <span className="text-3xl font-black text-blue-800">{percent}%</span>
+                                  <span className="ml-2 text-xs text-blue-600 font-medium">based on {values.length} attributes</span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div className="bg-white/50 p-2 rounded-full">
+                            <Code className="h-8 w-8 text-blue-300" />
+                          </div>
+                        </div>
                         <div className="space-y-2">
-                          {getTechnicalFields(selectedEmployee.division).map((field) => (
-                            <RatingComparisonRow
-                              key={field.key}
-                              label={field.label}
-                              selfValue={selectedEmployee.technicalBased?.[field.key]}
-                              managerValue={selectedEmployee[`technical${field.key.charAt(0).toUpperCase() + field.key.slice(1)}Manager`]}
-                              onManagerChange={(val) => handleManagerRatingChange('technical', field.key, val)}
-                              isEditable={isEditable}
-                            />
-                          ))}
+                          {Object.entries(enabledSections?.technicalSubItems || {}).map(([key, isEnabled]) => {
+                            if (!isEnabled) return null;
+                            const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
+                            const hardcodedKey = `technical${capitalizedField}Manager`;
+                            const managerVal = selectedEmployee.technicalManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;
+
+                            return (
+                              <RatingComparisonRow
+                                key={key}
+                                label={getAttributeLabel('technicalSubItems', key)}
+                                selfValue={selectedEmployee.technicalBased?.[key] || 0}
+                                managerValue={managerVal}
+                                onManagerChange={(val) => handleManagerRatingChange('technical', key, val)}
+                                isEditable={isEditable}
+                              />
+                            );
+                          })}
                         </div>
                       </div>
 
@@ -871,21 +995,48 @@ const TeamAppraisal = () => {
                           <Star className="h-4 w-4 mr-2 text-yellow-500" />
                           Ratings Comparison
                         </h4>
+
+                        {/* Score Summary */}
+                        <div className="mb-6 bg-green-50 p-4 rounded-lg border border-green-100 shadow-sm flex items-center justify-between">
+                          <div>
+                            <div className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">Self Assessment Score</div>
+                            {(() => {
+                              const enabledKeys = Object.entries(enabledSections?.growthSubItems || {})
+                                .filter(([k, v]) => v)
+                                .map(([k]) => k);
+                              const values = enabledKeys.map(k => Number(selectedEmployee.growthBased?.[k] || 0)).filter(v => v > 0);
+                              const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
+                              const percent = Math.round((avg / 5) * 100);
+                              return (
+                                <div className="flex items-baseline">
+                                  <span className="text-3xl font-black text-green-800">{percent}%</span>
+                                  <span className="ml-2 text-xs text-green-600 font-medium">based on {values.length} attributes</span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          <div className="bg-white/50 p-2 rounded-full">
+                            <TrendingUp className="h-8 w-8 text-green-300" />
+                          </div>
+                        </div>
                         <div className="space-y-2">
-                          <RatingComparisonRow
-                            label="Learning New Technologies"
-                            selfValue={selectedEmployee.growthBased?.learningNewTech}
-                            managerValue={selectedEmployee.growthLearningNewTechManager}
-                            onManagerChange={(val) => handleManagerRatingChange('growth', 'learningNewTech', val)}
-                            isEditable={isEditable}
-                          />
-                          <RatingComparisonRow
-                            label="Certifications"
-                            selfValue={selectedEmployee.growthBased?.certifications}
-                            managerValue={selectedEmployee.growthCertificationsManager}
-                            onManagerChange={(val) => handleManagerRatingChange('growth', 'certifications', val)}
-                            isEditable={isEditable}
-                          />
+                          {Object.entries(enabledSections?.growthSubItems || {}).map(([key, isEnabled]) => {
+                            if (!isEnabled) return null;
+                            const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
+                            const hardcodedKey = `growth${capitalizedField}Manager`;
+                            const managerVal = selectedEmployee.growthManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;
+
+                            return (
+                              <RatingComparisonRow
+                                key={key}
+                                label={getAttributeLabel('growthSubItems', key)}
+                                selfValue={selectedEmployee.growthBased?.[key] || 0}
+                                managerValue={managerVal}
+                                onManagerChange={(val) => handleManagerRatingChange('growth', key, val)}
+                                isEditable={isEditable}
+                              />
+                            );
+                          })}
                         </div>
 
                         {/* Career Goals */}
@@ -931,7 +1082,7 @@ const TeamAppraisal = () => {
                                   {project.name}
                                 </h4>
                                 <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                                   <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">{project.contribution}</p>
+                                  <p className="text-gray-700 whitespace-pre-wrap text-sm leading-relaxed">{project.contribution}</p>
                                 </div>
                               </div>
                             ))}
@@ -969,11 +1120,11 @@ const TeamAppraisal = () => {
                       {/* Manager Rating Section */}
                       <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
                         <h4 className="text-sm font-semibold text-gray-700 mb-4">Manager Review</h4>
-                        
+
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-2">Performance Rating</label>
-                            <select 
+                            <select
                               value={selectedEmployee.appraiserRating}
                               onChange={(e) => handleInputChange(selectedEmployee.id, 'appraiserRating', e.target.value)}
                               disabled={!isEditable}
@@ -988,7 +1139,7 @@ const TeamAppraisal = () => {
 
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-2">Leadership Potential</label>
-                            <select 
+                            <select
                               value={selectedEmployee.leadership || ''}
                               onChange={(e) => handleInputChange(selectedEmployee.id, 'leadership', e.target.value)}
                               disabled={!isEditable}
@@ -1003,7 +1154,7 @@ const TeamAppraisal = () => {
 
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-2">Attitude</label>
-                            <select 
+                            <select
                               value={selectedEmployee.attitude || ''}
                               onChange={(e) => handleInputChange(selectedEmployee.id, 'attitude', e.target.value)}
                               disabled={!isEditable}
@@ -1018,7 +1169,7 @@ const TeamAppraisal = () => {
 
                           <div>
                             <label className="block text-xs font-semibold text-gray-600 mb-2">Communication</label>
-                            <select 
+                            <select
                               value={selectedEmployee.communication || ''}
                               onChange={(e) => handleInputChange(selectedEmployee.id, 'communication', e.target.value)}
                               disabled={!isEditable}
@@ -1060,24 +1211,11 @@ const TeamAppraisal = () => {
                         </div>
                       </div>
 
-                      {/* Key Projects */}
-                      {selectedEmployee.projects && selectedEmployee.projects.length > 0 && (
-                        <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
-                          <h4 className="text-sm font-semibold text-gray-700 mb-3">Key Projects</h4>
-                          <div className="space-y-3">
-                            {selectedEmployee.projects.map((project, idx) => (
-                              <div key={idx} className="bg-gray-50 rounded-lg p-3">
-                                <h5 className="font-medium text-gray-800">{project.name}</h5>
-                                <p className="text-sm text-gray-600 mt-1 italic">"{project.contribution}"</p>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
+                     
                     </div>
                   )}
                 </div>
-                  
+
                 {/* Modal Footer */}
                 <div className="px-6 py-4 bg-white border-t border-gray-200 flex justify-end space-x-3 sticky bottom-0">
                   <button

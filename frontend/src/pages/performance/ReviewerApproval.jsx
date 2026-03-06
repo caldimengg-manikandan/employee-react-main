@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Search, 
-  Eye, 
-  Edit, 
+import {
+  Search,
+  Eye,
+  Edit,
   Trash2,
-  Save, 
+  Save,
   X,
   MessageSquare,
   CheckCircle,
@@ -12,7 +12,8 @@ import {
   XCircle,
   Filter,
   User,
-  Star
+  Star,
+  FileText
 } from 'lucide-react';
 import { performanceAPI } from '../../services/api';
 
@@ -112,7 +113,7 @@ const ReviewerApproval = () => {
     count: 0,
     ids: []
   });
-  
+
   // Inline Editing State
   const [editingRowId, setEditingRowId] = useState(null);
   const [editFormData, setEditFormData] = useState({});
@@ -176,12 +177,12 @@ const ReviewerApproval = () => {
     const currentVal = parseFloat(current) || 0;
     const pctVal = parseFloat(pct) || 0;
     const correctionPctVal = parseFloat(correctionPct) || 0;
-    
+
     // Total percentage = Base Increment % + Correction %
     const totalPct = pctVal + correctionPctVal;
     const amount = (currentVal * totalPct / 100);
     const revised = currentVal + amount;
-    
+
     return {
       incrementAmount: amount,
       revisedSalary: revised
@@ -200,12 +201,12 @@ const ReviewerApproval = () => {
 
   const handleSaveRow = async () => {
     try {
-      const { 
-        reviewerComments, 
-        incrementPercentage, 
-        incrementCorrectionPercentage, 
-        incrementAmount, 
-        revisedSalary 
+      const {
+        reviewerComments,
+        incrementPercentage,
+        incrementCorrectionPercentage,
+        incrementAmount,
+        revisedSalary
       } = editFormData;
 
       await performanceAPI.updateReviewerAppraisal(editingRowId, {
@@ -216,7 +217,7 @@ const ReviewerApproval = () => {
         revisedSalary
       });
 
-      setEmployees(employees.map(emp => 
+      setEmployees(employees.map(emp =>
         emp.id === editingRowId ? editFormData : emp
       ));
       setEditingRowId(null);
@@ -238,7 +239,7 @@ const ReviewerApproval = () => {
 
   const handleDelete = (id) => {
     // Should probably not allow delete here, or implement API
-    if(window.confirm("Are you sure you want to delete this record?")) {
+    if (window.confirm("Are you sure you want to delete this record?")) {
       setEmployees(employees.filter(emp => emp.id !== id));
       setSelectedRows(selectedRows.filter(rowId => rowId !== id));
     }
@@ -246,10 +247,10 @@ const ReviewerApproval = () => {
 
   const handleInputChange = (field, value) => {
     let newData = { ...editFormData, [field]: value };
-    
+
     if (field === 'incrementPercentage' || field === 'incrementCorrectionPercentage') {
       const { incrementAmount, revisedSalary } = calculateFinancials(
-        newData.currentSalary, 
+        newData.currentSalary,
         field === 'incrementPercentage' ? value : newData.incrementPercentage,
         field === 'incrementCorrectionPercentage' ? value : newData.incrementCorrectionPercentage
       );
@@ -281,7 +282,7 @@ const ReviewerApproval = () => {
         reviewerComments: tempComment
       });
 
-      setEmployees(employees.map(emp => 
+      setEmployees(employees.map(emp =>
         emp.id === currentCommentEmpId ? { ...emp, reviewerComments: tempComment } : emp
       ));
       setIsCommentModalOpen(false);
@@ -301,12 +302,12 @@ const ReviewerApproval = () => {
   };
 
   const handleSubmitToDirector = () => {
-    const candidates = selectedRows.length > 0 
+    const candidates = selectedRows.length > 0
       ? employees.filter(emp => selectedRows.includes(emp.id))
       : employees;
-      
+
     const rowsToSubmit = candidates.filter(emp => emp.status === 'APPRAISER_COMPLETED');
-      
+
     const count = rowsToSubmit.length;
     if (count === 0) {
       setStatusPopup({
@@ -392,30 +393,30 @@ const ReviewerApproval = () => {
   const uniqueDivisions = [...new Set(employees.map(e => e.division).filter(Boolean))].sort();
   const uniqueLocations = [...new Set(employees.map(e => e.location).filter(Boolean))].sort();
   const uniqueYears = [...new Set(employees.map(e => e.financialYr).filter(Boolean))].sort().reverse();
-  
+
   // Ensure current year is in the list if no data
   if (uniqueYears.length === 0) {
     uniqueYears.push(getCurrentFinancialYear());
   }
 
-  const filteredEmployees = employees.filter(emp => 
+  const filteredEmployees = employees.filter(emp =>
     (emp.financialYr === selectedFinancialYr) &&
     (selectedDivision === '' || emp.division === selectedDivision) &&
     (selectedLocation === '' || emp.location === selectedLocation) &&
     (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     emp.empId.toLowerCase().includes(searchTerm.toLowerCase()))
+      emp.empId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
       <div className="max-w-[98%] mx-auto">
-        
-        
+
+
         {/* Top Controls */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
           <div className="flex flex-wrap items-center gap-4">
             {/* Financial Year Selector */}
-            <select 
+            <select
               value={selectedFinancialYr}
               onChange={(e) => setSelectedFinancialYr(e.target.value)}
               className="block w-40 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
@@ -439,7 +440,7 @@ const ReviewerApproval = () => {
             </div>
 
             {/* Division Selector */}
-            <select 
+            <select
               value={selectedDivision}
               onChange={(e) => setSelectedDivision(e.target.value)}
               className="block w-40 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
@@ -451,7 +452,7 @@ const ReviewerApproval = () => {
             </select>
 
             {/* Location Selector */}
-            <select 
+            <select
               value={selectedLocation}
               onChange={(e) => setSelectedLocation(e.target.value)}
               className="block w-40 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
@@ -462,21 +463,21 @@ const ReviewerApproval = () => {
               ))}
             </select>
 
-            
+
           </div>
 
           {/* Submit Button */}
           <div className="flex items-center space-x-3">
-             <span className="text-sm text-gray-500">
-               {selectedRows.length > 0 ? `${selectedRows.length} selected` : 'All records'}
-             </span>
-             <button 
-               onClick={handleSubmitToDirector}
-               className="flex items-center px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] transition-colors shadow-sm"
-             >
-               <CheckCircle className="h-4 w-4 mr-2" />
-               Submit to Director
-             </button>
+            <span className="text-sm text-gray-500">
+              {selectedRows.length > 0 ? `${selectedRows.length} selected` : 'All records'}
+            </span>
+            <button
+              onClick={handleSubmitToDirector}
+              className="flex items-center px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] transition-colors shadow-sm"
+            >
+              <CheckCircle className="h-4 w-4 mr-2" />
+              Submit to Director
+            </button>
           </div>
         </div>
 
@@ -489,8 +490,8 @@ const ReviewerApproval = () => {
               <thead className="bg-[#262760] sticky top-0 z-10 shadow-md">
                 <tr>
                   <th className="px-4 py-3 text-center">
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       className="rounded border-gray-300 text-[#262760] focus:ring-[#262760]"
                       checked={selectedRows.length > 0 && selectedRows.length === filteredEmployees.filter(e => e.status === 'APPRAISER_COMPLETED').length}
                       onChange={handleSelectAll}
@@ -519,8 +520,8 @@ const ReviewerApproval = () => {
                   return (
                     <tr key={emp.id} className={`hover:bg-gray-50 ${isSelected ? 'bg-indigo-50' : ''}`}>
                       <td className="px-4 py-4 text-center">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           className="rounded border-gray-300 text-[#262760] focus:ring-[#262760] disabled:opacity-50"
                           checked={isSelected}
                           onChange={() => isEditable && handleSelectRow(emp.id)}
@@ -543,7 +544,7 @@ const ReviewerApproval = () => {
                             placeholder="Enter comments..."
                           />
                         ) : (
-                          <div 
+                          <div
                             className={`text-xs text-gray-700 max-w-[200px] truncate mx-auto ${isEditable ? 'cursor-pointer hover:text-[#262760]' : ''}`}
                             onClick={() => isEditable && openCommentModal(emp)}
                             title={data.reviewerComments || 'Click to add comments'}
@@ -567,7 +568,7 @@ const ReviewerApproval = () => {
                               value={data.incrementCorrectionPercentage}
                               onChange={(e) => handleInputChange('incrementCorrectionPercentage', e.target.value)}
                             />
-                             <span className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
+                            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
                           </div>
                         ) : (
                           <span className={`${data.incrementCorrectionPercentage !== 0 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
@@ -594,9 +595,9 @@ const ReviewerApproval = () => {
                             </>
                           ) : (
                             <>
-                              <button 
-                                className="text-blue-400 hover:text-gray-600" 
-                                title="View Details" 
+                              <button
+                                className="text-blue-400 hover:text-gray-600"
+                                title="View Details"
                                 onClick={() => setViewModalData(emp)}
                               >
                                 <Eye className="h-5 w-5" />
@@ -607,7 +608,7 @@ const ReviewerApproval = () => {
                                   <span>Edit</span>
                                 </button>
                               )}
-                              
+
                             </>
                           )}
                         </div>
@@ -679,13 +680,13 @@ const ReviewerApproval = () => {
                 onChange={(e) => setTempComment(e.target.value)}
               />
               <div className="mt-4 flex justify-end space-x-3">
-                <button 
+                <button
                   onClick={() => setIsCommentModalOpen(false)}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={saveComment}
                   className="px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050]"
                 >
@@ -710,7 +711,7 @@ const ReviewerApproval = () => {
                 <X className="h-5 w-5" />
               </button>
             </div>
-            
+
             <div className="p-6 space-y-6">
               {/* Employee Info Header */}
               <div className="flex items-center space-x-4 pb-4 border-b border-gray-200">
@@ -727,35 +728,134 @@ const ReviewerApproval = () => {
               {/* Appraisal Content */}
               <div className="grid grid-cols-1 gap-6">
                 {/* Self Appraisal */}
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                  <h4 className="text-sm font-bold text-[#262760] uppercase tracking-wide mb-2 flex items-center">
-                    <User className="h-4 w-4 mr-2" /> Self Appraisal
+                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 shadow-sm">
+                  <h4 className="text-sm font-bold text-[#262760] uppercase tracking-wide mb-3 flex items-center border-b border-blue-200 pb-2">
+                    <User className="h-4 w-4 mr-2" /> Self Appraisal Detail
                   </h4>
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase">Self Appraisee Comments</p>
-                      <p className="text-sm text-gray-800 mt-1 italic">"{viewModalData.selfAppraiseeComments}"</p>
+                      <p className="text-xs text-gray-500 font-semibold uppercase">Overall Contribution</p>
+                      <p className="text-sm text-gray-800 mt-1 bg-white p-2 rounded border border-blue-100 italic">
+                        {viewModalData.selfAppraiseeComments ? `"${viewModalData.selfAppraiseeComments}"` : <span className="text-gray-400">No overall comments</span>}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase">Behavioural</p>
+                        <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{viewModalData.behaviourSelf?.comments || 'No comments'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase">Process Adherence</p>
+                        <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{viewModalData.processSelf?.comments || 'No comments'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase">Technical Assessment</p>
+                        <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{viewModalData.technicalSelf?.comments || 'No comments'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase">Growth & Career Goals</p>
+                        <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{viewModalData.growthSelf?.comments || viewModalData.growthSelf?.careerGoals || 'No comments'}</p>
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Manager Review */}
-                <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                  <h4 className="text-sm font-bold text-[#262760] uppercase tracking-wide mb-2 flex items-center">
-                    <Star className="h-4 w-4 mr-2" /> Manager Review
+                {/* Team/Manager Review */}
+                <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 shadow-sm">
+                  <h4 className="text-sm font-bold text-[#262760] uppercase tracking-wide mb-3 flex items-center border-b border-indigo-200 pb-2">
+                    <Star className="h-4 w-4 mr-2" /> Team Appraisal (Manager Review)
                   </h4>
-                  <div className="space-y-3">
-                    <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase">Manager Comments</p>
-                      <p className="text-sm text-gray-800 mt-1 italic">"{viewModalData.managerComments}"</p>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/50 p-3 rounded-lg border border-indigo-50">
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase">Final Rating Assigned</p>
+                        <p className="text-lg font-black text-indigo-700 mt-0.5">{viewModalData.appraiserRating || 'Not Rated'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-semibold uppercase">Key Performance Summary</p>
+                        <p className="text-xs text-gray-700 font-medium mt-1">{viewModalData.keyPerformance || 'N/A'}</p>
+                      </div>
                     </div>
+
+                    <div>
+                      <p className="text-xs text-gray-500 font-semibold uppercase">Manager's General Remarks</p>
+                      <p className="text-sm text-gray-800 mt-1 bg-white p-2 rounded border border-indigo-100 italic font-medium">
+                        {viewModalData.managerComments ? `"${viewModalData.managerComments}"` : <span className="text-gray-400">No overall comments from manager</span>}
+                      </p>
+                    </div>
+
+                    {/* Sectional Detail (Mgr) */}
+                    <div className="space-y-3">
+                      <h5 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center">
+                        Detailed Feedback Sections
+                      </h5>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="bg-white/40 p-2 rounded border border-indigo-50">
+                          <p className="text-[10px] text-gray-500 font-bold uppercase">Behavioural</p>
+                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.behaviourManagerComments || 'N/A'}</p>
+                        </div>
+                        <div className="bg-white/40 p-2 rounded border border-indigo-50">
+                          <p className="text-[10px] text-gray-500 font-bold uppercase">Process Adherence</p>
+                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.processManagerComments || 'N/A'}</p>
+                        </div>
+                        <div className="bg-white/40 p-2 rounded border border-indigo-50">
+                          <p className="text-[10px] text-gray-500 font-bold uppercase">Technical</p>
+                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.technicalManagerComments || 'N/A'}</p>
+                        </div>
+                        <div className="bg-white/40 p-2 rounded border border-indigo-50">
+                          <p className="text-[10px] text-gray-500 font-bold uppercase">Growth</p>
+                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.growthManagerComments || 'N/A'}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Manager's Evaluation Matrix */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-indigo-100 pt-3">
+                      <div className="bg-indigo-100/30 p-2 rounded">
+                        <p className="text-[10px] text-gray-500 font-bold uppercase">Leadership</p>
+                        <p className="text-xs font-semibold text-gray-800">{viewModalData.leadership || 'N/A'}</p>
+                      </div>
+                      <div className="bg-indigo-100/30 p-2 rounded">
+                        <p className="text-[10px] text-gray-500 font-bold uppercase">Attitude</p>
+                        <p className="text-xs font-semibold text-gray-800">{viewModalData.attitude || 'N/A'}</p>
+                      </div>
+                      <div className="bg-indigo-100/30 p-2 rounded">
+                        <p className="text-[10px] text-gray-500 font-bold uppercase">Communication</p>
+                        <p className="text-xs font-semibold text-gray-800">{viewModalData.communication || 'N/A'}</p>
+                      </div>
+                    </div>
+
+                    {viewModalData.appraiseeComments && (
+                      <div className="mt-2 pt-2 border-t border-indigo-200">
+                        <p className="text-xs text-gray-500 font-bold uppercase">Specific Appraisee Observations</p>
+                        <p className="text-xs text-gray-700 mt-1 italic">"{viewModalData.appraiseeComments}"</p>
+                      </div>
+                    )}
                   </div>
                 </div>
+
+                {/* Key Projects */}
+                {viewModalData.projects && viewModalData.projects.length > 0 && (
+                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">
+                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3 border-b border-gray-200 pb-2 flex items-center">
+                      <FileText className="h-4 w-4 mr-2" /> Projects & Key Contributions
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {viewModalData.projects.map((project, idx) => (
+                        <div key={idx} className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm text-xs group hover:border-[#262760] transition-colors">
+                          <p className="font-black text-[#262760] group-hover:text-[#1e2050] mb-1">{project.name}</p>
+                          <p className="text-gray-600 italic">"{project.contribution}"</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Footer */}
               <div className="flex justify-end pt-4 border-t border-gray-200">
-                <button 
+                <button
                   onClick={() => setViewModalData(null)}
                   className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
                 >
