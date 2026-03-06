@@ -27,42 +27,55 @@ const SelfAppraisalSchema = new mongoose.Schema({
     type: String
   },
   behaviourBased: {
-    communication: { type: Number, default: 0 },
-    teamwork: { type: Number, default: 0 },
-    leadership: { type: Number, default: 0 },
-    adaptability: { type: Number, default: 0 },
-    initiatives: { type: Number, default: 0 },
-    comments: { type: String, default: '' }
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: () => ({ comments: '' })
   },
   processAdherence: {
-    timesheet: { type: Number, default: 0 },
-    reportStatus: { type: Number, default: 0 },
-    meeting: { type: Number, default: 0 },
-    comments: { type: String, default: '' }
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: () => ({ comments: '' })
   },
   technicalBased: {
-    codingSkills: { type: Number, default: 0 },
-    testing: { type: Number, default: 0 },
-    debugging: { type: Number, default: 0 },
-    sds: { type: Number, default: 0 },
-    tekla: { type: Number, default: 0 },
-    comments: { type: String, default: '' }
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: () => ({ comments: '' })
   },
   growthBased: {
-    learningNewTech: { type: Number, default: 0 },
-    certifications: { type: Number, default: 0 },
-    careerGoals: { type: String, default: '' },
-    comments: { type: String, default: '' }
+    type: Map,
+    of: mongoose.Schema.Types.Mixed,
+    default: () => ({ comments: '', careerGoals: '' })
+  },
+  // Dynamic Manager Ratings
+  behaviourManagerRatings: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  processManagerRatings: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  technicalManagerRatings: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  growthManagerRatings: {
+    type: Map,
+    of: Number,
+    default: {}
   },
   status: {
     type: String,
     enum: [
-      'Draft', 
+      'Draft',
       'Submitted', // Employee has submitted
       'SUBMITTED', // Normalize to uppercase if needed, but keeping mixed for now based on existing code. User requested "SUBMITTED" explicitly. 
       // Let's support both or standardized. The user input used uppercase. I will add uppercase versions.
-      'APPRAISER_COMPLETED', 
-      'REVIEWER_COMPLETED', 
+      'APPRAISER_COMPLETED',
+      'REVIEWER_COMPLETED',
       'DIRECTOR_APPROVED',
       // Keeping legacy/other statuses for safety if needed, or remove if strict. 
       // User requested strict flow: DRAFT -> SUBMITTED -> APPRAISER_COMPLETED -> REVIEWER_COMPLETED -> DIRECTOR_APPROVED
@@ -137,7 +150,7 @@ const SelfAppraisalSchema = new mongoose.Schema({
   incrementCorrectionPercentage: { type: Number, default: 0 },
   incrementAmount: { type: Number, default: 0 },
   revisedSalary: { type: Number, default: 0 },
-  
+
   releaseLetter: {
     type: String
   },
