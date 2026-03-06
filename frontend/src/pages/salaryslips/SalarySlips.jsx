@@ -17,11 +17,38 @@ const SalarySlips = () => {
   const [payslipData, setPayslipData] = useState(null);
   const [showPayslip, setShowPayslip] = useState(false);
   const [availableYears, setAvailableYears] = useState([]);
+  const [payrollHistory, setPayrollHistory] = useState([]);
+  const [availableMonths, setAvailableMonths] = useState([]);
+  const [zoomLevel, setZoomLevel] = useState(1);
 
-  const months = [
+  useEffect(() => {
+    // Initial zoom for mobile
+    const initZoom = () => {
+      if (window.innerWidth < 850) {
+        const scale = (window.innerWidth - 40) / 810;
+        setZoomLevel(Math.max(0.4, scale));
+      } else {
+        setZoomLevel(1);
+      }
+    };
+    initZoom();
+    window.addEventListener('resize', initZoom);
+    return () => window.removeEventListener('resize', initZoom);
+  }, []);
+
+  const monthNames = [
     'January', 'February', 'March', 'April', 'May', 'June',
     'July', 'August', 'September', 'October', 'November', 'December'
   ];
+
+  const getFinancialYear = (year, month) => {
+    // month is 1-indexed (1 for Jan, 4 for April)
+    if (month >= 4) {
+      return `${year}-${year + 1}`;
+    } else {
+      return `${year - 1}-${year}`;
+    }
+  };
 
   useEffect(() => {
     const init = async () => {
@@ -30,26 +57,36 @@ const SalarySlips = () => {
         navigate('/login');
         return;
       }
+      let empId = user.employeeId || user.username || user.id;
       try {
         const me = await employeeAPI.getMyProfile();
-        const empId = me?.data?.employeeId || user.employeeId || user.username || user.id;
-        setEmployeeId(empId);
         if (me?.data) {
+          empId = me.data.employeeId || empId;
+          setEmployeeId(empId);
           setPanNumber(me.data.pan || '');
           setUanNumber(me.data.uan || '');
           setJoiningDate(me.data.dateOfJoining || me.data.dateofjoin || '');
+        } else {
+          setEmployeeId(empId);
         }
       } catch (err) {
-        const fallbackId = user.employeeId || user.username || user.id;
-        setEmployeeId(fallbackId);
+        setEmployeeId(empId);
       }
-      const currentYear = new Date().getFullYear();
-      const years = [];
-      for (let i = -2; i <= 1; i++) {
-        const year = currentYear + i;
-        years.push(`${year}-${year + 1}`);
+
+      try {
+        const historyResponse = await monthlyPayrollAPI.getEmployeeHistory(empId);
+        const history = Array.isArray(historyResponse?.data) ? historyResponse.data : (Array.isArray(historyResponse) ? historyResponse : []);
+        setPayrollHistory(history);
+
+        const years = new Set();
+        history.forEach(record => {
+          const [y, m] = record.salaryMonth.split('-').map(Number);
+          years.add(getFinancialYear(y, m));
+        });
+        setAvailableYears(Array.from(years).sort().reverse());
+      } catch (err) {
+        console.error("Failed to fetch payroll history:", err);
       }
-      setAvailableYears(years);
     };
     init();
   }, [navigate]);
@@ -64,7 +101,7 @@ const SalarySlips = () => {
       May: 5, June: 6, July: 7, August: 8,
       September: 9, October: 10, November: 11, December: 12
     };
-    
+
     const selectedMonthNum = monthMap[selectedMonth];
     const selectedYear = selectedMonthNum >= 4 ? yearStart : yearStart + 1;
     const selectedDate = new Date(selectedYear, selectedMonthNum - 1, 1);
@@ -78,9 +115,9 @@ const SalarySlips = () => {
     }
 
     const formattedMonth = `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}`;
-    
+
     setIsLoading(true);
-    
+
     try {
       const response = await monthlyPayrollAPI.list({ month: formattedMonth });
       const records = Array.isArray(response?.data) ? response.data : [];
@@ -90,11 +127,11 @@ const SalarySlips = () => {
         setIsLoading(false);
         return;
       }
-      
+
       // Calculate actual days in the month
       const daysInMonth = new Date(selectedYear, selectedMonthNum, 0).getDate();
       const workingDays = daysInMonth;
-      
+
       const lopDays = Number(rec.lopDays || 0);
       const paidDays = Math.max(0, workingDays - lopDays);
       const paidDate = rec.paymentDate || `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-28`;
@@ -174,7 +211,7 @@ const SalarySlips = () => {
       paidDate: `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-28`,
       monthYear: formattedMonth
     };
-    
+
     setPayslipData(mockData);
     setShowPayslip(true);
   };
@@ -188,11 +225,33 @@ const SalarySlips = () => {
         joiningDate: joiningDate || prev?.joiningDate || 'N/A',
       }));
     }
-  }, [panNumber, uanNumber, joiningDate]); 
+  }, [panNumber, uanNumber, joiningDate]);
+
+  useEffect(() => {
+    if (financialYear && payrollHistory.length > 0) {
+      const recordsForYear = payrollHistory.filter(record => {
+        const [y, m] = record.salaryMonth.split('-').map(Number);
+        return getFinancialYear(y, m) === financialYear;
+      });
+
+      const distinctMonths = new Set();
+      recordsForYear.forEach(record => {
+        const monthNum = parseInt(record.salaryMonth.split('-')[1]);
+        distinctMonths.add(monthNames[monthNum - 1]);
+      });
+
+      setAvailableMonths(Array.from(distinctMonths).sort((a, b) => {
+        return monthNames.indexOf(a) - monthNames.indexOf(b);
+      }));
+    } else {
+      setAvailableMonths([]);
+    }
+    setMonth(''); // Reset month when FY changes
+  }, [financialYear, payrollHistory]);
 
   const handleMonthChange = (selectedMonth) => {
     setMonth(selectedMonth);
-    if (financialYear) {
+    if (financialYear && selectedMonth) {
       fetchPayslip(selectedMonth);
     }
   };
@@ -219,30 +278,45 @@ const SalarySlips = () => {
 
   const handleDownloadPDF = async () => {
     if (!payslipData) return;
+    setIsLoading(true);
     const element = document.getElementById('payslip-content');
-    if (!element) return;
-    const canvas = await html2canvas(element, { scale: 2 });
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let position = 0;
-    if (imgHeight < pageHeight) {
-      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-    } else {
-      let heightLeft = imgHeight;
-      while (heightLeft > 0) {
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-        if (heightLeft > 0) {
-          pdf.addPage();
-          position = position - pageHeight;
-        }
-      }
+    if (!element) {
+      setIsLoading(false);
+      return;
     }
-    pdf.save(`payslip_${employeeId}_${payslipData.monthYear}.pdf`);
+
+    try {
+      // Use higher scale for better quality
+      const canvas = await html2canvas(element, {
+        scale: 3,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        width: 794,
+        height: 1123,
+        onclone: (clonedDoc) => {
+          const clonedElement = clonedDoc.getElementById('payslip-content');
+          if (clonedElement) {
+            clonedElement.style.transform = 'none';
+            clonedElement.style.margin = '0';
+            clonedElement.style.boxShadow = 'none';
+          }
+        }
+      });
+
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, 297); // 297mm is A4 height
+      pdf.save(`payslip_${employeeId}_${payslipData.monthYear}.pdf`);
+    } catch (error) {
+      console.error("PDF Export failed:", error);
+      alert('Failed to download PDF. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -255,7 +329,7 @@ const SalarySlips = () => {
     const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
     const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
     const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
-    
+
     if (num === 0) return 'Zero';
     if (num < 10) return ones[num];
     if (num < 20) return teens[num - 10];
@@ -319,20 +393,20 @@ const SalarySlips = () => {
 
       {/* Watermark */}
       <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
-        <img 
-          src="/images/steel-logo.png" 
-          alt="Watermark" 
+        <img
+          src="/images/steel-logo.png"
+          alt="Watermark"
           className="w-[500px] opacity-[0.05] grayscale"
         />
       </div>
 
       <div className="relative z-10 flex flex-col h-full justify-between min-h-[1120px] print:min-h-0">
         {/* Header */}
-        <div className="w-full flex h-32 relative overflow-hidden">
+        <div className="w-full flex h-32 relative overflow-hidden bg-white">
           <div className="absolute inset-0 z-0">
             <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
-              <path d="M0,0 L400,0 L340,128 L0,128 Z" fill="#1e2b58" />
-              <path d="M400,0 L430,0 L370,128 L340,128 Z" fill="#f37021" />
+              <path d="M0,0 L420,0 L360,128 L0,128 Z" fill="#1e2b58" />
+              <path d="M420,0 L470,0 L410,128 L360,128 Z" fill="#f37021" />
             </svg>
           </div>
 
@@ -404,115 +478,115 @@ const SalarySlips = () => {
         </div>
 
         {/* Content Body */}
-        <div className="px-12 mb-2  py-6 flex-grow">
-            
-          
-            
-            <div className="text-center mb-4 bg-blue-50 py-0 rounded border border-blue-100">
-               <p className="text-gray-800 font-medium">
-                  Payslip for the period of: <span className="font-bold text-[#1e2b58] text-lg ml-2">{data.month} {data.year}</span>
-               </p>
+        <div className="px-12 mb-2 py-6 flex-grow">
+
+          <div className="flex justify-center mb-6">
+            <div className="inline-flex items-center justify-center bg-[#f0f7ff] py-1.5 px-10 rounded-full border border-blue-100 shadow-sm min-w-[500px]">
+              <p className="text-gray-700 font-medium">
+                Payslip for the period of: <span className="font-bold text-[#1e2b58] text-xl ml-3 tracking-wide">{data.month} {data.year}</span>
+              </p>
             </div>
+          </div>
 
-            {/* Employee Details & Bank Details */}
-            <div className="grid grid-cols-2 gap-8 mb-8">
-              <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-[#1e2b58]">
-                <h3 className="text-[#1e2b58] font-bold text-lg mb-4 border-b pb-2 border-gray-200">Employee Details</h3>
-                <div className="space-y-2 text-sm">
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Employee ID:</span> <span className="font-bold text-gray-800">{data.employeeId}</span></div>
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Name:</span> <span className="font-bold text-gray-800">{data.employeeName}</span></div>
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Designation:</span> <span className="font-bold text-gray-800">{data.designation}</span></div>
-                   {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">Department:</span> <span className="font-bold text-gray-800">{data.department}</span></div> */}
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">PAN Number:</span> <span className="font-bold text-gray-800">{data.panNumber}</span></div>
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">UAN:</span> <span className="font-bold text-gray-800">{data.uanNumber}</span></div>
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Date of Joining:</span> <span className="font-bold text-gray-800">{data.joiningDate ? new Date(data.joiningDate).toLocaleDateString('en-GB') : 'N/A'}</span></div>
-                </div>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-[#f37021]">
-                <h3 className="text-[#1e2b58] font-bold text-lg mb-4 border-b pb-2 border-gray-200">Bank Details</h3>
-                <div className="space-y-2 text-sm">
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Bank Name:</span> <span className="font-bold text-gray-800">{data.bankName}</span></div>
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Account No:</span> <span className="font-bold text-gray-800">{data.accountNumber}</span></div>
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">IFSC Code:</span> <span className="font-bold text-gray-800">{data.ifscCode}</span></div>
-                   <div className="flex"><span className="w-32 text-gray-500 font-medium">Payment Date:</span> <span className="font-bold text-gray-800">{data.paidDate}</span></div>
-                   {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">Paid Days:</span> <span className="font-bold text-gray-800">{data.paidDays}</span></div> */}
-                   {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">LOP Days:</span> <span className="font-bold text-gray-800">{data.leaveDays}</span></div> */}
-                </div>
+          {/* Employee Details & Bank Details */}
+          <div className="grid grid-cols-2 gap-8 mb-8">
+            <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-[#1e2b58]">
+              <h3 className="text-[#1e2b58] font-bold text-lg mb-4 border-b pb-2 border-gray-200">Employee Details</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex"><span className="w-32 text-gray-500 font-medium">Employee ID:</span> <span className="font-bold text-gray-800">{data.employeeId}</span></div>
+                <div className="flex"><span className="w-32 text-gray-500 font-medium">Name:</span> <span className="font-bold text-gray-800">{data.employeeName}</span></div>
+                <div className="flex"><span className="w-32 text-gray-500 font-medium">Designation:</span> <span className="font-bold text-gray-800">{data.designation}</span></div>
+                {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">Department:</span> <span className="font-bold text-gray-800">{data.department}</span></div> */}
+                <div className="flex"><span className="w-32 text-gray-500 font-medium">PAN Number:</span> <span className="font-bold text-gray-800">{data.panNumber}</span></div>
+                <div className="flex"><span className="w-32 text-gray-500 font-medium">UAN:</span> <span className="font-bold text-gray-800">{data.uanNumber}</span></div>
+                <div className="flex"><span className="w-32 text-gray-500 font-medium">Date of Joining:</span> <span className="font-bold text-gray-800">{data.joiningDate ? new Date(data.joiningDate).toLocaleDateString('en-GB') : 'N/A'}</span></div>
               </div>
             </div>
 
-            {/* Salary Table */}
-            <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden">
-                <div className="grid grid-cols-2 bg-[#1e2b58] text-white text-center font-bold py-2">
-                    <div>EARNINGS</div>
-                    <div>DEDUCTIONS</div>
-                </div>
-                <div className="grid grid-cols-2">
-                    {/* Earnings Column */}
-                    <div className="border-r border-gray-200">
-                        <div className="p-4 space-y-3">
-                            <div className="flex justify-between text-sm"><span className="text-gray-600">Basic Salary</span> <span className="font-bold text-gray-800">{data.basicSalary.toLocaleString('en-IN')}</span></div>
-                            <div className="flex justify-between text-sm"><span className="text-gray-600">HRA</span> <span className="font-bold text-gray-800">{data.hra.toLocaleString('en-IN')}</span></div>
-                            <div className="flex justify-between text-sm"><span className="text-gray-600">Special Allowance</span> <span className="font-bold text-gray-800">{data.specialAllowance.toLocaleString('en-IN')}</span></div>
-                            
-                            <div className="pt-4 mt-4 border-t border-gray-200 flex justify-between font-bold text-[#1e2b58] text-lg">
-                                <span>Total Earnings</span>
-                                <span>₹{data.totalEarnings.toLocaleString('en-IN')}</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* Deductions Column */}
-                    <div>
-                        <div className="p-4 space-y-3">
-                            <div className="flex justify-between text-sm"><span className="text-gray-600">Provident Fund</span> <span className="font-bold text-gray-800">{data.pfDeduction.toLocaleString('en-IN')}</span></div>
-                            <div className="flex justify-between text-sm"><span className="text-gray-600">Professional Tax</span> <span className="font-bold text-gray-800">{data.professionalTax.toLocaleString('en-IN')}</span></div>
-                            <div className="flex justify-between text-sm"><span className="text-gray-600">TDS</span> <span className="font-bold text-gray-800">{data.tds.toLocaleString('en-IN')}</span></div>
-                            <div className="flex justify-between text-sm"><span className="text-gray-600">ESI</span> <span className="font-bold text-gray-800">{data.esi.toLocaleString('en-IN')}</span></div>
-                            {data.lopDeduction > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Loss of Pay</span> <span className="font-bold text-gray-800">{data.lopDeduction.toLocaleString('en-IN')}</span></div>}
-                            {(data.loanDeduction > 0) && (
-                                <>
-                                    {data.loanDeduction > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Loan</span> <span className="font-bold text-gray-800">{data.loanDeduction.toLocaleString('en-IN')}</span></div>}
-                                </>
-                            )}
-
-                            <div className="pt-4 mt-4 border-t border-gray-200 flex justify-between font-bold text-red-600 text-lg">
-                                <span>Total Deductions</span>
-                                <span>₹{data.totalDeductions.toLocaleString('en-IN')}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+            <div className="bg-gray-50 p-4 rounded-lg border-l-4 border-[#f37021]">
+              <h3 className="text-[#1e2b58] font-bold text-lg mb-4 border-b pb-2 border-gray-200">Bank Details</h3>
+              <div className="space-y-2 text-sm">
+                <div className="flex"><span className="w-32 text-gray-500 font-medium">Bank Name:</span> <span className="font-bold text-gray-800">{data.bankName}</span></div>
+                <div className="flex"><span className="w-32 text-gray-500 font-medium">Account No:</span> <span className="font-bold text-gray-800">{data.accountNumber}</span></div>
+                <div className="flex"><span className="w-32 text-gray-500 font-medium">IFSC Code:</span> <span className="font-bold text-gray-800">{data.ifscCode}</span></div>
+                <div className="flex"><span className="w-32 text-gray-500 font-medium">Payment Date:</span> <span className="font-bold text-gray-800">{data.paidDate}</span></div>
+                {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">Paid Days:</span> <span className="font-bold text-gray-800">{data.paidDays}</span></div> */}
+                {/* <div className="flex"><span className="w-32 text-gray-500 font-medium">LOP Days:</span> <span className="font-bold text-gray-800">{data.leaveDays}</span></div> */}
+              </div>
             </div>
+          </div>
 
-            {/* Net Salary */}
-            <div className="bg-[#1e2b58] text-white p-6 rounded-lg shadow-md mb-8">
-                <div className="flex justify-between items-center">
-                    <div>
-                        <p className="text-gray-300 text-sm mb-1 uppercase tracking-wider">Net Salary Payable</p>
-                        <p className="text-2xl font-bold">₹{data.netSalary.toLocaleString('en-IN')}</p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-gray-300 text-xs mb-1">Amount in words</p>
-                        <p className="font-medium text-lg italic">{numberToWords(data.netSalary)} Rupees Only</p>
-                    </div>
-                </div>
+          {/* Salary Table */}
+          <div className="mb-8 border border-gray-200 rounded-lg overflow-hidden">
+            <div className="grid grid-cols-2 bg-[#1e2b58] text-white text-center font-bold py-2">
+              <div>EARNINGS</div>
+              <div>DEDUCTIONS</div>
             </div>
-            
-            <p className="text-center text-xs text-gray-500 mt-8">This is a computer-generated document and does not require a signature.</p>
+            <div className="grid grid-cols-2">
+              {/* Earnings Column */}
+              <div className="border-r border-gray-200">
+                <div className="p-4 space-y-3">
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Basic Salary</span> <span className="font-bold text-gray-800">{data.basicSalary.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">HRA</span> <span className="font-bold text-gray-800">{data.hra.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Special Allowance</span> <span className="font-bold text-gray-800">{data.specialAllowance.toLocaleString('en-IN')}</span></div>
+
+                  <div className="pt-4 mt-4 border-t border-gray-200 flex justify-between font-bold text-[#1e2b58] text-lg">
+                    <span>Total Earnings</span>
+                    <span>₹{data.totalEarnings.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Deductions Column */}
+              <div>
+                <div className="p-4 space-y-3">
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Provident Fund</span> <span className="font-bold text-gray-800">{data.pfDeduction.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">Professional Tax</span> <span className="font-bold text-gray-800">{data.professionalTax.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">TDS</span> <span className="font-bold text-gray-800">{data.tds.toLocaleString('en-IN')}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-600">ESI</span> <span className="font-bold text-gray-800">{data.esi.toLocaleString('en-IN')}</span></div>
+                  {data.lopDeduction > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Loss of Pay</span> <span className="font-bold text-gray-800">{data.lopDeduction.toLocaleString('en-IN')}</span></div>}
+                  {(data.loanDeduction > 0) && (
+                    <>
+                      {data.loanDeduction > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Loan</span> <span className="font-bold text-gray-800">{data.loanDeduction.toLocaleString('en-IN')}</span></div>}
+                    </>
+                  )}
+
+                  <div className="pt-4 mt-4 border-t border-gray-200 flex justify-between font-bold text-red-600 text-lg">
+                    <span>Total Deductions</span>
+                    <span>₹{data.totalDeductions.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Net Salary */}
+          <div className="bg-[#1e2b58] text-white p-6 rounded-lg shadow-md mb-8">
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="text-gray-300 text-sm mb-1 uppercase tracking-wider">Net Salary Payable</p>
+                <p className="text-2xl font-bold">₹{data.netSalary.toLocaleString('en-IN')}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-gray-300 text-xs mb-1">Amount in words</p>
+                <p className="font-medium text-lg italic">{numberToWords(data.netSalary)} Rupees Only</p>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-center text-xs text-gray-500 mt-8">This is a computer-generated document and does not require a signature.</p>
         </div>
 
         {/* Footer */}
         <div className="w-full flex items-end mt-auto">
-            {/* Orange Line */}
-            <div className="h-3 bg-[#f37021] flex-1 mb-0"></div>
-            
-            {/* Blue Block */}
-            <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center" style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', minWidth: '450px' }}>
-                <div className="text-sm font-medium tracking-wide">Website : www.caldimengg.com</div>
-                <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
-            </div>
+          {/* Orange Line */}
+          <div className="h-3 bg-[#f37021] flex-1 mb-0"></div>
+
+          {/* Blue Block */}
+          <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center" style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', minWidth: '450px' }}>
+            <div className="text-sm font-medium tracking-wide">Website : www.caldimengg.com</div>
+            <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
+          </div>
         </div>
       </div>
     </div>
@@ -522,24 +596,24 @@ const SalarySlips = () => {
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <header>
-        
-       
+
+
         <div className="flex items-center gap-2">
           {showPayslip && (
             <>
-  
-              <button 
+
+              <button
                 onClick={handleDownloadPDF}
-                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors hidden md:inline-flex items-center"
+                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors flex items-center"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 md:mr-2" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
-                Download PDF
+                <span className="text-xs md:text-sm">Download PDF</span>
               </button>
             </>
           )}
-         
+
         </div>
       </header>
 
@@ -556,8 +630,8 @@ const SalarySlips = () => {
                   </svg>
                 </div>
                 <h2 className="text-xl font-bold text-gray-800">Select Pay Period</h2>
-              </div>  
-              
+              </div>
+
               <div className="space-y-6">
                 <div>
                   <label htmlFor="finYear" className="block text-sm font-medium text-gray-700 mb-2">
@@ -594,14 +668,14 @@ const SalarySlips = () => {
                     disabled={isLoading || !financialYear}
                   >
                     <option value="">-- Select Month --</option>
-                    {months.map((monthName) => (
+                    {availableMonths.map((monthName) => (
                       <option key={monthName} value={monthName}>
                         {monthName}
                       </option>
                     ))}
                   </select>
                 </div>
-                
+
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                   <div className="flex items-center mb-2">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -661,7 +735,7 @@ const SalarySlips = () => {
                     <div className="text-center px-4">
                       <div className="text-6xl mb-6">💰</div>
                       <h3 className="text-2xl font-medium mb-3 text-gray-700">CALDIM Salary Slips Portal</h3>
-                      
+
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
                         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
                           <div className="text-blue-600 font-bold mb-2 flex items-center">
@@ -699,29 +773,53 @@ const SalarySlips = () => {
           </div>
         ) : payslipData ? (
           <>
-            {/* Action Buttons for Mobile */}
-            <div className="md:hidden flex gap-2 mb-6 print:hidden">
-              <button 
-                onClick={handlePrint}
-                className="flex-1 px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium flex items-center justify-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
-                </svg>
-                Print
-              </button>
-              <button 
+            {/* Mobile Controls (Zoom + Download) */}
+            <div className="md:hidden flex flex-col items-center gap-3 fixed bottom-6 left-0 right-0 z-50 px-4">
+              <button
                 onClick={handleDownloadPDF}
-                className="flex-1 px-4 py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium flex items-center justify-center"
+                className="w-full max-w-[200px] flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white py-3 rounded-full shadow-lg font-bold transition-all active:scale-95"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
-                Download
+                Download PDF
               </button>
+
+              <div className="bg-white/90 backdrop-blur-sm shadow-xl rounded-full p-1 flex items-center border border-gray-200">
+                <button
+                  onClick={() => setZoomLevel(prev => Math.max(0.4, prev - 0.1))}
+                  className="w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded-full"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                  </svg>
+                </button>
+                <span className="px-3 font-bold text-gray-800 min-w-[60px] text-center">
+                  {Math.round(zoomLevel * 100)}%
+                </span>
+                <button
+                  onClick={() => setZoomLevel(prev => Math.min(1.5, prev + 0.1))}
+                  className="w-10 h-10 flex items-center justify-center text-gray-700 hover:bg-gray-100 rounded-full"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                </button>
+              </div>
             </div>
-            
-            <PayslipViewer data={payslipData} />
+
+            <div className="w-full overflow-x-auto scrollbar-hide pb-20 md:pb-0">
+              <div
+                className="mx-auto origin-top transition-transform duration-200 ease-out"
+                style={{
+                  width: '794px',
+                  transform: `scale(${zoomLevel})`,
+                  marginBottom: zoomLevel < 1 ? `-${(1 - zoomLevel) * 1120}px` : '0px'
+                }}
+              >
+                <PayslipViewer data={payslipData} />
+              </div>
+            </div>
           </>
         ) : null}
       </div>
