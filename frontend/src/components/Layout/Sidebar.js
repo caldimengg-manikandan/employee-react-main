@@ -179,14 +179,14 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Performance Management",
       hasDropdown: true,
       icon: getIconForMenu("Performance Management"),
-      permission: "performance_access",
-      allowEmployeeRole: false,
-      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
+      // permission: "performance_access", // REMOVED: Parent visibility depends on children
+      allowEmployeeRole: true, // ALLOWED: Visibility controlled by children permissions
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "employees"], // ADDED: employees
       children: [
         {
           name: "Self Appraisal",
           path: "/performance/self-appraisal",
-          allowEmployeeRole: false,
+          allowEmployeeRole: true, // CHANGED: Explicitly allow employees
           permission: "self_appraisal"
         },
         {

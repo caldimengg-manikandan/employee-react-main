@@ -188,19 +188,7 @@ const AppraisalWorkflow = () => {
                     </div>
                 </div>
 
-                <div className="flex flex-col">
-                    <label htmlFor="financialYear" className="text-xs font-semibold text-gray-500 mb-1">Financial Year</label>
-                    <select
-                        id="financialYear"
-                        value={selectedFinancialYear}
-                        onChange={(e) => setSelectedFinancialYear(e.target.value)}
-                        className="block w-40 pl-3 pr-8 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm"
-                    >
-                        {FINANCIAL_YEARS.map(year => (
-                            <option key={year} value={year}>{year}</option>
-                        ))}
-                    </select>
-                </div>
+              
 
                 <div className="flex flex-col">
                     <label htmlFor="division" className="text-xs font-semibold text-gray-500 mb-1">Division</label>

@@ -726,9 +726,11 @@ const DirectorApproval = () => {
                               >
                                 <FileText className="h-5 w-5" />
                               </button>
-                              <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900" title="Edit">
-                                <Edit className="h-5 w-5" />
-                              </button>
+                              {!['DIRECTOR_APPROVED', 'Released', 'RELEASED'].includes(emp.status || '') && (
+                                <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900" title="Edit">
+                                  <Edit className="h-5 w-5" />
+                                </button>
+                              )}
                               {['DIRECTOR_APPROVED', 'Released', 'RELEASED'].includes(emp.status || '') ? (
                                 <span className="text-green-600" title="Approved">
                                   <CheckCircle className="h-5 w-5 fill-green-100" />

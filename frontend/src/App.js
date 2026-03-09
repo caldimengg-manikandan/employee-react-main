@@ -484,7 +484,7 @@ function App() {
             <Route
               path="performance/self-appraisal"
               element={
-                <ProtectedRoute requiredPermissions={["performance_access", "self_appraisal"]} allowEmployeeRole>
+                <ProtectedRoute requiredPermissions={["self_appraisal"]} allowEmployeeRole>
                   <SelfAppraisal />
                 </ProtectedRoute>
               }
