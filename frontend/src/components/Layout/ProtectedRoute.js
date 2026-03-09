@@ -20,7 +20,7 @@ const ProtectedRoute = ({
   }
 
   // Admins bypass for critical management only; otherwise respect permissions
-  if (user.role === "admin" && (requiredPermissions?.includes("user_access") || !requiredPermissions?.length)) {
+  if (user.role === "admin") {
     return children;
   }
 

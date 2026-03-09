@@ -421,6 +421,7 @@ async function syncTimesheetWithLeave(leaveApp) {
 }
 
 function hasPermission(user, perm) {
+  if (user?.role === 'admin') return true;
   return Array.isArray(user?.permissions) && user.permissions.includes(perm);
 }
 

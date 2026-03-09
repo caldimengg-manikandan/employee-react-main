@@ -74,7 +74,8 @@ const LeaveBalance = () => {
         setPendingMap({});
       }
       setLoading(false);
-    } catch {
+    } catch (err) {
+      console.error("Failed to fetch balances from API, falling back to local calculation", err);
       try {
         const res2 = await employeeAPI.getAllEmployees();
         const list2 = Array.isArray(res2.data) ? res2.data : [];

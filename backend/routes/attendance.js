@@ -460,7 +460,12 @@ router.get("/my-week", auth, async (req, res) => {
             d.getFullYear() === dayCursor.getFullYear();
         });
 
-        const workDurationRec = dayEvents.find(e => typeof e.workDurationSeconds === 'number' && e.workDurationSeconds > 0);
+        // Get the record with the maximum workDurationSeconds (likely the latest punch out)
+        const workDurationRec = dayEvents.reduce((max, e) => {
+          const currentDuration = Number(e.workDurationSeconds) || 0;
+          const maxDuration = max ? (Number(max.workDurationSeconds) || 0) : 0;
+          return currentDuration > maxDuration ? e : max;
+        }, null);
 
         let sumHours;
         if (workDurationRec) {
