@@ -149,10 +149,14 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     ],
 
     employees: [
+      'home',
+      'my_profile',
       'timesheet_access',
       'timesheet_history',
       'attendance_regularization',
+      'leave_group_access',
       'leave_access',
+      'exit_access',
       'exit_form_access',
       'salary_slips',
       'policy_portal'
