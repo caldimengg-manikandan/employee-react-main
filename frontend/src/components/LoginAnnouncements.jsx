@@ -17,12 +17,12 @@ const LoginAnnouncements = ({ title = '📢 Company Announcements', mode = 'list
       
       
       
-      const allAnnouncements = Array.isArray(data) ? [pongalAnnouncement, ...data] : [pongalAnnouncement];
+      const allAnnouncements = Array.isArray(data) ? data : [];
       setAnnouncements(allAnnouncements);
     } catch (error) {
       console.error('Failed to fetch announcements:', error);
-      // Fallback to Pongal announcement on error
-     
+      // Fallback to empty array on error
+      setAnnouncements([]);
     } finally {
       setIsLoading(false);
     }

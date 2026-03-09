@@ -169,7 +169,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/project-allocation",
       icon: getIconForMenu("Project Allocation"),
       showForRoles: ["admin", "projectmanager", "manager",],
-      allowEmployeeRole: true,
+      allowEmployeeRole: false,
       permission: "project_access"
     },
 
@@ -180,12 +180,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       hasDropdown: true,
       icon: getIconForMenu("Performance Management"),
       permission: "performance_access",
-      allowEmployeeRole: true,
+      allowEmployeeRole: false,
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
       children: [
         {
           name: "Self Appraisal",
           path: "/performance/self-appraisal",
-          allowEmployeeRole: true,
+          allowEmployeeRole: false,
           permission: "self_appraisal"
         },
         {
@@ -279,13 +280,15 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/insurance",
       icon: getIconForMenu("Insurance"),
       permission: "insurance_access",
-      allowEmployeeRole: true,
+      allowEmployeeRole: false,
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance"],
     },
     {
       name: "Policy Portal",
       path: "/policies",
       icon: getIconForMenu("Policy Portal"),
-      allowEmployeeRole: true,
+      allowEmployeeRole: false,
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance"],
       permission: "policy_portal"
     },
     // SALARY SLIPS
@@ -293,7 +296,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Salary Slips",
       path: "/salaryslips",
       icon: getIconForMenu("Salary Slips"),
-      allowEmployeeRole: true,
+      allowEmployeeRole: false,
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance"],
       permission: "salary_slips"
     },
     // PAYROLL MANAGEMENT
