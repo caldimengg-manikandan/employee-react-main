@@ -287,7 +287,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Policy Portal",
       path: "/policies",
       icon: getIconForMenu("Policy Portal"),
-      allowEmployeeRole: false,
+      allowEmployeeRole: true,
       showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance"],
       permission: "policy_portal"
     },
@@ -296,7 +296,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       name: "Salary Slips",
       path: "/salaryslips",
       icon: getIconForMenu("Salary Slips"),
-      allowEmployeeRole: false,
+      allowEmployeeRole: true,
       showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance"],
       permission: "salary_slips"
     },
