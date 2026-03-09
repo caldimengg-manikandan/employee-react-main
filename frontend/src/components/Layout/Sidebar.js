@@ -460,9 +460,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       }
 
       // 2. Role-based restrictions (Secondary/Legacy)
-      // Admin bypasses role-based restrictions if they HAVE the permission (or if no permission set)
+      // Role checks are only used as a safeguard for legacy items without explicit permissions
       if (child.showForRoles && !child.showForRoles.includes(role)) {
-        if (role !== "admin") return false;
+        if (role !== "admin" && !child.permission) return false;
       }
 
       // 3. For employees role specifically
@@ -485,7 +485,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
 
     // 2. Role-based restrictions (Secondary)
     if (item.showForRoles && !item.showForRoles.includes(role)) {
-      if (role !== "admin") return false;
+      if (role !== "admin" && !item.permission) return false;
     }
 
     // 3. Dropdown Empty Check

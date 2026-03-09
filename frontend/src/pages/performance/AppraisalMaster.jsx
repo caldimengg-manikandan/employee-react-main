@@ -5,7 +5,7 @@ import { performanceAPI, employeeAPI } from '../../services/api';
 const AppraisalMaster = () => {
   // Main Data (Source of Truth)
   const [matrixData, setMatrixData] = useState([]);
-  
+
   const [enabledColumns, setEnabledColumns] = useState({
     belowTarget: false,
     metTarget: true,
@@ -25,14 +25,14 @@ const AppraisalMaster = () => {
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  
+
   // Designation Modal State
   const [designations, setDesignations] = useState([]);
   const [showDesignationModal, setShowDesignationModal] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState(null);
   const [tempSelectedDesignations, setTempSelectedDesignations] = useState([]);
   const [disabledDesignations, setDisabledDesignations] = useState([]);
-  
+
   const [confirmationModal, setConfirmationModal] = useState({
     isOpen: false,
     columnKey: null,
@@ -61,13 +61,7 @@ const AppraisalMaster = () => {
       meeting: true
     },
     technicalAssessment: true,
-    technicalSubItems: {
-      codingSkills: true,
-      testing: true,
-      debugging: true,
-      sds: true,
-      tekla: true
-    },
+    technicalSubItems: {},
     growthAssessment: true,
     growthSubItems: {
       learningNewTech: true,
@@ -121,7 +115,7 @@ const AppraisalMaster = () => {
 
   const handleAddMasterAttribute = async (section, label, setLabel, setList) => {
     if (!label.trim()) return;
-    
+
     // Create camelCase key
     const key = label
       .replace(/[^a-zA-Z0-9 ]/g, ' ')
@@ -136,12 +130,12 @@ const AppraisalMaster = () => {
         key,
         label
       });
-      
+
       // Refresh master list
       fetchMasterAttributes();
       setLabel('');
       setSuccessModal({ isOpen: true, message: 'Attribute added successfully!' });
-      
+
       // If we are currently editing a designation, we might need to refresh its attributes to ensure consistency, 
       // though fetchMasterAttributes handles the list. 
       // The new attribute will appear unchecked (false) by default.
@@ -164,7 +158,7 @@ const AppraisalMaster = () => {
 
     try {
       await performanceAPI.deleteMasterAttribute(section, key);
-      
+
       // Refresh master list
       fetchMasterAttributes();
       setSuccessModal({ isOpen: true, message: 'Attribute deleted successfully!' });
@@ -216,13 +210,7 @@ const AppraisalMaster = () => {
             meeting: true
           },
           technicalAssessment: true,
-          technicalSubItems: {
-            codingSkills: true,
-            testing: true,
-            debugging: true,
-            sds: true,
-            tekla: true
-          },
+          technicalSubItems: {},
           growthAssessment: true,
           growthSubItems: {
             learningNewTech: true,
@@ -309,8 +297,8 @@ const AppraisalMaster = () => {
       console.error('Error fetching designations:', error);
       // Fallback/Mock data if API fails or no designations found
       setDesignations([
-        'Senior Project Manager', 'Project Manager', 'Assistant Project Manager', 
-        'Team Lead', 'Senior Detailer', 'Checker', 'Modeler', 
+        'Senior Project Manager', 'Project Manager', 'Assistant Project Manager',
+        'Team Lead', 'Senior Detailer', 'Checker', 'Modeler',
         'Junior Detailer', 'Trainee'
       ]);
     }
@@ -320,7 +308,7 @@ const AppraisalMaster = () => {
     try {
       setLoading(true);
       const response = await performanceAPI.getIncrementMatrix({ financialYear });
-      
+
       if (response.data) {
         // Handle new response format { matrix, enabledColumns }
         if (response.data.matrix && response.data.matrix.length > 0) {
@@ -332,13 +320,13 @@ const AppraisalMaster = () => {
           // If no data found for this year, backend should have seeded it
           setMatrixData([]);
         }
-        
+
         // Set enabled columns if present in response
         if (response.data.enabledColumns) {
           setEnabledColumns(response.data.enabledColumns);
         } else {
-           // Default enabled columns if not found
-           setEnabledColumns({
+          // Default enabled columns if not found
+          setEnabledColumns({
             belowTarget: false,
             metTarget: true,
             target1_1: false,
@@ -373,12 +361,12 @@ const AppraisalMaster = () => {
   const handleEditSave = async () => {
     try {
       setSaving(true);
-      await performanceAPI.saveIncrementMatrix({ 
+      await performanceAPI.saveIncrementMatrix({
         matrixData: editMatrixData,
         enabledColumns: editEnabledColumns,
-        financialYear: editFinancialYear 
+        financialYear: editFinancialYear
       });
-      
+
       setSuccessModal({ isOpen: true, message: "Increment Matrix Saved Successfully!" });
       setIsEditMode(false);
 
@@ -456,7 +444,7 @@ const AppraisalMaster = () => {
       ? category.category.split(',').map(d => d.trim()).filter(Boolean)
       : [];
     setTempSelectedDesignations(currentDesignations);
-    
+
     // Calculate designations used in OTHER categories (using editMatrixData)
     const otherUsed = new Set();
     editMatrixData.forEach(cat => {
@@ -466,7 +454,7 @@ const AppraisalMaster = () => {
       }
     });
     setDisabledDesignations(Array.from(otherUsed));
-    
+
     setSearchTerm('');
     setShowDesignationModal(true);
   };
@@ -486,14 +474,14 @@ const AppraisalMaster = () => {
   const saveDesignations = () => {
     if (editingCategoryId !== null) {
       const newCategoryString = tempSelectedDesignations.join(', ');
-      
+
       // Update local state immediately for UI responsiveness
-      const updatedMatrixData = editMatrixData.map(cat => 
-        cat.id === editingCategoryId 
-          ? { ...cat, category: newCategoryString } 
+      const updatedMatrixData = editMatrixData.map(cat =>
+        cat.id === editingCategoryId
+          ? { ...cat, category: newCategoryString }
           : cat
       );
-      
+
       setEditMatrixData(updatedMatrixData);
       setShowDesignationModal(false);
       setEditingCategoryId(null);
@@ -521,7 +509,7 @@ const AppraisalMaster = () => {
     if (gradeMap[grade]) {
       return gradeMap[grade];
     }
-    
+
     // If it's already full format or unknown, return as is
     return grade;
   };
@@ -531,8 +519,8 @@ const AppraisalMaster = () => {
       <table className="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
         <thead className="bg-white">
           <tr>
-            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Category</th>
-            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Ratings</th>
+            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{ width: '20%' }}>Category</th>
+            <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{ width: '20%' }}>Ratings</th>
             <th colSpan={Object.values(enabledColumns).filter(Boolean).length} className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100">Annual Increment %</th>
           </tr>
           <tr>
@@ -551,8 +539,8 @@ const AppraisalMaster = () => {
               {category.ratings.map((rating, index) => (
                 <tr key={`${category.id}-${rating.grade}`}>
                   {index === 0 && (
-                    <td 
-                      rowSpan={category.ratings.length} 
+                    <td
+                      rowSpan={category.ratings.length}
                       className="border border-gray-300 px-4 py-2 text-sm text-gray-900 font-medium align-middle bg-white"
                     >
                       <div className="">
@@ -661,7 +649,7 @@ const AppraisalMaster = () => {
                   </select>
                 </div>
               </div>
-              <button 
+              <button
                 onClick={handleEditClose}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
               >
@@ -674,8 +662,8 @@ const AppraisalMaster = () => {
                 <table className="min-w-full divide-y divide-gray-200 border-collapse border border-gray-300">
                   <thead className="bg-white">
                     <tr>
-                      <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Category</th>
-                      <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{width: '20%'}}>Ratings</th>
+                      <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{ width: '20%' }}>Category</th>
+                      <th className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100" style={{ width: '20%' }}>Ratings</th>
                       <th colSpan="5" className="border border-gray-300 px-4 py-2 text-center text-sm font-bold text-gray-900 bg-gray-100">Annual Increment %</th>
                     </tr>
                     <tr>
@@ -688,7 +676,7 @@ const AppraisalMaster = () => {
                             onClick={() => toggleEditColumn('belowTarget')}
                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${editEnabledColumns.belowTarget ? 'bg-[#262760]' : 'bg-gray-300'}`}
                           >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${editEnabledColumns.belowTarget ? 'translate-x-4.5' : 'translate-x-1'}`} style={{transform: editEnabledColumns.belowTarget ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${editEnabledColumns.belowTarget ? 'translate-x-4.5' : 'translate-x-1'}`} style={{ transform: editEnabledColumns.belowTarget ? 'translateX(1.1rem)' : 'translateX(0.15rem)' }} />
                           </button>
                         </div>
                       </th>
@@ -699,7 +687,7 @@ const AppraisalMaster = () => {
                             onClick={() => toggleEditColumn('metTarget')}
                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${editEnabledColumns.metTarget ? 'bg-[#262760]' : 'bg-gray-300'}`}
                           >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: editEnabledColumns.metTarget ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{ transform: editEnabledColumns.metTarget ? 'translateX(1.1rem)' : 'translateX(0.15rem)' }} />
                           </button>
                         </div>
                       </th>
@@ -710,7 +698,7 @@ const AppraisalMaster = () => {
                             onClick={() => toggleEditColumn('target1_1')}
                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${editEnabledColumns.target1_1 ? 'bg-[#262760]' : 'bg-gray-300'}`}
                           >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: editEnabledColumns.target1_1 ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{ transform: editEnabledColumns.target1_1 ? 'translateX(1.1rem)' : 'translateX(0.15rem)' }} />
                           </button>
                         </div>
                       </th>
@@ -721,7 +709,7 @@ const AppraisalMaster = () => {
                             onClick={() => toggleEditColumn('target1_25')}
                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${editEnabledColumns.target1_25 ? 'bg-[#262760]' : 'bg-gray-300'}`}
                           >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: editEnabledColumns.target1_25 ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{ transform: editEnabledColumns.target1_25 ? 'translateX(1.1rem)' : 'translateX(0.15rem)' }} />
                           </button>
                         </div>
                       </th>
@@ -732,7 +720,7 @@ const AppraisalMaster = () => {
                             onClick={() => toggleEditColumn('target1_5')}
                             className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none ${editEnabledColumns.target1_5 ? 'bg-[#262760]' : 'bg-gray-300'}`}
                           >
-                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{transform: editEnabledColumns.target1_5 ? 'translateX(1.1rem)' : 'translateX(0.15rem)'}} />
+                            <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform`} style={{ transform: editEnabledColumns.target1_5 ? 'translateX(1.1rem)' : 'translateX(0.15rem)' }} />
                           </button>
                         </div>
                       </th>
@@ -862,9 +850,8 @@ const AppraisalMaster = () => {
                 <button
                   onClick={handleEditSave}
                   disabled={saving}
-                  className={`inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${
-                    saving ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#262760] hover:bg-[#1e2050]'
-                  } focus:outline-none`}
+                  className={`inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white ${saving ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#262760] hover:bg-[#1e2050]'
+                    } focus:outline-none`}
                 >
                   {saving ? (
                     <>
@@ -893,13 +880,12 @@ const AppraisalMaster = () => {
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => setShowAddAttributesModal(true)}
-                  className={`px-3 py-1.5 rounded-md text-sm border ${
-                    attributesOnly ? 'bg-[#262760] text-white border-[#262760]' : 'bg-white text-gray-700 border-gray-300'
-                  }`}
+                  className={`px-3 py-1.5 rounded-md text-sm border ${attributesOnly ? 'bg-[#262760] text-white border-[#262760]' : 'bg-white text-gray-700 border-gray-300'
+                    }`}
                 >
                   Add Attributes
                 </button>
-                <button 
+                <button
                   onClick={() => setShowAttributesModal(false)}
                   className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
                 >
@@ -907,7 +893,7 @@ const AppraisalMaster = () => {
                 </button>
               </div>
             </div>
-            
+
             <div className="flex flex-1 overflow-hidden">
               {/* Left Column: Designation List */}
               <div className="w-1/2 flex flex-col bg-white border-r border-gray-200">
@@ -931,11 +917,10 @@ const AppraisalMaster = () => {
                         <button
                           key={designation}
                           onClick={() => handleDesignationSelect(designation)}
-                          className={`w-full text-left px-4 py-3 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${
-                            selectedAttributeDesignation === designation
-                              ? 'bg-[#262760] text-white shadow-md'
-                              : 'hover:bg-gray-100 text-gray-700 hover:pl-5'
-                          }`}
+                          className={`w-full text-left px-4 py-3 rounded-md text-sm transition-all duration-200 flex items-center justify-between group ${selectedAttributeDesignation === designation
+                            ? 'bg-[#262760] text-white shadow-md'
+                            : 'hover:bg-gray-100 text-gray-700 hover:pl-5'
+                            }`}
                         >
                           <span className="font-medium truncate mr-2">{designation}</span>
                           {selectedAttributeDesignation === designation ? (
@@ -962,7 +947,7 @@ const AppraisalMaster = () => {
                       <h4 className="text-lg font-semibold text-[#262760] mb-1">{selectedAttributeDesignation}</h4>
                       <p className="text-sm text-gray-500">Configure visible appraisal sections for this designation.</p>
                     </div>
-                    
+
                     {loadingAttributes ? (
                       <div className="flex justify-center py-10">
                         <Loader2 className="h-8 w-8 animate-spin text-[#262760]" />
@@ -970,178 +955,178 @@ const AppraisalMaster = () => {
                     ) : (
                       <div className="space-y-4 bg-white p-4 rounded-lg shadow-sm border border-gray-200">
                         {/* Knowledge Sharing Sub Items */}
-                          <div className="mt-2 border border-purple-100 rounded-md p-3 bg-purple-50">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-xs font-semibold text-purple-700">Knowledge Sharing Sub Items</div>
-                              
-                            </div>
-                            {/* Iterate over Master List */}
-                            {availableKnowledge.length > 0 ? (
-                              availableKnowledge.map((sub) => (
-                                <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-purple-100 bg-white mb-1">
-                                  <label htmlFor={`attr-ks-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
-                                    {sub.label}
-                                  </label>
-                                  <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                    <input
-                                      type="checkbox"
-                                      name={sub.key}
-                                      id={`attr-ks-${sub.key}`}
-                                      checked={attributeSections?.knowledgeSubItems?.[sub.key] ?? false}
-                                      onChange={(e) => setAttributeSections({
-                                        ...attributeSections,
-                                        knowledgeSubItems: {
-                                          ...(attributeSections.knowledgeSubItems || {}),
-                                          [sub.key]: e.target.checked
-                                        }
-                                      })}
-                                      className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                                      style={{
-                                        right: (attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? '0' : 'auto',
-                                        left: (attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? 'auto' : '0',
-                                        borderColor: (attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
-                                      }}
-                                    />
-                                    <label 
-                                      htmlFor={`attr-ks-${sub.key}`} 
-                                      className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
-                                    ></label>
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
-                            )}
+                        <div className="mt-2 border border-purple-100 rounded-md p-3 bg-purple-50">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs font-semibold text-purple-700">Knowledge Sharing Sub Items</div>
+
                           </div>
+                          {/* Iterate over Master List */}
+                          {availableKnowledge.length > 0 ? (
+                            availableKnowledge.map((sub) => (
+                              <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-purple-100 bg-white mb-1">
+                                <label htmlFor={`attr-ks-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
+                                  {sub.label}
+                                </label>
+                                <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                  <input
+                                    type="checkbox"
+                                    name={sub.key}
+                                    id={`attr-ks-${sub.key}`}
+                                    checked={attributeSections?.knowledgeSubItems?.[sub.key] ?? false}
+                                    onChange={(e) => setAttributeSections({
+                                      ...attributeSections,
+                                      knowledgeSubItems: {
+                                        ...(attributeSections.knowledgeSubItems || {}),
+                                        [sub.key]: e.target.checked
+                                      }
+                                    })}
+                                    className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                    style={{
+                                      right: (attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? '0' : 'auto',
+                                      left: (attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? 'auto' : '0',
+                                      borderColor: (attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor={`attr-ks-${sub.key}`}
+                                    className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.knowledgeSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                                  ></label>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
+                          )}
+                        </div>
 
                         {/* Process Adherence Sub Items */}
-                          <div className="mt-3 border border-orange-100 rounded-md p-3 bg-orange-50">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-xs font-semibold text-orange-700">Process Adherence Sub Items</div>
-                            </div>
-                            {availableProcess.length > 0 ? (
-                              availableProcess.map((sub) => (
-                                <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-orange-100 bg-white mb-1">
-                                  <label htmlFor={`attr-pa-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
-                                    {sub.label}
-                                  </label>
-                                  <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                    <input
-                                      type="checkbox"
-                                      id={`attr-pa-${sub.key}`}
-                                      checked={attributeSections?.processSubItems?.[sub.key] ?? false}
-                                      onChange={(e) => setAttributeSections(prev => ({
-                                        ...prev,
-                                        processSubItems: {
-                                          ...(prev.processSubItems || {}),
-                                          [sub.key]: e.target.checked
-                                        }
-                                      }))}
-                                      className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                                      style={{
-                                        right: (attributeSections?.processSubItems?.[sub.key] ?? false) ? '0' : 'auto',
-                                        left: (attributeSections?.processSubItems?.[sub.key] ?? false) ? 'auto' : '0',
-                                        borderColor: (attributeSections?.processSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
-                                      }}
-                                    />
-                                    <label 
-                                      htmlFor={`attr-pa-${sub.key}`} 
-                                      className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.processSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
-                                    ></label>
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
-                            )}
+                        <div className="mt-3 border border-orange-100 rounded-md p-3 bg-orange-50">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs font-semibold text-orange-700">Process Adherence Sub Items</div>
                           </div>
+                          {availableProcess.length > 0 ? (
+                            availableProcess.map((sub) => (
+                              <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-orange-100 bg-white mb-1">
+                                <label htmlFor={`attr-pa-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
+                                  {sub.label}
+                                </label>
+                                <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                  <input
+                                    type="checkbox"
+                                    id={`attr-pa-${sub.key}`}
+                                    checked={attributeSections?.processSubItems?.[sub.key] ?? false}
+                                    onChange={(e) => setAttributeSections(prev => ({
+                                      ...prev,
+                                      processSubItems: {
+                                        ...(prev.processSubItems || {}),
+                                        [sub.key]: e.target.checked
+                                      }
+                                    }))}
+                                    className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                    style={{
+                                      right: (attributeSections?.processSubItems?.[sub.key] ?? false) ? '0' : 'auto',
+                                      left: (attributeSections?.processSubItems?.[sub.key] ?? false) ? 'auto' : '0',
+                                      borderColor: (attributeSections?.processSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor={`attr-pa-${sub.key}`}
+                                    className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.processSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                                  ></label>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
+                          )}
+                        </div>
 
                         {/* Technical Assessment Sub Items */}
-                          <div className="mt-3 border border-blue-100 rounded-md p-3 bg-blue-50">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-xs font-semibold text-blue-700">Technical Assessment Sub Items</div>
-                            </div>
-                            {availableTechnical.length > 0 ? (
-                              availableTechnical.map((sub) => (
-                                <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-blue-100 bg-white mb-1">
-                                  <label htmlFor={`attr-ta-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
-                                    {sub.label}
-                                  </label>
-                                  <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                    <input
-                                      type="checkbox"
-                                      id={`attr-ta-${sub.key}`}
-                                      checked={attributeSections?.technicalSubItems?.[sub.key] ?? false}
-                                      onChange={(e) => setAttributeSections(prev => ({
-                                        ...prev,
-                                        technicalSubItems: {
-                                          ...(prev.technicalSubItems || {}),
-                                          [sub.key]: e.target.checked
-                                        }
-                                      }))}
-                                      className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                                      style={{
-                                        right: (attributeSections?.technicalSubItems?.[sub.key] ?? false) ? '0' : 'auto',
-                                        left: (attributeSections?.technicalSubItems?.[sub.key] ?? false) ? 'auto' : '0',
-                                        borderColor: (attributeSections?.technicalSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
-                                      }}
-                                    />
-                                    <label 
-                                      htmlFor={`attr-ta-${sub.key}`} 
-                                      className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.technicalSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
-                                    ></label>
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
-                            )}
+                        <div className="mt-3 border border-blue-100 rounded-md p-3 bg-blue-50">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs font-semibold text-blue-700">Technical Assessment Sub Items</div>
                           </div>
+                          {availableTechnical.length > 0 ? (
+                            availableTechnical.map((sub) => (
+                              <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-blue-100 bg-white mb-1">
+                                <label htmlFor={`attr-ta-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
+                                  {sub.label}
+                                </label>
+                                <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                  <input
+                                    type="checkbox"
+                                    id={`attr-ta-${sub.key}`}
+                                    checked={attributeSections?.technicalSubItems?.[sub.key] ?? false}
+                                    onChange={(e) => setAttributeSections(prev => ({
+                                      ...prev,
+                                      technicalSubItems: {
+                                        ...(prev.technicalSubItems || {}),
+                                        [sub.key]: e.target.checked
+                                      }
+                                    }))}
+                                    className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                    style={{
+                                      right: (attributeSections?.technicalSubItems?.[sub.key] ?? false) ? '0' : 'auto',
+                                      left: (attributeSections?.technicalSubItems?.[sub.key] ?? false) ? 'auto' : '0',
+                                      borderColor: (attributeSections?.technicalSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor={`attr-ta-${sub.key}`}
+                                    className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.technicalSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                                  ></label>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
+                          )}
+                        </div>
 
                         {/* Growth Assessment Sub Items */}
-                          <div className="mt-3 border border-green-100 rounded-md p-3 bg-green-50">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-xs font-semibold text-green-700">Growth Assessment Sub Items</div>
-                            </div>
-                            {availableGrowth.length > 0 ? (
-                              availableGrowth.map((sub) => (
-                                <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-green-100 bg-white mb-1">
-                                  <label htmlFor={`attr-ga-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
-                                    {sub.label}
-                                  </label>
-                                  <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                    <input
-                                      type="checkbox"
-                                      id={`attr-ga-${sub.key}`}
-                                      checked={attributeSections?.growthSubItems?.[sub.key] ?? false}
-                                      onChange={(e) => setAttributeSections(prev => ({
-                                        ...prev,
-                                        growthSubItems: {
-                                          ...(prev.growthSubItems || {}),
-                                          [sub.key]: e.target.checked
-                                        }
-                                      }))}
-                                      className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
-                                      style={{
-                                        right: (attributeSections?.growthSubItems?.[sub.key] ?? false) ? '0' : 'auto',
-                                        left: (attributeSections?.growthSubItems?.[sub.key] ?? false) ? 'auto' : '0',
-                                        borderColor: (attributeSections?.growthSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
-                                      }}
-                                    />
-                                    <label 
-                                      htmlFor={`attr-ga-${sub.key}`} 
-                                      className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.growthSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
-                                    ></label>
-                                  </div>
-                                </div>
-                              ))
-                            ) : (
-                              <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
-                            )}
+                        <div className="mt-3 border border-green-100 rounded-md p-3 bg-green-50">
+                          <div className="flex items-center justify-between mb-2">
+                            <div className="text-xs font-semibold text-green-700">Growth Assessment Sub Items</div>
                           </div>
+                          {availableGrowth.length > 0 ? (
+                            availableGrowth.map((sub) => (
+                              <div key={sub.key} className="flex items-center justify-between p-2 hover:bg-white rounded-md transition-colors border border-green-100 bg-white mb-1">
+                                <label htmlFor={`attr-ga-${sub.key}`} className="text-sm text-gray-700 cursor-pointer select-none flex-1">
+                                  {sub.label}
+                                </label>
+                                <div className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
+                                  <input
+                                    type="checkbox"
+                                    id={`attr-ga-${sub.key}`}
+                                    checked={attributeSections?.growthSubItems?.[sub.key] ?? false}
+                                    onChange={(e) => setAttributeSections(prev => ({
+                                      ...prev,
+                                      growthSubItems: {
+                                        ...(prev.growthSubItems || {}),
+                                        [sub.key]: e.target.checked
+                                      }
+                                    }))}
+                                    className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer"
+                                    style={{
+                                      right: (attributeSections?.growthSubItems?.[sub.key] ?? false) ? '0' : 'auto',
+                                      left: (attributeSections?.growthSubItems?.[sub.key] ?? false) ? 'auto' : '0',
+                                      borderColor: (attributeSections?.growthSubItems?.[sub.key] ?? false) ? '#262760' : '#E5E7EB'
+                                    }}
+                                  />
+                                  <label
+                                    htmlFor={`attr-ga-${sub.key}`}
+                                    className={`toggle-label block overflow-hidden h-5 rounded-full cursor-pointer ${(attributeSections?.growthSubItems?.[sub.key] ?? false) ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                                  ></label>
+                                </div>
+                              </div>
+                            ))
+                          ) : (
+                            <div className="text-sm text-gray-500 italic p-2">No attributes found. Add some globally.</div>
+                          )}
+                        </div>
                       </div>
                     )}
-                    
+
                     <div className="pt-4 flex justify-end">
                       <button
                         onClick={handleSaveAttributes}
@@ -1169,14 +1154,14 @@ const AppraisalMaster = () => {
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] border border-gray-200 flex flex-col">
                   <div className="flex justify-between items-center p-4 border-b border-gray-100">
                     <h4 className="text-lg font-semibold text-gray-900">Manage Master Attributes</h4>
-                    <button 
+                    <button
                       onClick={() => setShowAddAttributesModal(false)}
                       className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
                     >
                       <X size={18} />
                     </button>
                   </div>
-                  
+
                   <div className="p-4 bg-blue-50 text-blue-800 text-xs mb-0">
                     <p>Attributes added here will be available for all designations. Use the checkboxes in the main window to enable them for specific designations.</p>
                   </div>
@@ -1205,18 +1190,18 @@ const AppraisalMaster = () => {
                         </button>
                       </div>
                       <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
-                         {availableKnowledge.map(sub => (
-                            <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-purple-100 rounded group">
-                                <span>{sub.label}</span>
-                                <button 
-                                  onClick={() => handleDeleteMasterAttribute('knowledgeSubItems', sub.key)}
-                                  className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                                  title="Delete attribute"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                            </div>
-                         ))}
+                        {availableKnowledge.map(sub => (
+                          <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-purple-100 rounded group">
+                            <span>{sub.label}</span>
+                            <button
+                              onClick={() => handleDeleteMasterAttribute('knowledgeSubItems', sub.key)}
+                              className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                              title="Delete attribute"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
@@ -1243,18 +1228,18 @@ const AppraisalMaster = () => {
                         </button>
                       </div>
                       <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
-                         {availableProcess.map(sub => (
-                            <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-orange-100 rounded group">
-                                <span>{sub.label}</span>
-                                <button 
-                                  onClick={() => handleDeleteMasterAttribute('processSubItems', sub.key)}
-                                  className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                                  title="Delete attribute"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                            </div>
-                         ))}
+                        {availableProcess.map(sub => (
+                          <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-orange-100 rounded group">
+                            <span>{sub.label}</span>
+                            <button
+                              onClick={() => handleDeleteMasterAttribute('processSubItems', sub.key)}
+                              className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                              title="Delete attribute"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
@@ -1281,18 +1266,18 @@ const AppraisalMaster = () => {
                         </button>
                       </div>
                       <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
-                         {availableTechnical.map(sub => (
-                            <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-blue-100 rounded group">
-                                <span>{sub.label}</span>
-                                <button 
-                                  onClick={() => handleDeleteMasterAttribute('technicalSubItems', sub.key)}
-                                  className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                                  title="Delete attribute"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                            </div>
-                         ))}
+                        {availableTechnical.map(sub => (
+                          <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-blue-100 rounded group">
+                            <span>{sub.label}</span>
+                            <button
+                              onClick={() => handleDeleteMasterAttribute('technicalSubItems', sub.key)}
+                              className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                              title="Delete attribute"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
@@ -1319,18 +1304,18 @@ const AppraisalMaster = () => {
                         </button>
                       </div>
                       <div className="mt-2 max-h-32 overflow-y-auto space-y-1">
-                         {availableGrowth.map(sub => (
-                            <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-green-100 rounded group">
-                                <span>{sub.label}</span>
-                                <button 
-                                  onClick={() => handleDeleteMasterAttribute('growthSubItems', sub.key)}
-                                  className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                                  title="Delete attribute"
-                                >
-                                  <Trash2 size={12} />
-                                </button>
-                            </div>
-                         ))}
+                        {availableGrowth.map(sub => (
+                          <div key={sub.key} className="flex justify-between items-center text-xs text-gray-600 px-2 py-1 bg-white border border-green-100 rounded group">
+                            <span>{sub.label}</span>
+                            <button
+                              onClick={() => handleDeleteMasterAttribute('growthSubItems', sub.key)}
+                              className="text-gray-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                              title="Delete attribute"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -1377,14 +1362,14 @@ const AppraisalMaster = () => {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col border border-gray-200">
             <div className="flex justify-between items-center p-5 border-b border-gray-100">
               <h3 className="text-xl font-bold text-gray-900">Select Designations</h3>
-              <button 
+              <button
                 onClick={() => setShowDesignationModal(false)}
                 className="text-gray-400 hover:text-gray-600 p-1 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="p-4 border-b border-gray-100 bg-gray-50">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
@@ -1405,15 +1390,14 @@ const AppraisalMaster = () => {
                   .map(designation => {
                     const isDisabled = disabledDesignations.includes(designation);
                     return (
-                      <label 
-                        key={designation} 
-                        className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${
-                          isDisabled 
-                            ? 'bg-gray-50 text-gray-400 cursor-not-allowed' 
-                            : tempSelectedDesignations.includes(designation)
-                              ? 'bg-indigo-50 text-[#262760]' 
-                              : 'hover:bg-gray-50 text-gray-700'
-                        }`}
+                      <label
+                        key={designation}
+                        className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer transition-colors ${isDisabled
+                          ? 'bg-gray-50 text-gray-400 cursor-not-allowed'
+                          : tempSelectedDesignations.includes(designation)
+                            ? 'bg-indigo-50 text-[#262760]'
+                            : 'hover:bg-gray-50 text-gray-700'
+                          }`}
                       >
                         <span className="text-sm">{designation}</span>
                         {!isDisabled && (

@@ -318,6 +318,12 @@ const TeamAppraisal = () => {
     }
   };
 
+  const getEnabledItems = (sectionKey) => {
+    const enabledMap = enabledSections?.[sectionKey] || {};
+    const masterList = masterAttributes?.[sectionKey] || [];
+    return masterList.filter(attr => enabledMap[attr.key]);
+  };
+
   // Handlers
   const handleView = (emp) => {
     setSelectedEmployee(emp);
@@ -777,29 +783,7 @@ const TeamAppraisal = () => {
                           Ratings Comparison
                         </h4>
 
-                        {/* Score Summary */}
-                        <div className="mb-6 bg-purple-50 p-4 rounded-lg border border-purple-100 shadow-sm flex items-center justify-between">
-                          <div>
-                            <div className="text-xs font-bold text-purple-700 uppercase tracking-widest mb-1">Self Assessment Score</div>
-                            {(() => {
-                              const enabledKeys = Object.entries(enabledSections?.knowledgeSubItems || {})
-                                .filter(([k, v]) => v)
-                                .map(([k]) => k);
-                              const values = enabledKeys.map(k => Number(selectedEmployee.behaviourBased?.[k] || 0)).filter(v => v > 0);
-                              const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
-                              const percent = Math.round((avg / 5) * 100);
-                              return (
-                                <div className="flex items-baseline">
-                                  <span className="text-3xl font-black text-purple-800">{percent}%</span>
-                                  <span className="ml-2 text-xs text-purple-600 font-medium">based on {values.length} attributes</span>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                          <div className="bg-white/50 p-2 rounded-full">
-                            <Users className="h-8 w-8 text-purple-300" />
-                          </div>
-                        </div>
+                        
                         <div className="space-y-2">
                           {Object.entries(enabledSections?.knowledgeSubItems || {}).map(([key, isEnabled]) => {
                             if (!isEnabled) return null;
@@ -850,29 +834,7 @@ const TeamAppraisal = () => {
                           Ratings Comparison
                         </h4>
 
-                        {/* Score Summary */}
-                        <div className="mb-6 bg-orange-50 p-4 rounded-lg border border-orange-100 shadow-sm flex items-center justify-between">
-                          <div>
-                            <div className="text-xs font-bold text-orange-700 uppercase tracking-widest mb-1">Self Assessment Score</div>
-                            {(() => {
-                              const enabledKeys = Object.entries(enabledSections?.processSubItems || {})
-                                .filter(([k, v]) => v)
-                                .map(([k]) => k);
-                              const values = enabledKeys.map(k => Number(selectedEmployee.processAdherence?.[k] || 0)).filter(v => v > 0);
-                              const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
-                              const percent = Math.round((avg / 5) * 100);
-                              return (
-                                <div className="flex items-baseline">
-                                  <span className="text-3xl font-black text-orange-800">{percent}%</span>
-                                  <span className="ml-2 text-xs text-orange-600 font-medium">based on {values.length} attributes</span>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                          <div className="bg-white/50 p-2 rounded-full">
-                            <BarChart3 className="h-8 w-8 text-orange-300" />
-                          </div>
-                        </div>
+                        
                         <div className="space-y-2">
                           {Object.entries(enabledSections?.processSubItems || {}).map(([key, isEnabled]) => {
                             if (!isEnabled) return null;
@@ -923,32 +885,8 @@ const TeamAppraisal = () => {
                           Ratings Comparison
                         </h4>
 
-                        {/* Score Summary */}
-                        <div className="mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100 shadow-sm flex items-center justify-between">
-                          <div>
-                            <div className="text-xs font-bold text-blue-700 uppercase tracking-widest mb-1">Self Assessment Score</div>
-                            {(() => {
-                              const enabledKeys = Object.entries(enabledSections?.technicalSubItems || {})
-                                .filter(([k, v]) => v)
-                                .map(([k]) => k);
-                              const values = enabledKeys.map(k => Number(selectedEmployee.technicalBased?.[k] || 0)).filter(v => v > 0);
-                              const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
-                              const percent = Math.round((avg / 5) * 100);
-                              return (
-                                <div className="flex items-baseline">
-                                  <span className="text-3xl font-black text-blue-800">{percent}%</span>
-                                  <span className="ml-2 text-xs text-blue-600 font-medium">based on {values.length} attributes</span>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                          <div className="bg-white/50 p-2 rounded-full">
-                            <Code className="h-8 w-8 text-blue-300" />
-                          </div>
-                        </div>
                         <div className="space-y-2">
-                          {Object.entries(enabledSections?.technicalSubItems || {}).map(([key, isEnabled]) => {
-                            if (!isEnabled) return null;
+                          {getEnabledItems('technicalSubItems').map(({ key }) => {
                             const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
                             const hardcodedKey = `technical${capitalizedField}Manager`;
                             const managerVal = selectedEmployee.technicalManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;
@@ -996,32 +934,9 @@ const TeamAppraisal = () => {
                           Ratings Comparison
                         </h4>
 
-                        {/* Score Summary */}
-                        <div className="mb-6 bg-green-50 p-4 rounded-lg border border-green-100 shadow-sm flex items-center justify-between">
-                          <div>
-                            <div className="text-xs font-bold text-green-700 uppercase tracking-widest mb-1">Self Assessment Score</div>
-                            {(() => {
-                              const enabledKeys = Object.entries(enabledSections?.growthSubItems || {})
-                                .filter(([k, v]) => v)
-                                .map(([k]) => k);
-                              const values = enabledKeys.map(k => Number(selectedEmployee.growthBased?.[k] || 0)).filter(v => v > 0);
-                              const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
-                              const percent = Math.round((avg / 5) * 100);
-                              return (
-                                <div className="flex items-baseline">
-                                  <span className="text-3xl font-black text-green-800">{percent}%</span>
-                                  <span className="ml-2 text-xs text-green-600 font-medium">based on {values.length} attributes</span>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                          <div className="bg-white/50 p-2 rounded-full">
-                            <TrendingUp className="h-8 w-8 text-green-300" />
-                          </div>
-                        </div>
+                       
                         <div className="space-y-2">
-                          {Object.entries(enabledSections?.growthSubItems || {}).map(([key, isEnabled]) => {
-                            if (!isEnabled) return null;
+                          {getEnabledItems('growthSubItems').map(({ key }) => {
                             const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
                             const hardcodedKey = `growth${capitalizedField}Manager`;
                             const managerVal = selectedEmployee.growthManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;

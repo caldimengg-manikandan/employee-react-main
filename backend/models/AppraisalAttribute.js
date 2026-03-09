@@ -45,13 +45,7 @@ const AppraisalAttributeSchema = new mongoose.Schema({
     technicalSubItems: {
       type: Map,
       of: Boolean,
-      default: {
-        codingSkills: true,
-        testing: true,
-        debugging: true,
-        sds: true,
-        tekla: true
-      }
+      default: {}
     },
     growthAssessment: {
       type: Boolean,

@@ -286,7 +286,7 @@ const ProjectDashboard = () => {
 
             // 2. Role Check (Secondary Safeguard)
             if (m.showForRoles && !m.showForRoles.includes(role)) {
-                return false;
+                if (!m.permission) return false;
             }
 
             // 3. Employee Specific Check

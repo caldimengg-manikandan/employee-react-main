@@ -391,6 +391,12 @@ const SelfAppraisal = () => {
     'growthSubItems': 'growthBased'
   };
 
+  const getEnabledItems = (sectionKey) => {
+    const enabledMap = enabledSections?.[sectionKey] || {};
+    const masterList = masterAttributes?.[sectionKey] || [];
+    return masterList.filter(attr => enabledMap[attr.key]);
+  };
+
   const getStageFromStatus = (status) => {
     switch (status) {
       case 'Draft': return 'appraisee';
@@ -472,12 +478,7 @@ const SelfAppraisal = () => {
             comments: 'Consistently updates timesheets and attends meetings on time.'
           },
           technicalBased: {
-            codingSkills: 4,
-            testing: 4,
-            debugging: 5,
-            sds: 4,
-            tekla: 4,
-            comments: 'Strong debugging skills, good understanding of core concepts.'
+            comments: 'Strong technical contribution.'
           },
           growthBased: {
             learningNewTech: 5,
@@ -513,11 +514,6 @@ const SelfAppraisal = () => {
             comments: 'Good at following reporting processes.'
           },
           technicalBased: {
-            codingSkills: 4,
-            testing: 3,
-            debugging: 4,
-            sds: 3,
-            tekla: 3,
             comments: 'Solid technical foundation.'
           },
           growthBased: {
@@ -556,11 +552,6 @@ const SelfAppraisal = () => {
       comments: ''
     },
     technicalBased: {
-      codingSkills: 0,
-      testing: 0,
-      debugging: 0,
-      sds: 0,
-      tekla: 0,
       comments: ''
     },
     growthBased: {
@@ -613,13 +604,25 @@ const SelfAppraisal = () => {
 
   // --- Handlers ---
 
-  const startNewAppraisal = () => {
+  const startNewAppraisal = async () => {
     if (!enabledSections.selfAppraisal) {
       setStatusPopup({
         isOpen: true,
         status: 'info',
         message: 'Self appraisal is not enabled for your designation.'
       });
+      return;
+    }
+
+    const fy = String(newAppraisalYear || '').trim();
+    const existing = appraisals.find((a) => String(a.year || '').trim() === fy);
+    if (existing) {
+      setStatusPopup({
+        isOpen: true,
+        status: 'info',
+        message: `Appraisal for FY ${fy} already exists. Opening it.`
+      });
+      await handleEditAppraisal(existing);
       return;
     }
 
@@ -1169,29 +1172,29 @@ const SelfAppraisal = () => {
   const handleSubmit = async (action) => {
 
     try {
-      const missingSections = [];
+      const missingFields = [];
 
       if (!formData.division || !formData.division.trim()) {
-        missingSections.push('Division');
+        missingFields.push('Division');
       }
       if (enabledSections.knowledgeSharing && (!formData.behaviourBased?.comments || !formData.behaviourBased.comments.trim())) {
-        missingSections.push('Knowledge Sharing Assessment');
+        missingFields.push('Knowledge Sharing - Appraisee Comments');
       }
       if (enabledSections.processAdherence && (!formData.processAdherence?.comments || !formData.processAdherence.comments.trim())) {
-        missingSections.push('Process Adherence Assessment');
+        missingFields.push('Process Adherence - Appraisee Comments');
       }
       if (enabledSections.technicalAssessment && (!formData.technicalBased?.comments || !formData.technicalBased.comments.trim())) {
-        missingSections.push('Technical Based Assessment');
+        missingFields.push('Technical Based - Appraisee Comments');
       }
       if (enabledSections.growthAssessment && (!formData.growthBased?.comments || !formData.growthBased.comments.trim())) {
-        missingSections.push('Growth Based Assessment');
+        missingFields.push('Growth Based - Appraisee Comments');
       }
 
-      if (missingSections.length > 0) {
+      if (missingFields.length > 0) {
         setStatusPopup({
           isOpen: true,
           status: 'error',
-          message: `Please fill Appraisee Comments for: ${missingSections.join(', ')}.`
+          message: `Please fill required fields: ${missingFields.join(', ')}.`
         });
         return;
       }
@@ -1201,8 +1204,9 @@ const SelfAppraisal = () => {
         status: action === 'Submit' ? 'Submitted' : 'Draft'
       };
 
-      if (formData.id) {
-        await performanceAPI.updateSelfAppraisal(formData.id, payload);
+      const appraisalId = formData._id || formData.id;
+      if (appraisalId) {
+        await performanceAPI.updateSelfAppraisal(appraisalId, payload);
       } else {
         await performanceAPI.createSelfAppraisal(payload);
       }
@@ -1216,10 +1220,14 @@ const SelfAppraisal = () => {
       setViewMode('list');
     } catch (error) {
       console.error("Failed to save appraisal", error);
+      const errorMsg =
+        error.response?.data?.message ||
+        error.message ||
+        "Failed to save appraisal. Please try again.";
       setStatusPopup({
         isOpen: true,
         status: 'error',
-        message: "Failed to save appraisal. Please try again."
+        message: errorMsg
       });
     }
   };
@@ -1688,7 +1696,7 @@ const SelfAppraisal = () => {
 
 
               {/* Technical Based Section */}
-              {enabledSections.technicalAssessment && (
+              {enabledSections.technicalAssessment && getEnabledItems('technicalSubItems').length > 0 && (
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <Code className="h-5 w-5 mr-2 text-blue-600" />
@@ -1696,8 +1704,7 @@ const SelfAppraisal = () => {
                   </h3>
                   <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm">
                     <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                      {Object.entries(enabledSections?.technicalSubItems || {}).map(([k, v]) => {
-                        if (!v) return null;
+                      {getEnabledItems('technicalSubItems').map(({ key: k }) => {
                         const selfVal = viewData.technicalBased?.[k] || 0;
                         const mgrVal = viewData.technicalManagerRatings?.[k] || viewData[`technical${k.charAt(0).toUpperCase() + k.slice(1)}Manager`] || 0;
                         return (
@@ -2380,7 +2387,7 @@ const SelfAppraisal = () => {
 
 
         {/* Technical Based Section */}
-        {enabledSections.technicalAssessment && (
+        {enabledSections.technicalAssessment && getEnabledItems('technicalSubItems').length > 0 && (
           <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900 flex items-center">
@@ -2400,8 +2407,7 @@ const SelfAppraisal = () => {
 
             <div className="bg-blue-50 rounded-lg p-5 border border-blue-100">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(enabledSections.technicalSubItems || {}).map(([key, enabled]) => {
-                  if (!enabled) return null;
+                {getEnabledItems('technicalSubItems').map(({ key }) => {
                   return (
                     <div key={key} className="flex justify-between items-center">
                       <span className="font-medium text-gray-700">{getAttributeLabel(masterAttributes, 'technicalSubItems', key)}:</span>
@@ -2571,18 +2577,7 @@ const SelfAppraisal = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          {/* Percent summary */}
-          <div className="rounded-md bg-purple-50 border border-purple-100 p-3 text-sm text-gray-700">
-            {(() => {
-              const enabledKeys = Object.entries(enabledSections?.knowledgeSubItems || {}).filter(([k, v]) => v).map(([k]) => k);
-              const values = enabledKeys.map(k => Number(formData.behaviourBased[k] || 0)).filter(v => v > 0);
-              const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
-              const percent = Math.round((avg / 5) * 100);
-              return (
-                <p>Overall Section Score: <span className="font-bold text-purple-700">{percent}%</span></p>
-              );
-            })()}
-          </div>
+          
 
           {Object.entries(enabledSections.knowledgeSubItems || {}).map(([key, enabled]) => {
             if (!enabled) return null;
@@ -2709,8 +2704,7 @@ const SelfAppraisal = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          {Object.entries(enabledSections.technicalSubItems || {}).map(([key, enabled]) => {
-            if (!enabled) return null;
+          {getEnabledItems('technicalSubItems').map(({ key }) => {
             return (
               <div key={key}>
                 <label className="block text-sm font-medium text-gray-700 mb-2">{getAttributeLabel(masterAttributes, 'technicalSubItems', key)}</label>

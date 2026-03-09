@@ -13,31 +13,7 @@ router.get('/master', auth, async (req, res) => {
     
     if (!master) {
       // Seed initial data if empty
-      master = new AppraisalAttributeMaster({
-        knowledgeSubItems: [
-          { key: 'knowledgeSharing', label: 'Knowledge Sharing' },
-          { key: 'leadership', label: 'Leadership' },
-          { key: 'mentoring', label: 'Mentoring' },
-          { key: 'adaptability', label: 'Adaptability' },
-          { key: 'initiatives', label: 'Initiatives' }
-        ],
-        processSubItems: [
-          { key: 'timesheet', label: 'Timesheet' },
-          { key: 'reportStatus', label: 'Report Status' },
-          { key: 'meeting', label: 'Meeting' }
-        ],
-        technicalSubItems: [
-          { key: 'codingSkills', label: 'Coding Skills' },
-          { key: 'testing', label: 'Testing' },
-          { key: 'debugging', label: 'Debugging' },
-          { key: 'sds', label: 'SDS' },
-          { key: 'tekla', label: 'Tekla' }
-        ],
-        growthSubItems: [
-          { key: 'learningNewTech', label: 'Learning New Tech' },
-          { key: 'certifications', label: 'Certifications' }
-        ]
-      });
+      
       await master.save();
     }
     
@@ -161,13 +137,7 @@ router.get('/:designation', auth, async (req, res) => {
             meeting: true
           },
           technicalAssessment: true,
-          technicalSubItems: {
-            codingSkills: true,
-            testing: true,
-            debugging: true,
-            sds: true,
-            tekla: true
-          },
+          technicalSubItems: {},
           growthAssessment: true
           ,
           growthSubItems: {
