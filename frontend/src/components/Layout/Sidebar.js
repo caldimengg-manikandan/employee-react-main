@@ -288,7 +288,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/policies",
       icon: getIconForMenu("Policy Portal"),
       allowEmployeeRole: true,
-      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance"],
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance", "employees"],
       permission: "policy_portal"
     },
     // SALARY SLIPS
@@ -297,7 +297,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/salaryslips",
       icon: getIconForMenu("Salary Slips"),
       allowEmployeeRole: true,
-      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance"],
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance", "employees"],
       permission: "salary_slips"
     },
     // PAYROLL MANAGEMENT
