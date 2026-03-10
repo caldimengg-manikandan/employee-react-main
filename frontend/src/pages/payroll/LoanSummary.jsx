@@ -41,6 +41,8 @@ export default function LoanSummary() {
   };
 
   const [form, setForm] = useState(initialForm);
+  const [confirmModal, setConfirmModal] = useState({ visible: false, title: "", message: "", onConfirm: null });
+  const [pendingSelection, setPendingSelection] = useState(null);
 
   useEffect(() => {
     fetchLoans();
@@ -162,7 +164,29 @@ export default function LoanSummary() {
   const handleEmployeeChange = (e) => {
     const selectedEmpId = e.target.value;
     const selectedEmp = employees.find(emp => emp.employeeId === selectedEmpId);
-    
+    const hasExistingActiveLoan = loans.some(
+      (l) => l.employeeId === selectedEmpId && l.status !== "completed"
+    );
+    if (hasExistingActiveLoan) {
+      const nextForm = {
+        employeeId: selectedEmpId,
+        employeeName: selectedEmp ? selectedEmp.name : "",
+        division: selectedEmp ? (selectedEmp.division || "SDS") : form.division,
+        location: selectedEmp ? (selectedEmp.location || "Chennai") : form.location
+      };
+      setPendingSelection(nextForm);
+      setConfirmModal({
+        visible: true,
+        title: "Existing Loan",
+        message: "This employee already has an existing loan. Do you want to proceed to add another loan?",
+        onConfirm: () => {
+          setForm(prev => ({ ...prev, ...nextForm }));
+          setConfirmModal({ visible: false, title: "", message: "", onConfirm: null });
+          setPendingSelection(null);
+        }
+      });
+      return;
+    }
     setForm(prev => ({
       ...prev,
       employeeId: selectedEmpId,
@@ -189,33 +213,51 @@ export default function LoanSummary() {
       return;
     }
 
-    const newLoanId = formatLoanId(loanCounter);
-    
-    const payload = {
-      loanId: newLoanId,
-      employeeId: form.employeeId,
-      employeeName: form.employeeName,
-      amount: Number(form.amount),
-      tenureMonths: Number(form.tenureMonths),
-      startDate: form.startDate,
-      location: form.location,
-      division: form.division,
-      status: "active",
-      paymentEnabled: true
+    const proceedCreate = async () => {
+      const newLoanId = formatLoanId(loanCounter);
+      const payload = {
+        loanId: newLoanId,
+        employeeId: form.employeeId,
+        employeeName: form.employeeName,
+        amount: Number(form.amount),
+        tenureMonths: Number(form.tenureMonths),
+        startDate: form.startDate,
+        location: form.location,
+        division: form.division,
+        status: "active",
+        paymentEnabled: true
+      };
+      try {
+        const response = await loanAPI.create(payload);
+        if (response.data && response.data.success) {
+          setLoans((prev) => [response.data.loan, ...prev]);
+          setLoanCounter(prev => prev + 1);
+          setForm(initialForm);
+          setShowAddModal(false);
+        }
+      } catch (error) {
+        console.error("Error creating loan:", error);
+        alert("Failed to create loan");
+      }
     };
 
-    try {
-      const response = await loanAPI.create(payload);
-      if (response.data && response.data.success) {
-        setLoans((prev) => [response.data.loan, ...prev]);
-        setLoanCounter(prev => prev + 1);
-        setForm(initialForm);
-        setShowAddModal(false);
-      }
-    } catch (error) {
-      console.error("Error creating loan:", error);
-      alert("Failed to create loan");
+    const hasExistingActiveLoan = loans.some(
+      (l) => l.employeeId === form.employeeId && l.status !== "completed"
+    );
+    if (hasExistingActiveLoan) {
+      setConfirmModal({
+        visible: true,
+        title: "Existing Loan",
+        message: "This employee already has an existing loan. Do you want to proceed to add another loan?",
+        onConfirm: async () => {
+          await proceedCreate();
+          setConfirmModal({ visible: false, title: "", message: "", onConfirm: null });
+        }
+      });
+      return;
     }
+
+    await proceedCreate();
   }
 
   /* -------- EDIT LOAN -------- */
@@ -706,7 +748,11 @@ export default function LoanSummary() {
                   name="startDate" 
                   type="date" 
                   value={form.startDate}
+                  onKeyDown={(e) => e.preventDefault()}
+                  onPaste={(e) => e.preventDefault()}
+                  onDrop={(e) => e.preventDefault()}
                   onChange={handleChange}
+                  inputMode="none"
                   className="border p-2 w-full rounded-lg focus:outline-none focus:ring-2 focus:ring-[#262760]"
                 />
               </div>
@@ -826,7 +872,11 @@ export default function LoanSummary() {
                   name="startDate" 
                   type="date" 
                   value={form.startDate}
+                  onKeyDown={(e) => e.preventDefault()}
+                  onPaste={(e) => e.preventDefault()}
+                  onDrop={(e) => e.preventDefault()}
                   onChange={handleChange}
+                  inputMode="none"
                   className="border p-2 w-full rounded-lg"
                 />
               </div>
@@ -865,6 +915,39 @@ export default function LoanSummary() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {confirmModal.visible && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg w-full max-w-md shadow-xl border">
+            <div className="px-6 py-4 border-b">
+              <h3 className="text-lg font-semibold text-gray-800">{confirmModal.title || "Confirmation"}</h3>
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700">{confirmModal.message}</p>
+            </div>
+            <div className="px-6 pb-4 flex justify-end gap-3">
+              <button
+                className="border px-4 py-2 rounded-lg hover:bg-gray-50"
+                onClick={() => {
+                  setConfirmModal({ visible: false, title: "", message: "", onConfirm: null });
+                  setPendingSelection(null);
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                className="bg-[#262760] text-white px-4 py-2 rounded-lg hover:bg-[#1e1f4d]"
+                onClick={() => {
+                  const fn = confirmModal.onConfirm;
+                  if (typeof fn === "function") fn();
+                }}
+              >
+                Proceed
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -947,7 +1030,7 @@ export default function LoanSummary() {
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Start Date:</span>
                       <div className="flex items-center gap-2">
-                        <Calendar size={14} className="text-gray-400" />
+                        <Calendar size={10} className="text-gray-400" />
                         <span className="font-semibold">{selectedLoan.startDate}</span>
                       </div>
                     </div>

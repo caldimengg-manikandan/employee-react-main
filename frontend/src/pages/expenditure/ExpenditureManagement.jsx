@@ -1006,16 +1006,7 @@ const ExpenditureManagement = () => {
         </div>
 
         <div className="flex items-center gap-3 pb-2">
-          {activeTab === "manage" && (
-            <button
-              onClick={exportToCSV}
-              className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors flex items-center gap-2"
-              disabled={!month || !year || !location}
-            >
-              <Download className="w-4 h-4" />
-              Export CSV
-            </button>
-          )}
+         
           {activeTab === "summary" && summaryData.length > 0 && (
             <button
               onClick={exportSummaryToCSV}

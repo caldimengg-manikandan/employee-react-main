@@ -43,6 +43,9 @@ const EmployeeRewardTracker = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
+  const [touchedFields, setTouchedFields] = useState({});
   const [filters, setFilters] = useState({
     month: '',
     year: '',
@@ -233,7 +236,55 @@ const EmployeeRewardTracker = () => {
         designation: selectedEmployee.designation,
         division: selectedEmployee.division || selectedEmployee.department
       }));
+    } else {
+      setEditingReward(prev => ({
+        ...prev,
+        employeeName: '',
+        employeeId: '',
+        designation: '',
+        division: ''
+      }));
     }
+
+    setTouchedFields(prev => (prev.employeeId ? prev : { ...prev, employeeId: true }));
+    setFormErrors(prev => {
+      if (!prev.employeeId) return prev;
+      const next = { ...prev };
+      delete next.employeeId;
+      return next;
+    });
+  };
+
+  const validateReward = (reward) => {
+    const nextErrors = {};
+    if (!reward?.month) nextErrors.month = true;
+    if (!reward?.year) nextErrors.year = true;
+    if (!reward?.employeeId) nextErrors.employeeId = true;
+    if (!reward?.nominatedBy) nextErrors.nominatedBy = true;
+    if (!reward?.achievement || !reward.achievement.trim()) nextErrors.achievement = true;
+    return nextErrors;
+  };
+
+  const isFieldInvalid = (fieldName) => {
+    if (!formErrors[fieldName]) return false;
+    return formSubmitted || touchedFields[fieldName];
+  };
+
+  const setRewardField = (fieldName, value) => {
+    setEditingReward(prev => ({ ...prev, [fieldName]: value }));
+    setFormErrors(prev => {
+      if (!prev[fieldName]) return prev;
+      const next = { ...prev };
+      delete next[fieldName];
+      return next;
+    });
+  };
+
+  const handleCloseAddModal = () => {
+    setShowAddModal(false);
+    setFormSubmitted(false);
+    setFormErrors({});
+    setTouchedFields({});
   };
 
   const handleSubmit = async (e) => {
@@ -241,6 +292,11 @@ const EmployeeRewardTracker = () => {
     
     // Check authentication before submitting
     if (!checkAuth()) return;
+
+    setFormSubmitted(true);
+    const nextErrors = validateReward(editingReward);
+    setFormErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
     
     try {
       const token = getToken();
@@ -280,6 +336,9 @@ const EmployeeRewardTracker = () => {
 
         setShowAddModal(false);
         setEditingReward(null);
+        setFormSubmitted(false);
+        setFormErrors({});
+        setTouchedFields({});
         setTimeout(() => setSuccess(''), 3000);
       } else {
         const errorData = await response.json();
@@ -296,6 +355,9 @@ const EmployeeRewardTracker = () => {
   const handleEdit = (reward) => {
     if (!checkAuth()) return;
     setEditingReward(reward);
+    setFormSubmitted(false);
+    setFormErrors({});
+    setTouchedFields({});
     setShowAddModal(true);
   };
 
@@ -364,6 +426,9 @@ const EmployeeRewardTracker = () => {
       nominatedBy: '',
       achievement: ''
     });
+    setFormSubmitted(false);
+    setFormErrors({});
+    setTouchedFields({});
     setShowAddModal(true);
   };
 
@@ -623,7 +688,7 @@ const EmployeeRewardTracker = () => {
                 {editingReward._id ? 'Edit Reward' : 'Add New Reward'}
               </h3>
               <button
-                onClick={() => setShowAddModal(false)}
+                onClick={handleCloseAddModal}
                 className="text-gray-400 bg-transparent hover:bg-gray-200 hover:text-gray-900 rounded-lg text-sm p-1.5 ml-auto inline-flex items-center"
               >
                 <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
@@ -632,15 +697,17 @@ const EmployeeRewardTracker = () => {
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} noValidate className="p-6 space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                  <label className={`block text-sm font-medium mb-1 ${isFieldInvalid('month') ? 'text-red-600' : 'text-gray-700'}`}>
+                    Month <span className="text-red-500">*</span>
+                  </label>
                   <select
-                    required
                     value={editingReward.month}
-                    onChange={(e) => setEditingReward({...editingReward, month: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760]"
+                    onChange={(e) => setRewardField('month', e.target.value)}
+                    onBlur={() => setTouchedFields(prev => (prev.month ? prev : { ...prev, month: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${isFieldInvalid('month') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#262760]'}`}
                   >
                     {months.map(month => (
                       <option key={month} value={month}>{month}</option>
@@ -649,12 +716,14 @@ const EmployeeRewardTracker = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                  <label className={`block text-sm font-medium mb-1 ${isFieldInvalid('year') ? 'text-red-600' : 'text-gray-700'}`}>
+                    Year <span className="text-red-500">*</span>
+                  </label>
                   <select
-                    required
                     value={editingReward.year}
-                    onChange={(e) => setEditingReward({...editingReward, year: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760]"
+                    onChange={(e) => setRewardField('year', e.target.value)}
+                    onBlur={() => setTouchedFields(prev => (prev.year ? prev : { ...prev, year: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${isFieldInvalid('year') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#262760]'}`}
                   >
                     {years.map(year => (
                       <option key={year} value={year}>{year}</option>
@@ -663,12 +732,14 @@ const EmployeeRewardTracker = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                  <label className={`block text-sm font-medium mb-1 ${isFieldInvalid('employeeId') ? 'text-red-600' : 'text-gray-700'}`}>
+                    Employee Name <span className="text-red-500">*</span>
+                  </label>
                   <select
-                    required
                     value={editingReward.employeeId}
                     onChange={handleEmployeeChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760]"
+                    onBlur={() => setTouchedFields(prev => (prev.employeeId ? prev : { ...prev, employeeId: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${isFieldInvalid('employeeId') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#262760]'}`}
                   >
                     <option value="">Select Employee</option>
                     {employees.map(emp => (
@@ -710,12 +781,14 @@ const EmployeeRewardTracker = () => {
                 </div>
                 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Nominated By</label>
+                  <label className={`block text-sm font-medium mb-1 ${isFieldInvalid('nominatedBy') ? 'text-red-600' : 'text-gray-700'}`}>
+                    Nominated By <span className="text-red-500">*</span>
+                  </label>
                   <select
-                    required
                     value={editingReward.nominatedBy}
-                    onChange={(e) => setEditingReward({...editingReward, nominatedBy: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760]"
+                    onChange={(e) => setRewardField('nominatedBy', e.target.value)}
+                    onBlur={() => setTouchedFields(prev => (prev.nominatedBy ? prev : { ...prev, nominatedBy: true }))}
+                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${isFieldInvalid('nominatedBy') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#262760]'}`}
                   >
                     <option value="">Select Nominator</option>
                     {nominators.map(nom => (
@@ -726,13 +799,15 @@ const EmployeeRewardTracker = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Key Achievement / Justification</label>
+                <label className={`block text-sm font-medium mb-1 ${isFieldInvalid('achievement') ? 'text-red-600' : 'text-gray-700'}`}>
+                  Key Achievement / Justification <span className="text-red-500">*</span>
+                </label>
                 <textarea
-                  required
                   rows={4}
                   value={editingReward.achievement}
-                  onChange={(e) => setEditingReward({...editingReward, achievement: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760]"
+                  onChange={(e) => setRewardField('achievement', e.target.value)}
+                  onBlur={() => setTouchedFields(prev => (prev.achievement ? prev : { ...prev, achievement: true }))}
+                  className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${isFieldInvalid('achievement') ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-[#262760]'}`}
                   placeholder="Describe the achievement or justification for this reward..."
                 ></textarea>
               </div>
@@ -740,7 +815,7 @@ const EmployeeRewardTracker = () => {
               <div className="flex justify-end space-x-3 pt-4 border-t">
                 <button
                   type="button"
-                  onClick={() => setShowAddModal(false)}
+                  onClick={handleCloseAddModal}
                   className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-[#262760]"
                 >
                   Cancel

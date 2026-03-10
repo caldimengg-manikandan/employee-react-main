@@ -1092,7 +1092,7 @@ Payroll Department
       )}
 
       {/* Controls */}
-      <div className="bg-white p-5 rounded-lg shadow mb-3 border border-gray-200 flex-none z-20 sticky top-0">
+      <div className="bg-white p-5 rounded-lg shadow mb-3 border border-gray-200 flex-none z-20 md:sticky md:top-0">
         {/* Filters */}
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end mb-4 border-b pb-4">
           {/* Search */}
@@ -1235,7 +1235,7 @@ Payroll Department
 
       {/* Employee/Salary Records Table */}
       <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
-        <div className="overflow-auto max-h-[calc(100vh-250px)]">
+        <div className="overflow-auto md:max-h-[calc(100vh-250px)]">
           <table className="min-w-full divide-y divide-gray-200 relative">
             <thead className="bg-[#262760] sticky top-0 z-10">
               <tr>
@@ -1365,21 +1365,21 @@ Payroll Department
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-6xl max-h-[90vh] flex flex-col border border-gray-200">
             {/* Header - Frozen */}
-            <div className="flex items-center justify-between p-5 border-b border-gray-200 bg-white rounded-t-lg z-10 shrink-0">
-              <h3 className="text-lg font-semibold text-gray-800">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-5 border-b border-gray-200 bg-white rounded-t-lg z-10 shrink-0">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-800 leading-snug">
                 Simulation Preview ({simulation.results.length} employees)
               </h3>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center justify-start sm:justify-end gap-2 w-full sm:w-auto">
                 <button 
                   onClick={handleExcelExport}
-                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-2 text-sm whitespace-nowrap"
                 >
                   <Download className="w-4 h-4" />
                   Export Excel
                 </button>
                 <button 
                   onClick={savePayroll} 
-                  className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-2"
+                  className="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center gap-2 text-sm whitespace-nowrap"
                   disabled={saving}
                 >
                   {saving ? (
@@ -1391,21 +1391,21 @@ Payroll Department
                 </button>
                 <button 
                   onClick={exportSimulationCSV} 
-                  className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-2"
+                  className="px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center gap-2 text-sm whitespace-nowrap"
                 >
                   <Download className="w-4 h-4" />
                   Export CSV
                 </button>
                 <button 
                   onClick={handleSendPaymentClick}
-                  className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors flex items-center gap-2"
+                  className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors flex items-center gap-2 text-sm whitespace-nowrap"
                 >
                   <Mail className="w-4 h-4" />
                   Send Payment Email
                 </button>
                 <button 
                   onClick={() => setSimulation(null)} 
-                  className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center gap-2"
+                  className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors flex items-center gap-2 text-sm whitespace-nowrap"
                 >
                   <X className="w-4 h-4" />
                   Close
@@ -1414,70 +1414,52 @@ Payroll Department
             </div>
 
             {/* Scrollable Content */}
-            <div className="overflow-auto flex-1 px-5 pb-5 relative">
-              <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0 mt-5">
-                <thead className="bg-[#262760] sticky top-0 z-40">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-0 z-50 bg-[#262760]">
-                      Employee ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-[120px] z-50 bg-[#262760]">
-                      Employee Name
-                    </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Total Earnings
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        LOP Days
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        LOP Deduction
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Loan Deduction
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Total Deductions
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Net Salary
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Bank
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {simulation.results.map(result => (
-                      <tr key={result.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap sticky left-0 z-30 bg-white">
-                          <div className="text-sm text-gray-900 font-mono">{result.employeeId}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap sticky left-[120px] z-30 bg-white shadow-md">
-                          <div className="font-medium text-gray-900">{result.employeeName}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          {formatCurrency(result.totalEarnings)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-red-600 font-medium">
-                          {result.lopDays || 0}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
-                          {formatCurrency(result.lop)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
-                          {formatCurrency(result.loanDeduction)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">
-                          {formatCurrency(result.totalDeductions)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-600">
-                          {formatCurrency(result.netSalary)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
+            <div className="overflow-auto flex-1 px-3 sm:px-5 pb-5 relative">
+              <div className="mt-4 space-y-3 md:hidden">
+                {simulation.results.map(result => (
+                  <div key={result.id} className="border border-gray-200 rounded-lg p-3 bg-white">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs text-gray-500 font-mono">{result.employeeId}</div>
+                        <div className="text-sm font-semibold text-gray-900 truncate">{result.employeeName}</div>
+                      </div>
+                      <button
+                        onClick={() => handleEditClick(result)}
+                        className="shrink-0 p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+                        title="Edit LOP / Apply CF"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                      <div>
+                        <div className="text-xs text-gray-500">Total Earnings</div>
+                        <div className="font-medium text-gray-900">{formatCurrency(result.totalEarnings)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Net Salary</div>
+                        <div className="font-bold text-green-600">{formatCurrency(result.netSalary)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">LOP Days</div>
+                        <div className="font-medium text-red-600">{result.lopDays || 0}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">LOP Deduction</div>
+                        <div className="font-medium text-red-600">{formatCurrency(result.lop)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Loan Deduction</div>
+                        <div className="font-medium text-red-600">{formatCurrency(result.loanDeduction)}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-gray-500">Total Deductions</div>
+                        <div className="font-medium text-gray-900">{formatCurrency(result.totalDeductions)}</div>
+                      </div>
+                      <div className="col-span-2">
+                        <div className="text-xs text-gray-500">Bank</div>
+                        <div className="mt-1">
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             result.bankName?.includes('HDFC') 
                               ? 'bg-green-100 text-green-800' 
@@ -1493,47 +1475,160 @@ Payroll Department
                           }`}>
                             {result.bankName || 'N/A'}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <button 
-                            onClick={() => handleEditClick(result)}
-                            className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
-                            title="Edit LOP / Apply CF"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    <tr className="border-t font-semibold bg-gray-50">
-                      <td colSpan="2" className="px-6 py-4 whitespace-nowrap sticky left-0 z-30 bg-gray-50 shadow-md">Totals</td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        {formatCurrency(simulation.totals.totalEarnings)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        -
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                  <div className="text-sm font-semibold text-gray-900">Totals</div>
+                  <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                    <div>
+                      <div className="text-xs text-gray-500">Total Earnings</div>
+                      <div className="font-medium text-gray-900">{formatCurrency(simulation.totals.totalEarnings)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">Net Salary</div>
+                      <div className="font-bold text-green-600">{formatCurrency(simulation.totals.netSalary)}</div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">LOP Deduction</div>
+                      <div className="font-medium text-red-600">
                         {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.lop || 0), 0))}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                      </div>
+                    </div>
+                    <div>
+                      <div className="text-xs text-gray-500">Loan Deduction</div>
+                      <div className="font-medium text-red-600">
                         {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.loanDeduction || 0), 0))}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        {formatCurrency(simulation.totals.totalDeductions)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-600">
-                        {formatCurrency(simulation.totals.netSalary)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {/* <span className="px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                          Mixed Banks
-                        </span> */}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap"></td>
-                    </tr>
-                  </tbody>
-                </table>
+                      </div>
+                    </div>
+                    <div className="col-span-2">
+                      <div className="text-xs text-gray-500">Total Deductions</div>
+                      <div className="font-medium text-gray-900">{formatCurrency(simulation.totals.totalDeductions)}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="hidden md:block">
+                <table className="min-w-full divide-y divide-gray-200 border-separate border-spacing-0 mt-5">
+                  <thead className="bg-[#262760] sticky top-0 z-40">
+                    <tr>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-0 z-50 bg-[#262760]">
+                        Employee ID
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider sticky left-[120px] z-50 bg-[#262760]">
+                        Employee Name
+                      </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Total Earnings
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          LOP Days
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          LOP Deduction
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Loan Deduction
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Total Deductions
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Net Salary
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Bank
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                          Action
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {simulation.results.map(result => (
+                        <tr key={result.id} className="hover:bg-gray-50">
+                          <td className="px-6 py-4 whitespace-nowrap sticky left-0 z-30 bg-white">
+                            <div className="text-sm text-gray-900 font-mono">{result.employeeId}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap sticky left-[120px] z-30 bg-white shadow-md">
+                            <div className="font-medium text-gray-900">{result.employeeName}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            {formatCurrency(result.totalEarnings)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-red-600 font-medium">
+                            {result.lopDays || 0}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                            {formatCurrency(result.lop)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                            {formatCurrency(result.loanDeduction)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            {formatCurrency(result.totalDeductions)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-600">
+                            {formatCurrency(result.netSalary)}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              result.bankName?.includes('HDFC') 
+                                ? 'bg-green-100 text-green-800' 
+                                : result.bankName?.includes('SBI')
+                                ? 'bg-blue-100 text-blue-800'
+                                : result.bankName?.includes('Axis')
+                                ? 'bg-purple-100 text-purple-800'
+                                : result.bankName?.includes('Indian')
+                                ? 'bg-indigo-100 text-indigo-800'
+                                : result.bankName?.includes('ICICI')
+                                ? 'bg-orange-100 text-orange-800'
+                                : 'bg-gray-100 text-gray-800'
+                            }`}>
+                              {result.bankName || 'N/A'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <button 
+                              onClick={() => handleEditClick(result)}
+                              className="p-1 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded transition-colors"
+                              title="Edit LOP / Apply CF"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                      <tr className="border-t font-semibold bg-gray-50">
+                        <td colSpan="2" className="px-6 py-4 whitespace-nowrap sticky left-0 z-30 bg-gray-50 shadow-md">Totals</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          {formatCurrency(simulation.totals.totalEarnings)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          -
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                          {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.lop || 0), 0))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-red-600">
+                          {formatCurrency(simulation.results.reduce((sum, r) => sum + (r.loanDeduction || 0), 0))}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          {formatCurrency(simulation.totals.totalDeductions)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-600">
+                          {formatCurrency(simulation.totals.netSalary)}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap"></td>
+                        <td className="px-6 py-4 whitespace-nowrap"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               
               {/* Summary Stats */}
               <div className="mt-4 grid grid-cols-1 md:grid-cols-4 gap-4">

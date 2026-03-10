@@ -2,6 +2,9 @@ import React, { useEffect, useState } from "react";
 import { internAPI, mailAPI } from "../../services/api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
+import balaSignature from '../../bala signature.png';
+import uvarajSignature from '../../uvaraj signature.png';
 import {
   PencilIcon,
   TrashIcon,
@@ -21,7 +24,8 @@ import {
   EnvelopeIcon,
   ArrowDownTrayIcon,
   BuildingLibraryIcon,
-  PaperAirplaneIcon
+  PaperAirplaneIcon,
+  CurrencyDollarIcon
 } from "@heroicons/react/24/outline";
 import { Popconfirm } from "antd";
 import { EyeIcon } from "lucide-react";
@@ -37,6 +41,7 @@ const InternReference = () => {
   const [showModal, setShowModal] = useState(false);
   const [viewIntern, setViewIntern] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedIntern, setSelectedIntern] = useState(null);
 
   const [form, setForm] = useState({
     fullName: "",
@@ -53,7 +58,9 @@ const InternReference = () => {
     contactPhone: "",
     bankName: "",
     accountNumber: "",
-    ifscCode: ""
+    ifscCode: "",
+    stipendAmount: "",
+    workLocation: "Chennai"
   });
 
   const [errors, setErrors] = useState({});
@@ -62,10 +69,135 @@ const InternReference = () => {
   const [showEmailModal, setShowEmailModal] = useState(false);
   const [emailData, setEmailData] = useState({
     to: "",
+    cc: "",
     subject: "",
-    message: ""
+    message: "",
+    attachments: []
   });
   const [sendingEmail, setSendingEmail] = useState(false);
+
+  const headerSvg = "data:image/svg+xml;charset=utf-8,%3Csvg width='1000' height='128' viewBox='0 0 1000 128' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'%3E%3Cpath d='M0,0 L560,0 L490,128 L0,128 Z' fill='%231e2b58' /%3E%3Cpath d='M560,0 L610,0 L540,128 L490,128 Z' fill='%23f37021' /%3E%3C/svg%3E";
+
+  const LetterHeader = () => (
+    <div className="w-full h-32 relative overflow-hidden flex" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
+        <img src={headerSvg} alt="" style={{ width: '100%', height: '100%', display: 'block', objectFit: 'fill' }} />
+      </div>
+      <div className="relative z-10 w-full flex" style={{ height: '100%' }}>
+        <div className="w-[60%] flex items-center pl-8 pr-12" style={{ width: '60%', display: 'flex', alignItems: 'center', paddingLeft: '32px', paddingRight: '48px' }}>
+          <div className="flex items-center gap-4" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" style={{ height: '64px', width: 'auto', filter: 'brightness(0) invert(1)' }} />
+            <div className="text-white" style={{ color: 'white' }}>
+              <h1 className="text-4xl font-bold leading-none tracking-wide">CALDIM</h1>
+              <p className="text-[11px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">ENGINEERING PRIVATE LIMITED</p>
+            </div>
+          </div>
+        </div>
+        <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', paddingRight: '32px', paddingTop: '8px' }}>
+          <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+            <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', color: '#1f2937', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
+            <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+              </svg>
+            </div>
+          </div>
+          <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
+            <span className="text-sm font-semibold text-gray-700 w-64 leading-tight" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', width: '256px', lineHeight: 1.25 }}>No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
+            <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', marginLeft: '12px', marginTop: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const LetterFooter = () => (
+    <div className="w-full flex items-end mt-auto relative" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative' }}>
+      <div className="bg-[#f37021] flex-1 mb-0" style={{ height: '8px', backgroundColor: '#f37021', flex: 1, marginBottom: 0 }}></div>
+      <div className="relative text-white flex flex-col items-end justify-center" style={{ 
+        position: 'relative', 
+        minWidth: '350px', 
+        height: '60px',
+        background: 'linear-gradient(135deg, transparent 25px, #1e2b58 25px)',
+        padding: '0 40px 0 60px', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'flex-end', 
+        justifyContent: 'center' 
+      }}>
+        <div className="relative z-10" style={{ position: 'relative', zIndex: 10, textAlign: 'right' }}>
+          <div style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.05em', fontFamily: 'Arial, sans-serif' }}>Website : www.caldimengg.com</div>
+          <div style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.05em', marginTop: '4px', fontFamily: 'Arial, sans-serif' }}>CIN U74999TN2016PTC110683</div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
+  };
+
+  const diffDuration = (start, end) => {
+    if (!start || !end) return "";
+    const s = new Date(start);
+    const e = new Date(end);
+    const ms = e - s;
+    const days = Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
+    return `${days} days`;
+  };
+
+  const generateHTML = (message, intern) => {
+    const safe = (v) => v || '';
+    const content = (message || '')
+      .replace(/\n/g, '<br/>');
+    return `
+      <div style="font-family: Arial, sans-serif; background-color: #f3f4f6; padding: 20px;">
+        <div style="max-width: 800px; margin: 0 auto; background: white; border-radius: 12px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
+          <div style="background-color: #262760; color: white; padding: 16px 24px; display: flex; align-items: center; gap: 12px;">
+            <div style="font-weight: 700; font-size: 16px;">CALDIM Engineering Private Limited</div>
+          </div>
+          <div style="padding: 24px; color: #111827;">
+            <div style="margin-bottom: 16px;">${content}</div>
+            <div style="margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 12px; color: #374151; font-size: 14px;">
+              <div style="font-weight: 600; margin-bottom: 8px;">Internship Details</div>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280; width: 40%;">Candidate</td>
+                  <td style="padding: 6px 0; font-weight: 600;">${safe(intern?.fullName)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Department</td>
+                  <td style="padding: 6px 0; font-weight: 600;">${safe(intern?.department)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Internship Type</td>
+                  <td style="padding: 6px 0; font-weight: 600;">${safe(intern?.internshipType)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Mentor</td>
+                  <td style="padding: 6px 0; font-weight: 600;">${safe(intern?.mentor)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px 0; color: #6b7280;">Duration</td>
+                  <td style="padding: 6px 0; font-weight: 600;">${diffDuration(intern?.startDate, intern?.endDate)}</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+          <div style="padding: 12px; font-size: 12px; color: #9ca3af; text-align: center; border-top: 1px solid #e5e7eb;">
+            This is a system generated email.
+          </div>
+        </div>
+      </div>
+    `;
+  };
 
   // Show notification
   const showNotification = (message, type = "success") => {
@@ -137,6 +269,17 @@ const InternReference = () => {
       newErrors.contactPhone = "Phone must be 10 digits";
     }
 
+    // Validate stipend amount if provided
+    if (form.stipendAmount && !/^\d+(\.\d{1,2})?$/.test(form.stipendAmount)) {
+      newErrors.stipendAmount = "Please enter a valid amount (e.g., 5000 or 5000.00)";
+    }
+    if (!form.division) {
+      newErrors.division = "Division is required";
+    }
+    if (!form.internId) {
+      newErrors.internId = "Intern ID is required";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -151,7 +294,9 @@ const InternReference = () => {
       const internData = {
         ...form,
         startDate: form.startDate || new Date().toISOString().split('T')[0],
-        endDate: form.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+        endDate: form.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        // Convert stipend amount to number if it exists
+        stipendAmount: form.stipendAmount ? parseFloat(form.stipendAmount) : null
       };
 
       if (editingId) {
@@ -189,7 +334,11 @@ const InternReference = () => {
       contactPhone: intern.contactPhone || "",
       bankName: intern.bankName || "",
       accountNumber: intern.accountNumber || "",
-      ifscCode: intern.ifscCode || ""
+      ifscCode: intern.ifscCode || "",
+      stipendAmount: intern.stipendAmount || "",
+      workLocation: intern.workLocation || "Chennai",
+      division: intern.division || "SDS",
+      internId: intern.internId || ""
     });
     setShowModal(true);
   };
@@ -212,10 +361,26 @@ const InternReference = () => {
   };
 
   const handleOpenEmailModal = (intern) => {
+    setSelectedIntern(intern);
+    const mailTemplate = `Dear {{Candidate_Name}},
+
+We are pleased to offer you an opportunity to join CALDIM as an Intern in the {{Department_Name}} department.
+
+Your internship with CALDIM Engineering Private Limited will commence on {{Start_Date}} and will continue until {{End_Date}}, unless extended or terminated earlier in accordance with the company policies.`;
+
+    const replace = (tpl, data) =>
+      tpl
+        .replace(/{{Candidate_Name}}/g, data.fullName || "")
+        .replace(/{{Department_Name}}/g, data.department || "")
+        .replace(/{{Start_Date}}/g, formatDate(data.startDate))
+        .replace(/{{End_Date}}/g, formatDate(data.endDate));
+
     setEmailData({
       to: intern.contactEmail || "",
-      subject: "Internship Update",
-      message: `Dear ${intern.fullName},\n\n`
+      cc: "",
+      subject: "Internship Offer at CALDIM",
+      message: replace(mailTemplate, intern),
+      attachments: []
     });
     setShowEmailModal(true);
   };
@@ -236,10 +401,14 @@ const InternReference = () => {
 
     try {
       setSendingEmail(true);
+      const htmlContent = generateHTML(emailData.message, selectedIntern);
       await mailAPI.send({
         email: emailData.to,
+        cc: emailData.cc,
         subject: emailData.subject,
-        message: emailData.message
+        message: emailData.message,
+        html: htmlContent,
+        attachments: emailData.attachments
       });
       showNotification("Email sent successfully!");
       setShowEmailModal(false);
@@ -250,6 +419,66 @@ const InternReference = () => {
       setSendingEmail(false);
     }
   };
+
+  const handlePreviewLetter = async () => {
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const pages = ['intern-offer-letter-p1', 'intern-offer-letter-p2'];
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let pageAdded = false;
+      for (let i = 0; i < pages.length; i++) {
+        const element = document.getElementById(pages[i]);
+        if (!element) continue;
+        if (pageAdded) pdf.addPage();
+        const canvas = await html2canvas(element, { scale: 1.5, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/jpeg', 0.8);
+        const imgWidth = 210;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+        pageAdded = true;
+      }
+      const pdfBlob = pdf.output('bloburl');
+      window.open(pdfBlob, '_blank');
+    } catch (error) {
+      showNotification("Failed to generate preview", "error");
+    }
+  };
+
+  const attachInternOfferLetter = async () => {
+    try {
+      await new Promise(resolve => setTimeout(resolve, 300));
+      const pages = ['intern-offer-letter-p1', 'intern-offer-letter-p2'];
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      let pageAdded = false;
+      for (let i = 0; i < pages.length; i++) {
+        const element = document.getElementById(pages[i]);
+        if (!element) continue;
+        if (pageAdded) pdf.addPage();
+        const canvas = await html2canvas(element, { scale: 1.5, useCORS: true, logging: false, backgroundColor: '#ffffff' });
+        const imgData = canvas.toDataURL('image/jpeg', 0.8);
+        const imgWidth = 210;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+        pageAdded = true;
+      }
+      const pdfBase64 = pdf.output('datauristring').split(',')[1];
+      const filenameSafe = (selectedIntern?.fullName || 'Intern').replace(/\s+/g, '_');
+      const newAttachment = {
+        filename: `Internship_Offer_${filenameSafe}.pdf`,
+        content: pdfBase64,
+        encoding: 'base64'
+      };
+      setEmailData((prev) => ({ ...prev, attachments: [newAttachment] }));
+    } catch {
+      showNotification("Failed to attach offer letter", "error");
+    }
+  };
+
+  useEffect(() => {
+    if (showEmailModal && selectedIntern) {
+      attachInternOfferLetter();
+    }
+  }, [showEmailModal, selectedIntern]);
 
   const resetForm = () => {
     setForm({
@@ -267,7 +496,9 @@ const InternReference = () => {
       contactPhone: "",
       bankName: "",
       accountNumber: "",
-      ifscCode: ""
+      ifscCode: "",
+      stipendAmount: "",
+      workLocation: "Chennai"
     });
     setEditingId(null);
     setErrors({});
@@ -311,7 +542,7 @@ const InternReference = () => {
     doc.setFontSize(10);
     doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 28);
 
-    const tableColumn = ["S.No", "Full Name", "Degree", "Internship Type", "Company Mentor", "Contact No", "Status"];
+    const tableColumn = ["S.No", "Full Name", "Degree", "Internship Type", "Company Mentor", "Contact No", "Stipend (₹)", "Status"];
     const tableRows = [];
 
     filteredInterns.forEach((intern, index) => {
@@ -322,6 +553,7 @@ const InternReference = () => {
         intern.internshipType || "N/A",
         intern.mentor || "N/A",
         intern.contactPhone || "N/A",
+        intern.stipendAmount ? `₹${intern.stipendAmount}` : "N/A",
         intern.status || "N/A"
       ];
       tableRows.push(internData);
@@ -582,6 +814,57 @@ const InternReference = () => {
                       <div className="space-y-4">
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
+                            Division
+                          </label>
+                          <select
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white"
+                            value={form.division}
+                            onChange={e => setForm({ ...form, division: e.target.value })}
+                          >
+                            <option value="SDS">SDS</option>
+                            <option value="TEKLA">TEKLA</option>
+                            <option value="DAS (Software)">DAS (Software)</option>
+                          </select>
+                          {errors.division && <p className="text-red-500 text-sm mt-1">{errors.division}</p>}
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Intern ID
+                          </label>
+                          <div className="flex gap-2">
+                            <input
+                              placeholder="Auto-generated (e.g., DASINT001)"
+                              className={`flex-1 border rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${errors.internId ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                              value={form.internId}
+                              onChange={e => setForm({ ...form, internId: e.target.value })}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const code = (form.division || '').toLowerCase().includes('das') ? 'DAS' :
+                                             (form.division || '').toLowerCase().includes('tekla') ? 'TEKLA' : 'SDS';
+                                const prefix = `${code}INT`;
+                                const nums = safeInterns
+                                  .map(i => i?.internId || "")
+                                  .filter(id => typeof id === "string" && id.startsWith(prefix))
+                                  .map(id => {
+                                    const m = id.match(/(\d+)$/);
+                                    return m ? parseInt(m[1], 10) : 0;
+                                  });
+                                const next = Math.max(0, ...nums) + 1;
+                                const newId = `${prefix}${String(next).padStart(3, "0")}`;
+                                setForm(prev => ({ ...prev, internId: newId }));
+                                if (errors.internId) setErrors({ ...errors, internId: null });
+                              }}
+                              className="px-4 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg"
+                            >
+                              Generate
+                            </button>
+                          </div>
+                          {errors.internId && <p className="text-red-500 text-sm mt-1">{errors.internId}</p>}
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
                             Internship Type
                           </label>
                           <select
@@ -615,6 +898,27 @@ const InternReference = () => {
 
                         <div className="space-y-2">
                           <label className="block text-sm font-medium text-gray-700">
+                            Stipend Amount (₹)
+                          </label>
+                          <div className="relative">
+                           
+                            <input
+                              type="text"
+                              placeholder="Enter stipend amount (e.g., 5000)"
+                              className={`w-full border rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all ${errors.stipendAmount ? 'border-red-500 ring-2 ring-red-200' : 'border-gray-300'}`}
+                              value={form.stipendAmount}
+                              onChange={e => {
+                                const value = e.target.value.replace(/[^0-9.]/g, '');
+                                setForm({ ...form, stipendAmount: value });
+                                if (errors.stipendAmount) setErrors({ ...errors, stipendAmount: null });
+                              }}
+                            />
+                          </div>
+                          {errors.stipendAmount && <p className="text-red-500 text-sm mt-1">{errors.stipendAmount}</p>}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
                             Status
                           </label>
                           <select
@@ -625,6 +929,20 @@ const InternReference = () => {
                             <option value="Completed">Completed</option>
                             <option value="Ongoing">Ongoing</option>
                             <option value="Terminated">Terminated</option>
+                          </select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Location
+                          </label>
+                          <select
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all bg-white"
+                            value={form.workLocation}
+                            onChange={e => setForm({ ...form, workLocation: e.target.value })}
+                          >
+                            <option value="Hosur">Hosur</option>
+                            <option value="Chennai">Chennai</option>
                           </select>
                         </div>
                       </div>
@@ -733,8 +1051,6 @@ const InternReference = () => {
                         </div>
                       </div>
                     </div>
-
-
                   </div>
                 </div>
 
@@ -821,6 +1137,10 @@ const InternReference = () => {
                         <p className="font-semibold text-gray-900">{viewIntern.mentor || '-'}</p>
                       </div>
                       <div>
+                        <p className="text-xs text-blue-500">Stipend Amount</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.stipendAmount ? `₹${viewIntern.stipendAmount}` : '-'}</p>
+                      </div>
+                      <div>
                         <p className="text-xs text-blue-500">Duration</p>
                         <p className="font-semibold text-gray-900">
                           {viewIntern.startDate ? new Date(viewIntern.startDate).toLocaleDateString() : 'N/A'} - {viewIntern.endDate ? new Date(viewIntern.endDate).toLocaleDateString() : 'N/A'}
@@ -899,7 +1219,7 @@ const InternReference = () => {
                   <div className="flex items-center gap-3">
                     <EnvelopeIcon className="h-8 w-8 text-white" />
                     <h3 className="text-xl font-bold text-white">
-                      Send Letter
+                      Send Internship Offer
                     </h3>
                   </div>
                   <button
@@ -925,6 +1245,18 @@ const InternReference = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
+                      CC
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={emailData.cc}
+                      onChange={e => setEmailData({ ...emailData, cc: e.target.value })}
+                      placeholder="Optional, comma-separated"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
                       Subject
                     </label>
                     <input
@@ -943,9 +1275,34 @@ const InternReference = () => {
                       value={emailData.message}
                       onChange={e => setEmailData({ ...emailData, message: e.target.value })}
                     />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Note: The internship offer letter PDF is auto-attached.
+                    </p>
                   </div>
+                  {emailData.attachments.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Attachments
+                      </label>
+                      <ul className="space-y-1 bg-gray-50 p-2 rounded border border-gray-200">
+                        {emailData.attachments.map((file, idx) => (
+                          <li key={idx} className="flex justify-between items-center text-sm p-1 hover:bg-gray-100 rounded">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="truncate max-w-[200px]">{file.filename}</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
                 <div className="mt-6 flex justify-end gap-3">
+                  <button
+                    onClick={handlePreviewLetter}
+                    className="px-4 py-2 border border-blue-600 text-blue-600 rounded hover:bg-blue-50"
+                  >
+                    Preview Letter
+                  </button>
                   <button
                     onClick={() => setShowEmailModal(false)}
                     className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
@@ -1079,13 +1436,14 @@ const InternReference = () => {
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">S.No</th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Full Name</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Intern ID</th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Degree</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Internship Type</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Division</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Location</th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Company Mentor</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Contact No</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Account No</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Stipend (₹)</th>
                   <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Status</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Action</th>
+                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -1098,19 +1456,22 @@ const InternReference = () => {
                       <div className="font-medium text-gray-900">{intern.fullName || 'N/A'}</div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
+                      {intern.internId || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
                       {intern.degree || 'N/A'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {intern.internshipType || 'N/A'}
+                      {intern.division || 'N/A'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      {intern.workLocation || 'N/A'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
                       {intern.mentor || 'N/A'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700">
-                      {intern.contactPhone || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {intern.accountNumber || 'N/A'}
+                      {intern.stipendAmount ? `₹${intern.stipendAmount}` : 'N/A'}
                     </td>
                     <td className="px-6 py-4">
                       <span className={`text-xs px-2 py-1 rounded-full inline-block font-medium ${intern.status === 'Completed' ? 'bg-green-100 text-green-800' :
@@ -1167,32 +1528,6 @@ const InternReference = () => {
         )}
       </div>
 
-      {/* Stats Summary */}
-      {/* <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-          <p className="text-sm text-blue-700">Total Interns</p>
-          <p className="text-2xl font-bold text-blue-900">{safeInterns.length}</p>
-        </div>
-        <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-          <p className="text-sm text-green-700">Completed</p>
-          <p className="text-2xl font-bold text-green-900">
-            {safeInterns.filter(i => i?.status === 'Completed').length}
-          </p>
-        </div>
-        <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-100">
-          <p className="text-sm text-yellow-700">Ongoing</p>
-          <p className="text-2xl font-bold text-yellow-900">
-            {safeInterns.filter(i => i?.status === 'Ongoing').length}
-          </p>
-        </div>
-        <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-          <p className="text-sm text-purple-700">Unique Colleges</p>
-          <p className="text-2xl font-bold text-purple-900">
-            {[...new Set(safeInterns.map(i => i?.collegeName).filter(Boolean))].length}
-          </p>
-        </div>
-      </div> */}
-
       {/* Add CSS animation for notification */}
       <style jsx>{`
         @keyframes fadeIn {
@@ -1204,6 +1539,181 @@ const InternReference = () => {
           animation: fadeIn 0.3s ease-out;
         }
       `}</style>
+      
+      {/* Hidden Offer Letter Templates - Both Pages with Same Letter Pad */}
+      <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        {/* Page 1 - Main Offer Letter */}
+        <div id="intern-offer-letter-p1" className="bg-white relative" style={{ width: '210mm', minHeight: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
+          <LetterHeader />
+          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div className="px-8 py-6 flex-grow" style={{ paddingLeft: '32px', paddingRight: '32px', paddingTop: '24px', paddingBottom: '24px', flexGrow: 1 }}>
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '4px' }}>INTERNSHIP OFFER LETTER</div>
+                <div style={{ height: '2px', width: '100px', backgroundColor: '#f37021', margin: '8px auto' }}></div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+                    <strong>Date:</strong> {formatDate(new Date())}
+                  </div>
+                  <div style={{ fontSize: '14px', marginBottom: '4px' }}>
+                    <strong>Intern ID:</strong> {selectedIntern?.internId || '-'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '14px', marginBottom: '8px' }}>To:</div>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>{selectedIntern?.fullName || ''}</div>
+                <div style={{ fontSize: '14px', marginBottom: '4px' }}>{selectedIntern?.address || ''}</div>
+                <div style={{ fontSize: '14px', marginBottom: '4px' }}>{selectedIntern?.contactEmail || ''}</div>
+                <div style={{ fontSize: '14px', marginBottom: '4px' }}>{selectedIntern?.contactPhone || ''}</div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>Subject: Internship Offer at CALDIM</div>
+                
+                <div style={{ fontSize: '14px', lineHeight: '1.8', marginBottom: '16px' }}>
+                  Dear {selectedIntern?.fullName || 'Candidate'},
+                </div>
+
+                <div style={{ fontSize: '14px', lineHeight: '1.8', marginBottom: '16px' }}>
+                  We are pleased to offer you an opportunity to join CALDIM as an Intern in the <strong>{selectedIntern?.department || ''}</strong> department.
+                </div>
+
+                <div style={{ fontSize: '14px', lineHeight: '1.8', marginBottom: '16px' }}>
+                  Your internship with CALDIM Engineering Private Limited will commence on <strong>{formatDate(selectedIntern?.startDate)}</strong> and will continue until <strong>{formatDate(selectedIntern?.endDate)}</strong>, unless extended or terminated earlier in accordance with the company policies.
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Internship Details</div>
+                
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                  <tr>
+                    <td style={{ padding: '8px 0', width: '40%', fontWeight: 'bold' }}>Position:</td>
+                    <td style={{ padding: '8px 0' }}>Intern – {selectedIntern?.internshipType || 'Internship'}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '8px 0', fontWeight: 'bold' }}>Department:</td>
+                    <td style={{ padding: '8px 0' }}>{selectedIntern?.department || ''}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '8px 0', fontWeight: 'bold' }}>Reporting To:</td>
+                    <td style={{ padding: '8px 0' }}>{selectedIntern?.mentor || ''}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '8px 0', fontWeight: 'bold' }}>Location:</td>
+                    <td style={{ padding: '8px 0' }}>{selectedIntern?.workLocation || 'Chennai'}</td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '8px 0', fontWeight: 'bold' }}>Internship Duration:</td>
+                    <td style={{ padding: '8px 0' }}>{diffDuration(selectedIntern?.startDate, selectedIntern?.endDate)}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <div style={{ marginTop: '16px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Stipend</div>
+                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
+                  During the internship period, you will receive a stipend of ₹{selectedIntern?.stipendAmount || ''} per month, payable as per the company’s payment cycle. Any statutory deductions, if applicable, will be made in accordance with prevailing regulations.
+                </div>
+              </div>
+
+             
+
+              {/* End of Page 1 content */}
+            </div>
+            <LetterFooter />
+          </div>
+        </div>
+
+        {/* Page 2 - Annexure */}
+        <div id="intern-offer-letter-p2" className="bg-white relative" style={{ width: '210mm', minHeight: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
+          <LetterHeader />
+          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div className="px-8 py-6 flex-grow" style={{ paddingLeft: '32px', paddingRight: '32px', paddingTop: '24px', paddingBottom: '24px', flexGrow: 1 }}>
+              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+               
+              </div>
+
+             
+
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Roles & Responsibilities</div>
+                <ul style={{ fontSize: '14px', lineHeight: '1.8', paddingLeft: '20px', margin: '0' }}>
+                  <li>Assist the team in assigned project activities</li>
+                  <li>Support documentation, reporting, and technical tasks as required</li>
+                  <li>Participate in learning and development activities</li>
+                  <li>Maintain professionalism and adhere to company standards and policies</li>
+                </ul>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Confidentiality</div>
+                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
+                  You are required to maintain strict confidentiality regarding all proprietary information, business processes, client information, and internal data of CALDIM. Such information must not be disclosed during or after the completion of your internship.
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Company Policies</div>
+                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
+                  You are expected to comply with all organizational policies, rules, and regulations, including working hours, code of conduct, and security guidelines.
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Completion Certificate</div>
+                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
+                  Upon successful completion of the internship and submission of assigned work or reports, CALDIM may issue an Internship Completion Certificate, subject to performance evaluation.
+                </div>
+              </div>
+              
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58' }}>Termination</div>
+                <div style={{ fontSize: '14px', lineHeight: '1.8', marginTop: '8px' }}>
+                  Either party may terminate the internship by providing {selectedIntern?.noticePeriod || '7 days'} notice, or immediately in case of violation of company policies or misconduct.
+                </div>
+              </div>
+              
+              <div style={{ fontSize: '14px', lineHeight: '1.8', marginBottom: '16px' }}>
+                Kindly confirm your acceptance of this offer by signing this letter and returning a copy to us via email within {selectedIntern?.acceptanceDeadline || '3 days'}.
+              </div>
+              
+              <div style={{ fontSize: '14px', lineHeight: '1.8', marginBottom: '24px' }}>
+                We look forward to your contribution and wish you a valuable learning experience with CALDIM.
+              </div>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '24px' }}>
+                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
+                  Signature: ___________________________<br />
+                  Date: ________________________________
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '14px', marginBottom: '6px' }}>For Caldim Engineering Private.Ltd</div>
+                  <div style={{ minHeight: '70px', display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end' }}>
+                    {selectedIntern?.workLocation && selectedIntern.workLocation.toLowerCase().includes('hosur') && (
+                      <img src={balaSignature} alt="Authorized Signatory" style={{ maxHeight: '60px' }} crossOrigin="anonymous" />
+                    )}
+                    {selectedIntern?.workLocation && selectedIntern.workLocation.toLowerCase().includes('chennai') && (
+                      <img src={uvarajSignature} alt="Authorized Signatory" style={{ maxHeight: '60px' }} crossOrigin="anonymous" />
+                    )}
+                    {(!selectedIntern?.workLocation || (!selectedIntern.workLocation.toLowerCase().includes('hosur') && !selectedIntern.workLocation.toLowerCase().includes('chennai'))) && (
+                      <div style={{ height: '60px' }}></div>
+                    )}
+                  </div>
+                  <div style={{ borderTop: '2px solid #1e2b58', width: '220px', marginLeft: 'auto', marginTop: '8px', marginBottom: '6px' }} />
+                  <div style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.02em' }}>DIRECTOR</div>
+                  <div style={{ fontSize: '14px', color: '#4b5563' }}>Authorized Signatory</div>
+                </div>
+              </div>
+            </div>
+            <LetterFooter />
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
