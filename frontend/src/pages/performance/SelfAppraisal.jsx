@@ -2080,7 +2080,6 @@ const SelfAppraisal = () => {
                               { label: 'Special Allowance', key: 'special' },
                               { label: 'Gross Salary', key: 'gross', isBold: true },
                               { label: 'Employee PF', key: 'empPF' },
-                              { label: 'Employer PF', key: 'employerPF' },
                               { label: 'Net Salary', key: 'net', isBold: true },
                               { label: 'Gratuity', key: 'gratuity' },
                               { label: 'CTC', key: 'ctc', isBold: true, isTotal: true }

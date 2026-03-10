@@ -287,8 +287,11 @@ const DirectorApproval = () => {
       let employeeDetails = {};
 
       try {
-        if (emp.employeeId) {
-          const res = await employeeAPI.getEmployeeById(emp.employeeId);
+        // Use Mongo ID if available (from backend update), otherwise fallback to whatever ID we have
+        const idToFetch = emp.employeeMongoId || (emp.employeeId && emp.employeeId.length === 24 ? emp.employeeId : null);
+        
+        if (idToFetch) {
+          const res = await employeeAPI.getEmployeeById(idToFetch);
           employeeDetails = res.data;
         } else {
           employeeDetails = { ...emp };

@@ -37,7 +37,7 @@ router.get('/', auth, async (req, res) => {
 
     // Populate employee details
     const appraisals = await SelfAppraisal.find(query)
-      .populate('employeeId', 'name employeeId designation department division avatar ctc');
+      .populate('employeeId', 'name employeeId designation department division avatar ctc location branch');
 
     // Transform to frontend format
     const formattedAppraisals = appraisals.map(app => {
@@ -46,12 +46,14 @@ router.get('/', auth, async (req, res) => {
       return {
         id: app._id,
         financialYr: app.year,
+        employeeMongoId: emp._id,
         empId: emp.employeeId || 'N/A',
         name: emp.name || 'Unknown',
         avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
         designation: emp.designation || 'N/A',
         department: emp.department || 'N/A',
         division: app.division || emp.division || 'N/A',
+        location: emp.location || emp.branch || 'Chennai',
         status: app.status,
 
         // Appraisal content
