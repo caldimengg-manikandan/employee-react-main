@@ -303,7 +303,7 @@ const MarriageAllowance = () => {
     <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
       <div className="w-full max-w-5xl bg-white rounded-2xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         <div className="bg-gradient-to-r from-[#262760] to-indigo-700 text-white p-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold">New Marriage Allowance Request</h3>
+          <h3 className="text-lg font-semibold">New Marriage Allowance</h3>
           <button onClick={()=>{ setShowForm(false); resetForm(); }} className="rounded-lg border border-white/30 px-3 py-1 hover:bg-white hover:text-[#262760] transition">
             <X className="h-4 w-4" />
           </button>
@@ -440,7 +440,7 @@ const MarriageAllowance = () => {
         </div>
         <div className="flex items-center gap-2">
           <button onClick={()=>{ setShowForm(true); resetForm(); }} className="bg-[#262760] text-white px-4 py-2 rounded-lg flex items-center gap-2">
-            <Plus className="h-4 w-4" /> New Request
+            <Plus className="h-4 w-4" /> New Allowance
           </button>
           <button onClick={exportPDF} className="border px-3 py-2 rounded-lg flex items-center gap-2">
             <Download className="h-4 w-4" /> PDF
