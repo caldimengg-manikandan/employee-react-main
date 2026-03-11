@@ -51,6 +51,7 @@ import CostToTheCompany from "./pages/payroll/CostToTheCompany";
 import LoanSummary from "./pages/payroll/LoanSummary";
 import GratuitySummary from "./pages/payroll/GratuitySummary";
 import MonthlyPayroll from "./pages/payroll/MonthlyPayroll";
+import MarriageAllowance from "./pages/payroll/MarriageAllowance";
 import AnnouncementManagement from "./pages/announcements/AnnouncementManagement";
 import InternReference from "./pages/internship/InternReference";
 
@@ -435,6 +436,14 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["payroll_access", "monthly_payroll"]} roles={["admin", "hr", "finance"]}>
                   <MonthlyPayroll />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="payroll/marriage-allowance"
+              element={
+                <ProtectedRoute requiredPermissions={["payroll_access", "marriage_allowance"]} roles={["admin", "hr", "finance"]}>
+                  <MarriageAllowance />
                 </ProtectedRoute>
               }
             />

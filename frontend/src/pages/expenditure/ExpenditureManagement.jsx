@@ -75,6 +75,23 @@ const ExpenditureManagement = () => {
   const currentMonth = months[now.getMonth()];
   const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
 
+  /* ---------------- HELPER FUNCTIONS ---------------- */
+  const getAvailableMonths = (selectedYear) => {
+    const yearNum = parseInt(selectedYear);
+    if (!yearNum) return months;
+
+    if (yearNum < currentYear) {
+      return months;
+    }
+
+    if (yearNum === currentYear) {
+      const currentMonthIndex = now.getMonth();
+      return months.slice(0, currentMonthIndex + 1);
+    }
+
+    return []; // Future year
+  };
+
   /* ---------------- MANAGE TAB STATES ---------------- */
   const [month, setMonth] = useState(currentMonth);
   const [year, setYear] = useState(currentYear.toString());
@@ -132,9 +149,17 @@ const ExpenditureManagement = () => {
     const yearNum = parseInt(year);
     // First day: yyyy-mm-01
     const min = `${yearNum}-${String(monthIndex + 1).padStart(2, '0')}-01`;
+    
     // Last day:
-    const lastDay = new Date(yearNum, monthIndex + 1, 0).getDate();
-    const max = `${yearNum}-${String(monthIndex + 1).padStart(2, '0')}-${lastDay}`;
+    let lastDay;
+    if (yearNum === currentYear && monthIndex === now.getMonth()) {
+        // If it's the current month/year, cap it at today
+        lastDay = now.getDate();
+    } else {
+        lastDay = new Date(yearNum, monthIndex + 1, 0).getDate();
+    }
+    
+    const max = `${yearNum}-${String(monthIndex + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
     return { min, max, disabled: false };
   };
 
@@ -1047,7 +1072,7 @@ const ExpenditureManagement = () => {
                     disabled={viewMode}
                   >
                     <option value="">Select Month</option>
-                    {months.map(m => (
+                    {getAvailableMonths(year).map(m => (
                       <option key={m} value={m}>{m}</option>
                     ))}
                   </select>
@@ -1482,7 +1507,7 @@ const ExpenditureManagement = () => {
                     onChange={(e) => setMonth(e.target.value)}
                   >
                     <option value="">All Months</option>
-                    {months.map(m => (
+                    {getAvailableMonths(summaryYear).map(m => (
                       <option key={m} value={m}>{m}</option>
                     ))}
                   </select>

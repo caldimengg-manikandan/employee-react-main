@@ -10,8 +10,12 @@ import {
   Calculator,
   MapPin,
   ChevronDown,
-  X
+  X,
+  AlertTriangle
 } from 'lucide-react';
+import useNotification from '../../hooks/useNotification';
+import Notification from '../../components/Notifications/Notification';
+import Modal from '../../components/Modals/Modal';
 import { employeeAPI, payrollAPI, leaveAPI } from '../../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -93,11 +97,13 @@ const PayrollDetails = () => {
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [filterDesignation, setFilterDesignation] = useState('all');
   const [errors, setErrors] = useState({});
-  const [successMessage, setSuccessMessage] = useState('');
   const [viewRecord, setViewRecord] = useState(null);
   const [employeeLookupError, setEmployeeLookupError] = useState('');
   const [employeeList, setEmployeeList] = useState([]);
   const [lopPreview, setLopPreview] = useState(null);
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [recordToDelete, setRecordToDelete] = useState(null);
   
   // Custom dropdown state
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
@@ -152,7 +158,24 @@ const PayrollDetails = () => {
   }, []);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+
+    // Fields that should only contain numbers
+    const numericFields = [
+      'basicDA', 'hra', 'specialAllowance', 'pf', 'esi', 'tax', 
+      'professionalTax', 'loanDeduction', 'lop', 'gratuity'
+    ];
+
+    if (numericFields.includes(name)) {
+      // Remove symbols like +, -, e and other non-numeric characters except decimal
+      // We keep the decimal point but ensure only one exists
+      value = value.replace(/[^0-9.]/g, '');
+      const parts = value.split('.');
+      if (parts.length > 2) {
+        value = parts[0] + '.' + parts.slice(1).join('');
+      }
+    }
+
     setFormData(prev => ({
       ...prev,
       [name]: value
@@ -301,9 +324,9 @@ const PayrollDetails = () => {
         const updatedRecords = [...payrollRecords];
         updatedRecords[editingIndex] = { id: saved._id, ...saved };
         setPayrollRecords(updatedRecords);
-        setSuccessMessage('Payroll record updated successfully!');
+        showSuccess('Payroll record updated successfully!');
       } catch (err) {
-        setSuccessMessage('Failed to update payroll record');
+        showError('Failed to update payroll record');
       }
     } else {
       // Add new record
@@ -311,14 +334,13 @@ const PayrollDetails = () => {
         const res = await payrollAPI.create({ ...updatedData, location: updatedData.location || 'Chennai' });
         const saved = res.data;
         setPayrollRecords(prev => [{ id: saved._id, ...saved }, ...prev]);
-        setSuccessMessage('Payroll record added successfully!');
+        showSuccess('Payroll record added successfully!');
       } catch (err) {
-        setSuccessMessage('Failed to add payroll record');
+        showError('Failed to add payroll record');
       }
     }
 
     handleCloseDialog();
-    setTimeout(() => setSuccessMessage(''), 3000);
   };
 
   const handleEdit = (record) => {
@@ -333,27 +355,23 @@ const PayrollDetails = () => {
     setOpenDialog(true);
   };
 
-  const handleDelete = async (record) => {
-    const idx = payrollRecords.findIndex(
-      (r) => (r.id || r._id) === (record.id || record._id)
-    );
+  const handleDelete = (record) => {
+    setRecordToDelete(record);
+    setIsDeleteModalOpen(true);
+  };
 
-    if (idx === -1) {
-      return;
-    }
-
-    if (window.confirm('Are you sure you want to delete this payroll record?')) {
-      try {
-        const recId = payrollRecords[idx]?.id || payrollRecords[idx]?._id;
-        await payrollAPI.remove(recId);
-        const updatedRecords = payrollRecords.filter((_, i) => i !== idx);
-        setPayrollRecords(updatedRecords);
-        setSuccessMessage('Payroll record deleted successfully!');
-        setTimeout(() => setSuccessMessage(''), 3000);
-      } catch {
-        setSuccessMessage('Failed to delete payroll record');
-        setTimeout(() => setSuccessMessage(''), 3000);
-      }
+  const confirmDelete = async () => {
+    if (!recordToDelete) return;
+    
+    try {
+      const recId = recordToDelete.id || recordToDelete._id;
+      await payrollAPI.remove(recId);
+      setPayrollRecords(prev => prev.filter(r => (r.id || r._id) !== recId));
+      showSuccess('Payroll record deleted successfully!');
+      setIsDeleteModalOpen(false);
+      setRecordToDelete(null);
+    } catch {
+      showError('Failed to delete payroll record');
     }
   };
 
@@ -388,8 +406,7 @@ const PayrollDetails = () => {
 
   const handleDownloadAllPDF = () => {
     if (filteredRecords.length === 0) {
-      setSuccessMessage('No records to download');
-      setTimeout(() => setSuccessMessage(''), 3000);
+      showError('No records to download');
       return;
     }
 
@@ -480,8 +497,7 @@ const PayrollDetails = () => {
 
     doc.save(`Payroll_Report_${new Date().toISOString().split('T')[0]}.pdf`);
 
-    setSuccessMessage(`PDF report downloaded with ${filteredRecords.length} records`);
-    setTimeout(() => setSuccessMessage(''), 3000);
+    showSuccess(`PDF report downloaded with ${filteredRecords.length} records`);
   };
 
   const handleDownloadExcel = () => {
@@ -552,15 +568,13 @@ const PayrollDetails = () => {
 
     XLSX.writeFile(wb, `Payroll_Details_${new Date().toISOString().split('T')[0]}.xlsx`);
 
-    setSuccessMessage(`Excel report downloaded with ${filteredRecords.length} records`);
-    setTimeout(() => setSuccessMessage(''), 3000);
+    showSuccess(`Excel report downloaded with ${filteredRecords.length} records`);
   };
 
   const handleCalculateSalary = () => {
     const updatedData = calculateSalaryFields(formData);
     setFormData(updatedData);
-    setSuccessMessage('Salary calculated successfully!');
-    setTimeout(() => setSuccessMessage(''), 3000);
+    showSuccess('Salary calculated successfully!');
   };
 
   const filteredRecords = payrollRecords.filter(record => {
@@ -638,12 +652,7 @@ const PayrollDetails = () => {
         </div>
       </div>
 
-      {/* Success Message */}
-      {successMessage && (
-        <div className="mb-4 p-4 bg-green-100 text-green-800 rounded-lg">
-          {successMessage}
-        </div>
-      )}
+      {/* Success Message - Replaced by Notification */}
 
       {/* Filters Section */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
@@ -1460,6 +1469,44 @@ const PayrollDetails = () => {
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Confirm Deletion"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 text-red-600">
+            <AlertTriangle className="w-10 h-10" />
+            <p className="text-sm font-medium">
+              Are you sure you want to delete the payroll record for <span className="font-bold">{recordToDelete?.employeeName}</span>? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Toast Notification */}
+      <Notification
+        message={notification.message}
+        type={notification.type}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
     </div>
   );
 };

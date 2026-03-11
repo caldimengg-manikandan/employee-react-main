@@ -292,7 +292,23 @@ const CompensationMaster = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    let { name, value } = e.target;
+
+    // Fields that should only contain numbers
+    const numericFields = [
+      'basicDA', 'hra', 'specialAllowance', 'gratuity',
+      'pf', 'esi', 'tax', 'professionalTax'
+    ];
+
+    if (numericFields.includes(name)) {
+      // Allow only numbers and a single decimal point
+      value = value.replace(/[^0-9.]/g, '');
+      const parts = value.split('.');
+      if (parts.length > 2) {
+        value = parts[0] + '.' + parts.slice(1).join('');
+      }
+    }
+
     setFormData(prev => ({ ...prev, [name]: value }));
 
     // Clear error for this field
@@ -301,16 +317,8 @@ const CompensationMaster = () => {
     }
 
     // Auto-calculate salary fields
-    const salaryFields = [
-      'basicDA', 'hra', 'specialAllowance', 'gratuity',
-      'pf', 'esi', 'tax', 'professionalTax'
-    ];
-    
-    if (salaryFields.includes(name)) {
-      // Use setTimeout to ensure we calculate with the latest value
-      // Or just calculate with the new value directly
-      const newData = { ...formData, [name]: value };
-      const updatedData = calculateSalaryFields(newData);
+    if (numericFields.includes(name)) {
+      const updatedData = calculateSalaryFields({ ...formData, [name]: value });
       setFormData(updatedData);
     }
     

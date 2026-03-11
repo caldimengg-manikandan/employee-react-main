@@ -341,6 +341,16 @@ export const insuranceClaimAPI = {
   delete: (id) => api.delete(`/insurance-claims/${id}`),
 };
 
+export const marriageAllowanceAPI = {
+  list: (params) => api.get('/marriage-allowances', { params }),
+  getById: (id) => api.get(`/marriage-allowances/${id}`),
+  create: (formData) => api.post('/marriage-allowances', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  update: (id, formData) => api.put(`/marriage-allowances/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
+  delete: (id) => api.delete(`/marriage-allowances/${id}`)
+};
+
+
+
 // Announcements (management + public active list)
 authAPI.announcement = {
   getAll: async () => {

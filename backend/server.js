@@ -68,6 +68,7 @@ app.use("/api/loans", loanRoutes);
 app.use("/api/holiday-allowances", require("./routes/holidayAllowanceRoutes"));
 app.use("/api/insurance", require("./routes/insurance"));
 app.use("/api/insurance-claims", require("./routes/insuranceClaims"));
+app.use("/api/marriage-allowances", require("./routes/marriageAllowanceRoutes"));
 
 
 // Announcements Routes
@@ -180,56 +181,56 @@ app.post("/api/hikvision/attendance", async (req, res) => {
       if (data && data.data && data.data.record) {
         const records = data.data.record;
         console.log(`Processing ${records.length} records for auto-save...`);
-        
+
         let savedCount = 0;
 
         for (const item of records) {
           const personInfo = item.personInfo || {};
           const attendanceInfo = item.attendanceBaseInfo || {};
-          
+
           if (!personInfo.personCode) continue;
 
           // 1. Process Check-IN
           if (attendanceInfo.beginTime) {
-             const checkInTime = new Date(attendanceInfo.beginTime);
-             await Attendance.findOneAndUpdate(
-               {
-                 employeeId: personInfo.personCode,
-                 punchTime: checkInTime
-               },
-               {
-                 $set: {
-                   name: personInfo.name || "Unknown",
-                   direction: "in",
-                   source: "hikvision_sync",
-                   correspondingInTime: null
-                 }
-               },
-               { upsert: true, new: true }
-             );
-             savedCount++;
+            const checkInTime = new Date(attendanceInfo.beginTime);
+            await Attendance.findOneAndUpdate(
+              {
+                employeeId: personInfo.personCode,
+                punchTime: checkInTime
+              },
+              {
+                $set: {
+                  name: personInfo.name || "Unknown",
+                  direction: "in",
+                  source: "hikvision_sync",
+                  correspondingInTime: null
+                }
+              },
+              { upsert: true, new: true }
+            );
+            savedCount++;
           }
 
           // 2. Process Check-OUT
           if (attendanceInfo.endTime) {
-             const checkOutTime = new Date(attendanceInfo.endTime);
-             await Attendance.findOneAndUpdate(
-               {
-                 employeeId: personInfo.personCode,
-                 punchTime: checkOutTime
-               },
-               {
-                 $set: {
-                   name: personInfo.name || "Unknown",
-                   direction: "out",
-                   source: "hikvision_sync",
-                   correspondingInTime: null,
-                   workDurationSeconds: item.allDurationTime
-                 }
-               },
-               { upsert: true, new: true }
-             );
-             savedCount++;
+            const checkOutTime = new Date(attendanceInfo.endTime);
+            await Attendance.findOneAndUpdate(
+              {
+                employeeId: personInfo.personCode,
+                punchTime: checkOutTime
+              },
+              {
+                $set: {
+                  name: personInfo.name || "Unknown",
+                  direction: "out",
+                  source: "hikvision_sync",
+                  correspondingInTime: null,
+                  workDurationSeconds: item.allDurationTime
+                }
+              },
+              { upsert: true, new: true }
+            );
+            savedCount++;
           }
         }
         console.log(`✅ Auto-saved/Rewrote ${savedCount} punch records to DB.`);

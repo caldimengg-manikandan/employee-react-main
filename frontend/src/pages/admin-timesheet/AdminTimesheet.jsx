@@ -55,6 +55,8 @@ const AdminTimesheet = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [allEmployees, setAllEmployees] = useState([]);
+  const [rejectDialog, setRejectDialog] = useState({ isOpen: false, timesheetId: null, reason: '' });
+  const [messageDialog, setMessageDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -409,6 +411,51 @@ const AdminTimesheet = () => {
       maxHeight: '90vh',
       overflowY: 'auto',
       boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+    },
+    textarea: {
+      width: '100%',
+      minHeight: '110px',
+      border: '1px solid #e2e8f0',
+      borderRadius: '8px',
+      padding: '10px 12px',
+      fontSize: '14px',
+      outline: 'none',
+      resize: 'vertical'
+    },
+    messageOverlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1100,
+      padding: '20px'
+    },
+    messageTitle: {
+      margin: 0,
+      color: '#1a202c',
+      fontSize: '18px',
+      fontWeight: '700'
+    },
+    messageText: {
+      color: '#4a5568',
+      fontSize: '14px',
+      lineHeight: 1.5,
+      marginTop: '10px'
+    },
+    cancelButton: {
+      backgroundColor: '#edf2f7',
+      color: '#2d3748',
+      border: '1px solid #e2e8f0',
+      padding: '10px 20px',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontWeight: '600',
+      fontSize: '14px'
     },
     modalHeader: {
       display: 'flex',
@@ -866,6 +913,23 @@ const AdminTimesheet = () => {
     document.body.removeChild(link);
   };
 
+  const showMessage = (title, message, type = 'success') => {
+    setMessageDialog({ isOpen: true, title, message, type });
+  };
+
+  const closeMessage = () => {
+    setMessageDialog({ isOpen: false, title: '', message: '', type: 'success' });
+  };
+
+  const openRejectDialog = (timesheetId) => {
+    if (!timesheetId) return;
+    setRejectDialog({ isOpen: true, timesheetId, reason: '' });
+  };
+
+  const closeRejectDialog = () => {
+    setRejectDialog({ isOpen: false, timesheetId: null, reason: '' });
+  };
+
   const handleApprove = async (timesheetId) => {
     setActionLoading(prev => ({ ...prev, [timesheetId]: true }));
     try {
@@ -876,27 +940,41 @@ const AdminTimesheet = () => {
         return next;
       });
       window.dispatchEvent(new Event('refreshTimesheetHistory'));
+      showMessage('Success', 'Timesheet approved successfully.', 'success');
     } catch (e) {
-      try { alert('Approve failed. Please try again.'); } catch (_) {}
+      showMessage('Error', 'Approve failed. Please try again.', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [timesheetId]: false }));
     }
   };
 
-  const handleReject = async (timesheetId) => {
-    const reason = window.prompt('Enter rejection reason');
-    if (reason === null) return;
+  const handleReject = (timesheetId) => {
+    openRejectDialog(timesheetId);
+  };
+
+  const submitReject = async () => {
+    const timesheetId = rejectDialog.timesheetId;
+    const reason = (rejectDialog.reason || '').trim();
+
+    if (!timesheetId) return;
+    if (!reason) {
+      showMessage('Validation', 'Please enter rejection reason.', 'warning');
+      return;
+    }
+
     setActionLoading(prev => ({ ...prev, [timesheetId]: true }));
     try {
-      await adminTimesheetAPI.reject(timesheetId, reason || '');
+      await adminTimesheetAPI.reject(timesheetId, reason);
       setTimesheets(prev => {
-        const next = prev.map(ts => ts._id === timesheetId ? { ...ts, status: 'Rejected', rejectionReason: reason || '' } : ts);
+        const next = prev.map(ts => ts._id === timesheetId ? { ...ts, status: 'Rejected', rejectionReason: reason } : ts);
         updateStatsFromList(next);
         return next;
       });
       window.dispatchEvent(new Event('refreshTimesheetHistory'));
+      closeRejectDialog();
+      showMessage('Rejected', 'Timesheet rejected successfully.', 'success');
     } catch (e) {
-      try { alert('Reject failed. Please try again.'); } catch (_) {}
+      showMessage('Error', 'Reject failed. Please try again.', 'error');
     } finally {
       setActionLoading(prev => ({ ...prev, [timesheetId]: false }));
     }
@@ -929,8 +1007,9 @@ const AdminTimesheet = () => {
 
   const handleRejectFromModal = () => {
     if (selectedTimesheet) {
-      handleReject(selectedTimesheet._id);
+      const id = selectedTimesheet._id;
       handleCloseModal();
+      handleReject(id);
     }
   };
 
@@ -1432,7 +1511,7 @@ const AdminTimesheet = () => {
                 <>
                   <button 
                     style={styles.rejectBtn}
-                    onClick={() => handleReject(selectedTimesheet._id)}
+                    onClick={handleRejectFromModal}
                     disabled={!!actionLoading[selectedTimesheet._id]}
                   >
                     {actionLoading[selectedTimesheet._id] ? (
@@ -1466,6 +1545,87 @@ const AdminTimesheet = () => {
                   </button>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rejectDialog.isOpen && (
+        <div style={styles.modalOverlay}>
+          <div style={{ ...styles.modalContent, maxWidth: '520px' }}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.modalTitle}>Reject Timesheet</h2>
+              <button
+                style={styles.closeButton}
+                onClick={closeRejectDialog}
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '14px', color: '#4a5568', fontSize: '14px' }}>
+              Enter rejection reason
+            </div>
+
+            <textarea
+              value={rejectDialog.reason}
+              onChange={(e) => setRejectDialog(prev => ({ ...prev, reason: e.target.value }))}
+              style={styles.textarea}
+              placeholder="Type reason..."
+            />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+              <button
+                style={styles.cancelButton}
+                onClick={closeRejectDialog}
+                disabled={!!actionLoading[rejectDialog.timesheetId]}
+              >
+                Cancel
+              </button>
+              <button
+                style={{
+                  ...styles.rejectBtn,
+                  ...((!!actionLoading[rejectDialog.timesheetId] || !(rejectDialog.reason || '').trim()) ? { opacity: 0.6, cursor: 'not-allowed' } : {})
+                }}
+                onClick={submitReject}
+                disabled={!!actionLoading[rejectDialog.timesheetId] || !(rejectDialog.reason || '').trim()}
+              >
+                {actionLoading[rejectDialog.timesheetId] ? (
+                  <>
+                    <Loader2 className="animate-spin" size={14} />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <XCircle size={14} />
+                    Reject
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {messageDialog.isOpen && (
+        <div style={styles.messageOverlay}>
+          <div style={{ ...styles.modalContent, maxWidth: '460px' }}>
+            <div style={styles.modalHeader}>
+              <h2 style={styles.messageTitle}>{messageDialog.title}</h2>
+              <button
+                style={styles.closeButton}
+                onClick={closeMessage}
+                title="Close"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div style={styles.messageText}>{messageDialog.message}</div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '18px' }}>
+              <button style={styles.secondaryButton} onClick={closeMessage}>
+                OK
+              </button>
             </div>
           </div>
         </div>

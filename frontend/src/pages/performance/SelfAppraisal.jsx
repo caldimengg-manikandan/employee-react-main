@@ -2616,7 +2616,8 @@ const SelfAppraisal = () => {
             </button>
             <button
               type="button"
-              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm"
+              disabled={!String(formData.behaviourBased?.comments || '').trim()}
+              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => setShowBehaviourModal(false)}
             >
               Save & Close
@@ -2684,7 +2685,8 @@ const SelfAppraisal = () => {
             </button>
             <button
               type="button"
-              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm"
+              disabled={!String(formData.processAdherence?.comments || '').trim()}
+              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => setShowProcessModal(false)}
             >
               Save & Close
@@ -2738,7 +2740,8 @@ const SelfAppraisal = () => {
             </button>
             <button
               type="button"
-              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm"
+              disabled={!String(formData.technicalBased?.comments || '').trim()}
+              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => setShowTechnicalModal(false)}
             >
               Save & Close
@@ -2803,7 +2806,8 @@ const SelfAppraisal = () => {
             </button>
             <button
               type="button"
-              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm"
+              disabled={!String(formData.growthBased?.comments || '').trim()}
+              className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-[#262760] text-base font-medium text-white hover:bg-[#1e2050] focus:outline-none sm:text-sm disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={() => setShowGrowthModal(false)}
             >
               Save & Close

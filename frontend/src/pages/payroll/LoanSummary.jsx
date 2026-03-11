@@ -2,6 +2,10 @@ import React, { useEffect, useState } from "react";
 import { Eye, Download, Trash2, Plus, Edit2, Check, X, User, Calendar, Building, CreditCard, DollarSign, Clock, AlertCircle, Power } from "lucide-react";
 import { employeeAPI, loanAPI } from "../../services/api";
 import jsPDF from "jspdf";
+import useNotification from "../../hooks/useNotification";
+import Notification from "../../components/Notifications/Notification";
+import Modal from "../../components/Modals/Modal";
+import { AlertTriangle } from "lucide-react";
 
 export default function LoanSummary() {
   const [loans, setLoans] = useState([]);
@@ -43,6 +47,9 @@ export default function LoanSummary() {
   const [form, setForm] = useState(initialForm);
   const [confirmModal, setConfirmModal] = useState({ visible: false, title: "", message: "", onConfirm: null });
   const [pendingSelection, setPendingSelection] = useState(null);
+  const { notification, showSuccess, showError, hideNotification } = useNotification();
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [loanToDelete, setLoanToDelete] = useState(null);
 
   useEffect(() => {
     fetchLoans();
@@ -237,7 +244,7 @@ export default function LoanSummary() {
         }
       } catch (error) {
         console.error("Error creating loan:", error);
-        alert("Failed to create loan");
+        showError("Failed to create loan");
       }
     };
 
@@ -305,7 +312,7 @@ export default function LoanSummary() {
       }
     } catch (error) {
       console.error("Error updating loan:", error);
-      alert("Failed to update loan");
+      showError("Failed to update loan");
     }
   }
 
@@ -414,16 +421,25 @@ export default function LoanSummary() {
     doc.save(`Loan_${loanId}.pdf`);
   }
 
-  async function deleteLoan(id) {
-    if (!window.confirm("Are you sure you want to delete this loan?")) return;
+  async function deleteLoan(loan) {
+    setLoanToDelete(loan);
+    setIsDeleteModalOpen(true);
+  }
+
+  async function confirmDelete() {
+    if (!loanToDelete) return;
     try {
+      const id = loanToDelete._id;
       const response = await loanAPI.delete(id);
       if (response.data && response.data.success) {
         setLoans((prev) => prev.filter((l) => l._id !== id));
+        showSuccess("Loan record deleted successfully!");
+        setIsDeleteModalOpen(false);
+        setLoanToDelete(null);
       }
     } catch (error) {
       console.error("Error deleting loan:", error);
-      alert("Failed to delete loan");
+      showError("Failed to delete loan");
     }
   }
 
@@ -624,7 +640,7 @@ export default function LoanSummary() {
                         <Download size={18} />
                       </button>
                       <button 
-                        onClick={() => deleteLoan(loan._id)} 
+                        onClick={() => deleteLoan(loan)} 
                         className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg"
                         title="Delete"
                       >
@@ -1113,6 +1129,44 @@ export default function LoanSummary() {
           </div>
         </div>
       )}
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteModalOpen}
+        onClose={() => setIsDeleteModalOpen(false)}
+        title="Confirm Deletion"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 text-red-600">
+            <AlertTriangle className="w-10 h-10" />
+            <p className="text-sm font-medium">
+              Are you sure you want to delete the loan record for <span className="font-bold">{loanToDelete?.employeeName}</span>? This action cannot be undone.
+            </p>
+          </div>
+          <div className="flex justify-end gap-3 mt-6">
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmDelete}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Delete
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Toast Notification */}
+      <Notification
+        message={notification.message}
+        type={notification.type}
+        isVisible={notification.isVisible}
+        onClose={hideNotification}
+      />
     </div>
   );
 }

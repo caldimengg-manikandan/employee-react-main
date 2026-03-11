@@ -84,7 +84,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         { key: 'compensation_master', label: 'Compensation Master' },
         { key: 'loan_summary', label: 'Loan Summary' },
         { key: 'gratuity_summary', label: 'Gratuity Summary' },
-        { key: 'monthly_payroll', label: 'Monthly Payroll' }
+        { key: 'monthly_payroll', label: 'Monthly Payroll' },
+        { key: 'marriage_allowance', label: 'Marriage Allowance' }
       ]
     },
     {
@@ -639,14 +640,14 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
           <div className="space-y-6">
             {moduleHierarchy.map(module => {
               const hasGroupKey = !!module.key;
-              
+
               // Calculate if all children are selected for the "Full Access" state
               const childKeys = module.children
                 .filter(c => !c.alwaysOn && !['home', 'my_profile'].includes(c.key))
                 .map(c => c.key);
-              
+
               const allChildrenSelected = childKeys.length > 0 && childKeys.every(k => formData.permissions.includes(k));
-              
+
               // The group toggle should be active only if all children are selected
               const isGroupActive = hasGroupKey && allChildrenSelected;
 

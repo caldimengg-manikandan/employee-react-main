@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminTimesheetAPI } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const TimesheetSummary = () => {
   const [filters, setFilters] = useState({
@@ -11,6 +12,12 @@ const TimesheetSummary = () => {
   const [summaryData, setSummaryData] = useState(null);
   const [availableEmployees, setAvailableEmployees] = useState(['All Employees']);
   const [availableProjects, setAvailableProjects] = useState(['All Projects']);
+
+  const defaultFilters = {
+    year: new Date().getFullYear().toString(),
+    employee: 'All Employees',
+    project: 'All Projects'
+  };
 
   useEffect(() => {
     const loadOptions = async () => {
@@ -115,6 +122,18 @@ const TimesheetSummary = () => {
       fontSize: '14px',
       transition: 'all 0.2s ease'
     },
+    clearBtn: {
+      background: '#edf2f7',
+      color: '#1a202c',
+      border: '1px solid #cbd5e0',
+      padding: '10px 20px',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontWeight: '500',
+      alignSelf: 'end',
+      fontSize: '14px',
+      transition: 'all 0.2s ease'
+    },
     noData: {
       textAlign: 'center',
       padding: '60px 20px',
@@ -201,7 +220,9 @@ const TimesheetSummary = () => {
       color: '#999'
     },
     detailedTable: {
-      overflowX: 'auto'
+      overflowX: 'auto',
+      overflowY: 'auto',
+      maxHeight: '420px'
     },
     summaryTable: {
       width: '100%',
@@ -216,7 +237,10 @@ const TimesheetSummary = () => {
       fontWeight: '600',
       color: 'white',
       fontSize: '14px',
-      borderRight: '1px solid #1f204d'
+      borderRight: '1px solid #1f204d',
+      position: 'sticky',
+      top: 0,
+      zIndex: 2
     },
     summaryTableCell: {
       padding: '12px',
@@ -239,15 +263,13 @@ const TimesheetSummary = () => {
     }));
   };
 
+  const handleClearFilters = () => {
+    setFilters(defaultFilters);
+    setSummaryData(null);
+  };
+
   const handleLoadSummary = async () => {
     try {
-      const summaryRes = await adminTimesheetAPI.summary({
-        year: filters.year,
-        employee: filters.employee,
-        project: filters.project
-      });
-      const summary = summaryRes.data?.summary || { totalHours: 0, totalEmployees: [], totalProjects: [] };
-
       const listRes = await adminTimesheetAPI.list({
         employeeId: '',
         division: 'All Division',
@@ -264,6 +286,18 @@ const TimesheetSummary = () => {
         return yearMatch && empMatch && projMatch;
       });
 
+      const isExcludedEntry = (te) => {
+        const project = (te?.project || '').trim().toLowerCase();
+        const task = (te?.task || '').trim().toLowerCase();
+        if (!project) return true;
+        if (project === 'leave') return true;
+        if (task.includes('holiday')) return true;
+        if (task.includes('leave')) return true;
+        return false;
+      };
+
+      const entryHours = (te) => Number(te?.total || 0);
+
       const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
       const monthlyMap = new Map(monthNames.map(m => [m, { month: m, hours: 0, employees: 0 }]));
       const employeesPerMonth = new Map(monthNames.map(m => [m, new Set()]));
@@ -272,11 +306,19 @@ const TimesheetSummary = () => {
         const d = r.submittedDate ? new Date(r.submittedDate) : null;
         const m = d ? monthNames[d.getMonth()] : null;
         if (m) {
-          const v = monthlyMap.get(m);
-          v.hours += Number(r.weeklyTotal || 0);
-          monthlyMap.set(m, v);
-          const set = employeesPerMonth.get(m);
-          if (r.employeeId) set.add(r.employeeId);
+          let monthHours = 0;
+          (r.timeEntries || []).forEach(te => {
+            if (isExcludedEntry(te)) return;
+            if (filters.project !== 'All Projects' && (te.project || '').trim() !== filters.project) return;
+            monthHours += entryHours(te);
+          });
+          if (monthHours > 0) {
+            const v = monthlyMap.get(m);
+            v.hours += monthHours;
+            monthlyMap.set(m, v);
+            const set = employeesPerMonth.get(m);
+            if (r.employeeId) set.add(r.employeeId);
+          }
         }
       });
       monthNames.forEach(m => {
@@ -288,9 +330,11 @@ const TimesheetSummary = () => {
       const projectEmpMap = new Map();
       rows.forEach(r => {
         (r.timeEntries || []).forEach(te => {
+          if (isExcludedEntry(te)) return;
+          if (filters.project !== 'All Projects' && (te.project || '').trim() !== filters.project) return;
           const key = `${te.project}||${r.employeeId}||${r.employeeName}`;
           const prev = projectEmpMap.get(key) || 0;
-          projectEmpMap.set(key, prev + Number(te.total || 0));
+          projectEmpMap.set(key, prev + entryHours(te));
         });
       });
       const projectEmployeeSummary = Array.from(projectEmpMap.entries()).map(([key, total]) => {
@@ -298,24 +342,33 @@ const TimesheetSummary = () => {
         return { project, employeeId, employeeName, totalHours: total };
       });
 
-      const totalEmployeesCount = Array.isArray(summary.totalEmployees) ? summary.totalEmployees.length : 0;
-      let totalProjectsCount = 0;
-      if (Array.isArray(summary.totalProjects)) {
-        const flat = new Set();
-        summary.totalProjects.forEach(v => {
-          if (Array.isArray(v)) v.forEach(p => flat.add(p));
-          else if (v) flat.add(v);
+      let totalHours = 0;
+      const employeeSet = new Set();
+      const projectSet = new Set();
+      rows.forEach(r => {
+        let rowHasHours = false;
+        (r.timeEntries || []).forEach(te => {
+          if (isExcludedEntry(te)) return;
+          if (filters.project !== 'All Projects' && (te.project || '').trim() !== filters.project) return;
+          const h = entryHours(te);
+          if (h > 0) {
+            totalHours += h;
+            rowHasHours = true;
+          }
+          const p = (te.project || '').trim();
+          if (p) projectSet.add(p);
         });
-        totalProjectsCount = flat.size;
-      }
-
-      const averageHoursPerEmployee = totalEmployeesCount > 0 ? Number(summary.totalHours || 0) / totalEmployeesCount : 0;
+        if (rowHasHours && r.employeeId) employeeSet.add(r.employeeId);
+      });
+      const totalEmployeesCount = employeeSet.size;
+      const totalProjectsCount = projectSet.size;
+      const averageHoursPerEmployee = totalEmployeesCount > 0 ? totalHours / totalEmployeesCount : 0;
 
       setSummaryData({
-        totalHours: Number(summary.totalHours || 0),
+        totalHours: Number(totalHours || 0),
         totalEmployees: totalEmployeesCount,
         totalProjects: totalProjectsCount,
-        averageHoursPerEmployee: Number(averageHoursPerEmployee.toFixed(1)),
+        averageHoursPerEmployee: Number(averageHoursPerEmployee || 0),
         monthlyData: Array.from(monthlyMap.values()),
         projectEmployeeSummary
       });
@@ -332,8 +385,97 @@ const TimesheetSummary = () => {
   };
 
   const handleExportToExcel = () => {
-    console.log('Exporting to Excel with filters:', filters);
-    alert('Export functionality would be implemented here');
+    if (!summaryData) {
+      alert('Please load summary data before exporting.');
+      return;
+    }
+
+    const workbook = XLSX.utils.book_new();
+
+    const safeToken = (v) =>
+      String(v || '')
+        .trim()
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, '')
+        .replace(/\s+/g, '_')
+        .slice(0, 40) || 'All';
+
+    const generatedOn = new Date();
+
+    const summarySheetData = [
+      ['Timesheet Summary'],
+      [],
+      ['Year', filters.year],
+      ['Employee', filters.employee],
+      ['Project', filters.project],
+      ['Generated On', generatedOn.toLocaleString()],
+      [],
+      ['Metric', 'Value'],
+      ['Total Hours (HH:MM)', formatHours(summaryData.totalHours)],
+      ['Total Hours (Decimal)', Number(summaryData.totalHours || 0)],
+      ['Total Employees', Number(summaryData.totalEmployees || 0)],
+      ['Total Projects', Number(summaryData.totalProjects || 0)],
+      ['Avg Hours/Employee (HH:MM)', formatHours(summaryData.averageHoursPerEmployee)],
+      ['Avg Hours/Employee (Decimal)', Number(summaryData.averageHoursPerEmployee || 0)]
+    ];
+
+    const summaryWs = XLSX.utils.aoa_to_sheet(summarySheetData);
+    summaryWs['!cols'] = [{ wch: 22 }, { wch: 40 }];
+    XLSX.utils.book_append_sheet(workbook, summaryWs, 'Summary');
+
+    const monthlyData = Array.isArray(summaryData.monthlyData) ? summaryData.monthlyData : [];
+    const monthlySheetData = [
+      ['Month', 'Total Hours (Decimal)', 'Total Hours (HH:MM)', 'Employees']
+    ];
+    monthlyData.forEach((m) => {
+      monthlySheetData.push([
+        m.month || '',
+        Number(m.hours || 0),
+        formatHours(m.hours),
+        Number(m.employees || 0)
+      ]);
+    });
+
+    const monthlyWs = XLSX.utils.aoa_to_sheet(monthlySheetData);
+    monthlyWs['!cols'] = [{ wch: 10 }, { wch: 20 }, { wch: 18 }, { wch: 12 }];
+    XLSX.utils.book_append_sheet(workbook, monthlyWs, 'Monthly');
+
+    const projectEmployeeRows = Array.isArray(summaryData.projectEmployeeSummary)
+      ? [...summaryData.projectEmployeeSummary]
+      : [];
+    projectEmployeeRows.sort((a, b) => {
+      const p = String(a.project || '').localeCompare(String(b.project || ''));
+      if (p !== 0) return p;
+      const e = String(a.employeeId || '').localeCompare(String(b.employeeId || ''));
+      if (e !== 0) return e;
+      return String(a.employeeName || '').localeCompare(String(b.employeeName || ''));
+    });
+
+    const projectEmployeeSheetData = [
+      ['Project', 'Employee ID', 'Employee Name', 'Total Hours (Decimal)', 'Total Hours (HH:MM)']
+    ];
+    projectEmployeeRows.forEach((row) => {
+      projectEmployeeSheetData.push([
+        row.project || '',
+        row.employeeId || '',
+        row.employeeName || '',
+        Number(row.totalHours || 0),
+        formatHours(row.totalHours)
+      ]);
+    });
+
+    const projectEmployeeWs = XLSX.utils.aoa_to_sheet(projectEmployeeSheetData);
+    projectEmployeeWs['!cols'] = [{ wch: 28 }, { wch: 14 }, { wch: 26 }, { wch: 22 }, { wch: 18 }];
+    XLSX.utils.book_append_sheet(workbook, projectEmployeeWs, 'Project_Employee');
+
+    const fileName = [
+      'Timesheet_Summary',
+      safeToken(filters.year),
+      safeToken(filters.employee),
+      safeToken(filters.project),
+      generatedOn.toISOString().split('T')[0]
+    ].join('_') + '.xlsx';
+
+    XLSX.writeFile(workbook, fileName);
   };
 
   const currentYear = new Date().getFullYear();
@@ -352,6 +494,11 @@ const TimesheetSummary = () => {
     const mm = String(absMinutes % 60).padStart(2, "0");
     return `${sign}${hh}:${mm}`;
   };
+
+  const isFiltersModified =
+    filters.year !== defaultFilters.year ||
+    filters.employee !== defaultFilters.employee ||
+    filters.project !== defaultFilters.project;
 
   return (
     <div style={styles.timesheetSummary}>
@@ -396,6 +543,16 @@ const TimesheetSummary = () => {
             ))}
           </select>
         </div>
+        {isFiltersModified && (
+          <button 
+            style={styles.clearBtn}
+            onClick={handleClearFilters}
+            onMouseOver={(e) => { e.target.style.background = '#e2e8f0'; }}
+            onMouseOut={(e) => { e.target.style.background = '#edf2f7'; }}
+          >
+            Clear Filters
+          </button>
+        )}
 
         <button 
           style={styles.loadSummaryBtn}
@@ -405,6 +562,8 @@ const TimesheetSummary = () => {
         >
           Load Summary
         </button>
+
+        
 
         <button 
           style={styles.exportExcelBtn}
@@ -433,7 +592,7 @@ const TimesheetSummary = () => {
             </div>
             <div style={styles.summaryStat}>
               <h3 style={styles.summaryStatTitle}>Avg Hours/Employee</h3>
-              <div style={styles.summaryStatValue}>{summaryData.averageHoursPerEmployee}</div>
+              <div style={styles.summaryStatValue}>{formatHours(summaryData.averageHoursPerEmployee)}</div>
             </div>
           </div>
 

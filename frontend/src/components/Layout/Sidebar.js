@@ -345,6 +345,12 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
           permission: "monthly_payroll",
           showForRoles: ["admin", "hr", "finance"],
           allowEmployeeRole: false
+        },
+        {
+          name: "Marriage Allowance",
+          path: "/payroll/marriage-allowance",
+          permission: "marriage_allowance",
+          showForRoles: ["admin", "hr", "finance"]
         }
       ],
     },
@@ -537,6 +543,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Gratuity Summary": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Monthly Payroll": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Compensation Master": <CurrencyRupeeIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Marriage Allowance": <CurrencyRupeeIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     // NEW ICONS FOR EXIT MANAGEMENT
     "Employee Exit Form": <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Exit Approval": <ApprovalIcon className="mr-3 h-4 w-4 flex-shrink-0" />,

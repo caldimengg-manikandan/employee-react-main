@@ -8,6 +8,14 @@ const LeaveSummary = () => {
   const currentYear = currentDate.getFullYear();
   const currentMonth = currentDate.getMonth() + 1; // 1-12 for January-December
 
+  const getIsMobile = () => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return false;
+    return window.matchMedia('(max-width: 768px)').matches;
+  };
+
+  const [isMobile, setIsMobile] = useState(getIsMobile);
+  const [showFilters, setShowFilters] = useState(() => !getIsMobile());
+
   // State for filters
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
@@ -85,6 +93,28 @@ const LeaveSummary = () => {
     return () => clearInterval(timer);
   }, []);
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mq = window.matchMedia('(max-width: 768px)');
+
+    const apply = (matches) => {
+      setIsMobile(matches);
+      if (!matches) setShowFilters(true);
+      if (matches) setShowFilters(false);
+    };
+
+    apply(mq.matches);
+
+    const onChange = (e) => apply(e.matches);
+    if (typeof mq.addEventListener === 'function') mq.addEventListener('change', onChange);
+    else mq.addListener(onChange);
+
+    return () => {
+      if (typeof mq.removeEventListener === 'function') mq.removeEventListener('change', onChange);
+      else mq.removeListener(onChange);
+    };
+  }, []);
+
   // Check if any filter is applied
   useEffect(() => {
     const isApplied = selectedYear !== 'all' ||
@@ -153,9 +183,9 @@ const LeaveSummary = () => {
       default:
         break;
     }
-    
+
   };
-    // Handle clear all filters
+  // Handle clear all filters
   const handleClearAllFilters = () => {
     setSelectedYear(currentYear);
     setSelectedMonth(currentMonth);
@@ -182,7 +212,7 @@ const LeaveSummary = () => {
       const res = await leaveAPI.updateStatus(id, 'Approved');
       const updated = res.data;
       setLeaveApplications(prev => prev.map(a => a.id === id ? { ...a, status: updated.status } : a));
-    } catch { 
+    } catch {
     } finally {
       setActionLoading(prev => {
         const next = { ...prev };
@@ -198,7 +228,7 @@ const LeaveSummary = () => {
       const res = await leaveAPI.updateStatus(id, 'Rejected');
       const updated = res.data;
       setLeaveApplications(prev => prev.map(a => a.id === id ? { ...a, status: updated.status } : a));
-    } catch { 
+    } catch {
     } finally {
       setActionLoading(prev => {
         const next = { ...prev };
@@ -249,7 +279,7 @@ const LeaveSummary = () => {
   };
 
   const containerStyle = {
-    padding: '20px',
+    padding: isMobile ? '12px' : '20px',
     fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
     backgroundColor: '#f8f9fa',
     minHeight: '100vh'
@@ -288,7 +318,7 @@ const LeaveSummary = () => {
   const cardStyle = {
     backgroundColor: 'white',
     borderRadius: '8px',
-    padding: '25px',
+    padding: isMobile ? '14px' : '25px',
     marginBottom: '20px',
     boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
   };
@@ -297,18 +327,18 @@ const LeaveSummary = () => {
   const filtersSectionStyle = {
     backgroundColor: '#f8f9fa',
     borderRadius: '8px',
-    padding: '20px',
+    padding: isMobile ? '14px' : '20px',
     marginBottom: '20px',
     border: '1px solid #e9ecef',
-    position: 'sticky',
-    top: '0',
-    zIndex: 100,
+    position: isMobile ? 'relative' : 'sticky',
+    top: isMobile ? undefined : 0,
+    zIndex: isMobile ? 'auto' : 100,
     boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
   };
 
   const filtersGridStyle = {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(200px, 1fr))',
     gap: '15px',
     marginBottom: '15px'
   };
@@ -349,20 +379,20 @@ const LeaveSummary = () => {
 
   // Blue header only - all headers same blue color
   const thStyle = {
-    padding: '14px',
+    padding: isMobile ? '10px' : '14px',
     textAlign: 'left',
     borderBottom: '2px solid #e9ecef',
     fontWeight: '600',
     fontSize: '14px',
     color: 'white',
-    position: 'sticky',
-    top: '0',
+    position: isMobile ? 'static' : 'sticky',
+    top: isMobile ? undefined : 0,
     backgroundColor: '#3498db', // Single blue color for all headers
     zIndex: 10
   };
 
   const tdStyle = {
-    padding: '14px',
+    padding: isMobile ? '10px' : '14px',
     borderBottom: '1px solid #e9ecef',
     fontSize: '14px',
     color: '#2c3e50'
@@ -452,7 +482,7 @@ const LeaveSummary = () => {
     color: '#2c3e50',
     borderLeft: '4px solid #3498db'
   };
- 
+
   const Spinner = ({ color = '#fff' }) => (
     <svg width="14" height="14" viewBox="0 0 24 24" style={{ display: 'inline-block' }}>
       <circle cx="12" cy="12" r="10" stroke={color} strokeWidth="3" fill="none" opacity="0.25" />
@@ -465,7 +495,9 @@ const LeaveSummary = () => {
   const filterHeaderStyle = {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: isMobile ? 'flex-start' : 'center',
+    flexDirection: isMobile ? 'column' : 'row',
+    gap: isMobile ? '10px' : undefined,
     marginBottom: '15px'
   };
 
@@ -491,11 +523,25 @@ const LeaveSummary = () => {
     marginTop: '10px'
   };
 
+  const mobileToggleFiltersButtonStyle = {
+    padding: '10px 12px',
+    border: '1px solid #dfe6e9',
+    backgroundColor: 'white',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: '600',
+    color: '#2c3e50',
+    width: '100%'
+  };
+
   // Table header style with refresh button
   const tableHeaderStyle = {
     display: 'flex',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: isMobile ? 'stretch' : 'center',
+    flexDirection: isMobile ? 'column' : 'row',
+    gap: isMobile ? '10px' : undefined,
     marginBottom: '15px'
   };
 
@@ -514,107 +560,120 @@ const LeaveSummary = () => {
       <div style={filtersSectionStyle}>
         <div style={filterHeaderStyle}>
           <h2 style={filterTitleStyle}>Filters</h2>
-          <div style={resultsCountStyle}>
-            {filteredApplications.length} applications found
-          </div>
-        </div>
-
-        <div style={filtersGridStyle}>
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Year</label>
-            <select
-              style={selectStyle}
-              value={selectedYear}
-              onChange={(e) => handleFilterChange('year', e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            >
-              <option value="all">All Years</option>
-              {years.map(year => (
-                <option key={year} value={year}>{year}</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Month</label>
-            <select
-              style={selectStyle}
-              value={selectedMonth}
-              onChange={(e) => handleFilterChange('month', e.target.value === 'all' ? 'all' : Number(e.target.value))}
-            >
-              <option value="all">All Months</option>
-              {months.map(month => (
-                <option key={month.value} value={month.value}>{month.name}</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Employee ID</label>
-            <input
-              type="text"
-              placeholder="Enter employee ID..."
-              style={inputStyle}
-              value={selectedEmployeeId}
-              onChange={(e) => handleFilterChange('employeeId', e.target.value)}
-            />
-          </div>
-
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Leave Type</label>
-            <select
-              style={selectStyle}
-              value={selectedLeaveType}
-              onChange={(e) => handleFilterChange('leaveType', e.target.value)}
-            >
-              <option value="all">All Types</option>
-              {leaveTypes.map(type => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Location</label>
-            <select
-              style={selectStyle}
-              value={selectedLocation}
-              onChange={(e) => handleFilterChange('location', e.target.value)}
-            >
-              <option value="all">All Locations</option>
-              {locations.map(location => (
-                <option key={location} value={location}>{location}</option>
-              ))}
-            </select>
-          </div>
-
-          <div style={filterGroupStyle}>
-            <label style={labelStyle}>Status</label>
-            <select
-              style={selectStyle}
-              value={selectedStatus}
-              onChange={(e) => handleFilterChange('status', e.target.value)}
-            >
-              <option value="all">All Status</option>
-              {statusOptions.map(status => (
-                <option key={status} value={status}>{status}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* Show Clear All button only when filters are applied */}
-          {isFilterApplied && (
-            <div style={{ ...filterGroupStyle, display: 'flex', alignItems: 'flex-end' }}>
-              <button
-                style={{ ...clearAllButtonStyle, width: '100%', justifyContent: 'center' }}
-                onClick={handleClearAllFilters}
-                onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
-                onMouseOut={(e) => e.target.style.backgroundColor = '#e74c3c'}
-              >
-                <span>✕</span> Clear Filters
-              </button>
+          <div style={{ display: 'flex', flexDirection: isMobile ? 'column' : 'row', alignItems: isMobile ? 'stretch' : 'center', gap: '10px', width: isMobile ? '100%' : 'auto' }}>
+            <div style={resultsCountStyle}>
+              {filteredApplications.length} applications found
             </div>
-          )}
+            {isMobile && (
+              <button
+                type="button"
+                style={mobileToggleFiltersButtonStyle}
+                onClick={() => setShowFilters(v => !v)}
+              >
+                {showFilters ? 'Hide Filters' : 'Show Filters'}
+              </button>
+            )}
+          </div>
         </div>
+
+        {(!isMobile || showFilters) && (
+          <div style={filtersGridStyle}>
+            <div style={filterGroupStyle}>
+              <label style={labelStyle}>Year</label>
+              <select
+                style={selectStyle}
+                value={selectedYear}
+                onChange={(e) => handleFilterChange('year', e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              >
+                <option value="all">All Years</option>
+                {years.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={filterGroupStyle}>
+              <label style={labelStyle}>Month</label>
+              <select
+                style={selectStyle}
+                value={selectedMonth}
+                onChange={(e) => handleFilterChange('month', e.target.value === 'all' ? 'all' : Number(e.target.value))}
+              >
+                <option value="all">All Months</option>
+                {months.map(month => (
+                  <option key={month.value} value={month.value}>{month.name}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={filterGroupStyle}>
+              <label style={labelStyle}>Employee ID</label>
+              <input
+                type="text"
+                placeholder="Enter employee ID..."
+                style={inputStyle}
+                value={selectedEmployeeId}
+                onChange={(e) => handleFilterChange('employeeId', e.target.value)}
+              />
+            </div>
+
+            <div style={filterGroupStyle}>
+              <label style={labelStyle}>Leave Type</label>
+              <select
+                style={selectStyle}
+                value={selectedLeaveType}
+                onChange={(e) => handleFilterChange('leaveType', e.target.value)}
+              >
+                <option value="all">All Types</option>
+                {leaveTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={filterGroupStyle}>
+              <label style={labelStyle}>Location</label>
+              <select
+                style={selectStyle}
+                value={selectedLocation}
+                onChange={(e) => handleFilterChange('location', e.target.value)}
+              >
+                <option value="all">All Locations</option>
+                {locations.map(location => (
+                  <option key={location} value={location}>{location}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={filterGroupStyle}>
+              <label style={labelStyle}>Status</label>
+              <select
+                style={selectStyle}
+                value={selectedStatus}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+              >
+                <option value="all">All Status</option>
+                {statusOptions.map(status => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Show Clear All button only when filters are applied */}
+            {isFilterApplied && (
+              <div style={{ ...filterGroupStyle, display: 'flex', alignItems: 'flex-end' }}>
+                <button
+                  style={{ ...clearAllButtonStyle, width: '100%', justifyContent: 'center' }}
+                  onClick={handleClearAllFilters}
+                  onMouseOver={(e) => e.target.style.backgroundColor = '#c0392b'}
+                  onMouseOut={(e) => e.target.style.backgroundColor = '#e74c3c'}
+                >
+                  <span>✕</span> Clear Filters
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Leave Applications Card */}
@@ -624,6 +683,8 @@ const LeaveSummary = () => {
           <button
             style={{
               ...refreshButtonStyle,
+              width: isMobile ? '100%' : undefined,
+              justifyContent: isMobile ? 'center' : undefined,
               opacity: isRefreshing ? 0.7 : 1,
               cursor: isRefreshing ? 'not-allowed' : 'pointer'
             }}
@@ -644,7 +705,7 @@ const LeaveSummary = () => {
           </button>
 
           <button
-            style={downloadButtonStyle}
+            style={{ ...downloadButtonStyle, width: isMobile ? '100%' : undefined }}
             onClick={handleDownloadExcel}
             onMouseOver={(e) => e.target.style.backgroundColor = '#2980b9'}
             onMouseOut={(e) => e.target.style.backgroundColor = '#3498db'}
@@ -654,7 +715,7 @@ const LeaveSummary = () => {
         </div>
 
         {/* Leave Applications Table */}
-        <div style={{ overflowX: 'auto', maxHeight: '600px', overflowY: 'auto' }}>
+        <div style={{ overflowX: 'auto', maxHeight: isMobile ? 'none' : '600px', overflowY: isMobile ? 'visible' : 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
           <table style={tableStyle}>
             <thead>
               <tr>
@@ -698,7 +759,7 @@ const LeaveSummary = () => {
                     </td>
                     <td style={tdStyle}>{app.fromDate}</td>
                     <td style={tdStyle}>{app.toDate}</td>
-                    
+
                     <td style={tdStyle}>
                       <span style={{
                         fontWeight: 'bold',
@@ -780,7 +841,7 @@ const LeaveSummary = () => {
         )}
 
         {/* Download Excel Button */}
-        
+
       </div>
     </div>
   );
