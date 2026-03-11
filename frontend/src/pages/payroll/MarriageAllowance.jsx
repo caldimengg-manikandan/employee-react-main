@@ -86,6 +86,14 @@ const MarriageAllowance = () => {
     Array.from(new Set(employees.map(e => (e.location || e.branch)).filter(Boolean)))
   ), [employees]);
 
+  const sortedEmployees = useMemo(() => {
+    return [...employees].sort((a, b) => {
+      const idA = (a.employeeId || a.displayId || a._id || '').toString();
+      const idB = (b.employeeId || b.displayId || b._id || '').toString();
+      return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+    });
+  }, [employees]);
+
   const filteredClaims = useMemo(() => {
     const search = filters.search.trim().toLowerCase();
     return claims.filter(item => {
@@ -95,6 +103,10 @@ const MarriageAllowance = () => {
       const matchesDivision = !filters.division || filters.division === '' || filters.division === 'All' || item.division === filters.division;
       const matchesLocation = !filters.location || filters.location === '' || filters.location === 'All' || item.location === filters.location;
       return matchesSearch && matchesDivision && matchesLocation;
+    }).sort((a, b) => {
+      const idA = (a.employeeId || '').toString();
+      const idB = (b.employeeId || '').toString();
+      return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
     });
   }, [claims, filters]);
 
@@ -310,7 +322,7 @@ const MarriageAllowance = () => {
                   onChange={(e) => onEmployeeChange(e.target.value)}
                 >
                   <option value="">Select Employee</option>
-                  {employees.map(emp => (
+                  {sortedEmployees.map(emp => (
                     <option key={emp._id} value={emp.employeeId || emp.displayId || emp._id}>
                       {(emp.employeeId || emp.displayId || emp._id) + ' - ' + (emp.name || '')}
                     </option>

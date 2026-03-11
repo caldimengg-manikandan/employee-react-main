@@ -28,14 +28,12 @@ const calculateSalaryFields = (salaryData) => {
   const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
   const gratuity = parseFloat(salaryData.gratuity) || 0;
   const pf = parseFloat(salaryData.pf) || 0;
-  const esi = parseFloat(salaryData.esi) || 0;
-  const tax = parseFloat(salaryData.tax) || 0;
   const professionalTax = parseFloat(salaryData.professionalTax) || 0;
   // const loanDeduction = parseFloat(salaryData.loanDeduction) || 0; // Not in initialCompensation but in Payroll
   // const lop = parseFloat(salaryData.lop) || 0; // Not in initialCompensation but in Payroll
 
   const totalEarnings = basicDA + hra + specialAllowance;
-  const totalDeductions = pf + esi + tax + professionalTax; //  + loanDeduction + lop;
+  const totalDeductions = pf + professionalTax; //  + loanDeduction + lop;
   const netSalary = totalEarnings - totalDeductions;
   const ctc = totalEarnings + gratuity;
 
@@ -61,16 +59,12 @@ const initialCompensation = {
   specialAllowance: "",
   gratuity: "",
   pf: "",
-  esi: "",
-  tax: "",
   professionalTax: "",
   modeBasicDA: "amount",
   modeHra: "amount",
   modeSpecialAllowance: "amount",
   modeGratuity: "amount",
   modePf: "amount",
-  modeEsi: "amount",
-  modeTax: "amount",
   modeProfessionalTax: "amount",
   
   // Calculated Fields
@@ -297,7 +291,7 @@ const CompensationMaster = () => {
     // Fields that should only contain numbers
     const numericFields = [
       'basicDA', 'hra', 'specialAllowance', 'gratuity',
-      'pf', 'esi', 'tax', 'professionalTax'
+      'pf', 'professionalTax'
     ];
 
     if (numericFields.includes(name)) {
@@ -435,12 +429,10 @@ We’re excited to have you join our team and look forward to your growth and su
     const specialAllowance = parseFloat(comp.specialAllowance) || 0;
     const pf = parseFloat(comp.pf) || 0;
     const professionalTax = parseFloat(comp.professionalTax) || 0;
-    const esi = parseFloat(comp.esi) || 0;
-    const tax = parseFloat(comp.tax) || 0;
     const gratuity = parseFloat(comp.gratuity) || 0;
 
     const totalEarnings = basicDA + hra + specialAllowance;
-    const totalDeductions = pf + professionalTax + esi + tax;
+    const totalDeductions = pf + professionalTax;
     const netSalary = totalEarnings - totalDeductions;
     const ctc = totalEarnings + gratuity;
 
@@ -716,8 +708,8 @@ We’re excited to have you join our team and look forward to your growth and su
   const exportCSV = () => {
     const cols = [
       "name","department","designation","grade","location","effectiveDate",
-      "basicDA","hra","specialAllowance","gratuity","pf","esi","tax","professionalTax",
-      "modeBasicDA","modeHra","modeSpecialAllowance","modeGratuity","modePf","modeEsi","modeTax","modeProfessionalTax"
+      "basicDA","hra","specialAllowance","gratuity","pf","professionalTax",
+      "modeBasicDA","modeHra","modeSpecialAllowance","modeGratuity","modePf","modeProfessionalTax"
     ];
     const header = cols.join(",");
     const rows = compensation.map(t =>
@@ -740,12 +732,10 @@ We’re excited to have you join our team and look forward to your growth and su
   const calcSpecial = selectedCompensation ? (parseFloat(selectedCompensation.specialAllowance) || 0) : 0;
   const calcPF = selectedCompensation ? (parseFloat(selectedCompensation.pf) || 0) : 0;
   const calcProfessionalTax = selectedCompensation ? (parseFloat(selectedCompensation.professionalTax) || 0) : 0;
-  const calcESI = selectedCompensation ? (parseFloat(selectedCompensation.esi) || 0) : 0;
-  const calcTax = selectedCompensation ? (parseFloat(selectedCompensation.tax) || 0) : 0;
   const calcGratuity = selectedCompensation ? (parseFloat(selectedCompensation.gratuity) || 0) : 0;
 
   const calcTotalEarnings = calcBasicDA + calcHRA + calcSpecial;
-  const calcTotalDeductions = calcPF + calcProfessionalTax + calcESI + calcTax;
+  const calcTotalDeductions = calcPF + calcProfessionalTax;
   const calcNetSalary = calcTotalEarnings - calcTotalDeductions;
   const calcCTC = calcTotalEarnings + calcGratuity;
 
@@ -758,12 +748,10 @@ We’re excited to have you join our team and look forward to your growth and su
     const special = parseFloat(viewItem.specialAllowance) || 0;
     const gratuity = parseFloat(viewItem.gratuity) || 0;
     const pf = parseFloat(viewItem.pf) || 0;
-    const esi = parseFloat(viewItem.esi) || 0;
-    const tax = parseFloat(viewItem.tax) || 0;
     const professionalTax = parseFloat(viewItem.professionalTax) || 0;
 
     const totalEarnings = basic + hra + special;
-    const totalDeductions = pf + esi + tax + professionalTax;
+    const totalDeductions = pf + professionalTax;
     const netSalary = totalEarnings - totalDeductions;
     const ctc = totalEarnings + gratuity;
 
@@ -928,10 +916,8 @@ We’re excited to have you join our team and look forward to your growth and su
                 <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Location</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Basic/DA</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">HRA</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Special Allow.</th>
+                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Special Allow</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">PF</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">ESI</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Tax</th>
                 <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Gratuity</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
@@ -940,7 +926,7 @@ We’re excited to have you join our team and look forward to your growth and su
             <tbody className="bg-white divide-y divide-gray-200">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={13} className="px-6 py-8 text-center text-gray-500">No compensation found</td>
+                  <td colSpan={11} className="px-6 py-8 text-center text-gray-500">No compensation found</td>
                 </tr>
               ) : filtered.map((t, idx) => (
                 <tr key={idx} className="hover:bg-indigo-50 transition-colors">
@@ -954,8 +940,6 @@ We’re excited to have you join our team and look forward to your growth and su
                   <td className="px-6 py-4 text-right">{t.hra || "-"}</td>
                   <td className="px-6 py-4 text-right">{t.specialAllowance || "-"}</td>
                   <td className="px-6 py-4 text-right">{t.pf || "-"}</td>
-                  <td className="px-6 py-4 text-right">{t.esi || "-"}</td>
-                  <td className="px-6 py-4 text-right">{t.tax || "-"}</td>
                   <td className="px-6 py-4 text-right">{t.gratuity || "-"}</td>
                   <td className="px-6 py-4 text-center">Joined</td>
                   <td className="px-6 py-4">
@@ -1158,8 +1142,6 @@ We’re excited to have you join our team and look forward to your growth and su
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
                       { label: 'PF Contribution', name: 'pf' },
-                      { label: 'ESI Contribution', name: 'esi' },
-                      { label: 'Income Tax', name: 'tax' },
                       { label: 'Professional Tax', name: 'professionalTax' },
                     ].map((field) => (
                       <div key={field.name}>
@@ -1384,29 +1366,9 @@ We’re excited to have you join our team and look forward to your growth and su
                     </div>
                     <div className="space-y-2.5 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-slate-200">PF</span>
-                        <span className="font-semibold text-rose-100">
-                          {viewItem.pf || "-"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-200">ESI</span>
-                        <span className="font-semibold text-rose-100">
-                          {viewItem.esi || "-"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
                         <span className="text-slate-200">Professional Tax</span>
                         <span className="font-semibold text-rose-100">
                           {viewItem.professionalTax || "-"}
-                        </span>
-                      </div>
-                      <div className="flex justify-between border-t border-slate-700 pt-2 mt-1">
-                        <span className="text-slate-100 font-semibold">
-                          Income Tax
-                        </span>
-                        <span className="font-semibold text-amber-300">
-                          {viewItem.tax || "-"}
                         </span>
                       </div>
                     </div>
@@ -1628,7 +1590,7 @@ We’re excited to have you join our team and look forward to your growth and su
               </table>
               
               <div style={{ fontSize: '11pt', fontStyle: 'italic', marginBottom: '10px' }}>
-                  Note: Statutory deductions such as PF, Professional Tax, and Income Tax (if applicable) will be made as per prevailing laws.
+                  Note: Statutory deductions such as PF and Professional Tax (if applicable) will be made as per prevailing laws.
               </div>
 
                <div style={{ marginTop: 'auto', fontSize: '11pt', fontStyle: 'italic', textAlign: 'right' }}>

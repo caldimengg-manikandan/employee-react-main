@@ -15,6 +15,9 @@ import {
   XCircle
 } from 'lucide-react';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
+import balaSignature from '../../bala signature.png';
+import uvarajSignature from '../../uvaraj signature.png';
+
 
 const StatusPopup = ({ isOpen, onClose, status, message }) => {
   if (!isOpen) return null;
@@ -289,7 +292,7 @@ const DirectorApproval = () => {
       try {
         // Use Mongo ID if available (from backend update), otherwise fallback to whatever ID we have
         const idToFetch = emp.employeeMongoId || (emp.employeeId && emp.employeeId.length === 24 ? emp.employeeId : null);
-        
+
         if (idToFetch) {
           const res = await employeeAPI.getEmployeeById(idToFetch);
           employeeDetails = res.data;
@@ -407,8 +410,8 @@ const DirectorApproval = () => {
         hra: Math.round((salaryOld.hra || 0) * factor),
         special: Math.round((salaryOld.special || 0) * factor),
         gross: Math.round((salaryOld.gross || baseCtc) * factor),
-        empPF: Math.round((salaryOld.empPF || 0) * factor),
-        employerPF: Math.round((salaryOld.employerPF || 0) * factor),
+        empPF: salaryOld.empPF || 0,
+        employerPF: salaryOld.employerPF || 0,
         net: Math.round((salaryOld.net || baseCtc) * factor),
         gratuity: Math.round((salaryOld.gratuity || 0) * factor),
         ctc: revisedCtc
@@ -923,9 +926,9 @@ const DirectorApproval = () => {
       )}
 
       {showReleaseLetter && letterData && (
-        <div className="fixed inset-0 bg-black/80 z-50 overflow-y-auto backdrop-blur-sm flex justify-center items-start py-8">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl relative mx-4">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-20 rounded-t-lg">
+        <div className="fixed inset-0 bg-black/80 z-50 backdrop-blur-sm flex justify-center items-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col relative overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white z-20 shrink-0">
               <h2 className="text-xl font-bold text-gray-800">Appraisal Letter Preview</h2>
               <button
                 onClick={() => setShowReleaseLetter(false)}
@@ -935,7 +938,7 @@ const DirectorApproval = () => {
               </button>
             </div>
 
-            <div className="p-8 bg-gray-100 overflow-x-auto flex flex-col items-center gap-8">
+            <div className="p-4 md:p-8 bg-gray-100 overflow-auto flex flex-col items-center gap-8 flex-grow">
               <div id="release-letter-page-1" className="bg-white relative min-h-[1120px] w-[794px] shadow-lg flex-shrink-0 flex flex-col">
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
                   <img
@@ -994,7 +997,7 @@ const DirectorApproval = () => {
                     <div className="mb-6">
                       <div className="font-bold text-gray-800 mb-4">To:</div>
                       <div className="inline-block min-w-[300px]">
-                        <div className="grid grid-cols-[100px_1fr] gap-y-1">
+                        <div className="grid grid-cols-[120px_1fr] gap-y-1">
                           <div className="text-gray-500 font-medium">Name</div>
                           <div className="text-gray-900 font-bold">: {letterData.employeeName}</div>
 
@@ -1045,7 +1048,27 @@ const DirectorApproval = () => {
                     <div className="mt-12 flex justify-end">
                       <div className="text-right">
                         <div className="mb-2 text-sm text-gray-700">For CALDIM ENGINEERING PRIVATE LIMITED</div>
-                        <div className="mt-16">
+                        <div className="mt-8 flex flex-col items-end min-h-[80px]">
+                          {letterData.location && letterData.location.toLowerCase().includes('hosur') && (
+                            <img
+                              src={balaSignature}
+                              alt="Authorized Signatory"
+                              className="h-16 mb-2 object-contain"
+                              crossOrigin="anonymous"
+                            />
+                          )}
+                          {letterData.location && (letterData.location.toLowerCase().includes('chennai') || letterData.location.toLowerCase().includes('valasaravakkam')) && (
+                            <img
+                              src={uvarajSignature}
+                              alt="Authorized Signatory"
+                              className="h-16 mb-2 object-contain"
+                              crossOrigin="anonymous"
+                            />
+                          )}
+                          {/* Spacer if no signature matches to maintain layout */}
+                          {(!letterData.location || (!letterData.location.toLowerCase().includes('hosur') && !letterData.location.toLowerCase().includes('chennai') && !letterData.location.toLowerCase().includes('valasaravakkam'))) && (
+                            <div className="h-16 mb-2"></div>
+                          )}
                           <div className="font-bold">Authorized Signatory</div>
                         </div>
                       </div>
@@ -1150,7 +1173,6 @@ const DirectorApproval = () => {
                             { label: 'Special Allowance', key: 'special' },
                             { label: 'Gross Salary', key: 'gross', isBold: true },
                             { label: 'Employee PF', key: 'empPF' },
-                            { label: 'Employer PF', key: 'employerPF' },
                             { label: 'Net Salary', key: 'net', isBold: true },
                             { label: 'Gratuity', key: 'gratuity' },
                             { label: 'CTC', key: 'ctc', isBold: true, isTotal: true }

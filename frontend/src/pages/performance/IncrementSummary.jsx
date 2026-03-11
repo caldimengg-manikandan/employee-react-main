@@ -644,9 +644,9 @@ const IncrementSummary = () => {
       </div>
 
       {showReleaseLetter && letterData && (
-        <div className="fixed inset-0 bg-black/80 z-50 overflow-y-auto backdrop-blur-sm flex justify-center items-start py-8">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl relative mx-4">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200 sticky top-0 bg-white z-20 rounded-t-lg">
+        <div className="fixed inset-0 bg-black/80 z-50 backdrop-blur-sm flex justify-center items-center p-4">
+          <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col relative overflow-hidden">
+            <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white z-20 shrink-0">
               <h2 className="text-xl font-bold text-gray-800">Release Letter Preview</h2>
               <div className="flex gap-3">
                 <button
@@ -665,7 +665,7 @@ const IncrementSummary = () => {
               </div>
             </div>
 
-            <div className="p-8 bg-gray-100 overflow-x-auto flex flex-col items-center gap-8">
+            <div className="p-4 md:p-8 bg-gray-100 overflow-auto flex flex-col items-center gap-8 flex-grow">
               <div id="release-letter-page-1" className="bg-white relative min-h-[1120px] w-[794px] shadow-lg flex-shrink-0 flex flex-col">
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
                   <img
@@ -715,7 +715,7 @@ const IncrementSummary = () => {
                     <div className="mb-6">
                       <div className="font-bold text-gray-800 mb-4">To:</div>
                       <div className="inline-block min-w-[300px]">
-                        <div className="grid grid-cols-[100px_1fr] gap-y-1">
+                        <div className="grid grid-cols-[120px_1fr] gap-y-1">
                           <div className="text-gray-500 font-medium">Name</div>
                           <div className="text-gray-900 font-bold">: {letterData.employeeName}</div>
 
