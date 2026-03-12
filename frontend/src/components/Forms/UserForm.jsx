@@ -41,6 +41,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         { key: 'attendance_regularization', label: 'Attendance Regularization' },
         { key: 'attendance_access', label: 'Employee Attendance' },
         { key: 'attendance_approval', label: 'Attendance Approval' },
+        { key: 'edit_attendance', label: 'Edit In and Out Time' },
       ]
     },
     {

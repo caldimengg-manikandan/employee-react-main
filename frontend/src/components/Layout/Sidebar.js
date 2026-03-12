@@ -106,7 +106,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Exit Approval": DocumentMagnifyingGlassIcon,
     "Exit Management": UserCircleIcon,
     "Performance Management": StarIcon,
-    "Attendance Summary": ChartBarIcon
+    "Attendance Summary": ChartBarIcon,
+    "Edit In and Out Time": ClockIcon
   };
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
@@ -152,6 +153,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "attendance_approval",
       showForRoles: ["admin", "hr",],
     },
+    
     {
       name: "Admin Timesheet",
       hasDropdown: true,
@@ -451,6 +453,14 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Team Management"),
       permission: "team_access",
       showForRoles: ["admin", "manager"],
+    },
+
+    {
+      name: "Edit In and Out Time",
+      path: "/attendance/edit-time",
+      icon: getIconForMenu("Edit In and Out Time"),
+      permission: "edit_attendance",
+      showForRoles: ["admin", "hr", "manager"],
     },
 
   ];

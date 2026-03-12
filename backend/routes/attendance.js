@@ -635,4 +635,54 @@ router.post("/regularize", auth, async (req, res) => {
   }
 });
 
+/**
+ * ✏️ UPDATE ATTENDANCE RECORD
+ */
+router.put("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { punchTime, direction, workDurationSeconds, correspondingInTime } = req.body;
+
+    const updateData = {};
+    if (punchTime) updateData.punchTime = new Date(punchTime);
+    if (direction) updateData.direction = direction;
+    if (workDurationSeconds !== undefined) updateData.workDurationSeconds = workDurationSeconds;
+    if (correspondingInTime) updateData.correspondingInTime = new Date(correspondingInTime);
+
+    const updatedRecord = await Attendance.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    if (!updatedRecord) {
+      return res.status(404).json({ success: false, message: "Record not found" });
+    }
+
+    res.json({ success: true, message: "Attendance record updated", attendance: updatedRecord });
+  } catch (error) {
+    console.error("Update Attendance Error:", error);
+    res.status(500).json({ success: false, message: "Failed to update record", error: error.message });
+  }
+});
+
+/**
+ * 🗑️ DELETE ATTENDANCE RECORD
+ */
+router.delete("/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const deletedRecord = await Attendance.findByIdAndDelete(id);
+
+    if (!deletedRecord) {
+      return res.status(404).json({ success: false, message: "Record not found" });
+    }
+
+    res.json({ success: true, message: "Attendance record deleted" });
+  } catch (error) {
+    console.error("Delete Attendance Error:", error);
+    res.status(500).json({ success: false, message: "Failed to delete record", error: error.message });
+  }
+});
+
 module.exports = router;

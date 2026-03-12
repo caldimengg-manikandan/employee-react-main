@@ -262,6 +262,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: 'Detailer', label: 'Detailer' },
     { value: 'Sr. Detailer', label: 'Sr. Detailer' },
     { value: 'Jr. Detailer', label: 'Jr. Detailer' },
+    { value: 'Modeler', label: 'Modeler' },
   ];
 
   // Blood group options

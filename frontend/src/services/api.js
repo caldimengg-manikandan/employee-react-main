@@ -176,6 +176,8 @@ export const attendanceAPI = {
   saveYearSummary: (employeeId, data) => api.put(`/attendance/year-summary/${encodeURIComponent(employeeId)}`, data),
   regularize: (data) => api.post('/attendance/regularize', data),
 
+  update: (id, data) => api.put(`/attendance/${id}`, data),
+  remove: (id) => api.delete(`/attendance/${id}`),
   // Hikvision integration
   getHikvision: (params) => hikvisionAPI.getAttendance(params),
   syncHikvision: () => hikvisionAPI.pullEvents({}),

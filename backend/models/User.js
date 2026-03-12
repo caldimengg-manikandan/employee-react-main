@@ -90,7 +90,8 @@ const userSchema = new mongoose.Schema({
       'policy_portal',
       'salary_slips',
       'holiday_allowance',
-      'marriage_allowance'
+      'marriage_allowance',
+      'edit_attendance'
     ]
   }],
   lastLogin: {

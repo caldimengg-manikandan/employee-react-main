@@ -60,6 +60,7 @@ import ExitForm from "./pages/EmployeeExitForms";
 import ExitApproval from "./pages/ExitApprovals";
 import HolidaysAllowance from "./pages/HolidaysAllowance";
 import HolidaysAllowanceSummary from "./pages/HolidaysAllowanceSummary";
+import EditInAndOutTime from "./pages/attendance/EditInAndOutTime";
 
 //performance Management
 import SelfAppraisal from "./pages/performance/SelfAppraisal";
@@ -134,6 +135,15 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["attendance_access"]} roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
                   <AttendanceApproval />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="attendance/edit-time"
+              element={
+                <ProtectedRoute requiredPermissions={["edit_attendance"]} roles={["admin", "hr", "manager"]}>
+                  <EditInAndOutTime />
                 </ProtectedRoute>
               }
             />
