@@ -91,8 +91,11 @@ const userSchema = new mongoose.Schema({
       'salary_slips',
       'holiday_allowance',
       'marriage_allowance',
-      'edit_attendance'
+      'edit_attendance',
+      'celebration_view',
+      'celebration_wish'
     ]
+
   }],
   lastLogin: {
     type: Date,

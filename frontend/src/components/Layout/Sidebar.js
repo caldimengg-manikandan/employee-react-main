@@ -107,8 +107,10 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Exit Management": UserCircleIcon,
     "Performance Management": StarIcon,
     "Attendance Summary": ChartBarIcon,
-    "Edit In and Out Time": ClockIcon
+    "Edit In and Out Time": ClockIcon,
+    "Unified Hub Calendar": CalendarDaysIcon
   };
+
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
 
@@ -462,6 +464,15 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "edit_attendance",
       showForRoles: ["admin", "hr", "manager"],
     },
+
+    {
+      name: "Unified Hub Calendar",
+      path: "/calendar-master",
+      icon: getIconForMenu("Unified Hub Calendar"),
+      allowEmployeeRole: true,
+      permission: "home" // Using home permission so most people can see it
+    },
+
 
   ];
 

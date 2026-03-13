@@ -101,6 +101,8 @@ app.use("/api/performance/attributes", require("./routes/appraisalAttributeRoute
 app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 app.use("/api/special-permissions", require("./routes/specialPermissions"));
+app.use("/api/celebrations", require("./routes/celebrationRoutes"));
+
 
 // Base Route
 app.get("/", (req, res) => {

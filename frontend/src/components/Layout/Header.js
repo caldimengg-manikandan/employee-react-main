@@ -64,8 +64,9 @@ const Header = ({ onMenuClick }) => {
       '/internship/InternReference': 'Intern Reference',
       '/bank-of-resumes': 'Resume Repository',
       '/admin/special-permissions': 'Special Permission Approval',
-      
+      '/calendar-master': 'Unified Hub Calendar',
     };
+
     
     return routeTitles[location.pathname] || 'Caldim Employee Portal';
   };
@@ -221,12 +222,19 @@ const Header = ({ onMenuClick }) => {
             <div className="relative" ref={notificationRef}>
               <button
                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
-                className="flex items-center p-2 rounded-full hover:bg-gray-100 transition-colors relative"
+                className={`flex items-center p-2.5 rounded-xl transition-all duration-300 relative group
+                  ${unreadCount > 0 
+                    ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' 
+                    : 'text-gray-500 hover:bg-gray-100'}`}
                 aria-label="Notifications"
               >
-                <BellIcon className="h-6 w-6 text-gray-600" />
+                <BellIcon className={`h-6 w-6 transition-transform duration-500 ${unreadCount > 0 ? 'animate-[swing_2s_ease-in-out_infinite] origin-top' : 'group-hover:rotate-12'}`} />
+                
                 {unreadCount > 0 && (
-                  <span className="absolute top-1 right-1 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white"></span>
+                  <>
+                    <span className="absolute top-2 right-2 h-3 w-3 bg-rose-500 rounded-full border-2 border-white z-10"></span>
+                    <span className="absolute top-2 right-2 h-3 w-3 bg-rose-400 rounded-full animate-ping opacity-75"></span>
+                  </>
                 )}
               </button>
 

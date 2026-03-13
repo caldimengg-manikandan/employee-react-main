@@ -384,4 +384,10 @@ export const notificationAPI = {
   delete: (id) => api.delete(`/notifications/${id}`)
 };
 
+export const celebrationAPI = {
+  getCalendar: (params) => api.get('/celebrations/calendar', { params }),
+  sendWish: (data) => api.post('/celebrations/wish', data),
+};
+
+
 export default api;

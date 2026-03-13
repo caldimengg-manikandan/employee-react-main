@@ -119,6 +119,13 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         { key: 'intern_reference', label: 'Intern Reference' },
         { key: 'resume_access', label: 'Resume Repository' }
       ]
+    },
+    {
+      name: "Celebration Hub",
+      children: [
+        { key: 'celebration_view', label: 'View Calendar Hub' },
+        { key: 'celebration_wish', label: 'Send Wishes' }
+      ]
     }
   ];
 
@@ -147,7 +154,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'leave_summary',
       'performance_access',
       'self_appraisal',
-      'salary_slips'
+      'salary_slips',
+      'celebration_view',
+      'celebration_wish'
     ],
 
     employees: [
@@ -161,8 +170,11 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'exit_access',
       'exit_form_access',
       'salary_slips',
-      'policy_portal'
+      'policy_portal',
+      'celebration_view',
+      'celebration_wish'
     ]
+
   };
 
   const roleOptions = [

@@ -71,6 +71,8 @@ import DirectorApproval from "./pages/performance/DirectorApproval";
 import AppraisalMaster from "./pages/performance/AppraisalMaster";
 import IncrementSummary from "./pages/performance/IncrementSummary";
 import AttendanceSummary from "./pages/performance/AttendanceSummary";
+import CalendarMaster from "./pages/calendar/CalendarMaster";
+
 
 
 function App() {
@@ -574,6 +576,17 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* ---------------- Unified Hub Calendar ---------------- */}
+            <Route
+              path="calendar-master"
+              element={
+                <ProtectedRoute allowEmployeeRole>
+                  <CalendarMaster />
+                </ProtectedRoute>
+              }
+            />
+
           </Route>
         </Routes>
       </div>
