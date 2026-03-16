@@ -28,21 +28,30 @@ router.post("/bulk-save", auth, async (req, res) => {
         year,
       };
 
+      // Backend validation for ₹1500 limit on Holiday working allowance
+      let calculatedHolidayTotal = Math.round((Number(item.holidayDays) || 0) * (Number(item.perDayAmount) || 0));
+      calculatedHolidayTotal = calculatedHolidayTotal > 1500 ? 1500 : calculatedHolidayTotal;
+      
+      const calculatedShiftTotal = Math.round((Number(item.shiftAllottedAmount) || 0) * (Number(item.shiftDays) || 0));
+      const calculatedTotalAmount = calculatedHolidayTotal + calculatedShiftTotal;
+
       const update = {
-        employeeId: item.employeeId,
-        employeeName: item.employeeName,
-        location: item.location,
-        accountNumber: item.accountNumber,
-        grossSalary: item.grossSalary,
-        month,
-        year,
-        holidayDays: item.holidayDays,
-        perDayAmount: item.perDayAmount,
-        holidayTotal: item.holidayTotal,
-        shiftAllottedAmount: item.shiftAllottedAmount,
-        shiftDays: item.shiftDays,
-        shiftTotal: item.shiftTotal,
-        totalAmount: item.totalAmount,
+        $set: {
+          employeeId: item.employeeId,
+          employeeName: item.employeeName,
+          location: item.location,
+          accountNumber: item.accountNumber,
+          grossSalary: Number(item.grossSalary) || 0,
+          month: Number(month),
+          year: Number(year),
+          holidayDays: Number(item.holidayDays) || 0,
+          perDayAmount: Number(item.perDayAmount) || 0,
+          holidayTotal: calculatedHolidayTotal,
+          shiftAllottedAmount: Number(item.shiftAllottedAmount) || 0,
+          shiftDays: Number(item.shiftDays) || 0,
+          shiftTotal: calculatedShiftTotal,
+          totalAmount: calculatedTotalAmount,
+        }
       };
 
       const doc = await HolidayAllowance.findOneAndUpdate(filter, update, {

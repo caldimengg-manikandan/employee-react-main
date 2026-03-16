@@ -24,6 +24,9 @@ const HolidaysAllowance = () => {
   const [tableData, setTableData] = useState([]); // Merged data for table
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState([]);
+  
+  // Popup state
+  const [popupConfig, setPopupConfig] = useState({ isOpen: false, message: '', isError: false });
 
   // Constants
   const months = [
@@ -162,7 +165,7 @@ const HolidaysAllowance = () => {
     } catch (error) {
       console.error("Error loading data:", error);
       const msg = error.response?.data?.message || error.message || "Unknown error";
-      alert(`Failed to load data: ${msg}`);
+      setPopupConfig({ isOpen: true, message: `Failed to load data: ${msg}`, isError: true });
     } finally {
       setLoading(false);
     }
@@ -173,7 +176,8 @@ const HolidaysAllowance = () => {
     const row = newData[index];
 
     const recalcTotals = () => {
-      row.holidayTotal = Math.round((row.holidayDays || 0) * (row.perDayAmount || 0));
+      const calculatedHolidayTotal = Math.round((row.holidayDays || 0) * (row.perDayAmount || 0));
+      row.holidayTotal = calculatedHolidayTotal > 1500 ? 1500 : calculatedHolidayTotal;
       row.shiftTotal = Math.round((row.shiftAllottedAmount || 0) * (row.shiftDays || 0));
       row.totalAmount = row.holidayTotal + row.shiftTotal;
     };
@@ -222,11 +226,11 @@ const HolidaysAllowance = () => {
 
       const res = await holidayAllowanceAPI.saveBulk(payload);
       const message = res?.data?.message || 'Holiday allowances saved successfully';
-      alert(message);
+      setPopupConfig({ isOpen: true, message, isError: false });
       
     } catch (error) {
       console.error("Error saving data:", error);
-      alert("Failed to save data");
+      setPopupConfig({ isOpen: true, message: "Failed to save data", isError: true });
     }
   };
 
@@ -241,7 +245,32 @@ const HolidaysAllowance = () => {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-gray-50 min-h-screen relative">
+      {/* Custom Popup Modal */}
+      {popupConfig.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 animate-in zoom-in-95 duration-200 border border-gray-100 flex flex-col items-center text-center">
+            {popupConfig.isError ? (
+              <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mb-4">
+                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+              </div>
+            ) : (
+              <div className="w-16 h-16 bg-green-100 text-green-500 rounded-full flex items-center justify-center mb-4">
+                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+              </div>
+            )}
+            <h3 className="text-xl font-black text-gray-900 mb-2">{popupConfig.isError ? 'Error' : 'Success'}</h3>
+            <p className="text-gray-600 font-medium mb-8">{popupConfig.message}</p>
+            <button 
+              onClick={() => setPopupConfig({ isOpen: false, message: '', isError: false })}
+              className={`w-full py-3 px-4 rounded-xl font-bold text-white transition-all transform hover:scale-[1.02] shadow-md ${popupConfig.isError ? 'bg-red-500 hover:bg-red-600 shadow-red-200' : 'bg-[#1e2050] hover:bg-[#262760] shadow-indigo-200'}`}
+            >
+              Okay
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center mb-6">
         
