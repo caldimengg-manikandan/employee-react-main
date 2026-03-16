@@ -105,7 +105,7 @@ const CalendarMaster = () => {
 
     // 2. Personal Leave
     const leave = data.leaves.find(l => l.status === 'Approved' && date >= new Date(l.startDate).setHours(0,0,0,0) && date <= new Date(l.endDate).setHours(23,59,59,999));
-    if (leave) events.push({ type: 'leave', title: `${leave.leaveType} Leave`, color: 'bg-indigo-600', icon: PlaneTakeoff });
+    if (leave) events.push({ type: 'leave', title: `${leave.leaveType} Leave (${leave.dayType || 'Full Day'})`, color: 'bg-indigo-600', icon: PlaneTakeoff });
 
     // 3. Celebrations (Birthdays/Anniversaries)
     const celebs = data.celebrations.filter(c => isSameDay(new Date(c.eventDate), date));
@@ -150,7 +150,7 @@ const CalendarMaster = () => {
         }).map(l => ({ 
             name: `${l.leaveType} Leave`, 
             date: new Date(l.startDate), 
-            detail: l.reason 
+            detail: `${l.dayType || 'Full Day'} - ${l.reason || 'No reason provided'}` 
         }));
 
       case 'Birthdays':

@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Employee = require('../models/Employee');
 const Wish = require('../models/Wish');
+const User = require('../models/User');
+const Notification = require('../models/Notification');
 const auth = require('../middleware/auth'); // Assuming there's an auth middleware
 
 // Get calendar data for a specific month and year
@@ -115,6 +117,20 @@ router.post('/wish', auth, async (req, res) => {
     });
 
     await newWish.save();
+
+    // Create a notification for the recipient
+    const recipientUser = await User.findOne({ employeeId: receiverEmployeeId });
+    if (recipientUser) {
+      const notificationMessage = message.length > 50 ? message.substring(0, 50) + '...' : message;
+      const notification = new Notification({
+        recipient: recipientUser._id,
+        title: `New ${eventType} Wish! 🎉`,
+        message: `${req.user.name || 'A coworker'} sent you a wish: "${notificationMessage}"`,
+        type: 'OTHER'
+      });
+      await notification.save();
+    }                           
+
     res.status(201).json({ message: 'Wish sent successfully', wish: newWish });
   } catch (error) {
     console.error('Error sending wish:', error);
