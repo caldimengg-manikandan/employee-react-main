@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { leaveAPI, celebrationAPI } from '../../services/api';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  Loader2, 
-  Cake, 
-  PartyPopper, 
-  PlaneTakeoff, 
-  Home, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  Loader2,
+  Cake,
+  PartyPopper,
+  PlaneTakeoff,
+  Home,
   Sparkles,
   Calendar as CalendarIcon,
   Info
@@ -21,7 +21,8 @@ const CalendarMaster = () => {
   const [data, setData] = useState({
     leaves: [],
     balance: null,
-    celebrations: []
+    celebrations: [],
+    wishStats: { birthdayWishesSent: 0, anniversaryWishesSent: 0 }
   });
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -51,16 +52,18 @@ const CalendarMaster = () => {
       const month = currentDate.getMonth() + 1;
       const year = currentDate.getFullYear();
 
-      const [leavesRes, balanceRes, celebRes] = await Promise.all([
+      const [leavesRes, balanceRes, celebRes, statsRes] = await Promise.all([
         leaveAPI.myLeaves(),
         leaveAPI.myBalance(),
-        celebrationAPI.getCalendar({ month, year })
+        celebrationAPI.getCalendar({ month, year }),
+        celebrationAPI.getWishStats({ month, year })
       ]);
-      
+
       setData({
         leaves: Array.isArray(leavesRes.data) ? leavesRes.data : [],
         balance: balanceRes?.data,
-        celebrations: Array.isArray(celebRes.data) ? celebRes.data : []
+        celebrations: Array.isArray(celebRes.data) ? celebRes.data : [],
+        wishStats: statsRes?.data || { birthdayWishesSent: 0, anniversaryWishesSent: 0 }
       });
     } catch (error) {
       console.error("Error fetching unified calendar data:", error);
@@ -74,11 +77,11 @@ const CalendarMaster = () => {
     const month = date.getMonth();
     const firstDay = new Date(year, month, 1).getDay();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    
+
     const days = [];
     for (let i = 0; i < firstDay; i++) days.push(null);
     for (let i = 1; i <= daysInMonth; i++) days.push(new Date(year, month, i));
-    
+
     return days;
   };
 
@@ -90,9 +93,9 @@ const CalendarMaster = () => {
     return new Date(2000 + parseInt(parts[2]), months[parts[1]], parseInt(parts[0]));
   };
 
-  const isSameDay = (d1, d2) => d1 && d2 && 
-    d1.getDate() === d2.getDate() && 
-    d1.getMonth() === d2.getMonth() && 
+  const isSameDay = (d1, d2) => d1 && d2 &&
+    d1.getDate() === d2.getDate() &&
+    d1.getMonth() === d2.getMonth() &&
     d1.getFullYear() === d2.getFullYear();
 
   const getDayEvents = (date) => {
@@ -104,7 +107,7 @@ const CalendarMaster = () => {
     if (holiday) events.push({ type: 'holiday', title: holiday.occasion, color: 'bg-rose-500', icon: Home });
 
     // 2. Personal Leave
-    const leave = data.leaves.find(l => l.status === 'Approved' && date >= new Date(l.startDate).setHours(0,0,0,0) && date <= new Date(l.endDate).setHours(23,59,59,999));
+    const leave = data.leaves.find(l => l.status === 'Approved' && date >= new Date(l.startDate).setHours(0, 0, 0, 0) && date <= new Date(l.endDate).setHours(23, 59, 59, 999));
     if (leave) events.push({ type: 'leave', title: `${leave.leaveType} Leave (${leave.dayType || 'Full Day'})`, color: 'bg-indigo-600', icon: PlaneTakeoff });
 
     // 3. Celebrations (Birthdays/Anniversaries)
@@ -137,28 +140,28 @@ const CalendarMaster = () => {
         return holidays2026.filter(h => {
           const d = parseDate(h.date);
           return d && d.getMonth() === month && d.getFullYear() === year;
-        }).map(h => ({ 
-            name: h.occasion, 
-            date: parseDate(h.date), 
-            detail: h.day 
+        }).map(h => ({
+          name: h.occasion,
+          date: parseDate(h.date),
+          detail: h.day
         }));
-      
+
       case 'My Leaves':
         return data.leaves.filter(l => {
           const start = new Date(l.startDate);
           return l.status === 'Approved' && start.getMonth() === month && start.getFullYear() === year;
-        }).map(l => ({ 
-            name: `${l.leaveType} Leave`, 
-            date: new Date(l.startDate), 
-            detail: `${l.dayType || 'Full Day'} - ${l.reason || 'No reason provided'}` 
+        }).map(l => ({
+          name: `${l.leaveType} Leave`,
+          date: new Date(l.startDate),
+          detail: `${l.dayType || 'Full Day'} - ${l.reason || 'No reason provided'}`
         }));
 
       case 'Birthdays':
         return data.celebrations.filter(c => c.eventType === 'Birthday')
           .sort((a, b) => new Date(a.eventDate).getDate() - new Date(b.eventDate).getDate())
-          .map(c => ({ 
-            name: c.employeeName, 
-            date: new Date(c.eventDate), 
+          .map(c => ({
+            name: c.employeeName,
+            date: new Date(c.eventDate),
             detail: '🎂 Birthday',
             division: c.division,
             location: c.location,
@@ -171,9 +174,9 @@ const CalendarMaster = () => {
       case 'Anniversaries':
         return data.celebrations.filter(c => c.eventType === 'Work Anniversary')
           .sort((a, b) => new Date(a.eventDate).getDate() - new Date(b.eventDate).getDate())
-          .map(c => ({ 
-            name: c.employeeName, 
-            date: new Date(c.eventDate), 
+          .map(c => ({
+            name: c.employeeName,
+            date: new Date(c.eventDate),
             detail: '🎊 Work Anniversary',
             division: c.division,
             location: c.location,
@@ -182,7 +185,7 @@ const CalendarMaster = () => {
             designation: c.designation || 'Employee',
             isWished: c.isWished
           }));
-      
+
       default: return [];
     }
   };
@@ -195,10 +198,9 @@ const CalendarMaster = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc] p-4 lg:p-8 animate-in fade-in duration-700">
       <div className="max-w-7xl mx-auto">
-        
+
         {/* Header Section */}
         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-6 mb-12">
-
           <div>
             <h1 className="text-4xl font-black text-[#1e1b4b] tracking-tight flex items-center gap-3">
               <div className="p-3 bg-indigo-100 rounded-2xl text-indigo-600 shadow-sm border border-indigo-200">
@@ -208,18 +210,38 @@ const CalendarMaster = () => {
             </h1>
             <p className="text-gray-500 mt-2 font-medium">Holidays, Celebrations & Leaves • All in one view</p>
           </div>
+
+          <div className="flex flex-wrap gap-4 mt-4 md:mt-0">
+            {/* Birthdays */}
+            <div className="flex items-center gap-3 bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-3 rounded-2xl shadow-md hover:scale-105 transition-transform">
+              <div className="p-2 bg-white/20 rounded-xl text-white"><Sparkles size={24} /></div>
+              <div>
+                <div className="text-3xl font-black text-white leading-none">{data.wishStats?.birthdayWishesSent || 0}</div>
+                <div className="text-[10px] font-black text-amber-100 uppercase tracking-widest mt-1">Birthday Wishes Sent</div>
+              </div>
+            </div>
+
+            {/* Anniversaries */}
+            <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-3 rounded-2xl shadow-md hover:scale-105 transition-transform">
+              <div className="p-2 bg-white/20 rounded-xl text-white"><Sparkles size={24} /></div>
+              <div>
+                <div className="text-3xl font-black text-white leading-none">{data.wishStats?.anniversaryWishesSent || 0}</div>
+                <div className="text-[10px] font-black text-emerald-100 uppercase tracking-widest mt-1">Anniv. Wishes Sent</div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          
+
           {/* Main Calendar Card */}
           <div className="lg:col-span-8 bg-white/70 backdrop-blur-xl rounded-[2.5rem] shadow-2xl shadow-indigo-100/50 border border-white/50 overflow-hidden">
-            
+
             {/* Calendar Controls */}
             <div className="bg-white p-6 flex items-center justify-between border-b border-gray-100">
               <div className="flex items-center gap-4">
                 <h2 className="text-2xl font-black text-gray-900">
-                  {currentDate.toLocaleString('default', { month: 'long' })} 
+                  {currentDate.toLocaleString('default', { month: 'long' })}
                   <span className="text-indigo-600 ml-2">{currentDate.getFullYear()}</span>
                 </h2>
               </div>
@@ -250,13 +272,13 @@ const CalendarMaster = () => {
               <div className="grid grid-cols-7 gap-4">
                 {days.map((date, idx) => {
                   if (!date) return <div key={`empty-${idx}`} className="aspect-square opacity-0"></div>;
-                  
+
                   const events = getDayEvents(date);
                   const isToday = isSameDay(date, new Date());
                   const isWeekend = date.getDay() === 0;
 
                   return (
-                    <div 
+                    <div
                       key={date.toISOString()}
                       onClick={() => handleDayClick(events)}
                       className={`relative aspect-square rounded-[1.5rem] p-2 transition-all cursor-pointer group hover:scale-[1.05] hover:z-10
@@ -271,10 +293,10 @@ const CalendarMaster = () => {
                       {/* Event Bubbles */}
                       <div className="mt-1 flex flex-wrap gap-1">
                         {events.map((e, i) => (
-                          <div 
-                            key={i} 
+                          <div
+                            key={i}
                             title={e.title}
-                            className={`w-2 h-2 rounded-full ${e.color} animate-pulse`} 
+                            className={`w-2 h-2 rounded-full ${e.color} animate-pulse`}
                           />
                         ))}
                       </div>
@@ -300,7 +322,7 @@ const CalendarMaster = () => {
 
           {/* Sidebar Info Section */}
           <div className="lg:col-span-4 space-y-8">
-            
+
             {/* Legend Card - FUNCTIONAL BUTTONS */}
             <div className="bg-[#1e1b4b] rounded-[2.5rem] p-8 text-white shadow-2xl">
               <h3 className="text-xl font-black mb-6 flex items-center gap-3">
@@ -313,8 +335,8 @@ const CalendarMaster = () => {
                   { label: 'Birthdays', icon: Cake, color: 'bg-amber-500' },
                   { label: 'Anniversaries', icon: PartyPopper, color: 'bg-emerald-500' }
                 ].map(item => (
-                  <button 
-                    key={item.label} 
+                  <button
+                    key={item.label}
                     onClick={() => openCategoryModal(item.label)}
                     className="w-full flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 hover:scale-[1.02] transition-all group"
                   >
@@ -330,7 +352,7 @@ const CalendarMaster = () => {
 
             {/* Quick Stats - FUNCTIONAL BUTTONS */}
             <div className="grid grid-cols-2 gap-4">
-              <button 
+              <button
                 onClick={() => openCategoryModal('Birthdays')}
                 className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm text-left hover:scale-[1.05] transition-all"
               >
@@ -340,7 +362,7 @@ const CalendarMaster = () => {
                   <Cake size={20} />
                 </div>
               </button>
-              <button 
+              <button
                 onClick={() => openCategoryModal('Anniversaries')}
                 className="bg-white p-6 rounded-[2rem] border border-gray-100 shadow-sm text-left hover:scale-[1.05] transition-all"
               >
@@ -379,7 +401,7 @@ const CalendarMaster = () => {
                   <ChevronLeft className="rotate-180" size={24} />
                 </button>
               </div>
-              
+
               <div className="p-8 max-h-[60vh] overflow-y-auto">
                 <div className="space-y-4">
                   {getFilteredList(selectedCategory).length > 0 ? (
@@ -426,11 +448,10 @@ const CalendarMaster = () => {
                                 });
                                 setIsWishModalOpen(true);
                               }}
-                              className={`px-3 py-1 text-[10px] font-bold rounded-lg shadow-sm transition-all flex items-center gap-1 ${
-                                item.isWished 
-                                ? 'bg-emerald-100 text-emerald-600 border border-emerald-200 cursor-default' 
-                                : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-md'
-                              }`}
+                              className={`px-3 py-1 text-[10px] font-bold rounded-lg shadow-sm transition-all flex items-center gap-1 ${item.isWished
+                                  ? 'bg-emerald-100 text-emerald-600 border border-emerald-200 cursor-default'
+                                  : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-md'
+                                }`}
                             >
                               {item.isWished ? (
                                 <><PartyPopper size={10} /> Wished!</>
@@ -452,7 +473,7 @@ const CalendarMaster = () => {
               </div>
 
               <div className="p-8 pt-0">
-                <button 
+                <button
                   onClick={() => setShowModal(false)}
                   className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-black hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
                 >
@@ -464,7 +485,7 @@ const CalendarMaster = () => {
         )}
 
         {/* WISH MODAL */}
-        <WishModal 
+        <WishModal
           isOpen={isWishModalOpen}
           onClose={() => {
             setIsWishModalOpen(false);

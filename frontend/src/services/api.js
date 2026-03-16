@@ -386,6 +386,7 @@ export const notificationAPI = {
 
 export const celebrationAPI = {
   getCalendar: (params) => api.get('/celebrations/calendar', { params }),
+  getWishStats: (params) => api.get('/celebrations/stats', { params }),
   sendWish: (data) => api.post('/celebrations/wish', data),
 };
 

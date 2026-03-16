@@ -85,6 +85,36 @@ router.get('/calendar', auth, async (req, res) => {
   }
 });
 
+// Get wish statistics (distinct senders) for a month
+router.get('/stats', auth, async (req, res) => {
+  try {
+    const { month, year } = req.query;
+    const currentMonth = parseInt(month);
+    const currentYear = parseInt(year);
+
+    const startDate = new Date(currentYear, currentMonth - 1, 1);
+    const endDate = new Date(currentYear, currentMonth, 0, 23, 59, 59);
+
+    const birthdaySenders = await Wish.distinct('senderEmployeeId', {
+      eventType: 'Birthday',
+      createdAt: { $gte: startDate, $lte: endDate }
+    });
+
+    const anniversarySenders = await Wish.distinct('senderEmployeeId', {
+      eventType: 'Work Anniversary',
+      createdAt: { $gte: startDate, $lte: endDate }
+    });
+
+    res.json({
+      birthdayWishesSent: birthdaySenders.length,
+      anniversaryWishesSent: anniversarySenders.length
+    });
+  } catch (error) {
+    console.error('Error fetching celebration stats:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
 // Send a wish
 router.post('/wish', auth, async (req, res) => {
   try {
