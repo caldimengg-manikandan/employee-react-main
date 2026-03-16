@@ -273,10 +273,7 @@ const HolidaysAllowance = () => {
       )}
 
       {/* Header */}
-      <div className="flex items-center mb-6">
-        
-        <h1 className="text-2xl font-bold text-[#1e2050]">Employee Allowance System</h1>
-      </div>
+      
 
       {/* Controls */}
       <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-center">

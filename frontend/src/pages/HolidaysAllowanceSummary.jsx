@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { employeeAPI, holidayAllowanceAPI } from '../services/api';
-import { CalendarDaysIcon, MapPinIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, MapPinIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const HolidaysAllowanceSummary = () => {
   const navigate = useNavigate();
@@ -115,6 +117,72 @@ const HolidaysAllowanceSummary = () => {
     loadSummary();
   };
 
+  const handleDownloadPDF = () => {
+    if (records.length === 0) {
+      alert('No data available to download');
+      return;
+    }
+
+    const doc = new jsPDF('landscape');
+    const monthLabel = months.find(m => m.value === monthFilter)?.label || monthFilter;
+    const title = `Allowance Summary Report - ${monthLabel} ${yearFilter}`;
+    const locationStr = locationFilter ? `Location: ${locationFilter}` : 'All Locations';
+
+    // Header
+    doc.setFontSize(18);
+    doc.setTextColor(30, 32, 80); // #1e2050
+    doc.text(title, 14, 20);
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text(locationStr, 14, 30);
+    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 37);
+
+    // Summary Cards Info
+    doc.setFontSize(10);
+    doc.setTextColor(0);
+    const summaryY = 45;
+    doc.text(`Total Employees: ${summary?.totalEmployees ?? 0}`, 14, summaryY);
+    doc.text(`Holiday Amount: INR ${summary?.totalHolidayAmount?.toFixed(2) ?? '0.00'}`, 80, summaryY);
+    doc.text(`Shift Amount: INR ${summary?.totalShiftAmount?.toFixed(2) ?? '0.00'}`, 150, summaryY);
+    doc.text(`Grand Total: INR ${summary?.totalAmount?.toFixed(2) ?? '0.00'}`, 220, summaryY);
+
+    // Table
+    const tableColumn = [
+      "S.No", "Emp ID", "Emp Name", "Account No", "Location", 
+      "Holiday Days", "Holiday Amt", "Shift Days", "Shift Amt", "Total"
+    ];
+    
+    const tableRows = records.map((row, index) => [
+      index + 1,
+      row.employeeId,
+      row.employeeName,
+      row.accountNumber,
+      row.location,
+      row.holidayDays ?? 0,
+      `INR ${(row.holidayTotal || 0).toFixed(2)}`,
+      row.shiftDays ?? 0,
+      `INR ${(row.shiftTotal || 0).toFixed(2)}`,
+      `INR ${(row.totalAmount || 0).toFixed(2)}`
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 52,
+      theme: 'grid',
+      headStyles: { fillColor: [30, 32, 80], textColor: [255, 255, 255] },
+      styles: { fontSize: 8 },
+      columnStyles: {
+        6: { halign: 'right' },
+        8: { halign: 'right' },
+        9: { halign: 'right', fontStyle: 'bold' }
+      }
+    });
+
+    doc.save(`Allowance_Summary_${locationFilter || 'All'}_${monthLabel}_${yearFilter}.pdf`);
+  };
+
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
       <div className="mb-4">
@@ -174,6 +242,15 @@ const HolidaysAllowanceSummary = () => {
           className="ml-auto flex items-center bg-[#1e2050] text-white px-5 py-2.5 rounded-md hover:bg-[#262760] transition-colors text-sm font-medium"
         >
           {loading ? 'Applying...' : 'Apply Filter'}
+        </button>
+
+        <button
+          onClick={handleDownloadPDF}
+          disabled={records.length === 0}
+          className="flex items-center bg-emerald-600 text-white px-5 py-2.5 rounded-md hover:bg-emerald-700 transition-colors text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+        >
+          <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
+          Download Report (PDF)
         </button>
       </div>
 

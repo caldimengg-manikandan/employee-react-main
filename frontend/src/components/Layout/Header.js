@@ -65,6 +65,10 @@ const Header = ({ onMenuClick }) => {
       '/bank-of-resumes': 'Resume Repository',
       '/admin/special-permissions': 'Special Permission Approval',
       '/calendar-master': 'Unified Hub Calendar',
+      '/holidays-allowance': 'Employee Allowance System',
+      '/holidays-allowance/summary': 'Employee Allowance Summary',
+      '/payroll/marriage-allowance': 'Marriage Allowance',
+      '/internship/InternReference': 'Internship',
     };
 
     
