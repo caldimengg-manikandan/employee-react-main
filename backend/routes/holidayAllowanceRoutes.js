@@ -28,9 +28,11 @@ router.post("/bulk-save", auth, async (req, res) => {
         year,
       };
 
-      // Backend validation for ₹1500 limit on Holiday working allowance
-      let calculatedHolidayTotal = Math.round((Number(item.holidayDays) || 0) * (Number(item.perDayAmount) || 0));
-      calculatedHolidayTotal = calculatedHolidayTotal > 1500 ? 1500 : calculatedHolidayTotal;
+      // Backend validation for ₹1500 limit on per day amount, not on the total
+      let perDayAmountUsed = Number(item.perDayAmount) || 0;
+      if (perDayAmountUsed > 1500) perDayAmountUsed = 1500;
+      
+      let calculatedHolidayTotal = Math.round((Number(item.holidayDays) || 0) * perDayAmountUsed);
       
       const calculatedShiftTotal = Math.round((Number(item.shiftAllottedAmount) || 0) * (Number(item.shiftDays) || 0));
       const calculatedTotalAmount = calculatedHolidayTotal + calculatedShiftTotal;
@@ -45,7 +47,7 @@ router.post("/bulk-save", auth, async (req, res) => {
           month: Number(month),
           year: Number(year),
           holidayDays: Number(item.holidayDays) || 0,
-          perDayAmount: Number(item.perDayAmount) || 0,
+          perDayAmount: perDayAmountUsed,
           holidayTotal: calculatedHolidayTotal,
           shiftAllottedAmount: Number(item.shiftAllottedAmount) || 0,
           shiftDays: Number(item.shiftDays) || 0,

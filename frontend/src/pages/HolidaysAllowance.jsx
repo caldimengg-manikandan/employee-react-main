@@ -75,7 +75,8 @@ const HolidaysAllowance = () => {
     if (!daysInMonth) {
       return 0;
     }
-    return Math.round(grossSalary / daysInMonth);
+    const amount = Math.round(grossSalary / daysInMonth);
+    return amount > 1500 ? 1500 : amount;
   };
 
   const loadData = async () => {
@@ -176,8 +177,7 @@ const HolidaysAllowance = () => {
     const row = newData[index];
 
     const recalcTotals = () => {
-      const calculatedHolidayTotal = Math.round((row.holidayDays || 0) * (row.perDayAmount || 0));
-      row.holidayTotal = calculatedHolidayTotal > 1500 ? 1500 : calculatedHolidayTotal;
+      row.holidayTotal = Math.round((row.holidayDays || 0) * (row.perDayAmount || 0));
       row.shiftTotal = Math.round((row.shiftAllottedAmount || 0) * (row.shiftDays || 0));
       row.totalAmount = row.holidayTotal + row.shiftTotal;
     };
@@ -187,7 +187,8 @@ const HolidaysAllowance = () => {
       row.holidayDays = days;
       recalcTotals();
     } else if (field === 'perDayAmount') {
-      const amount = parseFloat(value) || 0;
+      let amount = parseFloat(value) || 0;
+      if (amount > 1500) amount = 1500;
       row.perDayAmount = amount;
       recalcTotals();
     } else if (field === 'shiftAllottedAmount') {
