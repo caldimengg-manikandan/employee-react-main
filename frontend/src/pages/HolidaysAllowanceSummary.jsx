@@ -2,8 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { employeeAPI, holidayAllowanceAPI } from '../services/api';
 import { CalendarDaysIcon, MapPinIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 const HolidaysAllowanceSummary = () => {
   const navigate = useNavigate();
@@ -117,42 +116,44 @@ const HolidaysAllowanceSummary = () => {
     loadSummary();
   };
 
-  const handleDownloadPDF = () => {
+  const handleDownloadExcel = () => {
     if (records.length === 0) {
       alert('No data available to download');
       return;
     }
 
-    const doc = new jsPDF('landscape');
     const monthLabel = months.find(m => m.value === monthFilter)?.label || monthFilter;
-    const title = `Allowance Summary Report - ${monthLabel} ${yearFilter}`;
-    const locationStr = locationFilter ? `Location: ${locationFilter}` : 'All Locations';
+    const fileName = `Allowance_Summary_${locationFilter || 'All'}_${monthLabel}_${yearFilter}.xlsx`;
 
-    // Header
-    doc.setFontSize(18);
-    doc.setTextColor(30, 32, 80); // #1e2050
-    doc.text(title, 14, 20);
-    
-    doc.setFontSize(12);
-    doc.setTextColor(100);
-    doc.text(locationStr, 14, 30);
-    doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 37);
-
-    // Summary Cards Info
-    doc.setFontSize(10);
-    doc.setTextColor(0);
-    const summaryY = 45;
-    doc.text(`Total Employees: ${summary?.totalEmployees ?? 0}`, 14, summaryY);
-    doc.text(`Holiday Amount: INR ${summary?.totalHolidayAmount?.toFixed(2) ?? '0.00'}`, 80, summaryY);
-    doc.text(`Shift Amount: INR ${summary?.totalShiftAmount?.toFixed(2) ?? '0.00'}`, 150, summaryY);
-    doc.text(`Grand Total: INR ${summary?.totalAmount?.toFixed(2) ?? '0.00'}`, 220, summaryY);
-
-    // Table
-    const tableColumn = [
-      "S.No", "Emp ID", "Emp Name", "Account No", "Location", 
-      "Holiday Days", "Holiday Amt", "Shift Days", "Shift Amt", "Total"
+    // 1. Prepare Header rows
+    const headerData = [
+      ['ALLOWANCE SUMMARY REPORT'],
+      [`Location: ${locationFilter || 'All Locations'}`, `Period: ${monthLabel} ${yearFilter}`, `Generated: ${new Date().toLocaleDateString()}`],
+      [],
+      ['OVERALL SUMMARY'],
+      ['Total Employees', summary?.totalEmployees ?? 0],
+      ['Total Holiday Amount', summary?.totalHolidayAmount ?? 0],
+      ['Total Shift Amount', summary?.totalShiftAmount ?? 0],
+      ['Grand Total Amount', summary?.totalAmount ?? 0],
+      [],
+      ['DETAILED RECORDS']
     ];
-    
+
+    // 2. Table Headers
+    const tableHeaders = [
+      'S.No', 
+      'Employee ID', 
+      'Employee Name', 
+      'Account Number', 
+      'Location', 
+      'Holiday Days', 
+      'Holiday Amount', 
+      'Shift Days', 
+      'Shift Amount', 
+      'Total Amount'
+    ];
+
+    // 3. Table Data
     const tableRows = records.map((row, index) => [
       index + 1,
       row.employeeId,
@@ -160,27 +161,39 @@ const HolidaysAllowanceSummary = () => {
       row.accountNumber,
       row.location,
       row.holidayDays ?? 0,
-      `INR ${(row.holidayTotal || 0).toFixed(2)}`,
+      row.holidayTotal ?? 0,
       row.shiftDays ?? 0,
-      `INR ${(row.shiftTotal || 0).toFixed(2)}`,
-      `INR ${(row.totalAmount || 0).toFixed(2)}`
+      row.shiftTotal ?? 0,
+      row.totalAmount ?? 0
     ]);
 
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 52,
-      theme: 'grid',
-      headStyles: { fillColor: [30, 32, 80], textColor: [255, 255, 255] },
-      styles: { fontSize: 8 },
-      columnStyles: {
-        6: { halign: 'right' },
-        8: { halign: 'right' },
-        9: { halign: 'right', fontStyle: 'bold' }
-      }
-    });
+    // 4. Combine all into one array
+    const combinedData = [...headerData, tableHeaders, ...tableRows];
 
-    doc.save(`Allowance_Summary_${locationFilter || 'All'}_${monthLabel}_${yearFilter}.pdf`);
+    // 5. Create worksheet from array of arrays
+    const worksheet = XLSX.utils.aoa_to_sheet(combinedData);
+    
+    // Set column widths
+    const wscols = [
+      { wch: 6 },  // S.No
+      { wch: 15 }, // ID
+      { wch: 25 }, // Name
+      { wch: 20 }, // Account
+      { wch: 15 }, // Location
+      { wch: 12 }, // Month (re-used for H-Days)
+      { wch: 15 }, // H-Amt
+      { wch: 12 }, // S-Days
+      { wch: 15 }, // S-Amt
+      { wch: 15 }  // Total
+    ];
+    worksheet['!cols'] = wscols;
+
+    // Create workbook and append worksheet
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+
+    // Export file
+    XLSX.writeFile(workbook, fileName);
   };
 
   return (
@@ -245,12 +258,12 @@ const HolidaysAllowanceSummary = () => {
         </button>
 
         <button
-          onClick={handleDownloadPDF}
+          onClick={handleDownloadExcel}
           disabled={records.length === 0}
-          className="flex items-center bg-emerald-600 text-white px-5 py-2.5 rounded-md hover:bg-emerald-700 transition-colors text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
+          className="flex items-center bg-emerald-700 text-white px-5 py-2.5 rounded-md hover:bg-emerald-800 transition-colors text-sm font-medium disabled:bg-gray-400 disabled:cursor-not-allowed"
         >
           <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-          Download Report (PDF)
+          Download Report (Excel)
         </button>
       </div>
 
