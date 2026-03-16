@@ -28,6 +28,20 @@ const CalendarMaster = () => {
   const [showModal, setShowModal] = useState(false);
   const [selectedEmployeeForWish, setSelectedEmployeeForWish] = useState(null);
   const [isWishModalOpen, setIsWishModalOpen] = useState(false);
+  const [replyingToWish, setReplyingToWish] = useState(null);
+  const [replyText, setReplyText] = useState('');
+
+  const submitReply = async (wishId) => {
+    if (!replyText.trim()) return;
+    try {
+      await celebrationAPI.replyWish(wishId, { replyMessage: replyText });
+      setReplyingToWish(null);
+      setReplyText('');
+      fetchUnifiedData(); // Fetch the wish history again
+    } catch (error) {
+      console.error("Error replying to wish:", error);
+    }
+  };
 
   // Holiday Calendar 2026 data
   const holidays2026 = [
@@ -213,7 +227,15 @@ const CalendarMaster = () => {
 
           <div className="flex flex-wrap gap-4 mt-4 md:mt-0">
             {/* Birthdays */}
-            <div className="flex items-center gap-3 bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-3 rounded-2xl shadow-md hover:scale-105 transition-transform">
+            <div 
+              onClick={() => {
+                 if (selectedCategory === 'BirthdayHistory') setSelectedCategory(null);
+                 else {
+                   setSelectedCategory('BirthdayHistory');
+                 }
+              }}
+              className="cursor-pointer flex items-center gap-3 bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-3 rounded-2xl shadow-md hover:scale-105 transition-transform"
+            >
               <div className="p-2 bg-white/20 rounded-xl text-white"><Sparkles size={24} /></div>
               <div>
                 <div className="text-3xl font-black text-white leading-none">{data.wishStats?.birthdayWishesSent || 0}</div>
@@ -222,7 +244,15 @@ const CalendarMaster = () => {
             </div>
 
             {/* Anniversaries */}
-            <div className="flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-3 rounded-2xl shadow-md hover:scale-105 transition-transform">
+            <div 
+              onClick={() => {
+                 if (selectedCategory === 'AnniversaryHistory') setSelectedCategory(null);
+                 else {
+                   setSelectedCategory('AnniversaryHistory');
+                 }
+              }}
+              className="cursor-pointer flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-3 rounded-2xl shadow-md hover:scale-105 transition-transform"
+            >
               <div className="p-2 bg-white/20 rounded-xl text-white"><Sparkles size={24} /></div>
               <div>
                 <div className="text-3xl font-black text-white leading-none">{data.wishStats?.anniversaryWishesSent || 0}</div>
@@ -231,6 +261,86 @@ const CalendarMaster = () => {
             </div>
           </div>
         </div>
+
+        {/* Dynamic Wish History Panels Below Header */}
+        {(selectedCategory === 'BirthdayHistory' || selectedCategory === 'AnniversaryHistory') && (
+           <div className="mb-8 p-6 bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white/50 animate-in slide-in-from-top-4">
+             <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black flex items-center gap-3">
+                  {selectedCategory === 'BirthdayHistory' ? (
+                     <><Cake className="text-amber-500" /> Birthday Wishes Sent</>
+                  ) : (
+                     <><PartyPopper className="text-emerald-500" /> Anniversary Wishes Sent</>
+                  )}
+                </h3>
+                <button onClick={() => setSelectedCategory(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500">
+                  <ChevronLeft className="rotate-180" size={20} />
+                </button>
+             </div>
+             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {data.wishStats?.wishHistory && data.wishStats.wishHistory.filter(w => w.eventType === (selectedCategory === 'BirthdayHistory' ? 'Birthday' : 'Work Anniversary')).length > 0 ? (
+                  data.wishStats.wishHistory
+                    .filter(w => w.eventType === (selectedCategory === 'BirthdayHistory' ? 'Birthday' : 'Work Anniversary'))
+                    .map((wish, index) => (
+                      <div key={wish._id || index} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-indigo-200 transition-colors group">
+                         <div className="text-xs font-bold text-indigo-600 mb-2">{new Date(wish.date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}</div>
+                         <div className="flex flex-col gap-1">
+                           <div className="text-sm">
+                             <span className="font-bold text-gray-900">{wish.senderName}</span> 
+                             <span className="text-gray-500"> sent a wish to </span>
+                             <span className="font-bold text-gray-900">{wish.receiverName}</span>
+                           </div>
+                           
+                           {/* Original Message */}
+                           <div className="text-gray-700 italic mt-1 text-sm bg-gray-100/50 p-3 rounded-xl border border-gray-100">"{wish.message}"</div>
+                           
+                           {/* Reply Display */}
+                           {wish.replyMessage && (
+                              <div className="mt-3 p-3 bg-white rounded-xl border border-indigo-50 shadow-sm relative">
+                                <div className="absolute -top-2 left-4 px-2 bg-white text-[9px] font-black text-indigo-400 uppercase tracking-widest">Reply from {wish.receiverName}</div>
+                                <div className="text-sm text-gray-800 font-medium">{wish.replyMessage}</div>
+                                <div className="text-[10px] text-gray-400 mt-1">{new Date(wish.replyDate).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}</div>
+                              </div>
+                           )}
+
+                           {/* Reply Action */}
+                           {!wish.replyMessage && wish.receiverEmployeeId === data.wishStats?.currentUserEmployeeId && (
+                               <div className="mt-3">
+                                  {replyingToWish === wish._id ? (
+                                    <div className="flex flex-col gap-2">
+                                       <textarea 
+                                          value={replyText}
+                                          onChange={(e) => setReplyText(e.target.value)}
+                                          placeholder="Type your thank you message..."
+                                          className="w-full text-sm p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                                          rows={2}
+                                       />
+                                       <div className="flex justify-end gap-2">
+                                          <button onClick={() => setReplyingToWish(null)} className="px-4 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-200 rounded-lg transition-colors border border-gray-200 bg-white">Cancel</button>
+                                          <button onClick={() => submitReply(wish._id)} className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm">Send</button>
+                                       </div>
+                                    </div>
+                                  ) : (
+                                    <button 
+                                      onClick={() => { setReplyingToWish(wish._id); setReplyText(''); }} 
+                                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl w-max transition-colors shadow-sm border border-indigo-100/50"
+                                    >
+                                      Reply <ChevronRight size={12}/>
+                                    </button>
+                                  )}
+                               </div>
+                           )}
+                         </div>
+                      </div>
+                    ))
+                ) : (
+                  <div className="col-span-full py-8 text-center text-gray-400 font-medium">
+                    No wishes sent in this category yet!
+                  </div>
+                )}
+             </div>
+           </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
@@ -449,8 +559,8 @@ const CalendarMaster = () => {
                                 setIsWishModalOpen(true);
                               }}
                               className={`px-3 py-1 text-[10px] font-bold rounded-lg shadow-sm transition-all flex items-center gap-1 ${item.isWished
-                                  ? 'bg-emerald-100 text-emerald-600 border border-emerald-200 cursor-default'
-                                  : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-md'
+                                ? 'bg-emerald-100 text-emerald-600 border border-emerald-200 cursor-default'
+                                : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-md'
                                 }`}
                             >
                               {item.isWished ? (

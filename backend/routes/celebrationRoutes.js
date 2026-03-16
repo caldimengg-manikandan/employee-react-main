@@ -25,7 +25,7 @@ router.get('/calendar', auth, async (req, res) => {
         const dob = new Date(emp.dateOfBirth);
         if (dob.getMonth() + 1 === currentMonth) {
           const eventDate = new Date(currentYear, dob.getMonth(), dob.getDate());
-          
+
           // Check if current user has already wished this employee for this year
           const existingWish = await Wish.findOne({
             senderEmployeeId: req.user.employeeId,
@@ -105,12 +105,94 @@ router.get('/stats', auth, async (req, res) => {
       createdAt: { $gte: startDate, $lte: endDate }
     });
 
+    // Leaderboard Aggregation
+    const leaderboardData = await Wish.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: startDate, $lte: endDate }
+        }
+      },
+      {
+        $group: {
+          _id: "$senderEmployeeId",
+          senderName: { $first: "$senderName" },
+          birthdayWishes: { 
+            $sum: { $cond: [{ $eq: ["$eventType", "Birthday"] }, 1, 0] } 
+          },
+          anniversaryWishes: { 
+            $sum: { $cond: [{ $eq: ["$eventType", "Work Anniversary"] }, 1, 0] } 
+          },
+          totalWishes: { $sum: 1 }
+        }
+      },
+      { $sort: { totalWishes: -1 } },
+      { $limit: 5 }
+    ]);
+
+    // Get department for leaderboard users
+    const employeeIds = leaderboardData.map(l => l._id);
+    const employeesInfo = await Employee.find({ employeeId: { $in: employeeIds } }, 'employeeId department');
+    const departmentMap = employeesInfo.reduce((acc, emp) => {
+      acc[emp.employeeId] = emp.department;
+      return acc;
+    }, {});
+
+    const leaderboard = leaderboardData.map(item => ({
+      employeeId: item._id,
+      employeeName: item.senderName,
+      department: departmentMap[item._id] || 'Unknown',
+      birthdayWishes: item.birthdayWishes,
+      anniversaryWishes: item.anniversaryWishes,
+      totalWishes: item.totalWishes
+    }));
+
+    // Full Wish History for Tabs
+    const wishHistoryRaw = await Wish.find({
+      createdAt: { $gte: startDate, $lte: endDate }
+    }).sort({ createdAt: -1 });
+
+    const wishHistoryList = wishHistoryRaw.map(w => ({
+      _id: w._id,
+      senderName: w.senderName,
+      receiverEmployeeId: w.receiverEmployeeId,
+      receiverName: w.receiverName,
+      eventType: w.eventType,
+      date: w.createdAt,
+      message: w.message,
+      replyMessage: w.replyMessage,
+      replyDate: w.replyDate
+    }));
+
     res.json({
+      currentUserEmployeeId: req.user.employeeId,
       birthdayWishesSent: birthdaySenders.length,
-      anniversaryWishesSent: anniversarySenders.length
+      anniversaryWishesSent: anniversarySenders.length,
+      leaderboard,
+      wishHistory: wishHistoryList
     });
   } catch (error) {
     console.error('Error fetching celebration stats:', error);
+    res.status(500).json({ message: 'Internal Server Error' });
+  }
+});
+
+// Reply to a wish
+router.post('/wish/:id/reply', auth, async (req, res) => {
+  try {
+    const wish = await Wish.findById(req.params.id);
+    if (!wish) return res.status(404).json({ message: 'Wish not found' });
+
+    if (wish.receiverEmployeeId !== req.user.employeeId) {
+      return res.status(403).json({ message: 'Unauthorized to reply to this wish' });
+    }
+
+    wish.replyMessage = req.body.replyMessage;
+    wish.replyDate = new Date();
+    await wish.save();
+
+    res.json({ message: 'Reply sent successfully', wish });
+  } catch (error) {
+    console.error('Error replying to wish:', error);
     res.status(500).json({ message: 'Internal Server Error' });
   }
 });
@@ -127,9 +209,9 @@ router.post('/wish', auth, async (req, res) => {
 
     const today = new Date();
     let eventType = 'Birthday';
-    if (employee.dateOfJoining && 
-        new Date(employee.dateOfJoining).getMonth() === today.getMonth() && 
-        new Date(employee.dateOfJoining).getDate() === today.getDate()) {
+    if (employee.dateOfJoining &&
+      new Date(employee.dateOfJoining).getMonth() === today.getMonth() &&
+      new Date(employee.dateOfJoining).getDate() === today.getDate()) {
       eventType = 'Work Anniversary';
     }
 
@@ -159,7 +241,7 @@ router.post('/wish', auth, async (req, res) => {
         type: 'OTHER'
       });
       await notification.save();
-    }                           
+    }
 
     res.status(201).json({ message: 'Wish sent successfully', wish: newWish });
   } catch (error) {

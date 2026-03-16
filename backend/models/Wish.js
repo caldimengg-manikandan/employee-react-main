@@ -41,6 +41,12 @@ const wishSchema = new mongoose.Schema({
   wishYear: {
     type: Number,
     required: true
+  },
+  replyMessage: {
+    type: String
+  },
+  replyDate: {
+    type: Date
   }
 }, {
   timestamps: true

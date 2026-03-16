@@ -388,6 +388,7 @@ export const celebrationAPI = {
   getCalendar: (params) => api.get('/celebrations/calendar', { params }),
   getWishStats: (params) => api.get('/celebrations/stats', { params }),
   sendWish: (data) => api.post('/celebrations/wish', data),
+  replyWish: (wishId, data) => api.post(`/celebrations/wish/${wishId}/reply`, data),
 };
 
 
