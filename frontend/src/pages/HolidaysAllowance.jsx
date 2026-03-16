@@ -133,6 +133,19 @@ const HolidaysAllowance = () => {
         const gross = grossFromPayroll || emp.totalEarnings || emp.netSalary || emp.ctc || 0;
         const saved = savedMap.get(emp.employeeId);
         const defaultPerDay = calculatePerDayAmount(gross, selectedYear, selectedMonth);
+        
+        // Force the 1500 limit even if data was saved previously with a higher value
+        let perDayAmount = saved?.perDayAmount ?? defaultPerDay;
+        if (perDayAmount > 1500) perDayAmount = 1500;
+
+        const holidayDays = saved?.holidayDays ?? 0;
+        const holidayTotal = Math.round(holidayDays * perDayAmount);
+
+        const shiftAllottedAmount = saved?.shiftAllottedAmount ?? 50;
+        const shiftDays = saved?.shiftDays ?? 0;
+        const shiftTotal = Math.round(shiftAllottedAmount * shiftDays);
+
+        const totalAmount = holidayTotal + shiftTotal;
 
         return {
           id: emp._id, // Employee DB ID
@@ -145,17 +158,17 @@ const HolidaysAllowance = () => {
           grossSalary: saved?.grossSalary ?? gross,
           
           // Holiday Working Fields
-          holidayDays: saved?.holidayDays ?? 0,
-          perDayAmount: saved?.perDayAmount ?? defaultPerDay,
-          holidayTotal: saved?.holidayTotal ?? 0,
+          holidayDays: holidayDays,
+          perDayAmount: perDayAmount,
+          holidayTotal: holidayTotal,
 
           // Shift Allowance Fields
-          shiftAllottedAmount: saved?.shiftAllottedAmount ?? 50,
-          shiftDays: saved?.shiftDays ?? 0,
-          shiftTotal: saved?.shiftTotal ?? 0,
+          shiftAllottedAmount: shiftAllottedAmount,
+          shiftDays: shiftDays,
+          shiftTotal: shiftTotal,
 
           // Combined Total
-          totalAmount: saved?.totalAmount ?? 0,
+          totalAmount: totalAmount,
           
           status: saved ? 'Saved' : 'Draft'
         };

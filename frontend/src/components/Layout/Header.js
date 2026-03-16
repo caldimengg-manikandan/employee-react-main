@@ -61,7 +61,6 @@ const Header = ({ onMenuClick }) => {
       '/performance/increment-master': 'Appraisal Master',
       '/performance/increment-summary': 'Increment Summary',
       '/performance/attendance-summary': 'Attendance Summary',
-      '/internship/InternReference': 'Intern Reference',
       '/bank-of-resumes': 'Resume Repository',
       '/admin/special-permissions': 'Special Permission Approval',
       '/calendar-master': 'Unified Hub Calendar',
@@ -69,6 +68,7 @@ const Header = ({ onMenuClick }) => {
       '/holidays-allowance/summary': 'Employee Allowance Summary',
       '/payroll/marriage-allowance': 'Marriage Allowance',
       '/internship/InternReference': 'Internship',
+      '/admin/interns': 'Internship',
     };
 
     
