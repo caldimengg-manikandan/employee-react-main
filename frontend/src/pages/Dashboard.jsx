@@ -227,8 +227,14 @@ const ProjectDashboard = () => {
         // Admin Timesheet
         { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
         { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentChartBarIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
+        { name: 'Edit In and Out Time', description: 'Modify attendance timings', path: '/attendance/edit-time', icon: ClockIcon, permission: 'edit_attendance', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
+        { name: 'Special Permission', description: 'Approve special attendance permissions', path: '/admin/special-permissions', icon: ClipboardDocumentCheckIcon, permission: 'special_permission', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Work & Productivity' },
+        { name: 'Attendance Approval', description: 'Review and approve attendance', path: '/timesheet/attendance-approval', icon: ClipboardDocumentCheckIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Work & Productivity' },
+
+
 
         // Project
+
         { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, showForRoles: ['admin', 'projectmanager', 'manager',], allowEmployeeRole: true, category: 'Work & Productivity' },
 
         // Leave Management
@@ -244,10 +250,16 @@ const ProjectDashboard = () => {
         // Payroll
         { name: 'Salary Slips', description: 'View payslips', path: '/salaryslips', icon: BanknotesIcon, allowEmployeeRole: true, category: 'Finance & Payroll' },
         { name: 'Payroll Details', description: 'Manage payroll details', path: '/payroll/details', icon: CurrencyRupeeIcon, permission: 'payroll_manage', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Compensation Master', description: 'Manage employee compensation', path: '/payroll/compensation-master', icon: CurrencyRupeeIcon, permission: 'compensation_master', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+
         { name: 'Cost to the Company', description: 'View CTC', path: '/payroll/cost-to-the-company', icon: CurrencyRupeeIcon, permission: 'payroll_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         { name: 'Loan Summary', description: 'View loans', path: '/payroll/loan-summary', icon: BanknotesIcon, permission: 'loan_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         { name: 'Gratuity Summary', description: 'View gratuity', path: '/payroll/gratuity-summary', icon: BanknotesIcon, permission: 'gratuity_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         { name: 'Monthly Payroll', description: 'Process monthly payroll', path: '/payroll/monthly', icon: BanknotesIcon, permission: 'payroll_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Marriage Allowance', description: 'Manage marriage allowance claims', path: '/payroll/marriage-allowance', icon: BanknotesIcon, permission: 'marriage_allowance', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Holiday Allowance', description: 'Manage holiday working allowances', path: '/holidays-allowance', icon: BanknotesIcon, permission: 'holiday_allowance', showForRoles: ['admin', 'hr', 'manager'], category: 'Finance & Payroll' },
+
+
 
         // Expenditure
         { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
@@ -266,11 +278,15 @@ const ProjectDashboard = () => {
 
         // Other
         { name: 'Exit Form', description: 'Submit exit form', path: '/employee-exit/form', icon: ArrowRightOnRectangleIcon, permission: 'exit_form_access', allowEmployeeRole: true, category: 'Company & Resources' },
+        { name: 'Exit Approval', description: 'Review and approve exit forms', path: '/employee-exit/approval', icon: ArrowRightOnRectangleIcon, permission: 'exit_approval_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
+
         { name: 'Employee Reward Tracker', description: 'Track rewards', path: '/employee-reward-tracker', icon: BriefcaseIcon, permission: 'reward_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
         { name: 'Employee Management', description: 'View and manage employees', path: '/employee-management', icon: UsersIcon, permission: 'employee_access', showForRoles: ['admin', 'hr'], category: 'Company & Resources' },
         { name: 'User Access', description: 'Manage user roles & permissions', path: '/user-access', icon: KeyIcon, permission: 'user_access', showForRoles: ['admin'], category: 'Company & Resources' },
         { name: 'Team Management', description: 'Manage teams', path: '/admin/team-management', icon: UserGroupIcon, permission: 'team_access', showForRoles: ['admin', 'manager'], category: 'Company & Resources' },
         { name: 'Internships', description: 'Manage interns & references', path: '/admin/interns', icon: BriefcaseIcon, permission: 'intern_reference', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
+        { name: 'Announcements', description: 'Manage company announcements', path: '/announcements', icon: BellIcon, permission: 'announcement_manage', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
+
         { name: 'Unified Hub Calendar', description: 'View holidays & celebrations', path: '/calendar-master', icon: CalendarIcon, permission: 'celebration_view', allowEmployeeRole: true, category: 'Work & Productivity' },
     ];
 

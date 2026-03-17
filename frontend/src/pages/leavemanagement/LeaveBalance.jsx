@@ -340,33 +340,37 @@ const LeaveBalance = () => {
           </select>
           <button
             onClick={handleDownloadExcel}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] transition-colors text-sm"
           >
             <Download size={16} /> Download Report
           </button>
+
          
           {/* Refresh Button */}
           <button
             onClick={handleRefresh}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+            className="flex items-center gap-2 px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] transition-colors text-sm"
           >
             <span className="rotate-45">↻</span> Refresh
           </button>
+
         </div>
       </div>
 
       {/* Table */}
       <div className="border rounded-lg bg-white flex-1 overflow-auto min-h-0">
         <table className="w-full relative">
-          <thead className="bg-blue-600 sticky top-0 z-20">
+          <thead className="bg-[#262760] sticky top-0 z-20">
+
             <tr>
-              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Employee ID</th>
-              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Employee Name</th>
-              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Location</th>
-              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Casual Leave</th>
-              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Sick Leave</th>
-              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Privilege Leave</th>
-              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-blue-600 z-20">Actions</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-[#262760] z-20">Employee ID</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-[#262760] z-20">Employee Name</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-[#262760] z-20">Location</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-[#262760] z-20">Casual Leave</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-[#262760] z-20">Sick Leave</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-[#262760] z-20">Privilege Leave</th>
+              <th className="p-4 text-left text-sm font-semibold text-white sticky top-0 bg-[#262760] z-20">Actions</th>
+
             </tr>
           </thead>
           <tbody>
@@ -374,8 +378,9 @@ const LeaveBalance = () => {
               <tr>
                 <td colSpan="6" className="p-8 text-center">
                   <div className="flex justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#262760]"></div>
                   </div>
+
                   <p className="mt-2 text-gray-600">Loading employee data...</p>
                 </td>
               </tr>
@@ -722,10 +727,11 @@ const LeaveBalance = () => {
               </button>
               <button
                 onClick={handleSaveEdit}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors"
               >
                 Save Changes
               </button>
+
             </div>
           </div>
         </div>

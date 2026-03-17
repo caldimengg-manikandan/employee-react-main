@@ -428,7 +428,8 @@ const TimesheetHistory = () => {
         body: tableData,
         theme: 'grid',
         styles: { fontSize: 8 },
-        headStyles: { fillColor: [59, 130, 246] }
+        headStyles: { fillColor: [38, 39, 96] }
+
       });
     });
     
@@ -485,7 +486,8 @@ const TimesheetHistory = () => {
         body: tableData,
         theme: 'grid',
         styles: { fontSize: 8 },
-        headStyles: { fillColor: [59, 130, 246] }
+        headStyles: { fillColor: [38, 39, 96] }
+
       });
       
       // Add monthly total
@@ -539,8 +541,9 @@ const TimesheetHistory = () => {
             </button>
             <button
               onClick={() => setShowDownloadModal(true)}
-              className="px-4 py-2 bg-blue-700 text-white rounded text-sm font-medium hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 flex-1 md:flex-none"
+              className="px-4 py-2 bg-[#262760] text-white rounded text-sm font-medium hover:bg-[#1e2050] transition-colors flex items-center justify-center gap-2 flex-1 md:flex-none"
             >
+
               <Download className="w-4 h-4" />
               Download Report
             </button>
@@ -627,17 +630,18 @@ const TimesheetHistory = () => {
         {filteredTimesheets.length > 0 ? (
           <div className="overflow-x-auto">
             <table className="w-full min-w-max">
-              <thead className="bg-gray-50">
+              <thead className="bg-[#262760] text-white">
                 <tr>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700">Week</th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700">Projects</th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700">Project Code</th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700">Total Hours (Work + Break)</th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700">Status</th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700">Last Updated</th>
-                  <th className="p-4 text-left text-sm font-semibold text-gray-700">Actions</th>
+                  <th className="p-4 text-left text-sm font-semibold border-b border-gray-600">Week</th>
+                  <th className="p-4 text-left text-sm font-semibold border-b border-gray-600">Projects</th>
+                  <th className="p-4 text-left text-sm font-semibold border-b border-gray-600">Project Code</th>
+                  <th className="p-4 text-left text-sm font-semibold border-b border-gray-600">Total Hours (Work + Break)</th>
+                  <th className="p-4 text-left text-sm font-semibold border-b border-gray-600">Status</th>
+                  <th className="p-4 text-left text-sm font-semibold border-b border-gray-600">Last Updated</th>
+                  <th className="p-4 text-left text-sm font-semibold border-b border-gray-600">Actions</th>
                 </tr>
               </thead>
+
               <tbody>
                 {filteredTimesheets.map((t) => {
                   const projectList = Array.from(new Set((t.entries || []).map((e) => e.project))).filter(Boolean);
@@ -868,11 +872,12 @@ const TimesheetHistory = () => {
               </button>
               <button
                 onClick={handleDownload}
-                className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 transition-colors duration-200 flex items-center gap-2"
+                className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors duration-200 flex items-center gap-2"
               >
                 <Download className="w-4 h-4" />
                 Download
               </button>
+
             </div>
           </div>
         </div>
@@ -950,21 +955,22 @@ const TimesheetHistory = () => {
               <h3 className="text-lg font-semibold text-gray-800 mb-4">Time Entries</h3>
               <div className="overflow-x-auto">
                 <table className="w-full min-w-max">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-[#262760] text-white">
                     <tr>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Project</th>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Project Code</th>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Task</th>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Mon</th>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Tue</th>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Wed</th>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Thu</th>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Fri</th>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Sat</th>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Sun</th>
-                      <th className="p-3 text-left text-sm font-semibold text-gray-700">Total</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Project</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Project Code</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Task</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Mon</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Tue</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Wed</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Thu</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Fri</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Sat</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Sun</th>
+                      <th className="p-3 text-left text-sm font-semibold border-b border-gray-600">Total</th>
                     </tr>
                   </thead>
+
                   <tbody>
                     {(selectedTimesheet.entries || []).map((entry, index) => {
                       const hours = entry.hours || [0,0,0,0,0,0,0];
@@ -1059,10 +1065,11 @@ const TimesheetHistory = () => {
             <div className="p-6 border-t border-gray-200 bg-gray-50 flex justify-end">
               <button
                 onClick={handleCloseModal}
-                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors duration-200"
+                className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors duration-200"
               >
                 Close
               </button>
+
             </div>
           </div>
         </div>
@@ -1115,11 +1122,12 @@ const TimesheetHistory = () => {
                   messageDialogConfig.type === 'success' ? 'bg-green-600 hover:bg-green-700' :
                   messageDialogConfig.type === 'error' ? 'bg-red-600 hover:bg-red-700' :
                   messageDialogConfig.type === 'warning' ? 'bg-yellow-600 hover:bg-yellow-700' :
-                  'bg-blue-600 hover:bg-blue-700'
+                  'bg-[#262760] hover:bg-[#1e2050]'
                 }`}
               >
                 OK
               </button>
+
             </div>
           </div>
         </div>

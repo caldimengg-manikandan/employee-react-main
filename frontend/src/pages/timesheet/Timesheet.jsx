@@ -2009,8 +2009,9 @@ const Timesheet = () => {
 
           <button
             onClick={goToCurrentWeek}
-            className="px-4 py-2 bg-blue-700 text-white rounded text-sm font-medium hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 w-full md:w-auto"
+            className="px-4 py-2 bg-[#262760] text-white rounded text-sm font-medium hover:bg-[#1e2050] transition-colors flex items-center justify-center gap-2 w-full md:w-auto"
           >
+
             <Calendar className="w-4 h-4" />
             CURRENT WEEK
           </button>
@@ -2052,7 +2053,7 @@ const Timesheet = () => {
             <button
               onClick={addProjectRow}
               disabled={isLeaveAutoDraft || isSubmitted}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isLeaveAutoDraft || isSubmitted ? "bg-gray-400 cursor-not-allowed text-white" : "bg-blue-700 hover:bg-blue-800 text-white"}`}
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isLeaveAutoDraft || isSubmitted ? "bg-gray-400 cursor-not-allowed text-white" : "bg-[#262760] hover:bg-[#1e2050] text-white"}`}
               title={isSubmitted ? "Timesheet already submitted" : "Add Project Row"}
             >
               <Plus className="w-4 h-4" />
@@ -2064,13 +2065,14 @@ const Timesheet = () => {
               disabled={isAddLeaveDisabled()}
               className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isAddLeaveDisabled()
                 ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-700 hover:bg-blue-800 text-white"
+                : "bg-[#262760] hover:bg-[#1e2050] text-white"
                 }`}
               title={isAddLeaveDisabled() ? "Cannot add leave row (Limit reached or Permission active)" : "Add Leave Row"}
             >
               <Plus className="w-4 h-4" />
               ADD PERMISSION
             </button>
+
 
             <button
               onClick={() => {
@@ -2090,7 +2092,7 @@ const Timesheet = () => {
                 setShowSpecialModal(true);
               }}
               disabled={isSubmitted}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isSubmitted ? "bg-gray-400 cursor-not-allowed text-white" : "bg-blue-700 hover:bg-blue-800 text-white"}`}
+              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isSubmitted ? "bg-gray-400 cursor-not-allowed text-white" : "bg-[#262760] hover:bg-[#1e2050] text-white"}`}
               title={isSubmitted ? "Timesheet already submitted" : "Request Special Permission"}
             >
               <Plus className="w-4 h-4" />
@@ -2103,35 +2105,36 @@ const Timesheet = () => {
               disabled={loading || !hasSomeData() || isSubmitted || isLeaveAutoDraft}
               className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${loading || !hasSomeData() || isSubmitted || isLeaveAutoDraft
                 ? "bg-gray-400 cursor-not-allowed"
-                : "bg-blue-700 hover:bg-blue-800 text-white"
+                : "bg-[#262760] hover:bg-[#1e2050] text-white"
                 }`}
             >
               <Save className="w-4 h-4" />
               SAVE DRAFT
             </button>
+
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="min-w-max w-full border-collapse table-fixed">
-            <thead className="bg-gray-50">
+            <thead className="bg-[#262760] text-white">
               <tr>
-                <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 w-12">
+                <th className="p-3 text-left text-sm font-semibold border border-gray-600 w-12">
                   S.no
                 </th>
-                <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 min-w-60">
+                <th className="p-3 text-left text-sm font-semibold border border-gray-600 min-w-60">
                   Project Name
                 </th>
-                <th className="p-3 text-left text-sm font-semibold text-gray-700 border border-gray-200 min-w-48">
+                <th className="p-3 text-left text-sm font-semibold border border-gray-600 min-w-48">
                   Task / Leave Type
                 </th>
                 {days.map((day, index) => (
                   <th
                     key={day}
-                    className={`p-3 text-center text-sm font-semibold text-gray-700 border border-gray-200 w-32 ${isHoliday(weekDates[index]) ? 'bg-green-100' : ''}`}
+                    className={`p-3 text-center text-sm font-semibold border border-gray-600 w-32 ${isHoliday(weekDates[index]) ? 'bg-green-700 text-white' : ''}`}
                   >
                     <div>{day}</div>
-                    <div className="text-xs text-gray-500 font-normal">
+                    <div className={`${isHoliday(weekDates[index]) ? 'text-green-100' : 'text-violet-100'} text-xs font-normal`}>
                       {weekDates[index].toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
@@ -2139,14 +2142,14 @@ const Timesheet = () => {
                     </div>
                     <div className="mt-2">
                       {isHoliday(weekDates[index]) ? (
-                        <div className="text-xs font-bold text-green-800 break-words whitespace-normal px-1">
+                        <div className="text-xs font-bold text-white break-words whitespace-normal px-1">
                           {getHolidayOccasion(weekDates[index])}
                         </div>
                       ) : (
                         <select
                           value={dailyShiftTypes[index]}
                           onChange={(e) => updateDailyShift(index, e.target.value)}
-                          className="w-full p-2 border border-gray-300 rounded text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-full p-2 border border-gray-500 bg-[#1e2050] text-white rounded text-xs focus:outline-none focus:ring-2 focus:ring-violet-400"
                           disabled={isSubmitted || isLeaveAutoDraft}
                         >
                           <option value="">Select Shift</option>
@@ -2160,14 +2163,15 @@ const Timesheet = () => {
                     </div>
                   </th>
                 ))}
-                <th className="p-3 text-center text-sm font-semibold text-gray-700 border border-gray-200 w-24">
+                <th className="p-3 text-center text-sm font-semibold border border-gray-600 w-24">
                   Total
                 </th>
-                <th className="p-3 text-center text-sm font-semibold text-gray-700 border border-gray-200 w-20">
+                <th className="p-3 text-center text-sm font-semibold border border-gray-600 w-20">
                   Action
                 </th>
               </tr>
             </thead>
+
             <tbody>
               {timesheetRows.map((row, index) => (
                 <tr key={row.id} className="hover:bg-gray-50">
@@ -2546,9 +2550,10 @@ const Timesheet = () => {
             className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(!allDaysSatisfied || loading || isSubmitted || isLeaveAutoDraft)
               || mySpecials.some(s => s.status === 'PENDING')
               ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-700 hover:bg-blue-800 text-white"
+              : "bg-[#262760] hover:bg-[#1e2050] text-white"
               }`}
           >
+
             {loading ? (
               <>
                 <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -2645,7 +2650,8 @@ const Timesheet = () => {
             <div className="p-4 border-t flex justify-end gap-2">
               <button className="px-4 py-2 rounded border" onClick={() => setShowSpecialModal(false)}>Cancel</button>
               <button
-                className={`px-4 py-2 rounded text-white ${!spCalculation.allowed ? 'bg-gray-400 cursor-not-allowed' : 'bg-blue-700 hover:bg-blue-800'}`}
+                className={`px-4 py-2 rounded text-white ${!spCalculation.allowed ? 'bg-gray-400 cursor-not-allowed' : 'bg-[#262760] hover:bg-[#1e2050]'}`}
+
                 disabled={!spCalculation.allowed}
                 onClick={async () => {
                   if (!spDate || !spReason.trim()) {
@@ -2767,10 +2773,11 @@ const Timesheet = () => {
               </button>
               <button
                 onClick={confirmSaveAndNavigate}
-                className="px-4 py-2 bg-blue-700 text-white rounded hover:bg-blue-800 transition-colors"
+                className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors"
               >
                 Save Draft
               </button>
+
             </div>
           </div>
         </div>
@@ -2789,10 +2796,11 @@ const Timesheet = () => {
             <div className="flex justify-end">
               <button
                 onClick={() => setShowErrorDialog(false)}
-                className={`px-4 py-2 text-white rounded transition-colors ${errorTitle.toLowerCase().includes('success') ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-700 hover:bg-blue-800'}`}
+                className={`px-4 py-2 text-white rounded transition-colors ${errorTitle.toLowerCase().includes('success') ? 'bg-green-600 hover:bg-green-700' : 'bg-[#262760] hover:bg-[#1e2050]'}`}
               >
                 OK
               </button>
+
             </div>
           </div>
         </div>

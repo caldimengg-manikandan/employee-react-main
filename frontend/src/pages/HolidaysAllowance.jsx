@@ -260,6 +260,18 @@ const HolidaysAllowance = () => {
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen relative">
+      <style>{`
+        /* Remove arrows/spinners from number inputs */
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
+        input[type=number] {
+          -moz-appearance: textfield;
+        }
+      `}</style>
+
       {/* Custom Popup Modal */}
       {popupConfig.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">

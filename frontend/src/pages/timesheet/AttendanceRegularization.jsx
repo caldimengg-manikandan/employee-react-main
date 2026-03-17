@@ -360,16 +360,17 @@ const AttendanceRegularization = () => {
       borderSpacing: 0,
     },
     th: {
-      backgroundColor: "#f7fafc",
+      backgroundColor: "#262760",
       textAlign: "left",
       padding: "12px",
       fontSize: "12px",
-      color: "#4a5568",
-      borderBottom: "1px solid #e2e8f0",
+      color: "#ffffff",
+      borderBottom: "1px solid #1e2050",
       position: "sticky",
       top: 0,
       zIndex: 1,
     },
+
     td: {
       padding: "12px",
       borderBottom: "1px solid #edf2f7",
@@ -404,13 +405,15 @@ const AttendanceRegularization = () => {
       alignItems: "center",
       gap: "6px",
       padding: "6px 10px",
-      backgroundColor: "#3182ce",
+      backgroundColor: "#262760",
       color: "#fff",
       borderRadius: "6px",
       border: "none",
       cursor: "pointer",
       fontSize: "12px",
+      transition: "background-color 0.2s",
     },
+
     editButtonDisabled: {
       backgroundColor: "#a0aec0",
       cursor: "not-allowed",
@@ -491,11 +494,13 @@ const AttendanceRegularization = () => {
     btnPrimary: {
       padding: "8px 12px",
       borderRadius: "6px",
-      backgroundColor: "#3182ce",
+      backgroundColor: "#262760",
       color: "#fff",
       border: "none",
       cursor: "pointer",
+      transition: "background-color 0.2s",
     },
+
     summary: {
       marginTop: "10px",
       color: "#4a5568",
@@ -571,9 +576,12 @@ const AttendanceRegularization = () => {
                         <button
                           style={styles.editButton}
                           onClick={() => openEdit(rec)}
+                          onMouseEnter={(e) => e.target.style.backgroundColor = "#1e2050"}
+                          onMouseLeave={(e) => e.target.style.backgroundColor = "#262760"}
                         >
                           <Edit size={14} /> Edit
                         </button>
+
                       );
                     })()}
                   </td>
@@ -663,9 +671,20 @@ const AttendanceRegularization = () => {
                 }}
                 disabled={!inDate || !inTime || !outDate || !outTime}
                 onClick={saveEdit}
+                onMouseEnter={(e) => {
+                  if (!(!inDate || !inTime || !outDate || !outTime)) {
+                    e.target.style.backgroundColor = "#1e2050";
+                  }
+                }}
+                onMouseLeave={(e) => {
+                  if (!(!inDate || !inTime || !outDate || !outTime)) {
+                    e.target.style.backgroundColor = "#262760";
+                  }
+                }}
               >
                 Save
               </button>
+
             </div>
           </div>
         </div>

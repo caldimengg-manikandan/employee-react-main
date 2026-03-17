@@ -83,20 +83,21 @@ const AdminSpecialPermission = () => {
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full table-auto border-collapse">
-                <thead className="bg-gray-50">
+                <thead className="bg-[#262760] text-white">
                   <tr>
-                    <th className="p-2 border text-left text-sm">Employee</th>
-                    <th className="p-2 border text-left text-sm">Location</th>
-                    <th className="p-2 border text-left text-sm">Division</th>
-                    <th className="p-2 border text-left text-sm">Prev Day On-Premises</th>
-                    <th className="p-2 border text-left text-sm">Date</th>
-                    <th className="p-2 border text-left text-sm">Shift</th>
-                    <th className="p-2 border text-left text-sm">Shortage Hours</th>
-                    <th className="p-2 border text-left text-sm">Reason</th>
-                    <th className="p-2 border text-left text-sm">Status</th>
-                    <th className="p-2 border text-left text-sm">Actions</th>
+                    <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Employee</th>
+                    <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Location</th>
+                    <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Division</th>
+                    <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Prev Day On-Premises</th>
+                    <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Date</th>
+                    <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Shift</th>
+                    <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Shortage Hours</th>
+                    <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Reason</th>
+                    <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Status</th>
+                    <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Actions</th>
                   </tr>
                 </thead>
+
                 <tbody>
                   {filteredItems.map((it) => {
                     const d = new Date(it.date);

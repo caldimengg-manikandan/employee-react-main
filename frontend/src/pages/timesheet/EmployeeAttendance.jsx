@@ -421,14 +421,15 @@ export default function AttendanceFetcher() {
         }
 
         .btn-primary {
-          background: #2563eb;
+          background: #262760;
           color: white;
-          border-color: #2563eb;
+          border-color: #262760;
         }
 
         .btn-primary:hover {
-          background: #1d4ed8;
+          background: #1e2050;
         }
+
 
         .btn-secondary {
           background: #6b7280;
@@ -475,14 +476,15 @@ export default function AttendanceFetcher() {
         }
 
         .attendance-table th {
-          background: #f8f9fa;
+          background: #262760;
           padding: 12px;
           text-align: left;
           font-weight: 500;
-          color: #374151;
-          border-bottom: 1px solid #e5e7eb;
-          border-top: 1px solid #e5e7eb;
+          color: white;
+          border-bottom: 1px solid #1e2050;
+          border-top: 1px solid #1e2050;
         }
+
 
         .attendance-table td {
           padding: 12px;
@@ -541,10 +543,11 @@ export default function AttendanceFetcher() {
           width: 24px;
           height: 24px;
           border: 2px solid #e5e7eb;
-          border-top: 2px solid #2563eb;
+          border-top: 2px solid #262760;
           border-radius: 50%;
           animation: spin 1s linear infinite;
           margin: 0 auto 12px;
+
         }
 
         .empty-state {

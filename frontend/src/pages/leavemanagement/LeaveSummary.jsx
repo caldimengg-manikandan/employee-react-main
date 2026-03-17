@@ -302,8 +302,9 @@ const LeaveSummary = () => {
 
   const refreshButtonStyle = {
     padding: '10px 20px',
-    backgroundColor: '#3498db',
+    backgroundColor: '#262760',
     color: 'white',
+
     border: 'none',
     borderRadius: '6px',
     cursor: 'pointer',
@@ -387,8 +388,9 @@ const LeaveSummary = () => {
     color: 'white',
     position: isMobile ? 'static' : 'sticky',
     top: isMobile ? undefined : 0,
-    backgroundColor: '#3498db', // Single blue color for all headers
+    backgroundColor: '#262760', // Sidebar blue color for all headers
     zIndex: 10
+
   };
 
   const tdStyle = {
@@ -446,8 +448,9 @@ const LeaveSummary = () => {
 
   const downloadButtonStyle = {
     padding: '12px 24px',
-    backgroundColor: '#3498db',
+    backgroundColor: '#262760',
     color: 'white',
+
     border: 'none',
     borderRadius: '6px',
     cursor: 'pointer',
@@ -480,8 +483,9 @@ const LeaveSummary = () => {
     fontWeight: '600',
     textAlign: 'right',
     color: '#2c3e50',
-    borderLeft: '4px solid #3498db'
+    borderLeft: '4px solid #262760'
   };
+
 
   const Spinner = ({ color = '#fff' }) => (
     <svg width="14" height="14" viewBox="0 0 24 24" style={{ display: 'inline-block' }}>
@@ -690,8 +694,9 @@ const LeaveSummary = () => {
             }}
             onClick={handleRefresh}
             disabled={isRefreshing}
-            onMouseOver={(e) => !isRefreshing && (e.target.style.backgroundColor = '#2980b9')}
-            onMouseOut={(e) => !isRefreshing && (e.target.style.backgroundColor = '#3498db')}
+            onMouseOver={(e) => !isRefreshing && (e.target.style.backgroundColor = '#1e2050')}
+            onMouseOut={(e) => !isRefreshing && (e.target.style.backgroundColor = '#262760')}
+
           >
             {isRefreshing ? (
               <>
@@ -707,8 +712,9 @@ const LeaveSummary = () => {
           <button
             style={{ ...downloadButtonStyle, width: isMobile ? '100%' : undefined }}
             onClick={handleDownloadExcel}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#2980b9'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#3498db'}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#1e2050'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#262760'}
+
           >
             Download Excel Report
           </button>
@@ -740,7 +746,7 @@ const LeaveSummary = () => {
                       <span style={{
                         fontFamily: 'monospace',
                         fontWeight: '600',
-                        color: '#3498db'
+                        color: '#262760'
                       }}>
                         {app.employeeId}
                       </span>

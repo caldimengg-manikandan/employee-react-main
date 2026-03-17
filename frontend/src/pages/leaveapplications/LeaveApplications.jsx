@@ -704,12 +704,13 @@ import Notification from '../../components/Notifications/Notification';
               type="button"
               onClick={() => setLeaveData(prev => ({ ...prev, leaveType: type.value }))}
               className={`p-4 rounded-lg border-2 transition flex items-center justify-center gap-3 ${leaveData.leaveType === type.value
-                ? 'border-blue-500 bg-blue-50'
+                ? 'border-[#262760] bg-blue-50'
                 : 'border-gray-200 hover:border-gray-300'}`}
             >
               <div className={`p-2 rounded ${leaveData.leaveType === type.value ? 'bg-blue-100' : 'bg-gray-100'}`}>
                 {getLeaveTypeIcon(type.value)}
               </div>
+
               <div className="font-medium text-gray-900">{type.label}</div>
             </button>
           ))}
@@ -726,7 +727,8 @@ import Notification from '../../components/Notifications/Notification';
             name="bereavementRelation"
             value={leaveData.bereavementRelation}
             onChange={handleInputChange}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760] outline-none transition"
+
             required
           >
             <option value="">Select Relationship</option>
@@ -754,7 +756,8 @@ import Notification from '../../components/Notifications/Notification';
             onPaste={(e) => e.preventDefault()}
             onDrop={(e) => e.preventDefault()}
             onChange={handleInputChange}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760] outline-none transition"
+
             required
           />
         </div>
@@ -771,9 +774,10 @@ import Notification from '../../components/Notifications/Notification';
                 type="button"
                 onClick={() => handleDayTypeChange(type)}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition ${leaveData.dayType === type
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-[#262760] text-white'
                   : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
               >
+
                 {type}
               </button>
             ))}
@@ -815,7 +819,8 @@ import Notification from '../../components/Notifications/Notification';
             name="supportingDocuments"
             onChange={handleInputChange}
             accept=".pdf,.jpg,.jpeg,.png"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760] outline-none transition"
+
             required
           />
           <p className="text-xs text-gray-500 mt-1">
@@ -828,10 +833,11 @@ import Notification from '../../components/Notifications/Notification';
       <button
         type="submit"
         disabled={submitting}
-        className={`w-full text-white font-medium py-3 rounded-lg transition duration-200 ${submitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
+        className={`w-full text-white font-medium py-3 rounded-lg transition duration-200 ${submitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-[#262760] hover:bg-[#1e2050]'}`}
       >
         {submitting ? (editingLeaveId ? 'Updating...' : 'Submitting...') : (editingLeaveId ? 'Update Leave Application' : 'Submit Leave Application')}
       </button>
+
     </form>
   );
 
@@ -849,9 +855,10 @@ import Notification from '../../components/Notifications/Notification';
           <div className="lg:col-span-2">
             <div className="bg-white rounded-xl shadow-md p-6">
               <h2 className="text-xl font-semibold text-gray-800 mb-6 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-blue-600" />
+                <Calendar className="w-5 h-5 text-[#262760]" />
                 Submit Leave Request
               </h2>
+
 
               {leaveFormContent}
             </div>
@@ -865,16 +872,17 @@ import Notification from '../../components/Notifications/Notification';
 
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50">
+                  <thead className="bg-[#262760]">
                     <tr>
-                      <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Leave Type</th>
-                      <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Dates</th>
-                      <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Days</th>
-                      <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                      <th className="py-3 px-6 text-left text-xs font-medium text-white uppercase tracking-wider">Leave Type</th>
+                      <th className="py-3 px-6 text-left text-xs font-medium text-white uppercase tracking-wider">Dates</th>
+                      <th className="py-3 px-6 text-left text-xs font-medium text-white uppercase tracking-wider">Days</th>
+                      <th className="py-3 px-6 text-left text-xs font-medium text-white uppercase tracking-wider">Actions</th>
 
-                      <th className="py-3 px-6 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="py-3 px-6 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
+
                   <tbody className="divide-y divide-gray-200">
                     {leaveHistory.map(leave => (
                       <tr key={leave.id} className="hover:bg-gray-50 transition">
@@ -898,19 +906,21 @@ import Notification from '../../components/Notifications/Notification';
                           </div>
                         </td>
                         <td className="py-4 px-6">
-                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-[#262760]">
                             {leave.totalDays} day{leave.totalDays !== 1 ? 's' : ''}
                           </span>
+
                         </td>
                         <td className="py-4 px-6">
                           <div className="flex items-center gap-4">
                             <button
                               onClick={() => handleView(leave)}
-                              className="text-blue-600 hover:text-blue-800"
+                              className="text-[#262760] hover:text-[#1e2050]"
                               title="View"
                             >
                               <Eye className="w-5 h-5" />
                             </button>
+
                             <button
                               onClick={() => handleEdit(leave)}
                               disabled={leave.status !== 'Pending'}
@@ -1013,14 +1023,15 @@ import Notification from '../../components/Notifications/Notification';
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.SL} days</div>
                 </div>
 
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div className="p-4 bg-blue-50 rounded-lg border border-[#262760]">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="font-medium text-gray-900">Privilege Leave (PL)</h3>
-                    <Calendar className="w-5 h-5 text-blue-600" />
+                    <Calendar className="w-5 h-5 text-[#262760]" />
                   </div>
-                  <div className="text-3xl font-bold text-blue-600">{getAvailableBalance('PL')} days</div>
+                  <div className="text-3xl font-bold text-[#262760]">{getAvailableBalance('PL')} days</div>
                   <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.PL} days</div>
                 </div>
+
 
                 <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
                   <div className="flex justify-between items-center mb-2">
@@ -1059,10 +1070,11 @@ import Notification from '../../components/Notifications/Notification';
           <div className="flex justify-end gap-3">
             <button
               onClick={() => setWarningModal({ isOpen: false, message: '' })}
-              className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition"
+              className="px-4 py-2 text-white bg-[#262760] hover:bg-[#1e2050] rounded-lg transition"
             >
               OK
             </button>
+
           </div>
         </div>
       </Modal>
@@ -1113,10 +1125,11 @@ import Notification from '../../components/Notifications/Notification';
           <div className="flex justify-end gap-3">
             <button
               onClick={() => setSubmitModal({ isOpen: false, leave: null })}
-              className="px-4 py-2 text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition"
+              className="px-4 py-2 text-white bg-[#262760] hover:bg-[#1e2050] rounded-lg transition"
             >
               OK
             </button>
+
           </div>
         </div>
       </Modal>

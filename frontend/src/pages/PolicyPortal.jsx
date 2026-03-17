@@ -444,7 +444,8 @@ const AdminPolicyPortal = () => {
                                 }
                               }}
                               disabled={isSaving}
-                              className={`p-2 ${isSaving ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:text-blue-600'}`}
+                              className={`p-2 ${isSaving ? 'text-gray-400 cursor-not-allowed' : 'text-gray-600 hover:text-[#262760]'}`}
+
                               title={editingTitle ? 'Save Title' : 'Edit Title'}
                             >
                               {editingTitle ? (
@@ -475,8 +476,9 @@ const AdminPolicyPortal = () => {
                         <textarea
                           value={content}
                           onChange={handleContentChange}
-                          className={`w-full h-[400px] p-4 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono text-sm ${contentError ? 'border-red-500' : 'border-gray-300'
+                          className={`w-full h-[400px] p-4 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760] font-mono text-sm ${contentError ? 'border-red-500' : 'border-gray-300'
                             }`}
+
                           placeholder="# Enter policy content here"
                         />
                         {contentError && (
@@ -508,8 +510,9 @@ const AdminPolicyPortal = () => {
                             disabled={isSaving}
                             className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg ${isSaving
                               ? 'bg-gray-400 cursor-not-allowed'
-                              : 'bg-blue-600 hover:bg-blue-700'
+                              : 'bg-[#262760] hover:bg-[#1e2050]'
                               } text-white transition-colors`}
+
                           >
                             {isSaving ? (
                               <>
@@ -553,8 +556,9 @@ const AdminPolicyPortal = () => {
                   {!isReadOnly && (
                     <button
                       onClick={handleAddPolicy}
-                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                      className="inline-flex items-center px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050]"
                     >
+
                       <PlusIcon className="h-4 w-4 mr-2" />
                       Create New Policy
                     </button>
@@ -577,17 +581,20 @@ const AdminPolicyPortal = () => {
                     <div
                       key={policy._id}
                       className={`group flex items-center justify-between p-3 rounded-lg cursor-pointer transition-colors ${activePolicy?._id === policy._id
-                        ? 'bg-blue-50 border border-blue-200'
+                        ? 'bg-blue-50 border border-[#262760]'
                         : 'hover:bg-gray-50 border border-transparent'
                         }`}
+
                       onClick={() => handleSelectPolicy(policy)}
                     >
                       <div className="flex items-center">
-                        <DocumentTextIcon className={`h-4 w-4 mr-3 ${activePolicy?._id === policy._id ? 'text-blue-600' : 'text-gray-400'
+                        <DocumentTextIcon className={`h-4 w-4 mr-3 ${activePolicy?._id === policy._id ? 'text-[#262760]' : 'text-gray-400'
                           }`} />
+
                         <div>
-                          <div className={`text-sm font-medium ${activePolicy?._id === policy._id ? 'text-blue-700' : 'text-gray-700'
+                          <div className={`text-sm font-medium ${activePolicy?._id === policy._id ? 'text-[#262760]' : 'text-gray-700'
                             }`}>
+
                             {policy.title}
                           </div>
                           <div className="text-xs text-gray-500">
@@ -624,11 +631,12 @@ const AdminPolicyPortal = () => {
                   {!isReadOnly && (
                     <button
                       onClick={handleAddPolicy}
-                      className="w-full flex items-center justify-center px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors group"
+                      className="w-full flex items-center justify-center px-4 py-2.5 border-2 border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-[#262760] hover:text-[#262760] hover:bg-blue-50 transition-colors group"
                     >
-                      <PlusIcon className="h-4 w-4 mr-2 group-hover:text-blue-600" />
+                      <PlusIcon className="h-4 w-4 mr-2 group-hover:text-[#262760]" />
                       <span className="text-sm font-medium">Add New Policy</span>
                     </button>
+
                   )}
                 </div>
               </div>
@@ -712,8 +720,9 @@ const AdminPolicyPortal = () => {
 
         .policy-content li:before {
           content: "•";
-          color: #3b82f6;
+          color: #262760;
           font-weight: bold;
+
           position: absolute;
           left: -1rem;
         }

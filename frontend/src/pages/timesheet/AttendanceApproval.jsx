@@ -106,14 +106,16 @@ const AttendanceApproval = () => {
     controls: { display: "flex", gap: "8px", alignItems: "center" },
     select: { padding: "8px", border: "1px solid #e2e8f0", borderRadius: "6px" },
     table: { width: "100%", borderCollapse: "collapse", backgroundColor: "#fff", borderRadius: "8px", overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)" },
-    th: { backgroundColor: "#f7fafc", textAlign: "left", padding: "12px", fontSize: "12px", color: "#4a5568", borderBottom: "1px solid #e2e8f0" },
+    th: { backgroundColor: "#262760", textAlign: "left", padding: "12px", fontSize: "12px", color: "#ffffff", borderBottom: "1px solid #1e2050" },
+
     td: { padding: "12px", borderBottom: "1px solid #edf2f7", fontSize: "14px", color: "#1a202c" },
     actions: { display: "flex", gap: "8px" },
     btn: { padding: "6px 10px", borderRadius: "6px", fontSize: "12px", cursor: "pointer" },
     approveBtn: { backgroundColor: "#16a34a", color: "#fff", border: "none" },
     rejectBtn: { backgroundColor: "#ef4444", color: "#fff", border: "none" },
     btnSecondary: { padding: "8px 12px", borderRadius: "6px", border: "1px solid #e2e8f0", backgroundColor: "#fff", cursor: "pointer" },
-    btnPrimary: { padding: "8px 12px", borderRadius: "6px", backgroundColor: "#3182ce", color: "#fff", border: "none", cursor: "pointer" },
+    btnPrimary: { padding: "8px 12px", borderRadius: "6px", backgroundColor: "#262760", color: "#fff", border: "none", cursor: "pointer", transition: "background-color 0.2s" },
+
     completedText: { fontSize: "12px", color: "#4a5568" },
     modalOverlay: { position: "fixed", inset: 0, backgroundColor: "rgba(0,0,0,0.4)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
     modalContent: { width: "420px", backgroundColor: "#fff", borderRadius: "10px", boxShadow: "0 10px 25px rgba(0,0,0,0.2)", overflow: "hidden" },
@@ -165,7 +167,20 @@ const AttendanceApproval = () => {
             <option value="Approved">Approved</option>
             <option value="Rejected">Rejected</option>
           </select>
-          <button style={{ ...styles.btn, ...styles.btnSecondary }} onClick={load} disabled={loading}>Refresh</button>
+          <button 
+            style={{ ...styles.btn, ...styles.btnSecondary }} 
+            onClick={load} 
+            disabled={loading}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = "#f7fafc";
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = "#fff";
+            }}
+          >
+            Refresh
+          </button>
+
         </div>
       </div>
 
@@ -252,9 +267,12 @@ const AttendanceApproval = () => {
                     await reject(id);
                   }
                 }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = "#1e2050"}
+                onMouseLeave={(e) => e.target.style.backgroundColor = "#262760"}
               >
                 Confirm
               </button>
+
             </div>
           </div>
         </div>
