@@ -595,26 +595,30 @@ const SalarySlips = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <header>
+      <header className={showPayslip ? "sticky top-0 z-50 bg-gray-50/90 backdrop-blur border-b border-gray-200 print:hidden" : "print:hidden"}>
+        {showPayslip && (
+          <div className="max-w-[1100px] mx-auto px-3 sm:px-4 py-3 flex items-center justify-between">
+            <button
+              onClick={handleBackToSelection}
+              className="px-3 py-2 bg-white hover:bg-gray-50 text-gray-800 rounded-md font-medium transition-colors border border-gray-300 flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 md:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M7.707 14.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L4.414 9H18a1 1 0 110 2H4.414l3.293 3.293a1 1 0 010 1.414z" clipRule="evenodd" />
+              </svg>
+              <span className="text-xs md:text-sm">Back</span>
+            </button>
 
-
-        <div className="flex items-center gap-2">
-          {showPayslip && (
-            <>
-
-              <button
-                onClick={handleDownloadPDF}
-                className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 md:mr-2" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
-                </svg>
-                <span className="text-xs md:text-sm">Download PDF</span>
-              </button>
-            </>
-          )}
-
-        </div>
+            <button
+              onClick={handleDownloadPDF}
+              className="px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-md font-medium transition-colors flex items-center"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1 md:mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              <span className="text-xs md:text-sm">Download PDF</span>
+            </button>
+          </div>
+        )}
       </header>
 
       <div className="w-full px-3 sm:px-4 py-6 sm:py-8 print:py-0 print:px-0 print:w-full">
