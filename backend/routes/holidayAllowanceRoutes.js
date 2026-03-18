@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const auth = require("../middleware/auth");
 const HolidayAllowance = require("../models/HolidayAllowance");
+const Employee = require("../models/Employee");
 
 router.post("/bulk-save", auth, async (req, res) => {
   try {
@@ -16,6 +17,21 @@ router.post("/bulk-save", auth, async (req, res) => {
     }
 
     const saved = [];
+
+    const employeeIds = Array.from(
+      new Set(
+        allowances
+          .map((a) => a?.employeeId)
+          .filter((id) => typeof id === "string" && id.trim())
+      )
+    );
+    const employees = employeeIds.length
+      ? await Employee.find(
+          { employeeId: { $in: employeeIds } },
+          { employeeId: 1, bankName: 1, bankAccount: 1, ifsc: 1, branch: 1 }
+        ).lean()
+      : [];
+    const employeeMap = new Map(employees.map((e) => [e.employeeId, e]));
 
     for (const item of allowances) {
       if (!item.employeeId) {
@@ -37,12 +53,17 @@ router.post("/bulk-save", auth, async (req, res) => {
       const calculatedShiftTotal = Math.round((Number(item.shiftAllottedAmount) || 0) * (Number(item.shiftDays) || 0));
       const calculatedTotalAmount = calculatedHolidayTotal + calculatedShiftTotal;
 
+      const emp = employeeMap.get(item.employeeId);
+      const latestAccountNumber =
+        (typeof emp?.bankAccount === "string" && emp.bankAccount.trim() ? emp.bankAccount.trim() : "") ||
+        item.accountNumber;
+
       const update = {
         $set: {
           employeeId: item.employeeId,
           employeeName: item.employeeName,
           location: item.location,
-          accountNumber: item.accountNumber,
+          accountNumber: latestAccountNumber,
           grossSalary: Number(item.grossSalary) || 0,
           month: Number(month),
           year: Number(year),
@@ -94,12 +115,43 @@ router.get("/", auth, async (req, res) => {
       filter.location = location;
     }
 
-    const records = await HolidayAllowance.find(filter).sort({ employeeId: 1 });
+    const records = await HolidayAllowance.find(filter).sort({ employeeId: 1 }).lean();
+    const employeeIds = Array.from(
+      new Set(
+        records
+          .map((r) => r?.employeeId)
+          .filter((id) => typeof id === "string" && id.trim())
+      )
+    );
+    const employees = employeeIds.length
+      ? await Employee.find(
+          { employeeId: { $in: employeeIds } },
+          { employeeId: 1, bankName: 1, bankAccount: 1, ifsc: 1, branch: 1 }
+        ).lean()
+      : [];
+    const employeeMap = new Map(employees.map((e) => [e.employeeId, e]));
+
+    const mergedRecords = records.map((r) => {
+      const emp = employeeMap.get(r.employeeId);
+      const bankAccount =
+        typeof emp?.bankAccount === "string" && emp.bankAccount.trim()
+          ? emp.bankAccount.trim()
+          : r.accountNumber || "";
+
+      return {
+        ...r,
+        accountNumber: bankAccount,
+        bankName: emp?.bankName || "",
+        bankAccount,
+        ifsc: emp?.ifsc || "",
+        branch: emp?.branch || "",
+      };
+    });
 
     return res.json({
       success: true,
-      data: records,
-      count: records.length,
+      data: mergedRecords,
+      count: mergedRecords.length,
     });
   } catch (error) {
     return res.status(500).json({

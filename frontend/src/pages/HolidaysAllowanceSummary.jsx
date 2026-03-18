@@ -144,6 +144,8 @@ const HolidaysAllowanceSummary = () => {
       'S.No', 
       'Employee ID', 
       'Employee Name', 
+      'Bank Name',
+      'IFSC',
       'Account Number', 
       'Location', 
       'Holiday Days', 
@@ -158,6 +160,8 @@ const HolidaysAllowanceSummary = () => {
       index + 1,
       row.employeeId,
       row.employeeName,
+      row.bankName || '',
+      row.ifsc || '',
       row.accountNumber,
       row.location,
       row.holidayDays ?? 0,
@@ -310,6 +314,8 @@ const HolidaysAllowanceSummary = () => {
                 <th className="px-4 py-3">S.No</th>
                 <th className="px-4 py-3">Employee ID</th>
                 <th className="px-4 py-3">Employee Name</th>
+                <th className="px-4 py-3">Bank Name</th>
+                <th className="px-4 py-3">IFSC</th>
                 <th className="px-4 py-3">Account Number</th>
                 <th className="px-4 py-3">Location</th>
                 <th className="px-4 py-3">Month</th>
@@ -325,7 +331,7 @@ const HolidaysAllowanceSummary = () => {
               {records.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={12}
+                    colSpan={14}
                     className="px-6 py-10 text-center text-gray-500"
                   >
                     <div className="flex flex-col items-center gap-2">
@@ -345,6 +351,8 @@ const HolidaysAllowanceSummary = () => {
                       {row.employeeId}
                     </td>
                     <td className="px-4 py-3">{row.employeeName}</td>
+                    <td className="px-4 py-3">{row.bankName || '-'}</td>
+                    <td className="px-4 py-3 font-mono">{row.ifsc || '-'}</td>
                     <td className="px-4 py-3 font-mono">{row.accountNumber}</td>
                     <td className="px-4 py-3">{row.location}</td>
                     <td className="px-4 py-3">

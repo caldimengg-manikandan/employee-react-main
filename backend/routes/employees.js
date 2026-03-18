@@ -2,6 +2,7 @@
 const express = require('express');
 const router = express.Router();
 const Employee = require('../models/Employee');
+const HolidayAllowance = require('../models/HolidayAllowance');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Team = require('../models/Team');
@@ -53,6 +54,9 @@ router.get('/', auth, async (req, res) => {
         'position': 1,
         'division': 1,
         'branch': 1,
+        'bankName': 1,
+        'bankAccount': 1,
+        'ifsc': 1,
         'location': 1,
         'dateOfJoining': 1,
         'dateOfBirth': 1,
@@ -71,6 +75,10 @@ router.get('/', auth, async (req, res) => {
         'department': 1,
         'designation': 1,
         'position': 1,
+        'bankName': 1,
+        'bankAccount': 1,
+        'ifsc': 1,
+        'branch': 1,
         '_id': 1
       }).sort({ name: 1 });
       return res.json(employees);
@@ -310,6 +318,13 @@ router.put('/me', auth, async (req, res) => {
     );
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
 
+    if (typeof employee.bankAccount === "string" && employee.bankAccount.trim()) {
+      await HolidayAllowance.updateMany(
+        { employeeId: employee.employeeId },
+        { $set: { accountNumber: employee.bankAccount.trim() } }
+      );
+    }
+
     // Sync email change to User record if it exists
     if (data.email && data.email !== req.user.email) {
       await User.findByIdAndUpdate(req.user._id, { email: data.email });
@@ -392,6 +407,13 @@ router.put('/:id', auth, async (req, res) => {
       data,
       { new: true, runValidators: true }
     );
+
+    if (employee && typeof employee.bankAccount === "string" && employee.bankAccount.trim()) {
+      await HolidayAllowance.updateMany(
+        { employeeId: employee.employeeId },
+        { $set: { accountNumber: employee.bankAccount.trim() } }
+      );
+    }
 
     // Sync email/employeeId change to User record
     const emailChanged = data.email && data.email !== oldEmployee.email;

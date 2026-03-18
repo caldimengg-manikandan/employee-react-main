@@ -153,8 +153,15 @@ const HolidaysAllowance = () => {
           employeeId: emp.employeeId,
           employeeName: emp.name || emp.employeename,
           location: payroll?.location || emp.location || '-',
+          bankName: saved?.bankName || emp.bankName || payroll?.bankName || '-',
+          ifsc: saved?.ifsc || saved?.ifscCode || emp.ifsc || payroll?.ifscCode || '-',
           accountNumber:
-            payroll?.accountNumber || emp.bankAccount || emp.bankDetails?.accountNumber || '-',
+            saved?.bankAccount ||
+            saved?.accountNumber ||
+            payroll?.accountNumber ||
+            emp.bankAccount ||
+            emp.bankDetails?.accountNumber ||
+            '-',
           grossSalary: saved?.grossSalary ?? gross,
           
           // Holiday Working Fields
@@ -388,6 +395,8 @@ const HolidaysAllowance = () => {
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Employee ID</th>
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Employee Name</th>
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Location</th>
+                <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Bank Name</th>
+                <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">IFSC</th>
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Account Number</th>
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Gross Salary</th>
                 <th colSpan="3" className="px-4 py-2 text-center border-r border-gray-500 border-b border-gray-500">
@@ -410,7 +419,7 @@ const HolidaysAllowance = () => {
             <tbody>
               {tableData.length === 0 ? (
                 <tr>
-                  <td colSpan="13" className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan="15" className="px-6 py-12 text-center text-gray-500">
                     <div className="flex flex-col items-center justify-center">
                       <span className="text-4xl mb-2">📋</span>
                       <p>Select location and click "Load Employees" to load data</p>
@@ -424,6 +433,8 @@ const HolidaysAllowance = () => {
                     <td className="px-4 py-3 border-r font-medium text-gray-900">{row.employeeId}</td>
                     <td className="px-4 py-3 border-r">{row.employeeName}</td>
                     <td className="px-4 py-3 border-r">{row.location}</td>
+                    <td className="px-4 py-3 border-r">{row.bankName}</td>
+                    <td className="px-4 py-3 border-r font-mono">{row.ifsc}</td>
                     <td className="px-4 py-3 border-r font-mono">{row.accountNumber}</td>
                     <td className="px-4 py-3 border-r text-right">{row.grossSalary?.toLocaleString()}</td>
                     
