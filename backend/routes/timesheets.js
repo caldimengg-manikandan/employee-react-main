@@ -107,9 +107,7 @@ async function sendTimesheetApprovalRequestEmail(user, sheet) {
             <thead>
               <tr>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Project</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Project Code</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Task</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Type</th>
                 ${dayNames.map(d => `<th style=\"text-align:right;padding:8px;border-bottom:1px solid #eee;color:#666;\">${d}</th>`).join("")}
                 <th style="text-align:right;padding:8px;border-bottom:1px solid #eee;color:#666;">Total</th>
               </tr>
@@ -118,23 +116,21 @@ async function sendTimesheetApprovalRequestEmail(user, sheet) {
               ${entries.map(e => { const hrs = Array.isArray(e.hours) ? e.hours : []; const rowTotal = hrs.reduce((a, b) => a + (Number(b) || 0), 0); return `
                   <tr>
                     <td style=\"padding:8px;color:#333;\">${e.project || '-'}</td>
-                    <td style=\"padding:8px;color:#333;\">${e.projectCode || '-'}</td>
                     <td style=\"padding:8px;color:#333;\">${e.task || '-'}</td>
-                    <td style=\"padding:8px;color:#333;\">${e.type || '-'}</td>
                     ${dayNames.map((_, i) => `<td style=\"text-align:right;padding:8px;color:#333;\">${toHHMM(hrs[i] || 0)}</td>`).join("")}
                     <td style=\"text-align:right;padding:8px;color:#333;font-weight:bold;\">${toHHMM(rowTotal)}</td>
                   </tr>
                 `; }).join("")}
               <tr>
-                <td colspan="${4 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Work Hours Total</td>
+                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Work Hours Total</td>
                 <td style="text-align:right;padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;">${toHHMM(workWeeklyTotal)}</td>
               </tr>
               <tr>
-                <td colspan="${4 + dayNames.length}" style="padding:8px;color:#333;border-top:1px solid #eee;text-align:right;">Break Hours Total</td>
+                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;border-top:1px solid #eee;text-align:right;">Break Hours Total</td>
                 <td style="text-align:right;padding:8px;color:#333;border-top:1px solid #eee;">${toHHMM(breakWeekly)}</td>
               </tr>
               <tr>
-                <td colspan="${4 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Total (Work + Break)</td>
+                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Total (Work + Break)</td>
                 <td style="text-align:right;padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;">${toHHMM(totalWithBreak)}</td>
               </tr>
             </tbody>
@@ -357,9 +353,7 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
             <thead>
               <tr>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Project</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Project Code</th>
                 <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Task</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Type</th>
                 ${dayNames.map(d => `<th style=\"text-align:right;padding:8px;border-bottom:1px solid #eee;color:#666;\">${d}</th>`).join("")}
                 <th style="text-align:right;padding:8px;border-bottom:1px solid #eee;color:#666;">Total</th>
               </tr>
@@ -371,24 +365,22 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
       return `
                   <tr>
                     <td style=\"padding:8px;color:#333;\">${e.project || '-'}</td>
-                    <td style=\"padding:8px;color:#333;\">${e.projectCode || '-'}</td>
                     <td style=\"padding:8px;color:#333;\">${e.task || '-'}</td>
-                    <td style=\"padding:8px;color:#333;\">${e.type || '-'}</td>
                     ${dayNames.map((_, i) => `<td style=\"text-align:right;padding:8px;color:#333;\">${toHHMM(hrs[i] || 0)}</td>`).join("")}
                     <td style=\"text-align:right;padding:8px;color:#333;font-weight:bold;\">${toHHMM(rowTotal)}</td>
                   </tr>
                 `;
     }).join("")}
               <tr>
-                <td colspan="${4 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Work Hours Total</td>
+                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Work Hours Total</td>
                 <td style="text-align:right;padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;">${toHHMM(workWeeklyTotal)}</td>
               </tr>
               <tr>
-                <td colspan="${4 + dayNames.length}" style="padding:8px;color:#333;border-top:1px solid #eee;text-align:right;">Break Hours Total</td>
+                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;border-top:1px solid #eee;text-align:right;">Break Hours Total</td>
                 <td style="text-align:right;padding:8px;color:#333;border-top:1px solid #eee;">${toHHMM(breakWeekly)}</td>
               </tr>
               <tr>
-                <td colspan="${4 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Total (Work + Break)</td>
+                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Total (Work + Break)</td>
                 <td style="text-align:right;padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;">${toHHMM(totalWithBreak)}</td>
               </tr>
             </tbody>
@@ -760,8 +752,11 @@ router.post("/", auth, async (req, res) => {
       if (!sheet.employeeId && employeeId) sheet.employeeId = employeeId;
       if (!sheet.employeeName && employeeName) sheet.employeeName = employeeName;
       sheet.totalHours = totalHours;
-      sheet.status = status || "Draft";
-      sheet.rejectionReason = ""; // Clear rejection reason on update
+      const nextStatus = status || "Draft";
+      sheet.status = nextStatus;
+      if (nextStatus === "Submitted") {
+        sheet.rejectionReason = "";
+      }
       if (typeof shiftType !== "undefined") sheet.shiftType = shiftType || "";
       if (Array.isArray(dailyShiftTypes)) sheet.dailyShiftTypes = dailyShiftTypes;
       if (onPremisesTime && Array.isArray(onPremisesTime.daily)) {
@@ -771,14 +766,14 @@ router.post("/", auth, async (req, res) => {
         };
       }
 
-      if (status === "Submitted") {
+      if (nextStatus === "Submitted") {
         sheet.submittedAt = new Date();
       }
 
       await sheet.save();
 
       let emailSent = false;
-      if (status === "Submitted") {
+      if (nextStatus === "Submitted") {
         await upsertAdminTimesheetRecord(req.user, sheet);
         const emailResult = await sendTimesheetSubmittedEmail(req.user, sheet);
         await sendTimesheetApprovalRequestEmail(req.user, sheet);
@@ -1107,14 +1102,21 @@ router.get("/my-timesheets", auth, async (req, res) => {
 
       if (adminDoc) {
         const s = (adminDoc.status || "").toLowerCase();
-        const currentStatus = (sheet.status || "").toLowerCase();
-        if (s === "approved") {
-          sheet.status = "Approved";
-        } else if (s === "rejected") {
-          // Keep Draft status for employee view if sheet is already Draft
-          sheet.status = currentStatus === "draft" ? "Draft" : "Rejected";
-        } else if (s === "pending") {
-          sheet.status = "Submitted";
+        let newStatus = null;
+        if (s === "approved") newStatus = "Approved";
+        else if (s === "rejected") newStatus = "Rejected";
+        else if (s === "pending") newStatus = "Submitted";
+
+        if (newStatus) {
+          const prevStatus = sheet.status;
+          sheet.status = newStatus;
+          if (String(prevStatus || "") !== String(newStatus || "")) {
+            try {
+              const update = { status: newStatus };
+              if (newStatus === "Approved") update.approvedAt = new Date();
+              await Timesheet.updateOne({ _id: sheet._id }, { $set: update });
+            } catch (_) {}
+          }
         }
       }
       else {
@@ -1136,13 +1138,9 @@ router.get("/my-timesheets", auth, async (req, res) => {
         }
         if (matched) {
           const s = (matched.status || "").toLowerCase();
-          const currentStatus = (sheet.status || "").toLowerCase();
           let newStatus = null;
           if (s === "approved") newStatus = "Approved";
-          else if (s === "rejected") {
-            // Preserve Draft status for employee if sheet is already Draft
-            newStatus = currentStatus === "draft" ? "Draft" : "Rejected";
-          }
+          else if (s === "rejected") newStatus = "Rejected";
           else if (s === "pending") newStatus = "Submitted";
           if (newStatus) {
             sheet.status = newStatus;

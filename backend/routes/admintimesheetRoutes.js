@@ -350,13 +350,13 @@ router.put("/approve/:id", auth, async (req, res) => {
     if (updated) {
       // Update the corresponding Timesheet document
       if (updated.timesheetId) {
-        await Timesheet.findByIdAndUpdate(updated.timesheetId, { status: "Approved", approvedAt: new Date() });
+        await Timesheet.findByIdAndUpdate(updated.timesheetId, { status: "Approved", approvedAt: new Date(), rejectionReason: "" });
       } else {
         const user = await User.findOne({ employeeId: updated.employeeId }).lean();
         if (user) {
           const targetTimesheet = await findTimesheetByWeek(user._id, updated.week);
           if (targetTimesheet) {
-            await Timesheet.findByIdAndUpdate(targetTimesheet._id, { status: "Approved", approvedAt: new Date() });
+            await Timesheet.findByIdAndUpdate(targetTimesheet._id, { status: "Approved", approvedAt: new Date(), rejectionReason: "" });
             console.log(`✅ Approved timesheet ${targetTimesheet._id} for user ${user._id}, week ${updated.week}`);
           } else {
             console.log(`⚠️ No timesheet found for user ${user._id}, week ${updated.week}`);
@@ -418,7 +418,7 @@ router.put("/approve/:id", auth, async (req, res) => {
           { new: true, upsert: true }
         );
 
-        await Timesheet.findByIdAndUpdate(sheet._id, { status: "Approved", approvedAt: new Date() });
+        await Timesheet.findByIdAndUpdate(sheet._id, { status: "Approved", approvedAt: new Date(), rejectionReason: "" });
       }
     }
 
@@ -501,13 +501,13 @@ router.put("/reject/:id", auth, async (req, res) => {
     if (updated) {
       // Update the corresponding Timesheet document
       if (updated.timesheetId) {
-        await Timesheet.findByIdAndUpdate(updated.timesheetId, { status: "Draft", rejectionReason: reason || "" });
+        await Timesheet.findByIdAndUpdate(updated.timesheetId, { status: "Rejected", rejectionReason: reason || "" });
       } else {
         const user = await User.findOne({ employeeId: updated.employeeId }).lean();
         if (user) {
           const targetTimesheet = await findTimesheetByWeek(user._id, updated.week);
           if (targetTimesheet) {
-            await Timesheet.findByIdAndUpdate(targetTimesheet._id, { status: "Draft", rejectionReason: reason || "" });
+            await Timesheet.findByIdAndUpdate(targetTimesheet._id, { status: "Rejected", rejectionReason: reason || "" });
             console.log(`❌ Rejected timesheet ${targetTimesheet._id} for user ${user._id}, week ${updated.week}`);
           } else {
             console.log(`⚠️ No timesheet found for user ${user._id}, week ${updated.week}`);
@@ -569,7 +569,7 @@ router.put("/reject/:id", auth, async (req, res) => {
           { new: true, upsert: true }
         );
 
-        await Timesheet.findByIdAndUpdate(sheet._id, { status: "Draft", rejectionReason: reason || "" });
+        await Timesheet.findByIdAndUpdate(sheet._id, { status: "Rejected", rejectionReason: reason || "" });
       }
     }
 

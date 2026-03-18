@@ -114,17 +114,19 @@ const TimesheetHistory = () => {
     // Filter by status
     if (filter.status) {
       filtered = filtered.filter((t) =>
-        (t.status || '').toLowerCase() === filter.status.toLowerCase()
+        String(t.status || '').trim().toLowerCase() === String(filter.status || '').trim().toLowerCase()
       );
     }
 
     setFilteredTimesheets(filtered);
   }, [filter, timesheets]);
 
+  const normalizeStatus = (status) => String(status || "").trim().toLowerCase();
+
   const getStatusBadge = (status) => {
     const baseClasses = "px-3 py-1 rounded-full text-xs font-semibold";
     
-    switch ((status || '').toLowerCase()) {
+    switch (normalizeStatus(status)) {
       case 'approved':
         return `${baseClasses} bg-green-100 text-green-800`;
       case 'submitted':
@@ -273,7 +275,7 @@ const TimesheetHistory = () => {
 
   // Check if timesheet is a draft
   const isDraft = (timesheet) => {
-    return (timesheet.status || '').toLowerCase() === 'draft';
+    return normalizeStatus(timesheet?.status) === 'draft';
   };
   const hasApprovedLeave = (timesheet) => {
     return (timesheet.entries || []).some(e => (e.project || '') === 'Leave' && (e.task || '').startsWith('Leave Approved'));
@@ -647,6 +649,7 @@ const TimesheetHistory = () => {
                   const projectList = Array.from(new Set((t.entries || []).map((e) => e.project))).filter(Boolean);
                   const projectCodes = getProjectCodes(t.entries);
                   const isDraftTimesheet = isDraft(t);
+                  const isRejectedTimesheet = normalizeStatus(t.status) === "rejected";
                   const isSessionDraft = t.isSessionDraft;
                   const isAutoLeaveDraft = isDraftTimesheet && hasApprovedLeave(t);
                   
@@ -728,23 +731,24 @@ const TimesheetHistory = () => {
                             <Eye className="w-4 h-4" />
                           </button>
                           
-                          {/* Show Edit and Delete only for drafts */}
-                          {isDraftTimesheet && (
+                          {(isDraftTimesheet || isRejectedTimesheet) && (
                             <>
                               <button 
                                 onClick={() => handleEdit(t)}
                                 className="text-green-600 hover:text-green-800 transition-colors duration-200 flex items-center gap-1"
-                                title="Edit Draft"
+                                title={isDraftTimesheet ? "Edit Draft" : "Edit Rejected Timesheet"}
                               >
                                 <Edit className="w-4 h-4" />
                               </button>
-                              <button 
-                                onClick={() => handleDelete(t)}
-                                className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center gap-1"
-                                title="Delete Draft"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {isDraftTimesheet && (
+                                <button 
+                                  onClick={() => handleDelete(t)}
+                                  className="text-red-600 hover:text-red-800 transition-colors duration-200 flex items-center gap-1"
+                                  title="Delete Draft"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
