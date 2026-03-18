@@ -140,6 +140,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   };
 
   const alwaysOnPermissionKeys = ['home', 'my_profile'];
+  const restrictedPermissionsForNonAdmin = ['user_access'];
 
 
   const rolePermissionDefaults = {
@@ -189,13 +190,16 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
   useEffect(() => {
     if (user) {
+      const roleValue = user.role || '';
+      const isAdminRole = String(roleValue).toLowerCase() === 'admin';
+      const userPermissions = Array.isArray(user.permissions) ? user.permissions : [];
       setFormData({
         name: user.name || '',
         email: user.email || '',
-        role: user.role || '',
+        role: roleValue,
         password: '',
         confirmPassword: '',
-        permissions: user.permissions || [],
+        permissions: isAdminRole ? userPermissions : userPermissions.filter(p => !restrictedPermissionsForNonAdmin.includes(p)),
         employeeId: user.employeeId || ''
       });
     } else {
@@ -272,6 +276,10 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
   const handlePermissionChange = (permission, isGroup = false) => {
     setFormData(prev => {
+      const isAdminRole = String(prev.role || '').toLowerCase() === 'admin';
+      if (!isAdminRole && restrictedPermissionsForNonAdmin.includes(permission)) {
+        return prev;
+      }
       let nextPermissions = [...prev.permissions];
 
       if (isGroup) {
@@ -308,9 +316,10 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   };
 
   const selectAllPermissions = () => {
+    const isAdminRole = String(formData.role || '').toLowerCase() === 'admin';
     setFormData(prev => ({
       ...prev,
-      permissions: getAllPermissionKeys()
+      permissions: isAdminRole ? getAllPermissionKeys() : getAllPermissionKeys().filter(p => !restrictedPermissionsForNonAdmin.includes(p))
     }));
   };
 
@@ -367,6 +376,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     try {
       if (user) {
         let permissionsToUpdate = [...formData.permissions];
+        if (String(formData.role || '').toLowerCase() !== 'admin') {
+          permissionsToUpdate = permissionsToUpdate.filter(p => !restrictedPermissionsForNonAdmin.includes(p));
+        }
         alwaysOnPermissionKeys.forEach(key => {
           if (!permissionsToUpdate.includes(key)) {
             permissionsToUpdate.push(key);
@@ -386,7 +398,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         }
         await authAPI.updateUser(user._id, updateData);
       } else {
-        const basePermissions = [...formData.permissions];
+        const basePermissions = String(formData.role || '').toLowerCase() === 'admin'
+          ? [...formData.permissions]
+          : formData.permissions.filter(p => !restrictedPermissionsForNonAdmin.includes(p));
         alwaysOnPermissionKeys.forEach(key => {
           if (!basePermissions.includes(key)) {
             basePermissions.push(key);
@@ -691,11 +705,13 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
                     {module.children.map(child => {
                       const permission = child.key;
                       const isAlwaysEnabled = !!child.alwaysOn;
+                      const isRestrictedForRole = String(formData.role || '').toLowerCase() !== 'admin' && restrictedPermissionsForNonAdmin.includes(permission);
                       const isActive = isAlwaysEnabled || formData.permissions.includes(permission);
+                      const isDisabled = isAlwaysEnabled || isRestrictedForRole;
                       return (
                         <div
                           key={`${permission}-${child.label}`}
-                          className={`flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-100 hover:border-[#262760] transition-all duration-200 ${isAlwaysEnabled ? 'opacity-75' : ''}`}
+                          className={`flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-100 hover:border-[#262760] transition-all duration-200 ${isDisabled ? 'opacity-75' : ''}`}
                         >
                           <span className="text-sm text-gray-700">
                             {child.label} {isAlwaysEnabled && '(Always On)'}
@@ -703,10 +719,10 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
                           <button
                             type="button"
-                            disabled={isAlwaysEnabled}
-                            onClick={() => !isAlwaysEnabled && handlePermissionChange(permission)}
+                            disabled={isDisabled}
+                            onClick={() => !isDisabled && handlePermissionChange(permission)}
                             className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out 
-                          ${isActive ? 'bg-[#262760]' : 'bg-gray-300'} ${isAlwaysEnabled ? 'cursor-not-allowed' : ''}`}
+                          ${isActive ? 'bg-[#262760]' : 'bg-gray-300'} ${isDisabled ? 'cursor-not-allowed' : ''}`}
                           >
                             <span
                               aria-hidden="true"

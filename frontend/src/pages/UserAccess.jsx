@@ -42,6 +42,13 @@ const UserAccess = () => {
   const { notification, showSuccess, hideNotification } = useNotification();
   const [currentUser, setCurrentUser] = useState(null);
   const [hasemployeesAccess, setHasemployeesAccess] = useState(false);
+  let sessionUser = {};
+  try {
+    sessionUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+  } catch {
+    sessionUser = {};
+  }
+  const isAdminSession = String(sessionUser.role || '').toLowerCase() === 'admin';
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -96,10 +103,17 @@ const UserAccess = () => {
   }, [users, employees]);
 
   useEffect(() => {
+    if (!isAdminSession) {
+      setUsers([]);
+      setAllUsers([]);
+      setFilteredUsers([]);
+      setLoading(false);
+      return;
+    }
     checkCurrentUserPermissions();
     fetchUsers();
     fetchEmployees();
-  }, []);
+  }, [isAdminSession]);
 
   const checkCurrentUserPermissions = async () => {
     try {
@@ -399,6 +413,10 @@ const UserAccess = () => {
   const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
   const handleEdit = (user) => {
+    if (!isAdminSession) {
+      showSuccess('Access denied: Only admin can edit user access.');
+      return;
+    }
     setEditingUser(user);
     setShowModal(true);
   };
@@ -408,6 +426,10 @@ const UserAccess = () => {
   };
 
   const handleDelete = async (id) => {
+    if (!isAdminSession) {
+      showSuccess('Access denied: Only admin can delete users.');
+      return;
+    }
     try {
       await authAPI.deleteUser(id);
       fetchUsers(); // Refresh the list
@@ -419,45 +441,42 @@ const UserAccess = () => {
   };
 
   const handleFormSubmit = (isEdit = false) => {
+    if (!isAdminSession) {
+      showSuccess('Access denied: Only admin can update user access.');
+      return;
+    }
     setShowModal(false);
     setEditingUser(null);
     fetchUsers(); // Refresh the list
     showSuccess(isEdit ? 'User updated successfully' : 'User added successfully');
   };
 
-  const formatLastLogin = (dateString) => {
-    if (!dateString) return 'Never logged in';
-
+  const formatLastLogin = (value) => {
+    if (!value) return 'Never logged in';
     try {
-      const date = new Date(dateString);
-
-      // Check if date is valid
-      if (isNaN(date.getTime())) {
-        return dateString; // Return the original string if it's already formatted
+      const date = (() => {
+        if (value instanceof Date) return value;
+        if (typeof value === 'number') return new Date(value);
+        if (typeof value === 'string') {
+          const parsed = Date.parse(value);
+          if (!isNaN(parsed)) return new Date(parsed);
+          return null;
+        }
+        return null;
+      })();
+      if (!date || isNaN(date.getTime())) {
+        return String(value);
       }
-
-      const now = new Date();
-      const diffTime = Math.abs(now - date);
-      const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-      const diffHours = Math.floor(diffTime / (1000 * 60 * 60));
-      const diffMinutes = Math.floor(diffTime / (1000 * 60));
-
-      if (diffMinutes < 1) {
-        return 'Just now';
-      } else if (diffMinutes < 60) {
-        return `${diffMinutes} minute${diffMinutes > 1 ? 's' : ''} ago`;
-      } else if (diffHours < 24) {
-        return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
-      } else if (diffDays === 1) {
-        return 'Yesterday at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      } else if (diffDays < 7) {
-        return `${diffDays} days ago`;
-      } else {
-        return date.toLocaleDateString() + ' at ' + date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-      }
-    } catch (error) {
-      console.error('Error formatting date:', error);
-      return 'Date format error';
+      return date.toLocaleString([], {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    } catch {
+      return String(value);
     }
   };
 
@@ -478,6 +497,28 @@ const UserAccess = () => {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
+
+  if (!isAdminSession) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] bg-gray-50">
+        <div className="text-center">
+          <div className="text-6xl text-gray-300 mb-4">🚫</div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            Access Denied
+          </h1>
+          <p className="text-gray-600 mb-4">
+            Only admin can access User Access.
+          </p>
+          <button
+            onClick={() => window.history.back()}
+            className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050]"
+          >
+            Go Back
+          </button>
+        </div>
       </div>
     );
   }
@@ -539,16 +580,18 @@ const UserAccess = () => {
                   Export CSV
                 </button>
 
-                <button
-                  onClick={() => {
-                    setEditingUser(null);
-                    setShowModal(true);
-                  }}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760]"
-                >
-                  <PlusIcon className="h-5 w-5 mr-2" />
-                  Add User
-                </button>
+                {isAdminSession && (
+                  <button
+                    onClick={() => {
+                      setEditingUser(null);
+                      setShowModal(true);
+                    }}
+                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760]"
+                  >
+                    <PlusIcon className="h-5 w-5 mr-2" />
+                    Add User
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -698,27 +741,31 @@ const UserAccess = () => {
                             >
                               <EyeIcon className="h-5 w-5" />
                             </button>
-                            <button
-                              onClick={() => handleEdit(user)}
-                              className="text-indigo-600 hover:text-indigo-900 p-1 transition-colors duration-150"
-                              title="Edit"
-                            >
-                              <PencilSquareIcon className="h-5 w-5" />
-                            </button>
-                            <Popconfirm
-                              title="Delete User"
-                              description="Are you sure you want to delete this user?"
-                              onConfirm={() => handleDelete(user._id)}
-                              okText="Yes"
-                              cancelText="No"
-                            >
-                              <button
-                                className="text-red-600 hover:text-red-900 p-1 transition-colors duration-150"
-                                title="Delete"
-                              >
-                                <TrashIcon className="h-5 w-5" />
-                              </button>
-                            </Popconfirm>
+                            {isAdminSession && (
+                              <>
+                                <button
+                                  onClick={() => handleEdit(user)}
+                                  className="text-indigo-600 hover:text-indigo-900 p-1 transition-colors duration-150"
+                                  title="Edit"
+                                >
+                                  <PencilSquareIcon className="h-5 w-5" />
+                                </button>
+                                <Popconfirm
+                                  title="Delete User"
+                                  description="Are you sure you want to delete this user?"
+                                  onConfirm={() => handleDelete(user._id)}
+                                  okText="Yes"
+                                  cancelText="No"
+                                >
+                                  <button
+                                    className="text-red-600 hover:text-red-900 p-1 transition-colors duration-150"
+                                    title="Delete"
+                                  >
+                                    <TrashIcon className="h-5 w-5" />
+                                  </button>
+                                </Popconfirm>
+                              </>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -747,27 +794,31 @@ const UserAccess = () => {
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
-                        <button
-                          onClick={() => handleEdit(user)}
-                          className="text-indigo-600 hover:text-indigo-900 p-1 transition-colors duration-150"
-                          title="Edit"
-                        >
-                          <PencilSquareIcon className="h-4 w-4" />
-                        </button>
-                        <Popconfirm
-                          title="Delete User"
-                          description="Are you sure you want to delete this user?"
-                          onConfirm={() => handleDelete(user._id)}
-                          okText="Yes"
-                          cancelText="No"
-                        >
-                          <button
-                            className="text-red-600 hover:text-red-900 p-1 transition-colors duration-150"
-                            title="Delete"
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </Popconfirm>
+                        {isAdminSession && (
+                          <>
+                            <button
+                              onClick={() => handleEdit(user)}
+                              className="text-indigo-600 hover:text-indigo-900 p-1 transition-colors duration-150"
+                              title="Edit"
+                            >
+                              <PencilSquareIcon className="h-4 w-4" />
+                            </button>
+                            <Popconfirm
+                              title="Delete User"
+                              description="Are you sure you want to delete this user?"
+                              onConfirm={() => handleDelete(user._id)}
+                              okText="Yes"
+                              cancelText="No"
+                            >
+                              <button
+                                className="text-red-600 hover:text-red-900 p-1 transition-colors duration-150"
+                                title="Delete"
+                              >
+                                <TrashIcon className="h-4 w-4" />
+                              </button>
+                            </Popconfirm>
+                          </>
+                        )}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">

@@ -35,6 +35,7 @@ import Notification from '../../components/Notifications/Notification';
       bereavementRelation: '',
       supportingDocuments: null
     });
+    const [fieldErrors, setFieldErrors] = useState({});
 
     const [allowedLeaveTypes, setAllowedLeaveTypes] = useState(allLeaveTypes);
 
@@ -294,6 +295,13 @@ import Notification from '../../components/Notifications/Notification';
         setLeaveData(prev => ({ ...prev, [name]: value }));
       }
     }
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
 
     // Recalculate days when dates or day type changes
     if (name === 'startDate' || name === 'endDate' || name === 'dayType') {
@@ -324,6 +332,14 @@ import Notification from '../../components/Notifications/Notification';
     }
     
     setLeaveData(prev => ({ ...prev, dayType: type, endDate: newEndDate }));
+    if (fieldErrors.dayType || fieldErrors.endDate) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next.dayType;
+        delete next.endDate;
+        return next;
+      });
+    }
 
     if (leaveData.startDate && newEndDate) {
       const days = calculateWorkingDays(leaveData.startDate, newEndDate, type);
@@ -338,17 +354,24 @@ import Notification from '../../components/Notifications/Notification';
     setSubmitting(true);
  
     // Validation
-    if (!leaveData.startDate || !leaveData.endDate || !leaveData.leaveType) {
+    const errors = {};
+    if (!leaveData.startDate) errors.startDate = true;
+    if (leaveData.dayType !== 'Half Day' && !leaveData.endDate) errors.endDate = true;
+    if (!leaveData.leaveType) errors.leaveType = true;
+    if (leaveData.leaveType === 'BEREAVEMENT' && !leaveData.bereavementRelation) {
+      errors.bereavementRelation = true;
+    }
+    if (leaveData.leaveType === 'SL' && totalLeaveDays > 3 && !leaveData.supportingDocuments) {
+      errors.supportingDocuments = true;
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       showNotification('Please fill in all required fields', 'error');
       setSubmitting(false);
       return;
     }
 
-    if (leaveData.leaveType === 'BEREAVEMENT' && !leaveData.bereavementRelation) {
-      showNotification('Please specify relationship for bereavement leave', 'error');
-      setSubmitting(false);
-      return;
-    }
+    setFieldErrors({});
 
     // Check leave balance
     // Rule: CL, SL, BEREAVEMENT cannot go negative.
@@ -365,15 +388,14 @@ import Notification from '../../components/Notifications/Notification';
       }
     }
 
-    // Medical certificate check for sick leave > 3 days
-    if (leaveData.leaveType === 'SL' && totalLeaveDays > 3 && !leaveData.supportingDocuments) {
-      showNotification('Medical certificate is required for sick leave exceeding 3 days', 'error');
-      setSubmitting(false);
-      return;
-    }
+    const effectiveStartDate = leaveData.startDate;
+    const effectiveEndDate =
+      leaveData.dayType === 'Half Day'
+        ? (leaveData.startDate || leaveData.endDate)
+        : leaveData.endDate;
  
-    const newStart = new Date(leaveData.startDate);
-    const newEnd = new Date(leaveData.endDate);
+    const newStart = new Date(effectiveStartDate);
+    const newEnd = new Date(effectiveEndDate);
     const newIsHalfDay = leaveData.dayType === 'Half Day';
 
     if (newIsHalfDay) {
@@ -472,8 +494,8 @@ import Notification from '../../components/Notifications/Notification';
       if (editingLeaveId) {
         const res = await leaveAPI.update(editingLeaveId, {
           leaveType: leaveData.leaveType,
-          startDate: leaveData.startDate,
-          endDate: leaveData.endDate,
+          startDate: effectiveStartDate,
+          endDate: effectiveEndDate,
           dayType: leaveData.dayType,
           
           bereavementRelation: leaveData.bereavementRelation || '',
@@ -496,8 +518,8 @@ import Notification from '../../components/Notifications/Notification';
       } else {
         const res = await leaveAPI.apply({
           leaveType: leaveData.leaveType,
-          startDate: leaveData.startDate,
-          endDate: leaveData.endDate,
+          startDate: effectiveStartDate,
+          endDate: effectiveEndDate,
           dayType: leaveData.dayType,
           
           bereavementRelation: leaveData.bereavementRelation || '',
@@ -531,6 +553,7 @@ import Notification from '../../components/Notifications/Notification';
       bereavementRelation: '',
       supportingDocuments: null
     });
+    setFieldErrors({});
     setTotalLeaveDays(0);
     setIsEditModalOpen(false);
     setSubmitting(false);
@@ -691,7 +714,7 @@ import Notification from '../../components/Notifications/Notification';
   };
 
   const leaveFormContent = (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form noValidate onSubmit={handleSubmit} className="space-y-6">
       {/* Leave Type Selection */}
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -727,9 +750,7 @@ import Notification from '../../components/Notifications/Notification';
             name="bereavementRelation"
             value={leaveData.bereavementRelation}
             onChange={handleInputChange}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760] outline-none transition"
-
-            required
+            className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 outline-none transition ${fieldErrors.bereavementRelation ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-[#262760] focus:border-[#262760]'}`}
           >
             <option value="">Select Relationship</option>
             {bereavementRelations.map(relation => (
@@ -756,9 +777,7 @@ import Notification from '../../components/Notifications/Notification';
             onPaste={(e) => e.preventDefault()}
             onDrop={(e) => e.preventDefault()}
             onChange={handleInputChange}
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760] outline-none transition"
-
-            required
+            className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 outline-none transition ${fieldErrors.startDate ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-[#262760] focus:border-[#262760]'}`}
           />
         </div>
 
@@ -800,8 +819,7 @@ import Notification from '../../components/Notifications/Notification';
             onDrop={(e) => e.preventDefault()}
             onChange={handleInputChange}
             disabled={leaveData.dayType === 'Half Day'}
-            className={`w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition ${leaveData.dayType === 'Half Day' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
-            required
+            className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 outline-none transition ${fieldErrors.endDate ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} ${leaveData.dayType === 'Half Day' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
           />
         </div>
       </div>
@@ -819,9 +837,7 @@ import Notification from '../../components/Notifications/Notification';
             name="supportingDocuments"
             onChange={handleInputChange}
             accept=".pdf,.jpg,.jpeg,.png"
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-[#262760] outline-none transition"
-
-            required
+            className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 outline-none transition ${fieldErrors.supportingDocuments ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-[#262760] focus:border-[#262760]'}`}
           />
           <p className="text-xs text-gray-500 mt-1">
             Upload medical certificate (PDF, JPG, PNG)

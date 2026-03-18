@@ -475,7 +475,7 @@ function App() {
             <Route
               path="user-access"
               element={
-                <ProtectedRoute requiredPermissions={["user_access"]}>
+                <ProtectedRoute requiredPermissions={["user_access"]} roles={["admin"]}>
                   <UserAccess />
                 </ProtectedRoute>
               }
