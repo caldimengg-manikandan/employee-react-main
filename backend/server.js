@@ -4,6 +4,7 @@ const cors = require("cors");
 const multer = require("multer");
 const dotenv = require("dotenv");
 const path = require("path");
+const os = require("os");
 const connectDB = require("./config/database");
 const Attendance = require("./models/Attendance");
 const crypto = require("crypto");
@@ -27,7 +28,18 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+const defaultUploadRoot = path.join(__dirname, "uploads");
+app.use("/uploads", express.static(defaultUploadRoot));
+
+const marriageAllowanceUploadRoot =
+  process.env.MARRIAGE_ALLOWANCE_UPLOAD_ROOT ||
+  (process.env.NODE_ENV === "production"
+    ? defaultUploadRoot
+    : path.join(os.tmpdir(), "employee-react-uploads"));
+
+if (marriageAllowanceUploadRoot !== defaultUploadRoot) {
+  app.use("/uploads", express.static(marriageAllowanceUploadRoot));
+}
 const upload = multer(); // optional for file uploads
 
 // --------------------- API ROUTES --------------------- //

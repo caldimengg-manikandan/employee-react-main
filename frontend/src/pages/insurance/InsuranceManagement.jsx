@@ -480,10 +480,31 @@ const InsuranceManagement = () => {
       if (value && /[^a-zA-Z\s]/.test(value)) return;
     }
 
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => {
+      if (field === 'claimDate' && prev.dateOfDischarge && value && value < prev.dateOfDischarge) {
+        return prev;
+      }
+
+      if (field === 'closeDate' && prev.claimDate && value && value < prev.claimDate) {
+        return prev;
+      }
+
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+
+      if (field === 'dateOfDischarge' && prev.claimDate && value && prev.claimDate < value) {
+        updated.claimDate = '';
+        updated.closeDate = '';
+      }
+
+      if (field === 'claimDate' && prev.closeDate && value && prev.closeDate < value) {
+        updated.closeDate = '';
+      }
+
+      return updated;
+    });
     setMaxLengthError('');
 
     // Clear error if exists
@@ -666,10 +687,31 @@ const InsuranceManagement = () => {
       if (value && /[^a-zA-Z\s]/.test(value)) return;
     }
 
-    setEditFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setEditFormData(prev => {
+      if (field === 'claimDate' && prev.dateOfDischarge && value && value < prev.dateOfDischarge) {
+        return prev;
+      }
+
+      if (field === 'closeDate' && prev.claimDate && value && value < prev.claimDate) {
+        return prev;
+      }
+
+      const updated = {
+        ...prev,
+        [field]: value
+      };
+
+      if (field === 'dateOfDischarge' && prev.claimDate && value && prev.claimDate < value) {
+        updated.claimDate = '';
+        updated.closeDate = '';
+      }
+
+      if (field === 'claimDate' && prev.closeDate && value && prev.closeDate < value) {
+        updated.closeDate = '';
+      }
+
+      return updated;
+    });
   };
 
   // Enhanced PDF Download Function
@@ -973,6 +1015,10 @@ const InsuranceManagement = () => {
       });
     }
 
+    if (formData.claimDate && formData.dateOfDischarge && formData.claimDate < formData.dateOfDischarge) {
+      newErrors.claimDate = true;
+    }
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       // alert('Please fill in all required fields'); // Removed alert
@@ -1107,6 +1153,10 @@ const InsuranceManagement = () => {
         if (!child.name) newErrors[`childName_${index}`] = 'Name is required';
         if (!child.age) newErrors[`childAge_${index}`] = 'Age is required';
       });
+    }
+
+    if (editFormData.claimDate && editFormData.dateOfDischarge && editFormData.claimDate < editFormData.dateOfDischarge) {
+      newErrors.claimDate = true;
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -1643,6 +1693,7 @@ const InsuranceManagement = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             required
             max="9999-12-31"
+            min={editFormData.dateOfDischarge || undefined}
           />
         </div>
 
@@ -1656,6 +1707,7 @@ const InsuranceManagement = () => {
             onChange={(e) => handleEditInputChange('closeDate', e.target.value)}
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             max="9999-12-31"
+            min={editFormData.claimDate || undefined}
           />
         </div>
 
@@ -2116,6 +2168,7 @@ const InsuranceManagement = () => {
             onChange={(e) => handleInputChange('claimDate', e.target.value)}
             className={`w-full px-3 py-2 border ${errors.claimDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             max="9999-12-31"
+            min={formData.dateOfDischarge || undefined}
           />
           {errors.claimDate && <p className="mt-1 text-xs text-red-500">Claim Date is required</p>}
         </div>
@@ -2158,6 +2211,7 @@ const InsuranceManagement = () => {
             onChange={(e) => handleInputChange('closeDate', e.target.value)}
             className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             max="9999-12-31"
+            min={formData.claimDate || undefined}
           />
         </div>
 

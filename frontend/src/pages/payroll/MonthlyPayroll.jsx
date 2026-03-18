@@ -358,9 +358,9 @@ export default function MonthlyPayroll() {
           status: 'Pending',
           
           uan: emp.uan || '',
-          accountNumber: payrollRec?.accountNumber || emp.bankAccount || '',
-          ifscCode: payrollRec?.ifscCode || emp.ifsc || '',
-          bankName: payrollRec?.bankName || emp.bankName || ''
+          accountNumber: emp.bankAccount || payrollRec?.accountNumber || '',
+          ifscCode: emp.ifsc || payrollRec?.ifscCode || '',
+          bankName: emp.bankName || payrollRec?.bankName || ''
         };
       });
 

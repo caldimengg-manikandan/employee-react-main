@@ -141,20 +141,42 @@ const PayrollDetails = () => {
   }, [viewRecord]);
 
   useEffect(() => {
-    employeeAPI.getAllEmployees()
-      .then(res => {
-        const items = Array.isArray(res.data) ? res.data : [];
-        // Sort by Employee ID naturally (e.g. CDE1, CDE2, ... CDE10)
-        const sortedItems = items.sort((a, b) => {
-          const idA = (a.employeeId || '').toString();
-          const idB = (b.employeeId || '').toString();
-          return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+    let mounted = true;
+
+    const fetchEmployees = () => {
+      employeeAPI.getAllEmployees()
+        .then(res => {
+          if (!mounted) return;
+          const items = Array.isArray(res.data) ? res.data : [];
+          const sortedItems = items.sort((a, b) => {
+            const idA = (a.employeeId || '').toString();
+            const idB = (b.employeeId || '').toString();
+            return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+          });
+          setEmployeeList(sortedItems);
+        })
+        .catch(() => {
+          if (!mounted) return;
+          setEmployeeList([]);
         });
-        setEmployeeList(sortedItems);
-      })
-      .catch(() => {
-        setEmployeeList([]);
-      });
+    };
+
+    const handleFocus = () => fetchEmployees();
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchEmployees();
+      }
+    };
+
+    fetchEmployees();
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibility);
+
+    return () => {
+      mounted = false;
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, []);
 
   const handleInputChange = (e) => {
@@ -348,7 +370,14 @@ const PayrollDetails = () => {
       (r) => (r.id || r._id) === (record.id || record._id)
     );
     const effectiveIndex = idx === -1 ? null : idx;
-    const data = effectiveIndex !== null ? payrollRecords[effectiveIndex] : record;
+    const base = effectiveIndex !== null ? payrollRecords[effectiveIndex] : record;
+    const emp = employeeList.find(e => (e.employeeId || '').toString() === (base.employeeId || '').toString());
+    const data = {
+      ...base,
+      bankName: (emp && emp.bankName) ? emp.bankName : base.bankName,
+      accountNumber: (emp && emp.bankAccount) ? emp.bankAccount : base.accountNumber,
+      ifscCode: (emp && emp.ifsc) ? emp.ifsc : base.ifscCode
+    };
 
     setFormData(data);
     setEditingIndex(effectiveIndex);
@@ -389,7 +418,14 @@ const PayrollDetails = () => {
   };
 
   const handleViewRecord = (record) => {
-    setViewRecord(record);
+    const emp = employeeList.find(e => (e.employeeId || '').toString() === (record.employeeId || '').toString());
+    const merged = {
+      ...record,
+      bankName: (emp && emp.bankName) ? emp.bankName : record.bankName,
+      accountNumber: (emp && emp.bankAccount) ? emp.bankAccount : record.accountNumber,
+      ifscCode: (emp && emp.ifsc) ? emp.ifsc : record.ifscCode
+    };
+    setViewRecord(merged);
   };
 
   const handleCloseView = () => {
@@ -786,7 +822,12 @@ const PayrollDetails = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredRecords.map((record, index) => (
+              {filteredRecords.map((record, index) => {
+                const emp = employeeList.find(
+                  e => (e.employeeId || '').toString() === (record.employeeId || '').toString()
+                );
+
+                return (
                 <tr key={record.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium text-gray-900">{record.employeeId}</div>
@@ -807,16 +848,16 @@ const PayrollDetails = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-gray-900">
-                      {record.accountNumber ||
-                        employeeList.find(e => e.employeeId === record.employeeId)?.bankAccount ||
+                      {emp?.bankAccount ||
+                        record.accountNumber ||
                         "-"}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-gray-900">
-                      {employeeList.find(e => e.employeeId === record.employeeId)?.location ||
+                      {emp?.location ||
                         record.location ||
-                        employeeList.find(e => e.employeeId === record.employeeId)?.address ||
+                        emp?.address ||
                         "Unknown"}
                     </div>
                   </td>
@@ -846,7 +887,8 @@ const PayrollDetails = () => {
                     </div>
                   </td>
                 </tr>
-              ))}
+              );
+              })}
             </tbody>
           </table>
         </div>

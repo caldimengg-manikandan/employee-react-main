@@ -2,13 +2,20 @@ const express = require('express');
 const router = express.Router();
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const multer = require('multer');
 const auth = require('../middleware/auth');
 const MarriageAllowance = require('../models/MarriageAllowance');
 
+const marriageAllowanceUploadRoot =
+  process.env.MARRIAGE_ALLOWANCE_UPLOAD_ROOT ||
+  (process.env.NODE_ENV === 'production'
+    ? path.join(__dirname, '..', 'uploads')
+    : path.join(os.tmpdir(), 'employee-react-uploads'));
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '..', 'uploads', 'marriage-allowances');
+    const uploadDir = path.join(marriageAllowanceUploadRoot, 'marriage-allowances');
     fs.mkdirSync(uploadDir, { recursive: true });
     cb(null, uploadDir);
   },
