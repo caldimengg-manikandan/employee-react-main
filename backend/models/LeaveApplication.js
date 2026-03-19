@@ -13,9 +13,17 @@ const LeaveApplicationSchema = new mongoose.Schema(
     totalDays: { type: Number, required: true },
     reason: { type: String, default: '' },
     bereavementRelation: { type: String, default: '' },
+    regionalHolidayName: { type: String, default: '' },
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
     appliedDate: { type: Date, default: Date.now },
-    documentUrl: { type: String }
+    documentUrl: { type: String },
+    document: {
+      data: { type: Buffer, select: false },
+      contentType: { type: String, default: '' },
+      originalName: { type: String, default: '' },
+      size: { type: Number, default: 0 },
+      uploadedAt: { type: Date }
+    }
   },
   { timestamps: true }
 );

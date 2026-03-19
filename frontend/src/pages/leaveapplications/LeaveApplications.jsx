@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { leaveAPI, employeeAPI } from '../../services/api';
+import { leaveAPI, employeeAPI, regionalHolidayAPI, BASE_URL } from '../../services/api';
 import {
   Calendar,
   CheckCircle,
@@ -8,6 +8,7 @@ import {
   AlertCircle,
   Home,
   Heart,
+  Flag,
   XCircle,
   Eye,
   Pencil,
@@ -22,6 +23,7 @@ import Notification from '../../components/Notifications/Notification';
     { value: 'SL', label: 'Sick Leave (SL)' },
     { value: 'PL', label: 'Privilege Leave (PL)' },
     { value: 'BEREAVEMENT', label: 'Bereavement Leave' },
+    { value: 'REGIONAL_HOLIDAY', label: 'Regional Holiday' },
   ];
 
   const LeaveApplications = () => {
@@ -33,6 +35,7 @@ import Notification from '../../components/Notifications/Notification';
       dayType: 'Full Day',
      
       bereavementRelation: '',
+      regionalHolidayName: '',
       supportingDocuments: null
     });
     const [fieldErrors, setFieldErrors] = useState({});
@@ -58,6 +61,7 @@ import Notification from '../../components/Notifications/Notification';
   const [submitModal, setSubmitModal] = useState({ isOpen: false, leave: null });
   const [warningModal, setWarningModal] = useState({ isOpen: false, message: '' });
   const [submitting, setSubmitting] = useState(false);
+  const [regionalHolidays, setRegionalHolidays] = useState([]);
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type, isVisible: true });
@@ -74,7 +78,9 @@ import Notification from '../../components/Notifications/Notification';
       const mapped = items.map(l => ({
         id: l._id,
         leaveType: l.leaveType,
-        leaveTypeName: allLeaveTypes.find(t => t.value === l.leaveType)?.label || l.leaveType,
+        leaveTypeName: l.leaveType === 'REGIONAL_HOLIDAY'
+          ? `${allLeaveTypes.find(t => t.value === 'REGIONAL_HOLIDAY')?.label || 'Regional Holiday'}${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`
+          : (allLeaveTypes.find(t => t.value === l.leaveType)?.label || l.leaveType),
         startDate: l.startDate,
         endDate: l.endDate,
         dayType: l.dayType,
@@ -82,7 +88,9 @@ import Notification from '../../components/Notifications/Notification';
         status: l.status,
         appliedDate: l.appliedDate,
        
-        bereavementRelation: l.bereavementRelation || ''
+        bereavementRelation: l.bereavementRelation || '',
+        regionalHolidayName: l.regionalHolidayName || '',
+        documentUrl: l.documentUrl || ''
       }));
       setLeaveHistory(mapped);
     } catch { }
@@ -92,6 +100,26 @@ import Notification from '../../components/Notifications/Notification';
     fetchMyLeaves();
     const timer = setInterval(fetchMyLeaves, 30000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const loadRegionalHolidays = async () => {
+      try {
+        const res = await regionalHolidayAPI.list();
+        const items = Array.isArray(res.data) ? res.data : [];
+        const mapped = items
+          .map((h) => ({
+            id: String(h?.id || h?._id || ''),
+            name: String(h?.name || '').trim(),
+            dateISO: String(h?.dateISO || '').trim()
+          }))
+          .filter((h) => h.id && h.name && h.dateISO);
+        setRegionalHolidays(mapped);
+      } catch {
+        setRegionalHolidays([]);
+      }
+    };
+    loadRegionalHolidays();
   }, []);
 
   useEffect(() => {
@@ -361,7 +389,10 @@ import Notification from '../../components/Notifications/Notification';
     if (leaveData.leaveType === 'BEREAVEMENT' && !leaveData.bereavementRelation) {
       errors.bereavementRelation = true;
     }
-    if (leaveData.leaveType === 'SL' && totalLeaveDays > 3 && !leaveData.supportingDocuments) {
+    if (leaveData.leaveType === 'REGIONAL_HOLIDAY' && !leaveData.regionalHolidayName) {
+      errors.regionalHolidayName = true;
+    }
+    if (leaveData.leaveType === 'SL' && totalLeaveDays > 5 && !leaveData.supportingDocuments) {
       errors.supportingDocuments = true;
     }
     if (Object.keys(errors).length > 0) {
@@ -397,6 +428,27 @@ import Notification from '../../components/Notifications/Notification';
     const newStart = new Date(effectiveStartDate);
     const newEnd = new Date(effectiveEndDate);
     const newIsHalfDay = leaveData.dayType === 'Half Day';
+
+    if (leaveData.leaveType === 'REGIONAL_HOLIDAY') {
+      const newYear = newStart instanceof Date && !isNaN(newStart.getTime()) ? newStart.getFullYear() : null;
+      const hasAlreadyApplied = leaveHistory.some(leave => {
+        if (leave.status !== 'Approved' && leave.status !== 'Pending') return false;
+        if (editingLeaveId && leave.id === editingLeaveId) return false;
+        if (leave.leaveType !== 'REGIONAL_HOLIDAY') return false;
+        const existingStart = new Date(leave.startDate);
+        if (isNaN(existingStart.getTime()) || newYear === null) return false;
+        return existingStart.getFullYear() === newYear;
+      });
+
+      if (hasAlreadyApplied) {
+        setWarningModal({
+          isOpen: true,
+          message: 'You have already applied for a regional holiday this year.'
+        });
+        setSubmitting(false);
+        return;
+      }
+    }
 
     if (newIsHalfDay) {
       if (isNaN(newStart.getTime()) || isNaN(newEnd.getTime())) {
@@ -488,19 +540,27 @@ import Notification from '../../components/Notifications/Notification';
     }
 
     // Create or update leave application
-    const leaveTypeName = allLeaveTypes.find(type => type.value === leaveData.leaveType)?.label || leaveData.leaveType;
+    const leaveTypeName =
+      leaveData.leaveType === 'REGIONAL_HOLIDAY'
+        ? `${allLeaveTypes.find(type => type.value === 'REGIONAL_HOLIDAY')?.label || 'Regional Holiday'}${leaveData.regionalHolidayName ? ` - ${leaveData.regionalHolidayName}` : ''}`
+        : (allLeaveTypes.find(type => type.value === leaveData.leaveType)?.label || leaveData.leaveType);
+
+    const formData = new FormData();
+    formData.append('leaveType', leaveData.leaveType);
+    formData.append('startDate', effectiveStartDate);
+    formData.append('endDate', effectiveEndDate);
+    formData.append('dayType', leaveData.dayType);
+    formData.append('totalDays', totalLeaveDays);
+    formData.append('bereavementRelation', leaveData.bereavementRelation || '');
+    formData.append('regionalHolidayName', leaveData.regionalHolidayName || '');
+    
+    if (leaveData.supportingDocuments) {
+      formData.append('supportingDocuments', leaveData.supportingDocuments);
+    }
 
     try {
       if (editingLeaveId) {
-        const res = await leaveAPI.update(editingLeaveId, {
-          leaveType: leaveData.leaveType,
-          startDate: effectiveStartDate,
-          endDate: effectiveEndDate,
-          dayType: leaveData.dayType,
-          
-          bereavementRelation: leaveData.bereavementRelation || '',
-          totalDays: totalLeaveDays
-        });
+        const res = await leaveAPI.update(editingLeaveId, formData);
         const l = res.data;
         setLeaveHistory(prev => prev.map(x => x.id === editingLeaveId ? {
           id: l._id,
@@ -513,18 +573,12 @@ import Notification from '../../components/Notifications/Notification';
           status: l.status,
           appliedDate: l.appliedDate,
            
+          regionalHolidayName: l.regionalHolidayName || '',
+          documentUrl: l.documentUrl || ''
         } : x));
         setEditingLeaveId(null);
       } else {
-        const res = await leaveAPI.apply({
-          leaveType: leaveData.leaveType,
-          startDate: effectiveStartDate,
-          endDate: effectiveEndDate,
-          dayType: leaveData.dayType,
-          
-          bereavementRelation: leaveData.bereavementRelation || '',
-          totalDays: totalLeaveDays
-        });
+        const res = await leaveAPI.apply(formData);
         const l = res.data;
         const newLeave = {
           id: l._id,
@@ -537,6 +591,8 @@ import Notification from '../../components/Notifications/Notification';
           status: l.status,
           appliedDate: l.appliedDate,
            
+          regionalHolidayName: l.regionalHolidayName || '',
+          documentUrl: l.documentUrl || ''
         };
         setLeaveHistory(prev => [newLeave, ...prev]);
         setSubmitModal({ isOpen: true, leave: newLeave });
@@ -551,6 +607,7 @@ import Notification from '../../components/Notifications/Notification';
       dayType: 'Full Day',
     
       bereavementRelation: '',
+      regionalHolidayName: '',
       supportingDocuments: null
     });
     setFieldErrors({});
@@ -574,6 +631,7 @@ import Notification from '../../components/Notifications/Notification';
       dayType: leave.dayType || 'Full Day',
      
       bereavementRelation: leave.leaveType === 'BEREAVEMENT' ? (leave.bereavementRelation || '') : '',
+      regionalHolidayName: leave.leaveType === 'REGIONAL_HOLIDAY' ? (leave.regionalHolidayName || '') : '',
       supportingDocuments: null
     });
     setTotalLeaveDays(leave.totalDays || 0);
@@ -590,6 +648,7 @@ import Notification from '../../components/Notifications/Notification';
       dayType: 'Full Day',
     
       bereavementRelation: '',
+      regionalHolidayName: '',
       supportingDocuments: null
     });
     setTotalLeaveDays(0);
@@ -617,6 +676,25 @@ import Notification from '../../components/Notifications/Notification';
 
   const handleView = (leave) => setViewLeave(leave);
 
+  const handleViewCertificate = async (leave) => {
+    try {
+      const documentUrl = leave?.documentUrl ? String(leave.documentUrl) : '';
+      if (!documentUrl) return;
+      if (documentUrl.startsWith('/uploads/')) {
+        window.open(`${BASE_URL}${documentUrl}`, '_blank');
+        return;
+      }
+      const response = await leaveAPI.downloadDocument(documentUrl);
+      const contentType = response?.headers?.['content-type'] || 'application/octet-stream';
+      const blob = new Blob([response.data], { type: contentType });
+      const blobUrl = window.URL.createObjectURL(blob);
+      window.open(blobUrl, '_blank');
+      setTimeout(() => window.URL.revokeObjectURL(blobUrl), 60000);
+    } catch (e) {
+      showNotification('Unable to open certificate.', 'error');
+    }
+  };
+
   // Get leave type icon
   const getLeaveTypeIcon = (type) => {
     switch (type) {
@@ -624,6 +702,7 @@ import Notification from '../../components/Notifications/Notification';
       case 'SL': return <AlertCircle className="w-5 h-5" />;
       case 'PL': return <Calendar className="w-5 h-5" />;
       case 'BEREAVEMENT': return <Heart className="w-5 h-5" />;
+      case 'REGIONAL_HOLIDAY': return <Flag className="w-5 h-5" />;
       default: return <FileText className="w-5 h-5" />;
     }
   };
@@ -713,6 +792,67 @@ import Notification from '../../components/Notifications/Notification';
     return base - pending - used;
   };
 
+  const isRegionalHoliday = leaveData.leaveType === 'REGIONAL_HOLIDAY';
+  const selectedRegionalHolidayValue = isRegionalHoliday && leaveData.regionalHolidayName && leaveData.startDate
+    ? `${leaveData.regionalHolidayName}||${leaveData.startDate}`
+    : '';
+
+  const selectedHolidayYear = (() => {
+    const d = isRegionalHoliday && leaveData.startDate ? new Date(leaveData.startDate) : new Date();
+    return d instanceof Date && !isNaN(d.getTime()) ? d.getFullYear() : new Date().getFullYear();
+  })();
+
+  const hasApprovedRegionalHolidayThisYear = leaveHistory.some(leave => {
+    if (leave.leaveType !== 'REGIONAL_HOLIDAY') return false;
+    if (leave.status !== 'Approved') return false;
+    const sd = new Date(leave.startDate);
+    if (isNaN(sd.getTime())) return false;
+    return sd.getFullYear() === selectedHolidayYear;
+  });
+
+  const hasPendingOrApprovedRegionalHolidayThisYear = leaveHistory.some(leave => {
+    if (leave.leaveType !== 'REGIONAL_HOLIDAY') return false;
+    if (leave.status !== 'Approved' && leave.status !== 'Pending') return false;
+    const sd = new Date(leave.startDate);
+    if (isNaN(sd.getTime())) return false;
+    return sd.getFullYear() === selectedHolidayYear;
+  });
+  const handleRegionalHolidaySelection = (e) => {
+    const value = String(e.target.value || '');
+    if (!value) {
+      setLeaveData(prev => ({
+        ...prev,
+        regionalHolidayName: '',
+        startDate: '',
+        endDate: '',
+        dayType: 'Full Day'
+      }));
+      setTotalLeaveDays(0);
+      return;
+    }
+    const parts = value.split('||');
+    const name = String(parts[0] || '').trim();
+    const dateISO = String(parts[1] || '').trim();
+    setLeaveData(prev => ({
+      ...prev,
+      regionalHolidayName: name,
+      startDate: dateISO,
+      endDate: dateISO,
+      dayType: 'Full Day'
+    }));
+    if (fieldErrors.regionalHolidayName || fieldErrors.startDate || fieldErrors.endDate || fieldErrors.dayType) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next.regionalHolidayName;
+        delete next.startDate;
+        delete next.endDate;
+        delete next.dayType;
+        return next;
+      });
+    }
+    setTotalLeaveDays(1);
+  };
+
   const leaveFormContent = (
     <form noValidate onSubmit={handleSubmit} className="space-y-6">
       {/* Leave Type Selection */}
@@ -725,10 +865,23 @@ import Notification from '../../components/Notifications/Notification';
             <button
               key={type.value}
               type="button"
-              onClick={() => setLeaveData(prev => ({ ...prev, leaveType: type.value }))}
+              onClick={() => {
+                const blocked = type.value === 'REGIONAL_HOLIDAY' && hasApprovedRegionalHolidayThisYear;
+                if (blocked) return;
+                setLeaveData(prev => ({
+                  ...prev,
+                  leaveType: type.value,
+                  bereavementRelation: type.value === 'BEREAVEMENT' ? prev.bereavementRelation : '',
+                  regionalHolidayName: type.value === 'REGIONAL_HOLIDAY' ? '' : '',
+                  startDate: type.value === 'REGIONAL_HOLIDAY' ? '' : prev.startDate,
+                  endDate: type.value === 'REGIONAL_HOLIDAY' ? '' : prev.endDate,
+                  dayType: type.value === 'REGIONAL_HOLIDAY' ? 'Full Day' : prev.dayType
+                }));
+              }}
+              disabled={type.value === 'REGIONAL_HOLIDAY' && hasApprovedRegionalHolidayThisYear}
               className={`p-4 rounded-lg border-2 transition flex items-center justify-center gap-3 ${leaveData.leaveType === type.value
                 ? 'border-[#262760] bg-blue-50'
-                : 'border-gray-200 hover:border-gray-300'}`}
+                : 'border-gray-200 hover:border-gray-300'} ${type.value === 'REGIONAL_HOLIDAY' && hasApprovedRegionalHolidayThisYear ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <div className={`p-2 rounded ${leaveData.leaveType === type.value ? 'bg-blue-100' : 'bg-gray-100'}`}>
                 {getLeaveTypeIcon(type.value)}
@@ -760,6 +913,30 @@ import Notification from '../../components/Notifications/Notification';
         </div>
       )}
 
+      {leaveData.leaveType === 'REGIONAL_HOLIDAY' && (
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            REGIONAL HOLIDAY *
+          </label>
+          <select
+            value={selectedRegionalHolidayValue}
+            onChange={handleRegionalHolidaySelection}
+            disabled={hasApprovedRegionalHolidayThisYear}
+            className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 outline-none transition ${fieldErrors.regionalHolidayName ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-[#262760] focus:border-[#262760]'} ${hasApprovedRegionalHolidayThisYear ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+          >
+            <option value="">Select Holiday</option>
+            {regionalHolidays.map(h => (
+              <option key={h.id} value={`${h.name}||${h.dateISO}`}>{`${h.name} (${h.dateISO})`}</option>
+            ))}
+          </select>
+          {hasApprovedRegionalHolidayThisYear && (
+            <div className="mt-2 text-sm text-gray-500">
+              You already have an approved regional holiday for this year.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Dates Section */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Start Date */}
@@ -777,7 +954,8 @@ import Notification from '../../components/Notifications/Notification';
             onPaste={(e) => e.preventDefault()}
             onDrop={(e) => e.preventDefault()}
             onChange={handleInputChange}
-            className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 outline-none transition ${fieldErrors.startDate ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-[#262760] focus:border-[#262760]'}`}
+            disabled={isRegionalHoliday}
+            className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 outline-none transition ${fieldErrors.startDate ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-[#262760] focus:border-[#262760]'} ${isRegionalHoliday ? 'bg-gray-100 cursor-not-allowed' : ''}`}
           />
         </div>
 
@@ -791,10 +969,14 @@ import Notification from '../../components/Notifications/Notification';
               <button
                 key={type}
                 type="button"
-                onClick={() => handleDayTypeChange(type)}
+                onClick={() => {
+                  if (isRegionalHoliday) return;
+                  handleDayTypeChange(type);
+                }}
+                disabled={isRegionalHoliday}
                 className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition ${leaveData.dayType === type
                   ? 'bg-[#262760] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}
+                  : `bg-gray-100 text-gray-700 ${isRegionalHoliday ? '' : 'hover:bg-gray-200'}`}`}
               >
 
                 {type}
@@ -818,8 +1000,8 @@ import Notification from '../../components/Notifications/Notification';
             onPaste={(e) => e.preventDefault()}
             onDrop={(e) => e.preventDefault()}
             onChange={handleInputChange}
-            disabled={leaveData.dayType === 'Half Day'}
-            className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 outline-none transition ${fieldErrors.endDate ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} ${leaveData.dayType === 'Half Day' ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+            disabled={leaveData.dayType === 'Half Day' || isRegionalHoliday}
+            className={`w-full px-4 py-2.5 border rounded-lg focus:ring-2 outline-none transition ${fieldErrors.endDate ? 'border-red-500 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'} ${leaveData.dayType === 'Half Day' || isRegionalHoliday ? 'bg-gray-100 cursor-not-allowed' : ''}`}
           />
         </div>
       </div>
@@ -827,10 +1009,10 @@ import Notification from '../../components/Notifications/Notification';
   
 
       {/* Supporting Documents (for sick leave) */}
-      {leaveData.leaveType === 'SL' && totalLeaveDays > 3 && (
+      {leaveData.leaveType === 'SL' && totalLeaveDays > 5 && (
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Medical Certificate * (Required for sick leave exceeding 3 days)
+            Medical Certificate * (Required for sick leave exceeding 5 days)
           </label>
           <input
             type="file"
@@ -962,6 +1144,17 @@ import Notification from '../../components/Notifications/Notification';
                               {getStatusIcon(leave.status)}
                               {leave.status}
                             </span>
+                            {leave.documentUrl && (
+                              <div className="mt-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handleViewCertificate(leave)}
+                                  className="text-xs text-[#262760] font-semibold underline flex items-center gap-1"
+                                >
+                                  <span>📄</span> View Certificate
+                                </button>
+                              </div>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -996,6 +1189,9 @@ import Notification from '../../components/Notifications/Notification';
                       <div><span className="font-medium text-gray-700">Status:</span> {viewLeave.status}</div>
                       {viewLeave.leaveType === 'BEREAVEMENT' && (
                         <div><span className="font-medium text-gray-700">Relation:</span> {viewLeave.bereavementRelation || '—'}</div>
+                      )}
+                      {viewLeave.leaveType === 'REGIONAL_HOLIDAY' && (
+                        <div><span className="font-medium text-gray-700">Holiday:</span> {viewLeave.regionalHolidayName || '—'}</div>
                       )}
                       
                     </div>

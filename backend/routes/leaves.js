@@ -2,6 +2,7 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const LeaveApplication = require('../models/LeaveApplication');
 const Employee = require('../models/Employee');
+const RegionalHoliday = require('../models/RegionalHoliday');
 const LeaveBalance = require('../models/LeaveBalance');
 const Timesheet = require('../models/Timesheet');
 const User = require('../models/User');
@@ -10,8 +11,25 @@ const Notification = require('../models/Notification');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const { monthsBetween, calcBalanceForEmployee, mergeBalances } = require('../services/leaveService');
+const multer = require('multer');
 
 const router = express.Router();
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+const REGIONAL_HOLIDAY_TYPE = 'REGIONAL_HOLIDAY';
+
+function toUtcDayRange(dateInput) {
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  const start = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0, 0));
+  const end = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 0, 0, 0, 0));
+  return { start, end };
+}
+
+function normalizeLeaveType(value) {
+  return String(value || '').trim().toUpperCase().replace(/\s+/g, '_');
+}
 
 async function getTeamManagementAssignmentSets(userEmployeeId) {
   const teams = await Team.find({ teamCode: { $regex: /^TEAM-/i } })
@@ -768,7 +786,11 @@ router.get('/my-balance', auth, async (req, res) => {
 // Admin: list leave applications with filters
 router.get('/', auth, async (req, res) => {
   try {
-    if (!hasPermission(req.user, 'leave_view')) {
+    const canListLeaves =
+      hasPermission(req.user, 'leave_view') ||
+      hasPermission(req.user, 'leave_summary') ||
+      hasPermission(req.user, 'leave_manage');
+    if (!canListLeaves) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const { startDate, endDate, employeeId, status, leaveType } = req.query;
@@ -884,7 +906,8 @@ router.get('/', auth, async (req, res) => {
         ...i,
         employeeId: effectiveEmployeeId,
         employeeName: i.employeeName || emp?.name || emp?.employeename || user.name || '',
-        location: i.location || emp?.location || emp?.branch || ''
+        location: i.location || emp?.location || emp?.branch || '',
+        division: emp?.division || emp?.department || ''
       };
     });
     res.json(mapped);
@@ -996,11 +1019,93 @@ router.get('/my', auth, async (req, res) => {
   }
 });
 
-router.post('/', auth, async (req, res) => {
+router.get('/:id/document', auth, async (req, res) => {
   try {
-    const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, totalDays } = req.body;
-    const computedDays = countWorkingDays(startDate, endDate, dayType);
-    const finalDays = typeof totalDays === 'number' && totalDays > 0 ? totalDays : computedDays;
+    const leave = await LeaveApplication.findById(req.params.id)
+      .select('userId employeeId documentUrl document.contentType document.originalName document.size document.uploadedAt +document.data')
+      .lean();
+    if (!leave) return res.status(404).json({ error: 'Leave application not found' });
+
+    const canView =
+      String(leave.userId) === String(req.user._id) ||
+      hasPermission(req.user, 'leave_manage') ||
+      hasPermission(req.user, 'leave_view') ||
+      hasPermission(req.user, 'leave_summary');
+    if (!canView) return res.status(403).json({ error: 'Access denied' });
+
+    const data = leave?.document?.data;
+    if (!data || !Buffer.isBuffer(data) || data.length === 0) {
+      return res.status(404).json({ error: 'No document found for this leave application' });
+    }
+
+    const contentType = leave?.document?.contentType || 'application/octet-stream';
+    const originalName = String(leave?.document?.originalName || 'document')
+      .replace(/[/\\?%*:|"<>]/g, '_')
+      .slice(0, 180);
+
+    res.setHeader('Content-Type', contentType);
+    res.setHeader('Content-Disposition', `inline; filename="${originalName}"`);
+    res.send(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/', auth, upload.single('supportingDocuments'), async (req, res) => {
+  try {
+    const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, regionalHolidayName, totalDays } = req.body;
+    
+    const normalizedType = normalizeLeaveType(leaveType);
+    const finalLeaveType = normalizedType === REGIONAL_HOLIDAY_TYPE ? REGIONAL_HOLIDAY_TYPE : leaveType;
+
+    let finalStartDate = startDate;
+    let finalEndDate = endDate;
+    let finalDayType = dayType;
+    let finalDays = null;
+
+    if (normalizedType === REGIONAL_HOLIDAY_TYPE) {
+      const start = new Date(startDate);
+      if (!startDate || isNaN(start.getTime())) {
+        return res.status(400).json({ error: 'Invalid start date' });
+      }
+      if (!regionalHolidayName) {
+        return res.status(400).json({ error: 'Invalid regional holiday' });
+      }
+      const range = toUtcDayRange(start);
+      if (!range) {
+        return res.status(400).json({ error: 'Invalid start date' });
+      }
+      const holiday = await RegionalHoliday.findOne({
+        isActive: true,
+        name: regionalHolidayName,
+        date: { $gte: range.start, $lt: range.end }
+      }).select('date name');
+      if (!holiday) {
+        return res.status(400).json({ error: 'Invalid regional holiday' });
+      }
+
+      finalStartDate = holiday.date;
+      finalEndDate = holiday.date;
+      finalDayType = 'Full Day';
+      finalDays = 1;
+
+      const yearStart = new Date(Date.UTC(holiday.date.getUTCFullYear(), 0, 1));
+      const yearEnd = new Date(Date.UTC(holiday.date.getUTCFullYear() + 1, 0, 1));
+      const exists = await LeaveApplication.findOne({
+        userId: req.user._id,
+        leaveType: REGIONAL_HOLIDAY_TYPE,
+        status: { $in: ['Pending', 'Approved'] },
+        startDate: { $gte: yearStart, $lt: yearEnd }
+      }).select('_id');
+      if (exists) {
+        return res.status(400).json({ error: 'You have already applied for a regional holiday this year' });
+      }
+    }
+
+    if (finalDays === null) {
+      const computedDays = countWorkingDays(finalStartDate, finalEndDate, finalDayType);
+      finalDays = typeof totalDays === 'number' && totalDays > 0 ? totalDays : computedDays;
+    }
 
     // Fetch employee details to populate name and location
     let employeeName = req.user.name || '';
@@ -1020,19 +1125,41 @@ router.post('/', auth, async (req, res) => {
       location = emp.location || emp.branch || '';
     }
 
+    // Validation for sick leave medical certificate
+    if (normalizedType === 'SL' && parseFloat(totalDays) > 5 && !req.file) {
+      return res.status(400).json({ error: 'Medical certificate is required for sick leave exceeding 5 days' });
+    }
+
+    const doc = req.file
+      ? {
+        data: req.file.buffer,
+        contentType: req.file.mimetype || '',
+        originalName: req.file.originalname || '',
+        size: Number(req.file.size) || 0,
+        uploadedAt: new Date()
+      }
+      : undefined;
+
     const created = await LeaveApplication.create({
       userId: req.user._id,
       employeeId: req.user.employeeId || emp?.employeeId || '',
       employeeName,
       location,
-      leaveType,
-      startDate,
-      endDate,
-      dayType,
+      leaveType: finalLeaveType,
+      startDate: finalStartDate,
+      endDate: finalEndDate,
+      dayType: finalDayType,
       totalDays: finalDays,
       reason: reason || '',
-      bereavementRelation: bereavementRelation || ''
+      bereavementRelation: bereavementRelation || '',
+      regionalHolidayName: normalizedType === REGIONAL_HOLIDAY_TYPE ? (regionalHolidayName || '') : '',
+      documentUrl: '',
+      document: doc
     });
+    if (req.file) {
+      created.documentUrl = `/leaves/${created._id}/document`;
+      await created.save();
+    }
     // try {
     //   await sendLeaveSubmissionEmail(created, req.user, emp || {});
     // } catch (_) {}
@@ -1043,7 +1170,7 @@ router.post('/', auth, async (req, res) => {
       await Notification.create({
         recipient: req.user._id,
         title: 'Leave Applied',
-        message: `Your leave application for ${leaveType} from ${new Date(startDate).toLocaleDateString()} to ${new Date(endDate).toLocaleDateString()} has been submitted.`,
+        message: `Your leave application for ${leaveType} from ${new Date(finalStartDate).toLocaleDateString()} to ${new Date(finalEndDate).toLocaleDateString()} has been submitted.`,
         type: 'LEAVE_APPLY',
         isRead: false
       });
@@ -1057,7 +1184,7 @@ router.post('/', auth, async (req, res) => {
         await Notification.create({
           recipient: recipientId,
           title: 'New Leave Request',
-          message: `${employeeName} applied for ${leaveType} (${new Date(startDate).toLocaleDateString()} - ${new Date(endDate).toLocaleDateString()}).`,
+          message: `${employeeName} applied for ${leaveType} (${new Date(finalStartDate).toLocaleDateString()} - ${new Date(finalEndDate).toLocaleDateString()}).`,
           type: 'LEAVE_APPLY',
           isRead: false
         });
@@ -1066,7 +1193,8 @@ router.post('/', auth, async (req, res) => {
       console.error('Error creating notification:', err);
     }
 
-    res.status(201).json(created);
+    const createdSafe = await LeaveApplication.findById(created._id).lean();
+    res.status(201).json(createdSafe);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1141,9 +1269,9 @@ router.get('/email-action', async (req, res) => {
 });
 
 // Update own leave application (only when Pending)
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) => {
   try {
-    const existing = await LeaveApplication.findById(req.params.id).lean();
+    const existing = await LeaveApplication.findById(req.params.id);
     if (!existing) return res.status(404).json({ error: 'Leave application not found' });
     if (String(existing.userId) !== String(req.user._id)) {
       return res.status(403).json({ error: 'Not allowed to edit this application' });
@@ -1151,19 +1279,98 @@ router.put('/:id', auth, async (req, res) => {
     if (existing.status !== 'Pending') {
       return res.status(400).json({ error: 'Only Pending applications can be edited' });
     }
-    const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, totalDays } = req.body;
-    const computedDays = countWorkingDays(startDate, endDate, dayType);
-    const finalDays = typeof totalDays === 'number' && totalDays > 0 ? totalDays : computedDays;
+    const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, regionalHolidayName, totalDays } = req.body;
+    
+    // Check if new file was uploaded
+    let documentUrl = existing.documentUrl;
+    let document = undefined;
+    if (req.file) {
+      documentUrl = `/leaves/${existing._id}/document`;
+      document = {
+        data: req.file.buffer,
+        contentType: req.file.mimetype || '',
+        originalName: req.file.originalname || '',
+        size: Number(req.file.size) || 0,
+        uploadedAt: new Date()
+      };
+    }
+    const nextLeaveTypeRaw = leaveType || existing.leaveType;
+    const normalizedType = normalizeLeaveType(nextLeaveTypeRaw);
+    const nextLeaveType = normalizedType === REGIONAL_HOLIDAY_TYPE ? REGIONAL_HOLIDAY_TYPE : nextLeaveTypeRaw;
+    const nextStartDate = startDate || existing.startDate;
+    const nextEndDate = endDate || existing.endDate;
+    const nextDayType = dayType || existing.dayType;
+    let finalStartDate = nextStartDate;
+    let finalEndDate = nextEndDate;
+    let finalDayType = nextDayType;
+    let finalDays = null;
+    let finalRegionalHolidayName = '';
+
+    if (normalizedType === REGIONAL_HOLIDAY_TYPE) {
+      const nextHolidayName = typeof regionalHolidayName === 'string' ? regionalHolidayName : (existing.regionalHolidayName || '');
+      const start = new Date(nextStartDate);
+      if (isNaN(start.getTime())) {
+        return res.status(400).json({ error: 'Invalid start date' });
+      }
+      if (!nextHolidayName) {
+        return res.status(400).json({ error: 'Invalid regional holiday' });
+      }
+      const range = toUtcDayRange(start);
+      if (!range) {
+        return res.status(400).json({ error: 'Invalid start date' });
+      }
+      const holiday = await RegionalHoliday.findOne({
+        isActive: true,
+        name: nextHolidayName,
+        date: { $gte: range.start, $lt: range.end }
+      }).select('date name');
+      if (!holiday) {
+        return res.status(400).json({ error: 'Invalid regional holiday' });
+      }
+
+      finalStartDate = holiday.date;
+      finalEndDate = holiday.date;
+      finalDayType = 'Full Day';
+      finalDays = 1;
+      finalRegionalHolidayName = nextHolidayName;
+
+      const yearStart = new Date(Date.UTC(holiday.date.getUTCFullYear(), 0, 1));
+      const yearEnd = new Date(Date.UTC(holiday.date.getUTCFullYear() + 1, 0, 1));
+      const exists = await LeaveApplication.findOne({
+        _id: { $ne: req.params.id },
+        userId: req.user._id,
+        leaveType: REGIONAL_HOLIDAY_TYPE,
+        status: { $in: ['Pending', 'Approved'] },
+        startDate: { $gte: yearStart, $lt: yearEnd }
+      }).select('_id');
+      if (exists) {
+        return res.status(400).json({ error: 'You have already applied for a regional holiday this year' });
+      }
+    }
+
+    if (finalDays === null) {
+      const computedDays = countWorkingDays(finalStartDate, finalEndDate, finalDayType);
+      finalDays = typeof totalDays === 'number' && totalDays > 0 ? totalDays : computedDays;
+    }
+    if (normalizedType === 'SL' && parseFloat(finalDays || 0) > 5 && !documentUrl) {
+      return res.status(400).json({ error: 'Medical certificate is required for sick leave exceeding 5 days' });
+    }
+
     const updated = await LeaveApplication.findByIdAndUpdate(
       req.params.id,
       {
-        leaveType: leaveType || existing.leaveType,
-        startDate: startDate || existing.startDate,
-        endDate: endDate || existing.endDate,
-        dayType: dayType || existing.dayType,
+        leaveType: nextLeaveType,
+        startDate: finalStartDate,
+        endDate: finalEndDate,
+        dayType: finalDayType,
         totalDays: finalDays || existing.totalDays,
         reason: typeof reason === 'string' ? reason : existing.reason,
-        bereavementRelation: typeof bereavementRelation === 'string' ? bereavementRelation : existing.bereavementRelation
+        bereavementRelation: typeof bereavementRelation === 'string' ? bereavementRelation : existing.bereavementRelation,
+        regionalHolidayName: normalizedType === REGIONAL_HOLIDAY_TYPE
+          ? finalRegionalHolidayName
+          : '',
+        documentUrl: documentUrl,
+        ...(document ? { document } : {})
       },
       { new: true }
     );

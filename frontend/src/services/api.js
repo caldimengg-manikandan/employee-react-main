@@ -132,7 +132,13 @@ export const leaveAPI = {
   list: (params) => api.get('/leaves', params ? { params } : undefined),
   updateStatus: (id, status, rejectionReason) => api.put(`/leaves/${id}/status`, { status, rejectionReason }),
   update: (id, data) => api.put(`/leaves/${id}`, data),
-  remove: (id) => api.delete(`/leaves/${id}`)
+  remove: (id) => api.delete(`/leaves/${id}`),
+  downloadDocument: (documentUrl) => {
+    const raw = typeof documentUrl === 'string' ? documentUrl.trim() : '';
+    if (!raw) return Promise.reject(new Error('Invalid documentUrl'));
+    const apiPath = raw.startsWith('/api/') ? raw.replace(/^\/api/, '') : raw;
+    return api.get(apiPath, { responseType: 'blob' });
+  }
 };
 
 export const allocationAPI = {
@@ -281,6 +287,12 @@ export const holidayAllowanceAPI = {
   saveBulk: (data) => api.post('/holiday-allowances/bulk-save', data),
   list: (params) => api.get('/holiday-allowances', { params }),
   getSummary: (params) => api.get('/holiday-allowances/summary', { params }),
+};
+
+export const regionalHolidayAPI = {
+  list: () => api.get('/regional-holidays'),
+  create: (data) => api.post('/regional-holidays', data),
+  remove: (id) => api.delete(`/regional-holidays/${id}`)
 };
 
 export const loanAPI = {

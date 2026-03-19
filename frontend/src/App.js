@@ -23,10 +23,9 @@ import ProjectAllocation from './pages/project-allocation/ProjectAllocation';
 import LeaveApplications from './pages/leaveapplications/LeaveApplications';
 
 //Leave Management Pages 
-import EditLeaveEligibility from './pages/leavemanagement/EditLeaveEligibility';
 import LeaveSummary from './pages/leavemanagement/LeaveSummary';
 import LeaveBalance from './pages/leavemanagement/LeaveBalance';
-import TraineeManagement from './pages/leavemanagement/TraineeManagement';
+import RegionalHolidays from './pages/leavemanagement/RegionalHolidays';
 
 // Admin Timesheet Pages
 import AdminTimesheet from './pages/admin-timesheet/AdminTimesheet';
@@ -296,19 +295,6 @@ function App() {
 
             {/* ---------------- LEAVE MANAGEMENT MODULES (NO DASHBOARD) ---------------- */}
 
-            {/* Edit Leave Eligibility */}
-            <Route
-              path="leave-management/edit-eligibility"
-              element={
-                <ProtectedRoute
-                  requiredPermissions={["leave_manage"]}
-                  roles={["admin", "hr"]}
-                >
-                  <EditLeaveEligibility />
-                </ProtectedRoute>
-              }
-            />
-
             {/* Leave Summary */}
             <Route
               path="leave-management/summary"
@@ -336,15 +322,12 @@ function App() {
               }
             />
 
-            {/* Trainees Management */}
+            {/* Regional Holidays */}
             <Route
-              path="leave-management/trainees"
+              path="leave-management/regional-holidays"
               element={
-                <ProtectedRoute
-                  requiredPermissions={["leave_manage_trainees"]}
-                  roles={["admin", "hr"]}
-                >
-                  <TraineeManagement />
+                <ProtectedRoute requiredPermissions={["leave_group_access", "leave_summary"]} roles={["admin", "hr"]}>
+                  <RegionalHolidays />
                 </ProtectedRoute>
               }
             />

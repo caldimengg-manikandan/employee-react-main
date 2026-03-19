@@ -85,6 +85,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Edit Leave Eligibility": AdjustmentsHorizontalIcon,
     "Leave Summary": ChartBarIcon,
     "Leave Balance": ClipboardDocumentListIcon,
+    "Regional Holidays": CalendarDaysIcon,
     "Trainees Management": AcademicCapIcon,
     "Expenditure Management": CurrencyDollarIcon,
     "Payroll Management": CalculatorIcon,
@@ -253,6 +254,12 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
           path: "/leave-management/summary",
           permission: "leave_summary",
           showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"]
+        },
+        {
+          name: "Regional Holidays",
+          path: "/leave-management/regional-holidays",
+          permission: "leave_summary",
+          showForRoles: ["admin", "hr"]
         },
         {
           name: "Leave Balance",

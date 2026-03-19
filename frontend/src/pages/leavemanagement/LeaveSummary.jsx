@@ -51,8 +51,7 @@ const LeaveSummary = () => {
   // Locations - Only Hosur and Chennai
   const locations = ['Hosur', 'Chennai'];
 
-  // Leave types - Only the 4 specified types
-  const leaveTypes = ['Casual Leave', 'Sick Leave', 'Privilege Leave', 'Bereavement Leave'];
+  const leaveTypes = ['Casual Leave', 'Sick Leave', 'Privilege Leave', 'Bereavement Leave', 'Regional Holiday'];
 
   // Status options
   const statusOptions = ['Approved', 'Pending', 'Rejected'];
@@ -68,7 +67,17 @@ const LeaveSummary = () => {
         id: l._id,
         employeeName: l.employeeName || l.name || '',
         employeeId: l.employeeId || '',
-        leaveType: l.leaveType === 'CL' ? 'Casual Leave' : l.leaveType === 'SL' ? 'Sick Leave' : l.leaveType === 'PL' ? 'Privilege Leave' : l.leaveType === 'BEREAVEMENT' ? 'Bereavement Leave' : l.leaveType,
+        leaveType: l.leaveType === 'CL'
+          ? 'Casual Leave'
+          : l.leaveType === 'SL'
+            ? 'Sick Leave'
+            : l.leaveType === 'PL'
+              ? 'Privilege Leave'
+              : l.leaveType === 'BEREAVEMENT'
+                ? 'Bereavement Leave'
+                : l.leaveType === 'REGIONAL_HOLIDAY'
+                  ? `Regional Holiday${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`
+                  : l.leaveType,
         // Keep raw dates for accurate month-overlap filtering
         startDateRaw: l.startDate,
         endDateRaw: l.endDate,
@@ -79,7 +88,8 @@ const LeaveSummary = () => {
         days: l.totalDays || 0,
         totalLeaveDays: l.totalDays || 0,
         status: l.status || 'Pending',
-        location: l.location || l.branch || '—'
+        location: l.location || l.branch || '—',
+        documentUrl: l.documentUrl || ''
       }));
       setLeaveApplications(mapped);
     } catch {
@@ -822,6 +832,27 @@ const LeaveSummary = () => {
                       )}
                       {app.status !== 'Pending' && (
                         <span style={{ color: '#95a5a6', fontSize: '13px' }}>Completed</span>
+                      )}
+                      {app.documentUrl && (
+                        <div>
+                          <a
+                            href={`${(typeof window !== 'undefined' ? (process.env.REACT_APP_API_BASE || 'http://localhost:5003/api').replace('/api','') : '')}${app.documentUrl}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px',
+                              marginTop: '8px',
+                              fontSize: '12px',
+                              color: '#262760',
+                              fontWeight: '600',
+                              textDecoration: 'underline'
+                            }}
+                          >
+                            <span>📄</span> View Medical Certificate
+                          </a>
+                        </div>
                       )}
                     </td>
                   </tr>
