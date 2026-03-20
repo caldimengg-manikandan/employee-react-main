@@ -66,13 +66,18 @@ async function sendTimesheetApprovalRequestEmail(user, sheet) {
     const entries = Array.isArray(sheet.entries) ? sheet.entries : [];
     const toHHMM = (n) => { const totalMin = Math.round(Number(n || 0) * 60); const h = Math.floor(totalMin / 60); const m = totalMin % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; };
     const workWeeklyTotal = entries.reduce((sum, e) => { const hrs = Array.isArray(e.hours) ? e.hours : []; return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0); }, 0);
+    const leaveApprovedWeeklyTotal = entries.reduce((sum, e) => {
+      const isLeaveApproved = ((e.type || "project") === "leave") && String(e.task || "").toLowerCase().includes("leave approved");
+      if (!isLeaveApproved) return sum;
+      const hrs = Array.isArray(e.hours) ? e.hours : [];
+      return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0);
+    }, 0);
     const shifts = Array.isArray(sheet.dailyShiftTypes) ? sheet.dailyShiftTypes : [];
     const getShiftBreakHours = (shift) => { if (!shift) return 0; const s = String(shift); if (s.startsWith("First Shift")) return 65 / 60; if (s.startsWith("Second Shift")) return 60 / 60; if (s.startsWith("General Shift")) return 75 / 60; return 0; };
     const computeBreakForDay = (dayIndex) => { return 0; };
     const breakDaily = [0, 1, 2, 3, 4, 5, 6].map((i) => computeBreakForDay(i));
     const breakWeekly = breakDaily.reduce((s, v) => s + v, 0);
     const totalWithBreak = workWeeklyTotal + breakWeekly;
-    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const onPrem = sheet.onPremisesTime || { daily: [], weekly: 0 };
     const baseHtml = `
       <div style="font-family:Arial,sans-serif;line-height:1.6;padding:20px;max-width:900px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;">
@@ -94,46 +99,12 @@ async function sendTimesheetApprovalRequestEmail(user, sheet) {
             <tr><td style="padding:8px 0;color:#666;"><strong>Week:</strong></td><td style="padding:8px 0;color:#333;">${weekStr}</td></tr>
             <tr><td style="padding:8px 0;color:#666;"><strong>Period:</strong></td><td style="padding:8px 0;color:#333;">${start} to ${end}</td></tr>
             <tr><td style="padding:8px 0;color:#666;"><strong>Work Hours (sum of entries):</strong></td><td style="padding:8px 0;color:#333;font-weight:bold;">${toHHMM(workWeeklyTotal)} hours</td></tr>
+            <tr><td style="padding:8px 0;color:#666;"><strong>Leave Approved:</strong></td><td style="padding:8px 0;color:#333;">${toHHMM(leaveApprovedWeeklyTotal)} hours</td></tr>
             <!-- <tr><td style="padding:8px 0;color:#666;"><strong>Break Hours:</strong></td><td style="padding:8px 0;color:#333;">${toHHMM(breakWeekly)} hours</td></tr> -->
             <tr><td style="padding:8px 0;color:#666;"><strong>Total Hours:</strong></td><td style="padding:8px 0;color:#333;font-weight:bold;">${toHHMM(totalWithBreak)} hours</td></tr>
             <tr><td style="padding:8px 0;color:#666;"><strong>Status:</strong></td><td style="padding:8px 0;color:#4F46E5;font-weight:bold;">${sheet.status || 'Submitted'}</td></tr>
             <tr><td style="padding:8px 0;color:#666;"><strong>Submitted On:</strong></td><td style="padding:8px 0;color:#333;">${new Date().toLocaleString()}</td></tr>
             <tr><td style="padding:8px 0;color:#666;"><strong>On-Premises Weekly:</strong></td><td style="padding:8px 0;color:#333;">${toHHMM(onPrem.weekly || 0)} hours</td></tr>
-          </table>
-        </div>
-        <div style="background:#fff;padding:15px;border-radius:6px;margin-bottom:20px;border:1px solid #eee;">
-          <h3 style="color:#4F46E5;margin-top:0;">Time Entries</h3>
-          <table style="width:100%;border-collapse:collapse;">
-            <thead>
-              <tr>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Project</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Task</th>
-                ${dayNames.map(d => `<th style=\"text-align:right;padding:8px;border-bottom:1px solid #eee;color:#666;\">${d}</th>`).join("")}
-                <th style="text-align:right;padding:8px;border-bottom:1px solid #eee;color:#666;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${entries.map(e => { const hrs = Array.isArray(e.hours) ? e.hours : []; const rowTotal = hrs.reduce((a, b) => a + (Number(b) || 0), 0); return `
-                  <tr>
-                    <td style=\"padding:8px;color:#333;\">${e.project || '-'}</td>
-                    <td style=\"padding:8px;color:#333;\">${e.task || '-'}</td>
-                    ${dayNames.map((_, i) => `<td style=\"text-align:right;padding:8px;color:#333;\">${toHHMM(hrs[i] || 0)}</td>`).join("")}
-                    <td style=\"text-align:right;padding:8px;color:#333;font-weight:bold;\">${toHHMM(rowTotal)}</td>
-                  </tr>
-                `; }).join("")}
-              <tr>
-                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Work Hours Total</td>
-                <td style="text-align:right;padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;">${toHHMM(workWeeklyTotal)}</td>
-              </tr>
-              <tr>
-                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;border-top:1px solid #eee;text-align:right;">Break Hours Total</td>
-                <td style="text-align:right;padding:8px;color:#333;border-top:1px solid #eee;">${toHHMM(breakWeekly)}</td>
-              </tr>
-              <tr>
-                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Total (Work + Break)</td>
-                <td style="text-align:right;padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;">${toHHMM(totalWithBreak)}</td>
-              </tr>
-            </tbody>
           </table>
         </div>
       </div>`;
@@ -239,14 +210,18 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
       const hrs = Array.isArray(e.hours) ? e.hours : [];
       return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0);
     }, 0);
+    const leaveApprovedWeeklyTotal = entries.reduce((sum, e) => {
+      const isLeaveApproved = ((e.type || "project") === "leave") && String(e.task || "").toLowerCase().includes("leave approved");
+      if (!isLeaveApproved) return sum;
+      const hrs = Array.isArray(e.hours) ? e.hours : [];
+      return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0);
+    }, 0);
     const computeBreakForDay = (dayIndex) => {
       return 0;
     };
     const breakDaily = [0, 1, 2, 3, 4, 5, 6].map((i) => computeBreakForDay(i));
     const breakWeekly = breakDaily.reduce((s, v) => s + v, 0);
     const totalWithBreak = workWeeklyTotal + breakWeekly;
-    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const fullDayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
     const dailyShiftTypes = Array.isArray(sheet.dailyShiftTypes) ? sheet.dailyShiftTypes : [];
     const onPrem = sheet.onPremisesTime || { daily: [], weekly: 0 };
 
@@ -311,6 +286,10 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
               <td style="padding:8px 0;color:#666;"><strong>Work Hours (sum of entries):</strong></td>
               <td style="padding:8px 0;color:#333;font-weight:bold;">${toHHMM(workWeeklyTotal)} hours</td>
             </tr>
+            <tr>
+              <td style="padding:8px 0;color:#666;"><strong>Leave Approved:</strong></td>
+              <td style="padding:8px 0;color:#333;">${toHHMM(leaveApprovedWeeklyTotal)} hours</td>
+            </tr>
             <!-- <tr>
               <td style="padding:8px 0;color:#666;"><strong>Break Hours:</strong></td>
               <td style="padding:8px 0;color:#333;">${toHHMM(breakWeekly)} hours</td>
@@ -340,52 +319,6 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
             </tr>
           </table>
         </div>
-
-       
-
-        
-
-        
-
-        <div style="background:#fff;padding:15px;border-radius:6px;margin-bottom:20px;border:1px solid #eee;">
-          <h3 style="color:#4F46E5;margin-top:0;">Time Entries</h3>
-          <table style="width:100%;border-collapse:collapse;">
-            <thead>
-              <tr>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Project</th>
-                <th style="text-align:left;padding:8px;border-bottom:1px solid #eee;color:#666;">Task</th>
-                ${dayNames.map(d => `<th style=\"text-align:right;padding:8px;border-bottom:1px solid #eee;color:#666;\">${d}</th>`).join("")}
-                <th style="text-align:right;padding:8px;border-bottom:1px solid #eee;color:#666;">Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${entries.map(e => {
-      const hrs = Array.isArray(e.hours) ? e.hours : [];
-      const rowTotal = hrs.reduce((a, b) => a + (Number(b) || 0), 0);
-      return `
-                  <tr>
-                    <td style=\"padding:8px;color:#333;\">${e.project || '-'}</td>
-                    <td style=\"padding:8px;color:#333;\">${e.task || '-'}</td>
-                    ${dayNames.map((_, i) => `<td style=\"text-align:right;padding:8px;color:#333;\">${toHHMM(hrs[i] || 0)}</td>`).join("")}
-                    <td style=\"text-align:right;padding:8px;color:#333;font-weight:bold;\">${toHHMM(rowTotal)}</td>
-                  </tr>
-                `;
-    }).join("")}
-              <tr>
-                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Work Hours Total</td>
-                <td style="text-align:right;padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;">${toHHMM(workWeeklyTotal)}</td>
-              </tr>
-              <tr>
-                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;border-top:1px solid #eee;text-align:right;">Break Hours Total</td>
-                <td style="text-align:right;padding:8px;color:#333;border-top:1px solid #eee;">${toHHMM(breakWeekly)}</td>
-              </tr>
-              <tr>
-                <td colspan="${2 + dayNames.length}" style="padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;text-align:right;">Total (Work + Break)</td>
-                <td style="text-align:right;padding:8px;color:#333;font-weight:bold;border-top:1px solid #eee;">${toHHMM(totalWithBreak)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
         
         <p style="color:#666;font-size:14px;margin-top:20px;">
           <strong>Note:</strong> You will be notified once your timesheet is reviewed and approved by the admin.
@@ -411,7 +344,7 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
       to: targetEmail,
       subject: subject,
       html: html,
-      text: `Timesheet Submitted - ${weekStr}\n\nPeriod: ${start} to ${end}\nWork Hours: ${toHHMM(workWeeklyTotal)}\nBreak Hours: ${toHHMM(breakWeekly)}\nTotal (Work + Break): ${toHHMM(totalWithBreak)}\nStatus: ${sheet.status}\nOn-Prem Weekly: ${toHHMM(onPrem.weekly || 0)}\n\nSubmitted on: ${new Date().toLocaleString()}`
+      text: `Timesheet Submitted - ${weekStr}\n\nPeriod: ${start} to ${end}\nWork Hours: ${toHHMM(workWeeklyTotal)}\nLeave Approved: ${toHHMM(leaveApprovedWeeklyTotal)}\nBreak Hours: ${toHHMM(breakWeekly)}\nTotal (Work + Break): ${toHHMM(totalWithBreak)}\nStatus: ${sheet.status}\nOn-Prem Weekly: ${toHHMM(onPrem.weekly || 0)}\n\nSubmitted on: ${new Date().toLocaleString()}`
     };
 
     console.log("📤 Sending email to:", targetEmail);
