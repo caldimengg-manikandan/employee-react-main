@@ -37,6 +37,14 @@ import { performanceAPI } from '../../services/api';
 
 const TAB_ORDER = ['knowledge', 'process', 'technical', 'growth', 'projects', 'summary'];
 
+const getPreviousFinancialYearLabel = () => {
+  const now = new Date();
+  const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const prevStartYear = currentStartYear - 1;
+  const prevEndYear = String(prevStartYear + 1).slice(2);
+  return `${prevStartYear}-${prevEndYear}`;
+};
+
 // Enhanced Rating Stars Component with Labels
 const RatingStars = ({ value, onChange, readOnly = false, size = "h-5 w-5", showValue = true }) => {
   const stars = [1, 2, 3, 4, 5];
@@ -215,6 +223,7 @@ const TeamAppraisal = () => {
   // Get current user from session
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const currentUser = user.name || '';
+  const openFy = getPreviousFinancialYearLabel();
 
   // Helper to check if current user has access
   const hasCompensationAccess = ALLOWED_COMPENSATION_VIEWERS.includes(currentUser.toLowerCase());
@@ -227,7 +236,7 @@ const TeamAppraisal = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [divisionFilter, setDivisionFilter] = useState('');
   const [locationFilter, setLocationFilter] = useState('');
-  const [financialYearFilter, setFinancialYearFilter] = useState('');
+  const [financialYearFilter, setFinancialYearFilter] = useState(openFy);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
   const [isEditable, setIsEditable] = useState(false);
   const [activeTab, setActiveTab] = useState('knowledge'); // knowledge, process, technical, growth, summary
@@ -489,7 +498,7 @@ const TeamAppraisal = () => {
   // Filter Logic
   const uniqueDivisions = [...new Set(employees.map(e => e.division).filter(Boolean))].sort();
   const uniqueLocations = [...new Set(employees.map(e => e.location).filter(Boolean))].sort();
-  const uniqueYears = [...new Set(employees.map(e => e.financialYr).filter(Boolean))].sort().reverse();
+  const uniqueYears = [openFy];
 
   const filteredEmployees = employees.filter(emp => {
     const matchesSearch = emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -558,7 +567,6 @@ const TeamAppraisal = () => {
               onChange={(e) => setFinancialYearFilter(e.target.value)}
               className="border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#262760] py-2 px-3"
             >
-              <option value="">All Years</option>
               {uniqueYears.map(year => (
                 <option key={year} value={year}>{year}</option>
               ))}

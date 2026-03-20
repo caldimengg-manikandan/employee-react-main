@@ -18,6 +18,14 @@ import { performanceAPI, employeeAPI } from '../../services/api';
 import balaSignature from '../../bala signature.png';
 import uvarajSignature from '../../uvaraj signature.png';
 
+const getPreviousFinancialYearFull = () => {
+  const now = new Date();
+  const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const prevStartYear = currentStartYear - 1;
+  const prevEndYear = prevStartYear + 1;
+  return `${prevStartYear}-${prevEndYear}`;
+};
+
 const IncrementSummary = () => {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -29,14 +37,14 @@ const IncrementSummary = () => {
   // Filter State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState({
-    financialYear: '2025-2026',
+    financialYear: getPreviousFinancialYearFull(),
     division: 'All',
     designation: 'All',
     location: 'All',
     status: 'All'
   });
   const [appliedFilters, setAppliedFilters] = useState({
-    financialYear: '2025-2026',
+    financialYear: getPreviousFinancialYearFull(),
     division: 'All',
     designation: 'All',
     location: 'All',
@@ -130,9 +138,7 @@ const IncrementSummary = () => {
   }, []);
 
   const financialYears = useMemo(() => {
-    const yearsFromData = Array.from(new Set(records.map(r => r.financialYear).filter(Boolean)));
-    const base = ['2023-2024', '2024-2025', '2025-2026', '2026-2027'];
-    return Array.from(new Set([...yearsFromData, ...base]));
+    return [getPreviousFinancialYearFull()];
   }, [records]);
 
   const divisions = useMemo(() => {
@@ -223,7 +229,7 @@ const IncrementSummary = () => {
 
   const clearFilters = () => {
     const base = {
-      financialYear: '2025-2026',
+      financialYear: getPreviousFinancialYearFull(),
       division: 'All',
       designation: 'All',
       location: 'All',

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Search,
   Eye,
@@ -97,6 +97,14 @@ const getCurrentFinancialYear = () => {
   return `${yearStart}-${yearEnd}`;
 };
 
+const getPreviousFinancialYear = () => {
+  const today = new Date();
+  const currentStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  const prevStart = currentStart - 1;
+  const prevEnd = String(prevStart + 1).slice(2);
+  return `${prevStart}-${prevEnd}`;
+};
+
 const formatDisplayDate = (value) => {
   if (!value) return '';
   const d = value instanceof Date ? value : new Date(value);
@@ -128,7 +136,7 @@ const DirectorApproval = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFinancialYr, setSelectedFinancialYr] = useState(getCurrentFinancialYear());
+  const [selectedFinancialYr, setSelectedFinancialYr] = useState(getPreviousFinancialYear());
   const [selectedDivision, setSelectedDivision] = useState('All');
   const [selectedDesignation, setSelectedDesignation] = useState('All');
   const [selectedRows, setSelectedRows] = useState([]);
@@ -146,6 +154,8 @@ const DirectorApproval = () => {
   // Inline Editing State
   const [editingRowId, setEditingRowId] = useState(null);
   const [editFormData, setEditFormData] = useState({});
+  const [performancePayDrafts, setPerformancePayDrafts] = useState({});
+  const performancePaySaveTimersRef = useRef({});
 
   // Comment Modal State
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
@@ -164,13 +174,10 @@ const DirectorApproval = () => {
   }, []);
 
   useEffect(() => {
-    if (employees.length > 0) {
-      const years = Array.from(new Set(employees.map(e => e.financialYr).filter(Boolean)));
-      if (years.length > 0 && !years.includes(selectedFinancialYr)) {
-        setSelectedFinancialYr(years[0]);
-      }
+    if (!selectedFinancialYr) {
+      setSelectedFinancialYr(getPreviousFinancialYear());
     }
-  }, [employees]);
+  }, [selectedFinancialYr]);
 
   const fetchDirectorAppraisals = async () => {
     setLoading(true);
@@ -250,6 +257,41 @@ const DirectorApproval = () => {
     setEditFormData(newData);
   };
 
+  const handlePerformancePayChange = (id, rawValue) => {
+    const raw = String(rawValue ?? '');
+    setPerformancePayDrafts((prev) => ({ ...prev, [id]: raw }));
+
+    const numeric = raw.trim() === '' ? 0 : Number(raw);
+    const shouldSave = raw.trim() === '' || Number.isFinite(numeric);
+
+    setEmployees((prev) =>
+      prev.map((emp) => (emp.id === id ? { ...emp, performancePay: shouldSave ? numeric : emp.performancePay } : emp))
+    );
+
+    if (editingRowId === id) {
+      setEditFormData((prev) => ({ ...prev, performancePay: shouldSave ? numeric : prev.performancePay }));
+    }
+
+    if (!shouldSave) return;
+
+    if (performancePaySaveTimersRef.current[id]) {
+      clearTimeout(performancePaySaveTimersRef.current[id]);
+    }
+
+    performancePaySaveTimersRef.current[id] = setTimeout(async () => {
+      try {
+        await performanceAPI.updateDirectorAppraisal(id, { performancePay: numeric });
+      } catch (error) {
+        console.error('Failed to save performance pay', error);
+        setStatusPopup({
+          isOpen: true,
+          status: 'error',
+          message: 'Failed to save Performance Pay. Please try again.'
+        });
+      }
+    }, 600);
+  };
+
   const openCommentModal = (emp) => {
     setCurrentCommentEmpId(emp.id);
     const comment = editingRowId === emp.id ? editFormData.directorComments : emp.directorComments;
@@ -304,7 +346,7 @@ const DirectorApproval = () => {
         employeeDetails = { ...emp };
       }
 
-      const financialYear = emp.financialYr || selectedFinancialYr || getCurrentFinancialYear();
+      const financialYear = emp.financialYr || selectedFinancialYr || getPreviousFinancialYear();
 
       const today = new Date();
       const letterDate = formatDisplayDate(today);
@@ -427,6 +469,7 @@ const DirectorApproval = () => {
         effectiveDate: '1st April 2026',
         incrementPercentage: totalPct,
         incrementAmount,
+        performancePay: Number(emp.performancePay || 0),
         salary: {
           old: salaryOld,
           new: salaryNew
@@ -525,7 +568,7 @@ const DirectorApproval = () => {
 
   const divisions = ['All', ...new Set(employees.map(emp => emp.division).filter(Boolean))];
   const designations = ['All', ...new Set(employees.map(emp => emp.designation).filter(Boolean))];
-  const availableYears = [...new Set(employees.map(emp => emp.financialYr).filter(Boolean))].sort().reverse();
+  const availableYears = [getPreviousFinancialYear()];
 
   const filteredEmployees = employees.filter(emp =>
     (emp.financialYr === selectedFinancialYr) &&
@@ -635,6 +678,7 @@ const DirectorApproval = () => {
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Increment Correction %</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Increment Amount</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Revised Salary</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Performance Pay</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -643,6 +687,11 @@ const DirectorApproval = () => {
                   const isEditing = editingRowId === emp.id;
                   const data = isEditing ? editFormData : emp;
                   const isSelected = selectedRows.includes(emp.id);
+                  const isRowLocked = ['DIRECTOR_APPROVED', 'Released', 'RELEASED'].includes(emp.status || '');
+                  const performancePayValue =
+                    performancePayDrafts[emp.id] !== undefined
+                      ? performancePayDrafts[emp.id]
+                      : String(Number(data.performancePay || 0));
 
                   return (
                     <tr key={emp.id} className={`hover:bg-gray-50 ${isSelected ? 'bg-indigo-50' : ''}`}>
@@ -704,6 +753,16 @@ const DirectorApproval = () => {
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
                         {data.revisedSalary.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                        <input
+                          type="number"
+                          inputMode="decimal"
+                          className="w-28 px-2 py-1 border border-gray-300 rounded text-right focus:ring-[#262760] focus:border-[#262760] sm:text-sm disabled:bg-gray-100 disabled:text-gray-500"
+                          value={performancePayValue}
+                          onChange={(e) => handlePerformancePayChange(emp.id, e.target.value)}
+                          disabled={isRowLocked}
+                        />
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <div className="flex justify-center items-center space-x-2">
@@ -1034,6 +1093,19 @@ const DirectorApproval = () => {
 
                         I take this opportunity to thank you for the contribution made by you during the year of review and wish you success for the year ahead.
                       </p>
+                      {Number(letterData.performancePay || 0) > 0 && (
+                        <div className="text-justify text-[14px] leading-6 mb-4">
+                          <p>
+                            In addition, you have been awarded a Performance Pay of ₹{Number(letterData.performancePay || 0).toLocaleString('en-IN')} based on company and individual performance.
+                          </p>
+                          <p className="mt-4">
+                            This amount will be credited in the month of June2026 provided you are in company payroll.
+                          </p>
+                          <p className="mt-4">
+                            If you are in notice period ,You will not be eligible for the performance pay reciept.
+                          </p>
+                        </div>
+                      )}
                     </div>
 
                     <div className="mb-8 text-justify text-[14px] leading-6">

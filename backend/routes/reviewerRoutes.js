@@ -71,6 +71,7 @@ router.get('/', auth, async (req, res) => {
         let incrementCorrectionPercentage = app.incrementCorrectionPercentage || 0;
         let incrementAmount = app.incrementAmount || 0;
         let revisedSalary = app.revisedSalary || 0;
+        const performancePay = Number(app.performancePay || 0);
 
         // AUTO-CALC: Derive increment amount and revised salary if missing but we have salary and %
         if (baseSalary > 0) {
@@ -163,7 +164,8 @@ router.get('/', auth, async (req, res) => {
           incrementPercentage: finalIncrementPercentage,
           incrementCorrectionPercentage,
           incrementAmount,
-          revisedSalary
+          revisedSalary,
+          performancePay
         };
       })
     );
@@ -185,7 +187,8 @@ router.put('/:id', auth, async (req, res) => {
       incrementPercentage,
       incrementCorrectionPercentage,
       incrementAmount,
-      revisedSalary
+      revisedSalary,
+      performancePay
     } = req.body;
 
     let appraisal = await SelfAppraisal.findById(req.params.id);
@@ -212,6 +215,7 @@ router.put('/:id', auth, async (req, res) => {
     if (incrementCorrectionPercentage !== undefined) appraisal.incrementCorrectionPercentage = incrementCorrectionPercentage;
     if (incrementAmount !== undefined) appraisal.incrementAmount = incrementAmount;
     if (revisedSalary !== undefined) appraisal.revisedSalary = revisedSalary;
+    if (performancePay !== undefined) appraisal.performancePay = performancePay;
 
     appraisal.updatedAt = Date.now();
 

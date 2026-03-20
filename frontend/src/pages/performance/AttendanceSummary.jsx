@@ -2,7 +2,22 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Calendar, RefreshCw, Users, MapPin } from 'lucide-react';
 import { employeeAPI, attendanceAPI } from '../../services/api';
 
-const FINANCIAL_YEARS = ['2023-24', '2024-25', '2025-26'];
+const getPreviousFinancialYearLabel = () => {
+  const now = new Date();
+  const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const prevStartYear = currentStartYear - 1;
+  const prevEndYear = String(prevStartYear + 1).slice(2);
+  return `${prevStartYear}-${prevEndYear}`;
+};
+
+const getCurrentFinancialYearLabel = () => {
+  const now = new Date();
+  const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const currentEndYear = String(currentStartYear + 1).slice(2);
+  return `${currentStartYear}-${currentEndYear}`;
+};
+
+const FINANCIAL_YEARS = [getPreviousFinancialYearLabel(), getCurrentFinancialYearLabel()];
 
 const getFinancialYearRange = (financialYear) => {
   const parts = String(financialYear || '').split('-');
@@ -34,13 +49,7 @@ const getTotalDaysBetween = (start, end) => {
 };
 
 const AttendanceSummary = () => {
-  const [financialYear, setFinancialYear] = useState(() => {
-    const currentYear = new Date().getFullYear();
-    const nextYear = currentYear + 1;
-    const defaultLabel = `${currentYear}-${String(nextYear).slice(-2)}`;
-    if (FINANCIAL_YEARS.includes(defaultLabel)) return defaultLabel;
-    return FINANCIAL_YEARS[FINANCIAL_YEARS.length - 1];
-  });
+  const [financialYear, setFinancialYear] = useState(getPreviousFinancialYearLabel());
 
   const [employees, setEmployees] = useState([]);
   const [attendanceSummary, setAttendanceSummary] = useState([]);

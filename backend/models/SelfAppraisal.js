@@ -150,6 +150,7 @@ const SelfAppraisalSchema = new mongoose.Schema({
   incrementCorrectionPercentage: { type: Number, default: 0 },
   incrementAmount: { type: Number, default: 0 },
   revisedSalary: { type: Number, default: 0 },
+  performancePay: { type: Number, default: 0 },
 
   releaseLetter: {
     type: String

@@ -2,10 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { Save, Trash2, Search } from 'lucide-react';
 import { employeeAPI } from '../../services/api';
 
-const FINANCIAL_YEARS = ['2023-24', '2024-25', '2025-26'];
+const getPreviousFinancialYearLabel = () => {
+  const now = new Date();
+  const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const prevStartYear = currentStartYear - 1;
+  const prevEndYear = String(prevStartYear + 1).slice(2);
+  return `${prevStartYear}-${prevEndYear}`;
+};
+
+const FINANCIAL_YEARS = [getPreviousFinancialYearLabel()];
 
 const AppraisalWorkflow = () => {
-  const [selectedFinancialYear, setSelectedFinancialYear] = useState('2025-26');
+  const [selectedFinancialYear, setSelectedFinancialYear] = useState(getPreviousFinancialYearLabel());
   const [searchQuery, setSearchQuery] = useState('');
   const [appraiserOptions, setAppraiserOptions] = useState([]);
   const [reviewerOptions, setReviewerOptions] = useState([]);

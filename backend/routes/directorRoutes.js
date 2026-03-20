@@ -68,6 +68,7 @@ router.get('/', auth, async (req, res) => {
         incrementCorrectionPercentage: app.incrementCorrectionPercentage || 0,
         incrementAmount: app.incrementAmount || 0,
         revisedSalary: app.revisedSalary || 0,
+        performancePay: app.performancePay || 0,
 
         // Timestamps
         updatedAt: app.updatedAt
@@ -92,7 +93,8 @@ router.put('/:id', auth, async (req, res) => {
       incrementPercentage,
       incrementCorrectionPercentage,
       incrementAmount,
-      revisedSalary
+      revisedSalary,
+      performancePay
     } = req.body;
 
     let appraisal = await SelfAppraisal.findById(req.params.id);
@@ -133,6 +135,7 @@ router.put('/:id', auth, async (req, res) => {
     if (incrementCorrectionPercentage !== undefined) appraisal.incrementCorrectionPercentage = incrementCorrectionPercentage;
     if (incrementAmount !== undefined) appraisal.incrementAmount = incrementAmount;
     if (revisedSalary !== undefined) appraisal.revisedSalary = revisedSalary;
+    if (performancePay !== undefined) appraisal.performancePay = performancePay;
 
     appraisal.updatedAt = Date.now();
     await appraisal.save();

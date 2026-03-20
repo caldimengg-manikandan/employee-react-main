@@ -2,6 +2,29 @@ import React, { useState, useEffect } from 'react';
 import { Save, Loader2, Plus, X, Search, Check, Edit, Settings, Trash2 } from 'lucide-react';
 import { performanceAPI, employeeAPI } from '../../services/api';
 
+const getPreviousFinancialYearFull = () => {
+  const now = new Date();
+  const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const prevStartYear = currentStartYear - 1;
+  const prevEndYear = prevStartYear + 1;
+  return `${prevStartYear}-${prevEndYear}`;
+};
+
+const getCurrentFinancialYearFull = () => {
+  const now = new Date();
+  const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const currentEndYear = currentStartYear + 1;
+  return `${currentStartYear}-${currentEndYear}`;
+};
+
+const deriveNextFinancialYearFull = (financialYear) => {
+  const parts = String(financialYear || '').split(/[-/]/);
+  const startYear = parseInt(parts[0], 10);
+  if (Number.isNaN(startYear)) return '';
+  const nextStart = startYear + 1;
+  return `${nextStart}-${nextStart + 1}`;
+};
+
 const AppraisalMaster = () => {
   // Main Data (Source of Truth)
   const [matrixData, setMatrixData] = useState([]);
@@ -14,9 +37,9 @@ const AppraisalMaster = () => {
     target1_5: false
   });
 
-  const [financialYear, setFinancialYear] = useState('2025-2026');
-  const [editFinancialYear, setEditFinancialYear] = useState('2025-2026');
-  const financialYears = ['2025-2026', '2026-2027'];
+  const [financialYear, setFinancialYear] = useState(getPreviousFinancialYearFull());
+  const [editFinancialYear, setEditFinancialYear] = useState(getPreviousFinancialYearFull());
+  const financialYears = [getPreviousFinancialYearFull(), getCurrentFinancialYearFull()];
 
   // Edit Mode State
   const [isEditMode, setIsEditMode] = useState(false);
@@ -309,31 +332,46 @@ const AppraisalMaster = () => {
       setLoading(true);
       const response = await performanceAPI.getIncrementMatrix({ financialYear });
 
-      if (response.data) {
-        // Handle new response format { matrix, enabledColumns }
-        if (response.data.matrix && response.data.matrix.length > 0) {
-          setMatrixData(response.data.matrix);
-        } else if (Array.isArray(response.data) && response.data.length > 0) {
-          // Fallback for old format
-          setMatrixData(response.data);
-        } else {
-          // If no data found for this year, backend should have seeded it
-          setMatrixData([]);
+      const readMatrixFromResponse = (res) => {
+        const d = res?.data;
+        if (!d) return { matrix: [], enabledColumns: null };
+        if (d.matrix && Array.isArray(d.matrix) && d.matrix.length > 0) {
+          return { matrix: d.matrix, enabledColumns: d.enabledColumns || null };
         }
+        if (Array.isArray(d) && d.length > 0) {
+          return { matrix: d, enabledColumns: null };
+        }
+        return { matrix: [], enabledColumns: d.enabledColumns || null };
+      };
 
-        // Set enabled columns if present in response
-        if (response.data.enabledColumns) {
-          setEnabledColumns(response.data.enabledColumns);
-        } else {
-          // Default enabled columns if not found
-          setEnabledColumns({
-            belowTarget: false,
-            metTarget: true,
-            target1_1: false,
-            target1_25: false,
-            target1_5: false
-          });
+      let { matrix, enabledColumns: enabled } = readMatrixFromResponse(response);
+
+      if (matrix.length === 0) {
+        const fallbackYear = deriveNextFinancialYearFull(financialYear);
+        const shouldFallback =
+          financialYear === getPreviousFinancialYearFull() &&
+          fallbackYear === getCurrentFinancialYearFull();
+        if (shouldFallback) {
+          const fallbackResponse = await performanceAPI.getIncrementMatrix({ financialYear: fallbackYear });
+          const fallback = readMatrixFromResponse(fallbackResponse);
+          if (fallback.matrix.length > 0) {
+            matrix = fallback.matrix;
+            enabled = fallback.enabledColumns || enabled;
+          }
         }
+      }
+
+      setMatrixData(matrix);
+      if (enabled) {
+        setEnabledColumns(enabled);
+      } else {
+        setEnabledColumns({
+          belowTarget: false,
+          metTarget: true,
+          target1_1: false,
+          target1_25: false,
+          target1_5: false
+        });
       }
     } catch (error) {
       console.error('Error fetching increment matrix:', error);

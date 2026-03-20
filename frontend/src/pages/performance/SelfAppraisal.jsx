@@ -243,6 +243,24 @@ const getCurrentFinancialYearLabel = () => {
   return `${year}-${String(nextYear).slice(-2)}`;
 };
 
+const getPreviousFinancialYearLabel = () => {
+  const current = getCurrentFinancialYearLabel();
+  const parts = String(current || '').split('-');
+  const startYear = parseInt(parts[0], 10);
+  if (Number.isNaN(startYear)) return '';
+  const prevStart = startYear - 1;
+  return `${prevStart}-${String(startYear).slice(-2)}`;
+};
+
+const getOpenFinancialYearLabel = () => {
+  return getPreviousFinancialYearLabel() || getCurrentFinancialYearLabel();
+};
+
+const isEditableStatus = (statusValue) => {
+  const v = String(statusValue || 'Draft').trim();
+  return v === '' || v === 'Draft';
+};
+
 // Replaced hardcoded getTechnicalFieldsForDivision with dynamic attribute labels from masterData
 const getAttributeLabel = (masterAttributes, section, key) => {
   const item = masterAttributes[section]?.find(i => i.key === key);
@@ -586,7 +604,7 @@ const SelfAppraisal = () => {
   const [showReleaseLetter, setShowReleaseLetter] = useState(false);
   const [letterData, setLetterData] = useState(null);
   const [autoDownload, setAutoDownload] = useState(false);
-  const [newAppraisalYear, setNewAppraisalYear] = useState(getCurrentFinancialYearLabel());
+  const [newAppraisalYear, setNewAppraisalYear] = useState(getOpenFinancialYearLabel());
   const [newAppraisalDivision, setNewAppraisalDivision] = useState(employeeInfo.division || '');
   const [newAppraisalAttendance, setNewAppraisalAttendance] = useState({
     workingDays: 0,
@@ -601,6 +619,12 @@ const SelfAppraisal = () => {
       setNewAppraisalDivision(employeeInfo.division);
     }
   }, [employeeInfo.division, newAppraisalDivision]);
+
+  useEffect(() => {
+    if (showNewAppraisalModal) {
+      setNewAppraisalYear(getOpenFinancialYearLabel());
+    }
+  }, [showNewAppraisalModal]);
 
   // --- Handlers ---
 
@@ -617,12 +641,30 @@ const SelfAppraisal = () => {
     const fy = String(newAppraisalYear || '').trim();
     const existing = appraisals.find((a) => String(a.year || '').trim() === fy);
     if (existing) {
+      if (!isEditableStatus(existing.status)) {
+        setStatusPopup({
+          isOpen: true,
+          status: 'info',
+          message: `Appraisal for FY ${fy} is already submitted and cannot be edited.`
+        });
+        return;
+      }
       setStatusPopup({
         isOpen: true,
         status: 'info',
         message: `Appraisal for FY ${fy} already exists. Opening it.`
       });
       await handleEditAppraisal(existing);
+      return;
+    }
+
+    const openFy = getOpenFinancialYearLabel();
+    if (fy !== openFy) {
+      setStatusPopup({
+        isOpen: true,
+        status: 'info',
+        message: `You cannot create new appraisal for FY ${fy}. Only FY ${openFy} is open now.`
+      });
       return;
     }
 
@@ -741,11 +783,12 @@ const SelfAppraisal = () => {
       const id = appraisal._id || appraisal.id;
       if (!id) throw new Error("Appraisal ID not found");
       const response = await performanceAPI.getSelfAppraisalById(id);
+      const statusValue = response.data?.status ?? appraisal.status;
       setFormData({
         division: response.data.division || 'Software',
         ...response.data
       });
-      setIsReadOnly(false);
+      setIsReadOnly(!isEditableStatus(statusValue));
       setViewMode('edit');
     } catch (error) {
       console.error("Failed to fetch appraisal details", error);
@@ -754,7 +797,7 @@ const SelfAppraisal = () => {
         division: appraisal.division || formData.division || 'Software',
         ...appraisal
       });
-      setIsReadOnly(false);
+      setIsReadOnly(!isEditableStatus(appraisal.status));
       setViewMode('edit');
     }
   };
@@ -958,6 +1001,7 @@ const SelfAppraisal = () => {
         appraisalId: appraisal._id || appraisal.id,
         appraisalStatus: appraisal.status || '',
         employeeAcceptanceStatus: appraisal.employeeAcceptanceStatus || null,
+        performancePay: Number(appraisal.performancePay || 0),
         salary: {
           old: salaryOld,
           new: salaryNew
@@ -1170,6 +1214,14 @@ const SelfAppraisal = () => {
 
 
   const handleSubmit = async (action) => {
+    if (isReadOnly) {
+      setStatusPopup({
+        isOpen: true,
+        status: 'info',
+        message: 'This appraisal is submitted and cannot be edited.'
+      });
+      return;
+    }
 
     try {
       const missingFields = [];
@@ -1235,14 +1287,29 @@ const SelfAppraisal = () => {
   // --- Render Views ---
 
   if (viewMode === 'list') {
+    const openFy = getOpenFinancialYearLabel();
+    const openFyExisting = appraisals.find((a) => String(a.year || '').trim() === String(openFy).trim());
+    const isOpenFyLocked = Boolean(openFyExisting && !isEditableStatus(openFyExisting.status));
+
     return (
       <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
         <div className="w-full mx-auto">
           <div className="flex justify-between items-center mb-6">
             {enabledSections.selfAppraisal ? (
               <button
-                onClick={() => setShowNewAppraisalModal(true)}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-full text-white bg-gradient-to-r from-[#262760] to-indigo-600 hover:from-[#1e2050] hover:to-[#262760] focus:outline-none"
+                disabled={isOpenFyLocked}
+                onClick={() => {
+                  if (isOpenFyLocked) {
+                    setStatusPopup({
+                      isOpen: true,
+                      status: 'info',
+                      message: `Appraisal for FY ${openFy} is already submitted. You cannot create again.`
+                    });
+                    return;
+                  }
+                  setShowNewAppraisalModal(true);
+                }}
+                className={`inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-full text-white bg-gradient-to-r from-[#262760] to-indigo-600 focus:outline-none ${isOpenFyLocked ? 'opacity-50 cursor-not-allowed' : 'hover:from-[#1e2050] hover:to-[#262760]'}`}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 New Appraisal
@@ -1445,13 +1512,11 @@ const SelfAppraisal = () => {
                       onChange={(e) => setNewAppraisalYear(e.target.value)}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm font-semibold text-[#262760]"
                     >
-                      {[getCurrentFinancialYearLabel(), '2025-26', '2026-27', '2027-28']
-                        .filter((v, i, arr) => arr.indexOf(v) === i)
-                        .map((year) => (
-                          <option key={year} value={year}>
-                            {year}
-                          </option>
-                        ))}
+                      {[getOpenFinancialYearLabel()].filter(Boolean).map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -1928,6 +1993,19 @@ const SelfAppraisal = () => {
 
                           I take this opportunity to thank you for the contribution made by you during the year of review and wish you success for the year ahead.
                         </p>
+                        {Number(letterData.performancePay || 0) > 0 && (
+                          <div className="text-justify text-[14px] leading-6 mb-4">
+                            <p>
+                              In addition, you have been awarded a Performance Pay of ₹{Number(letterData.performancePay || 0).toLocaleString('en-IN')} based on company and individual performance.
+                            </p>
+                            <p className="mt-4">
+                              This amount will be credited in the month of June2026 provided you are in company payroll.
+                            </p>
+                            <p className="mt-4">
+                              If you are in notice period ,You will not be eligible for the performance pay reciept.
+                            </p>
+                          </div>
+                        )}
                       </div>
 
                       <div className="mb-8 text-justify text-[14px] leading-6">
@@ -2498,22 +2576,24 @@ const SelfAppraisal = () => {
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-8 flex justify-end space-x-3">
-          <button
-            onClick={() => handleSubmit('Save')}
-            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
-          >
-            <Save className="h-4 w-4 mr-2" />
-            Save
-          </button>
-          <button
-            onClick={() => handleSubmit('Submit')}
-            className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050]"
-          >
-            <Send className="h-4 w-4 mr-2" />
-            Submit
-          </button>
-        </div>
+        {!isReadOnly && (
+          <div className="mt-8 flex justify-end space-x-3">
+            <button
+              onClick={() => handleSubmit('Save')}
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save
+            </button>
+            <button
+              onClick={() => handleSubmit('Submit')}
+              className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-[#262760] hover:bg-[#1e2050]"
+            >
+              <Send className="h-4 w-4 mr-2" />
+              Submit
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Project Modal */}
