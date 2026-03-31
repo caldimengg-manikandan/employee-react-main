@@ -71,6 +71,13 @@ router.get('/', auth, async (req, res) => {
       ];
 
       try {
+        // Drop legacy unique index on `id` if it exists, as it prevents inserting new financial years
+        await IncrementMatrix.collection.dropIndex('id_1');
+      } catch (e) {
+        // Ignore if index doesn't exist
+      }
+
+      try {
         await IncrementMatrix.insertMany(defaultMatrixData, { ordered: false });
       } catch (insertError) {
         if (insertError.code !== 11000) {
