@@ -501,42 +501,7 @@ const SelfAppraisal = () => {
 
   const currentStageId = getStageFromStatus(formData.status);
 
-  const getTechnicalFields = (division) => {
-    const div = division || 'Software';
-    if (div === 'SDS') {
-      return [
-        { key: 'codingSkills', label: 'Structural Drawing Accuracy' },
-        { key: 'testing', label: 'Steel Connection Knowledge' },
-        { key: 'debugging', label: 'Bolt & Weld Detailing Accuracy' },
-        { key: 'sds', label: 'GA / Shop / Erection Drawing Quality' },
-        { key: 'tekla', label: 'Drawing Revision & Error Reduction' }
-      ];
-    }
-    if (div === 'Tekla') {
-      return [
-        { key: 'codingSkills', label: '3D Modeling Accuracy' },
-        { key: 'testing', label: 'Clash Detection Handling' },
-        { key: 'debugging', label: 'Model Integrity & Cleanliness' },
-        { key: 'sds', label: 'Complex Connection Modeling' },
-        { key: 'tekla', label: 'Anchor Bolt Layout & Output' }
-      ];
-    }
-    return [
-      { key: 'codingSkills', label: 'Code Quality' },
-      { key: 'testing', label: 'System Architecture Understanding' },
-      { key: 'debugging', label: 'Debugging & Issue Resolution' },
-      { key: 'sds', label: 'API Integration Skills' },
-      { key: 'tekla', label: 'Testing & Validation' }
-    ];
-  };
 
-  const getGrowthFields = () => {
-    return [
-      { key: 'leadershipPotential', label: 'Leadership Potential' },
-      { key: 'learningAbility', label: 'Learning Ability' },
-      { key: 'mentoringSkills', label: 'Mentoring Skills' }
-    ];
-  };
 
 
   const [autoDownload, setAutoDownload] = useState(false);
@@ -2884,16 +2849,18 @@ const SelfAppraisal = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(enabledSections.knowledgeSubItems || {}).map(([key, enabled]) => {
-              if (!enabled) return null;
+            {masterAttributes.knowledgeSubItems.map((attr) => {
+              const isEnabled = enabledSections.knowledgeSubItems?.[attr.key];
+              const val = formData.behaviourBased?.[attr.key] || 0;
+              if (!isEnabled && val === 0) return null;
               return (
-                <div key={key}>
+                <div key={attr.key}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {getAttributeLabel(masterAttributes, 'knowledgeSubItems', key)}
+                    {attr.label}
                   </label>
                   <RatingStars
-                    value={formData.behaviourBased?.[key] || 0}
-                    onChange={(val) => updateBehaviourRating(key, val)}
+                    value={val}
+                    onChange={(val) => updateBehaviourRating(attr.key, val)}
                   />
                 </div>
               );
@@ -2940,8 +2907,10 @@ const SelfAppraisal = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          {Object.entries(enabledSections.processSubItems || {}).map(([key, enabled]) => {
-            if (!enabled) return null;
+          {masterAttributes.processSubItems.map((attr) => {
+            const isEnabled = enabledSections.processSubItems?.[attr.key];
+            const val = formData.processAdherence?.[attr.key] || 0;
+            if (!isEnabled && val === 0) return null;
 
             const descriptions = {
               timesheet: 'Timely submission, accurate entries, daily discipline, correct project allocation, minimal missed timesheets.',
@@ -2950,16 +2919,16 @@ const SelfAppraisal = () => {
             };
 
             return (
-              <div key={key}>
+              <div key={attr.key}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {getAttributeLabel(masterAttributes, 'processSubItems', key)}
+                  {attr.label}
                 </label>
-                {descriptions[key] && (
-                  <p className="text-xs text-gray-500 mb-1">{descriptions[key]}</p>
+                {descriptions[attr.key] && (
+                  <p className="text-xs text-gray-500 mb-1">{descriptions[attr.key]}</p>
                 )}
                 <RatingStars
-                  value={formData.processAdherence?.[key] || 0}
-                  onChange={(value) => updateProcessRating(key, value)}
+                  value={val}
+                  onChange={(value) => updateProcessRating(attr.key, value)}
                 />
               </div>
             );
@@ -3008,14 +2977,16 @@ const SelfAppraisal = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          {Object.entries(enabledSections.technicalSubItems || {}).map(([key, enabled]) => {
-            if (!enabled) return null;
+          {masterAttributes.technicalSubItems.map((attr) => {
+            const isEnabled = enabledSections.technicalSubItems?.[attr.key];
+            const val = formData.technicalBased?.[attr.key] || 0;
+            if (!isEnabled && val === 0) return null;
             return (
-              <div key={key}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{getAttributeLabel(masterAttributes, 'technicalSubItems', key)}</label>
+              <div key={attr.key}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{attr.label}</label>
                 <RatingStars
-                  value={formData.technicalBased?.[key] || 0}
-                  onChange={(value) => updateTechnicalRating(key, value)}
+                  value={val}
+                  onChange={(value) => updateTechnicalRating(attr.key, value)}
                 />
               </div>
             );
@@ -3064,14 +3035,16 @@ const SelfAppraisal = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          {Object.entries(enabledSections.growthSubItems || {}).map(([key, enabled]) => {
-            if (!enabled) return null;
+          {masterAttributes.growthSubItems.map((attr) => {
+            const isEnabled = enabledSections.growthSubItems?.[attr.key];
+            const val = formData.growthBased?.[attr.key] || 0;
+            if (!isEnabled && val === 0) return null;
             return (
-              <div key={key}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{getAttributeLabel(masterAttributes, 'growthSubItems', key)}</label>
+              <div key={attr.key}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{attr.label}</label>
                 <RatingStars
-                  value={formData.growthBased?.[key] || 0}
-                  onChange={(value) => updateGrowthRating(key, value)}
+                  value={val}
+                  onChange={(value) => updateGrowthRating(attr.key, value)}
                 />
               </div>
             );

@@ -354,10 +354,15 @@ const TeamAppraisal = () => {
     }
   };
 
-  const getEnabledItems = (sectionKey) => {
+  const getAttributesToShow = (sectionKey, dataPath) => {
     const enabledMap = enabledSections?.[sectionKey] || {};
     const masterList = masterAttributes?.[sectionKey] || [];
-    return masterList.filter(attr => enabledMap[attr.key]);
+    return masterList.filter(attr => {
+      const isEnabled = !!enabledMap[attr.key];
+      const selfVal = selectedEmployee[dataPath]?.[attr.key] || 0;
+      const managerVal = selectedEmployee[`${sectionKey.replace('SubItems', '')}ManagerRatings`]?.[attr.key] || 0;
+      return isEnabled || selfVal !== 0 || managerVal !== 0;
+    });
   };
 
   const getAttributeLabel = (section, key) => {
@@ -918,8 +923,7 @@ const TeamAppraisal = () => {
                         </h4>
 
                         <div className="space-y-2">
-                          {Object.entries(enabledSections?.knowledgeSubItems || {}).map(([key, isEnabled]) => {
-                            if (!isEnabled) return null;
+                          {getAttributesToShow('knowledgeSubItems', 'behaviourBased').map(({ key }) => {
                             const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
                             const hardcodedKey = `behaviour${capitalizedField}Manager`;
                             const managerVal = selectedEmployee.behaviourManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;
@@ -969,8 +973,7 @@ const TeamAppraisal = () => {
 
 
                         <div className="space-y-2">
-                          {Object.entries(enabledSections?.processSubItems || {}).map(([key, isEnabled]) => {
-                            if (!isEnabled) return null;
+                          {getAttributesToShow('processSubItems', 'processAdherence').map(({ key }) => {
                             const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
                             const hardcodedKey = `process${capitalizedField}Manager`;
                             const managerVal = selectedEmployee.processManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;
@@ -1019,7 +1022,7 @@ const TeamAppraisal = () => {
                         </h4>
 
                         <div className="space-y-2">
-                          {getEnabledItems('technicalSubItems').map(({ key }) => {
+                          {getAttributesToShow('technicalSubItems', 'technicalBased').map(({ key }) => {
                             const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
                             const hardcodedKey = `technical${capitalizedField}Manager`;
                             const managerVal = selectedEmployee.technicalManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;
@@ -1069,7 +1072,7 @@ const TeamAppraisal = () => {
 
 
                         <div className="space-y-2">
-                          {getEnabledItems('growthSubItems').map(({ key }) => {
+                          {getAttributesToShow('growthSubItems', 'growthBased').map(({ key }) => {
                             const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
                             const hardcodedKey = `growth${capitalizedField}Manager`;
                             const managerVal = selectedEmployee.growthManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;
