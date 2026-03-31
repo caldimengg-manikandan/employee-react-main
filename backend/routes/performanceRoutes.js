@@ -6,23 +6,43 @@ const SelfAppraisal = require('../models/SelfAppraisal');
 const Employee = require('../models/Employee');
 const Payroll = require('../models/Payroll');
 
+// Helper to convert Map to Object
+const mapToObj = (map) => {
+    if (!map) return {};
+    try {
+        if (typeof map.toJSON === 'function') return map.toJSON();
+        if (map instanceof Map) return Object.fromEntries(map);
+        return map;
+    } catch (e) {
+        return map || {};
+    }
+};
+
 // @desc    Get current user's self appraisals
 // @route   GET /api/performance/self-appraisals/me
 // @access  Private
 router.get('/self-appraisals/me', auth, async (req, res) => {
   try {
-    // Find the employee record associated with the logged-in user
-    // req.user.employeeId is likely the string ID (e.g., 'EMP001')
     const employee = await Employee.findOne({ employeeId: req.user.employeeId });
-
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee profile not found' });
     }
-
     const appraisals = await SelfAppraisal.find({ employeeId: employee._id })
       .sort({ createdAt: -1 });
 
-    res.json(appraisals);
+    const formattedAppraisals = appraisals.map(app => {
+        const doc = app.toJSON ? app.toJSON() : app;
+        return {
+            ...doc,
+            behaviourManagerRatings: mapToObj(app.behaviourManagerRatings),
+            processManagerRatings: mapToObj(app.processManagerRatings),
+            technicalManagerRatings: mapToObj(app.technicalManagerRatings),
+            growthManagerRatings: mapToObj(app.growthManagerRatings),
+            releaseSalarySnapshot: mapToObj(app.releaseSalarySnapshot),
+            releaseRevisedSnapshot: mapToObj(app.releaseRevisedSnapshot)
+        };
+    });
+    res.json(formattedAppraisals);
   } catch (error) {
     console.error('Error fetching my appraisals:', error);
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
@@ -37,53 +57,26 @@ router.get('/self-appraisals/:id', auth, async (req, res) => {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ success: false, message: 'Invalid Appraisal ID' });
     }
-
     const appraisal = await SelfAppraisal.findById(req.params.id);
-
     if (!appraisal) {
       return res.status(404).json({ success: false, message: 'Appraisal not found' });
     }
-
-    // Verify ownership or manager permission (TODO: Add manager check)
-    // For now, check if the appraisal belongs to the requesting user
     const employee = await Employee.findOne({ employeeId: req.user.employeeId });
     if (!employee) {
-       // If admin/HR, might allow. For now, strict check or simple bypass if user role is high.
        return res.status(404).json({ success: false, message: 'Employee profile not found' });
     }
 
-    // Logic to ensure user can only view their own (or manager logic)
-    // For now, we allow if it's their own.
-    // if (appraisal.employeeId.toString() !== employee._id.toString()) {
-    //    return res.status(403).json({ success: false, message: 'Not authorized' });
-    // }
-
-    const isOwner =
-      appraisal.employeeId &&
-      appraisal.employeeId.toString() === employee._id.toString();
-
-    const userEmployeeId = req.user.employeeId;
-    const userName = req.user.name;
-
-    const isAppraiser =
-      (appraisal.appraiserId && appraisal.appraiserId === userEmployeeId) ||
-      (appraisal.appraiser && appraisal.appraiser === userName);
-
-    const isReviewer =
-      (appraisal.reviewerId && appraisal.reviewerId === userEmployeeId) ||
-      (appraisal.reviewer && appraisal.reviewer === userName);
-
-    const isDirector =
-      (appraisal.directorId && appraisal.directorId === userEmployeeId) ||
-      (appraisal.director && appraisal.director === userName);
-
-    if (!isOwner && !isAppraiser && !isReviewer && !isDirector) {
-      return res
-        .status(403)
-        .json({ success: false, message: 'Not authorized to view this appraisal' });
-    }
-
-    res.json(appraisal);
+    const doc = appraisal.toJSON ? appraisal.toJSON() : appraisal;
+    const formattedAppraisal = {
+        ...doc,
+        behaviourManagerRatings: mapToObj(appraisal.behaviourManagerRatings),
+        processManagerRatings: mapToObj(appraisal.processManagerRatings),
+        technicalManagerRatings: mapToObj(appraisal.technicalManagerRatings),
+        growthManagerRatings: mapToObj(appraisal.growthManagerRatings),
+        releaseSalarySnapshot: mapToObj(appraisal.releaseSalarySnapshot),
+        releaseRevisedSnapshot: mapToObj(appraisal.releaseRevisedSnapshot)
+    };
+    res.json(formattedAppraisal);
   } catch (error) {
     console.error('Error fetching appraisal:', error);
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
@@ -130,15 +123,15 @@ router.post('/self-appraisals', auth, async (req, res) => {
     let appraiserId = null, reviewerId = null, directorId = null;
     
     if (employee.appraiser) {
-        const appraiserUser = await Employee.findOne({ name: employee.appraiser });
+        const appraiserUser = await Employee.findOne({ name: { $regex: new RegExp(`^${employee.appraiser}$`, 'i') } });
         if (appraiserUser) appraiserId = appraiserUser.employeeId;
     }
     if (employee.reviewer) {
-        const reviewerUser = await Employee.findOne({ name: employee.reviewer });
+        const reviewerUser = await Employee.findOne({ name: { $regex: new RegExp(`^${employee.reviewer}$`, 'i') } });
         if (reviewerUser) reviewerId = reviewerUser.employeeId;
     }
     if (employee.director) {
-        const directorUser = await Employee.findOne({ name: employee.director });
+        const directorUser = await Employee.findOne({ name: { $regex: new RegExp(`^${employee.director}$`, 'i') } });
         if (directorUser) directorId = directorUser.employeeId;
     }
 
@@ -148,7 +141,7 @@ router.post('/self-appraisals', auth, async (req, res) => {
       division,
       projects,
       overallContribution,
-      status: status || 'Draft',
+      status: (status || 'draft').toLowerCase(),
       behaviourBased,
       processAdherence,
       technicalBased,
@@ -170,46 +163,20 @@ router.post('/self-appraisals', auth, async (req, res) => {
   }
 });
 
+const AuditLog = require('../models/AuditLog');
+
 // @desc    Update a self appraisal
 // @route   PUT /api/performance/self-appraisals/:id
-// @access  Private
 router.put('/self-appraisals/:id', auth, async (req, res) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, message: 'Invalid Appraisal ID' });
-    }
-
-    const { 
-      projects, 
-      overallContribution, 
-      status,
-      division,
-      behaviourBased,
-      processAdherence,
-      technicalBased,
-      growthBased,
-      employeeAcceptanceStatus,
-      finalStatus
-    } = req.body;
+    const { projects, overallContribution, status, division, behaviourBased, processAdherence, technicalBased, growthBased, employeeAcceptanceStatus } = req.body;
 
     let appraisal = await SelfAppraisal.findById(req.params.id);
-    if (!appraisal) {
-      return res.status(404).json({ success: false, message: 'Appraisal not found' });
-    }
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
 
     const employee = await Employee.findOne({ employeeId: req.user.employeeId });
-    if (!employee) {
-      return res.status(404).json({ success: false, message: 'Employee profile not found' });
-    }
-
-    if (!appraisal.employeeId || appraisal.employeeId.toString() !== employee._id.toString()) {
-      return res
-        .status(403)
-        .json({ success: false, message: 'Not authorized to update this appraisal' });
-    }
-
-    if (division !== undefined && (!division || !division.trim())) {
-      return res.status(400).json({ success: false, message: 'Division is required for self appraisal' });
+    if (!employee || appraisal.employeeId.toString() !== employee._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
     if (projects) appraisal.projects = projects;
@@ -219,150 +186,87 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
     if (processAdherence !== undefined) appraisal.processAdherence = processAdherence;
     if (technicalBased !== undefined) appraisal.technicalBased = technicalBased;
     if (growthBased !== undefined) appraisal.growthBased = growthBased;
-    if (status) appraisal.status = status;
-    if (employeeAcceptanceStatus !== undefined) appraisal.employeeAcceptanceStatus = employeeAcceptanceStatus;
-    if (finalStatus !== undefined) appraisal.finalStatus = finalStatus;
-    
-    // If submitting, refresh workflow routing from Employee profile
-    if (status === 'Submitted' || status === 'SUBMITTED') {
-        // Ensure status is normalized to SUBMITTED if that's the convention
-        appraisal.status = 'SUBMITTED'; 
+
+    // Submission Logic
+    if (status === 'submitted') {
+        appraisal.status = 'submitted';
+        appraisal.workflow.submittedAt = new Date();
         
-        const employee = await Employee.findById(appraisal.employeeId);
-        if (employee) {
-             if (employee.appraiser) {
-                 const appraiserUser = await Employee.findOne({ name: employee.appraiser });
-                 if (appraiserUser) appraisal.appraiserId = appraiserUser.employeeId;
-                 appraisal.appraiser = employee.appraiser;
-             }
-             if (employee.reviewer) {
-                 const reviewerUser = await Employee.findOne({ name: employee.reviewer });
-                 if (reviewerUser) appraisal.reviewerId = reviewerUser.employeeId;
-                 appraisal.reviewer = employee.reviewer;
-             }
-             if (employee.director) {
-                 const directorUser = await Employee.findOne({ name: employee.director });
-                 if (directorUser) appraisal.directorId = directorUser.employeeId;
-                 appraisal.director = employee.director;
-             }
+        // Refresh routing from Employee profile
+        if (employee.appraiser) {
+            const appraiserUser = await Employee.findOne({ name: { $regex: new RegExp(`^${employee.appraiser}$`, 'i') } });
+            if (appraiserUser) appraisal.appraiserId = appraiserUser.employeeId;
+            appraisal.appraiser = employee.appraiser;
         }
+        if (employee.director) {
+            const directorUser = await Employee.findOne({ name: { $regex: new RegExp(`^${employee.director}$`, 'i') } });
+            if (directorUser) appraisal.directorId = directorUser.employeeId;
+            appraisal.director = employee.director;
+        }
+
+        await AuditLog.create({
+          employeeId: appraisal.employeeId,
+          appraisalId: appraisal._id,
+          action: 'SUBMITTED',
+          role: 'Employee',
+          doneBy: req.user.name,
+          doneById: req.user.employeeId
+        });
+    } else if (status) {
+        appraisal.status = status;
     }
 
-    appraisal.updatedAt = Date.now();
+    // Acceptance Logic
+    if (employeeAcceptanceStatus === 'ACCEPTED') {
+      appraisal.status = 'accepted_pending_effect';
+      appraisal.workflow.acceptedAt = new Date();
+      appraisal.isLocked = true;
+
+      await AuditLog.create({
+        employeeId: appraisal.employeeId,
+        appraisalId: appraisal._id,
+        action: 'ACCEPTED',
+        role: 'Employee',
+        doneBy: req.user.name,
+        doneById: req.user.employeeId
+      });
+
+      // ---- Save to payroll_FY25-26 ---- //
+      try {
+        const revised = mapToObj(appraisal.releaseRevisedSnapshot) || {};
+        
+        const newRecord = {
+          employeeId: employee.employeeId,
+          employeeName: employee.name || employee.employeename,
+          designation: appraisal.promotion?.recommended && appraisal.promotion?.newDesignation 
+             ? appraisal.promotion.newDesignation 
+             : employee.designation,
+          department: employee.department,
+          location: employee.location,
+          dateOfJoining: employee.dateOfJoining,
+          employmentType: employee.employmentType || 'Permanent',
+          basicDA: revised.basic || revised.basicDA || 0,
+          netSalary: revised.net || revised.netSalary || appraisal.revisedSalary || 0,
+          accountNumber: employee.bankAccount || '-',
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        await mongoose.connection.db.collection('payroll_FY25-26').updateOne(
+           { employeeId: employee.employeeId },
+           { $set: newRecord },
+           { upsert: true }
+        );
+      } catch (err) {
+        console.error('Failed to create FY25-26 payroll snapshot:', err);
+      }
+      // --------------------------------- //
+    }
 
     await appraisal.save();
-
-    if (employeeAcceptanceStatus === 'ACCEPTED' || status === 'Accepted') {
-      appraisal.isLocked = true;
-      appraisal.status = 'Accepted';
-      await appraisal.save();
-
-      if (appraisal.revisedSalary > 0) {
-        await Employee.findByIdAndUpdate(appraisal.employeeId, {
-          $set: { ctc: appraisal.revisedSalary }
-        });
-        
-        try {
-          const emp = await Employee.findById(appraisal.employeeId).select('employeeId name').lean();
-          const employeeIdStr = emp?.employeeId;
-          const employeeName = emp?.name || '';
-          
-          if (employeeIdStr) {
-            // Retrieve previous and new snapshots from appraisal
-            const previousCTCSnapshot = Number(appraisal.currentSalarySnapshot || 0);
-            const incrementPercentage = Number(appraisal.incrementPercentage || 0) + Number(appraisal.incrementCorrectionPercentage || 0);
-            const incrementAmount = Number(appraisal.incrementAmount || 0);
-            const performancePay = Number(appraisal.performancePay || 0);
-            
-            const releaseRevisedSnapshot = appraisal.releaseRevisedSnapshot && appraisal.releaseRevisedSnapshot.get ? Object.fromEntries(appraisal.releaseRevisedSnapshot) : appraisal.releaseRevisedSnapshot || {};
-
-            // Record into PayrollHistory
-            const PayrollHistory = require('../models/PayrollHistory');
-            const newHistory = new PayrollHistory({
-              employeeId: employeeIdStr,
-              financialYear: appraisal.year,
-              previousCTC: previousCTCSnapshot,
-              revisedCTC: appraisal.revisedSalary,
-              incrementPercentage,
-              incrementAmount,
-              salary: {
-                 basic: Number(releaseRevisedSnapshot.basic || 0),
-                 hra: Number(releaseRevisedSnapshot.hra || 0),
-                 special: Number(releaseRevisedSnapshot.special || 0),
-                 gross: Number(releaseRevisedSnapshot.gross || 0),
-                 net: Number(releaseRevisedSnapshot.net || 0),
-                 gratuity: Number(releaseRevisedSnapshot.gratuity || 0)
-              },
-              performancePay,
-              appraisalId: appraisal._id,
-              releasedAt: appraisal.releaseDate || appraisal.updatedAt,
-              acceptedAt: Date.now(),
-              status: 'ACTIVE',
-              version: appraisal.version,
-              createdBy: req.user.name || 'System'
-            });
-            await newHistory.save();
-
-            // Also update the active Payroll record safely without full overwrite (re-calculate deductions as before)
-            const Payroll = require('../models/Payroll');
-            const payrollRec = await Payroll.findOne({ employeeId: employeeIdStr }).sort({ createdAt: -1 });
-            if (payrollRec) {
-              const currentCtc = Number(
-                payrollRec.ctc ||
-                  (Number(payrollRec.basicDA || 0) +
-                    Number(payrollRec.hra || 0) +
-                    Number(payrollRec.specialAllowance || 0) +
-                    Number(payrollRec.gratuity || 0)) ||
-                  0
-              );
-              if (currentCtc > 0) {
-                const factor = Number(appraisal.revisedSalary) / currentCtc;
-                if (Number.isFinite(factor) && factor > 0) {
-                  payrollRec.basicDA = Math.round(Number(payrollRec.basicDA || 0) * factor);
-                  payrollRec.hra = Math.round(Number(payrollRec.hra || 0) * factor);
-                  payrollRec.specialAllowance = Math.round(Number(payrollRec.specialAllowance || 0) * factor);
-                  payrollRec.gratuity = Math.round(Number(payrollRec.gratuity || 0) * factor);
-
-                  payrollRec.totalEarnings = Number(payrollRec.basicDA || 0) + Number(payrollRec.hra || 0) + Number(payrollRec.specialAllowance || 0);
-                  payrollRec.totalDeductions =
-                    Number(payrollRec.pf || 0) +
-                    Number(payrollRec.esi || 0) +
-                    Number(payrollRec.tax || 0) +
-                    Number(payrollRec.professionalTax || 0) +
-                    Number(payrollRec.loanDeduction || 0) +
-                    Number(payrollRec.lop || 0);
-                  payrollRec.netSalary = payrollRec.totalEarnings - payrollRec.totalDeductions;
-                  payrollRec.ctc = payrollRec.totalEarnings + Number(payrollRec.gratuity || 0);
-
-                  await payrollRec.save();
-                }
-              }
-            } else {
-               // If no payroll record exists, create a new one to keep system consistent
-               const newPayroll = new Payroll({
-                  employeeId: employeeIdStr,
-                  employeeName: employeeName,
-                  basicDA: Number(releaseRevisedSnapshot.basic || 0),
-                  hra: Number(releaseRevisedSnapshot.hra || 0),
-                  specialAllowance: Number(releaseRevisedSnapshot.special || 0),
-                  gratuity: Number(releaseRevisedSnapshot.gratuity || 0),
-                  totalEarnings: Number(releaseRevisedSnapshot.gross || 0),
-                  ctc: appraisal.revisedSalary,
-                  netSalary: Number(releaseRevisedSnapshot.net || appraisal.revisedSalary)
-               });
-               await newPayroll.save();
-            }
-          }
-        } catch (e) {
-          console.error("Error creating PayrollHistory:", e);
-        }
-      }
-    }
-
     res.json(appraisal);
   } catch (error) {
-    console.error('Error updating appraisal:', error);
-    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
@@ -392,6 +296,38 @@ router.delete('/self-appraisals/:id', auth, async (req, res) => {
   } catch (error) {
     console.error('Error deleting appraisal:', error);
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  }
+});
+
+// @desc    Calculate suggested increment based on rating and designation
+// @route   POST /api/performance/calculate-increment
+router.post('/calculate-increment', auth, async (req, res) => {
+  try {
+    const { designation, rating } = req.body;
+    
+    // Standard metric logic (can be moved to DB later)
+    let percentage = 0;
+    const isTrainee = String(designation || '').toLowerCase().includes('trainee');
+
+    if (isTrainee) {
+      switch (rating) {
+        case 'ES': percentage = 15; break;
+        case 'ME': percentage = 10; break;
+        case 'BE': percentage = 0; break;
+        default: percentage = 0;
+      }
+    } else {
+      switch (rating) {
+        case 'ES': percentage = 12; break;
+        case 'ME': percentage = 8; break;
+        case 'BE': percentage = 0; break;
+        default: percentage = 0;
+      }
+    }
+
+    res.json({ success: true, percentage });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 

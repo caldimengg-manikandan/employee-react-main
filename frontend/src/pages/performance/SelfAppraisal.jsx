@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import WorkflowTracker from '../../components/Performance/WorkflowTracker';
 import { getWorkflowForUser, APPRAISAL_STAGES } from '../../utils/performanceUtils';
-import { performanceAPI, employeeAPI, leaveAPI, payrollAPI, attendanceAPI } from '../../services/api';
-import jsPDF from 'jspdf';
+import { performanceAPI, employeeAPI, leaveAPI, payrollAPI, attendanceAPI, promotionAPI } from '../../services/api';
+import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import {
   Save,
@@ -29,8 +29,12 @@ import {
   Star,
   BarChart3,
   Target,
-  Lightbulb
+  Lightbulb,
+  History,
+  ShieldCheck,
+  RotateCcw
 } from 'lucide-react';
+import PromotionPage from './PromotionPage';
 import balaSignature from '../../bala signature.png';
 import uvarajSignature from '../../uvaraj signature.png';
 
@@ -256,21 +260,59 @@ const getPreviousFinancialYearLabel = () => {
 };
 
 const getOpenFinancialYearLabel = () => {
-  return getPreviousFinancialYearLabel() || getCurrentFinancialYearLabel();
+  return getCurrentFinancialYearLabel();
+};
+
+const getNewAppraisalFinancialYearOptions = () => {
+  const now = new Date();
+  const cutoff = new Date(2026, 3, 1);
+  if (now >= cutoff) return ['2025-26'];
+  return ['2025-26', '2024-25'];
 };
 
 const isEditableStatus = (statusValue) => {
-  const v = String(statusValue || 'Draft').trim();
-  return v === '' || v === 'Draft';
+  const v = String(statusValue || "Draft").toLowerCase().trim();
+  return v === "" || v === "draft";
 };
 
-// Replaced hardcoded getTechnicalFieldsForDivision with dynamic attribute labels from masterData
+// Generic function to map technical/process keys to human-readable labels
 const getAttributeLabel = (masterAttributes, section, key) => {
   const item = masterAttributes[section]?.find(i => i.key === key);
   if (item) return item.label;
-
-  // Generic fallback: camelCase to Title Case
   return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+};
+
+// Clean, single-source status mapping
+const getStatusLabel = (status) => {
+  if (!status) return 'Draft';
+  const s = status.toLowerCase();
+  switch (s) {
+    case "submitted":
+      return "Pending with Manager";
+    case "managerinprogress":
+      return "Under Review by Manager";
+    case "reviewerpending":
+    case "managerapproved":
+      return "Pending with Reviewer";
+    case "reviewerinprogress":
+      return "Under Review by Reviewer";
+    case "reviewerapproved":
+      return "Pending with Director";
+    case "directorinprogress":
+      return "Under Review by Director";
+    case "directorpushedback":
+      return "Returned for Correction";
+    case "directorapproved":
+      return "Approved";
+    case "released":
+      return "Awaiting Your Acceptance";
+    case "accepted_pending_effect":
+      return "Accepted (Pending Effect)";
+    case "effective":
+      return "Completed";
+    default:
+      return "Draft";
+  }
 };
 
 
@@ -279,6 +321,40 @@ const SelfAppraisal = () => {
   // View State: 'list' or 'edit'
   const [viewMode, setViewMode] = useState('list');
   const [isReadOnly, setIsReadOnly] = useState(false);
+  const [viewData, setViewData] = useState(null);
+
+  // Modal & Popup States
+  const [showNewAppraisalModal, setShowNewAppraisalModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [showContributionModal, setShowContributionModal] = useState(false);
+  const [showBehaviourModal, setShowBehaviourModal] = useState(false);
+  const [showProcessModal, setShowProcessModal] = useState(false);
+  const [showTechnicalModal, setShowTechnicalModal] = useState(false);
+  const [showGrowthModal, setShowGrowthModal] = useState(false);
+  const [showReleaseLetter, setShowReleaseLetter] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, id: null });
+  const [statusPopup, setStatusPopup] = useState({ isOpen: false, status: 'info', message: '' });
+
+  // Form State
+  const [formData, setFormData] = useState({
+    year: '',
+    division: '',
+    projects: [],
+    overallContribution: '',
+    status: 'draft',
+    behaviourBased: { comments: '' },
+    processAdherence: { comments: '' },
+    technicalBased: { comments: '' },
+    growthBased: { comments: '', careerGoals: '' },
+    behaviourManagerRatings: {},
+    processManagerRatings: {},
+    technicalManagerRatings: {},
+    growthManagerRatings: {}
+  });
+
+  const [currentProject, setCurrentProject] = useState({ id: null, name: '', contribution: '' });
+  const [letterData, setLetterData] = useState(null);
 
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const [employeeInfo, setEmployeeInfo] = useState({
@@ -290,6 +366,49 @@ const SelfAppraisal = () => {
     location: user.location || user.branch || '',
     ...user
   });
+
+  useEffect(() => {
+    const fetchFreshProfile = async () => {
+      try {
+        const res = await employeeAPI.getMyProfile();
+        if (res.data) {
+          setEmployeeInfo(prev => ({
+            ...prev,
+            ...res.data,
+            name: res.data.name || res.data.fullName || prev.name,
+            designation: res.data.designation || prev.designation,
+            division: res.data.division || prev.division,
+            department: res.data.department || prev.department
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch fresh profile in SelfAppraisal", error);
+      }
+    };
+    fetchFreshProfile();
+  }, []);
+
+  const fetchAppraisals = async () => {
+    setLoading(true);
+    try {
+      const response = await performanceAPI.getMySelfAppraisals();
+      setAppraisals(response.data || []);
+    } catch (error) {
+      console.error("Failed to fetch appraisals", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAppraisals();
+  }, []);
+
+  const employeeInitials = (employeeInfo.name || '')
+    .split(' ')
+    .map(n => n[0])
+    .join('')
+    .toUpperCase();
 
   // Attribute Configuration State
   const [enabledSections, setEnabledSections] = useState({
@@ -312,10 +431,125 @@ const SelfAppraisal = () => {
   });
 
   const [masterAttributes, setMasterAttributes] = useState({
-    knowledgeSubItems: [],
-    processSubItems: [],
+    knowledgeSubItems: [
+      { key: 'knowledgeSharing', label: 'Knowledge Sharing' },
+      { key: 'leadership', label: 'Leadership' }
+    ],
+    processSubItems: [
+      { key: 'timesheet', label: 'Timesheet Discipline' },
+      { key: 'reportStatus', label: 'Report Status' },
+      { key: 'meeting', label: 'Meeting Attendance' }
+    ],
     technicalSubItems: [],
     growthSubItems: []
+  });
+
+  const [appraisals, setAppraisals] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  const getStageFromStatus = (status) => {
+    const s = String(status || 'draft').toLowerCase().trim();
+    switch (s) {
+      case 'draft': 
+        return 'appraisee';
+
+      case 'submitted':
+      case 'managerinprogress':
+        return 'appraiser';
+
+      case 'reviewerpending':
+      case 'reviewerinprogress':
+      case 'directorpushedback':
+      case 'managerapproved':
+        return 'reviewer';
+
+      case 'reviewerapproved':
+      case 'directorinprogress':
+      case 'directorapproved':
+        return 'director';
+
+      case 'released':
+      case 'accepted_pending_effect':
+      case 'effective':
+        return 'release';
+
+      default: 
+        return 'appraisee';
+    }
+  };
+
+
+  const getEffectiveAcceptanceStatus = (appraisal) => {
+    if (!appraisal) return null;
+    if (appraisal.employeeAcceptanceStatus) return appraisal.employeeAcceptanceStatus;
+    const status = appraisal.status || '';
+    if (['released', 'accepted_pending_effect', 'effective'].includes(status)) return 'ACCEPTED';
+    return 'PENDING';
+  };
+
+  const userFlowConfig = getWorkflowForUser(employeeInfo.department, employeeInfo.designation);
+  const userFlow = APPRAISAL_STAGES.map(stage => {
+    let label = stage.label;
+    if (stage.id === 'release' && (viewData?.status === 'released' || viewData?.status === 'effective')) {
+      label = 'Released Letter';
+    }
+    if (userFlowConfig && userFlowConfig[stage.id]) {
+      return { ...stage, label, description: userFlowConfig[stage.id] };
+    }
+    return { ...stage, label };
+  });
+
+  const currentStageId = getStageFromStatus(formData.status);
+
+  const getTechnicalFields = (division) => {
+    const div = division || 'Software';
+    if (div === 'SDS') {
+      return [
+        { key: 'codingSkills', label: 'Structural Drawing Accuracy' },
+        { key: 'testing', label: 'Steel Connection Knowledge' },
+        { key: 'debugging', label: 'Bolt & Weld Detailing Accuracy' },
+        { key: 'sds', label: 'GA / Shop / Erection Drawing Quality' },
+        { key: 'tekla', label: 'Drawing Revision & Error Reduction' }
+      ];
+    }
+    if (div === 'Tekla') {
+      return [
+        { key: 'codingSkills', label: '3D Modeling Accuracy' },
+        { key: 'testing', label: 'Clash Detection Handling' },
+        { key: 'debugging', label: 'Model Integrity & Cleanliness' },
+        { key: 'sds', label: 'Complex Connection Modeling' },
+        { key: 'tekla', label: 'Anchor Bolt Layout & Output' }
+      ];
+    }
+    return [
+      { key: 'codingSkills', label: 'Code Quality' },
+      { key: 'testing', label: 'System Architecture Understanding' },
+      { key: 'debugging', label: 'Debugging & Issue Resolution' },
+      { key: 'sds', label: 'API Integration Skills' },
+      { key: 'tekla', label: 'Testing & Validation' }
+    ];
+  };
+
+  const getGrowthFields = () => {
+    return [
+      { key: 'leadershipPotential', label: 'Leadership Potential' },
+      { key: 'learningAbility', label: 'Learning Ability' },
+      { key: 'mentoringSkills', label: 'Mentoring Skills' }
+    ];
+  };
+
+
+  const [autoDownload, setAutoDownload] = useState(false);
+  const [newAppraisalYear, setNewAppraisalYear] = useState('2025-26');
+  const [newAppraisalDivision, setNewAppraisalDivision] = useState(employeeInfo.division || '');
+  const [newAppraisalAttendance, setNewAppraisalAttendance] = useState({
+    workingDays: 0,
+    presentDays: 0,
+    absentDays: 0,
+    officeHoliday: 0,
+    regionalHoliday: 0,
+    attendancePct: 0,
+    loading: false,
   });
 
   useEffect(() => {
@@ -338,7 +572,7 @@ const SelfAppraisal = () => {
   }, []);
 
   useEffect(() => {
-    const fetchAttributes = async () => {
+    const fetchDesignationAttributes = async () => {
       if (!employeeInfo.designation) return;
       try {
         const response = await performanceAPI.getAttributes(employeeInfo.designation);
@@ -346,311 +580,31 @@ const SelfAppraisal = () => {
           setEnabledSections({
             selfAppraisal: response.data.sections.selfAppraisal ?? true,
             knowledgeSharing: response.data.sections.knowledgeSharing ?? true,
-            knowledgeSubItems: response.data.sections?.knowledgeSubItems || {
-              knowledgeSharing: true,
-              leadership: true
-            },
+            knowledgeSubItems: response.data.sections.knowledgeSubItems || {},
             processAdherence: response.data.sections.processAdherence ?? true,
-            processSubItems: response.data.sections?.processSubItems || {},
+            processSubItems: response.data.sections.processSubItems || {},
             technicalAssessment: response.data.sections.technicalAssessment ?? true,
-            technicalSubItems: response.data.sections?.technicalSubItems || {},
+            technicalSubItems: response.data.sections.technicalSubItems || {},
             growthAssessment: response.data.sections.growthAssessment ?? true,
-            growthSubItems: response.data.sections?.growthSubItems || {}
+            growthSubItems: response.data.sections.growthSubItems || {}
           });
         }
       } catch (error) {
-        console.error("Error fetching attributes", error);
+        console.error("Error fetching designation attributes", error);
       }
     };
-    fetchAttributes();
+    fetchDesignationAttributes();
   }, [employeeInfo.designation]);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const res = await employeeAPI.getMyProfile();
-        const data = res.data || {};
-        setEmployeeInfo(prev => ({
-          ...prev,
-          ...data,
-          name: data.name || data.employeeName || prev.name,
-          employeeId: data.employeeId || data.empId || prev.employeeId,
-          designation: data.designation || data.role || data.position || prev.designation,
-          department: data.department || prev.department,
-          division: data.division || prev.division,
-          location: data.location || data.branch || prev.location
-        }));
-      } catch (err) {
-        console.error('Failed to fetch employee profile for self appraisal', err);
-      }
-    };
-    fetchProfile();
-  }, []);
-
-  const employeeDisplayName = employeeInfo.name || employeeInfo.employeeName || '';
-  const employeeInitials = employeeDisplayName
-    ? employeeDisplayName
-      .split(' ')
-      .map((part) => part[0])
-      .join('')
-      .slice(0, 2)
-      .toUpperCase()
-    : 'EM';
-
-  const map = {
-    'knowledgeSubItems': 'behaviourBased',
-    'processSubItems': 'processAdherence',
-    'technicalSubItems': 'technicalBased',
-    'growthSubItems': 'growthBased'
-  };
-
-  const getEnabledItems = (sectionKey) => {
-    const enabledMap = enabledSections?.[sectionKey] || {};
-    const masterList = masterAttributes?.[sectionKey] || [];
-    return masterList.filter(attr => enabledMap[attr.key]);
-  };
-
-  const getStageFromStatus = (status) => {
-    switch (status) {
-      case 'Draft': return 'appraisee';
-
-      case 'Submitted':
-      case 'SUBMITTED':
-      case 'AppraiserReview':
-        return 'appraiser';
-
-      case 'APPRAISER_COMPLETED':
-      case 'ReviewerReview':
-        return 'reviewer';
-
-      case 'REVIEWER_COMPLETED':
-      case 'DirectorApproval':
-        return 'director';
-
-      case 'DIRECTOR_APPROVED':
-        return 'director';
-
-      case 'Released':
-      case 'Reviewed':
-      case 'Released Letter':
-      case 'Accepted':
-        return 'release';
-
-      default: return 'appraisee';
-    }
-  };
-
-
-  const getEffectiveAcceptanceStatus = (appraisal) => {
-    if (!appraisal) return null;
-    if (appraisal.employeeAcceptanceStatus) return appraisal.employeeAcceptanceStatus;
-    const status = appraisal.status || '';
-    if (status === 'Released' || status === 'Reviewed' || status === 'Accepted') return 'ACCEPTED';
-    return 'PENDING';
-  };
-
-  // Appraisals List State
-  const [appraisals, setAppraisals] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  // Fetch Appraisals on Mount
-  useEffect(() => {
-    fetchAppraisals();
-  }, []);
-
-  const fetchAppraisals = async () => {
-    try {
-      setLoading(true);
-      const response = await performanceAPI.getMySelfAppraisals();
-      setAppraisals(response.data || []);
-    } catch (error) {
-      console.error("Failed to fetch appraisals", error);
-      // Fallback for demo if API fails
-      setAppraisals([
-        {
-          id: 1,
-          year: '2024-25',
-          division: 'Software',
-          appraiser: 'John Doe',
-          status: 'Submitted',
-          releaseLetter: 'appraisal_2024-25.pdf',
-          projects: [
-            { id: 101, name: 'Project Alpha', contribution: 'Lead developer, implemented core features.' },
-            { id: 102, name: 'Project Beta', contribution: 'Fixed critical bugs and improved performance.' }
-          ],
-          overallContribution: 'Successfully delivered two major projects and mentored junior developers.',
-          // New attributes
-          behaviourBased: {
-            communication: 4,
-            teamwork: 5,
-            leadership: 4,
-            adaptability: 4,
-            initiatives: 5,
-            comments: 'Excellent team player, always willing to help others.'
-          },
-          processAdherence: {
-            timesheet: 4,
-            reportStatus: 4,
-            meeting: 5,
-            comments: 'Consistently updates timesheets and attends meetings on time.'
-          },
-          technicalBased: {
-            comments: 'Strong technical contribution.'
-          },
-          growthBased: {
-            learningNewTech: 5,
-            certifications: 2,
-            careerGoals: 'Aspiring to become technical architect',
-            comments: 'Actively learning new technologies and pursuing certifications.'
-          }
-        },
-        {
-          id: 2,
-          year: '2023-24',
-          division: 'SDS',
-          appraiser: 'Jane Smith',
-          status: 'Released',
-          releaseLetter: 'appraisal_2023-24.pdf',
-          projects: [
-            { id: 201, name: 'Legacy System Migration', contribution: 'Migrated database to new server.' }
-          ],
-          overallContribution: 'Completed migration ahead of schedule.',
-          // New attributes for second appraisal
-          behaviourBased: {
-            communication: 4,
-            teamwork: 4,
-            leadership: 3,
-            adaptability: 5,
-            initiatives: 4,
-            comments: 'Adapts quickly to changing requirements.'
-          },
-          processAdherence: {
-            timesheet: 3,
-            reportStatus: 4,
-            meeting: 4,
-            comments: 'Good at following reporting processes.'
-          },
-          technicalBased: {
-            comments: 'Solid technical foundation.'
-          },
-          growthBased: {
-            learningNewTech: 4,
-            certifications: 3,
-            careerGoals: 'Want to specialize in database technologies',
-            comments: 'Good progress in learning and certifications.'
-          }
-        }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Form Data State - Enhanced with new attributes
-  const [formData, setFormData] = useState({
-    year: '2025-26',
-    division: '',
-    projects: [],
-    overallContribution: '',
-    status: 'Draft',
-    // New attributes with default values
-    behaviourBased: {
-      communication: 0,
-      teamwork: 0,
-      leadership: 0,
-      adaptability: 0,
-      initiatives: 0,
-      comments: ''
-    },
-    processAdherence: {
-      timesheet: 0,
-      reportStatus: 0,
-      meeting: 0,
-      comments: ''
-    },
-    technicalBased: {
-      comments: ''
-    },
-    growthBased: {
-      learningNewTech: 0,
-      certifications: 0,
-      careerGoals: '',
-      comments: ''
-    }
-  });
-
-  const currentStageId = getStageFromStatus(formData.status);
-
-  // Modal States
-  const [showNewAppraisalModal, setShowNewAppraisalModal] = useState(false);
-  const [showProjectModal, setShowProjectModal] = useState(false);
-  const [showContributionModal, setShowContributionModal] = useState(false);
-  const [showViewModal, setShowViewModal] = useState(false);
-  const [viewData, setViewData] = useState(null);
-  const [currentProject, setCurrentProject] = useState({ id: null, name: '', contribution: '' });
-
-  // New Modal States for each category
-  const [showBehaviourModal, setShowBehaviourModal] = useState(false);
-  const [showTechnicalModal, setShowTechnicalModal] = useState(false);
-  const [showGrowthModal, setShowGrowthModal] = useState(false);
-  const [showProcessModal, setShowProcessModal] = useState(false);
-
-  // Status Popup State
-  const [statusPopup, setStatusPopup] = useState({ isOpen: false, status: 'success', message: '' });
-  const [deleteConfirmation, setDeleteConfirmation] = useState({ isOpen: false, id: null });
-
-  // Letter State
-  const [showReleaseLetter, setShowReleaseLetter] = useState(false);
-  const [letterData, setLetterData] = useState({
-    employeeName: '',
-    employeeId: '',
-    designation: '',
-    department: '',
-    division: '',
-    location: '',
-    currentSalary: 0,
-    revisedSalary: 0,
-    incrementAmount: 0,
-    revisedDate: '',
-    financialYear: '',
-    appraisalStatus: '',
-    employeeAcceptanceStatus: ''
-  });
-
-  const userFlowConfig = getWorkflowForUser(employeeInfo.department, employeeInfo.designation);
-  const userFlow = APPRAISAL_STAGES.map(stage => {
-    let label = stage.label;
-    if (stage.id === 'release' && (viewData?.status === 'Released Letter' || viewData?.status === 'Accepted')) {
-      label = 'Released Letter';
-    }
-    if (userFlowConfig && userFlowConfig[stage.id]) {
-      return { ...stage, label, description: userFlowConfig[stage.id] };
-    }
-    return { ...stage, label };
-  });
-
-  const [autoDownload, setAutoDownload] = useState(false);
-  const [newAppraisalYear, setNewAppraisalYear] = useState(getOpenFinancialYearLabel());
-  const [newAppraisalDivision, setNewAppraisalDivision] = useState(employeeInfo.division || '');
-  const [newAppraisalAttendance, setNewAppraisalAttendance] = useState({
-    workingDays: 0,
-    presentDays: 0,
-    absentDays: 0,
-    officeHoliday: 0,
-    regionalHoliday: 0,
-    attendancePct: 0,
-    loading: false,
-  });
-
-  useEffect(() => {
-    if (employeeInfo.division && !newAppraisalDivision) {
+    if (employeeInfo.division) {
       setNewAppraisalDivision(employeeInfo.division);
     }
-  }, [employeeInfo.division, newAppraisalDivision]);
+  }, [employeeInfo.division]);
 
   useEffect(() => {
     if (showNewAppraisalModal) {
-      setNewAppraisalYear(getOpenFinancialYearLabel());
+      setNewAppraisalYear('2025-26');
     }
   }, [showNewAppraisalModal]);
 
@@ -673,7 +627,7 @@ const SelfAppraisal = () => {
         setStatusPopup({
           isOpen: true,
           status: 'info',
-          message: `Appraisal for FY ${fy} is already submitted and cannot be edited.`
+          message: `Already you applied appraisal for FY ${fy}.`
         });
         return;
       }
@@ -714,7 +668,7 @@ const SelfAppraisal = () => {
       division: newAppraisalDivision,
       projects: [],
       overallContribution: '',
-      status: 'Draft',
+      status: 'draft',
       behaviourBased: initialBehaviour,
       processAdherence: initialProcess,
       technicalBased: initialTechnical,
@@ -725,94 +679,92 @@ const SelfAppraisal = () => {
   };
 
 
-  useEffect(() => {
-    const loadNewAppraisalAttendance = async () => {
-      const fy = newAppraisalYear;
-      // Strongly prioritize the string employeeId over Mongo _id
-      const employeeId =
-        employeeInfo.employeeId || employeeInfo.empId || employeeInfo.id || '';
-        
-      if (!fy || !employeeId) {
-        setNewAppraisalAttendance({
-          workingDays: 0,
-          presentDays: 0,
-          absentDays: 0,
-          officeHoliday: 0,
-          regionalHoliday: 0,
-          attendancePct: 0,
-          loading: false,
-        });
-        return;
+  const loadAttendanceData = async (fy) => {
+    // Strongly prioritize the string employeeId over Mongo _id
+    const employeeId =
+      employeeInfo.employeeId || employeeInfo.empId || employeeInfo.id || '';
+      
+    if (!fy || !employeeId) {
+      setNewAppraisalAttendance({
+        workingDays: 0,
+        presentDays: 0,
+        absentDays: 0,
+        officeHoliday: 0,
+        regionalHoliday: 0,
+        attendancePct: 0,
+        loading: false,
+      });
+      return;
+    }
+
+    try {
+      setNewAppraisalAttendance((prev) => ({ ...prev, loading: true }));
+      const range = getFinancialYearRange(fy);
+      const joinDate = employeeInfo.dateOfJoining ? new Date(employeeInfo.dateOfJoining) : null;
+      let effectiveStart = range.start;
+      if (joinDate && !Number.isNaN(joinDate.getTime()) && joinDate > range.start) {
+        effectiveStart = joinDate;
       }
+
+      // Use 'today' if the FY is the current one, similar to AttendanceSummary
+      const now = new Date();
+      const isCurrentFy = (fy === getCurrentFinancialYearLabel());
+      const effectiveEnd = isCurrentFy ? now : range.end;
+
+      const workingDays = getWorkingDaysBetween(effectiveStart, effectiveEnd);
+
+      let present = 0;
+      let absent = 0;
+      let pct = 0;
+      let office = 0;
+      let regional = 0;
+      let savedPct = null;
 
       try {
-        setNewAppraisalAttendance((prev) => ({ ...prev, loading: true }));
-        const range = getFinancialYearRange(fy);
-        const joinDate = employeeInfo.dateOfJoining ? new Date(employeeInfo.dateOfJoining) : null;
-        let effectiveStart = range.start;
-        if (joinDate && !Number.isNaN(joinDate.getTime()) && joinDate > range.start) {
-          effectiveStart = joinDate;
-        }
-
-        // Use 'today' if the FY is the current one, similar to AttendanceSummary
-        const now = new Date();
-        const isCurrentFy = (fy === getCurrentFinancialYearLabel());
-        const effectiveEnd = isCurrentFy ? now : range.end;
-
-        const workingDays = getWorkingDaysBetween(effectiveStart, effectiveEnd);
-
-        let present = 0;
-        let absent = 0;
-        let pct = 0;
-        let office = 0;
-        let regional = 0;
-        let savedPct = null;
-
-        try {
-          const yearRes = await attendanceAPI.getYearSummary(employeeId, {
-            financialYear: fy,
-          });
-          const doc = yearRes.data && yearRes.data.data;
-          if (doc) {
-            present = Number(doc.yearlyPresent || 0);
-            absent = Number(doc.yearlyAbsent || 0);
-            office = Number(doc.officeHoliday || 0);
-            regional = Number(doc.regionalHoliday || 0);
-            savedPct = typeof doc.yearlyPct === 'number' ? doc.yearlyPct : null;
-          }
-        } catch (e) {
-          console.error("No saved year summary found, falling back to defaults", e);
-        }
-
-        if (workingDays > 0) {
-          if (present > 0 && absent === 0) {
-            absent = Math.max(0, workingDays - present - office - regional);
-          }
-          if (savedPct !== null) {
-            pct = savedPct;
-          } else {
-            // Match AttendanceSummary.jsx denominator logic:
-            // Denominator = (Total Working Days from DOJ to End of FY) - Office Holidays - Regional Holidays
-            const denom = Math.max(0, workingDays - office - regional);
-            pct = denom > 0 ? Math.max(0, Math.min(100, (present / denom) * 100)) : 0;
-          }
-        }
-
-        setNewAppraisalAttendance({
-          workingDays,
-          presentDays: present,
-          absentDays: absent,
-          officeHoliday: office,
-          regionalHoliday: regional,
-          attendancePct: pct,
-          loading: false,
+        const yearRes = await attendanceAPI.getYearSummary(employeeId, {
+          financialYear: fy,
         });
-      } catch {
-        setNewAppraisalAttendance((prev) => ({ ...prev, loading: false }));
+        const doc = yearRes.data && yearRes.data.data;
+        if (doc) {
+          present = Number(doc.yearlyPresent || 0);
+          absent = Number(doc.yearlyAbsent || 0);
+          office = Number(doc.officeHoliday || 0);
+          regional = Number(doc.regionalHoliday || 0);
+          savedPct = typeof doc.yearlyPct === 'number' ? doc.yearlyPct : null;
+        }
+      } catch (e) {
+        console.error("No saved year summary found, falling back to defaults", e);
       }
-    };
 
-    loadNewAppraisalAttendance();
+      if (workingDays > 0) {
+        if (present > 0 && absent === 0) {
+          absent = Math.max(0, workingDays - present - office - regional);
+        }
+        if (savedPct !== null) {
+          pct = savedPct;
+        } else {
+          // Match AttendanceSummary.jsx denominator logic:
+          const denom = Math.max(0, workingDays - office - regional);
+          pct = denom > 0 ? Math.max(0, Math.min(100, (present / denom) * 100)) : 0;
+        }
+      }
+
+      setNewAppraisalAttendance({
+        workingDays,
+        presentDays: present,
+        absentDays: absent,
+        officeHoliday: office,
+        regionalHoliday: regional,
+        attendancePct: pct,
+        loading: false,
+      });
+    } catch {
+      setNewAppraisalAttendance((prev) => ({ ...prev, loading: false }));
+    }
+  };
+
+  useEffect(() => {
+    loadAttendanceData(newAppraisalYear);
   }, [newAppraisalYear, employeeInfo.employeeId, employeeInfo.empId, employeeInfo.id]);
 
   const handleViewAppraisal = async (appraisal) => {
@@ -895,7 +847,7 @@ const SelfAppraisal = () => {
     try {
       const payload = { 
         employeeAcceptanceStatus: newStatus,
-        status: newStatus === 'ACCEPTED' ? 'Accepted' : 'Released Letter'
+        status: newStatus === 'ACCEPTED' ? 'accepted_pending_effect' : 'released'
       };
       if (newStatus === 'ACCEPTED') {
         payload.finalStatus = 'COMPLETED';
@@ -926,8 +878,56 @@ const SelfAppraisal = () => {
     }
   };
 
-  const handleDownloadLetter = async (appraisal) => {
+  const handleDownloadPDF = async () => {
     try {
+      setLoading(true);
+      const elementIds = ['release-letter-page-1', 'release-letter-page-2'];
+      if (letterData.isPromotionRecommended) {
+        elementIds.push('release-letter-page-3');
+      }
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+
+      for (let i = 0; i < elementIds.length; i++) {
+        const element = document.getElementById(elementIds[i]);
+        if (!element) continue;
+
+        const canvas = await html2canvas(element, {
+          scale: 3, // Higher scale for text clarity
+          useCORS: true,
+          logging: false,
+          allowTaint: true
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 1.0);
+        
+        if (i > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      }
+
+      const fileName = `Release_Letter_${letterData.employeeName.replace(/\s+/g, '_')}_${letterData.financialYear}.pdf`;
+      pdf.save(fileName);
+      
+      setStatusPopup({ isOpen: true, status: 'success', message: 'PDF generated successfully!' });
+    } catch (error) {
+      console.error('PDF Generation Error:', error);
+      setStatusPopup({ isOpen: true, status: 'error', message: 'Failed to generate PDF. Please try again.' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadLetter = async (partialAppraisal) => {
+    try {
+      setLoading(true);
+      const id = partialAppraisal._id || partialAppraisal.id;
+      const appraisalRes = await performanceAPI.getSelfAppraisalById(id);
+      const appraisal = appraisalRes.data;
+      
       let employeeDetails = {};
 
       try {
@@ -956,6 +956,32 @@ const SelfAppraisal = () => {
         employeeInfo.employeeId ||
         appraisal.employeeId;
 
+      let approvedPromotion = null;
+      let isPromotionRecommended = false;
+
+      // PROMOTION FIX: Check current appraisal first, then history
+      if (appraisal.promotion?.recommended && appraisal.promotion?.newDesignation) {
+        approvedPromotion = {
+          newDesignation: String(appraisal.promotion.newDesignation || '').trim(),
+          effectiveDate: appraisal.promotion.effectiveDate ? formatDisplayDate(appraisal.promotion.effectiveDate) : formatDisplayDate(new Date())
+        };
+        isPromotionRecommended = true;
+      } else {
+        try {
+          const promoRes = await promotionAPI.getMyLatestApprovedPromotion();
+          const promo = promoRes.data?.data || null;
+          if (promo && String(promo.status || '').toLowerCase() === 'approved' && promo.newDesignation) {
+            approvedPromotion = {
+              newDesignation: String(promo.newDesignation || '').trim(),
+              effectiveDate: formatDisplayDate(promo.effectiveDate)
+            };
+            isPromotionRecommended = true;
+          }
+        } catch (err) {
+          approvedPromotion = null;
+        }
+      }
+
       // Start with immutable snapshots captured at release time, if available
       const hasSnapshotValues = (snapshot) => {
         if (!snapshot || typeof snapshot !== 'object') return false;
@@ -967,168 +993,85 @@ const SelfAppraisal = () => {
       const hasOldSnapshot = hasSnapshotValues(snapshotOld);
       const hasNewSnapshot = hasSnapshotValues(snapshotNew);
 
-      let salaryOld = {
-        basic: 0,
-        hra: 0,
-        special: 0,
-        gross: 0,
-        empPF: 0,
-        employerPF: 0,
-        net: 0,
-        gratuity: 0,
-        ctc: 0
+      let salaryOld;
+
+
+      const baseCtc = Number(appraisal.currentSalary || appraisal.salary || appraisal.releaseSalarySnapshot?.ctc || appraisal.currentSalarySnapshot || employeeDetails.ctc || 0);
+      const totalPct = Number(appraisal.incrementPercentage || 0) + Number(appraisal.incrementCorrectionPercentage || 0);
+      let revisedCtc = Number(appraisal.releaseRevisedSnapshot?.ctc || appraisal.revisedSalary || 0);
+
+      // Safety check: If revised is lower than current, recalculate based on percentage
+      if (revisedCtc < baseCtc && totalPct > 0) {
+        revisedCtc = Math.round(baseCtc * (1 + totalPct / 100));
+      }
+      // Guarantee revised is not less than current
+      if (revisedCtc < baseCtc) revisedCtc = baseCtc;
+
+      // 1. Initial Salary Breakdown (Current)
+      salaryOld = {
+        basic: Math.round(baseCtc * 0.5),
+        hra: Math.round(baseCtc * 0.2),
+        special: Math.round(baseCtc * 0.25),
+        gross: Math.round(baseCtc * 0.95),
+        empPF: Math.round(baseCtc * 0.5 * 0.12),
+        employerPF: Math.round(baseCtc * 0.5 * 0.12),
+        net: Math.round(baseCtc * 0.8),
+        gratuity: Math.round(baseCtc * 0.05),
+        ctc: baseCtc
       };
 
-      if (hasOldSnapshot) {
-        salaryOld = {
-          basic: Number(snapshotOld.basic || 0),
-          hra: Number(snapshotOld.hra || 0),
-          special: Number(snapshotOld.special || 0),
-          gross: Number(snapshotOld.gross || 0),
-          empPF: Number(snapshotOld.empPF || 0),
-          employerPF: Number(snapshotOld.employerPF || 0),
-          net: Number(snapshotOld.net || 0),
-          gratuity: Number(snapshotOld.gratuity || 0),
-          ctc: Number(snapshotOld.ctc || 0)
-        };
-      }
-
-      let lastPayrollRecord = null;
-      try {
-        // Only fetch payroll for fallback if no snapshot exists
-        if (!salaryOld.ctc && employeeIdValue) {
-          const payrollRes = await payrollAPI.list();
-          const items = Array.isArray(payrollRes.data) ? payrollRes.data : [];
-          const empIdNorm = String(employeeIdValue).toLowerCase();
-          const record = items.find(
-            (p) => String(p.employeeId || '').toLowerCase() === empIdNorm
-          );
-
-          if (record) {
-            lastPayrollRecord = record;
-            const basic = Number(record.basicDA || 0);
-            const hra = Number(record.hra || 0);
-            const special = Number(record.specialAllowance || 0);
-            const gross = Number(
-              record.totalEarnings !== undefined
-                ? record.totalEarnings
-                : basic + hra + special
-            );
-            const empPF = Number(record.pf || 0);
-            const employerPF = Number(record.employerPF || record.pf || 0);
-            const net = Number(record.netSalary || gross);
-            const gratuity = Number(record.gratuity || 0);
-            const ctc = Number(
-              record.ctc !== undefined ? record.ctc : gross + gratuity
-            );
-
-            salaryOld = {
-              basic,
-              hra,
-              special,
-              gross,
-              empPF,
-              employerPF,
-              net,
-              gratuity,
-              ctc
-            };
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch payroll details for letter', err);
-      }
-
-      // If payroll has changed post-acceptance and we have a currentSalarySnapshot,
-      // back-calculate the pre-acceptance breakdown from latest payroll by scaling down.
-      if (!hasOldSnapshot && salaryOld.ctc && appraisal?.currentSalarySnapshot && lastPayrollRecord) {
-        const latestCtc = Number(salaryOld.ctc || 0);
-        const oldCtcSnap = Number(appraisal.currentSalarySnapshot || 0);
-        if (latestCtc > 0 && oldCtcSnap > 0 && oldCtcSnap !== latestCtc) {
-          const scaleDown = oldCtcSnap / latestCtc;
-          const basic = Math.round(Number(lastPayrollRecord.basicDA || 0) * scaleDown);
-          const hra = Math.round(Number(lastPayrollRecord.hra || 0) * scaleDown);
-          const special = Math.round(Number(lastPayrollRecord.specialAllowance || 0) * scaleDown);
-          const gross = Math.round(
-            (Number(lastPayrollRecord.totalEarnings !== undefined ? lastPayrollRecord.totalEarnings : (Number(lastPayrollRecord.basicDA || 0) + Number(lastPayrollRecord.hra || 0) + Number(lastPayrollRecord.specialAllowance || 0))) || 0) * scaleDown
-          );
-          const net = Math.round(Number(lastPayrollRecord.netSalary || gross) * scaleDown);
-          const gratuity = Math.round(Number(lastPayrollRecord.gratuity || 0) * scaleDown);
-          salaryOld = {
-            basic,
-            hra,
-            special,
-            gross,
-            empPF: Number(lastPayrollRecord.pf || 0), // leave pf as-is for current letter
-            employerPF: Number(lastPayrollRecord.employerPF || lastPayrollRecord.pf || 0),
-            net,
-            gratuity,
-            ctc: oldCtcSnap
-          };
-        }
-      }
-
-      if (!salaryOld.ctc) {
-        const currentSalary =
-          Number(appraisal.currentSalary || 0) || Number(appraisal.salary || 0);
-        if (currentSalary) {
-          salaryOld = {
-            basic: 0,
-            hra: 0,
-            special: 0,
-            gross: currentSalary,
-            empPF: 0,
-            employerPF: 0,
-            net: currentSalary,
-            gratuity: 0,
-            ctc: currentSalary
-          };
-        }
-      }
-
-      const baseCtc = Number(salaryOld.ctc || 0);
-      const basePct = Number(appraisal.incrementPercentage || 0);
-      const correctionPct = Number(appraisal.incrementCorrectionPercentage || 0);
-      let totalPct = basePct + correctionPct;
-
-      const revisedFromAppraisal = Number(appraisal.revisedSalary || 0);
-
-      let salaryNew;
-      let incrementAmount = 0;
-      if (hasNewSnapshot) {
-        salaryNew = {
-          basic: Number(snapshotNew.basic || 0),
-          hra: Number(snapshotNew.hra || 0),
-          special: Number(snapshotNew.special || 0),
-          gross: Number(snapshotNew.gross || 0),
-          empPF: Number(snapshotNew.empPF || 0),
-          employerPF: Number(snapshotNew.employerPF || 0),
-          net: Number(snapshotNew.net || 0),
-          gratuity: Number(snapshotNew.gratuity || 0),
-          ctc: Number(snapshotNew.ctc || 0)
-        };
-        incrementAmount = Math.max(0, (salaryNew.ctc || 0) - (baseCtc || 0));
+      // Try to use DB snapshot if exists and is full
+      const snapOld = appraisal.releaseSalarySnapshot || {};
+      if (snapOld.basic && snapOld.basic > 0) {
+        salaryOld = { ...snapOld, ctc: baseCtc };
       } else {
-        let factor = 1;
-        if (baseCtc && totalPct > 0) {
-          factor = 1 + totalPct / 100;
-        } else if (baseCtc && revisedFromAppraisal > 0) {
-          factor = revisedFromAppraisal / baseCtc;
-        }
-        const revisedCtc = Math.round(baseCtc * factor);
-        incrementAmount = revisedCtc - baseCtc;
+        // Fallback: try to fetch from payroll if no snapshot
+        try {
+          if (employeeIdValue) {
+            const payrollRes = await payrollAPI.list();
+            const record = (payrollRes.data || []).find(p => String(p.employeeId || '').toLowerCase() === String(employeeIdValue).toLowerCase());
+            if (record && Number(record.basicDA || 0) > 0) {
+              const rBasic = Number(record.basicDA || 0);
+              const rCtc = rBasic + Number(record.hra || 0) + Number(record.specialAllowance || 0) + Number(record.gratuity || 0);
+              const norm = (rCtc > 0 && baseCtc > 0) ? (baseCtc / rCtc) : 1;
+              salaryOld = {
+                basic: Math.round(rBasic * norm),
+                hra: Math.round(Number(record.hra || 0) * norm),
+                special: Math.round(Number(record.specialAllowance || 0) * norm),
+                gross: Math.round((rBasic + Number(record.hra || 0) + Number(record.specialAllowance || 0)) * norm),
+                empPF: Number(record.pf || Math.round(rBasic * 0.12 * norm)),
+                employerPF: Number(record.employerPF || record.pf || Math.round(rBasic * 0.12 * norm)),
+                net: Number(record.netSalary || ((rBasic + Number(record.hra || 0) + Number(record.specialAllowance || 0) - (record.pf || 0)) * norm)),
+                gratuity: Math.round(Number(record.gratuity || 0) * norm),
+                ctc: baseCtc
+              };
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 2. Revised Salary Breakdown
+      let salaryNew = { ...salaryOld, ctc: revisedCtc };
+      const snapNew = appraisal.releaseRevisedSnapshot || {};
+      
+      if (snapNew.basic && snapNew.basic > 0) {
+        salaryNew = { ...snapNew, ctc: revisedCtc };
+      } else {
+        const factor = (baseCtc > 0) ? (revisedCtc / baseCtc) : 1;
         salaryNew = {
-          basic: Math.round((salaryOld.basic || 0) * factor),
-          hra: Math.round((salaryOld.hra || 0) * factor),
-          special: Math.round((salaryOld.special || 0) * factor),
-          gross: Math.round((salaryOld.gross || baseCtc) * factor),
-          empPF: salaryOld.empPF || 0,
-          employerPF: salaryOld.employerPF || 0,
-          net: Math.round((salaryOld.net || baseCtc) * factor),
-          gratuity: Math.round((salaryOld.gratuity || 0) * factor),
+          basic: Math.round(salaryOld.basic * factor),
+          hra: Math.round(salaryOld.hra * factor),
+          special: Math.round(salaryOld.special * factor),
+          gross: Math.round(salaryOld.gross * factor),
+          empPF: salaryOld.empPF, // typically doesn't change until next cycle or is derived
+          employerPF: salaryOld.employerPF,
+          net: Math.round(salaryOld.net * factor),
+          gratuity: Math.round(salaryOld.gratuity * factor),
           ctc: revisedCtc
         };
       }
+
+      const incrementAmount = Math.max(0, revisedCtc - baseCtc);
 
       const data = {
         date: letterDate,
@@ -1137,24 +1080,29 @@ const SelfAppraisal = () => {
         designation: employeeDetails.designation || employeeDetails.role || employeeInfo.designation,
         location: employeeDetails.location || employeeDetails.branch || employeeInfo.location || 'Chennai',
         financialYear: financialYear,
-        effectiveDate: '1st April 2026',
-        performanceRating: appraisal.appraiserRating || '',
+        effectiveDate: appraisal.effectiveDate ? formatDisplayDate(appraisal.effectiveDate) : (appraisal.promotionEffectiveDate ? formatDisplayDate(appraisal.promotionEffectiveDate) : '1st April 2026'),
+        performanceRating: (appraisal.managerReview?.performanceRating || appraisal.appraiserRating || ''),
         incrementPercentage: totalPct,
         incrementAmount,
         appraisalId: appraisal._id || appraisal.id,
         appraisalStatus: appraisal.status || '',
         employeeAcceptanceStatus: appraisal.employeeAcceptanceStatus || null,
         performancePay: Number(appraisal.performancePay || 0),
+        promotion: approvedPromotion,
+        isPromotionRecommended,
         salary: {
           old: salaryOld,
           new: salaryNew
         }
       };
+
       setLetterData(data);
       setShowReleaseLetter(true);
     } catch (error) {
       console.error("Error preparing letter", error);
       setStatusPopup({ isOpen: true, status: 'error', message: "Failed to prepare release letter." });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -1165,11 +1113,17 @@ const SelfAppraisal = () => {
 
       const page1 = document.getElementById('release-letter-page-1');
       const page2 = document.getElementById('release-letter-page-2');
+      const page3 = document.getElementById('release-letter-page-3');
+      const includePage3 = Boolean(letterData?.promotion?.newDesignation);
 
       console.log('Generating letter for location:', letterData?.location);
 
       if (!page1 || !page2) {
         setStatusPopup({ isOpen: true, status: 'error', message: "Template not found." });
+        return;
+      }
+      if (includePage3 && !page3) {
+        setStatusPopup({ isOpen: true, status: 'error', message: "Promotion certificate template not found." });
         return;
       }
 
@@ -1237,6 +1191,13 @@ const SelfAppraisal = () => {
       const imgData2 = canvas2.toDataURL('image/jpeg', 1.0);
       pdf.addImage(imgData2, 'JPEG', 0, 0, imgWidth, pageHeight);
 
+      if (includePage3) {
+        pdf.addPage();
+        const canvas3 = await captureElement(page3);
+        const imgData3 = canvas3.toDataURL('image/jpeg', 1.0);
+        pdf.addImage(imgData3, 'JPEG', 0, 0, imgWidth, pageHeight);
+      }
+
       pdf.save(`Release_Letter_${letterData.employeeId}.pdf`);
     } catch (error) {
       console.error("PDF Generation failed", error);
@@ -1245,15 +1206,7 @@ const SelfAppraisal = () => {
   };
 
   const handleDownloadPdf = async (appraisal) => {
-    const acceptanceStatus = getEffectiveAcceptanceStatus(appraisal);
-    if (acceptanceStatus !== 'ACCEPTED') {
-      setStatusPopup({
-        isOpen: true,
-        status: 'error',
-        message: 'Please accept your appraisal before downloading.'
-      });
-      return;
-    }
+    // Just trigger the preparation and preview
     await handleDownloadLetter(appraisal);
     setAutoDownload(true);
   };
@@ -1396,7 +1349,7 @@ const SelfAppraisal = () => {
 
       const payload = {
         ...formData,
-        status: action === 'Submit' ? 'Submitted' : 'Draft'
+        status: action === 'Submit' ? 'submitted' : 'draft'
       };
 
       const appraisalId = formData._id || formData.id;
@@ -1434,19 +1387,43 @@ const SelfAppraisal = () => {
     const openFyExisting = appraisals.find((a) => String(a.year || '').trim() === String(openFy).trim());
     const isOpenFyLocked = Boolean(openFyExisting && !isEditableStatus(openFyExisting.status));
 
+    const activePromotion = appraisals.find(a => 
+      (String(a.status || '').toLowerCase().includes('released')) && 
+      a.promotion?.recommended && 
+      (!a.employeeAcceptanceStatus || a.employeeAcceptanceStatus === 'PENDING')
+    );
+
     return (
       <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
         <div className="w-full mx-auto">
+          {activePromotion && (
+            <div className="mb-8 bg-gradient-to-r from-purple-600 to-indigo-700 rounded-2xl p-6 text-white flex items-center justify-between shadow-2xl animate-in slide-in-from-top-4 duration-700">
+              <div className="flex items-center gap-6">
+                <div className="bg-white/20 p-4 rounded-2xl backdrop-blur-md border border-white/20 shadow-inner">
+                  <Trophy className="h-10 w-10 text-yellow-300 animate-bounce" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-3 mb-1">
+                    <h4 className="font-black text-3xl tracking-tight leading-none">Victory! 🏆</h4>
+                    <span className="px-3 py-1 bg-yellow-400 text-purple-900 text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm">Promotion Pending Acceptance</span>
+                  </div>
+                  <p className="text-purple-100 text-lg font-medium">You have been promoted to <span className="font-black text-white underline decoration-2 decoration-yellow-300 underline-offset-4">{activePromotion.promotion?.newDesignation}</span>. Please review and accept your release letter below.</p>
+                </div>
+              </div>
+              <div className="hidden lg:block">
+                <div className="h-20 w-20 opacity-20 border-8 border-white rounded-full"></div>
+              </div>
+            </div>
+          )}
           <div className="flex justify-between items-center mb-6">
             {enabledSections.selfAppraisal ? (
               <button
-                disabled={isOpenFyLocked}
                 onClick={() => {
                   if (isOpenFyLocked) {
                     setStatusPopup({
                       isOpen: true,
                       status: 'info',
-                      message: `Appraisal for FY ${openFy} is already submitted. You cannot create again.`
+                      message: `Already you applied appraisal for FY ${openFy}.`
                     });
                     return;
                   }
@@ -1471,115 +1448,87 @@ const SelfAppraisal = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-[#262760] sticky top-0 z-10">
                   <tr>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                      Financial Year
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                      Appraiser Name
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      Actions
-                    </th>
-                    <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                      Appraisal Letter
-                    </th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">FY</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Appraiser Name</th>
+                    <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Status</th>
+                    <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                    <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Letter</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {appraisals.map((appraisal) => {
-                    const statusValue = appraisal.status || '';
-                    const acceptanceStatus = getEffectiveAcceptanceStatus(appraisal);
-                    const canPreviewLetter = statusValue === 'Released';
-                    const canDownloadLetter = acceptanceStatus === 'ACCEPTED';
-
+                    const status = (appraisal.status || 'draft').toLowerCase();
+                    const isDraft = status === 'draft';
+                    const isReleased = ['released', 'accepted_pending_effect', 'effective'].includes(status);
+                    
                     return (
                       <tr key={appraisal._id || appraisal.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          FY {appraisal.year}
+                          {appraisal.year}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {appraisal.appraiser}
+                          {appraisal.appraiser || '-'}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${appraisal.status === 'Released Letter' || appraisal.status === 'Accepted' ? 'bg-green-100 text-green-800' :
-                              appraisal.status === 'DIRECTOR_APPROVED' ? 'bg-indigo-100 text-indigo-800' :
-                                appraisal.status === 'Submitted' ? 'bg-blue-100 text-blue-800' :
-                                  appraisal.status === 'Draft' ? 'bg-gray-100 text-gray-800' :
-                                    'bg-yellow-100 text-yellow-800'}`}>
-                            {appraisal.status === 'DIRECTOR_APPROVED' ? 'Director Approved' : 
-                             (appraisal.status === 'Released Letter' || appraisal.status === 'Accepted' || appraisal.status === 'Released') ? 'Released Letter' : 
-                             (appraisal.status || 'Draft')}
+                            ${status === 'directorpushedback' ? 'bg-red-100 text-red-800' :
+                              isReleased ? 'bg-green-100 text-green-800' :
+                              status === 'submitted' ? 'bg-blue-100 text-blue-800' :
+                              isDraft ? 'bg-gray-100 text-gray-800' :
+                              'bg-indigo-100 text-indigo-800'}`}>
+                            {getStatusLabel(appraisal.status)}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                           <div className="flex justify-center space-x-3">
-                            {statusValue === 'Draft' ? (
+                            {isDraft ? (
                               <>
                                 <button
                                   onClick={() => handleEditAppraisal(appraisal)}
-                                  className="text-[#262760] hover:text-[#1e2050]"
+                                  className="text-blue-600 hover:text-blue-800 p-1"
                                   title="Edit"
                                 >
                                   <Edit className="h-5 w-5" />
                                 </button>
                                 <button
-                                  onClick={() => handleViewAppraisal(appraisal)}
-                                  className="text-gray-600 hover:text-gray-900"
-                                  title="View"
-                                >
-                                  <Eye className="h-5 w-5" />
-                                </button>
-                                <button
                                   onClick={() => handleDeleteAppraisal(appraisal._id || appraisal.id)}
-                                  className="text-red-600 hover:text-red-900"
+                                  className="text-red-500 hover:text-red-700 p-1"
                                   title="Delete"
                                 >
                                   <Trash2 className="h-5 w-5" />
                                 </button>
                               </>
                             ) : (
-                              <div className="flex justify-center space-x-3">
-                                {(statusValue === 'Released' || statusValue === 'Released Letter' || statusValue === 'Accepted' || statusValue === 'DIRECTOR_APPROVED' || statusValue === 'Submitted') && (
-                                  <button
-                                    onClick={() => handleViewAppraisal(appraisal)}
-                                    className="text-gray-600 hover:text-gray-900"
-                                    title="View"
-                                  >
-                                    <Eye className="h-5 w-5" />
-                                  </button>
-                                )}
-                                {(statusValue === 'Released' || statusValue === 'Released Letter' || statusValue === 'Accepted') && (
-                                  <button
-                                    onClick={() => handleDownloadLetter(appraisal)}
-                                    className="text-[#262760] hover:text-[#1e2050]"
-                                    title="Preview My Appraisal"
-                                  >
-                                    <FileText className="h-5 w-5" />
-                                  </button>
-                                )}
-                              </div>
+                              <button
+                                onClick={() => handleViewAppraisal(appraisal)}
+                                className="text-gray-500 hover:text-gray-700 p-1"
+                                title="View"
+                              >
+                                <Eye className="h-5 w-5" />
+                              </button>
                             )}
                           </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                          {(statusValue === 'Released' || statusValue === 'Released Letter' || statusValue === 'Accepted') ? (
-                            (appraisal.employeeAcceptanceStatus === 'ACCEPTED' || statusValue === 'Accepted') ? (
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
+                          {isReleased ? (
+                            <div className="flex justify-center space-x-2">
                               <button
-                                onClick={() => handleDownloadPdf(appraisal)}
-                                className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
+                                onClick={() => handleDownloadLetter(appraisal)}
+                                className="text-[#262760] hover:text-[#1e2050] p-1"
+                                title="Preview Letter"
                               >
-                                <Download className="h-4 w-4 mr-1" />
-                                Download
+                                <FileText className="h-5 w-5" />
                               </button>
-                            ) : (
-                              <span className="text-gray-400 text-xs italic">
-                                Awaiting your acceptance
-                              </span>
-                            )
+                              {(appraisal.employeeAcceptanceStatus === 'ACCEPTED' || ['accepted_pending_effect', 'effective'].includes(status)) && (
+                                <button
+                                  onClick={() => handleDownloadPdf(appraisal)}
+                                  className="text-emerald-600 hover:text-emerald-800 p-1"
+                                  title="Download PDF"
+                                >
+                                  <Download className="h-5 w-5" />
+                                </button>
+                              )}
+                            </div>
                           ) : (
                             <span className="text-gray-400 text-xs italic">-</span>
                           )}
@@ -1660,7 +1609,7 @@ const SelfAppraisal = () => {
                       onChange={(e) => setNewAppraisalYear(e.target.value)}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm font-semibold text-[#262760]"
                     >
-                      {[getOpenFinancialYearLabel()].filter(Boolean).map((year) => (
+                      {getNewAppraisalFinancialYearOptions().filter(Boolean).map((year) => (
                         <option key={year} value={year}>
                           {year}
                         </option>
@@ -1669,11 +1618,23 @@ const SelfAppraisal = () => {
                   </div>
                   <div>
                     <label className="block text-[11px] font-medium text-gray-600 mb-1">
-                      Division
+                      Division <span className="text-red-500">*</span>
                     </label>
-                    <div className="mt-1 block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-[#262760]">
-                      {newAppraisalDivision || 'Not Available'}
-                    </div>
+                    {!employeeInfo.division ? (
+                      <select
+                        value={newAppraisalDivision}
+                        onChange={(e) => setNewAppraisalDivision(e.target.value)}
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm font-semibold text-[#262760]"
+                      >
+                        <option value="">Select Division</option>
+                        <option value="SDS">SDS Division</option>
+                        <option value="Tekla">Tekla Division</option>
+                      </select>
+                    ) : (
+                      <div className="mt-1 block w-full rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold text-[#262760]">
+                        {employeeInfo.division}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -1766,7 +1727,7 @@ const SelfAppraisal = () => {
               </div>
 
               {/* Increment Summary Section - Visible only after Letter Release */}
-              {['Released Letter', 'Released', 'Accepted', 'Reviewed'].includes(viewData.status) && (
+              {['released', 'accepted_pending_effect', 'effective'].includes(viewData.status) && (
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
@@ -1831,13 +1792,14 @@ const SelfAppraisal = () => {
                   </h3>
                   <div className="bg-purple-50 rounded-lg p-5 border border-purple-100 shadow-sm">
                     <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                      {Object.entries(enabledSections?.knowledgeSubItems || {}).map(([k, v]) => {
-                        if (!v) return null;
-                        const selfVal = viewData.behaviourBased?.[k] || 0;
-                        const mgrVal = viewData.behaviourManagerRatings?.[k] || viewData[`behaviour${k.charAt(0).toUpperCase() + k.slice(1)}Manager`] || 0;
+                      {masterAttributes.knowledgeSubItems.map((attr) => {
+                        const isEnabled = enabledSections.knowledgeSubItems?.[attr.key];
+                        const selfVal = viewData.behaviourBased?.[attr.key] || 0;
+                        const mgrVal = viewData.behaviourManagerRatings?.[attr.key] || viewData[`behaviour${attr.key.charAt(0).toUpperCase() + attr.key.slice(1)}Manager`] || 0;
+                        if (!isEnabled && selfVal === 0 && mgrVal === 0) return null;
                         return (
-                          <div key={k}>
-                            <span className="font-semibold">{getAttributeLabel(masterAttributes, 'knowledgeSubItems', k)}:</span>
+                          <div key={attr.key}>
+                            <span className="font-semibold">{attr.label}:</span>
                             <span className="ml-1">Self {selfVal}/5</span>
                             <span className="ml-2 text-gray-600">Manager {mgrVal}/5</span>
                           </div>
@@ -1864,13 +1826,14 @@ const SelfAppraisal = () => {
                   </h3>
                   <div className="bg-orange-50 rounded-lg p-5 border border-orange-100 shadow-sm">
                     <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                      {Object.entries(enabledSections?.processSubItems || {}).map(([k, v]) => {
-                        if (!v) return null;
-                        const selfVal = viewData.processAdherence?.[k] || 0;
-                        const mgrVal = viewData.processManagerRatings?.[k] || viewData[`process${k.charAt(0).toUpperCase() + k.slice(1)}Manager`] || 0;
+                      {masterAttributes.processSubItems.map((attr) => {
+                        const isEnabled = enabledSections.processSubItems?.[attr.key];
+                        const selfVal = viewData.processAdherence?.[attr.key] || 0;
+                        const mgrVal = viewData.processManagerRatings?.[attr.key] || viewData[`process${attr.key.charAt(0).toUpperCase() + attr.key.slice(1)}Manager`] || 0;
+                        if (!isEnabled && selfVal === 0 && mgrVal === 0) return null;
                         return (
-                          <div key={k}>
-                            <span className="font-semibold">{getAttributeLabel(masterAttributes, 'processSubItems', k)}:</span>
+                          <div key={attr.key}>
+                            <span className="font-semibold">{attr.label}:</span>
                             <span className="ml-1">Self {selfVal}/5</span>
                             <span className="ml-2 text-gray-600">Manager {mgrVal}/5</span>
                           </div>
@@ -1889,7 +1852,7 @@ const SelfAppraisal = () => {
 
 
               {/* Technical Based Section */}
-              {enabledSections.technicalAssessment && getEnabledItems('technicalSubItems').length > 0 && (
+              {enabledSections.technicalAssessment && (
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <Code className="h-5 w-5 mr-2 text-blue-600" />
@@ -1897,12 +1860,14 @@ const SelfAppraisal = () => {
                   </h3>
                   <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm">
                     <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                      {getEnabledItems('technicalSubItems').map(({ key: k }) => {
-                        const selfVal = viewData.technicalBased?.[k] || 0;
-                        const mgrVal = viewData.technicalManagerRatings?.[k] || viewData[`technical${k.charAt(0).toUpperCase() + k.slice(1)}Manager`] || 0;
+                      {masterAttributes.technicalSubItems.map((attr) => {
+                        const isEnabled = enabledSections.technicalSubItems?.[attr.key];
+                        const selfVal = viewData.technicalBased?.[attr.key] || 0;
+                        const mgrVal = viewData.technicalManagerRatings?.[attr.key] || viewData[`technical${attr.key.charAt(0).toUpperCase() + attr.key.slice(1)}Manager`] || 0;
+                        if (!isEnabled && selfVal === 0 && mgrVal === 0) return null;
                         return (
-                          <div key={k}>
-                            <span className="font-semibold">{getAttributeLabel(masterAttributes, 'technicalSubItems', k)}:</span>
+                          <div key={attr.key}>
+                            <span className="font-semibold">{attr.label}:</span>
                             <span className="ml-1">Self {selfVal}/5</span>
                             <span className="ml-2 text-gray-600">Manager {mgrVal}/5</span>
                           </div>
@@ -1929,13 +1894,14 @@ const SelfAppraisal = () => {
                   </h3>
                   <div className="bg-green-50 rounded-lg p-5 border border-green-100 shadow-sm">
                     <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                      {Object.entries(enabledSections?.growthSubItems || {}).map(([k, v]) => {
-                        if (!v) return null;
-                        const selfVal = viewData.growthBased?.[k] || 0;
-                        const mgrVal = viewData.growthManagerRatings?.[k] || viewData[`growth${k.charAt(0).toUpperCase() + k.slice(1)}Manager`] || 0;
+                      {masterAttributes.growthSubItems.map((attr) => {
+                        const isEnabled = enabledSections.growthSubItems?.[attr.key];
+                        const selfVal = viewData.growthBased?.[attr.key] || 0;
+                        const mgrVal = viewData.growthManagerRatings?.[attr.key] || viewData[`growth${attr.key.charAt(0).toUpperCase() + attr.key.slice(1)}Manager`] || 0;
+                        if (!isEnabled && selfVal === 0 && mgrVal === 0) return null;
                         return (
-                          <div key={k}>
-                            <span className="font-semibold">{getAttributeLabel(masterAttributes, 'growthSubItems', k)}:</span>
+                          <div key={attr.key}>
+                            <span className="font-semibold">{attr.label}:</span>
                             <span className="ml-1">Self {selfVal}/5</span>
                             <span className="ml-2 text-gray-600">Manager {mgrVal}/5</span>
                           </div>
@@ -2009,7 +1975,17 @@ const SelfAppraisal = () => {
           <div className="fixed inset-0 bg-black/80 z-50 backdrop-blur-sm flex justify-center items-center p-4">
             <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col relative overflow-hidden">
               <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white z-20 shrink-0">
-                <h2 className="text-xl font-bold text-gray-800">Release Letter Preview</h2>
+                <div className="flex items-center gap-4">
+                  <h2 className="text-xl font-bold text-gray-800">Release Letter Preview</h2>
+                  <button
+                    onClick={downloadReleaseLetter}
+                    disabled={loading}
+                    className="flex items-center gap-2 px-4 py-1.5 bg-[#1e8a44] text-white rounded-lg hover:bg-[#166534] transition-all text-sm font-black shadow-md disabled:opacity-50"
+                  >
+                    {loading ? <RotateCcw className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+                    Download Official PDF
+                  </button>
+                </div>
                 <button
                   onClick={() => setShowReleaseLetter(false)}
                   className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
@@ -2358,14 +2334,18 @@ const SelfAppraisal = () => {
                           <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
                         </div>
                       </div>
+                    </div>
                   </div>
                 </div>
-                </div>
-              </div>
 
-              {(letterData.appraisalStatus === 'Released Letter' || letterData.appraisalStatus === 'Released') &&
+                {letterData?.isPromotionRecommended && (
+                  <PromotionPage data={letterData} />
+                )}
+              </div>
+              {/* Acceptance Controls */}
+              {(String(letterData.appraisalStatus || '').toLowerCase() === 'released' || String(letterData.appraisalStatus || '').toLowerCase() === 'released letter') &&
                 (!letterData.employeeAcceptanceStatus || letterData.employeeAcceptanceStatus === 'PENDING') && (
-                  <div className="px-8 pb-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white rounded-b-lg">
+                  <div className="px-8 pb-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white rounded-b-lg shrink-0 z-20">
                     <div className="text-sm font-medium text-gray-800">
                       Do you accept this appraisal?
                     </div>
@@ -2373,20 +2353,20 @@ const SelfAppraisal = () => {
                       <button
                         type="button"
                         onClick={() => setShowReleaseLetter(false)}
-                        className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                        className="inline-flex justify-center rounded-md border border-gray-300 shadow-sm px-6 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-all"
                       >
                         Cancel
                       </button>
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           if (letterData.appraisalId) {
-                            updateAcceptanceStatus(letterData.appraisalId, 'ACCEPTED');
+                            await updateAcceptanceStatus(letterData.appraisalId, 'ACCEPTED');
                           }
                         }}
-                        className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-4 py-2 bg-emerald-600 text-sm font-medium text-white hover:bg-emerald-700"
+                        className="inline-flex justify-center rounded-md border border-transparent shadow-sm px-8 py-2 bg-emerald-600 text-sm font-medium text-white hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-all shadow-md hover:shadow-lg"
                       >
-                        Accept
+                        Accept Appraisal
                       </button>
                     </div>
                   </div>
@@ -2394,7 +2374,6 @@ const SelfAppraisal = () => {
             </div>
           </div>
         )}
-
 
         {/* Delete Confirmation Modal */}
         <Modal
@@ -2518,7 +2497,7 @@ const SelfAppraisal = () => {
         </div>
         
         {/* Increment Summary - Only shown if released */}
-        {['Released Letter', 'Released', 'Accepted', 'Reviewed'].includes(formData.status) && (
+        {['released', 'accepted_pending_effect', 'effective'].includes(formData.status) && (
           <div className="mt-6 bg-emerald-50 rounded-xl shadow-sm border border-emerald-200 p-6 overflow-hidden relative">
              <div className="absolute top-0 right-0 p-4 opacity-10">
                 <TrendingUp className="h-24 w-24 text-emerald-600" />
@@ -2629,12 +2608,14 @@ const SelfAppraisal = () => {
 
             <div className="bg-purple-50 rounded-lg p-5 border border-purple-100">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(enabledSections.knowledgeSubItems || {}).map(([key, enabled]) => {
-                  if (!enabled) return null;
+                {masterAttributes.knowledgeSubItems.map((attr) => {
+                  const isEnabled = enabledSections.knowledgeSubItems?.[attr.key];
+                  const val = formData.behaviourBased?.[attr.key] || 0;
+                  if (!isEnabled && val === 0) return null;
                   return (
-                    <div key={key} className="flex justify-between items-center">
-                      <span className="font-medium text-gray-700">{getAttributeLabel(masterAttributes, 'knowledgeSubItems', key)}:</span>
-                      <RatingStars value={formData.behaviourBased?.[key] || 0} onChange={() => { }} readOnly={true} />
+                    <div key={attr.key} className="flex justify-between items-center">
+                      <span className="font-medium text-gray-700">{attr.label}:</span>
+                      <RatingStars value={val} onChange={() => { }} readOnly={true} />
                     </div>
                   );
                 })}
@@ -2671,12 +2652,14 @@ const SelfAppraisal = () => {
 
             <div className="bg-orange-50 rounded-lg p-5 border border-orange-100">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(enabledSections.processSubItems || {}).map(([key, enabled]) => {
-                  if (!enabled) return null;
+                {masterAttributes.processSubItems.map((attr) => {
+                  const isEnabled = enabledSections.processSubItems?.[attr.key];
+                  const val = formData.processAdherence?.[attr.key] || 0;
+                  if (!isEnabled && val === 0) return null;
                   return (
-                    <div key={key} className="flex justify-between items-center">
-                      <span className="font-medium text-gray-700">{getAttributeLabel(masterAttributes, 'processSubItems', key)}:</span>
-                      <RatingStars value={formData.processAdherence?.[key] || 0} onChange={() => { }} readOnly={true} />
+                    <div key={attr.key} className="flex justify-between items-center">
+                      <span className="font-medium text-gray-700">{attr.label}:</span>
+                      <RatingStars value={val} onChange={() => { }} readOnly={true} />
                     </div>
                   );
                 })}
@@ -2693,7 +2676,7 @@ const SelfAppraisal = () => {
 
 
         {/* Technical Based Section */}
-        {enabledSections.technicalAssessment && getEnabledItems('technicalSubItems').length > 0 && (
+        {enabledSections.technicalAssessment && (
           <div className="mt-8 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-gray-900 flex items-center">
@@ -2713,11 +2696,14 @@ const SelfAppraisal = () => {
 
             <div className="bg-blue-50 rounded-lg p-5 border border-blue-100">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {getEnabledItems('technicalSubItems').map(({ key }) => {
+                {masterAttributes.technicalSubItems.map((attr) => {
+                  const isEnabled = enabledSections.technicalSubItems?.[attr.key];
+                  const val = formData.technicalBased?.[attr.key] || 0;
+                  if (!isEnabled && val === 0) return null;
                   return (
-                    <div key={key} className="flex justify-between items-center">
-                      <span className="font-medium text-gray-700">{getAttributeLabel(masterAttributes, 'technicalSubItems', key)}:</span>
-                      <RatingStars value={formData.technicalBased?.[key] || 0} onChange={() => { }} readOnly={true} />
+                    <div key={attr.key} className="flex justify-between items-center">
+                      <span className="font-medium text-gray-700">{attr.label}:</span>
+                      <RatingStars value={val} onChange={() => { }} readOnly={true} />
                     </div>
                   );
                 })}
@@ -2754,12 +2740,14 @@ const SelfAppraisal = () => {
 
             <div className="bg-green-50 rounded-lg p-5 border border-green-100">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {Object.entries(enabledSections.growthSubItems || {}).map(([key, enabled]) => {
-                  if (!enabled) return null;
+                {masterAttributes.growthSubItems.map((attr) => {
+                  const isEnabled = enabledSections.growthSubItems?.[attr.key];
+                  const val = formData.growthBased?.[attr.key] || 0;
+                  if (!isEnabled && val === 0) return null;
                   return (
-                    <div key={key} className="flex justify-between items-center">
-                      <span className="font-medium text-gray-700">{getAttributeLabel(masterAttributes, 'growthSubItems', key)}:</span>
-                      <RatingStars value={formData.growthBased?.[key] || 0} onChange={() => { }} readOnly={true} />
+                    <div key={attr.key} className="flex justify-between items-center">
+                      <span className="font-medium text-gray-700">{attr.label}:</span>
+                      <RatingStars value={val} onChange={() => { }} readOnly={true} />
                     </div>
                   );
                 })}
@@ -2887,23 +2875,29 @@ const SelfAppraisal = () => {
         <div className="space-y-6">
           
 
-          {Object.entries(enabledSections.knowledgeSubItems || {}).map(([key, enabled]) => {
-            if (!enabled) return null;
-            return (
-              <div key={key}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{getAttributeLabel(masterAttributes, 'knowledgeSubItems', key)}</label>
-                <RatingStars
-                  value={formData.behaviourBased?.[key] || 0}
-                  onChange={(value) => updateBehaviourRating(key, value)}
-                />
-              </div>
-            );
-          })}
+
 
           <div className="rounded-md bg-purple-50 border border-purple-100 p-3 text-xs text-gray-700">
             <span className="font-semibold">KPP Description: </span>
             This assessment covers knowledge sharing and leadership
             shown while working with team members and stakeholders.
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {Object.entries(enabledSections.knowledgeSubItems || {}).map(([key, enabled]) => {
+              if (!enabled) return null;
+              return (
+                <div key={key}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {getAttributeLabel(masterAttributes, 'knowledgeSubItems', key)}
+                  </label>
+                  <RatingStars
+                    value={formData.behaviourBased?.[key] || 0}
+                    onChange={(val) => updateBehaviourRating(key, val)}
+                  />
+                </div>
+              );
+            })}
           </div>
           <div>
             <label className="block text-sm font-medium text-red-600 mb-1">Appraisee Comments *</label>
@@ -3014,7 +3008,8 @@ const SelfAppraisal = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          {getEnabledItems('technicalSubItems').map(({ key }) => {
+          {Object.entries(enabledSections.technicalSubItems || {}).map(([key, enabled]) => {
+            if (!enabled) return null;
             return (
               <div key={key}>
                 <label className="block text-sm font-medium text-gray-700 mb-2">{getAttributeLabel(masterAttributes, 'technicalSubItems', key)}</label>

@@ -6,9 +6,16 @@ const AuditLogSchema = new mongoose.Schema({
     required: true,
     index: true
   },
+  appraisalId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SelfAppraisal'
+  },
   action: {
     type: String,
     required: true
+  },
+  role: {
+    type: String
   },
   oldVersion: {
     type: Number
@@ -19,7 +26,13 @@ const AuditLogSchema = new mongoose.Schema({
   reason: {
     type: String
   },
+  details: {
+    type: mongoose.Schema.Types.Mixed
+  },
   doneBy: {
+    type: String
+  },
+  doneById: {
     type: String
   },
   timestamp: {

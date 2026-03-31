@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import autoTable from 'jspdf-autotable';
 import { 
   IndianRupee, 
   Filter, 
@@ -406,6 +407,79 @@ const IncrementSummary = () => {
     }
   };
 
+  const handleDownloadSummaryPDF = () => {
+    if (!filteredData.length) {
+      alert('No records to download.');
+      return;
+    }
+
+    const doc = new jsPDF('l', 'mm', 'a4');
+    const generatedOn = new Date().toLocaleDateString('en-IN');
+
+    doc.setFontSize(16);
+    doc.text('Increment Summary', 14, 14);
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${generatedOn}`, 14, 20);
+    doc.text(`Records: ${filteredData.length}`, 14, 25);
+
+    const filterLine = `FY: ${appliedFilters.financialYear} | Division: ${appliedFilters.division} | Designation: ${appliedFilters.designation} | Location: ${appliedFilters.location} | Status: ${appliedFilters.status} | Search: ${searchTerm || '-'}`;
+    const wrapped = doc.splitTextToSize(filterLine, 270);
+    doc.text(wrapped, 14, 30);
+
+    const startY = 30 + (Array.isArray(wrapped) ? wrapped.length : 1) * 5 + 2;
+
+    const head = [
+      [
+        'S.No',
+        'Emp ID',
+        'Employee Name',
+        'Designation',
+        'Division',
+        'Location',
+        'Current Salary',
+        'Increment %',
+        'Increment Amount',
+        'Revised Salary',
+        'Effective Date',
+        'Status'
+      ]
+    ];
+
+    const body = filteredData.map((row, idx) => ([
+      idx + 1,
+      row.empId || '',
+      row.name || '',
+      row.designation || '',
+      row.division || '',
+      row.location || '',
+      Number(row.currentSalary || 0).toLocaleString('en-IN'),
+      `${Number(row.incrementPercentage || 0)}%`,
+      Number(row.incrementAmount || 0).toLocaleString('en-IN'),
+      Number(row.revisedSalary || 0).toLocaleString('en-IN'),
+      row.effectiveDate || '',
+      row.status || ''
+    ]));
+
+    autoTable(doc, {
+      head,
+      body,
+      startY,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [38, 39, 96], textColor: 255 },
+      columnStyles: {
+        0: { cellWidth: 10 },
+        1: { cellWidth: 20 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 30 },
+        4: { cellWidth: 28 },
+        5: { cellWidth: 22 }
+      }
+    });
+
+    const fileName = `Increment_Summary_${appliedFilters.financialYear}_${new Date().toISOString().split('T')[0]}.pdf`;
+    doc.save(fileName);
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 pb-20 font-sans">
       {/* Header */}
@@ -426,6 +500,14 @@ const IncrementSummary = () => {
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Filters
+              </button>
+              <button
+                onClick={handleDownloadSummaryPDF}
+                disabled={!filteredData.length}
+                className="flex items-center px-4 py-2 rounded-md text-sm font-medium bg-[#262760] text-white hover:bg-[#1e2050] transition-colors disabled:opacity-50 disabled:hover:bg-[#262760]"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download PDF
               </button>
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />

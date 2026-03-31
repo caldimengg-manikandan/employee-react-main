@@ -230,6 +230,7 @@ export const performanceAPI = {
   // Self Appraisal Endpoints
   getMySelfAppraisals: () => api.get('/performance/self-appraisals/me'),
   getSelfAppraisalById: (id) => api.get(`/performance/self-appraisals/${id}`),
+  getAppraisalById: (id) => api.get(`/performance/self-appraisals/${id}`),
   createSelfAppraisal: (data) => api.post('/performance/self-appraisals', data),
   updateSelfAppraisal: (id, data) => api.put(`/performance/self-appraisals/${id}`, data),
   deleteSelfAppraisal: (id) => api.delete(`/performance/self-appraisals/${id}`),
@@ -237,14 +238,31 @@ export const performanceAPI = {
   // For Team Appraisal (Manager View)
   getTeamAppraisals: () => api.get('/performance/team-appraisals'),
   updateTeamAppraisal: (id, data) => api.put(`/performance/team-appraisals/${id}`, data),
+  saveManagerReview: (id, data) => api.put(`/performance/team-appraisals/${id}/review`, data),
+  submitToReviewer: (id) => api.post(`/performance/team-appraisals/${id}/approve`),
+  sendBackToEmployee: (id, data) => api.post(`/performance/team-appraisals/${id}/send-back`, data),
   
-  getReviewerAppraisals: () => api.get('/performance/reviewer'),
+  // Reviewer View (Legacy/Specific)
+  getReviewerAppraisals: (params) => api.get('/performance/reviewer', { params }),
   updateReviewerAppraisal: (id, data) => api.put(`/performance/reviewer/${id}`, data),
-  submitToDirector: (ids) => api.post('/performance/reviewer/submit-director', { ids }),
-
-  getDirectorAppraisals: () => api.get('/performance/director'),
+  openReviewerAppraisal: (id) => api.post(`/performance/reviewer/${id}/open`),
+  reviewerSubmitToDirector: (ids) => api.post('/performance/reviewer/submit-director', { ids }), // Reviewer's batch submit
+  
+  getDirectorAppraisals: (params) => api.get('/performance/director', { params }),
   updateDirectorAppraisal: (id, data) => api.put(`/performance/director/${id}`, data),
+  openDirectorAppraisal: (id) => api.post(`/performance/director/${id}/open`),
+  directorApprove: (id) => api.post(`/performance/director/${id}/approve`),
+  directorPushBack: (id, data) => api.post(`/performance/director/${id}/push-back`, data),
+  directorReject: (id) => api.post(`/performance/director/${id}/reject`),
+  directorRelease: (ids) => api.post('/performance/director/release', { ids }),
   revokeAppraisal: (id, reason) => api.post(`/performance/director/revoke/${id}`, { reason }),
+
+  // Appraisal-linked Promotion Endpoints
+  updatePromotion: (id, data) => api.post(`/performance/director/${id}/promotion`, data),
+
+  getIncrementMatrix: (params) => api.get('/performance/increment-master', { params }),
+  saveIncrementMatrix: (data) => api.post('/performance/increment-master', data),
+  calculateIncrementFromMatrix: (data) => api.post('/performance/increment-master/calculate', data),
 
   getIncrementSummary: (params) => api.get('/performance/increment-summary', { params }),
 
@@ -255,6 +273,7 @@ export const performanceAPI = {
   getMasterAttributes: () => api.get('/performance/attributes/master'),
   addMasterAttribute: (data) => api.post('/performance/attributes/master/add', data),
   deleteMasterAttribute: (section, key) => api.delete(`/performance/attributes/master/${section}/${key}`),
+  calculateIncrement: (data) => api.post('/performance/calculate-increment', data),
 };
 
 export const payrollAPI = {
@@ -358,6 +377,15 @@ export const marriageAllowanceAPI = {
   create: (formData) => api.post('/marriage-allowances', formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   update: (id, formData) => api.put(`/marriage-allowances/${id}`, formData, { headers: { 'Content-Type': 'multipart/form-data' } }),
   delete: (id) => api.delete(`/marriage-allowances/${id}`)
+};
+
+export const promotionAPI = {
+  promoteEmployee: (data) => api.post('/promoteEmployee', data),
+  getPromotionHistory: (params) => api.get('/promotionHistory', params ? { params } : undefined),
+  getPromotionRequests: (params) => api.get('/promotionRequests', params ? { params } : undefined),
+  approvePromotionRequest: (id) => api.put(`/promotionRequests/${id}/approve`),
+  rejectPromotionRequest: (id, reason) => api.put(`/promotionRequests/${id}/reject`, { reason }),
+  getMyLatestApprovedPromotion: () => api.get('/promotionHistory/me/latest', { params: { status: 'Approved' } }),
 };
 
 

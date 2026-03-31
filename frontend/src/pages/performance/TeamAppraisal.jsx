@@ -22,7 +22,8 @@ import {
   Target,
   ChevronDown,
   ChevronUp,
-  AlertCircle
+  AlertCircle,
+  Send
 } from 'lucide-react';
 
 // Dropdown Options
@@ -238,8 +239,23 @@ const TeamAppraisal = () => {
   const [locationFilter, setLocationFilter] = useState('');
   const [financialYearFilter, setFinancialYearFilter] = useState(openFy);
   const [selectedEmployee, setSelectedEmployee] = useState(null);
-  const [isEditable, setIsEditable] = useState(false);
   const [activeTab, setActiveTab] = useState('knowledge'); // knowledge, process, technical, growth, summary
+
+  // Appraiser Review Modal State
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+  const [reviewEmployee, setReviewEmployee] = useState(null);
+  const [reviewData, setReviewData] = useState({
+    rating: '',
+    behaviouralRatings: {
+      knowledgeSharing: 0,
+      teamWork: 0,
+      communication: 0,
+      ownership: 0
+    },
+    comments: '',
+    strengths: '',
+    areasOfImprovement: ''
+  });
 
   // Attribute Configuration State
   const [enabledSections, setEnabledSections] = useState({
@@ -303,10 +319,21 @@ const TeamAppraisal = () => {
     fetchAttributes();
   }, [selectedEmployee?.designation]);
 
-  const getAttributeLabel = (section, key) => {
-    const item = masterAttributes[section]?.find(i => i.key === key);
-    if (item) return item.label;
-    return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+  const getStatusLabel = (status) => {
+    switch (status) {
+      case 'submitted': return 'Pending Review';
+      case 'managerInProgress': return 'Under Review';
+      case 'reviewerPending': return 'Submitted to Reviewer';
+      case 'reviewerInProgress': return 'Reviewer Working';
+      case 'reviewerApproved': return 'Ready for Director';
+      case 'directorInProgress': return 'Under Director Review';
+      case 'directorPushedBack': return 'Returned for Correction';
+      case 'directorApproved': return 'Approved';
+      case 'released': return 'Completed';
+      case 'accepted_pending_effect': return 'Accepted (Pending Effect)';
+      case 'effective': return 'Completed';
+      default: return status;
+    }
   };
 
   // Effect to fetch employees
@@ -333,22 +360,24 @@ const TeamAppraisal = () => {
     return masterList.filter(attr => enabledMap[attr.key]);
   };
 
+  const getAttributeLabel = (section, key) => {
+    const list = masterAttributes[section] || [];
+    const item = list.find(it => it.key === key);
+    return item ? item.label : key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+  };
+
   // Handlers
   const handleView = (emp) => {
     setSelectedEmployee(emp);
-    setIsEditable(false);
   };
 
   const handleEdit = (emp) => {
     setSelectedEmployee(emp);
-    setIsEditable(true);
     setActiveTab('knowledge');
 
-    // Auto-calculate for existing records with rating but no percentage
-    if (emp.appraiserRating && (!emp.incrementPercentage || emp.incrementPercentage === 0)) {
-      calculateIncrementPercentage(emp, emp.appraiserRating);
-    }
   };
+
+  const isEditable = selectedEmployee && ['submitted', 'managerInProgress'].includes(selectedEmployee.status);
 
   const handleInputChange = (id, field, value) => {
     // Update local state for immediate feedback
@@ -359,11 +388,6 @@ const TeamAppraisal = () => {
       emp.id === id ? { ...emp, [field]: value } : emp
     ));
 
-    // Auto-calculate Increment % if rating changes
-    if (field === 'appraiserRating') {
-      const employeeForCalc = { ...selectedEmployee, [field]: value };
-      calculateIncrementPercentage(employeeForCalc, value);
-    }
   };
 
   const handleManagerRatingChange = (category, field, value) => {
@@ -402,31 +426,6 @@ const TeamAppraisal = () => {
         [`${category}ManagerComments`]: value
       } : emp
     ));
-  };
-
-  const calculateIncrementPercentage = async (employee, rating) => {
-    if (!rating) {
-      updateIncrementState(employee.id, 0);
-      return;
-    }
-
-    try {
-      const response = await performanceAPI.calculateIncrement({
-        financialYear: employee.financialYear || employee.financialYr || '2025-2026',
-        designation: employee.designation,
-        rating: rating
-      });
-
-      if (response.data && response.data.success) {
-        updateIncrementState(employee.id, response.data.percentage);
-      } else {
-        console.warn("Could not calculate increment:", response.data.message);
-        updateIncrementState(employee.id, 0);
-      }
-    } catch (err) {
-      console.error('Error calculating increment:', err);
-      updateIncrementState(employee.id, 0);
-    }
   };
 
   const updateIncrementState = (id, percentage) => {
@@ -473,48 +472,91 @@ const TeamAppraisal = () => {
   const [submitLoading, setSubmitLoading] = useState(false);
   const [notification, setNotification] = useState(null);
 
+  const handleSubmit = () => {
+    setShowSubmitConfirm(true);
+  };
+
   const performSubmitReview = async () => {
     if (!selectedEmployee) return;
     try {
       setSubmitLoading(true);
-      const payload = { ...selectedEmployee, status: 'APPRAISER_COMPLETED' };
-      await performanceAPI.updateTeamAppraisal(selectedEmployee.id, payload);
-      setNotification({ type: 'success', message: 'Review submitted successfully!' });
+      // Auto-save the latest changes before final submission to ensure backend validation passes
+      await performanceAPI.updateTeamAppraisal(selectedEmployee.id, selectedEmployee);
+      
+      await performanceAPI.submitToReviewer(selectedEmployee.id);
+      setNotification({ type: 'success', message: 'Review successfully submitted to Reviewer!' });
       setSelectedEmployee(null);
+      setShowSubmitConfirm(false);
       fetchTeamAppraisals();
     } catch (error) {
       console.error("Failed to submit review", error);
-      setNotification({ type: 'error', message: 'Failed to submit review' });
+      const msg = error.response?.data?.message || 'Failed to submit review';
+      setNotification({ type: 'error', message: msg });
     } finally {
       setSubmitLoading(false);
       setShowSubmitConfirm(false);
     }
   };
 
-  const handleSubmit = () => {
-    // Validate mandatory manager fields
-    if (
-      !selectedEmployee.appraiserRating ||
-      !selectedEmployee.leadership ||
-      !selectedEmployee.attitude ||
-      !selectedEmployee.communication
-    ) {
-      setNotification({
-        type: 'error',
-        message: 'Please complete all mandatory fields: Performance Rating, Leadership Potential, Attitude, and Communication.'
+  const handleSendBack = async () => {
+    if (!selectedEmployee) return;
+    const reason = window.prompt("Enter reason for sending back to employee:");
+    if (!reason) return;
+    try {
+      await performanceAPI.sendBackToEmployee(selectedEmployee.id, { 
+        reason,
+        status: 'submitted',
+        isReturnedToEmployee: true
       });
+      setNotification({ type: 'success', message: 'Appraisal sent back to employee.' });
+      setSelectedEmployee(null);
+      fetchTeamAppraisals();
+    } catch (error) {
+      setNotification({ type: 'error', message: 'Failed to send back.' });
+    }
+  };
+
+  const handleOpenReviewModal = (emp) => {
+    setSelectedEmployee(emp);
+    setActiveTab('knowledge');
+  };
+
+  const handleSaveReview = async (submitReview = false) => {
+    if (submitReview && (!reviewData.rating || !reviewData.comments)) {
+      setNotification({ type: 'error', message: 'Performance Rating and Comments are mandatory for submission.' });
       return;
     }
-    setShowSubmitConfirm(true);
+
+    try {
+      setSubmitLoading(true);
+      await performanceAPI.saveManagerReview(reviewEmployee.id, { ...reviewData, submitReview });
+      setNotification({ 
+        type: 'success', 
+        message: submitReview ? 'Review submitted successfully!' : 'Review saved as draft!' 
+      });
+      setIsReviewModalOpen(false);
+      fetchTeamAppraisals();
+    } catch (error) {
+      console.error("Failed to save review", error);
+      setNotification({ type: 'error', message: 'Failed to save review' });
+    } finally {
+      setSubmitLoading(false);
+    }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'APPRAISER_COMPLETED': return 'bg-green-100 text-green-800 border-green-200';
-      case 'Submitted': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'SUBMITTED': return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'Accepted': return 'bg-purple-100 text-purple-800 border-purple-200';
-      default: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'submitted': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'managerInProgress': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'reviewerPending': return 'bg-cyan-100 text-cyan-800 border-cyan-200';
+      case 'reviewerInProgress': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case 'reviewerApproved': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'directorPushedBack': return 'bg-red-100 text-red-800 border-red-200';
+      case 'directorApproved': return 'bg-green-100 text-green-800 border-green-200';
+      case 'effective': return 'bg-purple-100 text-purple-800 border-purple-200';
+      case 'released': return 'bg-teal-100 text-teal-800 border-teal-200';
+      case 'accepted_pending_effect': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
@@ -542,6 +584,10 @@ const TeamAppraisal = () => {
   }, [uniqueYears, financialYearFilter]);
 
   const filteredEmployees = employees.filter(emp => {
+    // Stage Filter: SHOW ALL for tracking
+    const isVisible = true;
+    if (!isVisible) return false;
+
     const matchesSearch = emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       emp.empId?.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDivision = !divisionFilter || getDivisionValue(emp) === divisionFilter;
@@ -715,28 +761,28 @@ const TeamAppraisal = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${getStatusColor(emp.status)}`}>
-                        {emp.status || '-'}
+                        {getStatusLabel(emp.status)}
                       </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                       <div className="flex justify-center items-center space-x-2">
-                        <button
-                          onClick={() => handleView(emp)}
-                          className="text-blue-400 hover:text-gray-600"
-                          title="View"
-                        >
-                          <Eye className="h-5 w-5" />
-                        </button>
-                        {['Submitted', 'SUBMITTED'].includes(emp.status) && (
-                          <>
-
-                            <button
-                              onClick={() => handleEdit(emp)}
-                              className="inline-flex items-center px-2.5 py-1.5 border border-transparent text-xs font-medium rounded text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none shadow-sm"
-                            >
-                              Review
-                            </button>
-                          </>
+                        {!['submitted', 'managerInProgress', 'directorPushedBack'].includes(emp.status) && (
+                          <button
+                            onClick={() => handleOpenReviewModal(emp)}
+                            className="flex items-center space-x-1 bg-white text-gray-700 px-3 py-1.5 rounded text-xs hover:bg-gray-50 transition-all shadow-sm border border-gray-200"
+                          >
+                            <Eye className="h-3.5 w-3.5 text-gray-500" />
+                            <span>View</span>
+                          </button>
+                        )}
+                        {['submitted', 'managerInProgress', 'directorPushedBack'].includes(emp.status) && (
+                          <button
+                            onClick={() => handleOpenReviewModal(emp)}
+                            className="flex items-center space-x-1 bg-[#262760] text-white px-3 py-1.5 rounded text-xs hover:bg-[#1e2050] transition-all shadow-sm"
+                          >
+                            <Edit className="h-3.5 w-3.5" />
+                            <span>{['managerInProgress', 'directorPushedBack'].includes(emp.status) ? 'Edit Review' : 'Add Rating / Review'}</span>
+                          </button>
                         )}
                       </div>
                     </td>
@@ -863,6 +909,7 @@ const TeamAppraisal = () => {
                           <span className="text-xs text-gray-500 bg-white px-2 py-1 rounded-full">Editable</span>
                         )}
                       </SectionHeader>
+
                       {/* Ratings Comparison */}
                       <div className="bg-white rounded-lg p-6 shadow-sm border border-gray-200">
                         <h4 className="text-sm font-semibold text-gray-700 mb-4 flex items-center">
@@ -870,7 +917,6 @@ const TeamAppraisal = () => {
                           Ratings Comparison
                         </h4>
 
-                        
                         <div className="space-y-2">
                           {Object.entries(enabledSections?.knowledgeSubItems || {}).map(([key, isEnabled]) => {
                             if (!isEnabled) return null;
@@ -921,7 +967,7 @@ const TeamAppraisal = () => {
                           Ratings Comparison
                         </h4>
 
-                        
+
                         <div className="space-y-2">
                           {Object.entries(enabledSections?.processSubItems || {}).map(([key, isEnabled]) => {
                             if (!isEnabled) return null;
@@ -1021,7 +1067,7 @@ const TeamAppraisal = () => {
                           Ratings Comparison
                         </h4>
 
-                       
+
                         <div className="space-y-2">
                           {getEnabledItems('growthSubItems').map(({ key }) => {
                             const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
@@ -1191,18 +1237,36 @@ const TeamAppraisal = () => {
                               <DollarSign className="h-5 w-5 text-indigo-600 mr-2" />
                               <h5 className="text-sm font-bold text-indigo-900">TAT Details</h5>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                               <div className="bg-white rounded-md border border-indigo-100 p-3">
                                 <div className="text-xs font-semibold text-gray-600">Current Salary</div>
                                 <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.currentSalary || 0).toLocaleString('en-IN')}</div>
                               </div>
                               <div className="bg-white rounded-md border border-indigo-100 p-3">
                                 <div className="text-xs font-semibold text-gray-600">Increment %</div>
-                                <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.incrementPercentage || 0)}%</div>
+                                {isEditable ? (
+                                  <input 
+                                    type="number"
+                                    value={selectedEmployee.incrementPercentage || 0}
+                                    onChange={(e) => handleInputChange(selectedEmployee.id, 'incrementPercentage', e.target.value)}
+                                    className="w-full text-sm font-bold text-gray-900 border-0 p-0 focus:ring-0 appearance-none bg-transparent"
+                                  />
+                                ) : (
+                                  <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.incrementPercentage || 0)}%</div>
+                                )}
                               </div>
                               <div className="bg-white rounded-md border border-indigo-100 p-3">
                                 <div className="text-xs font-semibold text-gray-600">Increment Correction %</div>
-                                <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.incrementCorrectionPercentage || 0)}%</div>
+                                {isEditable ? (
+                                  <input 
+                                    type="number"
+                                    value={selectedEmployee.incrementCorrectionPercentage || 0}
+                                    onChange={(e) => handleInputChange(selectedEmployee.id, 'incrementCorrectionPercentage', e.target.value)}
+                                    className="w-full text-sm font-bold text-gray-900 border-0 p-0 focus:ring-0 appearance-none bg-transparent"
+                                  />
+                                ) : (
+                                  <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.incrementCorrectionPercentage || 0)}%</div>
+                                )}
                               </div>
                               <div className="bg-white rounded-md border border-indigo-100 p-3">
                                 <div className="text-xs font-semibold text-gray-600">Increment Amount</div>
@@ -1210,11 +1274,29 @@ const TeamAppraisal = () => {
                               </div>
                               <div className="bg-white rounded-md border border-indigo-100 p-3">
                                 <div className="text-xs font-semibold text-gray-600">Revised Salary</div>
-                                <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.revisedSalary || 0).toLocaleString('en-IN')}</div>
+                                {isEditable ? (
+                                  <input 
+                                    type="number"
+                                    value={selectedEmployee.revisedSalary || 0}
+                                    onChange={(e) => handleInputChange(selectedEmployee.id, 'revisedSalary', e.target.value)}
+                                    className="w-full text-sm font-bold text-gray-900 border-0 p-0 focus:ring-0 appearance-none bg-transparent"
+                                  />
+                                ) : (
+                                  <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.revisedSalary || 0).toLocaleString('en-IN')}</div>
+                                )}
                               </div>
                               <div className="bg-white rounded-md border border-indigo-100 p-3">
                                 <div className="text-xs font-semibold text-gray-600">Performance Pay</div>
-                                <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.performancePay || 0).toLocaleString('en-IN')}</div>
+                                {isEditable ? (
+                                  <input 
+                                    type="number"
+                                    value={selectedEmployee.performancePay || 0}
+                                    onChange={(e) => handleInputChange(selectedEmployee.id, 'performancePay', e.target.value)}
+                                    className="w-full text-sm font-bold text-gray-900 border-0 p-0 focus:ring-0 appearance-none bg-transparent"
+                                  />
+                                ) : (
+                                  <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.performancePay || 0).toLocaleString('en-IN')}</div>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1235,49 +1317,64 @@ const TeamAppraisal = () => {
                             placeholder="Enter your final feedback and comments..."
                           />
                         </div>
+
+                        {/* Director Push Back Reason */}
+                        {selectedEmployee.status === 'directorPushedBack' && selectedEmployee.pushBack?.reason && (
+                          <div className="mt-6 bg-[#fff4e5] border-l-4 border-[#ff9800] p-[10px] rounded-[6px] shadow-sm">
+                            <div className="flex items-center text-[#663c00] font-bold text-xs uppercase tracking-widest mb-2">
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              Director Comment
+                            </div>
+                            <p className="text-sm text-[#663c00] italic leading-relaxed">
+                              {selectedEmployee.pushBack.reason}
+                            </p>
+                          </div>
+                        )}
                       </div>
 
-                     
+
                     </div>
                   )}
                 </div>
 
-                {/* Modal Footer */}
-                <div className="px-6 py-4 bg-white border-t border-gray-200 flex justify-end space-x-3 sticky bottom-0">
-                  <button
-                    onClick={() => setSelectedEmployee(null)}
-                    className="px-4 py-2 bg-white text-gray-700 border border-gray-300 rounded-md shadow-sm text-sm font-medium hover:bg-gray-50 focus:outline-none"
-                  >
-                    Close
-                  </button>
-                  {isEditable && (
-                    <>
+                <div className="px-6 py-4 bg-white border-t border-gray-200 flex items-center justify-between sticky bottom-0">
+                  <div className="text-xs text-gray-500 font-medium italic">
+                    {isEditable ? "Editing Phase 1: Provide ratings and comments. Financials will be finalized in Phase 2." : "View Only Mode"}
+                  </div>
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={() => setSelectedEmployee(null)}
+                      className="px-6 py-2 bg-white text-gray-700 border border-gray-300 rounded-md shadow-sm text-sm font-bold hover:bg-gray-50 focus:outline-none"
+                    >
+                      Close
+                    </button>
+                    {activeTab !== 'summary' && (
                       <button
-                        onClick={handleSave}
-                        className="px-4 py-2 bg-white text-[#262760] border border-[#262760] rounded-md shadow-sm text-sm font-medium hover:bg-gray-50 focus:outline-none"
+                        onClick={goToNextTab}
+                        className="px-6 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-md shadow-sm text-sm font-bold hover:bg-blue-100 focus:outline-none flex items-center transition-all"
                       >
-                        Save Draft
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
                       </button>
-                      {activeTab !== 'summary' ? (
+                    )}
+                    {isEditable && (
+                      <>
                         <button
-                          onClick={goToNextTab}
-                          className="px-4 py-2 bg-[#262760] text-white rounded-md shadow-sm text-sm font-medium hover:bg-[#1e2050] focus:outline-none"
+                          onClick={handleSave}
+                          className="px-6 py-2 bg-emerald-600 text-white rounded-md shadow-sm text-sm font-bold hover:bg-emerald-700 focus:outline-none transition-colors"
                         >
-                          Next
+                          Save Draft
                         </button>
-                      ) : (
-                        canSubmitReview && (
-                          <button
-                            onClick={handleSubmit}
-                            className="px-4 py-2 bg-[#262760] text-white rounded-md shadow-sm text-sm font-medium hover:bg-[#1e2050] focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed"
-                            disabled={submitLoading}
-                          >
-                            {submitLoading ? 'Submitting...' : 'Submit Review'}
-                          </button>
-                        )
-                      )}
-                    </>
-                  )}
+                        <button
+                          onClick={handleSubmit}
+                          className="px-6 py-2 bg-[#262760] text-white rounded-md shadow-sm text-sm font-bold hover:bg-[#1e2050] focus:outline-none transition-colors flex items-center"
+                        >
+                          <Send className="h-4 w-4 mr-2" />
+                          Submit to Reviewer
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -1295,7 +1392,7 @@ const TeamAppraisal = () => {
                   Submit Review?
                 </h3>
                 <p className="text-sm text-gray-600">
-                  Are you sure you want to submit this review? This will mark it as Completed.
+                  Are you sure you want to submit this review? It will be sent to the Reviewer for moderation.
                 </p>
               </div>
             </div>

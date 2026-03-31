@@ -72,8 +72,6 @@ app.use("/api/admin-timesheet", require("./routes/admintimesheetRoutes"));
 app.use("/api/leave", require("./routes/leaveRoutes"));
 
 app.use("/api/mail", require("./routes/mail.routes"));
-
-app.use("/api/payroll", payrollRoutes);
 app.use("/api/compensation", require("./routes/compensationRoutes"));
 app.use("/api/monthly-payroll", monthlyPayrollRoutes);
 app.use("/api/loans", loanRoutes);
@@ -83,6 +81,7 @@ app.use("/api/office-holidays", require("./routes/officeHolidayRoutes"));
 app.use("/api/insurance", require("./routes/insurance"));
 app.use("/api/insurance-claims", require("./routes/insuranceClaims"));
 app.use("/api/marriage-allowances", require("./routes/marriageAllowanceRoutes"));
+app.use("/api", require("./routes/promotionRoutes"));
 
 
 // Announcements Routes
@@ -110,18 +109,22 @@ app.use("/api/performance/reviewer", require("./routes/reviewerRoutes"));
 app.use("/api/performance/director", require("./routes/directorRoutes"));
 app.use("/api/performance/increment-master", require("./routes/incrementRoutes"));
 app.use("/api/performance/increment-summary", require("./routes/incrementSummaryRoutes"));
-app.use("/api/performance/attributes", require("./routes/appraisalAttributeRoutes"));
-app.use("/api/payroll", require("./routes/payrollHistoryRoutes"));
+const appraisalAttributeRoutes = require("./routes/appraisalAttributeRoutes");
+app.use("/api/performance/attributes", appraisalAttributeRoutes);
 
-app.use("/api/notifications", require("./routes/notificationRoutes"));
+// ⭐ Specific history route MUST come before generic :id routes if sharing base path
+app.use("/api/payroll", require("./routes/payrollHistoryRoutes"));
+app.use("/api/payroll", payrollRoutes);
 
 app.use("/api/special-permissions", require("./routes/specialPermissions"));
 app.use("/api/celebrations", require("./routes/celebrationRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
+app.use("/api/notifications", require("./routes/notificationRoutes"));
 
 
 // Base Route
 app.get("/", (req, res) => {
-  res.json({ message: "Caldim Employees API is running successfully 🚀" });
+  res.json({ message: "Caldim Employees API is running successfully \uD83D\uDE80" });
 });
 
 // --------------------- HIKVISION SECURITY HELPERS --------------------- //
@@ -250,7 +253,7 @@ app.post("/api/hikvision/attendance", async (req, res) => {
             savedCount++;
           }
         }
-        console.log(`✅ Auto-saved/Rewrote ${savedCount} punch records to DB.`);
+        console.log(`\u2705 Auto-saved/Rewrote ${savedCount} punch records to DB.`);
       }
     } catch (dbError) {
       console.error("Error auto-saving attendance to DB:", dbError.message);
@@ -275,14 +278,16 @@ app.use((err, req, res, next) => {
 // --------------------- CRON JOBS --------------------- //
 const setupTimesheetReminder = require("./cron/timesheetReminder");
 const setupLeaveBalanceSync = require("./cron/leaveBalanceSync");
+const setupAppraisalEffectSync = require("./cron/appraisalEffectSync");
 
 setupTimesheetReminder();
 setupLeaveBalanceSync();
+setupAppraisalEffectSync();
 
 // --------------------- START SERVER --------------------- //
 const PORT = process.env.PORT || 5003;
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`\u2705 Server running on port ${PORT}`);
 });
 
 //--------zoho email-----//

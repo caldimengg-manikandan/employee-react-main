@@ -72,6 +72,7 @@ import DirectorApproval from "./pages/performance/DirectorApproval";
 import AppraisalMaster from "./pages/performance/AppraisalMaster";
 import IncrementSummary from "./pages/performance/IncrementSummary";
 import AttendanceSummary from "./pages/performance/AttendanceSummary";
+import PromotionHistory from "./pages/performance/PromotionHistory";
 import CalendarMaster from "./pages/calendar/CalendarMaster";
 
 
@@ -489,6 +490,15 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["employee_access"]}>
                   <EmployeeManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="performance/promotion-history"
+              element={
+                <ProtectedRoute requiredPermissions={["self_appraisal"]} roles={["admin", "hr", "employees"]} allowEmployeeRole>
+                  <PromotionHistory />
                 </ProtectedRoute>
               }
             />
