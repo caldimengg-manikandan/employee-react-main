@@ -4,149 +4,75 @@ const auth = require('../middleware/auth');
 const SelfAppraisal = require('../models/SelfAppraisal');
 const Employee = require('../models/Employee');
 const Payroll = require('../models/Payroll');
+const AuditLog = require('../models/AuditLog');
 
 const { calculateIncrement } = require('../utils/incrementUtils');
 
-// @desc    Get team appraisals (for managers)
-// @route   GET /api/team-appraisals
+// Helper to convert Map to Object
+const mapToObj = (map) => {
+    if (!map) return {};
+    try {
+        if (typeof map.toJSON === 'function') return map.toJSON();
+        if (map instanceof Map) return Object.fromEntries(map);
+        return map;
+    } catch (e) {
+        return map || {};
+    }
+};
+
+// @desc    Get manager's queue (Team Appraisals)
+// @route   GET /api/performance/team-appraisals
 // @access  Private (Manager)
 router.get('/', auth, async (req, res) => {
   try {
-    // Strict Visibility Rule: Only assigned Appraiser can view (for manager roles)
-    // Sequential Flow: Include all post-submission stages including final Reviewed state
     const statusFilter = {
       $in: [
-        'Submitted',
-        'SUBMITTED',
-        'APPRAISER_COMPLETED',
-        'REVIEWER_COMPLETED',
-        'DIRECTOR_APPROVED',
-        'Released',
-        'RELEASED',
-        'Released Letter',
-        'Reviewed',
-        'Accepted'
+        'submitted',
+        'managerInProgress',
+        'reviewerPending',
+        'reviewerInProgress',
+        'reviewerApproved',
+        'directorInProgress',
+        'directorPushedBack',
+        'directorApproved',
+        'released',
+        'accepted_pending_effect',
+        'effective'
       ]
     };
 
-    const role = (req.user.role || '').toLowerCase();
-    const hasManagerLikeRole = [
-      'manager',
-      'lead',
-      'appraiser',
-      'projectmanager',
-      'project_manager',
-      'admin'
-    ].includes(role);
-
-    const hasManagerPermission =
-      Array.isArray(req.user.permissions) &&
-      (req.user.permissions.includes('project_access') ||
-        req.user.permissions.includes('employee_access'));
-
-    if (!hasManagerLikeRole && !hasManagerPermission) {
-      return res.status(403).json({ success: false, message: 'Not authorized to view team appraisals' });
-    }
+    const employeeId = req.user.employeeId;
+    const name = req.user.name;
 
     const query = {
       $and: [
         { status: statusFilter },
         {
           $or: [
-            { appraiserId: req.user.employeeId },
-            { appraiser: req.user.name }
+            { appraiserId: employeeId },
+            { appraiser: { $regex: new RegExp(`^${name}$`, 'i') } }
           ]
         }
       ]
     };
 
-    // Populate employee details
-    // Note: employeeId in SelfAppraisal is a ref to Employee model
     const appraisals = await SelfAppraisal.find(query)
       .populate('employeeId', 'name employeeId designation department division avatar location branch ctc');
 
-    // Transform to frontend format
-    // Use Promise.all to handle async calculation
     const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
       const emp = app.employeeId || {};
-      let baseSalary = 0;
-      try {
-        if (emp.employeeId) {
-          const payrollRec = await Payroll.findOne({ employeeId: emp.employeeId }).sort({ createdAt: -1 }).lean();
-          if (payrollRec && (payrollRec.ctc || payrollRec.totalEarnings || payrollRec.basicDA || payrollRec.hra || payrollRec.specialAllowance || payrollRec.gratuity)) {
-            const ctcFromPayroll = Number(payrollRec.ctc || 0);
-            if (ctcFromPayroll > 0) {
-              baseSalary = ctcFromPayroll;
-            } else {
-              const basic = Number(payrollRec.basicDA || 0);
-              const hra = Number(payrollRec.hra || 0);
-              const spec = Number(payrollRec.specialAllowance || 0);
-              const grat = Number(payrollRec.gratuity || 0);
-              const computedCtc = basic + hra + spec + grat;
-              baseSalary = computedCtc > 0 ? computedCtc : 0;
-            }
-          }
-        }
-      } catch (e) {
-        baseSalary = 0;
-      }
-      if (baseSalary === 0) {
-        baseSalary = Number(emp.ctc || 0);
-      }
-      const existingSalarySnapshot = Number(app.currentSalarySnapshot || 0);
-      const derivedSalary = (existingSalarySnapshot > 0) ? existingSalarySnapshot : baseSalary;
-      if (derivedSalary > 0 && existingSalarySnapshot !== derivedSalary) {
-        try {
-          await SelfAppraisal.updateOne(
-            { _id: app._id },
-            { $set: { currentSalarySnapshot: derivedSalary } }
-          );
-        } catch (e) {}
-      }
-
-      // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
-      // This ensures Managers see the correct value even if they haven't opened it before
-      let finalIncrementPercentage = app.incrementPercentage || 0;
-
-      if (finalIncrementPercentage === 0 && app.appraiserRating && app.year && emp.designation) {
-        try {
-          const calculated = await calculateIncrement(app.year, emp.designation, app.appraiserRating);
-          if (calculated > 0) {
-            finalIncrementPercentage = calculated;
-            // Update the DB record silently so it is fixed for good
-            await SelfAppraisal.updateOne({ _id: app._id }, { $set: { incrementPercentage: calculated } });
-          }
-        } catch (err) {
-          console.error(`Auto-calc failed for appraisal ${app._id}:`, err);
-        }
-      }
-
-      let incrementCorrectionPercentage = app.incrementCorrectionPercentage || 0;
-      let incrementAmount = app.incrementAmount || 0;
-      let revisedSalary = app.revisedSalary || 0;
-      const performancePay = Number(app.performancePay || 0);
-
-      if (derivedSalary > 0) {
-        const totalPct = finalIncrementPercentage + incrementCorrectionPercentage;
-        const updateDoc = {};
-
-        if (incrementAmount === 0 && totalPct !== 0) {
-          incrementAmount = Math.round((derivedSalary * totalPct) / 100);
-          updateDoc.incrementAmount = incrementAmount;
-        }
-
-        if (revisedSalary === 0 && (incrementAmount !== 0 || totalPct !== 0)) {
-          revisedSalary = Math.round(derivedSalary + incrementAmount);
-          updateDoc.revisedSalary = revisedSalary;
-        }
-
-        if (Object.keys(updateDoc).length > 0) {
+      
+      let derivedSalary = Number(app.currentSalarySnapshot || 0);
+      if (derivedSalary === 0) {
           try {
-            await SelfAppraisal.updateOne({ _id: app._id }, { $set: updateDoc });
-          } catch (err) {
-            console.error(`Auto-calc amount/revised failed for appraisal ${app._id}:`, err);
-          }
-        }
+              if (emp.employeeId) {
+                  const payrollRec = await Payroll.findOne({ employeeId: emp.employeeId }).sort({ createdAt: -1 }).lean();
+                  derivedSalary = Number(payrollRec?.ctc || emp.ctc || 0);
+                  if (derivedSalary > 0) {
+                      await SelfAppraisal.updateOne({ _id: app._id }, { $set: { currentSalarySnapshot: derivedSalary } });
+                  }
+              }
+          } catch (e) {}
       }
 
       return {
@@ -154,187 +80,265 @@ router.get('/', auth, async (req, res) => {
         financialYr: app.year,
         empId: emp.employeeId || '',
         name: emp.name || 'Unknown',
-        avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
+        avatar: emp.avatar || '',
         designation: emp.designation || '',
-        department: emp.department || '',
-        division: app.division || emp.division || '',
-        location: emp.location || emp.branch || '',
         status: app.status,
-        overallContribution: app.overallContribution || '',
-        projects: app.projects || [],
+        
         selfAppraiseeComments: app.overallContribution || '',
         managerComments: app.managerComments || '',
-        keyPerformance: app.keyPerformance || '',
-        appraiseeComments: app.appraiseeComments || '',
-        appraiserRating: app.appraiserRating || '',
+        
+        currentSalary: derivedSalary,
+        incrementPercentage: app.incrementPercentage || 0,
+        incrementCorrectionPercentage: app.incrementCorrectionPercentage || 0,
+        incrementAmount: app.incrementAmount || 0,
+        revisedSalary: app.revisedSalary || 0,
+        performancePay: app.performancePay || 0,
+        
+        promotion: app.promotion || { recommended: false, newDesignation: '' },
+        pushBack: app.pushBack || { isPushedBack: false },
+
         leadership: app.leadership || '',
         attitude: app.attitude || '',
         communication: app.communication || '',
-        incrementPercentage: finalIncrementPercentage,
-        incrementCorrectionPercentage,
-        incrementAmount,
-        revisedSalary,
-        performancePay,
-        currentSalary: derivedSalary,
-
-        behaviourBased: app.behaviourBased ? (app.behaviourBased.toJSON ? app.behaviourBased.toJSON() : app.behaviourBased) : {},
-        processAdherence: app.processAdherence ? (app.processAdherence.toJSON ? app.processAdherence.toJSON() : app.processAdherence) : {},
-        technicalBased: app.technicalBased ? (app.technicalBased.toJSON ? app.technicalBased.toJSON() : app.technicalBased) : {},
-        growthBased: app.growthBased ? (app.growthBased.toJSON ? app.growthBased.toJSON() : app.growthBased) : {},
-
+        appraiserRating: app.appraiserRating || '',
+        keyPerformance: app.keyPerformance || '',
+        
         behaviourManagerComments: app.behaviourManagerComments || '',
         processManagerComments: app.processManagerComments || '',
         technicalManagerComments: app.technicalManagerComments || '',
         growthManagerComments: app.growthManagerComments || '',
+        
+        behaviourManagerRatings: mapToObj(app.behaviourManagerRatings),
+        processManagerRatings: mapToObj(app.processManagerRatings),
+        technicalManagerRatings: mapToObj(app.technicalManagerRatings),
+        growthManagerRatings: mapToObj(app.growthManagerRatings),
 
-        behaviourCommunicationManager: app.behaviourCommunicationManager || 0,
-        behaviourTeamworkManager: app.behaviourTeamworkManager || 0,
-        behaviourLeadershipManager: app.behaviourLeadershipManager || 0,
-        behaviourAdaptabilityManager: app.behaviourAdaptabilityManager || 0,
-        behaviourInitiativesManager: app.behaviourInitiativesManager || 0,
-
-        processTimesheetManager: app.processTimesheetManager || 0,
-        processReportStatusManager: app.processReportStatusManager || 0,
-        processMeetingManager: app.processMeetingManager || 0,
-
-        technicalCodingSkillsManager: app.technicalCodingSkillsManager || 0,
-        technicalTestingManager: app.technicalTestingManager || 0,
-        technicalDebuggingManager: app.technicalDebuggingManager || 0,
-        technicalSdsManager: app.technicalSdsManager || 0,
-        technicalTeklaManager: app.technicalTeklaManager || 0,
-
-        growthLearningNewTechManager: app.growthLearningNewTechManager || 0,
-        growthCertificationsManager: app.growthCertificationsManager || 0,
-
-        behaviourManagerRatings: app.behaviourManagerRatings ? (app.behaviourManagerRatings.toJSON ? app.behaviourManagerRatings.toJSON() : app.behaviourManagerRatings) : {},
-        processManagerRatings: app.processManagerRatings ? (app.processManagerRatings.toJSON ? app.processManagerRatings.toJSON() : app.processManagerRatings) : {},
-        technicalManagerRatings: app.technicalManagerRatings ? (app.technicalManagerRatings.toJSON ? app.technicalManagerRatings.toJSON() : app.technicalManagerRatings) : {},
-        growthManagerRatings: app.growthManagerRatings ? (app.growthManagerRatings.toJSON ? app.growthManagerRatings.toJSON() : app.growthManagerRatings) : {},
+        // Employee's Assessment Data (Original names and Aliases for UI consistency)
+        behaviourBased: mapToObj(app.behaviourBased),
+        behaviourSelf: mapToObj(app.behaviourBased),
+        processAdherence: mapToObj(app.processAdherence),
+        processSelf: mapToObj(app.processAdherence),
+        technicalBased: mapToObj(app.technicalBased),
+        technicalSelf: mapToObj(app.technicalBased),
+        growthBased: mapToObj(app.growthBased),
+        growthSelf: mapToObj(app.growthBased),
+        
+        projects: app.projects || [],
+        overallContribution: app.overallContribution || '',
+        effectiveDate: app.effectiveDate,
+        managerReview: app.managerReview || {},
+        releaseSalarySnapshot: mapToObj(app.releaseSalarySnapshot),
+        releaseRevisedSnapshot: mapToObj(app.releaseRevisedSnapshot)
       };
     }));
 
     res.json(formattedAppraisals);
   } catch (error) {
-    console.error('Error fetching team appraisals:', error);
-    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    console.error('Error fetching manager queue:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 });
 
-// @desc    Update team appraisal (for managers)
-// @route   PUT /api/team-appraisals/:id
-// @access  Private (Manager)
+// @desc    Update appraisal details (as Manager)
+// @route   PUT /api/performance/team-appraisals/:id
 router.put('/:id', auth, async (req, res) => {
   try {
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    // Simple auth check
+    if (appraisal.appraiserId !== req.user.employeeId && appraisal.appraiser !== req.user.name) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
     const {
-      managerComments,
-      keyPerformance,
-      appraiseeComments,
-      appraiserRating,
-      leadership,
-      attitude,
-      communication,
-      status,
-      incrementPercentage,
-
-      behaviourManagerComments,
-      processManagerComments,
-      technicalManagerComments,
-      growthManagerComments,
-
-      behaviourCommunicationManager,
-      behaviourTeamworkManager,
-      behaviourLeadershipManager,
-      behaviourAdaptabilityManager,
-      behaviourInitiativesManager,
-
-      processTimesheetManager,
-      processReportStatusManager,
-      processMeetingManager,
-
-      technicalCodingSkillsManager,
-      technicalTestingManager,
-      technicalDebuggingManager,
-      technicalSdsManager,
-      technicalTeklaManager,
-
-      growthLearningNewTechManager,
-      growthCertificationsManager,
-
-      behaviourManagerRatings,
-      processManagerRatings,
-      technicalManagerRatings,
-      growthManagerRatings
+      managerComments, keyPerformance, appraiserRating,
+      incrementPercentage, incrementCorrectionPercentage, incrementAmount, revisedSalary, performancePay,
+      currentSalarySnapshot, effectiveDate,
+      behaviourManagerComments, processManagerComments, technicalManagerComments, growthManagerComments,
+      leadership, attitude, communication,
+      promotion, behaviourManagerRatings, processManagerRatings,
+      technicalManagerRatings, growthManagerRatings
     } = req.body;
 
-    let appraisal = await SelfAppraisal.findById(req.params.id);
-    if (!appraisal) {
-      return res.status(404).json({ success: false, message: 'Appraisal not found' });
-    }
-
-    const userEmployeeId = req.user.employeeId;
-    const userName = req.user.name;
-
-    const isAppraiser =
-      (appraisal.appraiserId && appraisal.appraiserId === userEmployeeId) ||
-      (appraisal.appraiser && appraisal.appraiser === userName);
-
-    if (!isAppraiser) {
-      return res
-        .status(403)
-        .json({ success: false, message: 'Not authorized to update this appraisal' });
-    }
-
-    // Update fields
     if (managerComments !== undefined) appraisal.managerComments = managerComments;
     if (keyPerformance !== undefined) appraisal.keyPerformance = keyPerformance;
-    if (appraiseeComments !== undefined) appraisal.appraiseeComments = appraiseeComments;
     if (appraiserRating !== undefined) appraisal.appraiserRating = appraiserRating;
-    if (leadership !== undefined) appraisal.leadership = leadership;
-    if (attitude !== undefined) appraisal.attitude = attitude;
-    if (communication !== undefined) appraisal.communication = communication;
-    if (status !== undefined) appraisal.status = status;
+    
+    // Financials
     if (incrementPercentage !== undefined) appraisal.incrementPercentage = incrementPercentage;
-
+    if (incrementCorrectionPercentage !== undefined) appraisal.incrementCorrectionPercentage = incrementCorrectionPercentage;
+    if (incrementAmount !== undefined) appraisal.incrementAmount = incrementAmount;
+    if (revisedSalary !== undefined) appraisal.revisedSalary = revisedSalary;
+    if (performancePay !== undefined) appraisal.performancePay = performancePay;
+    if (currentSalarySnapshot !== undefined) appraisal.currentSalarySnapshot = currentSalarySnapshot;
+    if (effectiveDate !== undefined) appraisal.effectiveDate = effectiveDate;
+    
+    // Sectional Comments
     if (behaviourManagerComments !== undefined) appraisal.behaviourManagerComments = behaviourManagerComments;
     if (processManagerComments !== undefined) appraisal.processManagerComments = processManagerComments;
     if (technicalManagerComments !== undefined) appraisal.technicalManagerComments = technicalManagerComments;
     if (growthManagerComments !== undefined) appraisal.growthManagerComments = growthManagerComments;
 
-    if (behaviourCommunicationManager !== undefined) appraisal.behaviourCommunicationManager = behaviourCommunicationManager;
-    if (behaviourTeamworkManager !== undefined) appraisal.behaviourTeamworkManager = behaviourTeamworkManager;
-    if (behaviourLeadershipManager !== undefined) appraisal.behaviourLeadershipManager = behaviourLeadershipManager;
-    if (behaviourAdaptabilityManager !== undefined) appraisal.behaviourAdaptabilityManager = behaviourAdaptabilityManager;
-    if (behaviourInitiativesManager !== undefined) appraisal.behaviourInitiativesManager = behaviourInitiativesManager;
+    // Standard Fields
+    if (leadership !== undefined) appraisal.leadership = leadership;
+    if (attitude !== undefined) appraisal.attitude = attitude;
+    if (communication !== undefined) appraisal.communication = communication;
+    
+    if (promotion) {
+      appraisal.promotion = {
+        ...appraisal.promotion,
+        ...promotion
+      };
+    }
 
-    if (processTimesheetManager !== undefined) appraisal.processTimesheetManager = processTimesheetManager;
-    if (processReportStatusManager !== undefined) appraisal.processReportStatusManager = processReportStatusManager;
-    if (processMeetingManager !== undefined) appraisal.processMeetingManager = processMeetingManager;
+    if (behaviourManagerRatings) appraisal.behaviourManagerRatings = behaviourManagerRatings;
+    if (processManagerRatings) appraisal.processManagerRatings = processManagerRatings;
+    if (technicalManagerRatings) appraisal.technicalManagerRatings = technicalManagerRatings;
+    if (growthManagerRatings) appraisal.growthManagerRatings = growthManagerRatings;
 
-    if (technicalCodingSkillsManager !== undefined) appraisal.technicalCodingSkillsManager = technicalCodingSkillsManager;
-    if (technicalTestingManager !== undefined) appraisal.technicalTestingManager = technicalTestingManager;
-    if (technicalDebuggingManager !== undefined) appraisal.technicalDebuggingManager = technicalDebuggingManager;
-    if (technicalSdsManager !== undefined) appraisal.technicalSdsManager = technicalSdsManager;
-    if (technicalTeklaManager !== undefined) appraisal.technicalTeklaManager = technicalTeklaManager;
+    await appraisal.save();
+    res.json({ success: true, appraisal });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
 
-    if (growthLearningNewTechManager !== undefined) appraisal.growthLearningNewTechManager = growthLearningNewTechManager;
-    if (growthCertificationsManager !== undefined) appraisal.growthCertificationsManager = growthCertificationsManager;
+// @desc    Save Stage 1 Manager Review Input
+// @route   PUT /api/performance/team-appraisals/:id/review
+router.put('/:id/review', auth, async (req, res) => {
+  try {
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
 
-    if (behaviourManagerRatings !== undefined) appraisal.behaviourManagerRatings = behaviourManagerRatings;
-    if (processManagerRatings !== undefined) appraisal.processManagerRatings = processManagerRatings;
-    if (technicalManagerRatings !== undefined) appraisal.technicalManagerRatings = technicalManagerRatings;
-    if (growthManagerRatings !== undefined) appraisal.growthManagerRatings = growthManagerRatings;
+    // Authorization: only the assigned appraiser
+    if (appraisal.appraiserId !== req.user.employeeId && appraisal.appraiser !== req.user.name) {
+      return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
 
-    appraisal.updatedAt = Date.now();
+    const { rating, behaviouralRatings, comments, strengths, areasOfImprovement, submitReview, summary } = req.body;
 
-    // Optionally record who updated it if needed
-    // appraisal.appraiser = req.user.name; 
+    // Update managerReview fields
+    appraisal.managerReview = {
+      performanceRating: String(rating || appraisal.appraiserRating || '').split(' ')[0],
+      rating: rating || '',
+      behaviouralRatings: {
+        knowledgeSharing: behaviouralRatings?.knowledgeSharing || 0,
+        teamWork: behaviouralRatings?.teamWork || 0,
+        communication: behaviouralRatings?.communication || 0,
+        ownership: behaviouralRatings?.ownership || 0
+      },
+      comments: comments || '',
+      summary: summary || '',
+      strengths: strengths || '',
+      areasOfImprovement: areasOfImprovement || '',
+      reviewedAt: new Date(),
+      reviewedBy: req.user.name
+    };
+
+    // Snapshot current section ratings into managerReview.sectionRatings (display-only qualitative data)
+    const toObj = (map) => {
+      try {
+        if (!map) return {};
+        if (typeof map.toJSON === 'function') return map.toJSON();
+        if (map instanceof Map) return Object.fromEntries(map);
+        return map;
+      } catch (e) {
+        return {};
+      }
+    };
+    appraisal.managerReview.sectionRatings = {
+      technical: toObj(appraisal.technicalManagerRatings),
+      behavioural: toObj(appraisal.behaviourManagerRatings),
+      process: toObj(appraisal.processManagerRatings),
+      growth: toObj(appraisal.growthManagerRatings)
+    };
+
+    // If submitted, update overall status
+    if (submitReview) {
+      if (!rating || !comments) {
+        return res.status(400).json({ success: false, message: 'Rating and comments are mandatory for submission.' });
+      }
+      appraisal.status = 'managerInProgress';
+    }
+
+    await appraisal.save();
+    res.json({ success: true, message: submitReview ? 'Review submitted successfully!' : 'Review saved as draft!', appraisal });
+  } catch (err) {
+    console.error('Error saving manager review:', err);
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @desc    Submit to Reviewer (Phase 1)
+// @route   POST /api/performance/team-appraisals/:id/approve
+router.post('/:id/approve', auth, async (req, res) => {
+  try {
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    let message = "";
+    
+    // Validation: Manager Performance Rating must exist before moving to reviewer
+    const mgrPerfRating = String(appraisal.managerReview?.performanceRating || appraisal.appraiserRating || '').trim();
+    if (!mgrPerfRating) {
+      return res.status(400).json({ success: false, message: 'Manager performance rating is required before submission to Reviewer.' });
+    }
+
+    appraisal.status = 'reviewerPending';
+    appraisal.workflow.managerApprovedAt = new Date();
+    message = 'Submitted to Reviewer';
+    
+    // Clear push-back data after resubmit
+    appraisal.pushBack = {
+      isPushedBack: false,
+      reason: null,
+      pushedBy: null,
+      pushedAt: null
+    };
 
     await appraisal.save();
 
-    res.json(appraisal);
-  } catch (error) {
-    console.error('Error updating team appraisal:', error);
-    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    await AuditLog.create({
+      employeeId: appraisal.employeeId,
+      appraisalId: appraisal._id,
+      action: 'MANAGER_SUBMITTED',
+      role: 'Manager',
+      doneBy: req.user.name,
+      doneById: req.user.employeeId
+    });
+
+    res.json({ success: true, message });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @desc    Send Back to Employee
+// @route   POST /api/performance/team-appraisals/:id/send-back
+router.post('/:id/send-back', auth, async (req, res) => {
+  try {
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const { reason } = req.body;
+    appraisal.status = 'draft';
+    
+    await appraisal.save();
+
+    await AuditLog.create({
+      employeeId: appraisal.employeeId,
+      appraisalId: appraisal._id,
+      action: 'SENT_BACK_TO_EMPLOYEE',
+      role: 'Manager',
+      reason: reason || 'Revision required',
+      doneBy: req.user.name,
+      doneById: req.user.employeeId
+    });
+
+    res.json({ success: true, message: 'Returned to employee for correction' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

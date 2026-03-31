@@ -1,66 +1,84 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
-const PayrollHistorySchema = new mongoose.Schema({
+const payrollHistorySchema = new mongoose.Schema({
   employeeId: {
-    type: String,
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Employee",
     required: true,
     index: true
   },
-  financialYear: {
+
+  employeeIdString: { 
+    type: String, // e.g. "CDE117"
+    index: true
+  },
+
+  employeeName: {
     type: String,
+    index: true
+  },
+
+  financialYear: {
+    type: String, // e.g. "2025-26"
+    index: true
+  },
+
+  fyStart: {
+    type: Date // e.g. 2025-04-01
+  },
+
+  fyEnd: {
+    type: Date   // e.g. 2026-03-31
+  },
+
+  salary: {
+    type: Number,
     required: true
   },
-  previousCTC: {
-    type: Number,
-    default: 0
-  },
-  revisedCTC: {
-    type: Number,
-    default: 0
-  },
-  incrementPercentage: {
-    type: Number,
-    default: 0
-  },
-  incrementAmount: {
-    type: Number,
-    default: 0
-  },
-  salary: {
+
+  components: {
     basic: { type: Number, default: 0 },
     hra: { type: Number, default: 0 },
     special: { type: Number, default: 0 },
     gross: { type: Number, default: 0 },
-    net: { type: Number, default: 0 },
-    gratuity: { type: Number, default: 0 }
+    net: { type: Number, default: 0 }
   },
-  performancePay: {
-    type: Number,
-    default: 0
+
+  effectiveFrom: {
+    type: Date,
+    required: true
   },
+
+  effectiveTo: {
+    type: Date,
+    default: null
+  },
+
+  source: {
+    type: String,
+    enum: ["appraisal", "promotion", "manual"],
+    default: "appraisal"
+  },
+
   appraisalId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'SelfAppraisal'
+    ref: "SelfAppraisal"
   },
-  releasedAt: {
-    type: Date
-  },
-  acceptedAt: {
-    type: Date,
-    default: Date.now
-  },
-  status: {
+
+  notes: {
     type: String,
-    enum: ['ACTIVE', 'REVOKED'],
-    default: 'ACTIVE'
-  },
-  version: {
-    type: Number,
-    default: 1
-  },
-  createdBy: {
-    type: String
+    default: ""
   }
+
 }, { timestamps: true });
 
-module.exports = mongoose.model('PayrollHistory', PayrollHistorySchema);
+// 🔒 UNIQUE INDEX (PREVENT DUPLICATES)
+payrollHistorySchema.index(
+  { employeeId: 1, effectiveFrom: 1, source: 1 },
+  { unique: true }
+);
+
+// 🔒 COMPOUND INDEX (FAST REPORTS & UI)
+payrollHistorySchema.index({ employeeId: 1, financialYear: 1, effectiveFrom: 1 });
+
+module.exports = mongoose.model("PayrollHistory", payrollHistorySchema);

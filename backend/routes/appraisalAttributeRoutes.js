@@ -13,7 +13,12 @@ router.get('/master', auth, async (req, res) => {
     
     if (!master) {
       // Seed initial data if empty
-      
+      master = new AppraisalAttributeMaster({
+        knowledgeSubItems: [],
+        processSubItems: [],
+        technicalSubItems: [],
+        growthSubItems: []
+      });
       await master.save();
     }
     
@@ -52,7 +57,7 @@ router.post('/master/add', auth, async (req, res) => {
     // 2. Add to all existing AppraisalAttribute documents (default false)
     // We set it to false so it appears unchecked but available
     const updateQuery = {};
-    updateQuery[`sections.${section}.${key}`] = false;
+    updateQuery[`sections.${section}.${key}`] = true;
     
     await AppraisalAttribute.updateMany({}, { $set: updateQuery });
 
@@ -110,45 +115,77 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Helper to convert Map to Object
+const mapToObj = (map) => {
+  if (!map) return {};
+  try {
+    if (typeof map.toJSON === 'function') return map.toJSON();
+    if (map instanceof Map) return Object.fromEntries(map);
+    return map;
+  } catch (e) {
+    return map || {};
+  }
+};
+
 // @desc    Get appraisal attributes for a specific designation
 // @route   GET /api/performance/attributes/:designation
 // @access  Private
 router.get('/:designation', auth, async (req, res) => {
   try {
-    const designation = req.params.designation;
-    // Case insensitive search might be needed, but exact match is safer for now if normalized
-    const attribute = await AppraisalAttribute.findOne({ designation: designation });
+    const designation = String(req.params.designation || '').trim();
+    if (!designation) return res.status(400).json({ message: 'Designation is required' });
+
+    // Escape special characters for regex
+    const escapedDesignation = designation.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+    
+    // Case-insensitive search with escaped string
+    const attribute = await AppraisalAttribute.findOne({ 
+        designation: { $regex: new RegExp(`^${escapedDesignation}$`, 'i') } 
+    });
     
     if (!attribute) {
+      // Fetch master lists to build default
+      const master = await AppraisalAttributeMaster.findOne();
+      
+      const buildDefaultSubItems = (section) => {
+        const items = {};
+        if (master && master[section]) {
+          master[section].forEach(item => {
+            // Default to false unless it's a legacy standard item we want to show by default
+            // For now, keeping them false to respect explicitly configured attributes
+            items[item.key] = false;
+          });
+        }
+        return items;
+      };
+
       // Return default if not found
       return res.json({
         designation: designation,
         sections: {
           selfAppraisal: true,
           knowledgeSharing: true,
-          knowledgeSubItems: {
-            knowledgeSharing: true,
-            leadership: true
-          },
+          knowledgeSubItems: buildDefaultSubItems('knowledgeSubItems'),
           processAdherence: true,
-          processSubItems: {
-            timesheet: true,
-            reportStatus: true,
-            meeting: true
-          },
+          processSubItems: buildDefaultSubItems('processSubItems'),
           technicalAssessment: true,
-          technicalSubItems: {},
-          growthAssessment: true
-          ,
-          growthSubItems: {
-            learningNewTech: true,
-            certifications: true
-          }
+          technicalSubItems: buildDefaultSubItems('technicalSubItems'),
+          growthAssessment: true,
+          growthSubItems: buildDefaultSubItems('growthSubItems')
         }
       });
     }
     
-    res.json(attribute);
+    // Convert Maps to Objects for consistent frontend processing
+    const result = attribute.toJSON();
+    if (result.sections) {
+        result.sections.knowledgeSubItems = mapToObj(attribute.sections.knowledgeSubItems);
+        result.sections.processSubItems = mapToObj(attribute.sections.processSubItems);
+        result.sections.technicalSubItems = mapToObj(attribute.sections.technicalSubItems);
+        result.sections.growthSubItems = mapToObj(attribute.sections.growthSubItems);
+    }
+
+    res.json(result);
   } catch (error) {
     console.error('Error fetching appraisal attribute:', error);
     res.status(500).json({ message: 'Server Error' });
@@ -166,16 +203,52 @@ router.post('/', auth, async (req, res) => {
   }
 
   try {
-    let attribute = await AppraisalAttribute.findOne({ designation });
+    const trimmedDesignation = String(designation || '').trim();
+    if (!trimmedDesignation) return res.status(400).json({ message: 'Designation is required' });
+
+    // Escape special characters for regex
+    const escapedDesignation = trimmedDesignation.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&');
+
+    // Case-insensitive search with escaped string
+    let attribute = await AppraisalAttribute.findOne({ 
+        designation: { $regex: new RegExp(`^${escapedDesignation}$`, 'i') } 
+    });
 
     if (attribute) {
       // Update existing
-      attribute.sections = sections;
+      if (sections) {
+        // Top level toggles
+        if (sections.selfAppraisal !== undefined) attribute.sections.selfAppraisal = sections.selfAppraisal;
+        if (sections.knowledgeSharing !== undefined) attribute.sections.knowledgeSharing = sections.knowledgeSharing;
+        if (sections.processAdherence !== undefined) attribute.sections.processAdherence = sections.processAdherence;
+        if (sections.technicalAssessment !== undefined) attribute.sections.technicalAssessment = sections.technicalAssessment;
+        if (sections.growthAssessment !== undefined) attribute.sections.growthAssessment = sections.growthAssessment;
+
+        // Sub-item Maps - Must handle Map fields explicitly for reliable persistency
+        const handleMapUpdate = (modelPath, inputData) => {
+          if (!inputData) return;
+          const map = attribute.sections[modelPath];
+          // Clear current keys first to ensure exact match with input
+          if (map.size > 0) map.clear();
+          Object.entries(inputData).forEach(([k, v]) => {
+            map.set(k, !!v);
+          });
+        };
+
+        handleMapUpdate('knowledgeSubItems', sections.knowledgeSubItems);
+        handleMapUpdate('processSubItems', sections.processSubItems);
+        handleMapUpdate('technicalSubItems', sections.technicalSubItems);
+        handleMapUpdate('growthSubItems', sections.growthSubItems);
+      }
+      
+      // In case we found it with different case, update the name to requested one or keep consistent
+      attribute.designation = trimmedDesignation; 
+      attribute.updatedAt = Date.now();
       await attribute.save();
     } else {
       // Create new
       attribute = new AppraisalAttribute({
-        designation,
+        designation: trimmedDesignation,
         sections
       });
       await attribute.save();

@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const Employee = require('../models/Employee');
 const HolidayAllowance = require('../models/HolidayAllowance');
+const PromotionHistory = require('../models/PromotionHistory');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Team = require('../models/Team');
@@ -259,6 +260,8 @@ router.put('/me', auth, async (req, res) => {
 
     const body = req.body || {};
     const data = { ...body };
+    delete data.promotionEffectiveDate;
+    delete data.promotionRemarks;
     if (!data.name && data.employeename) data.name = data.employeename;
     if (!data.employeename && data.name) data.employeename = data.name;
     if (!data.mobileNo && (data.contactNumber || data.phone)) data.mobileNo = data.contactNumber || data.phone;
@@ -346,6 +349,10 @@ router.put('/:id', auth, async (req, res) => {
 
     const body = req.body || {};
     const data = { ...body };
+    const promotionEffectiveDateRaw = data.promotionEffectiveDate;
+    const promotionRemarksRaw = data.promotionRemarks;
+    delete data.promotionEffectiveDate;
+    delete data.promotionRemarks;
     if (!data.name && data.employeename) data.name = data.employeename;
     if (!data.employeename && data.name) data.employeename = data.name;
     if (!data.mobileNo && (data.contactNumber || data.phone)) data.mobileNo = data.contactNumber || data.phone;
@@ -407,6 +414,42 @@ router.put('/:id', auth, async (req, res) => {
       data,
       { new: true, runValidators: true }
     );
+
+    if (employee) {
+      const oldDesignation = String(oldEmployee.designation || oldEmployee.position || oldEmployee.role || '').trim();
+      const newDesignation = String(employee.designation || employee.position || '').trim();
+      const oldNorm = oldDesignation.toLowerCase();
+      const newNorm = newDesignation.toLowerCase();
+
+      if (newDesignation && oldNorm !== newNorm) {
+        const actor =
+          String(req.user?.name || '').trim() ||
+          String(req.user?.employeeId || '').trim() ||
+          String(req.user?.email || '').trim() ||
+          'Unknown';
+
+        const effectiveDateCandidate = promotionEffectiveDateRaw ? new Date(promotionEffectiveDateRaw) : null;
+        const effectiveDate = effectiveDateCandidate && !Number.isNaN(effectiveDateCandidate.getTime())
+          ? effectiveDateCandidate
+          : new Date();
+
+        const promotionRemarks = String(promotionRemarksRaw || '').trim();
+
+        await PromotionHistory.create({
+          employeeId: String(employee.employeeId || '').trim(),
+          employeeName: String(employee.name || employee.employeename || '').trim() || String(oldEmployee.name || oldEmployee.employeename || '').trim(),
+          oldDesignation: oldDesignation || 'Unknown',
+          newDesignation,
+          effectiveDate,
+          remarks: promotionRemarks,
+          promotedBy: actor,
+          division: String(employee.division || '').trim(),
+          status: 'Approved',
+          approvedBy: actor,
+          approvedAt: new Date()
+        });
+      }
+    }
 
     if (employee && typeof employee.bankAccount === "string" && employee.bankAccount.trim()) {
       await HolidayAllowance.updateMany(

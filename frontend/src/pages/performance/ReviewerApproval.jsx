@@ -1,3 +1,4 @@
+import ReviewerViewModal from '../../components/ReviewerViewModal';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search,
@@ -13,9 +14,20 @@ import {
   Filter,
   User,
   Star,
-  FileText
+  FileText,
+  Users,
+  BarChart3,
+  Code,
+  TrendingUp,
+  Briefcase,
+  Award,
+  Maximize2,
+  History,
+  RotateCcw,
+  Target,
+  Send
 } from 'lucide-react';
-import { performanceAPI } from '../../services/api';
+import { performanceAPI, employeeAPI, promotionAPI } from '../../services/api';
 
 const StatusPopup = ({ isOpen, onClose, status, message }) => {
   if (!isOpen) return null;
@@ -98,19 +110,101 @@ const getCurrentFinancialYear = () => {
 const getPreviousFinancialYear = () => {
   const today = new Date();
   const currentStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
-  const prevStart = currentStart - 1;
-  const prevEnd = String(prevStart + 1).slice(2);
-  return `${prevStart}-${prevEnd}`;
+  const previousStart = currentStart - 1;
+  const previousEnd = String(previousStart + 1).slice(2);
+  return `${previousStart}-${previousEnd}`;
+};
+
+const getDefaultEffectiveDate = (fy) => {
+  if (!fy || !fy.includes('-')) return new Date().toISOString().split('T')[0];
+  const parts = fy.split('-');
+  const yearStart = parseInt(parts[0], 10);
+  if (isNaN(yearStart)) return new Date().toISOString().split('T')[0];
+  // Effective date is April 1st of the end of the FY (e.g., FY 2025-26 -> April 1st 2026)
+  return `${yearStart + 1}-04-01`;
+};
+
+const formatDisplayDate = (value) => {
+  if (!value) return '';
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return String(value);
+  return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+// Enhanced Rating Stars Component with Labels
+const RatingStars = ({ value, onChange, readOnly = false, size = "h-5 w-5", showValue = true }) => {
+  const stars = [1, 2, 3, 4, 5];
+  const numericValue = Number(value) || 0;
+
+  return (
+    <div className="flex items-center space-x-1">
+      {stars.map((star) => (
+        <button
+          key={star}
+          type="button"
+          onClick={() => !readOnly && onChange(star)}
+          className={`${!readOnly ? 'cursor-pointer hover:scale-110' : 'cursor-default'} transition-transform focus:outline-none`}
+          disabled={readOnly}
+        >
+          <Star
+            className={`${size} ${star <= numericValue
+              ? 'text-yellow-400 fill-yellow-400'
+              : 'text-gray-300'
+              }`}
+          />
+        </button>
+      ))}
+      {!readOnly && showValue && (
+        <span className="ml-2 text-xs text-gray-500">
+          {numericValue ? `${numericValue}/5` : 'Not rated'}
+        </span>
+      )}
+    </div>
+  );
+};
+
+// Rating Comparison Row Component
+const RatingComparisonRow = ({ label, selfValue, managerValue, onReviewerChange, isEditable }) => (
+  <div className="py-3 border-b border-gray-100 last:border-0">
+    <div className="text-sm font-semibold text-gray-700 mb-2">{label}</div>
+    <div className="flex items-center gap-6">
+      <div className="flex items-center gap-1 min-w-[140px]">
+        <span className="text-[10px] font-semibold text-gray-400 uppercase w-10 shrink-0">Self</span>
+        <RatingStars value={selfValue} readOnly={true} size="h-4 w-4" showValue={false} />
+        <span className="ml-1 text-xs text-gray-500 font-bold tabular-nums">{selfValue}/5</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <span className="text-[10px] font-semibold text-indigo-500 uppercase w-14 shrink-0">Manager</span>
+        <RatingStars
+          value={managerValue}
+          onChange={onReviewerChange}
+          readOnly={!isEditable}
+          size="h-4 w-4"
+          showValue={false}
+        />
+        <span className="ml-1 text-xs text-gray-800 font-black tabular-nums">
+          {managerValue ? `${managerValue}/5` : '—'}
+        </span>
+      </div>
+    </div>
+  </div>
+);
+
+const getReviewerFinancialYearOptions = () => {
+  const currentFY = getCurrentFinancialYear();
+  const prevFY = getPreviousFinancialYear();
+  return [prevFY, currentFY];
 };
 
 const ReviewerApproval = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFinancialYr, setSelectedFinancialYr] = useState(getPreviousFinancialYear());
+  const [selectedFinancialYr, setSelectedFinancialYr] = useState(getCurrentFinancialYear());
   const [selectedDivision, setSelectedDivision] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedRows, setSelectedRows] = useState([]);
+  const [activeReviewerTab, setActiveReviewerTab] = useState('pending');
   const [statusPopup, setStatusPopup] = useState({
     isOpen: false,
     status: 'info',
@@ -135,16 +229,86 @@ const ReviewerApproval = () => {
 
   // View Details Modal State
   const [viewModalData, setViewModalData] = useState(null);
+  const [employeeDirectory, setEmployeeDirectory] = useState([]);
+  const [promotionModal, setPromotionModal] = useState({ open: false, emp: null });
+  const [designationOptions, setDesignationOptions] = useState([]);
+  const [promotionForm, setPromotionForm] = useState({
+    newDesignation: '',
+    effectiveDate: '',
+    remarks: ''
+  });
 
-  // Fetch data
+  const [zoomModal, setZoomModal] = useState({
+    isOpen: false,
+    title: '',
+    value: '',
+    onSave: null
+  });
+
+  const openZoomedTextArea = (title, value, onSave) => {
+    setZoomModal({
+      isOpen: true,
+      title,
+      value,
+      onSave
+    });
+  };
+
+  // Dynamic Attributes State
+  const [masterAttributes, setMasterAttributes] = useState({});
+  const [enabledSections, setEnabledSections] = useState({});
+  const [isAttrModalOpen, setIsAttrModalOpen] = useState(false);
+  const [activeAttrTab, setActiveAttrTab] = useState('technical'); // technical, behaviour, process, growth
+
+  const getAttributeLabel = (section, key) => {
+    const item = masterAttributes[section]?.find(i => i.key === key);
+    if (item) return item.label;
+    // Fallback normalization
+    return key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+  };
+
+  const getEnabledItems = (sectionKey) => {
+    const enabledMap = enabledSections?.[sectionKey] || {};
+    const masterList = masterAttributes?.[sectionKey] || [];
+    return masterList.filter(attr => enabledMap[attr.key]);
+  };
+
+  // Fetch master attributes once
   useEffect(() => {
-    fetchReviewerAppraisals();
+    performanceAPI.getMasterAttributes().then(res => setMasterAttributes(res.data)).catch(err => console.error("Error fetching master attributes", err));
+  }, []);
+
+  // Fetch data when tab changes
+  useEffect(() => {
+    fetchReviewerAppraisals(activeReviewerTab);
+  }, [activeReviewerTab]);
+  useEffect(() => {
+    // When viewing or editing an employee, fetch their designation's attribute config
+    const emp = editingRowId ? editFormData : viewModalData;
+    if (!emp?.designation) return;
+
+    performanceAPI.getAttributes(emp.designation)
+      .then(res => setEnabledSections(res.data.sections || {}))
+      .catch(err => console.error("Error fetching designation attributes", err));
+  }, [editingRowId, viewModalData?.id]);
+
+  useEffect(() => {
+    employeeAPI.getAllEmployees()
+      .then(res => {
+        const list = Array.isArray(res.data) ? res.data : [];
+        setEmployeeDirectory(list);
+        const options = Array.from(new Set(list.map(e => e.designation || e.role || e.position).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+        setDesignationOptions(options);
+      })
+      .catch(() => {
+        setEmployeeDirectory([]);
+        setDesignationOptions([]);
+      });
   }, []);
 
   const uniqueYears = useMemo(() => {
-    const years = [...new Set(employees.map(e => e.financialYr).filter(Boolean))].sort();
-    return years.length ? years : [getPreviousFinancialYear()];
-  }, [employees]);
+    return getReviewerFinancialYearOptions();
+  }, []);
 
   useEffect(() => {
     if (!uniqueYears.length) return;
@@ -153,30 +317,50 @@ const ReviewerApproval = () => {
     }
   }, [uniqueYears, selectedFinancialYr]);
 
-  const fetchReviewerAppraisals = async () => {
+  const fetchReviewerAppraisals = async (tab = activeReviewerTab) => {
     setLoading(true);
     try {
-      const response = await performanceAPI.getReviewerAppraisals();
+      const response = await performanceAPI.getReviewerAppraisals({ tab });
       const raw = response.data || [];
-      const enhanced = raw.map(emp => {
+      const enhanced = await Promise.all(raw.map(async emp => {
         const current = Number(emp.currentSalary || 0);
-        const pct = Number(emp.incrementPercentage || 0);
+        let pct = 0;
         const correctionPct = Number(emp.incrementCorrectionPercentage || 0);
-        const hasComputed = Number(emp.incrementAmount || 0) !== 0 || Number(emp.revisedSalary || 0) !== 0;
-        if (current > 0 && (pct !== 0 || correctionPct !== 0) && !hasComputed) {
-          const { incrementAmount, revisedSalary } = calculateFinancials(
-            current,
-            pct,
-            correctionPct
-          );
-          return {
-            ...emp,
-            incrementAmount,
-            revisedSalary
-          };
+        const rating = (emp.managerReview?.performanceRating || emp.appraiserRating || '').split(' ')[0];
+        try {
+          if (emp.financialYr && emp.designation && rating) {
+            const calcRes = await performanceAPI.calculateIncrementFromMatrix({
+              financialYear: emp.financialYr,
+              designation: emp.designation,
+              rating
+            });
+            if (calcRes.data && calcRes.data.success) {
+              pct = Number(calcRes.data.percentage || 0);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to suggest increment from matrix", e);
+          pct = 0;
         }
-        return emp;
-      });
+
+        const { incrementAmount, revisedSalary } = calculateFinancials(
+          current,
+          pct,
+          correctionPct
+        );
+
+        return {
+          ...emp,
+          incrementPercentage: pct,
+          incrementAmount,
+          revisedSalary,
+          // Map promotion fields to flat state for UI
+          promotionRecommendedByReviewer: emp.promotion?.recommended || false,
+          promotionRemarksReviewer: emp.promotion?.remarksReviewer || '',
+          newDesignation: emp.promotion?.newDesignation || '',
+          promotionEffectiveDate: emp.promotion?.effectiveDate || ''
+        };
+      }));
       setEmployees(enhanced);
     } catch (error) {
       console.error('Error fetching appraisals:', error);
@@ -203,9 +387,57 @@ const ReviewerApproval = () => {
     };
   };
 
-  const handleEditClick = (emp) => {
-    setEditingRowId(emp.id);
-    setEditFormData({ ...emp });
+  const handleEditClick = async (emp) => {
+    try {
+      // Automatic status transition on open (submitted -> managerInProgress)
+      const res = await performanceAPI.openReviewerAppraisal(emp.id);
+
+      const effectiveDate = emp.effectiveDate || getDefaultEffectiveDate(emp.financialYr || emp.financialYear || selectedFinancialYr);
+      const editData = {
+        ...emp,
+        status: res.data?.status || emp.status,
+        effectiveDate,
+        promotionRecommendedByReviewer: emp.promotion?.recommended || false,
+        promotionRemarksReviewer: emp.promotion?.remarksReviewer || '',
+        newDesignation: emp.promotion?.newDesignation || '',
+        promotionEffectiveDate: emp.promotion?.effectiveDate || '',
+        newPromotionRemarkReviewer: ''
+      };
+
+      setEditingRowId(emp.id);
+      const processedData = calculateAutoFields(editData);
+      setEditFormData(processedData);
+      setViewModalData(processedData);
+    } catch (error) {
+      console.error('Failed to open record:', error);
+      // Fallback: still open the modal even if API transition fails (might already be in-progress)
+      setViewModalData(emp);
+    }
+  };
+
+  const handleInlineEditClick = async (emp) => {
+    try {
+      const res = await performanceAPI.openReviewerAppraisal(emp.id);
+
+      const effectiveDate = emp.effectiveDate || getDefaultEffectiveDate(emp.financialYr || emp.financialYear || selectedFinancialYr);
+      const editData = {
+        ...emp,
+        status: res.data?.status || emp.status,
+        effectiveDate,
+        promotionRecommendedByReviewer: emp.promotion?.recommended || false,
+        promotionRemarksReviewer: emp.promotion?.remarksReviewer || '',
+        newDesignation: emp.promotion?.newDesignation || '',
+        promotionEffectiveDate: emp.promotion?.effectiveDate || '',
+        newPromotionRemarkReviewer: ''
+      };
+
+      setEditingRowId(emp.id);
+      setEditFormData(calculateAutoFields(editData));
+    } catch (error) {
+      console.error('Failed to open record for inline edit:', error);
+      setEditingRowId(emp.id);
+      setEditFormData(calculateAutoFields(emp));
+    }
   };
 
   const handleCancelEdit = () => {
@@ -217,11 +449,16 @@ const ReviewerApproval = () => {
     try {
       const {
         reviewerComments,
+        managerComments,
+        appraiserRating,
         incrementPercentage,
         incrementCorrectionPercentage,
         incrementAmount,
         revisedSalary,
-        performancePay
+        performancePay,
+        promotionRecommendedByReviewer,
+        promotionRemarksReviewer,
+        newDesignation
       } = editFormData;
 
       const rounded = calculateFinancials(
@@ -236,12 +473,31 @@ const ReviewerApproval = () => {
         incrementCorrectionPercentage,
         incrementAmount: rounded.incrementAmount,
         revisedSalary: rounded.revisedSalary,
-        performancePay
+        performancePay,
+        // Wrap promotion into object for backend
+        promotion: {
+          recommended: promotionRecommendedByReviewer,
+          remarksReviewer: promotionRemarksReviewer,
+          newDesignation: newDesignation,
+          effectiveDate: editFormData.promotionEffectiveDate
+        },
+        // Include the ratings
+        behaviourManagerRatings: editFormData.behaviourManagerRatings,
+        processManagerRatings: editFormData.processManagerRatings,
+        technicalManagerRatings: editFormData.technicalManagerRatings,
+        growthManagerRatings: editFormData.growthManagerRatings,
+        effectiveDate: editFormData.effectiveDate,
+        keyPerformance: editFormData.keyPerformance,
+        leadership: editFormData.leadership,
+        attitude: editFormData.attitude,
+        communication: editFormData.communication,
+        managerComments,
+        appraiserRating
       });
 
-      setEmployees(employees.map(emp =>
-        emp.id === editingRowId ? { ...editFormData, ...rounded } : emp
-      ));
+      // Reload the data from backend to get updated history or manually construct it for optimism
+      fetchReviewerAppraisals();
+
       setEditingRowId(null);
       setEditFormData({});
       setStatusPopup({
@@ -259,22 +515,14 @@ const ReviewerApproval = () => {
     }
   };
 
-  const handleDelete = (id) => {
-    // Should probably not allow delete here, or implement API
-    if (window.confirm("Are you sure you want to delete this record?")) {
-      setEmployees(employees.filter(emp => emp.id !== id));
-      setSelectedRows(selectedRows.filter(rowId => rowId !== id));
-    }
-  };
-
   const handleInputChange = (field, value) => {
     let newData = { ...editFormData, [field]: value };
 
     if (field === 'incrementPercentage' || field === 'incrementCorrectionPercentage') {
       const { incrementAmount, revisedSalary } = calculateFinancials(
         newData.currentSalary,
-        field === 'incrementPercentage' ? value : newData.incrementPercentage,
-        field === 'incrementCorrectionPercentage' ? value : newData.incrementCorrectionPercentage
+        newData.incrementPercentage || 0,
+        newData.incrementCorrectionPercentage || 0
       );
       newData.incrementAmount = incrementAmount;
       newData.revisedSalary = revisedSalary;
@@ -282,6 +530,139 @@ const ReviewerApproval = () => {
 
     setEditFormData(newData);
   };
+
+  const getMatrixIncrement = (designation, rating) => {
+    const d = String(designation || '').toLowerCase();
+    const r = String(rating || '').split(' (')[0]; // Extract ES, ME, BE from "ES (4.5/5)"
+
+    // Category 1: Admin, Sr/Asst PM, Branch Mgr
+    if (d.includes('admin manager') || d.includes('asst project manager') || d.includes('sr project manager') || d.includes('branch manager')) {
+      if (r === 'ES') return 8;
+      if (r === 'ME') return 4;
+      if (r === 'BE') return 2;
+    }
+
+    // Category 2: Project Co-Ordinator, Team Lead
+    if (d.includes('project co-ordinator') || d.includes('team lead')) {
+      if (r === 'ES') return 10;
+      if (r === 'ME') return 5;
+      if (r === 'BE') return 3;
+    }
+
+    // Category 3: Sys Eng, Sr Eng, IT Admin, Soft Dev
+    if (d.includes('system engineer') || d.includes('sr.engineer') || d.includes('it admin') || d.includes('software developer')) {
+      if (r === 'ES') return 12;
+      if (r === 'ME') return 8;
+      if (r === 'BE') return 5;
+    }
+
+    // Category 4: Detailer, Jr Eng, Modeler, Office Asst, Trainee
+    if (d.includes('detailer') || d.includes('jr.engineer') || d.includes('modeler') || d.includes('office assistant') || d.includes('trainee')) {
+      if (r === 'ES') return 15;
+      if (r === 'ME') return 10;
+      if (r === 'BE') return 5;
+    }
+
+    return 0; // Default
+  };
+
+  const calculateAutoFields = (data) => {
+    let newData = { ...data };
+    // Update Financials with current increment % and correction %
+    const { incrementAmount, revisedSalary } = calculateFinancials(
+      newData.currentSalary,
+      newData.incrementPercentage,
+      newData.incrementCorrectionPercentage || 0
+    );
+    newData.incrementAmount = incrementAmount;
+    newData.revisedSalary = revisedSalary;
+
+    return newData;
+  };
+
+  const handleRatingChange = (category, field, value) => {
+    const mapKey = `${category}ManagerRatings`;
+    let newData = {
+      ...editFormData,
+      [mapKey]: {
+        ...(editFormData[mapKey] || {}),
+        [field]: value
+      }
+    };
+
+    // Ratings are qualitative only; do not auto-calculate increment from them
+    newData = calculateAutoFields(newData);
+    setEditFormData(newData);
+  };
+
+  const handleOpenPromotion = (emp) => {
+    const isEditing = editingRowId === emp.id;
+    const data = isEditing ? editFormData : emp;
+
+    setPromotionModal({ open: true, emp });
+    setPromotionForm({
+      newDesignation: data.newDesignation || emp.designation || '',
+      effectiveDate: data.promotionEffectiveDate || emp.promotion?.effectiveDate || getDefaultEffectiveDate(emp.financialYr || selectedFinancialYr),
+      remarks: data.promotionRemarksReviewer || ''
+    });
+  };
+
+  const handleSavePromotion = () => {
+    const { newDesignation, effectiveDate, remarks } = promotionForm;
+
+    if (!newDesignation) {
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: 'Please select a new designation.'
+      });
+      return;
+    }
+
+    const updateData = {
+      promotionRecommendedByReviewer: true,
+      newDesignation,
+      promotionEffectiveDate: effectiveDate,
+      promotionRemarksReviewer: remarks,
+      promotionStatus: 'recommended'
+    };
+
+    if (editingRowId === promotionModal.emp.id) {
+      setEditFormData(prev => ({ ...prev, ...updateData }));
+    } else {
+      setEmployees(prev => prev.map(e => e.id === promotionModal.emp.id ? { ...e, ...updateData } : e));
+      // Auto-enter edit mode to allow saving the changes
+      handleEditClick(promotionModal.emp);
+      setEditFormData(prev => ({ ...prev, ...updateData }));
+    }
+
+    setPromotionModal({ open: false, emp: null });
+  };
+
+  const handleRemovePromotion = () => {
+    const updateData = {
+      promotionRecommendedByReviewer: false,
+      newDesignation: '',
+      promotionRemarksReviewer: '',
+      promotionStatus: 'none'
+    };
+
+    if (editingRowId === promotionModal.emp.id) {
+      setEditFormData(prev => ({ ...prev, ...updateData }));
+    } else {
+      setEmployees(prev => prev.map(e => e.id === promotionModal.emp.id ? { ...e, ...updateData } : e));
+    }
+    setPromotionModal({ open: false, emp: null });
+  };
+
+  useEffect(() => {
+    const emp = editingRowId ? editFormData : viewModalData;
+    if (!emp?.designation) return;
+
+    performanceAPI.getAttributes(emp.designation)
+      .then(res => setEnabledSections(res.data.sections || {}))
+      .catch(err => console.error("Error fetching designation attributes", err));
+  }, [editingRowId, viewModalData?.id]);
 
   const handlePerformancePayChange = (id, rawValue) => {
     const raw = String(rawValue ?? '');
@@ -326,14 +707,12 @@ const ReviewerApproval = () => {
   };
 
   const saveComment = async () => {
-    // If editing inline, just update local state
     if (editingRowId === currentCommentEmpId) {
       setEditFormData({ ...editFormData, reviewerComments: tempComment });
       setIsCommentModalOpen(false);
       return;
     }
 
-    // If not inline editing, save to backend immediately
     try {
       await performanceAPI.updateReviewerAppraisal(currentCommentEmpId, {
         reviewerComments: tempComment
@@ -369,9 +748,12 @@ const ReviewerApproval = () => {
     }
 
     const candidates = employees.filter(emp => selectedRows.includes(emp.id));
-    const rowsToSubmit = candidates.filter(emp => emp.status === 'APPRAISER_COMPLETED');
+    // Valid for submission if it has passed the appraiser stage OR was pushed back specifically to reviewer
+    const rowsToSubmit = candidates.filter(emp =>
+      ['reviewerPending', 'reviewerInProgress', 'directorPushedBack'].includes(emp.status) ||
+      emp.promotionStatus === 'sentBack'
+    );
 
-    // Validation: Ensure all selected rows have been reviewed (comments added)
     const unreviewed = rowsToSubmit.filter(emp => !emp.reviewerComments || emp.reviewerComments.trim() === '');
     if (unreviewed.length > 0) {
       setStatusPopup({
@@ -406,7 +788,7 @@ const ReviewerApproval = () => {
       return;
     }
     try {
-      await performanceAPI.submitToDirector(submitConfirm.ids);
+      await performanceAPI.reviewerSubmitToDirector(submitConfirm.ids);
       setStatusPopup({
         isOpen: true,
         status: 'success',
@@ -426,11 +808,52 @@ const ReviewerApproval = () => {
     }
   };
 
+  const handleSingleSubmitToDirector = async (empId) => {
+    try {
+      // Basic check: we need reviewer comments
+      const emp = editFormData.id === empId ? editFormData : employees.find(e => e.id === empId);
+      if (!emp || !emp.reviewerComments || emp.reviewerComments.trim() === '') {
+        setStatusPopup({
+          isOpen: true,
+          status: 'error',
+          message: 'Please add reviewer comments before submitting.'
+        });
+        return;
+      }
+
+      // First save if it's currently being edited
+      if (editingRowId === empId) {
+        await handleSaveRow();
+      }
+
+      await performanceAPI.reviewerSubmitToDirector([empId]);
+
+      setStatusPopup({
+        isOpen: true,
+        status: 'success',
+        message: 'Record submitted to Director successfully!'
+      });
+
+      setViewModalData(null);
+      setEditingRowId(null);
+      fetchReviewerAppraisals();
+    } catch (error) {
+      console.error('Submission failed', error);
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: 'Failed to submit to Director.'
+      });
+    }
+  };
+
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      // Only select pending records
       const pendingRecords = filteredEmployees
-        .filter(emp => emp.status === 'APPRAISER_COMPLETED')
+        .filter(emp =>
+          ['reviewerPending', 'reviewerInProgress', 'directorPushedBack', 'managerApproved'].includes(emp.status) ||
+          emp.promotionStatus === 'sentBack'
+        )
         .map(emp => emp.id);
       setSelectedRows(pendingRecords);
     } else {
@@ -438,25 +861,81 @@ const ReviewerApproval = () => {
     }
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusLabel = (status) => {
     switch (status) {
-      case 'Submitted':
-      case 'SUBMITTED':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800">Pending Appraiser</span>;
-      case 'APPRAISER_COMPLETED':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">Pending Review</span>;
-      case 'REVIEWER_COMPLETED':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Submitted</span>;
-      case 'DIRECTOR_APPROVED':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Approved</span>;
-      case 'Released':
-      case 'RELEASED':
-      case 'Released Letter':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Released</span>;
-      case 'Accepted':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">Accepted</span>;
+      case 'submitted': return 'Pending Review';
+      case 'managerInProgress': return 'Under Review';
+      case 'reviewerPending':
+      case 'managerApproved': return 'Reviewer Pending';
+      case 'reviewerInProgress': return 'Reviewer Working';
+      case 'reviewerApproved': return 'Ready for Director';
+      case 'directorInProgress': return 'Under Director Review';
+      case 'directorPushedBack': return 'Returned for Correction';
+      case 'directorApproved': return 'Approved';
+      case 'released': return 'Completed';
+      case 'accepted_pending_effect': return 'Accepted (Pending Effect)';
+      case 'effective': return 'Completed';
+      default: return status;
+    }
+  };
+
+  const getStatusBadge = (status) => {
+    const label = getStatusLabel(status);
+    switch (status) {
+      case 'submitted':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">{label}</span>;
+      case 'managerInProgress':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-800">{label}</span>;
+      case 'reviewerPending':
+      case 'managerApproved':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-orange-100 text-orange-800 animate-pulse">{label}</span>;
+      case 'reviewerInProgress':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">{label}</span>;
+      case 'reviewerApproved':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 font-black">{label}</span>;
+      case 'directorPushedBack':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 animate-bounce">{label}</span>;
+      case 'directorApproved':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">{label}</span>;
+      case 'released':
+      case 'effective':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-teal-100 text-teal-800">{label}</span>;
+      case 'accepted_pending_effect':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">{label}</span>;
       default:
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{status}</span>;
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{label}</span>;
+    }
+  };
+
+  const getPromotionStatusBadge = (emp) => {
+    const promoStatus = emp.promotionStatus;
+    switch (promoStatus) {
+      case 'recommended':
+        return <span className="px-2 py-1 text-[10px] font-bold rounded-full bg-blue-100 text-blue-700 uppercase tracking-wider border border-blue-200 shadow-sm">Recommended</span>;
+      case 'pendingDirector':
+        return <span className="px-2 py-1 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700 uppercase tracking-wider border border-amber-200 shadow-sm">Pending Director</span>;
+      case 'approved':
+        return <span className="px-2 py-1 text-[10px] font-bold rounded-full bg-green-100 text-green-700 uppercase tracking-wider border border-green-200 shadow-sm">Approved</span>;
+      case 'rejected':
+        return <span className="px-2 py-1 text-[10px] font-bold rounded-full bg-red-100 text-red-700 uppercase tracking-wider border border-red-200 shadow-sm">Rejected</span>;
+      case 'sentBack':
+        return (
+          <div className="flex flex-col items-center gap-1">
+            <span className="px-2 py-1 text-[10px] font-bold rounded-full bg-orange-100 text-orange-700 uppercase tracking-wider border border-orange-200 shadow-sm">Returned by Director</span>
+            {emp.promotionRemarksDirector && (
+              <div className="mt-1 max-w-[150px] p-2 bg-orange-50 border border-orange-100 rounded text-[9px] text-orange-800 leading-tight italic shadow-sm relative group cursor-help">
+                <span className="font-bold flex items-center gap-1 mb-1">
+                  <MessageSquare className="h-2 w-2" /> Director's Note:
+                </span>
+                <span className="line-clamp-3 group-hover:line-clamp-none transition-all duration-300">
+                  {emp.promotionRemarksDirector}
+                </span>
+              </div>
+            )}
+          </div>
+        );
+      default:
+        return null;
     }
   };
 
@@ -473,18 +952,44 @@ const ReviewerApproval = () => {
 
   const uniqueDivisions = [...new Set(employees.map(getDivisionValue).filter(Boolean))].sort();
   const uniqueLocations = [...new Set(employees.map(getLocationValue).filter(Boolean))].sort();
+  const REVIEWER_PENDING_STATUSES = ['reviewerPending', 'reviewerInProgress', 'directorPushedBack', 'managerApproved'];
+  const REVIEWER_COMPLETED_STATUSES = ['reviewerApproved', 'directorInProgress', 'directorApproved', 'released', 'Released Letter', 'accepted_pending_effect'];
+
   const filteredEmployees = employees.filter(emp =>
     (emp.financialYr === selectedFinancialYr) &&
     (selectedDivision === '' || getDivisionValue(emp) === selectedDivision) &&
     (selectedLocation === '' || getLocationValue(emp) === selectedLocation) &&
     (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.empId.toLowerCase().includes(searchTerm.toLowerCase()))
-  );
+      emp.empId.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (activeReviewerTab === 'pending'
+      ? REVIEWER_PENDING_STATUSES.includes(emp.status)
+      : REVIEWER_COMPLETED_STATUSES.includes(emp.status))
+  ).sort((a, b) => {
+    // Priority:
+    // 1. Pending (SUBMITTED_BY_MANAGER or status that needs reviewer action)
+    // 2. Submitted to Director (status that is beyond reviewer)
+    // 3. Released/Accepted
+    const getPrio = (a) => {
+      const s = String(a.status || '').trim();
+      // Prio 1: Action Required by Reviewer
+      if (['reviewerPending', 'reviewerInProgress', 'directorPushedBack', 'managerApproved'].includes(s) || a.promotionStatus === 'sentBack') return 1;
+      // Prio 2: Submitted to Director (Wait for approval)
+      if (['reviewerApproved', 'directorInProgress'].includes(s)) return 2;
+      // Prio 3: Director Approved
+      if (['directorApproved'].includes(s)) return 3;
+      // Prio 4: Finalized
+      if (['Released Letter', 'released', 'Accepted', 'accepted_pending_effect', 'effective', 'COMPLETED'].includes(s)) return 4;
+      return 5; // Others
+    };
+    const pa = getPrio(a);
+    const pb = getPrio(b);
+    if (pa !== pb) return pa - pb;
+    return a.name.localeCompare(b.name);
+  });
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
       <div className="max-w-[98%] mx-auto">
-
 
         {/* Top Controls */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
@@ -493,13 +998,14 @@ const ReviewerApproval = () => {
             <select
               value={selectedFinancialYr}
               onChange={(e) => setSelectedFinancialYr(e.target.value)}
-              className="block w-40 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
+              className="block w-48 pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
             >
-              {uniqueYears.map(year => (
-                <option key={year} value={year}>{year}</option>
+              {getReviewerFinancialYearOptions().map(year => (
+                <option key={year} value={year}>
+                  {year === getCurrentFinancialYear() ? `${year} (Current)` : year}
+                </option>
               ))}
             </select>
-
 
             {/* Search Box */}
             <div className="relative">
@@ -536,23 +1042,64 @@ const ReviewerApproval = () => {
                 <option key={loc} value={loc}>{loc}</option>
               ))}
             </select>
-
-
           </div>
 
           {/* Submit Button */}
           <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-500">
-              {selectedRows.length > 0 ? `${selectedRows.length} selected` : 'All records'}
+            <span className="text-sm text-gray-500 font-medium whitespace-nowrap">
+              {selectedRows.length} selected
             </span>
             <button
               onClick={handleSubmitToDirector}
-              className="flex items-center px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] transition-colors shadow-sm"
+              disabled={selectedFinancialYr !== getCurrentFinancialYear() || selectedRows.length === 0}
+              className={`flex items-center px-4 py-2 text-white rounded-md transition-all shadow-sm ${selectedFinancialYr === getCurrentFinancialYear() && selectedRows.length > 0 ? 'bg-[#262760] hover:bg-[#1e2050]' : 'bg-gray-300 cursor-not-allowed'}`}
             >
               <CheckCircle className="h-4 w-4 mr-2" />
               Submit to Director
             </button>
           </div>
+        </div>
+
+        {selectedFinancialYr !== getCurrentFinancialYear() && (
+          <div className="mb-6 bg-orange-50 border-2 border-orange-200 rounded-xl p-4 flex items-center gap-3 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-orange-100 p-2 rounded-full">
+              <AlertCircle className="h-5 w-5 text-orange-600" />
+            </div>
+            <div>
+              <p className="text-orange-900 font-black uppercase text-[11px] tracking-widest">Historical View Only</p>
+              <p className="text-sm text-orange-800 font-medium">Appraisal period for <strong>FY {selectedFinancialYr}</strong> has ended. Please select the current financial year to manage appraisals.</p>
+            </div>
+          </div>
+        )}
+
+        {/* Pending / Completed Tab Toggle */}
+        <div className="inline-flex mb-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <button
+            onClick={() => { setActiveReviewerTab('pending'); setSelectedRows([]); }}
+            className={`px-6 py-2.5 text-sm font-semibold transition-all ${
+              activeReviewerTab === 'pending'
+                ? 'bg-[#262760] text-white shadow-inner'
+                : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Pending
+            {activeReviewerTab === 'pending' && filteredEmployees.length > 0 && (
+              <span className="ml-1">{filteredEmployees.length}</span>
+            )}
+          </button>
+          <button
+            onClick={() => { setActiveReviewerTab('completed'); setSelectedRows([]); }}
+            className={`px-6 py-2.5 text-sm font-semibold transition-all ${
+              activeReviewerTab === 'completed'
+                ? 'bg-[#262760] text-white shadow-inner'
+                : 'text-gray-500 hover:bg-gray-50'
+            }`}
+          >
+            Completed
+            {activeReviewerTab === 'completed' && filteredEmployees.length > 0 && (
+              <span className="ml-1">{filteredEmployees.length}</span>
+            )}
+          </button>
         </div>
 
         {/* Table */}
@@ -567,21 +1114,24 @@ const ReviewerApproval = () => {
                     <input
                       type="checkbox"
                       className="rounded border-gray-300 text-[#262760] focus:ring-[#262760]"
-                      checked={selectedRows.length > 0 && selectedRows.length === filteredEmployees.filter(e => e.status === 'APPRAISER_COMPLETED').length}
+                      checked={selectedRows.length > 0 && selectedRows.length === filteredEmployees.filter(e => ['reviewerPending', 'reviewerInProgress', 'directorPushedBack', 'managerApproved'].includes(e.status) || e.promotionStatus === 'sentBack').length}
                       onChange={handleSelectAll}
                     />
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">S.No</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee Name</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Reviewer Comments</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Final Rating</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Current Salary</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Increment %</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Increment Correction %</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Increment Amount</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Revised Salary</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Performance Pay</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Effective Date</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Reviewer Comments</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Recommend Promotion</th>
+                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -590,7 +1140,10 @@ const ReviewerApproval = () => {
                   const isEditing = editingRowId === emp.id;
                   const data = isEditing ? editFormData : emp;
                   const isSelected = selectedRows.includes(emp.id);
-                  const isEditable = emp.status === 'APPRAISER_COMPLETED';
+                  const isEditable =
+                    ['reviewerPending', 'reviewerInProgress', 'directorPushedBack'].includes(emp.status);
+                  const canShowPromotionOption = emp.promotionEligible === true || emp.appraiserRating === 'ES' || emp.appraiserRating === 'ME';
+                  const isPromotionRecommended = isEditing ? editFormData.promotionRecommendedByReviewer : emp.promotionRecommendedByReviewer;
                   const performancePayValue =
                     performancePayDrafts[emp.id] !== undefined
                       ? performancePayDrafts[emp.id]
@@ -607,97 +1160,190 @@ const ReviewerApproval = () => {
                           disabled={!isEditable}
                         />
                       </td>
+                      {/* S.No */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
+                      {/* Employee ID */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{data.empId}</td>
+                      {/* Employee Name */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{data.name}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-center">
-                        {getStatusBadge(emp.status)}
-                      </td>
+                      {/* Final Rating */}
                       <td className="px-4 py-4 text-center">
-                        {isEditing ? (
-                          <textarea
-                            className="w-full border border-gray-300 rounded p-1 text-xs focus:ring-[#262760] focus:border-[#262760] resize-none"
-                            rows={2}
-                            value={data.reviewerComments || ''}
-                            onChange={(e) => handleInputChange('reviewerComments', e.target.value)}
-                            placeholder="Enter comments..."
-                          />
-                        ) : (
-                          <div
-                            className={`text-xs text-gray-700 max-w-[200px] truncate mx-auto ${isEditable ? 'cursor-pointer hover:text-[#262760]' : ''}`}
-                            onClick={() => isEditable && openCommentModal(emp)}
-                            title={data.reviewerComments || 'Click to add comments'}
-                          >
-                            {data.reviewerComments || <span className="text-gray-400 italic">Add comments...</span>}
-                          </div>
-                        )}
+                        <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${String(data.appraiserRating || '').includes('ES') ? 'bg-green-100 text-green-700' :
+                          String(data.appraiserRating || '').includes('ME') ? 'bg-blue-100 text-blue-700' :
+                            String(data.appraiserRating || '').includes('BE') ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-700'
+                          }`}>
+                          {data.appraiserRating || 'Not Rated'}
+                        </span>
                       </td>
+                      {/* Current Salary */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {Number(data.currentSalary || 0).toLocaleString('en-IN')}
+                        {Number(emp.currentSalary || 0).toLocaleString('en-IN')}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                        <span className="font-medium text-gray-700">{data.incrementPercentage}%</span>
+                      {/* Increment % */}
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center font-medium">
+                        {emp.incrementPercentage || 0}%
                       </td>
+                      {/* Increment Correction % (editable) */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                         {isEditing ? (
-                          <div className="relative">
+                          <div className="flex items-center justify-center">
                             <input
                               type="number"
-                              className="w-16 px-2 py-1 border border-gray-300 rounded text-right focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-4"
-                              value={data.incrementCorrectionPercentage}
+                              className="w-16 border border-gray-300 rounded p-1 text-center shadow-sm focus:ring-[#262760] focus:border-[#262760]"
+                              value={data.incrementCorrectionPercentage || ''}
                               onChange={(e) => handleInputChange('incrementCorrectionPercentage', e.target.value)}
                             />
-                            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
+                            <span className="ml-1">%</span>
                           </div>
                         ) : (
-                          <span className={`${data.incrementCorrectionPercentage !== 0 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
-                            {data.incrementCorrectionPercentage > 0 ? '+' : ''}{data.incrementCorrectionPercentage}%
+                          <span className={`${emp.incrementCorrectionPercentage !== 0 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+                            {emp.incrementCorrectionPercentage > 0 ? '+' : ''}{emp.incrementCorrectionPercentage}%
                           </span>
                         )}
                       </td>
+                      {/* Increment Amount */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium text-green-600">
                         {Number(data.incrementAmount || 0).toLocaleString('en-IN')}
                       </td>
+                      {/* Revised Salary */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
                         {Number(data.revisedSalary || 0).toLocaleString('en-IN')}
                       </td>
+                      {/* Performance Pay (editable) */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded text-right focus:ring-[#262760] focus:border-[#262760] sm:text-sm disabled:bg-gray-100 disabled:text-gray-500"
-                          value={performancePayValue}
-                          onChange={(e) => handlePerformancePayChange(emp.id, e.target.value)}
-                          disabled={!isEditable}
-                        />
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            className="w-20 border border-gray-300 rounded p-1 text-right shadow-sm focus:ring-[#262760] focus:border-[#262760]"
+                            value={data.performancePay || ''}
+                            onChange={(e) => handleInputChange('performancePay', e.target.value)}
+                          />
+                        ) : (
+                          Number(emp.performancePay || 0).toLocaleString('en-IN')
+                        )}
                       </td>
+                      {/* Effective Date (editable) */}
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                        {isEditing ? (
+                          <input
+                            type="date"
+                            className="w-32 border border-gray-300 rounded p-1 text-xs shadow-sm focus:ring-[#262760] focus:border-[#262760]"
+                            value={data.effectiveDate ? new Date(data.effectiveDate).toISOString().split('T')[0] : ''}
+                            onChange={(e) => handleInputChange('effectiveDate', e.target.value)}
+                          />
+                        ) : (
+                          <span className="text-gray-700 font-medium">{emp.effectiveDate ? formatDisplayDate(emp.effectiveDate) : <span className="text-gray-400 italic">Not set</span>}</span>
+                        )}
+                      </td>
+                      {/* Reviewer Comments (editable) */}
+                      <td className="px-4 py-4 text-center max-w-[200px]">
+                        {isEditing ? (
+                          <div className="flex items-center justify-center gap-1">
+                            <textarea
+                              rows={2}
+                              className="w-40 border border-gray-300 rounded p-1 text-xs shadow-sm focus:ring-[#262760] focus:border-[#262760] resize-none"
+                              value={data.reviewerComments || ''}
+                              onChange={(e) => handleInputChange('reviewerComments', e.target.value)}
+                              placeholder="Add comments..."
+                            />
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-700 line-clamp-2">
+                            {emp.reviewerComments || <span className="text-gray-400 italic">No comments</span>}
+                          </span>
+                        )}
+                      </td>
+                      {/* Recommend Promotion */}
+                      <td className="px-4 py-4 text-center text-sm text-gray-900 border-l border-r border-gray-100 max-w-[160px]">
+                        {isEditing ? (
+                          <div className="flex flex-col items-center gap-1">
+                             <button
+                               onClick={() => handleOpenPromotion(emp)}
+                               className="bg-purple-50 text-purple-700 hover:bg-purple-100 px-3 py-1 rounded text-xs font-semibold whitespace-nowrap border border-purple-200 transition-colors"
+                             >
+                               {data.promotionRecommendedByReviewer ? 'Edit Promotion' : 'Suggest Promotion'}
+                             </button>
+                             {data.promotionRecommendedByReviewer && (
+                                <span className="text-[10px] text-gray-500 leading-tight">
+                                  {data.newDesignation}
+                                </span>
+                             )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-col gap-1 items-center">
+                             {data.promotionRecommendedByReviewer ? (
+                               <div className="flex flex-col items-center">
+                                  <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">Recommended</span>
+                                  {data.newDesignation && (
+                                    <span className="text-[10px] text-gray-500 mt-1 leading-tight text-center" title={`${emp.designation} ➔ ${data.newDesignation}`}>
+                                      <span className="line-through opacity-70">{emp.designation}</span> <br/>⬇<br/> <span className="font-bold text-gray-700">{data.newDesignation}</span>
+                                    </span>
+                                  )}
+                               </div>
+                             ) : (
+                               <span className="text-xs text-gray-400 italic">No</span>
+                             )}
+                          </div>
+                        )}
+                      </td>
+                      {/* Status */}
+                      <td className="px-4 py-4 text-center">
+                        <div className="flex flex-col items-center gap-1">
+                          {getStatusBadge(emp.status)}
+                          {getPromotionStatusBadge(emp)}
+                          {emp.status === 'directorPushedBack' && emp.pushBack?.reason && (
+                            <div className="mt-1 px-2 py-1 bg-red-50 border border-red-200 rounded text-[10px] text-red-700 font-bold max-w-[120px] truncate" title={emp.pushBack.reason}>
+                              ⚠ Director Comment: {emp.pushBack.reason}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                      {/* Actions */}
                       <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
                         <div className="flex justify-center items-center space-x-2">
-                          {isEditing ? (
-                            <>
-                              <button onClick={handleSaveRow} className="text-green-600 hover:text-green-900" title="Save">
-                                <Save className="h-5 w-5" />
-                              </button>
-                              <button onClick={handleCancelEdit} className="text-red-600 hover:text-red-900" title="Cancel">
-                                <X className="h-5 w-5" />
-                              </button>
-                            </>
-                          ) : (
+                          <button
+                            className="flex items-center space-x-1 bg-white text-gray-700 px-3 py-1.5 rounded text-xs hover:bg-gray-50 transition-all shadow-sm border border-gray-200"
+                            onClick={() => { setViewModalData(emp); setEditingRowId(null); }}
+                          >
+                            <Eye className="h-4 w-4 text-gray-500" />
+                            <span>View</span>
+                          </button>
+
+                          {isEditable && !isEditing && (
+                            <button
+                              className="flex items-center space-x-1 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded text-xs hover:bg-indigo-100 transition-all shadow-sm border border-indigo-200"
+                              onClick={() => handleInlineEditClick(emp)}
+                            >
+                              <Edit className="h-4 w-4" />
+                              <span>Edit</span>
+                            </button>
+                          )}
+
+                          {isEditing && (
                             <>
                               <button
-                                className="text-blue-400 hover:text-gray-600"
-                                title="View Details"
-                                onClick={() => setViewModalData(emp)}
+                                className="flex items-center space-x-1 bg-emerald-600 text-white px-2 py-1.5 rounded text-xs hover:bg-emerald-700 transition-all shadow-sm"
+                                onClick={() => handleSaveRow()}
+                                title="Save Draft"
                               >
-                                <Eye className="h-5 w-5" />
+                                <Save className="h-3.5 w-3.5" />
                               </button>
-                              {isEditable && (
-                                <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900 flex items-center gap-1" title="Edit">
-                                  <Edit className="h-4 w-4" />
-                                  <span>Edit</span>
-                                </button>
-                              )}
-
+                              <button
+                                className="flex items-center space-x-1 bg-[#262760] text-white px-2 py-1.5 rounded text-xs hover:bg-[#1e2050] transition-all shadow-sm"
+                                onClick={() => handleSingleSubmitToDirector(emp.id)}
+                                title="Submit to Director"
+                              >
+                                <Send className="h-3.5 w-3.5" />
+                                <span>Submit</span>
+                              </button>
+                              <button
+                                className="flex items-center space-x-1 bg-white text-red-600 px-2 py-1.5 rounded text-xs hover:bg-red-50 transition-all shadow-sm border border-red-200"
+                                onClick={() => handleCancelEdit()}
+                                title="Cancel"
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </button>
                             </>
                           )}
                         </div>
@@ -787,170 +1433,136 @@ const ReviewerApproval = () => {
         </div>
       )}
 
-      {/* View Details Modal */}
-      {viewModalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 bg-[#262760] text-white flex justify-between items-center">
+      {/* Promotion Recommendation Modal */}
+      {promotionModal.open && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-purple-100">
+            <div className="px-6 py-4 bg-gradient-to-r from-[#262760] to-purple-800 text-white flex justify-between items-center">
               <h3 className="text-lg font-bold flex items-center">
-                <User className="h-5 w-5 mr-2" />
-                Employee Appraisal Details
+                <TrendingUp className="h-5 w-5 mr-2" />
+                Recommend Promotion
               </h3>
-              <button onClick={() => setViewModalData(null)} className="text-white hover:text-gray-200">
+              <button onClick={() => setPromotionModal({ open: false, emp: null })} className="p-1 hover:bg-white/20 rounded-full transition-colors">
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="p-6 space-y-6">
-              {/* Employee Info Header */}
-              <div className="flex items-center space-x-4 pb-4 border-b border-gray-200">
-                <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center text-[#262760] font-bold text-lg">
-                  {viewModalData.name.charAt(0)}
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-4 p-3 bg-purple-50 rounded-xl border border-purple-100 mb-2">
+                <div className="h-10 w-10 rounded-full bg-purple-600 flex items-center justify-center text-white font-bold">
+                  {promotionModal.emp.name.charAt(0)}
                 </div>
                 <div>
-                  <h4 className="text-xl font-bold text-gray-900">{viewModalData.name}</h4>
-                  <p className="text-sm text-gray-500">
-                    {[viewModalData.designation, viewModalData.department].filter(Boolean).join(' • ') || '-'}
-                  </p>
-                  <p className="text-xs text-gray-400 font-mono mt-1">{viewModalData.empId || '-'}</p>
+                  <p className="text-sm font-bold text-gray-900">{promotionModal.emp.name}</p>
+                  <p className="text-xs text-purple-600 font-semibold">{promotionModal.emp.designation}</p>
                 </div>
               </div>
 
-              {/* Appraisal Content */}
-              <div className="grid grid-cols-1 gap-6">
-                {/* Self Appraisal */}
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100 shadow-sm">
-                  <h4 className="text-sm font-bold text-[#262760] uppercase tracking-wide mb-3 flex items-center border-b border-blue-200 pb-2">
-                    <User className="h-4 w-4 mr-2" /> Self Appraisal Detail
-                  </h4>
-                  <div className="space-y-4">
-                    <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase">Overall Contribution</p>
-                      <p className="text-sm text-gray-800 mt-1 bg-white p-2 rounded border border-blue-100 italic">
-                        {viewModalData.selfAppraiseeComments ? `"${viewModalData.selfAppraiseeComments}"` : <span className="text-gray-400">No overall comments</span>}
-                      </p>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                      <div>
-                        <p className="text-xs text-gray-500 font-semibold uppercase">Behavioural</p>
-                        <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{viewModalData.behaviourSelf?.comments || 'No comments'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 font-semibold uppercase">Process Adherence</p>
-                        <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{viewModalData.processSelf?.comments || 'No comments'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 font-semibold uppercase">Technical Assessment</p>
-                        <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{viewModalData.technicalSelf?.comments || 'No comments'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 font-semibold uppercase">Growth & Career Goals</p>
-                        <p className="text-xs text-gray-700 mt-1 whitespace-pre-wrap">{viewModalData.growthSelf?.comments || viewModalData.growthSelf?.careerGoals || 'No comments'}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Team/Manager Review */}
-                <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 shadow-sm">
-                  <h4 className="text-sm font-bold text-[#262760] uppercase tracking-wide mb-3 flex items-center border-b border-indigo-200 pb-2">
-                    <Star className="h-4 w-4 mr-2" /> Team Appraisal (Manager Review)
-                  </h4>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white/50 p-3 rounded-lg border border-indigo-50">
-                      <div>
-                        <p className="text-xs text-gray-500 font-semibold uppercase">Final Rating Assigned</p>
-                        <p className="text-lg font-black text-indigo-700 mt-0.5">{viewModalData.appraiserRating || 'Not Rated'}</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 font-semibold uppercase">Key Performance Summary</p>
-                        <p className="text-xs text-gray-700 font-medium mt-1">{viewModalData.keyPerformance || '-'}</p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500 font-semibold uppercase">Manager's General Remarks</p>
-                      <p className="text-sm text-gray-800 mt-1 bg-white p-2 rounded border border-indigo-100 italic font-medium">
-                        {viewModalData.managerComments ? `"${viewModalData.managerComments}"` : <span className="text-gray-400">No overall comments from manager</span>}
-                      </p>
-                    </div>
-
-                    {/* Sectional Detail (Mgr) */}
-                    <div className="space-y-3">
-                      <h5 className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest flex items-center">
-                        Detailed Feedback Sections
-                      </h5>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="bg-white/40 p-2 rounded border border-indigo-50">
-                          <p className="text-[10px] text-gray-500 font-bold uppercase">Behavioural</p>
-                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.behaviourManagerComments || '-'}</p>
-                        </div>
-                        <div className="bg-white/40 p-2 rounded border border-indigo-50">
-                          <p className="text-[10px] text-gray-500 font-bold uppercase">Process Adherence</p>
-                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.processManagerComments || '-'}</p>
-                        </div>
-                        <div className="bg-white/40 p-2 rounded border border-indigo-50">
-                          <p className="text-[10px] text-gray-500 font-bold uppercase">Technical</p>
-                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.technicalManagerComments || '-'}</p>
-                        </div>
-                        <div className="bg-white/40 p-2 rounded border border-indigo-50">
-                          <p className="text-[10px] text-gray-500 font-bold uppercase">Growth</p>
-                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.growthManagerComments || '-'}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Manager's Evaluation Matrix */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-indigo-100 pt-3">
-                      <div className="bg-indigo-100/30 p-2 rounded">
-                        <p className="text-[10px] text-gray-500 font-bold uppercase">Leadership</p>
-                        <p className="text-xs font-semibold text-gray-800">{viewModalData.leadership || '-'}</p>
-                      </div>
-                      <div className="bg-indigo-100/30 p-2 rounded">
-                        <p className="text-[10px] text-gray-500 font-bold uppercase">Attitude</p>
-                        <p className="text-xs font-semibold text-gray-800">{viewModalData.attitude || '-'}</p>
-                      </div>
-                      <div className="bg-indigo-100/30 p-2 rounded">
-                        <p className="text-[10px] text-gray-500 font-bold uppercase">Communication</p>
-                        <p className="text-xs font-semibold text-gray-800">{viewModalData.communication || '-'}</p>
-                      </div>
-                    </div>
-
-                    {viewModalData.appraiseeComments && (
-                      <div className="mt-2 pt-2 border-t border-indigo-200">
-                        <p className="text-xs text-gray-500 font-bold uppercase">Specific Appraisee Observations</p>
-                        <p className="text-xs text-gray-700 mt-1 italic">"{viewModalData.appraiseeComments}"</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Key Projects */}
-                {viewModalData.projects && viewModalData.projects.length > 0 && (
-                  <div className="bg-gray-50 p-4 rounded-lg border border-gray-200 shadow-sm">
-                    <h4 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3 border-b border-gray-200 pb-2 flex items-center">
-                      <FileText className="h-4 w-4 mr-2" /> Projects & Key Contributions
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {viewModalData.projects.map((project, idx) => (
-                        <div key={idx} className="bg-white p-3 rounded-lg border border-gray-100 shadow-sm text-xs group hover:border-[#262760] transition-colors">
-                          <p className="font-black text-[#262760] group-hover:text-[#1e2050] mb-1">{project.name}</p>
-                          <p className="text-gray-600 italic">"{project.contribution}"</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">New Designation</label>
+                <select
+                  className="w-full border-2 border-gray-100 rounded-xl p-2.5 focus:ring-4 focus:ring-purple-100 focus:border-purple-600 transition-all text-sm font-medium"
+                  value={promotionForm.newDesignation}
+                  onChange={(e) => setPromotionForm({ ...promotionForm, newDesignation: e.target.value })}
+                >
+                  <option value="">Select Designation...</option>
+                  {designationOptions.map(opt => (
+                    <option key={opt} value={opt}>{opt}</option>
+                  ))}
+                </select>
               </div>
 
-              {/* Footer */}
-              <div className="flex justify-end pt-4 border-t border-gray-200">
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Effective Date</label>
+                <input
+                  type="date"
+                  className="w-full border-2 border-gray-100 rounded-xl p-2.5 focus:ring-4 focus:ring-purple-100 focus:border-purple-600 transition-all text-sm font-medium"
+                  value={promotionForm.effectiveDate}
+                  onChange={(e) => setPromotionForm({ ...promotionForm, effectiveDate: e.target.value })}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Reviewer Remarks</label>
+                <textarea
+                  className="w-full h-24 border-2 border-gray-100 rounded-xl p-3 focus:ring-4 focus:ring-purple-100 focus:border-purple-600 transition-all text-sm resize-none"
+                  placeholder="Why are you recommending this promotion?"
+                  value={promotionForm.remarks}
+                  onChange={(e) => setPromotionForm({ ...promotionForm, remarks: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-gray-50 flex justify-between items-center">
+              {promotionModal.emp.promotionRecommendedByReviewer && (
                 <button
-                  onClick={() => setViewModalData(null)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
+                  onClick={handleRemovePromotion}
+                  className="text-red-600 text-xs font-bold hover:underline"
+                >
+                  Remove Recommendation
+                </button>
+              )}
+              <div className="flex gap-3 ml-auto">
+                <button
+                  onClick={() => setPromotionModal({ open: false, emp: null })}
+                  className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSavePromotion}
+                  className="px-6 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] text-xs font-bold shadow-lg shadow-indigo-200 transition-all"
+                >
+                  Save Recommendation
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Details Modal */}
+      <ReviewerViewModal 
+        selectedEmployee={viewModalData}
+        onClose={() => setViewModalData(null)}
+        hasCompensationAccess={true}
+      />
+
+      {/* Zoom Area Modal */}
+      {zoomModal.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden border border-gray-200">
+            <div className="px-6 py-4 bg-[#262760] text-white flex justify-between items-center">
+              <h3 className="text-xl font-bold flex items-center">
+                <Maximize2 className="h-5 w-5 mr-3" />
+                {zoomModal.title}
+              </h3>
+              <button onClick={() => setZoomModal({ ...zoomModal, isOpen: false })} className="p-1 hover:bg-white/20 rounded-full transition-colors">
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            <div className="p-8">
+              <textarea
+                className="w-full h-80 border-2 border-gray-200 rounded-xl p-5 focus:ring-4 focus:ring-indigo-100 focus:border-[#262760] resize-none text-lg transition-all"
+                value={zoomModal.value}
+                onChange={(e) => setZoomModal({ ...zoomModal, value: e.target.value })}
+                placeholder={`Enter ${zoomModal.title.toLowerCase()}...`}
+              />
+              <div className="mt-8 flex justify-end space-x-4">
+                <button
+                  onClick={() => setZoomModal({ ...zoomModal, isOpen: false })}
+                  className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-bold transition-colors"
                 >
                   Close
+                </button>
+                <button
+                  onClick={() => {
+                    zoomModal.onSave(zoomModal.value);
+                    setZoomModal({ ...zoomModal, isOpen: false });
+                  }}
+                  className="px-8 py-3 bg-[#262760] text-white rounded-xl hover:shadow-lg hover:shadow-[#262760]/20 font-bold transition-all"
+                >
+                  Apply Changes
                 </button>
               </div>
             </div>

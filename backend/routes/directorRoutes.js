@@ -4,20 +4,40 @@ const auth = require('../middleware/auth');
 const SelfAppraisal = require('../models/SelfAppraisal');
 const Employee = require('../models/Employee');
 const Payroll = require('../models/Payroll');
+const PayrollHistory = require('../models/PayrollHistory');
+const AuditLog = require('../models/AuditLog');
 
-// @desc    Get appraisals for Director (DirectorApproval status or all)
+// Helper to convert Map to Object
+const mapToObj = (map) => {
+  if (!map) return {};
+  try {
+    if (typeof map.toJSON === 'function') return map.toJSON();
+    if (map instanceof Map) return Object.fromEntries(map);
+    return map;
+  } catch (e) {
+    return map || {};
+  }
+};
+
+// @desc    Get director's queue (Manager Approved records)
 // @route   GET /api/performance/director
 // @access  Private (Director/Admin)
 router.get('/', auth, async (req, res) => {
   try {
-    const statusFilter = { $in: ['REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'Released Letter', 'RELEASED', 'Reviewed', 'Accepted'] };
+    const tab = (req.query.tab || 'pending').toLowerCase();
+    let statusFilter = {};
+    if (tab === 'completed') {
+      statusFilter = { $in: ['released', 'accepted_pending_effect', 'accepted', 'effective', 'COMPLETED'] };
+    } else {
+      statusFilter = { $in: ['reviewerApproved', 'directorInProgress', 'directorApproved', 'DIRECTOR_APPROVED'] };
+    }
 
     const role = (req.user.role || '').toLowerCase();
     const isDirector = role === 'director';
     const isAdmin = role === 'admin';
 
     if (!isDirector && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Not authorized to view director appraisals' });
+      return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
     const query = {
@@ -26,7 +46,7 @@ router.get('/', auth, async (req, res) => {
         {
           $or: [
             { directorId: req.user.employeeId },
-            { director: req.user.name }
+            { director: { $regex: new RegExp(`^${req.user.name}$`, 'i') } }
           ]
         }
       ]
@@ -35,437 +55,449 @@ router.get('/', auth, async (req, res) => {
     const appraisals = await SelfAppraisal.find(query)
       .populate('employeeId', 'name employeeId designation department division avatar ctc location branch');
 
-    const formattedAppraisals = await Promise.all(
-      appraisals.map(async (app) => {
-        const emp = app.employeeId || {};
+    const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
+      const emp = app.employeeId || {};
+      const derivedSalary = Number(app.currentSalarySnapshot || 0);
 
-        let baseSalary = 0;
-        try {
-          if (emp.employeeId) {
-            const payrollRec = await Payroll.findOne({ employeeId: emp.employeeId }).sort({ createdAt: -1 }).lean();
-            if (payrollRec && (payrollRec.ctc || payrollRec.totalEarnings || payrollRec.basicDA || payrollRec.hra || payrollRec.specialAllowance || payrollRec.gratuity)) {
-              const ctcFromPayroll = Number(payrollRec.ctc || 0);
-              if (ctcFromPayroll > 0) {
-                baseSalary = ctcFromPayroll;
-              } else {
-                const basic = Number(payrollRec.basicDA || 0);
-                const hra = Number(payrollRec.hra || 0);
-                const spec = Number(payrollRec.specialAllowance || 0);
-                const grat = Number(payrollRec.gratuity || 0);
-                const computedCtc = basic + hra + spec + grat;
-                baseSalary = computedCtc > 0 ? computedCtc : 0;
-              }
-            }
-          }
-        } catch (e) {
-          baseSalary = 0;
-        }
-        if (baseSalary === 0) {
-          baseSalary = Number(emp.ctc || 0);
-        }
-        const existingSalarySnapshot = Number(app.currentSalarySnapshot || 0);
-        const derivedSalary = (existingSalarySnapshot > 0) ? existingSalarySnapshot : baseSalary;
+      return {
+        id: app._id,
+        financialYr: app.year,
+        employeeMongoId: emp._id,
+        empId: emp.employeeId || '',
+        name: emp.name || 'Unknown',
+        avatar: emp.avatar || '',
+        designation: emp.designation || '',
+        status: app.status,
+
+        selfAppraiseeComments: app.overallContribution || '',
+        managerComments: app.managerComments || '',
+        reviewerComments: app.reviewerComments || '',
+        directorComments: app.directorComments || '',
         
-        if (derivedSalary > 0 && existingSalarySnapshot !== derivedSalary) {
-          try {
-            await SelfAppraisal.updateOne(
-              { _id: app._id },
-              { $set: { currentSalarySnapshot: derivedSalary } }
-            );
-          } catch (e) {}
-        }
+        currentSalary: derivedSalary,
+        incrementPercentage: app.incrementPercentage || 0,
+        incrementCorrectionPercentage: app.incrementCorrectionPercentage || 0,
+        incrementAmount: app.incrementAmount || 0,
+        revisedSalary: app.revisedSalary || 0,
+        performancePay: Number(app.performancePay || 0),
+        
+        promotion: app.promotion || { recommended: false, newDesignation: '' },
+        pushBack: app.pushBack || { isPushedBack: false },
+        
+        directorName: app.director || '',
+        directorSignature: (app.director === 'Bala Krishnan') ? 'balaSignature' : (app.director === 'Uvaraj') ? 'uvarajSignature' : '',
 
-        const incrementPercentage = Number(app.incrementPercentage || 0);
-        const incrementCorrectionPercentage = Number(app.incrementCorrectionPercentage || 0);
-        let incrementAmount = Number(app.incrementAmount || 0);
-        let revisedSalary = Number(app.revisedSalary || 0);
+        // Employee's Assessment Data (Original names and Aliases)
+        behaviourBased: mapToObj(app.behaviourBased),
+        behaviourSelf: mapToObj(app.behaviourBased),
+        processAdherence: mapToObj(app.processAdherence),
+        processSelf: mapToObj(app.processAdherence),
+        technicalBased: mapToObj(app.technicalBased),
+        technicalSelf: mapToObj(app.technicalBased),
+        growthBased: mapToObj(app.growthBased),
+        growthSelf: mapToObj(app.growthBased),
+        
+        projects: app.projects || [],
+        overallContribution: app.overallContribution || '',
+        effectiveDate: app.effectiveDate,
 
-        if (derivedSalary > 0) {
-          const totalPct = incrementPercentage + incrementCorrectionPercentage;
-          const updateDoc = {};
+        // Include Manager Ratings and Overrides
+        behaviourManagerRatings: mapToObj(app.behaviourManagerRatings),
+        processManagerRatings: mapToObj(app.processManagerRatings),
+        technicalManagerRatings: mapToObj(app.technicalManagerRatings),
+        growthManagerRatings: mapToObj(app.growthManagerRatings),
 
-          if ((!incrementAmount || incrementAmount === 0) && totalPct !== 0) {
-            incrementAmount = Math.round((derivedSalary * totalPct) / 100);
-            updateDoc.incrementAmount = incrementAmount;
-          }
+        behaviourManagerComments: app.behaviourManagerComments || '',
+        processManagerComments: app.processManagerComments || '',
+        technicalManagerComments: app.technicalManagerComments || '',
+        growthManagerComments: app.growthManagerComments || '',
 
-          if ((!revisedSalary || revisedSalary === 0) && (incrementAmount !== 0 || totalPct !== 0)) {
-            revisedSalary = Math.round(derivedSalary + incrementAmount);
-            updateDoc.revisedSalary = revisedSalary;
-          }
-
-          if (Object.keys(updateDoc).length > 0) {
-            try {
-              await SelfAppraisal.updateOne({ _id: app._id }, { $set: updateDoc });
-            } catch (err) {}
-          }
-        }
-
-        return {
-          id: app._id,
-          financialYr: app.year,
-          employeeMongoId: emp._id,
-          empId: emp.employeeId || '',
-          name: emp.name || 'Unknown',
-          avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
-          designation: emp.designation || '',
-          department: emp.department || '',
-          division: app.division || emp.division || '',
-          location: emp.location || emp.branch || 'Chennai',
-          status: app.status,
-
-          selfAppraiseeComments: app.overallContribution || '',
-          managerComments: app.managerComments || '',
-
-          reviewerComments: app.reviewerComments || '',
-          directorComments: app.directorComments || '',
-          currentSalary: derivedSalary,
-          incrementPercentage,
-          incrementCorrectionPercentage,
-          incrementAmount,
-          revisedSalary,
-          performancePay: Number(app.performancePay || 0),
-
-          updatedAt: app.updatedAt
-        };
-      })
-    );
+        keyPerformance: app.keyPerformance || '',
+        leadership: app.leadership || '',
+        attitude: app.attitude || '',
+        communication: app.communication || '',
+        appraiserRating: app.appraiserRating || '',
+        releaseSalarySnapshot: mapToObj(app.releaseSalarySnapshot),
+        releaseRevisedSnapshot: mapToObj(app.releaseRevisedSnapshot),
+        // Fix: Explicitly map promotion fields for Director dashboard display
+        promotionRecommendedByReviewer: app.promotion?.recommended || false,
+        newDesignation: app.promotion?.newDesignation || ''
+      };
+    }));
 
     res.json(formattedAppraisals);
   } catch (error) {
-    console.error('Error fetching director appraisals:', error);
-    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    console.error('Error fetching director queue:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 });
 
-// @desc    Update appraisal status (Approve/Reject)
+// @desc    Update appraisal details (as Director)
 // @route   PUT /api/performance/director/:id
-// @access  Private (Director/Admin)
 router.put('/:id', auth, async (req, res) => {
   try {
-    const {
-      status,
-      directorComments,
-      incrementPercentage,
-      incrementCorrectionPercentage,
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const { 
+      directorComments, 
+      incrementPercentage, 
+      incrementCorrectionPercentage, 
       incrementAmount,
       revisedSalary,
-      performancePay
+      performancePay, 
+      behaviourManagerComments, processManagerComments, technicalManagerComments, growthManagerComments,
+      keyPerformance, leadership, attitude, communication,
+      behaviourManagerRatings, processManagerRatings, technicalManagerRatings, growthManagerRatings,
+      effectiveDate,
+      promotion,
+      managerComments, appraiserRating
     } = req.body;
-
-    let appraisal = await SelfAppraisal.findById(req.params.id);
-    if (!appraisal) {
-      return res.status(404).json({ success: false, message: 'Appraisal not found' });
-    }
-
-    const role = (req.user.role || '').toLowerCase();
-    const isDirectorRole = role === 'director';
-    const isAdmin = role === 'admin';
-
-    if (!isDirectorRole && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Not authorized to update this appraisal' });
-    }
-
-    const userEmployeeId = req.user.employeeId;
-    const userName = req.user.name;
-
-    const isDirectorAssigned =
-      (appraisal.directorId && appraisal.directorId === userEmployeeId) ||
-      (appraisal.director && appraisal.director === userName);
-
-    if (!isDirectorAssigned) {
-      return res
-        .status(403)
-        .json({ success: false, message: 'Not authorized to update this appraisal' });
-    }
-
-    if (status) {
-      appraisal.status = status;
-      if (status === 'DIRECTOR_APPROVED' || status === 'Released Letter') {
-        appraisal.employeeAcceptanceStatus = 'PENDING';
-        appraisal.finalStatus = undefined;
-      }
-    }
+ 
     if (directorComments !== undefined) appraisal.directorComments = directorComments;
     if (incrementPercentage !== undefined) appraisal.incrementPercentage = incrementPercentage;
     if (incrementCorrectionPercentage !== undefined) appraisal.incrementCorrectionPercentage = incrementCorrectionPercentage;
     if (incrementAmount !== undefined) appraisal.incrementAmount = incrementAmount;
     if (revisedSalary !== undefined) appraisal.revisedSalary = revisedSalary;
     if (performancePay !== undefined) appraisal.performancePay = performancePay;
+    if (effectiveDate !== undefined) appraisal.effectiveDate = effectiveDate;
 
-    appraisal.updatedAt = Date.now();
+    // Direct overrides if director tweaks them
+    if (behaviourManagerComments !== undefined) appraisal.behaviourManagerComments = behaviourManagerComments;
+    if (processManagerComments !== undefined) appraisal.processManagerComments = processManagerComments;
+    if (technicalManagerComments !== undefined) appraisal.technicalManagerComments = technicalManagerComments;
+    if (growthManagerComments !== undefined) appraisal.growthManagerComments = growthManagerComments;
+    
+    // Dynamic Manager Ratings (Director can override)
+    if (behaviourManagerRatings !== undefined) appraisal.behaviourManagerRatings = behaviourManagerRatings;
+    if (processManagerRatings !== undefined) appraisal.processManagerRatings = processManagerRatings;
+    if (technicalManagerRatings !== undefined) appraisal.technicalManagerRatings = technicalManagerRatings;
+    if (growthManagerRatings !== undefined) appraisal.growthManagerRatings = growthManagerRatings;
+    if (managerComments !== undefined) appraisal.managerComments = managerComments;
+    if (appraiserRating !== undefined) appraisal.appraiserRating = appraiserRating;
+
+    // Qualitative assessments
+    if (keyPerformance !== undefined) appraisal.keyPerformance = keyPerformance;
+    if (leadership !== undefined) appraisal.leadership = leadership;
+    if (attitude !== undefined) appraisal.attitude = attitude;
+    if (communication !== undefined) appraisal.communication = communication;
+
+    if (promotion) {
+      appraisal.promotion = { ...(appraisal.promotion || {}), ...promotion };
+    }
+
+    if (appraisal.currentSalarySnapshot === 0 || !appraisal.currentSalarySnapshot) {
+      // Use numeric value from body if it is purely for initial snap
+      if (req.body.currentSalary) appraisal.currentSalarySnapshot = Number(req.body.currentSalary);
+    }
+    
+    await appraisal.save();
+    res.json({ success: true, appraisal });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @desc    Mark appraisal as "Under Review" (Director)
+// @route   POST /api/performance/director/:id/open
+router.post('/:id/open', auth, async (req, res) => {
+  try {
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    if (appraisal.status === 'reviewerApproved') {
+      appraisal.status = 'directorInProgress';
+      appraisal.updatedAt = Date.now();
+      await appraisal.save();
+    }
+    res.json({ success: true, status: appraisal.status });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Push Back to Manager
+// @route   POST /api/performance/director/:id/push-back
+router.post('/:id/push-back', auth, async (req, res) => {
+  try {
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const { reason } = req.body;
+    if (!reason || !reason.trim()) {
+      return res.status(400).json({ success: false, message: 'Reason for push-back is required' });
+    }
+
+    appraisal.status = 'directorPushedBack';
+    appraisal.pushBack = {
+      isPushedBack: true,
+      reason: reason,
+      pushedBy: 'director',
+      pushedAt: new Date()
+    };
+
     await appraisal.save();
 
-    res.json(appraisal);
-  } catch (error) {
-    console.error('Error updating director appraisal:', error);
-    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    res.json({ success: true, message: 'Appraisal pushed back to Reviewer for correction' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @desc    Approve Final (Director Approve)
+// @route   POST /api/performance/director/:id/approve
+router.post('/:id/approve', auth, async (req, res) => {
+  try {
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    appraisal.status = 'directorApproved';
+    appraisal.workflow.directorApprovedAt = new Date();
+    
+    await appraisal.save();
+    res.json({ success: true, message: 'Appraisal officially approved by Director' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @desc    Reject Appraisal
+// @route   POST /api/performance/director/:id/reject
+router.post('/:id/reject', auth, async (req, res) => {
+  try {
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    appraisal.status = 'rejected';
+    await appraisal.save();
+    res.json({ success: true, message: 'Appraisal officially rejected' });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 
 // @desc    Batch Release Appraisals
 // @route   POST /api/performance/director/release
-// @access  Private (Director/Admin)
 router.post('/release', auth, async (req, res) => {
   try {
     const { ids } = req.body;
-
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.status(400).json({ success: false, message: 'No records selected' });
     }
 
-    const role = (req.user.role || '').toLowerCase();
-    const isDirectorRole = role === 'director';
-    const isAdmin = role === 'admin';
-
-    if (!isDirectorRole && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Not authorized to release appraisals' });
-    }
-
-    const userEmployeeId = req.user.employeeId;
-    const userName = req.user.name;
-
-    const findQuery = {
-      _id: { $in: ids },
-      $or: [
-        { directorId: userEmployeeId },
-        { director: userName }
-      ]
-    };
-
-    const appraisals = await SelfAppraisal.find(findQuery);
+    const appraisals = await SelfAppraisal.find({ _id: { $in: ids }, status: 'directorApproved' })
+      .populate('employeeId', 'employeeId name ctc');
 
     if (!appraisals.length) {
-      return res.status(403).json({ success: false, message: 'No authorized appraisals to release' });
+      return res.status(403).json({ success: false, message: 'No eligible appraisals (directorApproved) to release' });
     }
 
+    const allPayroll = await Payroll.find({});
+    
     let modifiedCount = 0;
-
     for (const appraisal of appraisals) {
-      try {
-        // Capture salary snapshot at the moment of release so letters remain immutable
-        let baseCtc = 0;
-        let oldSnapshot = {
-          basic: 0,
-          hra: 0,
-          special: 0,
-          gross: 0,
-          empPF: 0,
-          employerPF: 0,
-          net: 0,
-          gratuity: 0,
-          ctc: 0
-        };
+      const empId = appraisal.employeeId?.employeeId || appraisal.empId;
+      const baseCtc = Number(appraisal.currentSalary || appraisal.salary || appraisal.currentSalarySnapshot || appraisal.employeeId?.ctc || 0);
 
-        try {
-          const emp = await Employee.findById(appraisal.employeeId).select('employeeId').lean();
-          const employeeIdStr = emp?.employeeId;
-          if (employeeIdStr) {
-            const payrollRec = await Payroll.findOne({ employeeId: employeeIdStr }).sort({ createdAt: -1 }).lean();
-            if (payrollRec) {
-              const basic = Number(payrollRec.basicDA || 0);
-              const hra = Number(payrollRec.hra || 0);
-              const special = Number(payrollRec.specialAllowance || 0);
-              const gross = Number(
-                payrollRec.totalEarnings !== undefined
-                  ? payrollRec.totalEarnings
-                  : basic + hra + special
-              );
-              const empPF = Number(payrollRec.pf || 0);
-              const employerPF = Number(payrollRec.employerPF || payrollRec.pf || 0);
-              const net = Number(payrollRec.netSalary || gross);
-              const gratuity = Number(payrollRec.gratuity || 0);
-              const ctc = Number(
-                payrollRec.ctc !== undefined ? payrollRec.ctc : gross + gratuity
-              );
-              oldSnapshot = { basic, hra, special, gross, empPF, employerPF, net, gratuity, ctc };
-            }
-          }
-        } catch (e) {}
+      // Find payroll record
+      const payrollRecord = allPayroll.find(p => String(p.employeeId || '').toLowerCase() === String(empId || '').toLowerCase());
+      
+      let salaryOld = {
+        basic: Math.round(baseCtc * 0.5),
+        hra: Math.round(baseCtc * 0.2),
+        special: Math.round(baseCtc * 0.25),
+        gross: Math.round(baseCtc * 0.95),
+        empPF: Math.round(baseCtc * 0.5 * 0.12),
+        employerPF: Math.round(baseCtc * 0.5 * 0.12),
+        net: Math.round(baseCtc * 0.8),
+        gratuity: Math.round(baseCtc * 0.05),
+        ctc: baseCtc
+      };
 
-        baseCtc = Number(oldSnapshot.ctc || 0);
-        const frozenBase = Number(appraisal.currentSalarySnapshot || 0);
+      if (payrollRecord) {
+        const rawBasic = Number(payrollRecord.basicDA || 0);
+        const rawHra = Number(payrollRecord.hra || 0);
+        const rawSpecial = Number(payrollRecord.specialAllowance || 0);
+        const rawGratuity = Number(payrollRecord.gratuity || 0);
+        const rawCtc = rawBasic + rawHra + rawSpecial + rawGratuity;
+        const normFactor = (rawCtc > 0 && baseCtc > 0) ? (baseCtc / rawCtc) : 1;
 
-        if (frozenBase > 0 && Math.abs(baseCtc - frozenBase) > 1) {
-          // Payroll differs from frozen base - likely already updated by bug or previous action.
-          // Normalize proportions to frozenBase.
-          const normFactor = frozenBase / baseCtc;
-          oldSnapshot = {
-            basic: Math.round((oldSnapshot.basic || 0) * normFactor),
-            hra: Math.round((oldSnapshot.hra || 0) * normFactor),
-            special: Math.round((oldSnapshot.special || 0) * normFactor),
-            gross: Math.round((oldSnapshot.gross || 0) * normFactor),
-            empPF: oldSnapshot.empPF || 0,
-            employerPF: oldSnapshot.employerPF || 0,
-            net: Math.round((oldSnapshot.net || 0) * normFactor),
-            gratuity: Math.round((oldSnapshot.gratuity || 0) * normFactor),
-            ctc: frozenBase
-          };
-          baseCtc = frozenBase;
-        }
-
-        if (!baseCtc && frozenBase) {
-          baseCtc = frozenBase;
-          oldSnapshot = {
-            basic: 0,
-            hra: 0,
-            special: 0,
-            gross: baseCtc,
-            empPF: 0,
-            employerPF: 0,
-            net: baseCtc,
-            gratuity: 0,
+        if (rawBasic > 0) {
+          salaryOld = {
+            basic: Math.round(rawBasic * normFactor),
+            hra: Math.round(rawHra * normFactor),
+            special: Math.round(rawSpecial * normFactor),
+            gross: Math.round((rawBasic + rawHra + rawSpecial) * normFactor),
+            empPF: Number(payrollRecord.pf || Math.round(rawBasic * 0.12 * normFactor)),
+            employerPF: Number(payrollRecord.employerPF || payrollRecord.pf || Math.round(rawBasic * 0.12 * normFactor)),
+            net: Number(payrollRecord.netSalary || ((rawBasic + rawHra + rawSpecial - (payrollRecord.pf || 0)) * normFactor)),
+            gratuity: Math.round(rawGratuity * normFactor),
             ctc: baseCtc
           };
         }
-
-        const totalPct =
-          Number(appraisal.incrementPercentage || 0) +
-          Number(appraisal.incrementCorrectionPercentage || 0);
-        const revisedFromAppraisal = Number(appraisal.revisedSalary || 0);
-
-        let factor = 1;
-        if (baseCtc && totalPct > 0) {
-          factor = 1 + totalPct / 100;
-        } else if (baseCtc && revisedFromAppraisal > 0) {
-          factor = revisedFromAppraisal / baseCtc;
-        }
-
-        const newSnapshot = {
-          basic: Math.round((oldSnapshot.basic || 0) * factor),
-          hra: Math.round((oldSnapshot.hra || 0) * factor),
-          special: Math.round((oldSnapshot.special || 0) * factor),
-          gross: Math.round((oldSnapshot.gross || baseCtc) * factor),
-          empPF: oldSnapshot.empPF || 0,
-          employerPF: oldSnapshot.employerPF || 0,
-          net: Math.round((oldSnapshot.net || baseCtc) * factor),
-          gratuity: Math.round((oldSnapshot.gratuity || 0) * factor),
-          ctc: Math.round((oldSnapshot.ctc || baseCtc) * factor)
-        };
-
-        // Update appraisal with release details
-        appraisal.status = 'Released Letter';
-        appraisal.employeeAcceptanceStatus = 'PENDING';
-        appraisal.finalStatus = undefined;
-        appraisal.releaseSalarySnapshot = oldSnapshot;
-        appraisal.releaseRevisedSnapshot = newSnapshot;
-        appraisal.releaseDate = new Date();
-        if (!appraisal.currentSalarySnapshot && baseCtc) {
-          appraisal.currentSalarySnapshot = baseCtc;
-        }
-        appraisal.updatedAt = Date.now();
-        await appraisal.save();
-      } catch (e) {
-        // Even if snapshot fails, still mark as released
-        appraisal.status = 'Released Letter';
-        appraisal.employeeAcceptanceStatus = 'PENDING';
-        appraisal.finalStatus = undefined;
-        appraisal.updatedAt = Date.now();
-        await appraisal.save();
       }
+
+      const totalPct = Number(appraisal.incrementPercentage || 0) + Number(appraisal.incrementCorrectionPercentage || 0);
+      let revisedCtc = Number(appraisal.releaseRevisedSnapshot?.ctc || appraisal.revisedSalary || (baseCtc * (1 + totalPct / 100)));
+      
+      // Safety check: Ensure revised is not lower than current
+      if (revisedCtc < baseCtc && totalPct > 0) {
+        revisedCtc = Math.round(baseCtc * (1 + totalPct / 100));
+      }
+      if (revisedCtc < baseCtc) revisedCtc = baseCtc;
+
+      const factor = (baseCtc > 0) ? (revisedCtc / baseCtc) : 1;
+      
+      const salaryNew = {
+        basic: Math.round(salaryOld.basic * factor),
+        hra: Math.round(salaryOld.hra * factor),
+        special: Math.round(salaryOld.special * factor),
+        gross: Math.round(salaryOld.gross * factor),
+        empPF: salaryOld.empPF,
+        employerPF: salaryOld.employerPF,
+        net: Math.round(salaryOld.net * factor),
+        gratuity: Math.round(salaryOld.gratuity * factor),
+        ctc: Math.round(revisedCtc)
+      };
+
+      appraisal.status = 'released';
+      appraisal.workflow.releasedAt = new Date();
+      
+      // Use .set() and markModified for Map fields to ensure persistence
+      appraisal.set('releaseSalarySnapshot', salaryOld);
+      appraisal.set('releaseRevisedSnapshot', salaryNew);
+      appraisal.markModified('releaseSalarySnapshot');
+      appraisal.markModified('releaseRevisedSnapshot');
+      
+      appraisal.releaseDate = new Date();
+      appraisal.revisedSalary = Number(revisedCtc); // Ensure this is also synced
+
+      if (appraisal.promotion?.recommended && appraisal.promotion?.newDesignation) {
+        appraisal.promotion.approvedBy = 'director';
+      }
+      
+      await appraisal.save();
+
+      await AuditLog.create({
+        employeeId: appraisal.employeeId?._id || appraisal.employeeId,
+        appraisalId: appraisal._id,
+        action: 'RELEASED',
+        role: 'Director',
+        doneBy: req.user.name,
+        doneById: req.user.employeeId
+      });
       modifiedCount++;
     }
 
-    res.json({ success: true, message: `Successfully released ${modifiedCount} appraisals. Salary changes will apply after employee acceptance.` });
+    res.json({ success: true, message: `Successfully released ${modifiedCount} appraisals.` });
   } catch (error) {
-    console.error('Error releasing appraisals:', error);
-    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// @desc    Revoke an approved/released/accepted appraisal
+// @desc    Update Promotion Details
+// @route   POST /api/performance/director/:id/promotion
+router.post('/:id/promotion', auth, async (req, res) => {
+  try {
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    const { recommended, remarks, effectiveDate, newDesignation } = req.body;
+    
+    appraisal.promotion = {
+      ...appraisal.promotion,
+      recommended: recommended !== undefined ? recommended : appraisal.promotion.recommended,
+      remarksDirector: remarks || appraisal.promotion.remarksDirector,
+      effectiveDate: effectiveDate || appraisal.promotion.effectiveDate,
+      newDesignation: newDesignation || appraisal.promotion.newDesignation
+    };
+
+    await appraisal.save();
+    res.json({ success: true, appraisal });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// @desc    Revoke and Restore (Undo finalize and create editable clone)
 // @route   POST /api/performance/director/revoke/:id
-// @access  Private (Director/Admin)
 router.post('/revoke/:id', auth, async (req, res) => {
   try {
     const { reason } = req.body;
-
     if (!reason || !reason.trim()) {
-      return res.status(400).json({ success: false, message: 'Revoke reason is required' });
+      return res.status(400).json({ success: false, message: 'Reason for revocation is required' });
     }
 
-    let appraisal = await SelfAppraisal.findById(req.params.id);
-    if (!appraisal) {
-      return res.status(404).json({ success: false, message: 'Appraisal not found' });
-    }
+    const appraisal = await SelfAppraisal.findById(req.params.id);
+    if (!appraisal) return res.status(404).json({ success: false, message: 'Appraisal not found' });
 
-    const role = (req.user.role || '').toLowerCase();
-    const isDirectorRole = role === 'director';
-    const isAdmin = role === 'admin';
-
-    if (!isDirectorRole && !isAdmin) {
-      return res.status(403).json({ success: false, message: 'Not authorized to revoke appraisals' });
-    }
-
-    // Capture old state
-    const oldVersion = appraisal.version || 1;
-    const oldStatus = appraisal.status;
-
-    // 1. Mark current appraisal as revoked
+    // 1. Mark current record as REVOKED
     appraisal.revoked = true;
     appraisal.revokedAt = new Date();
     appraisal.revokedReason = reason;
-    appraisal.status = 'REVOKED';
-    appraisal.isLocked = false;
+    appraisal.status = 'revoked';
+    appraisal.isLocked = true; // Block original after revocation
     await appraisal.save();
 
-    // 2. Mark any related PayrollHistory as REVOKED
-    try {
-       const PayrollHistory = require('../models/PayrollHistory');
-       await PayrollHistory.updateMany(
-         { appraisalId: appraisal._id },
-         { $set: { status: 'REVOKED' } }
-       );
-    } catch (e) {
-       console.error("Error revoking payroll history:", e);
+    // 2. Undo Payroll History if finalized
+    if (appraisal.payrollProcessed === true) {
+        await PayrollHistory.deleteOne({ appraisalId: appraisal._id });
+        // Restore previous record for this employee (set effectiveTo to null)
+        const previous = await PayrollHistory.findOne({ 
+            employeeId: appraisal.employeeId, 
+            effectiveTo: { $ne: null } 
+        }).sort({ effectiveTo: -1 });
+        
+        if (previous) {
+            previous.effectiveTo = null;
+            await previous.save();
+        }
     }
 
-    // 3. Create a new Appraisal Version
-    const newAppraisalData = appraisal.toObject();
-    delete newAppraisalData._id;
-    delete newAppraisalData.createdAt;
-    delete newAppraisalData.updatedAt;
-    
-    // Reset specific fields for the new version
-    newAppraisalData.version = oldVersion + 1;
-    newAppraisalData.parentAppraisalId = appraisal._id;
-    newAppraisalData.status = 'SUBMITTED'; // Send back to pending review by reviewer
-    newAppraisalData.employeeAcceptanceStatus = 'PENDING';
-    newAppraisalData.isLocked = false;
-    newAppraisalData.revoked = false;
-    newAppraisalData.revokedAt = null;
-    newAppraisalData.revokedReason = null;
-    delete newAppraisalData.releaseLetter;
-    delete newAppraisalData.releaseSalarySnapshot;
-    delete newAppraisalData.releaseRevisedSnapshot;
-    delete newAppraisalData.releaseDate;
+    // 3. Create Audit Trail for revocation
+    await AuditLog.create({
+      employeeId: appraisal.employeeId,
+      appraisalId: appraisal._id,
+      action: 'REVOKED',
+      role: 'Director',
+      reason: reason,
+      doneBy: req.user.name,
+      doneById: req.user.employeeId
+    });
 
-    const newAppraisal = new SelfAppraisal(newAppraisalData);
+    // 4. Create CLONE for new workflow (version incremented)
+    const cloneData = appraisal.toObject();
+    delete cloneData._id;
+    delete cloneData.createdAt;
+    delete cloneData.updatedAt;
+    
+    const newAppraisal = new SelfAppraisal({
+      ...cloneData,
+      status: 'managerApproved', // Send back to editable Director state
+      revoked: false,
+      revokedAt: null,
+      revokedReason: null,
+      isLocked: false,
+      version: (appraisal.version || 1) + 1,
+      parentAppraisalId: appraisal._id,
+      payrollProcessed: false,
+      workflow: {
+        submittedAt: appraisal.workflow?.submittedAt,
+        managerApprovedAt: appraisal.workflow?.managerApprovedAt
+      }
+    });
+
     await newAppraisal.save();
 
-    // 4. Create Audit Log
-    try {
-      const AuditLog = require('../models/AuditLog');
-      const emp = await Employee.findById(appraisal.employeeId).select('employeeId').lean();
-      if (emp && emp.employeeId) {
-         const log = new AuditLog({
-           employeeId: emp.employeeId,
-           action: 'REVOKED_APPRAISAL',
-           oldVersion: oldVersion,
-           newVersion: newAppraisal.version,
-           reason: reason,
-           doneBy: req.user.name || req.user.employeeId
-         });
-         await log.save();
-      }
-    } catch (e) {
-      console.error("Error creating audit log:", e);
-    }
+    res.json({ 
+        success: true, 
+        message: 'Appraisal safely revoked. A new version is available for corrections.',
+        newAppraisalId: newAppraisal._id
+    });
 
-    res.json({ success: true, message: 'Appraisal revoked successfully and new version created.', newAppraisal });
-  } catch (error) {
-    console.error('Error revoking appraisal:', error);
-    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+  } catch (err) {
+    console.error('Revocation Error:', err);
+    res.status(500).json({ success: false, message: err.message });
   }
 });
 

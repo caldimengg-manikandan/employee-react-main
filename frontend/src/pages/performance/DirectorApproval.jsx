@@ -1,3 +1,4 @@
+import ReviewerViewModal from '../../components/ReviewerViewModal';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Search,
@@ -14,7 +15,8 @@ import {
   AlertCircle,
   XCircle,
   TrendingUp,
-  RotateCcw
+  RotateCcw,
+  Trophy
 } from 'lucide-react';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
 import balaSignature from '../../bala signature.png';
@@ -115,7 +117,7 @@ const DirectorApproval = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedFinancialYr, setSelectedFinancialYr] = useState(getPreviousFinancialYear());
+  const [selectedFinancialYr, setSelectedFinancialYr] = useState(getCurrentFinancialYear());
   const [selectedDivision, setSelectedDivision] = useState('All');
   const [selectedDesignation, setSelectedDesignation] = useState('All');
   const [selectedLocation, setSelectedLocation] = useState('All');
@@ -131,7 +133,7 @@ const DirectorApproval = () => {
     ids: [],
     type: 'approve' // 'approve' or 'release'
   });
-  
+
   const [revokeConfirm, setRevokeConfirm] = useState({
     isOpen: false,
     id: null,
@@ -149,21 +151,22 @@ const DirectorApproval = () => {
   const [viewModalData, setViewModalData] = useState(null);
   const [showReleaseLetter, setShowReleaseLetter] = useState(false);
   const [letterData, setLetterData] = useState(null);
+  const [activeTab, setActiveTab] = useState('pending');
 
   useEffect(() => {
-    fetchDirectorAppraisals();
-  }, []);
+    fetchDirectorAppraisals(activeTab);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!selectedFinancialYr) {
-      setSelectedFinancialYr(getPreviousFinancialYear());
+      setSelectedFinancialYr(getCurrentFinancialYear());
     }
   }, [selectedFinancialYr]);
 
-  const fetchDirectorAppraisals = async () => {
+  const fetchDirectorAppraisals = async (tab = activeTab) => {
     setLoading(true);
     try {
-      const response = await performanceAPI.getDirectorAppraisals();
+      const response = await performanceAPI.getDirectorAppraisals({ tab });
       setEmployees(response.data || []);
     } catch (error) {
       console.error('Error fetching appraisals:', error);
@@ -338,11 +341,11 @@ const DirectorApproval = () => {
             };
           }
         }
-      } catch (err) {}
+      } catch (err) { }
 
       const incrementAmount = revisedCtc - baseCtc;
       const totalPct = Number(emp.incrementPercentage || 0) + Number(emp.incrementCorrectionPercentage || 0);
-      
+
       const factor = (baseCtc > 0) ? (revisedCtc / baseCtc) : 1;
 
       const data = {
@@ -368,8 +371,15 @@ const DirectorApproval = () => {
             net: Math.round((salaryOld.net || baseCtc) * factor),
             gratuity: Math.round((salaryOld.gratuity || 0) * factor),
             ctc: revisedCtc
-          }
-        }
+          },
+        },
+        promotion: {
+          recommended: emp.promotionRecommendedByReviewer || (emp.promotion?.recommended),
+          newDesignation: emp.newDesignation || emp.promotion?.newDesignation || '',
+          oldDesignation: employeeDetails.designation || employeeDetails.role || emp.designation,
+          effectiveDate: emp.promotionEffectiveDate || emp.promotion?.effectiveDate || emp.effectiveDate || '1st April 2026'
+        },
+        status: emp.status
       };
       setLetterData(data);
       setShowReleaseLetter(true);
@@ -430,7 +440,7 @@ const DirectorApproval = () => {
       });
       return;
     }
-    const rowsToSubmit = employees.filter(emp => selectedRows.includes(emp.id) && emp.status === 'DIRECTOR_APPROVED');
+    const rowsToSubmit = employees.filter(emp => selectedRows.includes(emp.id) && (emp.status === 'directorApproved' || emp.status === 'DIRECTOR_APPROVED' || emp.status === 'reviewerApproved'));
     const unreviewed = rowsToSubmit.filter(emp => !emp.directorComments || emp.directorComments.trim() === '');
     if (unreviewed.length > 0) {
       setStatusPopup({
@@ -450,9 +460,16 @@ const DirectorApproval = () => {
 
   const confirmRelease = async () => {
     try {
-      const newStatus = releaseConfirm.type === 'approve' ? 'DIRECTOR_APPROVED' : 'Released Letter';
-      await Promise.all(releaseConfirm.ids.map(id => performanceAPI.updateDirectorAppraisal(id, { status: newStatus })));
+      const newStatus = releaseConfirm.type === 'approve' ? 'directorApproved' : 'released';
+
+      if (releaseConfirm.type === 'approve') {
+        await Promise.all(releaseConfirm.ids.map(id => performanceAPI.directorApprove(id)));
+      } else {
+        await performanceAPI.directorRelease(releaseConfirm.ids);
+      }
+
       setEmployees(employees.map(emp => releaseConfirm.ids.includes(emp.id) ? { ...emp, status: newStatus } : emp));
+
       setStatusPopup({
         isOpen: true,
         status: 'success',
@@ -482,6 +499,9 @@ const DirectorApproval = () => {
     }
   };
 
+  const PENDING_STATUSES = ['reviewerApproved', 'directorInProgress', 'directorPushedBack', 'directorApproved', 'DIRECTOR_APPROVED'];
+  const COMPLETED_STATUSES = ['released', 'Released Letter', 'RELEASED', 'accepted_pending_effect', 'accepted', 'Accepted', 'effective', 'COMPLETED'];
+
   const divisions = ['All', ...new Set(employees.map(emp => emp.division).filter(Boolean))];
   const designations = ['All', ...new Set(employees.map(emp => emp.designation).filter(Boolean))];
   const locations = ['All', ...new Set(employees.map(emp => emp.location || emp.branch).filter(Boolean))];
@@ -490,7 +510,10 @@ const DirectorApproval = () => {
     (selectedDivision === 'All' || emp.division === selectedDivision) &&
     (selectedDesignation === 'All' || emp.designation === selectedDesignation) &&
     (selectedLocation === 'All' || (emp.location || emp.branch) === selectedLocation) &&
-    (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.empId.toLowerCase().includes(searchTerm.toLowerCase()))
+    (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.empId.toLowerCase().includes(searchTerm.toLowerCase())) &&
+    (activeTab === 'pending'
+      ? PENDING_STATUSES.includes(emp.status)
+      : COMPLETED_STATUSES.includes(emp.status))
   );
 
   return (
@@ -499,7 +522,8 @@ const DirectorApproval = () => {
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
           <div className="flex items-center space-x-4">
             <select value={selectedFinancialYr} onChange={(e) => setSelectedFinancialYr(e.target.value)} className="block w-48 pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border">
-              <option value={selectedFinancialYr}>{selectedFinancialYr}</option>
+              <option value={getCurrentFinancialYear()}>{getCurrentFinancialYear()} (Current)</option>
+              <option value={getPreviousFinancialYear()}>{getPreviousFinancialYear()}</option>
             </select>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -523,22 +547,54 @@ const DirectorApproval = () => {
           </div>
         </div>
 
+        {/* Pending / Completed Tab Toggle */}
+        <div className="inline-flex mb-4 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <button
+            onClick={() => { setActiveTab('pending'); setSelectedRows([]); }}
+            className={`px-6 py-2.5 text-sm font-semibold transition-all ${activeTab === 'pending'
+              ? 'bg-[#262760] text-white shadow-inner'
+              : 'text-gray-500 hover:bg-gray-50'
+              }`}
+          >
+            Pending
+            {activeTab === 'pending' && filteredEmployees.length > 0 && (
+              <span className="ml-1">{filteredEmployees.length}</span>
+            )}
+          </button>
+          <button
+            onClick={() => { setActiveTab('completed'); setSelectedRows([]); }}
+            className={`px-6 py-2.5 text-sm font-semibold transition-all ${activeTab === 'completed'
+              ? 'bg-[#262760] text-white shadow-inner'
+              : 'text-gray-500 hover:bg-gray-50'
+              }`}
+          >
+            Completed
+            {activeTab === 'completed' && filteredEmployees.length > 0 && (
+              <span className="ml-1">{filteredEmployees.length}</span>
+            )}
+          </button>
+        </div>
+
         <div className="bg-white shadow border-b border-gray-200 sm:rounded-lg overflow-auto max-h-[75vh]">
           {loading ? <div className="p-8 text-center text-gray-500">Loading...</div> : (
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-[#262760] sticky top-0 z-10 shadow-md text-white uppercase text-xs font-medium">
                 <tr>
-                  <th className="px-4 py-3"><input type="checkbox" onChange={handleSelectAll} checked={selectedRows.length > 0 && selectedRows.length === filteredEmployees.filter(e => !['Released Letter', 'Released', 'Accepted'].includes(e.status)).length} className="rounded border-gray-300" /></th>
+                  <th className="px-4 py-3"><input type="checkbox" onChange={handleSelectAll} checked={selectedRows.length > 0 && selectedRows.length === filteredEmployees.filter(e => !COMPLETED_STATUSES.includes(e.status)).length} className="rounded border-gray-300" /></th>
                   <th className="px-4 py-3 text-left">S.No</th>
                   <th className="px-4 py-3 text-left">Employee ID</th>
                   <th className="px-4 py-3 text-left">Employee Name</th>
-                  <th className="px-4 py-3 text-center">Director Comments</th>
                   <th className="px-4 py-3 text-right">Current Salary</th>
                   <th className="px-4 py-3 text-center">Increment %</th>
                   <th className="px-4 py-3 text-center">Increment Correction %</th>
                   <th className="px-4 py-3 text-right">Increment Amount</th>
                   <th className="px-4 py-3 text-right">Revised Salary</th>
                   <th className="px-4 py-3 text-right">Performance Pay</th>
+                  <th className="px-4 py-3 text-center">Effective Date</th>
+                  <th className="px-4 py-3 text-center">Reviewer Comments</th>
+                  <th className="px-4 py-3 text-center">Recommend Promotion</th>
+                  <th className="px-4 py-3 text-center">Director Comments</th>
+                  <th className="px-4 py-3 text-center">Status</th>
                   <th className="px-4 py-3 text-center">Actions</th>
                 </tr>
               </thead>
@@ -546,42 +602,132 @@ const DirectorApproval = () => {
                 {filteredEmployees.map((emp, index) => {
                   const isEditing = editingRowId === emp.id;
                   const data = isEditing ? editFormData : emp;
-                  const isReleased = ['Released Letter', 'Released', 'RELEASED', 'Accepted'].includes(emp.status || '');
-                  const isRowLocked = isReleased || emp.status === 'DIRECTOR_APPROVED';
-                  
+                  const isReleased = COMPLETED_STATUSES.includes(emp.status || '');
+                  const isAccepted = ['accepted', 'Accepted', 'accepted_pending_effect', 'effective', 'COMPLETED'].includes(emp.status || '');
+                  const isRowLocked = isReleased || emp.status === 'directorApproved' || emp.status === 'DIRECTOR_APPROVED';
+
                   return (
                     <tr key={emp.id} className={`hover:bg-gray-50 ${selectedRows.includes(emp.id) ? 'bg-indigo-50' : ''}`}>
+                      {/* Checkbox */}
                       <td className="px-4 py-4 text-center">
                         {!isReleased && (
                           <input type="checkbox" checked={selectedRows.includes(emp.id)} onChange={() => handleSelectRow(emp.id)} className="rounded border-gray-300 text-[#262760]" />
                         )}
                       </td>
+                      {/* S.No */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
+                      {/* Employee ID */}
                       <td className="px-4 py-4 text-sm font-medium text-gray-900">{data.empId}</td>
+                      {/* Employee Name */}
                       <td className="px-4 py-4 text-sm text-gray-900">{data.name}</td>
-                      <td className="px-4 py-4 text-center">
-                        {isEditing ? (
-                          <textarea className="w-full border border-gray-300 rounded p-1 text-xs resize-none" rows={2} value={data.directorComments || ''} onChange={(e) => handleInputChange('directorComments', e.target.value)} />
-                        ) : (
-                          <div className="text-xs text-gray-700 max-w-[200px] truncate mx-auto cursor-pointer hover:text-[#262760]" onClick={() => !isReleased && openCommentModal(emp)}>
-                            {data.directorComments || <span className="text-gray-400 italic">Add comments...</span>}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-4 text-sm text-right px-6 font-medium">₹{Number(data.currentSalary || 0).toLocaleString()}</td>
+                      {/* Current Salary */}
+                      <td className="px-4 py-4 text-sm text-right font-medium">₹{Number(data.currentSalary || 0).toLocaleString('en-IN')}</td>
+                      {/* Increment % */}
                       <td className="px-4 py-4 text-sm text-center">{data.incrementPercentage}%</td>
+                      {/* Increment Correction % (editable) */}
                       <td className="px-4 py-4 text-sm text-center">
                         {isEditing ? (
-                          <input type="number" className="w-16 px-2 py-1 border rounded text-right" value={data.incrementCorrectionPercentage} onChange={(e) => handleInputChange('incrementCorrectionPercentage', e.target.value)} />
+                          <div className="flex items-center justify-center">
+                            <input type="number" className="w-16 px-2 py-1 border rounded text-center" value={data.incrementCorrectionPercentage} onChange={(e) => handleInputChange('incrementCorrectionPercentage', e.target.value)} />
+                            <span className="ml-1">%</span>
+                          </div>
                         ) : (
                           <span className={data.incrementCorrectionPercentage !== 0 ? 'text-blue-600 font-medium' : 'text-gray-500'}>{data.incrementCorrectionPercentage}%</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-sm text-right text-green-600 font-medium whitespace-nowrap px-6">₹{Number(data.incrementAmount || 0).toLocaleString()}</td>
-                      <td className="px-4 py-4 text-sm text-right font-bold whitespace-nowrap px-6">₹{Number(data.revisedSalary || 0).toLocaleString()}</td>
-                      <td className="px-4 py-4 text-sm text-right px-6">
-                        <input type="number" className="w-24 px-2 py-1 border rounded text-right disabled:bg-gray-100" value={performancePayDrafts[emp.id] !== undefined ? performancePayDrafts[emp.id] : Number(data.performancePay || 0)} onChange={(e) => handlePerformancePayChange(emp.id, e.target.value)} disabled={isRowLocked} />
+                      {/* Increment Amount */}
+                      <td className="px-4 py-4 text-sm text-right text-green-600 font-medium whitespace-nowrap">₹{Number(data.incrementAmount || 0).toLocaleString('en-IN')}</td>
+                      {/* Revised Salary */}
+                      <td className="px-4 py-4 text-sm text-right font-bold whitespace-nowrap">₹{Number(data.revisedSalary || 0).toLocaleString('en-IN')}</td>
+                      {/* Performance Pay */}
+                      <td className="px-4 py-4 text-sm text-right">
+                        {isEditing ? (
+                          <input
+                            type="number"
+                            className="w-24 px-2 py-1 border rounded text-right focus:ring-[#262760] focus:border-[#262760]"
+                            value={performancePayDrafts[emp.id] !== undefined ? performancePayDrafts[emp.id] : Number(data.performancePay || 0)}
+                            onChange={(e) => handlePerformancePayChange(emp.id, e.target.value)}
+                          />
+                        ) : (
+                          <span className="font-medium">₹{Number(data.performancePay || 0).toLocaleString('en-IN')}</span>
+                        )}
                       </td>
+                      {/* Effective Date */}
+                      <td className="px-4 py-4 text-sm text-center whitespace-nowrap">
+                        {isEditing ? (
+                          <input
+                            type="date"
+                            className="w-32 border border-gray-300 rounded p-1 text-xs shadow-sm focus:ring-[#262760] focus:border-[#262760]"
+                            value={data.effectiveDate ? new Date(data.effectiveDate).toISOString().split('T')[0] : ''}
+                            onChange={(e) => handleInputChange('effectiveDate', e.target.value)}
+                          />
+                        ) : (
+                          <span className="text-gray-700">{data.effectiveDate ? formatDisplayDate(data.effectiveDate) : <span className="text-gray-400 italic">Not set</span>}</span>
+                        )}
+                      </td>
+                      {/* Reviewer Comments (read-only) */}
+                      <td className="px-4 py-4 text-center max-w-[180px]">
+                        <span className="text-xs text-gray-700 line-clamp-2">
+                          {data.reviewerComments || <span className="text-gray-400 italic">No comments</span>}
+                        </span>
+                      </td>
+                      {/* Recommend Promotion */}
+                      <td className="px-4 py-4 text-center text-sm text-gray-900 border-l border-r border-gray-100 max-w-[160px]">
+                        <div className="flex flex-col gap-1 items-center">
+                          {emp.promotionRecommendedByReviewer ? (
+                            <div className="flex flex-col items-center">
+                              <span className="text-xs font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-100">Recommended</span>
+                              {emp.newDesignation && (
+                                <span className="text-[10px] text-gray-500 mt-1 leading-tight text-center" title={`${emp.designation} ➔ ${emp.newDesignation}`}>
+                                  <span className="line-through opacity-70">{emp.designation}</span> <br />⬇<br /> <span className="font-bold text-gray-700">{emp.newDesignation}</span>
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-gray-400 italic">No</span>
+                          )}
+                        </div>
+                      </td>
+                      {/* Director Comments (editable) */}
+                      <td className="px-4 py-4 text-center max-w-[200px]">
+                        {isEditing ? (
+                          <textarea className="w-40 border border-gray-300 rounded p-1 text-xs resize-none focus:ring-[#262760] focus:border-[#262760]" rows={2} value={data.directorComments || ''} onChange={(e) => handleInputChange('directorComments', e.target.value)} placeholder="Add comments..." />
+                        ) : (
+                          <div className="text-xs text-gray-700 max-w-[180px] line-clamp-2 mx-auto cursor-pointer hover:text-[#262760]" onClick={() => !isReleased && openCommentModal(emp)}>
+                            {data.directorComments || <span className="text-gray-400 italic">Add comments...</span>}
+                          </div>
+                        )}
+                      </td>
+                      {/* Status */}
+                      <td className="px-4 py-4 text-center">
+                        {(() => {
+                          const s = emp.status || '';
+                          const labelMap = {
+                            reviewerApproved: 'Pending Review',
+                            directorInProgress: 'In Review',
+                            directorApproved: 'Approved',
+                            DIRECTOR_APPROVED: 'Approved',
+                            released: 'Released',
+                            'Released Letter': 'Released',
+                            accepted_pending_effect: 'Accepted',
+                            directorPushedBack: 'Pushed Back',
+                          };
+                          const colorMap = {
+                            reviewerApproved: 'bg-orange-100 text-orange-800 animate-pulse',
+                            directorInProgress: 'bg-indigo-100 text-indigo-800',
+                            directorApproved: 'bg-green-100 text-green-800',
+                            DIRECTOR_APPROVED: 'bg-green-100 text-green-800',
+                            released: 'bg-teal-100 text-teal-800',
+                            'Released Letter': 'bg-teal-100 text-teal-800',
+                            accepted_pending_effect: 'bg-purple-100 text-purple-800',
+                            directorPushedBack: 'bg-red-100 text-red-800',
+                          };
+                          const label = labelMap[s] || s;
+                          const color = colorMap[s] || 'bg-gray-100 text-gray-700';
+                          return <span className={`px-2 py-1 text-xs font-semibold rounded-full ${color}`}>{label}</span>;
+                        })()}
+                      </td>
+                      {/* Actions */}
                       <td className="px-4 py-4 text-center">
                         <div className="flex justify-center space-x-2">
                           {isEditing ? (
@@ -595,14 +741,14 @@ const DirectorApproval = () => {
                               <button onClick={() => handlePreviewLetter(emp)} className="text-[#262760] hover:text-[#1e2050]"><FileText className="h-5 w-5" /></button>
                               {!isRowLocked && <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900"><Edit className="h-4 w-4" /></button>}
                               {isRowLocked ? (
-                                <span className={isReleased ? "hidden" : "text-green-600"}><CheckCircle className="h-5 w-5 fill-green-100" /></span>
+                                <span className={isReleased ? 'hidden' : 'text-green-600'}><CheckCircle className="h-5 w-5 fill-green-100" /></span>
                               ) : (
                                 <button onClick={() => handleApproveAction(emp)} className="text-green-600 hover:text-green-900"><CheckCircle className="h-5 w-5" /></button>
                               )}
-                              {!isReleased && emp.status === 'DIRECTOR_APPROVED' && (
+                              {!isReleased && (emp.status === 'directorApproved' || emp.status === 'DIRECTOR_APPROVED') && (
                                 <button onClick={() => handleReleaseAction(emp)} className="text-orange-500 hover:text-orange-700" title="Release Letter"><Send className="h-5 w-5" /></button>
                               )}
-                              {isRowLocked && (
+                              {isRowLocked && !isAccepted && (
                                 <button onClick={() => handleRevokeAction(emp)} className="text-red-500 hover:text-red-700 ml-1" title="Revoke Appraisal">
                                   <RotateCcw className="h-4 w-4" />
                                 </button>
@@ -619,10 +765,10 @@ const DirectorApproval = () => {
           )}
         </div>
       </div>
-      
+
       {/* Modals and Popups */}
       <StatusPopup isOpen={statusPopup.isOpen} onClose={() => setStatusPopup({ ...statusPopup, isOpen: false })} {...statusPopup} />
-      
+
       {releaseConfirm.isOpen && (
         <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
@@ -659,10 +805,10 @@ const DirectorApproval = () => {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-red-500">*</span></label>
-                <textarea 
-                  className="w-full h-24 border border-gray-300 rounded p-2 focus:ring-red-500 focus:border-red-500 text-sm" 
-                  value={revokeConfirm.reason} 
-                  onChange={(e) => setRevokeConfirm({ ...revokeConfirm, reason: e.target.value })} 
+                <textarea
+                  className="w-full h-24 border border-gray-300 rounded p-2 focus:ring-red-500 focus:border-red-500 text-sm"
+                  value={revokeConfirm.reason}
+                  onChange={(e) => setRevokeConfirm({ ...revokeConfirm, reason: e.target.value })}
                   placeholder="Mandatory reason for revocation..."
                 />
               </div>
@@ -687,8 +833,8 @@ const DirectorApproval = () => {
             <div className="p-6 text-right">
               <textarea className="w-full h-32 border rounded p-3 resize-none" value={tempComment} onChange={(e) => setTempComment(e.target.value)} />
               <div className="mt-4 flex justify-end space-x-3">
-                 <button onClick={() => setIsCommentModalOpen(false)} className="px-4 py-2 border rounded">Cancel</button>
-                 <button onClick={saveComment} className="px-4 py-2 bg-[#262760] text-white rounded">Save</button>
+                <button onClick={() => setIsCommentModalOpen(false)} className="px-4 py-2 border rounded">Cancel</button>
+                <button onClick={saveComment} className="px-4 py-2 bg-[#262760] text-white rounded">Save</button>
               </div>
             </div>
           </div>
@@ -696,58 +842,12 @@ const DirectorApproval = () => {
       )}
 
       {viewModalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
-              <div className="px-6 py-4 bg-[#262760] text-white flex justify-between items-center font-bold">
-                 Appraisal Details
-                 <button onClick={() => setViewModalData(null)}><X className="h-5 w-5" /></button>
-              </div>
-              <div className="p-6 space-y-6">
-                <div className="flex items-center space-x-4 pb-4 border-b">
-                   <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center text-[#262760] font-bold text-xl">{viewModalData.name.charAt(0)}</div>
-                   <div>
-                      <h4 className="text-xl font-bold">{viewModalData.name}</h4>
-                      <p className="text-sm text-gray-500">
-                        {[viewModalData.designation, viewModalData.department].filter(Boolean).join(' • ') || '-'}
-                      </p>
-                   </div>
-                </div>
-                
-                <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                   <h4 className="text-sm font-bold text-[#262760] uppercase mb-3 border-b border-blue-200 pb-2">Comments History</h4>
-                   <div className="space-y-3">
-                      <div>
-                        <p className="text-xs text-gray-500 font-bold">Self Appraisal / Contribution</p>
-                        <p className="text-sm bg-white p-2 rounded border italic">"{viewModalData.selfAppraiseeComments || 'No comments'}"</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 font-bold">Manager Comments</p>
-                        <p className="text-sm bg-white p-2 rounded border italic">"{viewModalData.managerComments || 'No comments'}"</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 font-bold">Reviewer Comments</p>
-                        <p className="text-sm bg-white p-2 rounded border italic">"{viewModalData.reviewerComments || 'No comments'}"</p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-500 font-bold">Director Comments</p>
-                        <p className="text-sm bg-white p-2 rounded border italic">"{viewModalData.directorComments || 'No comments'}"</p>
-                      </div>
-                   </div>
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded-lg border">
-                   <h4 className="text-sm font-bold mb-4">Financial Overview</h4>
-                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-                      <div><span className="block text-xs text-gray-500">Current Salary</span><span className="text-sm font-medium">₹{Number(viewModalData.currentSalary || 0).toLocaleString()}</span></div>
-                      <div><span className="block text-xs text-gray-500">Base Incr %</span><span className="text-sm font-medium text-blue-600">{viewModalData.incrementPercentage}%</span></div>
-                      <div><span className="block text-xs text-gray-500">Correction %</span><span className="text-sm font-medium text-indigo-600">{viewModalData.incrementCorrectionPercentage}%</span></div>
-                      <div><span className="block text-xs text-gray-500">Revised Salary</span><span className="text-sm font-bold text-[#262760]">₹{Number(viewModalData.revisedSalary || 0).toLocaleString()}</span></div>
-                      <div><span className="block text-xs text-gray-500">Perf Pay</span><span className="text-sm font-bold text-green-600">₹{Number(viewModalData.performancePay || 0).toLocaleString()}</span></div>
-                   </div>
-                </div>
-              </div>
-           </div>
-        </div>
+        <ReviewerViewModal
+          selectedEmployee={viewModalData}
+          onClose={() => setViewModalData(null)}
+          formatDisplayDate={formatDisplayDate}
+          hasCompensationAccess={true}
+        />
       )}
 
       {showReleaseLetter && letterData && (
@@ -1047,6 +1147,125 @@ const DirectorApproval = () => {
                   </div>
                 </div>
               </div>
+
+
+
+              {/* Page 3: Promotion Letter (Conditional) */}
+              {letterData.promotion?.recommended && (letterData.status === 'released' || letterData.status === 'RELEASED' || letterData.status === 'Released Letter' || letterData.status === 'accepted' || letterData.status === 'accepted_pending_effect') && letterData.promotion?.newDesignation && (
+                <div id="release-letter-page-3" className="bg-white relative min-h-[1120px] w-[794px] shadow-lg flex-shrink-0 flex flex-col mt-8 break-before-page">
+                  {/* Decorative Background */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
+                    <img src="/images/steel-logo.png" alt="" className="w-[500px] opacity-[0.05] grayscale" crossOrigin="anonymous" style={{ display: 'block' }} />
+                  </div>
+
+                  <div className="relative z-10 flex flex-col h-full justify-between flex-grow">
+                    <div className="w-full flex h-32 relative overflow-hidden">
+                      <div className="absolute inset-0 z-0">
+                        <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
+                          <path d="M0,0 L400,0 L340,128 L0,128 Z" fill="#1e2b58" />
+                          <path d="M400,0 L430,0 L370,128 L340,128 Z" fill="#f37021" />
+                        </svg>
+                      </div>
+
+                      <div className="relative w-[60%] flex items-center pl-8 pr-12 z-10">
+                        <div className="flex items-center gap-4">
+                          <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ display: 'block' }} />
+                          <div className="text-white">
+                            <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
+                            <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">ENGINEERING PRIVATE LIMITED</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2 z-10">
+                        <div className="flex items-center mb-2">
+                          <span className="font-bold text-gray-800 mr-3 text-lg">044-47860455</span>
+                          <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                            </svg>
+                          </div>
+                        </div>
+                        <div className="flex items-start justify-end text-right">
+                          <span className="text-sm font-semibold text-gray-700 w-64 leading-tight">No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
+                          <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                            </svg>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="px-12 pt-6 pb-10 flex-grow flex flex-col">
+                      <div className="text-right text-sm text-gray-800 font-medium">Date: <span className="font-bold">{letterData.date}</span></div>
+
+                      <div className="w-full flex justify-center mt-12">
+                        <div className="h-16 w-16 bg-[#1e2b58] rounded-xl shadow-lg border-2 border-indigo-100 flex items-center justify-center">
+                          <Trophy className="h-8 w-8 text-yellow-400" />
+                        </div>
+                      </div>
+
+                      <div className="mt-10 text-center w-full">
+                        <h2 className="text-[26px] font-black tracking-[0.35em] text-[#1e2b58] uppercase underline underline-offset-8 decoration-2">
+                          CERTIFICATE OF PROMOTION
+                        </h2>
+                      </div>
+
+                      <div className="mt-10 w-full space-y-6 text-[15px] leading-8 text-gray-800 text-justify">
+                        <p>Dear <span className="font-bold text-gray-900 uppercase">{letterData.employeeName}</span>,</p>
+
+                        <p>
+                          You have been promoted as <span className="font-bold text-[#1e2b58]">"{letterData.promotion.newDesignation}"</span> in recognition of your consistent performance, dedication, and valuable contributions to the organization.
+                        </p>
+
+                        <p>
+                          The promotion will be effective from <span className="font-bold text-gray-900">{formatDisplayDate(letterData.promotion.effectiveDate)}</span>.
+                        </p>
+
+                        <p>
+                          We congratulate you on this milestone and wish you continued success in your new role.
+                        </p>
+
+                        <div className="mt-12 flex justify-end">
+                          <div className="text-right">
+                            <p className="text-sm text-gray-700 mb-2">For CALDIM ENGINEERING PRIVATE LIMITED</p>
+                            <div className="mt-8 flex flex-col items-end min-h-[80px]">
+                              {letterData.location && letterData.location.toLowerCase().includes('hosur') && (
+                                <img src={balaSignature} alt="Authorized Signatory" className="h-16 mb-2 object-contain" crossOrigin="anonymous" />
+                              )}
+                              {letterData.location && letterData.location.toLowerCase().includes('chennai') && (
+                                <img src={uvarajSignature} alt="Authorized Signatory" className="h-16 mb-2 object-contain" crossOrigin="anonymous" />
+                              )}
+                              {(!letterData.location || (!letterData.location.toLowerCase().includes('hosur') && !letterData.location.toLowerCase().includes('chennai'))) && (
+                                <div className="h-16 mb-2" />
+                              )}
+                              <div className="font-bold">Authorized Signatory</div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="w-full h-24 relative mt-auto overflow-hidden">
+                      <div className="absolute inset-0 z-0">
+                        <svg width="100%" height="100%" viewBox="0 0 794 96" preserveAspectRatio="none">
+                          <rect x="0" y="84" width="350" height="12" fill="#f37021" />
+                          <path d="M350,0 L794,0 L794,96 L290,96 Z" fill="#1e2b58" />
+                        </svg>
+                      </div>
+
+                      <div className="relative z-10 w-full h-full flex items-center justify-end pr-10 pt-4">
+                        <div className="text-white text-right">
+                          <div className="text-sm font-medium tracking-wide">Website : www.caldimengg.com</div>
+                          <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

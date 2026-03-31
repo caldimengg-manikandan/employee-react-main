@@ -41,40 +41,28 @@ const SelfAppraisalSchema = new mongoose.Schema({
     of: mongoose.Schema.Types.Mixed,
     default: () => ({ comments: '', careerGoals: '' })
   },
-  // Dynamic Manager Ratings
-  behaviourManagerRatings: {
-    type: Map,
-    of: Number,
-    default: {}
-  },
-  processManagerRatings: {
-    type: Map,
-    of: Number,
-    default: {}
-  },
-  technicalManagerRatings: {
-    type: Map,
-    of: Number,
-    default: {}
-  },
-  growthManagerRatings: {
-    type: Map,
-    of: Number,
-    default: {}
-  },
   status: {
     type: String,
     enum: [
-      'Draft',
-      'Submitted',
-      'SUBMITTED',
-      'APPRAISER_COMPLETED',
-      'REVIEWER_COMPLETED',
-      'DIRECTOR_APPROVED',
-      'AppraiserReview', 'ReviewerReview', 'DirectorApproval', 'Released', 'Reviewed',
-      'Released Letter', 'Accepted'
+      'draft',
+      'submitted',
+      'managerInProgress',
+      'reviewerPending',
+      'reviewerInProgress',
+      'reviewerApproved',
+      'directorInProgress',
+      'directorApproved',
+      'directorPushedBack',
+      'released',
+      'accepted_pending_effect',
+      'effective',
+      'rejected',
+      'revoked',
+      // Keeping legacy for compatibility
+      'managerApproved',
+      'REVIEWER_COMPLETED'
     ],
-    default: 'Draft'
+    default: 'draft'
   },
   employeeAcceptanceStatus: {
     type: String,
@@ -103,7 +91,7 @@ const SelfAppraisalSchema = new mongoose.Schema({
   directorId: {
     type: String
   },
-  // Manager/Appraiser Fields
+  // Manager Fields
   managerComments: { type: String, default: '' },
   keyPerformance: { type: String, default: '' },
   appraiseeComments: { type: String, default: '' },
@@ -137,7 +125,29 @@ const SelfAppraisalSchema = new mongoose.Schema({
   technicalManagerComments: { type: String, default: '' },
   growthManagerComments: { type: String, default: '' },
 
-  // Reviewer Fields
+  // Dynamic Manager Ratings
+  behaviourManagerRatings: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  processManagerRatings: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  technicalManagerRatings: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  growthManagerRatings: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+
+  // Final Review/Director Fields
   reviewerComments: { type: String, default: '' },
   directorComments: { type: String, default: '' },
   currentSalarySnapshot: { type: Number, default: 0 },
@@ -147,7 +157,7 @@ const SelfAppraisalSchema = new mongoose.Schema({
   revisedSalary: { type: Number, default: 0 },
   performancePay: { type: Number, default: 0 },
 
-  // Snapshots captured at the moment of release so letters never change later
+  // Letter Release Snapshots
   releaseSalarySnapshot: {
     type: Map,
     of: Number,
@@ -165,14 +175,23 @@ const SelfAppraisalSchema = new mongoose.Schema({
   releaseLetter: {
     type: String
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
+  
+  // Refined Workflow Metadata
+  workflow: {
+    submittedAt: Date,
+    managerApprovedAt: Date,
+    directorApprovedAt: Date,
+    releasedAt: Date,
+    acceptedAt: Date
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+
+  pushBack: {
+    isPushedBack: { type: Boolean, default: false },
+    reason: String,
+    pushedBy: String,
+    pushedAt: Date
   },
+
   // Versioning & Locking
   version: {
     type: Number,
@@ -198,7 +217,46 @@ const SelfAppraisalSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'SelfAppraisal',
     default: null
+  },
+
+  // Promotion Handling
+  promotion: {
+    recommended: { type: Boolean, default: false },
+    newDesignation: { type: String, default: '' },
+    remarksReviewer: { type: String, default: '' },
+    remarksDirector: { type: String, default: '' },
+    effectiveDate: { type: Date }
+  },
+
+  effectiveDate: { type: Date }, // Overall effective date for payroll changes
+  
+  payrollProcessed: {
+    type: Boolean,
+    default: false
+  },
+
+  // Added for Stage 1: Team Appraisal Input
+  managerReview: {
+    performanceRating: { type: String, default: '' },
+    rating: { type: String, default: '' },
+    behaviouralRatings: {
+      knowledgeSharing: { type: Number, default: 0 },
+      teamWork: { type: Number, default: 0 },
+      communication: { type: Number, default: 0 },
+      ownership: { type: Number, default: 0 }
+    },
+    sectionRatings: {
+      type: Map,
+      of: Number,
+      default: {}
+    },
+    comments: { type: String, default: '' },
+    summary: { type: String, default: '' },
+    strengths: { type: String, default: '' },
+    areasOfImprovement: { type: String, default: '' },
+    reviewedAt: { type: Date },
+    reviewedBy: { type: String }
   }
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model('SelfAppraisal', SelfAppraisalSchema);

@@ -72,6 +72,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "My Profile": UserIcon,
     "User Access": KeyIcon,
     "Employee Management": UsersIcon,
+    "HR": AdjustmentsHorizontalIcon,
+    "Promotion History": DocumentMagnifyingGlassIcon,
     "Timesheet": DocumentChartBarIcon,
     "Employee Attendance": ClockIcon,
     "Attendance Approval": ClipboardDocumentCheckIcon,
@@ -237,6 +239,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
           path: "/performance/attendance-summary",
           showForRoles: ["admin", "hr", "manager"],
           permission: "attendance_summary"
+        },
+        {
+          name: "Promotion History",
+          path: "/performance/promotion-history",
+          showForRoles: ["admin", "hr", "employees"], // Added employees
+          allowEmployeeRole: true, // Set to true
+          permission: "self_appraisal" // Using self_appraisal which employees already have
         },
       ],
     },

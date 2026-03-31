@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const IncrementMatrix = require('../models/IncrementMatrix');
 const IncrementConfig = require('../models/IncrementConfig');
+const Employee = require('../models/Employee');
 
 // @desc    Get Increment Matrix
 // @route   GET /api/performance/increment-master
