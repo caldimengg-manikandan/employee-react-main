@@ -93,7 +93,12 @@ const userSchema = new mongoose.Schema({
       'marriage_allowance',
       'edit_attendance',
       'celebration_view',
-      'celebration_wish'
+      'celebration_wish',
+      'promotion_history',
+      'regional_holidays',
+      'office_holidays',
+      'payroll_history',
+      'unified_calendar'
     ]
 
   }],

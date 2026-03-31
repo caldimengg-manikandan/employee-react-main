@@ -9,15 +9,7 @@ const useNotification = () => {
 
 
 
-
-
-
-
-
-
-  
-
-  const showNotification = useCallback((message, type = 'success') => {
+const showNotification = useCallback((message, type = 'success') => {
     setNotification({
       isVisible: true,
       message,

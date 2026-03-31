@@ -64,7 +64,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         { key: 'appraisal_workflow', label: 'Appraisal Workflow' },
         { key: 'appraisal_master', label: 'Appraisal Master' },
         { key: 'increment_summary', label: 'Increment Summary' },
-        { key: 'attendance_summary', label: 'Attendance Summary' }
+        { key: 'attendance_summary', label: 'Attendance Summary' },
+        { key: 'promotion_history', label: 'Promotion History' }
       ]
     },
     {
@@ -73,6 +74,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       children: [
         { key: 'leave_access', label: 'Leave Applications' },
         { key: 'leave_summary', label: 'Leave Summary' },
+        { key: 'regional_holidays', label: 'Regional Holidays' },
+        { key: 'office_holidays', label: 'Office Holidays' },
         { key: 'leave_balance', label: 'Leave Balance' }
       ]
     },
@@ -81,6 +84,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       key: 'payroll_access',
       children: [
         { key: 'payroll_details', label: 'Payroll Details' },
+        { key: 'payroll_history', label: 'Payroll History' },
         { key: 'cost_to_company', label: 'Cost to the Company' },
         { key: 'compensation_master', label: 'Compensation Master' },
         { key: 'loan_summary', label: 'Loan Summary' },
@@ -121,10 +125,10 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       ]
     },
     {
-      name: "Celebration Hub",
+      name: "Unified Hub Calendar",
       children: [
-        { key: 'celebration_view', label: 'View Calendar Hub' },
-        { key: 'celebration_wish', label: 'Send Wishes' }
+        { key: 'unified_calendar', label: 'Unified Hub Calendar' }
+
       ]
     }
   ];
@@ -153,11 +157,14 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'leave_access',
       'leave_group_access',
       'leave_summary',
+      'regional_holidays',
+      'office_holidays',
       'performance_access',
       'self_appraisal',
       'salary_slips',
-      'celebration_view',
-      'celebration_wish'
+
+      'unified_calendar',
+
     ],
 
     employees: [
@@ -172,8 +179,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'exit_form_access',
       'salary_slips',
       'policy_portal',
-      'celebration_view',
-      'celebration_wish'
+
+      'unified_calendar',
+
     ]
 
   };

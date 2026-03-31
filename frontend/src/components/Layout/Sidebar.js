@@ -243,9 +243,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         {
           name: "Promotion History",
           path: "/performance/promotion-history",
-          showForRoles: ["admin", "hr", "employees"], // Added employees
-          allowEmployeeRole: true, // Set to true
-          permission: "self_appraisal" // Using self_appraisal which employees already have
+          showForRoles: ["admin", "hr"],
+
+          permission: "promotion_history"
         },
       ],
     },
