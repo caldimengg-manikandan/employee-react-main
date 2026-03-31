@@ -15,7 +15,15 @@ const IncrementConfigSchema = new mongoose.Schema({
 IncrementConfigSchema.statics.getConfigByYear = async function(year) {
   const config = await this.findOne({ financialYear: year });
   if (config) return config;
-  return this.create({ financialYear: year });
+  try {
+    return await this.create({ financialYear: year });
+  } catch (err) {
+    // Handle concurrent creation
+    if (err.code === 11000) {
+      return await this.findOne({ financialYear: year });
+    }
+    throw err;
+  }
 };
 
 module.exports = mongoose.model('IncrementConfig', IncrementConfigSchema);

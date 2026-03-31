@@ -20,7 +20,7 @@ router.get('/', auth, async (req, res) => {
     if (!matrix || matrix.length === 0) {
       // Fetch dynamic designations from Employee master to avoid hardcoding
       const distinctDesignations = await Employee.distinct('designation');
-      const validDesignations = distinctDesignations.filter(d => d && d.trim().length > 0);
+      const validDesignations = distinctDesignations.filter(d => d && typeof d === 'string' && d.trim().length > 0);
       
       // If we have designations, group them into the first category, otherwise use generic default
       const defaultCategory = validDesignations.length > 0 
@@ -70,7 +70,13 @@ router.get('/', auth, async (req, res) => {
         }
       ];
 
-      await IncrementMatrix.insertMany(defaultMatrixData);
+      try {
+        await IncrementMatrix.insertMany(defaultMatrixData, { ordered: false });
+      } catch (insertError) {
+        if (insertError.code !== 11000) {
+          console.error('Error inserting default matrix data:', insertError);
+        }
+      }
       matrix = await IncrementMatrix.find({ financialYear: year }).sort({ id: 1 });
     }
     
@@ -79,8 +85,8 @@ router.get('/', auth, async (req, res) => {
       enabledColumns: config.enabledColumns
     });
   } catch (error) {
-    console.error('Error fetching increment matrix:', error);
-    res.status(500).json({ success: false, message: 'Server Error', error: error.message });
+    console.error('Error fetching increment matrix:', error.stack || error);
+    res.status(500).json({ success: false, message: 'Server Error', error: error.message, stack: process.env.NODE_ENV === 'development' ? error.stack : undefined });
   }
 });
 
