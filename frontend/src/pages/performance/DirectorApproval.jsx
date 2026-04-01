@@ -1,5 +1,5 @@
 import ReviewerViewModal from '../../components/ReviewerViewModal';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search,
   Eye,
@@ -516,16 +516,18 @@ const DirectorApproval = () => {
   const divisions = ['All', ...new Set(employees.map(emp => emp.division).filter(Boolean))];
   const designations = ['All', ...new Set(employees.map(emp => emp.designation).filter(Boolean))];
   const locations = ['All', ...new Set(employees.map(emp => emp.location || emp.branch).filter(Boolean))];
-  const filteredEmployees = employees.filter(emp =>
-    (emp.financialYr === selectedFinancialYr) &&
-    (selectedDivision === 'All' || emp.division === selectedDivision) &&
-    (selectedDesignation === 'All' || emp.designation === selectedDesignation) &&
-    (selectedLocation === 'All' || (emp.location || emp.branch) === selectedLocation) &&
-    (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.empId.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (activeTab === 'pending'
-      ? PENDING_STATUSES.includes(emp.status)
-      : COMPLETED_STATUSES.includes(emp.status))
-  );
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(emp =>
+      (emp.financialYr === selectedFinancialYr) &&
+      (selectedDivision === 'All' || emp.division === selectedDivision) &&
+      (selectedDesignation === 'All' || (emp.designation || '').trim() === selectedDesignation) &&
+      (selectedLocation === 'All' || (emp.location || emp.branch || '').trim() === selectedLocation) &&
+      (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.empId.toLowerCase().includes(searchTerm.toLowerCase())) &&
+      (activeTab === 'pending'
+        ? PENDING_STATUSES.includes(emp.status)
+        : COMPLETED_STATUSES.includes(emp.status))
+    );
+  }, [employees, selectedFinancialYr, selectedDivision, selectedDesignation, selectedLocation, searchTerm, activeTab]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
@@ -543,6 +545,10 @@ const DirectorApproval = () => {
             <select value={selectedDivision} onChange={(e) => setSelectedDivision(e.target.value)} className="block w-48 pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border">
               <option value="All">All Divisions</option>
               {divisions.filter(d => d !== 'All').map(div => <option key={div} value={div}>{div}</option>)}
+            </select>
+            <select value={selectedDesignation} onChange={(e) => setSelectedDesignation(e.target.value)} className="block w-48 pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border text-sm">
+              <option value="All">All Designations</option>
+              {designations.filter(d => d !== 'All').map(des => <option key={des} value={des}>{des}</option>)}
             </select>
             <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} className="block w-48 pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border">
               <option value="All">All Locations</option>
@@ -601,7 +607,6 @@ const DirectorApproval = () => {
                   <th className="px-4 py-3 text-right">Increment Amount</th>
                   <th className="px-4 py-3 text-right">Revised Salary</th>
                   <th className="px-4 py-3 text-right">Performance Pay</th>
-                  <th className="px-4 py-3 text-center">Effective Date</th>
                   <th className="px-4 py-3 text-center">Reviewer Comments</th>
                   <th className="px-4 py-3 text-center">Recommend Promotion</th>
                   <th className="px-4 py-3 text-center">Director Comments</th>
@@ -661,19 +666,6 @@ const DirectorApproval = () => {
                           />
                         ) : (
                           <span className="font-medium">₹{Number(data.performancePay || 0).toLocaleString('en-IN')}</span>
-                        )}
-                      </td>
-                      {/* Effective Date */}
-                      <td className="px-4 py-4 text-sm text-center whitespace-nowrap">
-                        {isEditing ? (
-                          <input
-                            type="date"
-                            className="w-32 border border-gray-300 rounded p-1 text-xs shadow-sm focus:ring-[#262760] focus:border-[#262760]"
-                            value={data.effectiveDate ? new Date(data.effectiveDate).toISOString().split('T')[0] : ''}
-                            onChange={(e) => handleInputChange('effectiveDate', e.target.value)}
-                          />
-                        ) : (
-                          <span className="text-gray-700">{data.effectiveDate ? formatDisplayDate(data.effectiveDate) : <span className="text-gray-400 italic">Not set</span>}</span>
                         )}
                       </td>
                       {/* Reviewer Comments (read-only) */}

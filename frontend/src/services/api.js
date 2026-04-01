@@ -284,6 +284,13 @@ export const payrollAPI = {
   getById: (id) => api.get(`/payroll/${id}`)
 };
 
+export const payrollHistoryAPI = {
+  getSnapshot: (fy) => api.get(`/payroll/history/snapshot/${fy}`),
+  getHistory: (employeeId, params) => api.get(`/payroll/history/${employeeId}`, { params }),
+  update: (id, data) => api.put(`/payroll/history/${id}`, data),
+  delete: (id) => api.delete(`/payroll/history/${id}`)
+};
+
 export const monthlyPayrollAPI = {
   save: (data) => api.post('/monthly-payroll/run', data),
   list: (params) => api.get('/monthly-payroll', { params }),
@@ -323,7 +330,7 @@ export const loanAPI = {
 export const expenditureAPI = {
   healthCheck: () => api.get('/expenditure/health-check'),
   saveMonthlyRecord: (data) => api.post('/expenditure/save-monthly', data),
-  updateRecord: (id, data) => api.put(`/expenditure/update/${id}`, data),
+  updateRecord: (id, data) => api.put('/expenditure/update/${id}', data),
   getSummary: (params) => api.get('/expenditure/summary', { params }),
   getRecordById: (id) => api.get(`/expenditure/record/${id}`),
   deleteRecord: (id) => api.delete(`/expenditure/record/${id}`)
@@ -388,8 +395,6 @@ export const promotionAPI = {
   getMyLatestApprovedPromotion: () => api.get('/promotionHistory/me/latest', { params: { status: 'Approved' } }),
 };
 
-
-
 // Announcements (management + public active list)
 authAPI.announcement = {
   getAll: async () => {
@@ -427,6 +432,5 @@ export const celebrationAPI = {
   sendWish: (data) => api.post('/celebrations/wish', data),
   replyWish: (wishId, data) => api.post(`/celebrations/wish/${wishId}/reply`, data),
 };
-
 
 export default api;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Download, TrendingUp, FileText, FileSpreadsheet } from 'lucide-react';
-import api, { employeeAPI } from '../../services/api';
+import { Search, Download, TrendingUp, FileText, FileSpreadsheet, Edit, Trash2, Save, X, AlertCircle } from 'lucide-react';
+import api, { employeeAPI, payrollHistoryAPI } from '../../services/api';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -13,6 +13,9 @@ const PayrollHistory = () => {
     const [selectedEmployee, setSelectedEmployee] = useState('');
     const [selectedFy, setSelectedFy] = useState('2025-26');
     const [searchTerm, setSearchTerm] = useState('');
+    const [editingId, setEditingId] = useState(null);
+    const [editFormData, setEditFormData] = useState({});
+    const [statusPopup, setStatusPopup] = useState({ isOpen: false, status: 'success', message: '' });
 
     const user = JSON.parse(sessionStorage.getItem("user") || "{}");
     const role = (user.role || '').toLowerCase();
@@ -129,7 +132,45 @@ const PayrollHistory = () => {
         doc.save(`Payroll_History_${selectedFy}.pdf`);
     };
 
+    const handleDelete = async (id) => {
+        if (!window.confirm('Are you sure you want to delete this record?')) return;
+        try {
+            const res = await payrollHistoryAPI.delete(id);
+            if (res.data.success) {
+                setStatusPopup({ isOpen: true, status: 'success', message: 'Record deleted successfully' });
+                fetchHistory();
+            }
+        } catch (error) {
+            setStatusPopup({ isOpen: true, status: 'error', message: error.response?.data?.message || 'Failed to delete' });
+        }
+    };
+
+    const startEdit = (record) => {
+        setEditingId(record._id);
+        setEditFormData({
+            salary: record.revisedCTC || record.salary || 0,
+            financialYear: record.financialYear,
+            effectiveFrom: record.effectiveFrom ? new Date(record.effectiveFrom).toISOString().split('T')[0] : '',
+            effectiveTo: record.effectiveTo ? new Date(record.effectiveTo).toISOString().split('T')[0] : '',
+            notes: record.notes || ''
+        });
+    };
+
+    const handleUpdate = async (id) => {
+        try {
+            const res = await payrollHistoryAPI.update(id, editFormData);
+            if (res.data.success) {
+                setEditingId(null);
+                setStatusPopup({ isOpen: true, status: 'success', message: 'Record updated successfully' });
+                fetchHistory();
+            }
+        } catch (error) {
+            setStatusPopup({ isOpen: true, status: 'error', message: error.response?.data?.message || 'Failed to update' });
+        }
+    };
+
     return (
+        <>
         <div className="p-8 max-w-7xl mx-auto font-sans">
             <div className="flex justify-between items-center mb-6">
                 <h1 className="text-2xl font-bold text-[#262760] flex items-center">
@@ -201,6 +242,7 @@ const PayrollHistory = () => {
                                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Net Salary</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Account No</th>
                                     <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Location</th>
+                                    {isAdmin && <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Actions</th>}
                                 </tr>
                             </thead>
                             <tbody className="bg-white divide-y divide-gray-200">
@@ -213,6 +255,17 @@ const PayrollHistory = () => {
                                         <td className="px-6 py-4 whitespace-nowrap"><div className="font-bold text-green-600">₹{Number(record.netSalary || 0).toLocaleString('en-IN')}</div></td>
                                         <td className="px-6 py-4 whitespace-nowrap"><div className="text-gray-900">{record.accountNumber || '-'}</div></td>
                                         <td className="px-6 py-4 whitespace-nowrap"><div className="text-gray-900">{record.location || '-'}</div></td>
+                                        {isAdmin && (
+                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                <button 
+                                                    onClick={() => handleDelete(record._id)}
+                                                    className="text-red-600 hover:text-red-900"
+                                                    title="Delete"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </td>
+                                        )}
                                     </tr>
                                 ))}
                             </tbody>
@@ -231,14 +284,32 @@ const PayrollHistory = () => {
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Amount</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Perf. Pay</th>
                                 <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Status</th>
+                                {isAdmin && <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider">Actions</th>}
                             </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                             {history.map((record) => (
                                 <tr key={record._id} className={record.status === 'REVOKED' ? 'bg-red-50 opacity-75' : 'hover:bg-gray-50'}>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{record.financialYear}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                        {editingId === record._id ? (
+                                            <input 
+                                                className="border rounded px-2 py-1 w-24"
+                                                value={editFormData.financialYear}
+                                                onChange={(e) => setEditFormData({...editFormData, financialYear: e.target.value})}
+                                            />
+                                        ) : record.financialYear}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">₹{Number(record.previousCTC || 0).toLocaleString('en-IN')}</td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-[#262760]">₹{Number(record.revisedCTC || 0).toLocaleString('en-IN')}</td>
+                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-[#262760]">
+                                        {editingId === record._id ? (
+                                            <input 
+                                                type="number"
+                                                className="border rounded px-2 py-1 w-24"
+                                                value={editFormData.salary}
+                                                onChange={(e) => setEditFormData({...editFormData, salary: e.target.value})}
+                                            />
+                                        ) : `₹${Number(record.revisedCTC || 0).toLocaleString('en-IN')}`}
+                                    </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{record.incrementPercentage}%</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">+₹{Number(record.incrementAmount || 0).toLocaleString('en-IN')}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-600">₹{Number(record.performancePay || 0).toLocaleString('en-IN')}</td>
@@ -251,6 +322,21 @@ const PayrollHistory = () => {
                                             {record.status}
                                         </span>
                                     </td>
+                                    {isAdmin && (
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium space-x-3">
+                                            {editingId === record._id ? (
+                                                <>
+                                                    <button onClick={() => handleUpdate(record._id)} className="text-green-600 hover:text-green-900" title="Save"><Save className="h-4 w-4" /></button>
+                                                    <button onClick={() => setEditingId(null)} className="text-gray-600 hover:text-gray-900" title="Cancel"><X className="h-4 w-4" /></button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <button onClick={() => startEdit(record)} className="text-indigo-600 hover:text-indigo-900" title="Edit"><Edit className="h-4 w-4" /></button>
+                                                    <button onClick={() => handleDelete(record._id)} className="text-red-600 hover:text-red-900" title="Delete"><Trash2 className="h-4 w-4" /></button>
+                                                </>
+                                            )}
+                                        </td>
+                                    )}
                                 </tr>
                             ))}
                         </tbody>
@@ -258,6 +344,18 @@ const PayrollHistory = () => {
                 )}
             </div>
         </div>
+        {statusPopup.isOpen && (
+            <div className="fixed bottom-4 right-4 z-50">
+                <div className={`${statusPopup.status === 'success' ? 'bg-emerald-500' : 'bg-red-500'} text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-3 animate-slide-up`}>
+                    {statusPopup.status === 'success' ? <TrendingUp className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+                    <span className="text-sm font-medium">{statusPopup.message}</span>
+                    <button onClick={() => setStatusPopup({ ...statusPopup, isOpen: false })} className="hover:opacity-75 transition-opacity">
+                        <X className="h-4 w-4" />
+                    </button>
+                </div>
+            </div>
+        )}
+        </>
     );
 };
 

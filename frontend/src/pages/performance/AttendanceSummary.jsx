@@ -109,6 +109,7 @@ const AttendanceSummary = () => {
   const [filters, setFilters] = useState({
     search: '',
     division: 'all',
+    designation: 'all',
     location: 'all',
   });
 
@@ -181,6 +182,15 @@ const AttendanceSummary = () => {
     const set = new Set();
     employees.forEach((e) => {
       if (e.location || e.branch) set.add(e.location || e.branch);
+    });
+    return Array.from(set).sort();
+  }, [employees]);
+
+  const designationOptions = useMemo(() => {
+    const set = new Set();
+    employees.forEach((e) => {
+      const des = (e.designation || e.role || '').trim();
+      if (des) set.add(des);
     });
     return Array.from(set).sort();
   }, [employees]);
@@ -445,10 +455,13 @@ const AttendanceSummary = () => {
           const combined = `${row.empId} ${row.name}`.toLowerCase();
           if (!combined.includes(search)) return false;
         }
-        if (filters.division !== 'all' && row.division !== filters.division) {
+        if (filters.division !== 'all' && (row.division || '').trim() !== filters.division) {
           return false;
         }
-        if (filters.location !== 'all' && row.location !== filters.location) {
+        if (filters.designation !== 'all' && (employees.find(e => String(e.employeeId || e.empId) === String(row.empId))?.designation || '').trim() !== filters.designation) {
+          return false;
+        }
+        if (filters.location !== 'all' && (row.location || '').trim() !== filters.location) {
           return false;
         }
         return true;
@@ -593,15 +606,13 @@ const AttendanceSummary = () => {
               </div>
             </div>
             <div className="w-full md:w-44">
-              <label className="block text-xs font-medium text-gray-600 mb-1">
+              <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center">
                 Division
               </label>
               <select
                 value={filters.division}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, division: e.target.value }))
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
+                onChange={(e) => setFilters(prev => ({ ...prev, division: e.target.value }))}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
               >
                 <option value="all">All Divisions</option>
                 {divisionOptions.map((division) => (
@@ -614,15 +625,30 @@ const AttendanceSummary = () => {
 
             <div className="w-full md:w-44">
               <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center">
-                <MapPin className="h-3 w-3 mr-1 text-gray-500" />
+                Designation
+              </label>
+              <select
+                value={filters.designation}
+                onChange={(e) => setFilters(prev => ({ ...prev, designation: e.target.value }))}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
+              >
+                <option value="all">All Designations</option>
+                {designationOptions.map((des) => (
+                  <option key={des} value={des}>
+                    {des}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="w-full md:w-44">
+              <label className="block text-xs font-medium text-gray-600 mb-1 flex items-center">
                 Location
               </label>
               <select
                 value={filters.location}
-                onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, location: e.target.value }))
-                }
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
+                onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-[#262760] focus:ring-[#262760] text-sm"
               >
                 <option value="all">All Locations</option>
                 {locationOptions.map((loc) => (

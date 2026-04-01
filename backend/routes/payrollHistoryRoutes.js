@@ -92,4 +92,58 @@ router.get('/history/:employeeId', auth, async (req, res) => {
   }
 });
 
+// @desc    Update a payroll history record
+// @route   PUT /api/payroll/history/:id
+// @access  Private (Admin only)
+router.put('/history/:id', auth, async (req, res) => {
+  try {
+    const role = (req.user.role || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'hr' || role === 'director';
+
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not authorized to edit payroll history' });
+    }
+
+    const { salary, financialYear, effectiveFrom, effectiveTo, notes } = req.body;
+    
+    let record = await PayrollHistory.findById(req.params.id);
+    if (!record) return res.status(404).json({ success: false, message: 'Record not found' });
+
+    if (salary !== undefined) record.salary = salary;
+    if (financialYear !== undefined) record.financialYear = financialYear;
+    if (effectiveFrom !== undefined) record.effectiveFrom = effectiveFrom;
+    if (effectiveTo !== undefined) record.effectiveTo = effectiveTo;
+    if (notes !== undefined) record.notes = notes;
+
+    await record.save();
+    res.json({ success: true, data: record });
+  } catch (error) {
+    console.error('Error updating payroll history:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// @desc    Delete a payroll history record
+// @route   DELETE /api/payroll/history/:id
+// @access  Private (Admin only)
+router.delete('/history/:id', auth, async (req, res) => {
+  try {
+    const role = (req.user.role || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'hr' || role === 'director';
+
+    if (!isAdmin) {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete payroll history' });
+    }
+
+    const record = await PayrollHistory.findById(req.params.id);
+    if (!record) return res.status(404).json({ success: false, message: 'Record not found' });
+
+    await PayrollHistory.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: 'Record deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting payroll history:', error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 module.exports = router;

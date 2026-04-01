@@ -231,16 +231,25 @@ const BankRepository = () => {
 
   const handleView = (resume) => {
     if (!resume.filePath) return;
-    const url = `${BASE_URL}${resume.filePath}`;
+    const cleanBase = BASE_URL.endsWith("/") ? BASE_URL.slice(0, -1) : BASE_URL;
+    const cleanPath = resume.filePath.startsWith("/") ? resume.filePath.slice(1) : resume.filePath;
+    const url = `${cleanBase}/${cleanPath}`;
     window.open(url, "_blank", "noopener");
   };
 
   const handleDownload = (resume) => {
     if (!resume.filePath) return;
-    const url = `${BASE_URL}${resume.filePath}`;
+    const cleanBase = BASE_URL.endsWith("/") ? BASE_URL.slice(0, -1) : BASE_URL;
+    const cleanPath = resume.filePath.startsWith("/") ? resume.filePath.slice(1) : resume.filePath;
+    const url = `${cleanBase}/${cleanPath}`;
+    
+    // Extract actual extension from filePath (e.g. .pdf, .docx)
+    const ext = resume.filePath.split(".").pop().toLowerCase();
+    
     const link = document.createElement("a");
     link.href = url;
-    link.download = `${resume.candidateName || "resume"}.pdf`;
+    // Maintain the original file type for the downloaded file
+    link.download = `${resume.candidateName || "resume"}.${ext}`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

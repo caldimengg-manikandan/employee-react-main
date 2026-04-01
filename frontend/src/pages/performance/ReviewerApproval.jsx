@@ -213,6 +213,7 @@ const ReviewerApproval = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFinancialYr, setSelectedFinancialYr] = useState(getCurrentFinancialYear());
   const [selectedDivision, setSelectedDivision] = useState('');
+  const [selectedDesignation, setSelectedDesignation] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('');
   const [selectedRows, setSelectedRows] = useState([]);
   const [activeReviewerTab, setActiveReviewerTab] = useState('pending');
@@ -961,42 +962,40 @@ const ReviewerApproval = () => {
   const getDivisionValue = (emp) => String(emp?.division || '').trim();
   const getLocationValue = (emp) => String(emp?.location || emp?.branch || '').trim();
 
-  const uniqueDivisions = [...new Set(employees.map(getDivisionValue).filter(Boolean))].sort();
-  const uniqueLocations = [...new Set(employees.map(getLocationValue).filter(Boolean))].sort();
+  const uniqueDivisions = useMemo(() => [...new Set(employees.map(getDivisionValue).filter(Boolean))].sort(), [employees]);
+  const uniqueDesignations = useMemo(() => [...new Set(employees.map(e => (e.designation || '').trim()).filter(Boolean))].sort(), [employees]);
+  const uniqueLocations = useMemo(() => [...new Set(employees.map(getLocationValue).filter(Boolean))].sort(), [employees]);
   const REVIEWER_PENDING_STATUSES = ['reviewerPending', 'reviewerInProgress', 'directorPushedBack', 'managerApproved'];
   const REVIEWER_COMPLETED_STATUSES = ['reviewerApproved', 'directorInProgress', 'directorApproved', 'released', 'Released Letter', 'accepted_pending_effect'];
 
-  const filteredEmployees = employees.filter(emp =>
-    (emp.financialYr === selectedFinancialYr) &&
-    (selectedDivision === '' || getDivisionValue(emp) === selectedDivision) &&
-    (selectedLocation === '' || getLocationValue(emp) === selectedLocation) &&
-    (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.empId.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (activeReviewerTab === 'pending'
-      ? REVIEWER_PENDING_STATUSES.includes(emp.status)
-      : REVIEWER_COMPLETED_STATUSES.includes(emp.status))
-  ).sort((a, b) => {
-    // Priority:
-    // 1. Pending (SUBMITTED_BY_MANAGER or status that needs reviewer action)
-    // 2. Submitted to Director (status that is beyond reviewer)
-    // 3. Released/Accepted
-    const getPrio = (a) => {
-      const s = String(a.status || '').trim();
-      // Prio 1: Action Required by Reviewer
-      if (['reviewerPending', 'reviewerInProgress', 'directorPushedBack', 'managerApproved'].includes(s) || a.promotionStatus === 'sentBack') return 1;
-      // Prio 2: Submitted to Director (Wait for approval)
-      if (['reviewerApproved', 'directorInProgress'].includes(s)) return 2;
-      // Prio 3: Director Approved
-      if (['directorApproved'].includes(s)) return 3;
-      // Prio 4: Finalized
-      if (['Released Letter', 'released', 'Accepted', 'accepted_pending_effect', 'effective', 'COMPLETED'].includes(s)) return 4;
-      return 5; // Others
-    };
-    const pa = getPrio(a);
-    const pb = getPrio(b);
-    if (pa !== pb) return pa - pb;
-    return a.name.localeCompare(b.name);
-  });
+  const filteredEmployees = useMemo(() => {
+    return employees
+      .filter(emp =>
+        (emp.financialYr === selectedFinancialYr) &&
+        (selectedDivision === '' || getDivisionValue(emp) === selectedDivision) &&
+        (selectedDesignation === '' || (emp.designation || '').trim() === selectedDesignation) &&
+        (selectedLocation === '' || getLocationValue(emp) === selectedLocation) &&
+        (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          emp.empId.toLowerCase().includes(searchTerm.toLowerCase())) &&
+        (activeReviewerTab === 'pending'
+          ? REVIEWER_PENDING_STATUSES.includes(emp.status)
+          : REVIEWER_COMPLETED_STATUSES.includes(emp.status))
+      )
+      .sort((a, b) => {
+        const getPrio = (x) => {
+          const s = String(x.status || '').trim();
+          if (['reviewerPending', 'reviewerInProgress', 'directorPushedBack', 'managerApproved'].includes(s) || x.promotionStatus === 'sentBack') return 1;
+          if (['reviewerApproved', 'directorInProgress'].includes(s)) return 2;
+          if (['directorApproved'].includes(s)) return 3;
+          if (['Released Letter', 'released', 'Accepted', 'accepted_pending_effect', 'effective', 'COMPLETED'].includes(s)) return 4;
+          return 5;
+        };
+        const pa = getPrio(a);
+        const pb = getPrio(b);
+        if (pa !== pb) return pa - pb;
+        return a.name.localeCompare(b.name);
+      });
+  }, [employees, selectedFinancialYr, selectedDivision, selectedDesignation, selectedLocation, searchTerm, activeReviewerTab]);
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
@@ -1039,6 +1038,18 @@ const ReviewerApproval = () => {
               <option value="">All Divisions</option>
               {uniqueDivisions.map(div => (
                 <option key={div} value={div}>{div}</option>
+              ))}
+            </select>
+
+            {/* Designation Selector */}
+            <select
+              value={selectedDesignation}
+              onChange={(e) => setSelectedDesignation(e.target.value)}
+              className="block w-40 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
+            >
+              <option value="">All Designations</option>
+              {uniqueDesignations.map(des => (
+                <option key={des} value={des}>{des}</option>
               ))}
             </select>
 
@@ -1139,7 +1150,6 @@ const ReviewerApproval = () => {
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Increment Amount</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Revised Salary</th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Performance Pay</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Effective Date</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Reviewer Comments</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Recommend Promotion</th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Status</th>
@@ -1152,7 +1162,7 @@ const ReviewerApproval = () => {
                   const data = isEditing ? editFormData : emp;
                   const isSelected = selectedRows.includes(emp.id);
                   const isEditable =
-                    ['reviewerPending', 'reviewerInProgress', 'directorPushedBack'].includes(emp.status);
+                    ['reviewerPending', 'reviewerInProgress', 'directorPushedBack', 'managerApproved'].includes(emp.status);
                   const canShowPromotionOption = emp.promotionEligible === true || emp.appraiserRating === 'ES' || emp.appraiserRating === 'ME';
                   const isPromotionRecommended = isEditing ? editFormData.promotionRecommendedByReviewer : emp.promotionRecommendedByReviewer;
                   const performancePayValue =
@@ -1232,19 +1242,6 @@ const ReviewerApproval = () => {
                           />
                         ) : (
                           Number(emp.performancePay || 0).toLocaleString('en-IN')
-                        )}
-                      </td>
-                      {/* Effective Date (editable) */}
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                        {isEditing ? (
-                          <input
-                            type="date"
-                            className="w-32 border border-gray-300 rounded p-1 text-xs shadow-sm focus:ring-[#262760] focus:border-[#262760]"
-                            value={data.effectiveDate ? new Date(data.effectiveDate).toISOString().split('T')[0] : ''}
-                            onChange={(e) => handleInputChange('effectiveDate', e.target.value)}
-                          />
-                        ) : (
-                          <span className="text-gray-700 font-medium">{emp.effectiveDate ? formatDisplayDate(emp.effectiveDate) : <span className="text-gray-400 italic">Not set</span>}</span>
                         )}
                       </td>
                       {/* Reviewer Comments (editable) */}

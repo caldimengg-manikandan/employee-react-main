@@ -258,4 +258,6 @@ const SelfAppraisalSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+SelfAppraisalSchema.index({ employeeId: 1, year: 1, version: 1 }, { unique: true });
+
 module.exports = mongoose.model('SelfAppraisal', SelfAppraisalSchema);

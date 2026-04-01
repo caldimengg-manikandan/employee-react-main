@@ -19,12 +19,21 @@ import { performanceAPI, employeeAPI } from '../../services/api';
 import balaSignature from '../../bala signature.png';
 import uvarajSignature from '../../uvaraj signature.png';
 
-const getPreviousFinancialYearFull = () => {
+const getCurrentFinancialYearShort = () => {
   const now = new Date();
-  const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-  const prevStartYear = currentStartYear - 1;
-  const prevEndYear = prevStartYear + 1;
-  return `${prevStartYear}-${prevEndYear}`;
+  const yearStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  const yearEnd = String(yearStart + 1).slice(2);
+  return `${yearStart}-${yearEnd}`;
+};
+
+const getFinancialYearOptions = () => {
+  const current = getCurrentFinancialYearShort();
+  const start = parseInt(current.split('-')[0], 10);
+  return [
+    current,
+    `${start - 1}-${String(start).slice(2)}`,
+    `${start - 2}-${String(start - 1).slice(2)}`,
+  ];
 };
 
 const IncrementSummary = () => {
@@ -38,14 +47,14 @@ const IncrementSummary = () => {
   // Filter State
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [filters, setFilters] = useState({
-    financialYear: getPreviousFinancialYearFull(),
+    financialYear: getCurrentFinancialYearShort(),
     division: 'All',
     designation: 'All',
     location: 'All',
     status: 'All'
   });
   const [appliedFilters, setAppliedFilters] = useState({
-    financialYear: getPreviousFinancialYearFull(),
+    financialYear: getCurrentFinancialYearShort(),
     division: 'All',
     designation: 'All',
     location: 'All',
@@ -115,9 +124,9 @@ const IncrementSummary = () => {
             revisedSalary: Number(item.revisedSalary || 0),
             incrementAmount: Number(item.incrementAmount || 0),
             incrementPercentage: Number(item.incrementPercentage || 0),
-            financialYear: fYear,
+            financialYear: item.financialYr || item.financialYear || item.year || '',
             status,
-            effectiveDate: deriveEffectiveDate(item.financialYr || item.financialYear, item.updatedAt)
+            effectiveDate: deriveEffectiveDate(item.financialYr || item.financialYear || item.year, item.updatedAt)
           };
         });
         // Backend already filters by status if provided, but we can keep client filter or rely on backend.
@@ -139,7 +148,9 @@ const IncrementSummary = () => {
   }, []);
 
   const financialYears = useMemo(() => {
-    return [getPreviousFinancialYearFull()];
+    const list = getFinancialYearOptions();
+    const existing = records.map(r => r.financialYear);
+    return [...new Set([...list, ...existing])].filter(Boolean).sort().reverse();
   }, [records]);
 
   const divisions = useMemo(() => {
@@ -230,7 +241,7 @@ const IncrementSummary = () => {
 
   const clearFilters = () => {
     const base = {
-      financialYear: getPreviousFinancialYearFull(),
+      financialYear: getCurrentFinancialYearShort(),
       division: 'All',
       designation: 'All',
       location: 'All',
@@ -244,7 +255,13 @@ const IncrementSummary = () => {
   const filteredData = useMemo(() => {
     return records.filter(item => {
       const f = appliedFilters;
-      const matchYear = f.financialYear === 'All' || item.financialYear === f.financialYear;
+      // Normalizing comparison for short year format (YYYY-YY) vs possible long format (YYYY-YYYY)
+      const normalizeYear = (y) => {
+        if (!y) return '';
+        if (y.length === 9) return `${y.substring(0, 5)}${y.substring(7)}`;
+        return y;
+      };
+      const matchYear = f.financialYear === 'All' || normalizeYear(item.financialYear) === normalizeYear(f.financialYear);
       const matchDivision = f.division === 'All' || item.division === f.division;
       const matchDesignation = f.designation === 'All' || item.designation === f.designation;
       const matchLocation = f.location === 'All' || item.location === f.location;

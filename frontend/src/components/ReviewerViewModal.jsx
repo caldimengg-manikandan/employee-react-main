@@ -624,6 +624,10 @@ const ReviewerViewModal = ({ selectedEmployee, onClose, formatDisplayDate, hasCo
                           <div className="text-sm font-black text-gray-800">{Number(selectedEmployee.incrementPercentage || 0)}%</div>
                         </div>
                         <div className="bg-white rounded-md border border-indigo-100 p-3 shadow-sm">
+                          <div className="text-[10px] font-bold text-indigo-400 uppercase">Increment Correction %</div>
+                          <div className="text-sm font-black text-blue-600">{Number(selectedEmployee.incrementCorrectionPercentage || 0)}%</div>
+                        </div>
+                        <div className="bg-white rounded-md border border-indigo-100 p-3 shadow-sm">
                           <div className="text-[10px] font-bold text-indigo-400 uppercase">Increment Amount</div>
                           <div className="text-sm font-black text-emerald-600">{Number(selectedEmployee.incrementAmount || 0).toLocaleString('en-IN')}</div>
                         </div>

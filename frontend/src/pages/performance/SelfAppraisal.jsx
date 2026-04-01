@@ -323,6 +323,7 @@ const SelfAppraisal = () => {
   const [viewMode, setViewMode] = useState('list');
   const [isReadOnly, setIsReadOnly] = useState(false);
   const [viewData, setViewData] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Modal & Popup States
   const [showNewAppraisalModal, setShowNewAppraisalModal] = useState(false);
@@ -1320,7 +1321,10 @@ const SelfAppraisal = () => {
       return;
     }
 
+    if (isSubmitting) return;
+
     try {
+      setIsSubmitting(true);
       const missingFields = [];
 
       if (!formData.division || !formData.division.trim()) {
@@ -1365,9 +1369,11 @@ const SelfAppraisal = () => {
         status: 'success',
         message: `Self appraisal ${action === 'Submit' ? 'submitted' : 'saved'} successfully!`
       });
+      setIsSubmitting(false);
       fetchAppraisals();
       setViewMode('list');
     } catch (error) {
+      setIsSubmitting(false);
       console.error("Failed to save appraisal", error);
       const errorMsg =
         error.response?.data?.message ||
@@ -1430,7 +1436,8 @@ const SelfAppraisal = () => {
                   }
                   setShowNewAppraisalModal(true);
                 }}
-                className={`inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-full text-white bg-gradient-to-r from-[#262760] to-indigo-600 focus:outline-none ${isOpenFyLocked ? 'opacity-50 cursor-not-allowed' : 'hover:from-[#1e2050] hover:to-[#262760]'}`}
+                disabled={isOpenFyLocked || loading}
+                className={`inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-semibold rounded-full text-white bg-gradient-to-r from-[#262760] to-indigo-600 focus:outline-none ${(isOpenFyLocked || loading) ? 'opacity-50 cursor-not-allowed' : 'hover:from-[#1e2050] hover:to-[#262760]'}`}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 New Appraisal
