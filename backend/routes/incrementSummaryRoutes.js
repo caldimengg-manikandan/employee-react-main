@@ -18,16 +18,16 @@ router.get('/', auth, async (req, res) => {
     const statusFilter = [];
 
     if (!status || status === 'All') {
-      statusFilter.push('DIRECTOR_APPROVED', 'Released', 'RELEASED');
+      statusFilter.push('DIRECTOR_APPROVED', 'Released', 'RELEASED', 'effective');
     } else if (status === 'Approved') {
       statusFilter.push('DIRECTOR_APPROVED');
     } else if (status === 'Released') {
-      statusFilter.push('Released', 'RELEASED');
+      statusFilter.push('Released', 'RELEASED', 'effective');
     } else if (status === 'Pending') {
       // Include all statuses that are NOT Approved or Released
       statusFilter.push(
-        'Draft', 'Submitted', 'SUBMITTED', 
-        'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 
+        'Draft', 'Submitted', 'SUBMITTED',
+        'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED',
         'AppraiserReview', 'ReviewerReview', 'DirectorApproval'
       );
     }
@@ -39,18 +39,18 @@ router.get('/', auth, async (req, res) => {
     if (financialYear && financialYear !== 'All') {
       const parts = financialYear.split('-');
       let alternativeYear = financialYear;
-      
+
       // Handle 2025-2026 vs 2025-26 mismatch
       if (parts.length === 2) {
         if (parts[0].length === 4 && parts[1].length === 4) {
-           // Frontend sends 2025-2026, also check 2025-26
-           alternativeYear = `${parts[0]}-${parts[1].substring(2)}`;
+          // Frontend sends 2025-2026, also check 2025-26
+          alternativeYear = `${parts[0]}-${parts[1].substring(2)}`;
         } else if (parts[0].length === 4 && parts[1].length === 2) {
-           // Frontend sends 2025-26, also check 2025-2026
-           alternativeYear = `${parts[0]}-20${parts[1]}`;
+          // Frontend sends 2025-26, also check 2025-2026
+          alternativeYear = `${parts[0]}-20${parts[1]}`;
         }
       }
-      
+
       appraisalQuery.year = { $in: [financialYear, alternativeYear] };
     }
 

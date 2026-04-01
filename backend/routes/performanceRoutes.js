@@ -218,7 +218,7 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
 
     // Acceptance Logic
     if (employeeAcceptanceStatus === 'ACCEPTED') {
-      appraisal.status = 'accepted_pending_effect';
+      appraisal.status = 'effective';
       appraisal.workflow.acceptedAt = new Date();
       appraisal.isLocked = true;
 
@@ -231,36 +231,61 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
         doneById: req.user.employeeId
       });
 
-      // ---- Save to payroll_FY25-26 ---- //
+      // ---- Update Employee and Payroll Salary Structure ---- //
       try {
         const revised = mapToObj(appraisal.releaseRevisedSnapshot) || {};
         
-        const newRecord = {
-          employeeId: employee.employeeId,
-          employeeName: employee.name || employee.employeename,
+        const updateData = {
           designation: appraisal.promotion?.recommended && appraisal.promotion?.newDesignation 
              ? appraisal.promotion.newDesignation 
              : employee.designation,
-          department: employee.department,
-          location: employee.location,
-          dateOfJoining: employee.dateOfJoining,
-          employmentType: employee.employmentType || 'Permanent',
           basicDA: revised.basic || revised.basicDA || 0,
+          hra: revised.hra || 0,
+          specialAllowance: revised.special || revised.specialAllowance || 0,
+          gratuity: revised.gratuity || 0,
+          pf: revised.empPF || revised.pf || 0,
+          employerPF: revised.employerPF || 0,
           netSalary: revised.net || revised.netSalary || appraisal.revisedSalary || 0,
-          accountNumber: employee.bankAccount || '-',
-          createdAt: new Date(),
+          ctc: revised.ctc || appraisal.revisedSalary || 0,
           updatedAt: new Date()
         };
 
+        // Update Employee Model
+        await Employee.findByIdAndUpdate(employee._id, { $set: updateData });
+
+        // Update main Payroll Model
+        await Payroll.findOneAndUpdate(
+          { employeeId: employee.employeeId },
+          { $set: {
+              ...updateData,
+              employeeName: employee.name || employee.employeename,
+              department: employee.department,
+              location: employee.location,
+              accountNumber: employee.bankAccount || '-'
+            } 
+          },
+          { upsert: true }
+        );
+
+        // ---- Legacy snapshot update for FY collection ---- //
         await mongoose.connection.db.collection('payroll_FY25-26').updateOne(
            { employeeId: employee.employeeId },
-           { $set: newRecord },
+           { $set: {
+               ...updateData,
+               employeeName: employee.name || employee.employeename,
+               department: employee.department,
+               location: employee.location,
+               dateOfJoining: employee.dateOfJoining,
+               employmentType: employee.employmentType || 'Permanent',
+               accountNumber: employee.bankAccount || '-'
+             } 
+           },
            { upsert: true }
         );
       } catch (err) {
-        console.error('Failed to create FY25-26 payroll snapshot:', err);
+        console.error('Failed to update employee/payroll salary structure:', err);
       }
-      // --------------------------------- //
+      // ----------------------------------------------------- //
     }
 
     await appraisal.save();

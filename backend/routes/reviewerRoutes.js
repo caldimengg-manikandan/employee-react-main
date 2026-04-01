@@ -27,6 +27,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const tab = (req.query.tab || 'pending').toLowerCase();
     
+    const isAdmin = (req.user.role || '').toLowerCase() === 'admin';
     let statusFilter = {};
     if (tab === 'completed') {
       statusFilter = {
@@ -46,20 +47,25 @@ router.get('/', auth, async (req, res) => {
         ]
       };
     } else {
-      statusFilter = {
-        $in: [
-          'reviewerPending',
-          'reviewerInProgress',
-          'directorPushedBack',
-          'managerApproved'
-        ]
-      };
+      const basePending = [
+        'reviewerPending',
+        'reviewerInProgress',
+        'directorPushedBack',
+        'managerApproved'
+      ];
+      
+      // If Admin, also show what is with the manager (submitted / in progress)
+      if (isAdmin) {
+        basePending.push('submitted', 'managerInProgress');
+      }
+      
+      statusFilter = { $in: basePending };
     }
 
     const query = {
       $and: [
         { status: statusFilter },
-        {
+        isAdmin ? {} : {
           $or: [
             { reviewerId: req.user.employeeId },
             { reviewer: { $regex: new RegExp(`^${req.user.name}$`, 'i') } },

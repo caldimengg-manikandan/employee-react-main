@@ -102,17 +102,28 @@ const StatusPopup = ({ isOpen, onClose, status, message }) => {
 
 const getCurrentFinancialYear = () => {
   const today = new Date();
-  const yearStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  const month = today.getMonth(); // 0-indexed (3 = April)
+  const year = today.getFullYear();
+
+  // The actual current financial year start
+  let yearStart = month >= 3 ? year : year - 1;
+
+  // During Appraisal Season (April, May, June), default to the completed financial year
+  // as that is what most users will be processing.
+  if (month >= 3 && month <= 5) {
+    yearStart -= 1;
+  }
+
   const yearEnd = String(yearStart + 1).slice(2);
   return `${yearStart}-${yearEnd}`;
 };
 
 const getPreviousFinancialYear = () => {
-  const today = new Date();
-  const currentStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
-  const previousStart = currentStart - 1;
-  const previousEnd = String(previousStart + 1).slice(2);
-  return `${previousStart}-${previousEnd}`;
+  const current = getCurrentFinancialYear();
+  const startYear = parseInt(current.split('-')[0], 10);
+  const prevStart = startYear - 1;
+  const prevEnd = String(prevStart + 1).slice(2);
+  return `${prevStart}-${prevEnd}`;
 };
 
 const getDefaultEffectiveDate = (fy) => {
@@ -873,7 +884,7 @@ const ReviewerApproval = () => {
       case 'directorPushedBack': return 'Returned for Correction';
       case 'directorApproved': return 'Approved';
       case 'released': return 'Completed';
-      case 'accepted_pending_effect': return 'Accepted (Pending Effect)';
+      case 'accepted_pending_effect': return 'Accepted';
       case 'effective': return 'Completed';
       default: return status;
     }
@@ -901,7 +912,7 @@ const ReviewerApproval = () => {
       case 'effective':
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-teal-100 text-teal-800">{label}</span>;
       case 'accepted_pending_effect':
-        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">{label}</span>;
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-teal-100 text-teal-800">{label}</span>;
       default:
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{label}</span>;
     }

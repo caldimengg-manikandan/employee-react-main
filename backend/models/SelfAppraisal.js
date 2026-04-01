@@ -54,7 +54,6 @@ const SelfAppraisalSchema = new mongoose.Schema({
       'directorApproved',
       'directorPushedBack',
       'released',
-      'accepted_pending_effect',
       'effective',
       'rejected',
       'revoked',

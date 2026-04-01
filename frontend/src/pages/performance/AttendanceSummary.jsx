@@ -12,7 +12,9 @@ const getPreviousFinancialYearLabel = () => {
 
 const getCurrentFinancialYearLabel = () => {
   const now = new Date();
-  const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  // Appraisals for FY 2025-26 are typically submitted in April 2026.
+  // We consider the financial year to switch for appraisal purposes in May.
+  const currentStartYear = now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1;
   const currentEndYear = String(currentStartYear + 1).slice(2);
   return `${currentStartYear}-${currentEndYear}`;
 };

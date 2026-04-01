@@ -330,7 +330,7 @@ const TeamAppraisal = () => {
       case 'directorPushedBack': return 'Returned for Correction';
       case 'directorApproved': return 'Approved';
       case 'released': return 'Completed';
-      case 'accepted_pending_effect': return 'Accepted (Pending Effect)';
+      case 'accepted_pending_effect':
       case 'effective': return 'Completed';
       default: return status;
     }
@@ -553,9 +553,9 @@ const TeamAppraisal = () => {
       case 'reviewerApproved': return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'directorPushedBack': return 'bg-red-100 text-red-800 border-red-200';
       case 'directorApproved': return 'bg-green-100 text-green-800 border-green-200';
-      case 'effective': return 'bg-purple-100 text-purple-800 border-purple-200';
       case 'released': return 'bg-teal-100 text-teal-800 border-teal-200';
-      case 'accepted_pending_effect': return 'bg-indigo-100 text-indigo-800 border-indigo-200';
+      case 'accepted_pending_effect':
+      case 'effective': return 'bg-purple-100 text-purple-800 border-purple-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };

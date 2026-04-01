@@ -26,15 +26,22 @@ router.get('/', auth, async (req, res) => {
   try {
     const tab = (req.query.tab || 'pending').toLowerCase();
     let statusFilter = {};
-    if (tab === 'completed') {
-      statusFilter = { $in: ['released', 'accepted_pending_effect', 'accepted', 'effective', 'COMPLETED'] };
-    } else {
-      statusFilter = { $in: ['reviewerApproved', 'directorInProgress', 'directorApproved', 'DIRECTOR_APPROVED'] };
-    }
-
     const role = (req.user.role || '').toLowerCase();
-    const isDirector = role === 'director';
     const isAdmin = role === 'admin';
+    const isDirector = role === 'director';
+
+    if (tab === 'completed') {
+      statusFilter = { $in: ['released', 'accepted', 'effective', 'COMPLETED'] };
+    } else {
+      const basePending = ['reviewerApproved', 'directorInProgress', 'directorApproved', 'DIRECTOR_APPROVED'];
+      
+      // If Admin, also show what is with the manager or reviewer (submitted / in progress)
+      if (isAdmin) {
+        basePending.push('submitted', 'managerInProgress', 'managerApproved', 'reviewerPending', 'reviewerInProgress', 'directorPushedBack');
+      }
+      
+      statusFilter = { $in: basePending };
+    }
 
     if (!isDirector && !isAdmin) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
@@ -43,7 +50,7 @@ router.get('/', auth, async (req, res) => {
     const query = {
       $and: [
         { status: statusFilter },
-        {
+        isAdmin ? {} : {
           $or: [
             { directorId: req.user.employeeId },
             { director: { $regex: new RegExp(`^${req.user.name}$`, 'i') } }

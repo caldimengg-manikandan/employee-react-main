@@ -12,10 +12,8 @@ const setupAppraisalEffectSync = () => {
         const today = new Date();
 
         try {
-            // Find but don't loop yet, we use findOneAndUpdate inside for each eligible candidate
             const candidates = await SelfAppraisal.find({
                 status: "accepted_pending_effect",
-                effectiveDate: { $lte: today },
                 payrollProcessed: false
             }).select('_id');
 
@@ -27,8 +25,7 @@ const setupAppraisalEffectSync = () => {
                     {
                         _id: candidate._id,
                         payrollProcessed: false,
-                        status: "accepted_pending_effect",
-                        effectiveDate: { $lte: today }
+                        status: "accepted_pending_effect"
                     },
                     {
                         $set: {

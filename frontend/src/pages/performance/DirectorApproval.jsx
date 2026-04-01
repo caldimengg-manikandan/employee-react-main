@@ -93,15 +93,26 @@ const StatusPopup = ({ isOpen, onClose, status, message }) => {
 
 const getCurrentFinancialYear = () => {
   const today = new Date();
-  const yearStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  const month = today.getMonth(); // 0-indexed (3 = April)
+  const year = today.getFullYear();
+
+  // The actual current financial year start
+  let yearStart = month >= 3 ? year : year - 1;
+
+  // During Appraisal Season (April, May, June), default to the completed financial year
+  // as that is what most users will be processing.
+  if (month >= 3 && month <= 5) {
+    yearStart -= 1;
+  }
+
   const yearEnd = String(yearStart + 1).slice(2);
   return `${yearStart}-${yearEnd}`;
 };
 
 const getPreviousFinancialYear = () => {
-  const today = new Date();
-  const currentStart = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
-  const prevStart = currentStart - 1;
+  const current = getCurrentFinancialYear();
+  const startYear = parseInt(current.split('-')[0], 10);
+  const prevStart = startYear - 1;
   const prevEnd = String(prevStart + 1).slice(2);
   return `${prevStart}-${prevEnd}`;
 };

@@ -245,7 +245,9 @@ const deriveEffectiveDateForAppraisal = (financialYear, updatedAt, effectiveDate
 
 const getCurrentFinancialYearLabel = () => {
   const now = new Date();
-  const year = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+  // Appraisals for FY 2025-26 are typically submitted in April 2026.
+  // We consider the financial year to switch for appraisal purposes in May.
+  const year = now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1;
   const nextYear = year + 1;
   return `${year}-${String(nextYear).slice(-2)}`;
 };
@@ -264,10 +266,9 @@ const getOpenFinancialYearLabel = () => {
 };
 
 const getNewAppraisalFinancialYearOptions = () => {
-  const now = new Date();
-  const cutoff = new Date(2026, 3, 1);
-  if (now >= cutoff) return ['2025-26'];
-  return ['2025-26', '2024-25'];
+  const current = getCurrentFinancialYearLabel();
+  const prev = getPreviousFinancialYearLabel();
+  return [current, prev];
 };
 
 const isEditableStatus = (statusValue) => {
@@ -307,7 +308,7 @@ const getStatusLabel = (status) => {
     case "released":
       return "Awaiting Your Acceptance";
     case "accepted_pending_effect":
-      return "Accepted (Pending Effect)";
+      return "Accepted";
     case "effective":
       return "Completed";
     default:
@@ -469,7 +470,7 @@ const SelfAppraisal = () => {
         return 'director';
 
       case 'released':
-      case 'accepted_pending_effect':
+      case 'effective':
       case 'effective':
         return 'release';
 
@@ -483,7 +484,7 @@ const SelfAppraisal = () => {
     if (!appraisal) return null;
     if (appraisal.employeeAcceptanceStatus) return appraisal.employeeAcceptanceStatus;
     const status = appraisal.status || '';
-    if (['released', 'accepted_pending_effect', 'effective'].includes(status)) return 'ACCEPTED';
+    if (['released', 'effective'].includes(status)) return 'ACCEPTED';
     return 'PENDING';
   };
 
@@ -604,7 +605,7 @@ const SelfAppraisal = () => {
 
   useEffect(() => {
     if (showNewAppraisalModal) {
-      setNewAppraisalYear('2025-26');
+      setNewAppraisalYear(getOpenFinancialYearLabel());
     }
   }, [showNewAppraisalModal]);
 
@@ -847,7 +848,7 @@ const SelfAppraisal = () => {
     try {
       const payload = { 
         employeeAcceptanceStatus: newStatus,
-        status: newStatus === 'ACCEPTED' ? 'accepted_pending_effect' : 'released'
+        status: newStatus === 'ACCEPTED' ? 'effective' : 'released'
       };
       if (newStatus === 'ACCEPTED') {
         payload.finalStatus = 'COMPLETED';
@@ -1459,7 +1460,7 @@ const SelfAppraisal = () => {
                   {appraisals.map((appraisal) => {
                     const status = (appraisal.status || 'draft').toLowerCase();
                     const isDraft = status === 'draft';
-                    const isReleased = ['released', 'accepted_pending_effect', 'effective'].includes(status);
+                    const isReleased = ['released', 'effective'].includes(status);
                     
                     return (
                       <tr key={appraisal._id || appraisal.id} className="hover:bg-gray-50">
@@ -1519,7 +1520,7 @@ const SelfAppraisal = () => {
                               >
                                 <FileText className="h-5 w-5" />
                               </button>
-                              {(appraisal.employeeAcceptanceStatus === 'ACCEPTED' || ['accepted_pending_effect', 'effective'].includes(status)) && (
+                              {(appraisal.employeeAcceptanceStatus === 'ACCEPTED' || ['effective'].includes(status)) && (
                                 <button
                                   onClick={() => handleDownloadPdf(appraisal)}
                                   className="text-emerald-600 hover:text-emerald-800 p-1"
@@ -1727,7 +1728,7 @@ const SelfAppraisal = () => {
               </div>
 
               {/* Increment Summary Section - Visible only after Letter Release */}
-              {['released', 'accepted_pending_effect', 'effective'].includes(viewData.status) && (
+              {['released', 'effective'].includes(viewData.status) && (
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
@@ -2497,7 +2498,7 @@ const SelfAppraisal = () => {
         </div>
         
         {/* Increment Summary - Only shown if released */}
-        {['released', 'accepted_pending_effect', 'effective'].includes(formData.status) && (
+        {['released', 'effective'].includes(formData.status) && (
           <div className="mt-6 bg-emerald-50 rounded-xl shadow-sm border border-emerald-200 p-6 overflow-hidden relative">
              <div className="absolute top-0 right-0 p-4 opacity-10">
                 <TrendingUp className="h-24 w-24 text-emerald-600" />
