@@ -173,7 +173,7 @@ const EmployeeManagement = () => {
   const exportToCSV = () => {
     const headers = [
       'S.No', 'Employee ID', 'Full Name', 'Division', 'Designation',
-      'Highest Qualification', 'Date of Joining', 'Experience', 'Contact', 'Status'
+      'Highest Qualification', 'Date of Birth', 'Original Date of Birth', 'Date of Joining', 'Experience', 'Contact', 'Status'
     ];
 
     const csvData = filteredEmployees.map((emp, index) => [
@@ -183,6 +183,8 @@ const EmployeeManagement = () => {
       emp.division,
       emp.designation || emp.role || emp.position || '',
       emp.highestQualification || emp.qualification || '',
+      emp.dateOfBirth || emp.dob || '',
+      emp.originalDateOfBirth || '',
       emp.dateOfJoining || emp.dateofjoin || '',
       emp.currentExperience || emp.experience || '',
       emp.mobileNo,
@@ -422,6 +424,11 @@ const EmployeeManagement = () => {
                     <div className="space-y-1">
                       <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Date of Birth</div>
                       <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.dateOfBirth || viewingEmployee.dob)}</div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Original Date of Birth</div>
+                      <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.originalDateOfBirth)}</div>
                     </div>
 
                     <div className="space-y-1">

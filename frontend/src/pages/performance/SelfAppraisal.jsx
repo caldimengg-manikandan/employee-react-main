@@ -416,16 +416,9 @@ const SelfAppraisal = () => {
   const [enabledSections, setEnabledSections] = useState({
     selfAppraisal: true,
     knowledgeSharing: true,
-    knowledgeSubItems: {
-      knowledgeSharing: true,
-      leadership: true
-    },
+    knowledgeSubItems: {},
     processAdherence: true,
-    processSubItems: {
-      timesheet: true,
-      reportStatus: true,
-      meeting: true
-    },
+    processSubItems: {},
     technicalAssessment: true,
     technicalSubItems: {},
     growthAssessment: true,
@@ -433,15 +426,8 @@ const SelfAppraisal = () => {
   });
 
   const [masterAttributes, setMasterAttributes] = useState({
-    knowledgeSubItems: [
-      { key: 'knowledgeSharing', label: 'Knowledge Sharing' },
-      { key: 'leadership', label: 'Leadership' }
-    ],
-    processSubItems: [
-      { key: 'timesheet', label: 'Timesheet Discipline' },
-      { key: 'reportStatus', label: 'Report Status' },
-      { key: 'meeting', label: 'Meeting Attendance' }
-    ],
+    knowledgeSubItems: [],
+    processSubItems: [],
     technicalSubItems: [],
     growthSubItems: []
   });
@@ -503,42 +489,7 @@ const SelfAppraisal = () => {
 
   const currentStageId = getStageFromStatus(formData.status);
 
-  const getTechnicalFields = (division) => {
-    const div = division || 'Software';
-    if (div === 'SDS') {
-      return [
-        { key: 'codingSkills', label: 'Structural Drawing Accuracy' },
-        { key: 'testing', label: 'Steel Connection Knowledge' },
-        { key: 'debugging', label: 'Bolt & Weld Detailing Accuracy' },
-        { key: 'sds', label: 'GA / Shop / Erection Drawing Quality' },
-        { key: 'tekla', label: 'Drawing Revision & Error Reduction' }
-      ];
-    }
-    if (div === 'Tekla') {
-      return [
-        { key: 'codingSkills', label: '3D Modeling Accuracy' },
-        { key: 'testing', label: 'Clash Detection Handling' },
-        { key: 'debugging', label: 'Model Integrity & Cleanliness' },
-        { key: 'sds', label: 'Complex Connection Modeling' },
-        { key: 'tekla', label: 'Anchor Bolt Layout & Output' }
-      ];
-    }
-    return [
-      { key: 'codingSkills', label: 'Code Quality' },
-      { key: 'testing', label: 'System Architecture Understanding' },
-      { key: 'debugging', label: 'Debugging & Issue Resolution' },
-      { key: 'sds', label: 'API Integration Skills' },
-      { key: 'tekla', label: 'Testing & Validation' }
-    ];
-  };
 
-  const getGrowthFields = () => {
-    return [
-      { key: 'leadershipPotential', label: 'Leadership Potential' },
-      { key: 'learningAbility', label: 'Learning Ability' },
-      { key: 'mentoringSkills', label: 'Mentoring Skills' }
-    ];
-  };
 
 
   const [autoDownload, setAutoDownload] = useState(false);
@@ -1325,31 +1276,35 @@ const SelfAppraisal = () => {
 
     try {
       setIsSubmitting(true);
-      const missingFields = [];
+      
+      if (action === 'Submit') {
+        const missingFields = [];
 
-      if (!formData.division || !formData.division.trim()) {
-        missingFields.push('Division');
-      }
-      if (enabledSections.knowledgeSharing && (!formData.behaviourBased?.comments || !formData.behaviourBased.comments.trim())) {
-        missingFields.push('Knowledge Sharing - Appraisee Comments');
-      }
-      if (enabledSections.processAdherence && (!formData.processAdherence?.comments || !formData.processAdherence.comments.trim())) {
-        missingFields.push('Process Adherence - Appraisee Comments');
-      }
-      if (enabledSections.technicalAssessment && (!formData.technicalBased?.comments || !formData.technicalBased.comments.trim())) {
-        missingFields.push('Technical Based - Appraisee Comments');
-      }
-      if (enabledSections.growthAssessment && (!formData.growthBased?.comments || !formData.growthBased.comments.trim())) {
-        missingFields.push('Growth Based - Appraisee Comments');
-      }
+        if (!formData.division || !formData.division.trim()) {
+          missingFields.push('Division');
+        }
+        if (enabledSections.knowledgeSharing && (!formData.behaviourBased?.comments || !formData.behaviourBased.comments.trim())) {
+          missingFields.push('Knowledge Sharing - Appraisee Comments');
+        }
+        if (enabledSections.processAdherence && (!formData.processAdherence?.comments || !formData.processAdherence.comments.trim())) {
+          missingFields.push('Process Adherence - Appraisee Comments');
+        }
+        if (enabledSections.technicalAssessment && (!formData.technicalBased?.comments || !formData.technicalBased.comments.trim())) {
+          missingFields.push('Technical Based - Appraisee Comments');
+        }
+        if (enabledSections.growthAssessment && (!formData.growthBased?.comments || !formData.growthBased.comments.trim())) {
+          missingFields.push('Growth Based - Appraisee Comments');
+        }
 
-      if (missingFields.length > 0) {
-        setStatusPopup({
-          isOpen: true,
-          status: 'error',
-          message: `Please fill required fields: ${missingFields.join(', ')}.`
-        });
-        return;
+        if (missingFields.length > 0) {
+          setStatusPopup({
+            isOpen: true,
+            status: 'error',
+            message: `Please fill required fields: ${missingFields.join(', ')}.`
+          });
+          setIsSubmitting(false);
+          return;
+        }
       }
 
       const payload = {

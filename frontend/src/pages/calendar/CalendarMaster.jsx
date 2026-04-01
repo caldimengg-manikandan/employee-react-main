@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { leaveAPI, celebrationAPI } from '../../services/api';
+import { leaveAPI, celebrationAPI, officeHolidayAPI, regionalHolidayAPI } from '../../services/api';
 import {
   ChevronLeft,
   ChevronRight,
@@ -22,7 +22,9 @@ const CalendarMaster = () => {
     leaves: [],
     balance: null,
     celebrations: [],
-    wishStats: { birthdayWishesSent: 0, anniversaryWishesSent: 0 }
+    wishStats: { birthdayWishesSent: 0, anniversaryWishesSent: 0 },
+    officeHolidays: [],
+    regionalHolidays: []
   });
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [showModal, setShowModal] = useState(false);
@@ -43,18 +45,7 @@ const CalendarMaster = () => {
     }
   };
 
-  // Holiday Calendar 2026 data
-  const holidays2026 = [
-    { date: '01-Jan-26', day: 'THURSDAY', occasion: 'NEW YEAR' },
-    { date: '15-Jan-26', day: 'THURSDAY', occasion: 'THAI PONGAL' },
-    { date: '16-Jan-26', day: 'FRIDAY', occasion: 'MATTU PONGAL' },
-    { date: '26-Jan-26', day: 'MONDAY', occasion: 'REPUBLIC DAY' },
-    { date: '14-Apr-26', day: 'TUESDAY', occasion: 'TAMIL NEW YEAR' },
-    { date: '01-May-26', day: 'FRIDAY', occasion: 'LABOUR DAY' },
-    { date: '14-Sep-26', day: 'MONDAY', occasion: 'VINAYAGAR CHATHURTHI' },
-    { date: '02-Oct-26', day: 'FRIDAY', occasion: 'GANDHI JAYANTHI' },
-    { date: '19-Oct-26', day: 'MONDAY', occasion: 'AYUDHA POOJA' },
-  ];
+  // Dynamic Holiday handling replaces hardcoded holidays2026;
 
   useEffect(() => {
     fetchUnifiedData();
@@ -66,18 +57,22 @@ const CalendarMaster = () => {
       const month = currentDate.getMonth() + 1;
       const year = currentDate.getFullYear();
 
-      const [leavesRes, balanceRes, celebRes, statsRes] = await Promise.all([
+      const [leavesRes, balanceRes, celebRes, statsRes, officeHolidaysRes, regionalHolidaysRes] = await Promise.all([
         leaveAPI.myLeaves(),
         leaveAPI.myBalance(),
         celebrationAPI.getCalendar({ month, year }),
-        celebrationAPI.getWishStats({ month, year })
+        celebrationAPI.getWishStats({ month, year }),
+        officeHolidayAPI.list(),
+        regionalHolidayAPI.list()
       ]);
 
       setData({
         leaves: Array.isArray(leavesRes.data) ? leavesRes.data : [],
         balance: balanceRes?.data,
         celebrations: Array.isArray(celebRes.data) ? celebRes.data : [],
-        wishStats: statsRes?.data || { birthdayWishesSent: 0, anniversaryWishesSent: 0 }
+        wishStats: statsRes?.data || { birthdayWishesSent: 0, anniversaryWishesSent: 0 },
+        officeHolidays: Array.isArray(officeHolidaysRes.data) ? officeHolidaysRes.data : [],
+        regionalHolidays: Array.isArray(regionalHolidaysRes.data) ? regionalHolidaysRes.data : []
       });
     } catch (error) {
       console.error("Error fetching unified calendar data:", error);
@@ -102,9 +97,7 @@ const CalendarMaster = () => {
   const parseDate = (dateStr) => {
     if (!dateStr || dateStr === 'REGIONAL') return null;
     const parts = dateStr.split('-');
-    if (parts.length !== 3) return new Date(dateStr);
-    const months = { 'Jan': 0, 'Feb': 1, 'Mar': 2, 'Apr': 3, 'May': 4, 'Jun': 5, 'Jul': 6, 'Aug': 7, 'Sep': 8, 'Oct': 9, 'Nov': 10, 'Dec': 11 };
-    return new Date(2000 + parseInt(parts[2]), months[parts[1]], parseInt(parts[0]));
+    return new Date(parts[0]);
   };
 
   const isSameDay = (d1, d2) => d1 && d2 &&
@@ -116,9 +109,12 @@ const CalendarMaster = () => {
     if (!date) return [];
     const events = [];
 
-    // 1. Holiday
-    const holiday = holidays2026.find(h => isSameDay(date, parseDate(h.date)));
-    if (holiday) events.push({ type: 'holiday', title: holiday.occasion, color: 'bg-rose-500', icon: Home });
+
+    const officeHoliday = data.officeHolidays.find(h => isSameDay(date, new Date(h.holidayDate)));
+    if (officeHoliday) events.push({ type: 'holiday', title: officeHoliday.occasion, color: 'bg-rose-500', icon: Home });
+
+    const regionalHoliday = data.regionalHolidays.find(h => isSameDay(date, new Date(h.holidayDate)));
+    if (regionalHoliday) events.push({ type: 'holiday', title: regionalHoliday.occasion, color: 'bg-rose-500', icon: Home });
 
     // 2. Personal Leave
     const leave = data.leaves.find(l => l.status === 'Approved' && date >= new Date(l.startDate).setHours(0, 0, 0, 0) && date <= new Date(l.endDate).setHours(23, 59, 59, 999));
@@ -150,15 +146,20 @@ const CalendarMaster = () => {
     const year = currentDate.getFullYear();
 
     switch (category) {
-      case 'Holidays':
-        return holidays2026.filter(h => {
-          const d = parseDate(h.date);
-          return d && d.getMonth() === month && d.getFullYear() === year;
+      case 'Holidays': {
+        const allHolidays = [
+          ...data.officeHolidays.map(h => ({ ...h, type: 'Office' })),
+          ...data.regionalHolidays.map(h => ({ ...h, type: 'Regional' }))
+        ];
+        return allHolidays.filter(h => {
+          const d = new Date(h.holidayDate);
+          return d.getMonth() === month && d.getFullYear() === year;
         }).map(h => ({
           name: h.occasion,
-          date: parseDate(h.date),
-          detail: h.day
+          date: new Date(h.holidayDate),
+          detail: `${h.type} Holiday`
         }));
+      }
 
       case 'My Leaves':
         return data.leaves.filter(l => {

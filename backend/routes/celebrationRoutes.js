@@ -20,9 +20,9 @@ router.get('/calendar', auth, async (req, res) => {
 
     // Process employees for birthdays and anniversaries in that month
     for (const emp of employees) {
-      // Birthdays
-      if (emp.dateOfBirth) {
-        const dob = new Date(emp.dateOfBirth);
+      // Birthdays 
+      if (emp.originalDateOfBirth) {
+        const dob = new Date(emp.originalDateOfBirth);
         if (dob.getMonth() + 1 === currentMonth) {
           const eventDate = new Date(currentYear, dob.getMonth(), dob.getDate());
 
@@ -213,6 +213,13 @@ router.post('/wish', auth, async (req, res) => {
       new Date(employee.dateOfJoining).getMonth() === today.getMonth() &&
       new Date(employee.dateOfJoining).getDate() === today.getDate()) {
       eventType = 'Work Anniversary';
+    } else if (employee.originalDateOfBirth &&
+      new Date(employee.originalDateOfBirth).getMonth() === today.getMonth() &&
+      new Date(employee.originalDateOfBirth).getDate() === today.getDate()) {
+      eventType = 'Birthday';
+    } else {
+      // Default to birthday if no other match and we're sending a wish
+      eventType = 'Birthday';
     }
 
     const newWish = new Wish({

@@ -21,12 +21,12 @@ router.get('/today', auth, async (req, res) => {
     const birthdays = await Employee.find({
       $expr: {
         $and: [
-          { $eq: [{ $month: '$dateOfBirth' }, currentMonth] },
-          { $eq: [{ $dayOfMonth: '$dateOfBirth' }, currentDay] }
+          { $eq: [{ $month: '$originalDateOfBirth' }, currentMonth] },
+          { $eq: [{ $dayOfMonth: '$originalDateOfBirth' }, currentDay] }
         ]
       },
       status: 'Active'
-    }).select('name employeeId department division designation dateOfBirth');
+    }).select('name employeeId department division designation originalDateOfBirth');
 
     const anniversaries = await Employee.find({
       $expr: {
@@ -78,14 +78,14 @@ router.get('/today', auth, async (req, res) => {
 router.get('/birthdays', auth, async (req, res) => {
   try {
     const employees = await Employee.find({ status: 'Active' })
-      .select('name employeeId department division designation dateOfBirth')
+      .select('name employeeId department division designation originalDateOfBirth')
       .sort({ name: 1 });
 
     const today = new Date();
     const result = await Promise.all(employees.map(async (emp) => {
-      if (!emp.dateOfBirth) return null;
+      if (!emp.originalDateOfBirth) return null;
       
-      const dob = new Date(emp.dateOfBirth);
+      const dob = new Date(emp.originalDateOfBirth);
       const birthdayThisYear = new Date(today.getFullYear(), dob.getMonth(), dob.getDate());
       
       const totalWishes = await CelebrationWish.countDocuments({ receiverEmployeeId: emp.employeeId });
@@ -241,7 +241,7 @@ router.get('/calendar', auth, async (req, res) => {
     const m = parseInt(month);
     
     const employees = await Employee.find({ status: 'Active' })
-      .select('name employeeId department division designation location dateOfBirth dateOfJoining');
+      .select('name employeeId department division designation location dateOfJoining originalDateOfBirth');
 
     // Get wishes sent by this user in this year to check "already wished" status
     const myWishesThisYear = await CelebrationWish.find({
@@ -258,8 +258,8 @@ router.get('/calendar', auth, async (req, res) => {
 
     employees.forEach(emp => {
       // Check Birthday
-      if (emp.dateOfBirth) {
-        const dob = new Date(emp.dateOfBirth);
+      if (emp.originalDateOfBirth) {
+        const dob = new Date(emp.originalDateOfBirth);
         if (dob.getMonth() + 1 === m) {
           calendarEvents.push({
             employeeId: emp.employeeId,

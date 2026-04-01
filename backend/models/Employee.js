@@ -15,6 +15,7 @@ const employeeSchema = new mongoose.Schema({
   location: String,
   department: String,
   dateOfBirth: Date,
+  originalDateOfBirth: Date,
   bloodGroup: String,
   gender: String,
   designation: String,
