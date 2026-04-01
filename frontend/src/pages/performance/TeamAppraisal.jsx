@@ -918,8 +918,7 @@ const TeamAppraisal = () => {
                         </h4>
 
                         <div className="space-y-2">
-                          {Object.entries(enabledSections?.knowledgeSubItems || {}).map(([key, isEnabled]) => {
-                            if (!isEnabled) return null;
+                          {getEnabledItems('knowledgeSubItems').map(({ key }) => {
                             const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
                             const hardcodedKey = `behaviour${capitalizedField}Manager`;
                             const managerVal = selectedEmployee.behaviourManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;
@@ -969,8 +968,7 @@ const TeamAppraisal = () => {
 
 
                         <div className="space-y-2">
-                          {Object.entries(enabledSections?.processSubItems || {}).map(([key, isEnabled]) => {
-                            if (!isEnabled) return null;
+                          {getEnabledItems('processSubItems').map(({ key }) => {
                             const capitalizedField = key.charAt(0).toUpperCase() + key.slice(1);
                             const hardcodedKey = `process${capitalizedField}Manager`;
                             const managerVal = selectedEmployee.processManagerRatings?.[key] || selectedEmployee[hardcodedKey] || 0;

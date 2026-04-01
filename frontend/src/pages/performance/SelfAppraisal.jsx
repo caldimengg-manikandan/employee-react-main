@@ -2847,16 +2847,16 @@ const SelfAppraisal = () => {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {Object.entries(enabledSections.knowledgeSubItems || {}).map(([key, enabled]) => {
-              if (!enabled) return null;
+            {masterAttributes.knowledgeSubItems.map((attr) => {
+              if (!enabledSections.knowledgeSubItems?.[attr.key]) return null;
               return (
-                <div key={key}>
+                <div key={attr.key}>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    {getAttributeLabel(masterAttributes, 'knowledgeSubItems', key)}
+                    {attr.label}
                   </label>
                   <RatingStars
-                    value={formData.behaviourBased?.[key] || 0}
-                    onChange={(val) => updateBehaviourRating(key, val)}
+                    value={formData.behaviourBased?.[attr.key] || 0}
+                    onChange={(val) => updateBehaviourRating(attr.key, val)}
                   />
                 </div>
               );
@@ -2903,8 +2903,9 @@ const SelfAppraisal = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          {Object.entries(enabledSections.processSubItems || {}).map(([key, enabled]) => {
-            if (!enabled) return null;
+          {masterAttributes.processSubItems.map((attr) => {
+            const isEnabled = enabledSections.processSubItems?.[attr.key];
+            if (!isEnabled) return null;
 
             const descriptions = {
               timesheet: 'Timely submission, accurate entries, daily discipline, correct project allocation, minimal missed timesheets.',
@@ -2913,16 +2914,16 @@ const SelfAppraisal = () => {
             };
 
             return (
-              <div key={key}>
+              <div key={attr.key}>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  {getAttributeLabel(masterAttributes, 'processSubItems', key)}
+                  {attr.label}
                 </label>
-                {descriptions[key] && (
-                  <p className="text-xs text-gray-500 mb-1">{descriptions[key]}</p>
+                {descriptions[attr.key] && (
+                  <p className="text-xs text-gray-500 mb-1">{descriptions[attr.key]}</p>
                 )}
                 <RatingStars
-                  value={formData.processAdherence?.[key] || 0}
-                  onChange={(value) => updateProcessRating(key, value)}
+                  value={formData.processAdherence?.[attr.key] || 0}
+                  onChange={(value) => updateProcessRating(attr.key, value)}
                 />
               </div>
             );
@@ -2971,14 +2972,14 @@ const SelfAppraisal = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          {Object.entries(enabledSections.technicalSubItems || {}).map(([key, enabled]) => {
-            if (!enabled) return null;
+          {masterAttributes.technicalSubItems.map((attr) => {
+            if (!enabledSections.technicalSubItems?.[attr.key]) return null;
             return (
-              <div key={key}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{getAttributeLabel(masterAttributes, 'technicalSubItems', key)}</label>
+              <div key={attr.key}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{attr.label}</label>
                 <RatingStars
-                  value={formData.technicalBased?.[key] || 0}
-                  onChange={(value) => updateTechnicalRating(key, value)}
+                  value={formData.technicalBased?.[attr.key] || 0}
+                  onChange={(value) => updateTechnicalRating(attr.key, value)}
                 />
               </div>
             );
@@ -3027,14 +3028,14 @@ const SelfAppraisal = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          {Object.entries(enabledSections.growthSubItems || {}).map(([key, enabled]) => {
-            if (!enabled) return null;
+          {masterAttributes.growthSubItems.map((attr) => {
+            if (!enabledSections.growthSubItems?.[attr.key]) return null;
             return (
-              <div key={key}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">{getAttributeLabel(masterAttributes, 'growthSubItems', key)}</label>
+              <div key={attr.key}>
+                <label className="block text-sm font-medium text-gray-700 mb-2">{attr.label}</label>
                 <RatingStars
-                  value={formData.growthBased?.[key] || 0}
-                  onChange={(value) => updateGrowthRating(key, value)}
+                  value={formData.growthBased?.[attr.key] || 0}
+                  onChange={(value) => updateGrowthRating(attr.key, value)}
                 />
               </div>
             );
