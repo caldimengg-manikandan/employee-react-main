@@ -20,38 +20,43 @@ const Header = ({ onMenuClick }) => {
   // Map routes to page titles
   const getPageTitle = () => {
     const routeTitles = {
+      // Top Level & General
+      '/dashboard': 'Home',
       '/home': 'Home',
+      '/my-profile': 'My Profile',
       '/user-access': 'User Access',
       '/employee-management': 'Employee Management',
-      '/announcements': 'Announcement Management',
-      '/timesheet': 'Employee Timesheet',
+      '/announcements': 'Announcements',
+      '/bank-of-resumes': 'Resume Repository',
+      '/calendar-master': 'Unified Hub Calendar',
+      '/policies': 'Policy Portal',
+      '/insurance': 'Insurance',
+      '/expenditure-management': 'Expenditure Management',
+      '/employee-reward-tracker': 'Employee Reward Tracker',
+      '/holidays-allowance': 'Holidays Allowance',
+      '/holidays-allowance/summary': 'Holidays Allowance Summary',
+
+      // Timesheet Management
+      '/timesheet': 'Timesheet',
       '/timesheet/history': 'Timesheet History',
-      '/timesheet/attendance': 'Employee In/Out Timing',
       '/timesheet/regularization': 'Attendance Regularization',
+      '/timesheet/attendance': 'Employee Attendance',
       '/timesheet/attendance-approval': 'Attendance Approval',
-      '/admin/timesheet': 'Admin Timesheet Management',
+      '/attendance/edit-time': 'Edit In and Out Time',
+
+      // Admin Timesheet
+      '/admin/timesheet': 'Admin Timesheet',
       '/admin/timesheet/approval': 'Timesheet Summary',
-      '/project-allocation': 'Project Allocation',
+      '/admin/special-permissions': 'Special Permission',
+
+      // Leave Management
+      '/leave-applications': 'Leave Applications',
       '/leave-management/summary': 'Leave Summary',
       '/leave-management/balance': 'Leave Balance',
       '/leave-management/regional-holidays': 'Regional Holidays',
-      '/leave-applications': 'Leave Applications',
-      '/insurance': 'Insurance',
-      '/policies': 'Policy Portal',
-      '/salaryslips': 'Salary Slips',
-      '/salaryslips/pf-gratuity': 'PF & Gratuity Summary',
-      '/expenditure-management': 'Expenditure Management',
-      '/employee-reward-tracker': 'Employee Reward Tracker',
-      '/admin/team-management': 'Team Management',
-      '/payroll/details': 'Employee PayRolls Details',
-      '/payroll/cost-to-the-company': 'Cost to the Company',
-      '/payroll/compensation-master': 'Compensation Master',
-      '/payroll/loan-summary': 'Loan Summary',
-      '/payroll/gratuity-summary': 'Gratuity Summary',
-      '/payroll/monthly': 'Monthly Payroll',
-      '/employee-exit/form': 'Employee Exit Form',
-      '/my-profile': 'My Profile',
-      '/employee-exit/approval': 'Exit form Approval',
+      '/leave-management/office-holidays': 'Office Holidays',
+
+      // Performance Management
       '/performance/self-appraisal': 'Self Appraisal',
       '/performance/team-appraisal': 'Team Appraisal',
       '/performance/reviewer-approval': 'Reviewer Approval',
@@ -60,17 +65,32 @@ const Header = ({ onMenuClick }) => {
       '/performance/increment-master': 'Appraisal Master',
       '/performance/increment-summary': 'Increment Summary',
       '/performance/attendance-summary': 'Attendance Summary',
-      '/bank-of-resumes': 'Resume Repository',
-      '/admin/special-permissions': 'Special Permission Approval',
-      '/calendar-master': 'Unified Hub Calendar',
-      '/holidays-allowance': 'Employee Allowance System',
-      '/holidays-allowance/summary': 'Employee Allowance Summary',
+      '/performance/promotion-history': 'Promotion History',
+
+      // Payroll Management
+      '/salaryslips': 'Salary Slips',
+      '/salaryslips/pf-gratuity': 'PF & Gratuity Summary',
+      '/payroll/details': 'Payroll Details',
+      '/payroll/history': 'Payroll History',
+      '/payroll/cost-to-the-company': 'Cost to the Company',
+      '/payroll/compensation-master': 'Compensation Master',
+      '/payroll/loan-summary': 'Loan Summary',
+      '/payroll/gratuity-summary': 'Gratuity Summary',
+      '/payroll/monthly': 'Monthly Payroll',
       '/payroll/marriage-allowance': 'Marriage Allowance',
-      '/internship/InternReference': 'Internship',
-      '/admin/interns': 'Internship',
+
+      // Team & Interns
+      '/admin/team-management': 'Team Management',
+      '/project-allocation': 'Project Allocation',
+      '/internship/InternReference': 'Intern Reference',
+      '/admin/interns': 'Intern Reference',
+
+      // Exit Management
+      '/employee-exit/form': 'Employee Exit Form',
+      '/employee-exit/approval': 'Exit Approval',
     };
 
-    
+
     return routeTitles[location.pathname] || 'Caldim Employee Portal';
   };
 
@@ -156,16 +176,16 @@ const Header = ({ onMenuClick }) => {
   };
 
   // Format date and time for India (Asia/Kolkata)
-  const formattedDate = currentTime.toLocaleDateString('en-IN', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
+  const formattedDate = currentTime.toLocaleDateString('en-IN', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
     day: 'numeric',
     timeZone: 'Asia/Kolkata'
   });
 
-  const formattedTime = currentTime.toLocaleTimeString('en-IN', { 
-    hour: '2-digit', 
+  const formattedTime = currentTime.toLocaleTimeString('en-IN', {
+    hour: '2-digit',
     minute: '2-digit',
     second: '2-digit',
     hour12: true,
@@ -184,7 +204,7 @@ const Header = ({ onMenuClick }) => {
     <>
       <header className="bg-white shadow border-b border-gray-200 w-full">
         <div className="flex items-center px-4 py-3">
-          
+
           {/* Left Section */}
           <div className="flex-1">
             <button
@@ -202,12 +222,12 @@ const Header = ({ onMenuClick }) => {
               <span className="hidden sm:inline text-sm">Back</span>
             </button>
           </div>
-          
+
           {/* Center Section */}
           <div className="flex-1 text-center">
-              <h1 className="text-lg font-medium text-gray-800">{getPageTitle()}</h1>
+            <h1 className="text-lg font-medium text-gray-800">{getPageTitle()}</h1>
           </div>
-          
+
           {/* Right Section */}
           <div className="flex-1 flex justify-end items-center space-x-4">
             {/* Time Display */}
@@ -215,7 +235,7 @@ const Header = ({ onMenuClick }) => {
               <span className="text-sm text-gray-600">{formattedTime}</span>
               <span className="text-xs text-gray-500">{formattedDate}</span>
             </div>
-            
+
             {/* Mobile Time Display */}
             <div className="sm:hidden flex flex-col items-end">
               <span className="text-sm text-gray-600">{formattedTime}</span>
@@ -226,13 +246,13 @@ const Header = ({ onMenuClick }) => {
               <button
                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
                 className={`flex items-center p-2.5 rounded-xl transition-all duration-300 relative group
-                  ${unreadCount > 0 
-                    ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100' 
+                  ${unreadCount > 0
+                    ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
                     : 'text-gray-500 hover:bg-gray-100'}`}
                 aria-label="Notifications"
               >
                 <BellIcon className={`h-6 w-6 transition-transform duration-500 ${unreadCount > 0 ? 'animate-[swing_2s_ease-in-out_infinite] origin-top' : 'group-hover:rotate-12'}`} />
-                
+
                 {unreadCount > 0 && (
                   <>
                     <span className="absolute top-2 right-2 h-3 w-3 bg-rose-500 rounded-full border-2 border-white z-10"></span>
@@ -273,11 +293,11 @@ const Header = ({ onMenuClick }) => {
                             Employee ID: {getDisplayEmployeeId()}
                           </p>
                         )}
-                        
+
                       </div>
                     </div>
                   </div>
-                  
+
                   <div className="p-2 border-t border-gray-200">
 
                     <button

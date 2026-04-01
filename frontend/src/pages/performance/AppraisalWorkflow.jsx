@@ -23,7 +23,13 @@ const getPreviousFinancialYearLabel = () => {
 };
 
 const AppraisalWorkflow = () => {
-  const [selectedFinancialYear] = useState(getPreviousFinancialYearLabel());
+  const [selectedFinancialYear, setSelectedFinancialYear] = useState('2024-25');
+  
+  const financialYearOptions = ['2024-25', '2025-26'];
+
+  const handleFinancialYearChange = (e) => {
+    setSelectedFinancialYear(e.target.value);
+  };
   const [searchQuery, setSearchQuery] = useState('');
   const [allEmployees, setAllEmployees] = useState([]);
   const [rows, setRows] = useState([]);
@@ -226,16 +232,20 @@ const AppraisalWorkflow = () => {
           
           <div className="flex items-center space-x-3">
              <div className="hidden sm:flex flex-col items-end mr-4">
-               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Active Cycle</span>
-               <span className="text-sm font-black text-indigo-600">{selectedFinancialYear}</span>
+               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">Financial Year</span>
+               <div className="relative">
+                 <select
+                    value={selectedFinancialYear}
+                    onChange={handleFinancialYearChange}
+                    className="appearance-none bg-indigo-50 border-none text-indigo-700 text-sm font-black py-1 pl-3 pr-8 rounded-lg cursor-pointer focus:ring-2 focus:ring-indigo-300 transition-all outline-none"
+                 >
+                   {financialYearOptions.map(year => (
+                     <option key={year} value={year}>{year}</option>
+                   ))}
+                 </select>
+                 <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-indigo-500 pointer-events-none" />
+               </div>
              </div>
-             <button 
-                onClick={fetchEmployees}
-                className="p-2 border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors text-slate-600"
-                title="Refresh Table"
-             >
-                <Plus className="h-5 w-5" />
-             </button>
           </div>
         </div>
 

@@ -264,15 +264,15 @@ const ProjectDashboard = () => {
         // Expenditure
         { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
 
-        // // Performance Management
-        // { name: 'Self Appraisal', description: 'Submit self appraisal', path: '/performance/self-appraisal', icon: StarIcon, permission: 'self_appraisal', allowEmployeeRole: true, category: 'Performance Management' },
-        // { name: 'Team Appraisal', description: 'Review team performance', path: '/performance/team-appraisal', icon: StarIcon, permission: 'team_appraisal', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
-        // { name: 'Reviewer Approval', description: 'Approve appraisals', path: '/performance/reviewer-approval', icon: StarIcon, permission: 'reviewer_approval', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
-        // { name: 'Director Approval', description: 'Final approval', path: '/performance/director-approval', icon: StarIcon, permission: 'director_approval', showForRoles: ['admin', 'hr', 'manager', 'director'], category: 'Performance Management' },
-        // { name: 'Appraisal Workflow', description: 'Track appraisal status', path: '/performance/appraisal-workflow', icon: StarIcon, permission: 'appraisal_workflow', allowEmployeeRole: true, category: 'Performance Management' },
-        // { name: 'Appraisal Master', description: 'Manage increments', path: '/performance/increment-master', icon: StarIcon, permission: 'appraisal_master', showForRoles: ['admin', 'hr'], category: 'Performance Management' },
-        // { name: 'Increment Summary', description: 'View increment summary', path: '/performance/increment-summary', icon: StarIcon, permission: 'increment_summary', showForRoles: ['admin', 'hr', 'manager'], category: 'Performance Management' },
-        // { name: 'Attendance Summary', description: 'View attendance summary', path: '/performance/attendance-summary', icon: StarIcon, permission: 'attendance_summary', showForRoles: ['admin', 'hr', 'manager'], category: 'Performance Management' },
+       // Performance Management
+        { name: 'Self Appraisal', description: 'Submit self appraisal', path: '/performance/self-appraisal', icon: StarIcon, permission: 'self_appraisal', allowEmployeeRole: true, category: 'Performance Management' },
+        { name: 'Team Appraisal', description: 'Review team performance', path: '/performance/team-appraisal', icon: StarIcon, permission: 'team_appraisal', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
+        { name: 'Reviewer Approval', description: 'Approve appraisals', path: '/performance/reviewer-approval', icon: StarIcon, permission: 'reviewer_approval', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Performance Management' },
+        { name: 'Director Approval', description: 'Final approval', path: '/performance/director-approval', icon: StarIcon, permission: 'director_approval', showForRoles: ['admin', 'hr', 'manager', 'director'], category: 'Performance Management' },
+        { name: 'Appraisal Workflow', description: 'Track appraisal status', path: '/performance/appraisal-workflow', icon: StarIcon, permission: 'appraisal_workflow', allowEmployeeRole: true, category: 'Performance Management' },
+        { name: 'Appraisal Master', description: 'Manage increments', path: '/performance/increment-master', icon: StarIcon, permission: 'appraisal_master', showForRoles: ['admin', 'hr'], category: 'Performance Management' },
+        { name: 'Increment Summary', description: 'View increment summary', path: '/performance/increment-summary', icon: StarIcon, permission: 'increment_summary', showForRoles: ['admin', 'hr', 'manager'], category: 'Performance Management' },
+     { name: 'Attendance Summary', description: 'View attendance summary', path: '/performance/attendance-summary', icon: StarIcon, permission: 'attendance_summary', showForRoles: ['admin', 'hr', 'manager'], category: 'Performance Management' },
 
 
 
