@@ -481,6 +481,12 @@ const InsuranceManagement = () => {
     }
 
     setFormData(prev => {
+      // Logic: Admission <= Discharge <= Claim <= Close
+      
+      if (field === 'dateOfDischarge' && prev.dateOfAdmission && value && value < prev.dateOfAdmission) {
+        return prev;
+      }
+
       if (field === 'claimDate' && prev.dateOfDischarge && value && value < prev.dateOfDischarge) {
         return prev;
       }
@@ -494,12 +500,19 @@ const InsuranceManagement = () => {
         [field]: value
       };
 
-      if (field === 'dateOfDischarge' && prev.claimDate && value && prev.claimDate < value) {
+      // Cascade clearing: If Admission moves past Discharge, clear Discharge and subsequent
+      if (field === 'dateOfAdmission' && prev.dateOfDischarge && value && value > prev.dateOfDischarge) {
+        updated.dateOfDischarge = '';
         updated.claimDate = '';
         updated.closeDate = '';
       }
 
-      if (field === 'claimDate' && prev.closeDate && value && prev.closeDate < value) {
+      if (field === 'dateOfDischarge' && prev.claimDate && value && value > prev.claimDate) {
+        updated.claimDate = '';
+        updated.closeDate = '';
+      }
+
+      if (field === 'claimDate' && prev.closeDate && value && value > prev.closeDate) {
         updated.closeDate = '';
       }
 
@@ -688,6 +701,12 @@ const InsuranceManagement = () => {
     }
 
     setEditFormData(prev => {
+      // Logic: Admission <= Discharge <= Claim <= Close
+      
+      if (field === 'dateOfDischarge' && prev.dateOfAdmission && value && value < prev.dateOfAdmission) {
+        return prev;
+      }
+
       if (field === 'claimDate' && prev.dateOfDischarge && value && value < prev.dateOfDischarge) {
         return prev;
       }
@@ -701,12 +720,19 @@ const InsuranceManagement = () => {
         [field]: value
       };
 
-      if (field === 'dateOfDischarge' && prev.claimDate && value && prev.claimDate < value) {
+      // Cascade clearing: If Admission moves past Discharge, clear Discharge and subsequent
+      if (field === 'dateOfAdmission' && prev.dateOfDischarge && value && value > prev.dateOfDischarge) {
+        updated.dateOfDischarge = '';
         updated.claimDate = '';
         updated.closeDate = '';
       }
 
-      if (field === 'claimDate' && prev.closeDate && value && prev.closeDate < value) {
+      if (field === 'dateOfDischarge' && prev.claimDate && value && value > prev.claimDate) {
+        updated.claimDate = '';
+        updated.closeDate = '';
+      }
+
+      if (field === 'claimDate' && prev.closeDate && value && value > prev.closeDate) {
         updated.closeDate = '';
       }
 
@@ -1679,6 +1705,7 @@ const InsuranceManagement = () => {
             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             required
             max="9999-12-31"
+            min={editFormData.dateOfAdmission || undefined}
           />
         </div>
 
@@ -2160,21 +2187,6 @@ const InsuranceManagement = () => {
 
         <div className="md:col-span-1">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Claim Date *
-          </label>
-          <input
-            type="date"
-            value={formData.claimDate}
-            onChange={(e) => handleInputChange('claimDate', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.claimDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
-            max="9999-12-31"
-            min={formData.dateOfDischarge || undefined}
-          />
-          {errors.claimDate && <p className="mt-1 text-xs text-red-500">Claim Date is required</p>}
-        </div>
-
-        <div className="md:col-span-1">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
             Date of Admission *
           </label>
           <input
@@ -2195,10 +2207,26 @@ const InsuranceManagement = () => {
             type="date"
             value={formData.dateOfDischarge}
             onChange={(e) => handleInputChange('dateOfDischarge', e.target.value)}
-            className={`w-full px-3 py-2 border ${errors.dateOfDischarge ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
+            className={`w-full px-3 py-2 border ${errors.dateOfDischarge ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
             max="9999-12-31"
+            min={formData.dateOfAdmission || undefined}
           />
           {errors.dateOfDischarge && <p className="mt-1 text-xs text-red-500">Discharge Date is required</p>}
+        </div>
+
+        <div className="md:col-span-1">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Claim Date *
+          </label>
+          <input
+            type="date"
+            value={formData.claimDate}
+            onChange={(e) => handleInputChange('claimDate', e.target.value)}
+            className={`w-full px-3 py-2 border ${errors.claimDate ? 'border-red-500' : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]`}
+            max="9999-12-31"
+            min={formData.dateOfDischarge || undefined}
+          />
+          {errors.claimDate && <p className="mt-1 text-xs text-red-500">Claim Date is required</p>}
         </div>
 
         <div className="md:col-span-1">
@@ -2209,7 +2237,7 @@ const InsuranceManagement = () => {
             type="date"
             value={formData.closeDate}
             onChange={(e) => handleInputChange('closeDate', e.target.value)}
-            className="w-full px-3 py-2 border border-blue-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-[#262760]"
             max="9999-12-31"
             min={formData.claimDate || undefined}
           />
@@ -2744,6 +2772,20 @@ const InsuranceManagement = () => {
                            <p className="text-xs text-blue-600 font-bold uppercase mb-0.5">Discharge</p>
                            <p className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.dateOfDischarge).toLocaleDateString()}</p>
                         </div>
+
+                        <div className="relative">
+                           <div className="absolute -left-[21px] top-1 w-4 h-4 bg-white border-2 border-indigo-500 rounded-full shadow-sm"></div>
+                           <p className="text-xs text-indigo-600 font-bold uppercase mb-0.5">Claimed</p>
+                           <p className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.claimDate).toLocaleDateString()}</p>
+                        </div>
+
+                        {viewingClaim.closeDate && (
+                          <div className="relative">
+                             <div className="absolute -left-[21px] top-1 w-4 h-4 bg-white border-2 border-gray-500 rounded-full shadow-sm"></div>
+                             <p className="text-xs text-gray-600 font-bold uppercase mb-0.5">Closed</p>
+                             <p className="text-sm font-semibold text-gray-900">{new Date(viewingClaim.closeDate).toLocaleDateString()}</p>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

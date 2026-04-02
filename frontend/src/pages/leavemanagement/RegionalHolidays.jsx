@@ -24,6 +24,7 @@ const RegionalHolidays = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [manualHolidayName, setManualHolidayName] = useState("");
   const [manualHolidayDate, setManualHolidayDate] = useState("");
+  const [manualHolidayLocation, setManualHolidayLocation] = useState("");
   const [savedHolidays, setSavedHolidays] = useState([]);
   const [selectedSavedHolidayId, setSelectedSavedHolidayId] = useState("");
 
@@ -35,7 +36,8 @@ const RegionalHolidays = () => {
         .map((h) => ({
           id: String(h?.id || h?._id || ""),
           name: String(h?.name || "").trim(),
-          date: String(h?.dateISO || "").trim()
+          date: String(h?.dateISO || "").trim(),
+          location: String(h?.location || "").trim()
         }))
         .filter((h) => h.id && h.name && h.date);
       setSavedHolidays(mapped);
@@ -210,15 +212,17 @@ const RegionalHolidays = () => {
   const onSaveManualHoliday = () => {
     const name = String(manualHolidayName || "").trim();
     const date = String(manualHolidayDate || "").trim();
+    const location = String(manualHolidayLocation || "").trim();
     if (!name || !date) return;
     regionalHolidayAPI
-      .create({ name, date })
+      .create({ name, date, location })
       .then((resp) => {
         const createdId = String(resp?.data?.id || resp?.data?._id || "");
         loadSavedHolidays();
         if (createdId) setSelectedSavedHolidayId(createdId);
         setManualHolidayName("");
         setManualHolidayDate("");
+        setManualHolidayLocation("");
       })
       .catch(() => {});
   };
@@ -471,6 +475,21 @@ const RegionalHolidays = () => {
                       className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm py-2.5 px-3 bg-white"
                     />
                   </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                    <select
+                      value={manualHolidayLocation}
+                      onChange={(e) => setManualHolidayLocation(e.target.value)}
+                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm py-2.5 px-3 bg-white"
+                    >
+                      <option value="">All Locations / General</option>
+                      {locationOptions.map((loc) => (
+                        <option key={loc} value={loc}>
+                          {loc}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
 
                 <div className="mt-4 flex justify-end gap-2">
@@ -518,7 +537,9 @@ const RegionalHolidays = () => {
                         >
                           <div className="min-w-0">
                             <div className="font-semibold text-gray-900 truncate">{h.name}</div>
-                            <div className="text-xs text-gray-600 mt-0.5">{formatSavedDate(h.date)}</div>
+                            <div className="text-xs text-gray-600 mt-0.5">
+                              {formatSavedDate(h.date)} {h.location && `• ${h.location}`}
+                            </div>
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-semibold text-purple-700 bg-purple-50 border border-purple-100 px-2 py-1 rounded-full">

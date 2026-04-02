@@ -26,6 +26,7 @@ router.get('/', auth, async (req, res) => {
       id: h._id,
       name: h.name,
       date: h.date,
+      location: h.location, // include location
       dateISO: h.date ? new Date(h.date).toISOString().slice(0, 10) : ''
     }));
     res.json(mapped);
@@ -41,6 +42,7 @@ router.post('/', auth, async (req, res) => {
     }
     const name = String(req.body?.name || '').trim();
     const dateISO = String(req.body?.date || '').trim();
+    const location = String(req.body?.location || '').trim();
     if (!name) return res.status(400).json({ error: 'Name is required' });
     if (!dateISO) return res.status(400).json({ error: 'Date is required' });
 
@@ -49,15 +51,17 @@ router.post('/', auth, async (req, res) => {
 
     const existing = await RegionalHoliday.findOne({
       name,
+      location,
       date: { $gte: range.start, $lt: range.end }
     }).select('_id');
     if (existing) {
-      return res.status(400).json({ error: 'Holiday already exists for this date' });
+      return res.status(400).json({ error: 'Holiday already exists for this date and location' });
     }
 
     const created = await RegionalHoliday.create({
       name,
       date: range.start,
+      location,
       isActive: true,
       createdBy: req.user?._id
     });
@@ -66,6 +70,7 @@ router.post('/', auth, async (req, res) => {
       id: created._id,
       name: created.name,
       date: created.date,
+      location: created.location,
       dateISO: created.date ? new Date(created.date).toISOString().slice(0, 10) : ''
     });
   } catch (err) {

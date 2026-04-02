@@ -430,6 +430,8 @@ export const celebrationAPI = {
   getCalendar: (params) => api.get('/celebrations/calendar', { params }),
   getWishStats: (params) => api.get('/celebrations/stats', { params }),
   sendWish: (data) => api.post('/celebrations/wish', data),
+  updateWish: (id, data) => api.put(`/celebrations/wish/${id}`, data),
+  deleteWish: (id) => api.delete(`/celebrations/wish/${id}`),
   replyWish: (wishId, data) => api.post(`/celebrations/wish/${wishId}/reply`, data),
 };
 

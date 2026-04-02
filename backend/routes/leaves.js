@@ -771,6 +771,7 @@ router.get('/my-balance', auth, async (req, res) => {
           name: emp.name || emp.employeename || '',
           position: emp.position || emp.role || '',
           division: emp.division || '',
+          location: emp.location || emp.branch || '',
           monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt),
           balances: mergedBalances
         });

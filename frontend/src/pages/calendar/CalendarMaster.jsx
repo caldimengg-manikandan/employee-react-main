@@ -10,7 +10,11 @@ import {
   Home,
   Sparkles,
   Calendar as CalendarIcon,
-  Info
+  Info,
+  Lock,
+  Globe,
+  Pencil,
+  Trash2
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import WishModal from '../../components/Modals/WishModal';
@@ -42,6 +46,29 @@ const CalendarMaster = () => {
       fetchUnifiedData(); // Fetch the wish history again
     } catch (error) {
       console.error("Error replying to wish:", error);
+    }
+  };
+
+  const handleEditWish = (wish) => {
+    setSelectedEmployeeForWish({
+      wishId: wish._id,
+      employeeId: wish.receiverEmployeeId, // We need this for the modal context
+      name: wish.receiverName,
+      message: wish.message,
+      visibility: wish.visibility,
+      eventType: wish.eventType
+    });
+    setIsWishModalOpen(true);
+  };
+
+  const handleDeleteWish = async (wishId) => {
+    if (!window.confirm("Are you sure you want to delete this wish?")) return;
+    try {
+      await celebrationAPI.deleteWish(wishId);
+      fetchUnifiedData();
+    } catch (error) {
+      console.error("Error deleting wish:", error);
+      alert("Failed to delete wish.");
     }
   };
 
@@ -110,11 +137,22 @@ const CalendarMaster = () => {
     const events = [];
 
 
-    const officeHoliday = data.officeHolidays.find(h => isSameDay(date, new Date(h.holidayDate)));
-    if (officeHoliday) events.push({ type: 'holiday', title: officeHoliday.occasion, color: 'bg-rose-500', icon: Home });
+    const officeHoliday = data.officeHolidays.find(h => isSameDay(date, new Date(h.date)));
+    if (officeHoliday) events.push({ type: 'holiday', title: `Office: ${officeHoliday.name}`, color: 'bg-rose-500', icon: Home });
 
-    const regionalHoliday = data.regionalHolidays.find(h => isSameDay(date, new Date(h.holidayDate)));
-    if (regionalHoliday) events.push({ type: 'holiday', title: regionalHoliday.occasion, color: 'bg-rose-500', icon: Home });
+    const regionalHoliday = data.regionalHolidays.find(h => {
+      const holidayDate = new Date(h.date);
+      const sameDay = isSameDay(date, holidayDate);
+      if (!sameDay) return false;
+      
+      // Map to user location if info is available
+      const userLocation = data.balance?.location;
+      if (userLocation && h.location) {
+        return h.location.toLowerCase() === userLocation.toLowerCase();
+      }
+      return true; // Show if no location info or holiday has no location
+    });
+    if (regionalHoliday) events.push({ type: 'holiday', title: `Regional: ${regionalHoliday.name}`, color: 'bg-orange-500', icon: Home });
 
     // 2. Personal Leave
     const leave = data.leaves.find(l => l.status === 'Approved' && date >= new Date(l.startDate).setHours(0, 0, 0, 0) && date <= new Date(l.endDate).setHours(23, 59, 59, 999));
@@ -133,10 +171,18 @@ const CalendarMaster = () => {
     return events;
   };
 
-  const handleDayClick = (events) => {
+  const [selectedDay, setSelectedDay] = useState(null);
+
+  const handleDayClick = (date, events) => {
+    if (events.length === 0) return;
+    
     if (events.some(e => e.type === 'birthday')) {
       confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#fbbf24', '#f59e0b', '#ffffff'] });
     }
+    
+    setSelectedDay(date);
+    setSelectedCategory('DayDetail');
+    setShowModal(true);
   };
 
   const days = getDaysInMonth(currentDate);
@@ -146,18 +192,66 @@ const CalendarMaster = () => {
     const year = currentDate.getFullYear();
 
     switch (category) {
-      case 'Holidays': {
-        const allHolidays = [
-          ...data.officeHolidays.map(h => ({ ...h, type: 'Office' })),
-          ...data.regionalHolidays.map(h => ({ ...h, type: 'Regional' }))
-        ];
-        return allHolidays.filter(h => {
-          const d = new Date(h.holidayDate);
+      case 'DayDetail': {
+        if (!selectedDay) return [];
+        const monthMatch = (d) => d.getDate() === selectedDay.getDate() && d.getMonth() === selectedDay.getMonth() && d.getFullYear() === selectedDay.getFullYear();
+        
+        const dayEvents = [];
+        
+        // Holidays
+        data.officeHolidays.filter(h => monthMatch(new Date(h.date))).forEach(h => dayEvents.push({ name: h.name, date: new Date(h.date), detail: 'Office Holiday' }));
+        data.regionalHolidays.filter(h => {
+          const d = new Date(h.date);
+          if (!monthMatch(d)) return false;
+          const userLoc = data.balance?.location;
+          return !h.location || !userLoc || h.location.toLowerCase() === userLoc.toLowerCase();
+        }).forEach(h => dayEvents.push({ name: h.name, date: new Date(h.date), detail: h.location ? `Regional Holiday (${h.location})` : 'Regional Holiday' }));
+        
+        // Leaves
+        data.leaves.filter(l => l.status === 'Approved' && selectedDay >= new Date(l.startDate).setHours(0,0,0,0) && selectedDay <= new Date(l.endDate).setHours(23,59,59,999))
+          .forEach(l => dayEvents.push({ name: `${l.leaveType} Leave`, date: new Date(l.startDate), detail: l.reason || 'No reason' }));
+          
+        // Celebrations
+        data.celebrations.filter(c => monthMatch(new Date(c.eventDate))).forEach(c => dayEvents.push({
+          name: c.employeeName,
+          date: new Date(c.eventDate),
+          detail: c.eventType === 'Birthday' ? '🎂 Birthday' : '🎊 Work Anniversary',
+          division: c.division,
+          location: c.location,
+          employeeId: c.employeeId,
+          department: c.department,
+          designation: c.designation || 'Employee',
+          isWished: c.isWished
+        }));
+        
+        return dayEvents;
+      }
+      case 'Office Holidays': {
+        return data.officeHolidays.filter(h => {
+          const d = new Date(h.date);
           return d.getMonth() === month && d.getFullYear() === year;
         }).map(h => ({
-          name: h.occasion,
-          date: new Date(h.holidayDate),
-          detail: `${h.type} Holiday`
+          name: h.name,
+          date: new Date(h.date),
+          detail: 'Office Holiday'
+        }));
+      }
+
+      case 'Regional Holidays': {
+        return data.regionalHolidays.filter(h => {
+          const d = new Date(h.date);
+          const sameMonth = d.getMonth() === month && d.getFullYear() === year;
+          if (!sameMonth) return false;
+          
+          const userLocation = data.balance?.location;
+          if (userLocation && h.location) {
+             return h.location.toLowerCase() === userLocation.toLowerCase();
+          }
+          return true;
+        }).map(h => ({
+          name: h.name,
+          date: new Date(h.date),
+          detail: h.location ? `Regional Holiday (${h.location})` : 'Regional Holiday'
         }));
       }
 
@@ -187,7 +281,7 @@ const CalendarMaster = () => {
           }));
 
       case 'Anniversaries':
-        return data.celebrations.filter(c => c.eventType === 'Work Anniversary')
+        return data.celebrations.filter(c => c.eventType === 'Work Anniversary' || c.eventType === 'Anniversary')
           .sort((a, b) => new Date(a.eventDate).getDate() - new Date(b.eventDate).getDate())
           .map(c => ({
             name: c.employeeName,
@@ -200,6 +294,21 @@ const CalendarMaster = () => {
             designation: c.designation || 'Employee',
             isWished: c.isWished
           }));
+
+      case 'BirthdayHistory':
+      case 'AnniversaryHistory': {
+        const typeMatch = category === 'BirthdayHistory' ? 'Birthday' : 'Work Anniversary';
+        const rawHistory = data.wishStats?.wishHistory || [];
+        return rawHistory
+          .filter(w => w.eventType === typeMatch || (typeMatch === 'Work Anniversary' && w.eventType === 'Anniversary'))
+          .map(w => ({
+            ...w,
+            name: `${w.senderName} ➔ ${w.receiverName}`,
+            date: new Date(w.date),
+            detail: `"${w.message}"${w.replyMessage ? ' (Replied)' : ''}`,
+            isHistoryItem: true
+          }));
+      }
 
       default: return [];
     }
@@ -227,14 +336,9 @@ const CalendarMaster = () => {
           </div>
 
           <div className="flex flex-wrap gap-4 mt-4 md:mt-0">
-            {/* Birthdays */}
+            {/* Birthdays History */}
             <div 
-              onClick={() => {
-                 if (selectedCategory === 'BirthdayHistory') setSelectedCategory(null);
-                 else {
-                   setSelectedCategory('BirthdayHistory');
-                 }
-              }}
+              onClick={() => openCategoryModal('BirthdayHistory')}
               className="cursor-pointer flex items-center gap-3 bg-gradient-to-r from-amber-500 to-amber-600 px-5 py-3 rounded-2xl shadow-md hover:scale-105 transition-transform"
             >
               <div className="p-2 bg-white/20 rounded-xl text-white"><Sparkles size={24} /></div>
@@ -244,14 +348,9 @@ const CalendarMaster = () => {
               </div>
             </div>
 
-            {/* Anniversaries */}
+            {/* Anniversaries History */}
             <div 
-              onClick={() => {
-                 if (selectedCategory === 'AnniversaryHistory') setSelectedCategory(null);
-                 else {
-                   setSelectedCategory('AnniversaryHistory');
-                 }
-              }}
+              onClick={() => openCategoryModal('AnniversaryHistory')}
               className="cursor-pointer flex items-center gap-3 bg-gradient-to-r from-emerald-500 to-emerald-600 px-5 py-3 rounded-2xl shadow-md hover:scale-105 transition-transform"
             >
               <div className="p-2 bg-white/20 rounded-xl text-white"><Sparkles size={24} /></div>
@@ -263,85 +362,6 @@ const CalendarMaster = () => {
           </div>
         </div>
 
-        {/* Dynamic Wish History Panels Below Header */}
-        {(selectedCategory === 'BirthdayHistory' || selectedCategory === 'AnniversaryHistory') && (
-           <div className="mb-8 p-6 bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-xl border border-white/50 animate-in slide-in-from-top-4">
-             <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-black flex items-center gap-3">
-                  {selectedCategory === 'BirthdayHistory' ? (
-                     <><Cake className="text-amber-500" /> Birthday Wishes Sent</>
-                  ) : (
-                     <><PartyPopper className="text-emerald-500" /> Anniversary Wishes Sent</>
-                  )}
-                </h3>
-                <button onClick={() => setSelectedCategory(null)} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500">
-                  <ChevronLeft className="rotate-180" size={20} />
-                </button>
-             </div>
-             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {data.wishStats?.wishHistory && data.wishStats.wishHistory.filter(w => w.eventType === (selectedCategory === 'BirthdayHistory' ? 'Birthday' : 'Work Anniversary')).length > 0 ? (
-                  data.wishStats.wishHistory
-                    .filter(w => w.eventType === (selectedCategory === 'BirthdayHistory' ? 'Birthday' : 'Work Anniversary'))
-                    .map((wish, index) => (
-                      <div key={wish._id || index} className="p-4 bg-gray-50 rounded-2xl border border-gray-100 hover:border-indigo-200 transition-colors group">
-                         <div className="text-xs font-bold text-indigo-600 mb-2">{new Date(wish.date).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}</div>
-                         <div className="flex flex-col gap-1">
-                           <div className="text-sm">
-                             <span className="font-bold text-gray-900">{wish.senderName}</span> 
-                             <span className="text-gray-500"> sent a wish to </span>
-                             <span className="font-bold text-gray-900">{wish.receiverName}</span>
-                           </div>
-                           
-                           {/* Original Message */}
-                           <div className="text-gray-700 italic mt-1 text-sm bg-gray-100/50 p-3 rounded-xl border border-gray-100">"{wish.message}"</div>
-                           
-                           {/* Reply Display */}
-                           {wish.replyMessage && (
-                              <div className="mt-3 p-3 bg-white rounded-xl border border-indigo-50 shadow-sm relative">
-                                <div className="absolute -top-2 left-4 px-2 bg-white text-[9px] font-black text-indigo-400 uppercase tracking-widest">Reply from {wish.receiverName}</div>
-                                <div className="text-sm text-gray-800 font-medium">{wish.replyMessage}</div>
-                                <div className="text-[10px] text-gray-400 mt-1">{new Date(wish.replyDate).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}</div>
-                              </div>
-                           )}
-
-                           {/* Reply Action */}
-                           {!wish.replyMessage && wish.receiverEmployeeId === data.wishStats?.currentUserEmployeeId && (
-                               <div className="mt-3">
-                                  {replyingToWish === wish._id ? (
-                                    <div className="flex flex-col gap-2">
-                                       <textarea 
-                                          value={replyText}
-                                          onChange={(e) => setReplyText(e.target.value)}
-                                          placeholder="Type your thank you message..."
-                                          className="w-full text-sm p-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                                          rows={2}
-                                       />
-                                       <div className="flex justify-end gap-2">
-                                          <button onClick={() => setReplyingToWish(null)} className="px-4 py-1.5 text-xs font-bold text-gray-500 hover:bg-gray-200 rounded-lg transition-colors border border-gray-200 bg-white">Cancel</button>
-                                          <button onClick={() => submitReply(wish._id)} className="px-4 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm">Send</button>
-                                       </div>
-                                    </div>
-                                  ) : (
-                                    <button 
-                                      onClick={() => { setReplyingToWish(wish._id); setReplyText(''); }} 
-                                      className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 px-4 py-2 rounded-xl w-max transition-colors shadow-sm border border-indigo-100/50"
-                                    >
-                                      Reply <ChevronRight size={12}/>
-                                    </button>
-                                  )}
-                               </div>
-                           )}
-                         </div>
-                      </div>
-                    ))
-                ) : (
-                  <div className="col-span-full py-8 text-center text-gray-400 font-medium">
-                    No wishes sent in this category yet!
-                  </div>
-                )}
-             </div>
-           </div>
-        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
 
@@ -391,7 +411,7 @@ const CalendarMaster = () => {
                   return (
                     <div
                       key={date.toISOString()}
-                      onClick={() => handleDayClick(events)}
+                      onClick={() => handleDayClick(date, events)}
                       className={`relative aspect-square rounded-[1.5rem] p-2 transition-all cursor-pointer group hover:scale-[1.05] hover:z-10
                         ${isToday ? 'bg-indigo-600 ring-4 ring-indigo-100' : 'bg-white border border-gray-100'}
                         ${events.length > 0 ? 'shadow-lg' : 'hover:bg-gray-50'}
@@ -441,7 +461,8 @@ const CalendarMaster = () => {
               </h3>
               <div className="space-y-4">
                 {[
-                  { label: 'Holidays', icon: Home, color: 'bg-rose-500' },
+                  { label: 'Office Holidays', icon: Home, color: 'bg-rose-500' },
+                  { label: 'Regional Holidays', icon: Home, color: 'bg-orange-500' },
                   { label: 'My Leaves', icon: PlaneTakeoff, color: 'bg-indigo-500' },
                   { label: 'Birthdays', icon: Cake, color: 'bg-amber-500' },
                   { label: 'Anniversaries', icon: PartyPopper, color: 'bg-emerald-500' }
@@ -517,61 +538,147 @@ const CalendarMaster = () => {
                 <div className="space-y-4">
                   {getFilteredList(selectedCategory).length > 0 ? (
                     getFilteredList(selectedCategory).map((item, i) => (
-                      <div key={i} className="flex items-center justify-between p-5 bg-gray-50 rounded-2xl border border-gray-100 group hover:border-indigo-200 transition-all">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center font-black text-lg">
-                            {item.date.getDate()}
-                          </div>
-                          <div>
-                            <div className="font-black text-gray-900">{item.name}</div>
-                            <div className="text-xs text-gray-500 font-medium mb-1">
-                              {item.date.toLocaleDateString('default', { month: 'long' })} • {item.detail}
+                      <div key={i} className={`flex flex-col p-5 bg-gray-50 rounded-3xl border border-gray-100 hover:border-indigo-200 transition-all ${item.isHistoryItem ? 'gap-4' : 'flex-row items-center justify-between'}`}>
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${item.isHistoryItem ? 'bg-indigo-600 text-white' : 'bg-indigo-100 text-indigo-600'}`}>
+                              {item.date.getDate()}
                             </div>
-                            {(item.division || item.location) && (
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                {item.division && (
-                                  <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded-md text-[10px] font-bold border border-indigo-100">
-                                    {item.division}
-                                  </span>
-                                )}
-                                {item.location && (
-                                  <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-md text-[10px] font-bold border border-gray-200">
-                                    {item.location}
-                                  </span>
-                                )}
+                            <div>
+                              <div className="font-black text-gray-900">{item.name}</div>
+                              <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-1">
+                                {item.date.toLocaleDateString('default', { month: 'short' })} • {item.isHistoryItem ? (item.eventType || 'Event') : item.detail}
                               </div>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center gap-4">
+                            {item.isHistoryItem && (
+                               <div className="flex items-center gap-2">
+                                 {item.visibility === 'Private' ? (
+                                  <span className="flex items-center gap-1 text-rose-500 bg-rose-50 px-2 py-0.5 rounded-full text-[10px] font-bold border border-rose-100">
+                                    <Lock size={10} /> Private
+                                  </span>
+                                ) : (
+                                  <span className="flex items-center gap-1 text-emerald-500 bg-emerald-50 px-2 py-0.5 rounded-full text-[10px] font-bold border border-emerald-100">
+                                    <Globe size={10} /> Public
+                                  </span>
+                                )}
+                                
+                                {item.senderEmployeeId === data.wishStats?.currentUserEmployeeId && (
+                                  <div className="flex items-center gap-1 ml-1 border-l border-gray-200 pl-2">
+                                     <button 
+                                      onClick={() => handleEditWish(item)}
+                                      className="p-1.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                      title="Edit Wish"
+                                     >
+                                       <Pencil size={12} />
+                                     </button>
+                                     <button 
+                                      onClick={() => handleDeleteWish(item._id)}
+                                      className="p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                                      title="Delete Wish"
+                                     >
+                                       <Trash2 size={12} />
+                                     </button>
+                                  </div>
+                                )}
+                               </div>
+                            )}
+                            
+                            {!item.isHistoryItem && (selectedCategory === 'Birthdays' || selectedCategory === 'Anniversaries') && (
+                              item.employeeId === (JSON.parse(sessionStorage.getItem('user') || '{}').employeeId) ? (
+                                <div className="px-3 py-1 text-[10px] font-bold rounded-lg bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center gap-1 shadow-sm animate-pulse">
+                                  <Sparkles size={10} /> My Day!
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    if (item.isWished) return;
+                                    setSelectedEmployeeForWish({
+                                      employeeId: item.employeeId,
+                                      name: item.name,
+                                      department: item.department,
+                                      designation: item.designation,
+                                      eventType: selectedCategory.includes('Anniversaries') ? 'Work Anniversary' : 'Birthday',
+                                      eventDate: item.date
+                                    });
+                                    setIsWishModalOpen(true);
+                                  }}
+                                  className={`px-3 py-1 text-[10px] font-bold rounded-lg shadow-sm transition-all flex items-center gap-1 ${item.isWished
+                                    ? 'bg-emerald-100 text-emerald-600 border border-emerald-200 cursor-default'
+                                    : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-md'
+                                    }`}
+                                >
+                                  {item.isWished ? (
+                                    <><PartyPopper size={10} /> Wished!</>
+                                  ) : (
+                                    <><Sparkles size={10} /> Send Wish</>
+                                  )}
+                                </button>
+                              )
                             )}
                           </div>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
-                          <div className="p-2 bg-white rounded-xl shadow-sm opacity-0 group-hover:opacity-100 transition-all">
-                            <Info size={16} className="text-indigo-600" />
+
+                        {item.isHistoryItem && (
+                          <div className="flex flex-col gap-3">
+                             <div className="text-gray-700 italic text-sm bg-white p-4 rounded-2xl border border-gray-100 shadow-sm leading-relaxed">
+                               "{item.message}"
+                             </div>
+                             
+                             {item.replyMessage && (
+                                <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100/50 relative mt-2">
+                                  <div className="absolute -top-2 left-4 px-2 bg-indigo-600 text-white text-[8px] font-black rounded-full uppercase tracking-widest">Reply</div>
+                                  <div className="text-sm text-indigo-900 font-medium">{item.replyMessage}</div>
+                                  <div className="text-[10px] text-indigo-400 mt-2 font-bold">{new Date(item.replyDate).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit' })}</div>
+                                </div>
+                             )}
+
+                             {!item.replyMessage && item.receiverEmployeeId === data.wishStats?.currentUserEmployeeId && (
+                               <div className="mt-1">
+                                  {replyingToWish === item._id ? (
+                                    <div className="flex flex-col gap-2">
+                                       <textarea 
+                                          value={replyText}
+                                          onChange={(e) => setReplyText(e.target.value)}
+                                          placeholder="Say something nice back..."
+                                          className="w-full text-sm p-4 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-inner bg-white"
+                                          rows={2}
+                                       />
+                                       <div className="flex justify-end gap-2 px-1">
+                                          <button onClick={() => setReplyingToWish(null)} className="px-5 py-2 text-xs font-bold text-gray-500 hover:bg-gray-100 rounded-xl transition-all border border-gray-200">Cancel</button>
+                                          <button onClick={() => submitReply(item._id)} className="px-8 py-2 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-all shadow-md active:scale-95">Send Reply</button>
+                                       </div>
+                                    </div>
+                                  ) : (
+                                    <button 
+                                      onClick={() => { setReplyingToWish(item._id); setReplyText(''); }} 
+                                      className="text-xs font-bold text-indigo-600 hover:text-white flex items-center gap-2 bg-indigo-50 hover:bg-indigo-600 px-6 py-2.5 rounded-2xl transition-all border border-indigo-100 group/btn"
+                                    >
+                                      Reply to {item.senderName.split(' ')[0]} <ChevronRight size={14} className="group-hover/btn:translate-x-1 transition-transform" />
+                                    </button>
+                                  )}
+                               </div>
+                             )}
                           </div>
-                          {(selectedCategory === 'Birthdays' || selectedCategory === 'Anniversaries') && (
-                            <button
-                              onClick={() => {
-                                if (item.isWished) return;
-                                setSelectedEmployeeForWish({
-                                  employeeId: item.employeeId,
-                                  name: item.name,
-                                  department: item.department,
-                                  designation: item.designation
-                                });
-                                setIsWishModalOpen(true);
-                              }}
-                              className={`px-3 py-1 text-[10px] font-bold rounded-lg shadow-sm transition-all flex items-center gap-1 ${item.isWished
-                                ? 'bg-emerald-100 text-emerald-600 border border-emerald-200 cursor-default'
-                                : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:shadow-md'
-                                }`}
-                            >
-                              {item.isWished ? (
-                                <><PartyPopper size={10} /> Wished!</>
-                              ) : (
-                                <><Sparkles size={10} /> Send Wish</>
-                              )}
-                            </button>
-                          )}
-                        </div>
+                        )}
+
+                        {/* Event Tags for non-history items */}
+                        {!item.isHistoryItem && (item.division || item.location) && (
+                          <div className="flex flex-wrap gap-2 pr-4">
+                            {item.division && (
+                              <span className="px-2 py-0.5 bg-white text-indigo-600 rounded-lg text-[9px] font-black border border-indigo-100 uppercase tracking-wider">
+                                {item.division}
+                              </span>
+                            )}
+                            {item.location && (
+                              <span className="px-2 py-0.5 bg-white text-gray-500 rounded-lg text-[9px] font-black border border-gray-200 uppercase tracking-wider">
+                                {item.location}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))
                   ) : (

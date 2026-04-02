@@ -7,26 +7,56 @@ const WishModal = ({ isOpen, onClose, employee }) => {
     const [media, setMedia] = useState('');
     const [visibility, setVisibility] = useState('Public');
     const [sending, setSending] = useState(false);
+    const [error, setError] = useState('');
+
+    React.useEffect(() => {
+        setError('');
+        if (employee?.wishId) {
+            setMessage(employee.message || '');
+            setVisibility(employee.visibility || 'Public');
+            setMedia(employee.media || '');
+        } else {
+            setMessage('');
+            setVisibility('Public');
+            setMedia('');
+        }
+    }, [employee]);
 
     const emojis = ['🎂', '🎉', '🎈', '✨', '💐', '🥂', '🍰', '🎁', '🎊', '🎀'];
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!message.trim()) return;
+        const trimmedMessage = message.trim();
+        if (!trimmedMessage) {
+            setError('Please enter a cheerful message before sending!');
+            return;
+        }
 
         setSending(true);
+        setError('');
         try {
-            await celebrationAPI.sendWish({
-                receiverEmployeeId: employee.employeeId,
-                receiverName: employee.name,
-                message,
-                media,
-                visibility
-            });
+            if (employee.wishId) {
+                // Edit existing wish
+                await celebrationAPI.updateWish(employee.wishId, {
+                    message,
+                    visibility
+                });
+            } else {
+                // Send new wish
+                await celebrationAPI.sendWish({
+                    receiverEmployeeId: employee.employeeId,
+                    receiverName: employee.name,
+                    message,
+                    media,
+                    visibility,
+                    eventType: employee.eventType,
+                    eventDate: employee.eventDate
+                });
+            }
             onClose();
         } catch (error) {
-            console.error("Error sending wish:", error);
-            alert("Failed to send wish. Please try again.");
+            console.error("Error saving wish:", error);
+            alert("Failed to save wish. Please try again.");
         } finally {
             setSending(false);
         }
@@ -39,7 +69,7 @@ const WishModal = ({ isOpen, onClose, employee }) => {
             <div className="absolute inset-0 bg-gray-900/40 backdrop-blur-sm" onClick={onClose}></div>
             <div className="relative bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden animate-zoom-in">
                 <div className="px-6 py-4 flex items-center justify-between border-b border-gray-100">
-                    <h3 className="text-xl font-bold text-gray-900">Send Celebration Wish</h3>
+                    <h3 className="text-xl font-bold text-gray-900">{employee?.wishId ? 'Edit' : 'Send'} Celebration Wish</h3>
                     <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
                         <XMarkIcon className="h-6 w-6 text-gray-400" />
                     </button>
@@ -61,11 +91,20 @@ const WishModal = ({ isOpen, onClose, employee }) => {
                             <label className="block text-sm font-semibold text-gray-700 mb-2">Your Message</label>
                             <textarea
                                 value={message}
-                                onChange={(e) => setMessage(e.target.value)}
+                                onChange={(e) => {
+                                    setMessage(e.target.value);
+                                    if (error) setError('');
+                                }}
                                 placeholder="Type your cheerful wish here..."
-                                className="w-full h-32 px-4 py-3 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-indigo-500 transition-all outline-none resize-none"
-                                required
+                                className={`w-full h-32 px-4 py-3 border rounded-2xl focus:ring-2 transition-all outline-none resize-none ${
+                                    error ? 'border-rose-300 focus:ring-rose-500 shadow-sm shadow-rose-100' : 'border-gray-200 focus:ring-indigo-500'
+                                }`}
                             />
+                            {error && (
+                                <p className="mt-2 text-xs font-bold text-rose-500 flex items-center gap-1.5 animate-in fade-in slide-in-from-top-1">
+                                    <FaceSmileIcon className="h-4 w-4" /> {error}
+                                </p>
+                            )}
                         </div>
 
                         <div>
@@ -129,10 +168,10 @@ const WishModal = ({ isOpen, onClose, employee }) => {
                             disabled={sending}
                             className="flex-1 px-6 py-3 bg-indigo-600 text-white font-bold rounded-2xl hover:bg-indigo-700 disabled:opacity-50 shadow-lg shadow-indigo-200 transition-all uppercase text-sm tracking-wider flex items-center justify-center"
                         >
-                            {sending ? 'Sending...' : (
+                            {sending ? 'Saving...' : (
                                 <>
                                     <PaperAirplaneIcon className="h-5 w-5 mr-3" />
-                                    Send Wish
+                                    {employee?.wishId ? 'Update Wish' : 'Send Wish'}
                                 </>
                             )}
                         </button>
