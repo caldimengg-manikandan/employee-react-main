@@ -1760,11 +1760,16 @@ const SelfAppraisal = () => {
                         const selfVal = viewData.behaviourBased?.[attr.key] || 0;
                         const mgrVal = viewData.behaviourManagerRatings?.[attr.key] || viewData[`behaviour${attr.key.charAt(0).toUpperCase() + attr.key.slice(1)}Manager`] || 0;
                         if (!isEnabled && selfVal === 0 && mgrVal === 0) return null;
+                        
+                        const isReleased = ['released', 'accepted', 'effective', 'completed'].includes(String(viewData.status || '').toLowerCase());
+
                         return (
                           <div key={attr.key}>
                             <span className="font-semibold">{attr.label}:</span>
-                            <span className="ml-1">Self {selfVal}/5</span>
-                            <span className="ml-2 text-gray-600">Manager {mgrVal}/5</span>
+                            <span className="ml-1 text-gray-700">Self {selfVal}/5</span>
+                            {isReleased && (
+                              <span className="ml-2 text-indigo-600 font-medium">Manager {mgrVal}/5</span>
+                            )}
                           </div>
                         );
                       })}
@@ -1794,11 +1799,16 @@ const SelfAppraisal = () => {
                         const selfVal = viewData.processAdherence?.[attr.key] || 0;
                         const mgrVal = viewData.processManagerRatings?.[attr.key] || viewData[`process${attr.key.charAt(0).toUpperCase() + attr.key.slice(1)}Manager`] || 0;
                         if (!isEnabled && selfVal === 0 && mgrVal === 0) return null;
+
+                        const isReleased = ['released', 'accepted', 'effective', 'completed'].includes(String(viewData.status || '').toLowerCase());
+
                         return (
                           <div key={attr.key}>
                             <span className="font-semibold">{attr.label}:</span>
-                            <span className="ml-1">Self {selfVal}/5</span>
-                            <span className="ml-2 text-gray-600">Manager {mgrVal}/5</span>
+                            <span className="ml-1 text-gray-700">Self {selfVal}/5</span>
+                            {isReleased && (
+                              <span className="ml-2 text-orange-600 font-medium">Manager {mgrVal}/5</span>
+                            )}
                           </div>
                         );
                       })}
@@ -1828,11 +1838,16 @@ const SelfAppraisal = () => {
                         const selfVal = viewData.technicalBased?.[attr.key] || 0;
                         const mgrVal = viewData.technicalManagerRatings?.[attr.key] || viewData[`technical${attr.key.charAt(0).toUpperCase() + attr.key.slice(1)}Manager`] || 0;
                         if (!isEnabled && selfVal === 0 && mgrVal === 0) return null;
+
+                        const isReleased = ['released', 'accepted', 'effective', 'completed'].includes(String(viewData.status || '').toLowerCase());
+
                         return (
                           <div key={attr.key}>
                             <span className="font-semibold">{attr.label}:</span>
-                            <span className="ml-1">Self {selfVal}/5</span>
-                            <span className="ml-2 text-gray-600">Manager {mgrVal}/5</span>
+                            <span className="ml-1 text-gray-700">Self {selfVal}/5</span>
+                            {isReleased && (
+                              <span className="ml-2 text-blue-600 font-medium">Manager {mgrVal}/5</span>
+                            )}
                           </div>
                         );
                       })}
@@ -1862,11 +1877,16 @@ const SelfAppraisal = () => {
                         const selfVal = viewData.growthBased?.[attr.key] || 0;
                         const mgrVal = viewData.growthManagerRatings?.[attr.key] || viewData[`growth${attr.key.charAt(0).toUpperCase() + attr.key.slice(1)}Manager`] || 0;
                         if (!isEnabled && selfVal === 0 && mgrVal === 0) return null;
+
+                        const isReleased = ['released', 'accepted', 'effective', 'completed'].includes(String(viewData.status || '').toLowerCase());
+
                         return (
                           <div key={attr.key}>
                             <span className="font-semibold">{attr.label}:</span>
-                            <span className="ml-1">Self {selfVal}/5</span>
-                            <span className="ml-2 text-gray-600">Manager {mgrVal}/5</span>
+                            <span className="ml-1 text-gray-700">Self {selfVal}/5</span>
+                            {isReleased && (
+                              <span className="ml-2 text-emerald-600 font-medium">Manager {mgrVal}/5</span>
+                            )}
                           </div>
                         );
                       })}
@@ -1907,13 +1927,13 @@ const SelfAppraisal = () => {
                 </div>
               )}
 
-              {viewData.managerComments && (
+              {viewData.managerComments && ['released', 'accepted', 'effective', 'completed'].includes(String(viewData.status || '').toLowerCase()) && (
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <FileText className="h-5 w-5 mr-2 text-blue-600" />
-                    Manager Comments
+                    Manager Comments <span className="ml-2 px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[10px] rounded-full uppercase tracking-wider">Released via Letter</span>
                   </h3>
-                  <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm">
+                  <div className="bg-blue-50 rounded-lg p-5 border border-blue-100 shadow-sm transition-all hover:shadow-md">
                     <p className="text-gray-800 whitespace-pre-wrap leading-relaxed text-base italic">
                       "{viewData.managerComments}"
                     </p>

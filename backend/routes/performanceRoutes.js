@@ -18,6 +18,41 @@ const mapToObj = (map) => {
     }
 };
 
+// Helper to mask manager details until released
+const maskManagerData = (app) => {
+    const status = (app.status || '').toLowerCase();
+    const isReleased = ['released', 'accepted', 'effective', 'completed'].includes(status);
+    
+    if (!isReleased) {
+        return {
+            ...app,
+            behaviourManagerRatings: {},
+            processManagerRatings: {},
+            technicalManagerRatings: {},
+            growthManagerRatings: {},
+            behaviourManagerComments: '',
+            processManagerComments: '',
+            technicalManagerComments: '',
+            growthManagerComments: '',
+            managerComments: '',
+            appraiserRating: '',
+            keyPerformance: '',
+            leadership: '',
+            attitude: '',
+            communication: '',
+            incrementPercentage: 0,
+            incrementCorrectionPercentage: 0,
+            incrementAmount: 0,
+            revisedSalary: 0,
+            performancePay: 0,
+            promotion: { recommended: false, newDesignation: '' },
+            releaseSalarySnapshot: {},
+            releaseRevisedSnapshot: {}
+        };
+    }
+    return app;
+};
+
 // @desc    Get current user's self appraisals
 // @route   GET /api/performance/self-appraisals/me
 // @access  Private
@@ -32,7 +67,7 @@ router.get('/self-appraisals/me', auth, async (req, res) => {
 
     const formattedAppraisals = appraisals.map(app => {
         const doc = app.toJSON ? app.toJSON() : app;
-        return {
+        const formatted = {
             ...doc,
             behaviourManagerRatings: mapToObj(app.behaviourManagerRatings),
             processManagerRatings: mapToObj(app.processManagerRatings),
@@ -41,6 +76,7 @@ router.get('/self-appraisals/me', auth, async (req, res) => {
             releaseSalarySnapshot: mapToObj(app.releaseSalarySnapshot),
             releaseRevisedSnapshot: mapToObj(app.releaseRevisedSnapshot)
         };
+        return maskManagerData(formatted);
     });
     res.json(formattedAppraisals);
   } catch (error) {
@@ -76,7 +112,10 @@ router.get('/self-appraisals/:id', auth, async (req, res) => {
         releaseSalarySnapshot: mapToObj(appraisal.releaseSalarySnapshot),
         releaseRevisedSnapshot: mapToObj(appraisal.releaseRevisedSnapshot)
     };
-    res.json(formattedAppraisal);
+    
+    // Safety check: only mask if the requester is the employee themselves
+    // (Managers fetching team appraisals use teamAppraisalRoutes.js)
+    res.json(maskManagerData(formattedAppraisal));
   } catch (error) {
     console.error('Error fetching appraisal:', error);
     res.status(500).json({ success: false, message: 'Server Error', error: error.message });
