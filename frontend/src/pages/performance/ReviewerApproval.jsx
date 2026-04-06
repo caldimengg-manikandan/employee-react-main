@@ -25,9 +25,14 @@ import {
   History,
   RotateCcw,
   Target,
-  Send
+  Send,
+  Download,
+  FileSpreadsheet
 } from 'lucide-react';
 import { performanceAPI, employeeAPI, promotionAPI } from '../../services/api';
+import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const StatusPopup = ({ isOpen, onClose, status, message }) => {
   if (!isOpen) return null;
@@ -996,6 +1001,99 @@ const ReviewerApproval = () => {
         return a.name.localeCompare(b.name);
       });
   }, [employees, selectedFinancialYr, selectedDivision, selectedDesignation, selectedLocation, searchTerm, activeReviewerTab]);
+  
+  const totals = useMemo(() => {
+    return filteredEmployees.reduce((acc, current) => {
+      acc.incrementAmount += Number(current.incrementAmount || 0);
+      acc.performancePay += Number(current.performancePay || 0);
+      acc.currentSalary += Number(current.currentSalary || 0);
+      acc.revisedSalary += Number(current.revisedSalary || 0);
+      return acc;
+    }, { incrementAmount: 0, performancePay: 0, currentSalary: 0, revisedSalary: 0 });
+  }, [filteredEmployees]);
+
+  const exportToExcel = () => {
+    const data = filteredEmployees.map((emp, index) => ({
+      'S.No': index + 1,
+      'Employee ID': emp.empId,
+      'Name': emp.name,
+      'Designation': emp.designation,
+      'Division': emp.division,
+      'Final Rating': emp.appraiserRating || 'Not Rated',
+      'Current Salary': emp.currentSalary,
+      'Increment %': emp.incrementPercentage,
+      'Correction %': emp.incrementCorrectionPercentage,
+      'Increment Amount': emp.incrementAmount,
+      'Revised Salary': emp.revisedSalary,
+      'Performance Pay': emp.performancePay,
+      'Reviewer Comments': emp.reviewerComments || 'No comments',
+      'Promotion Recommended': emp.promotionRecommendedByReviewer ? 'Yes' : 'No',
+      'Recommended Designation': emp.newDesignation || 'N/A'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(data);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Reviewer Approval");
+    
+    // Auto-size columns
+    const maxWidths = {};
+    data.forEach(row => {
+      Object.keys(row).forEach(key => {
+        const val = String(row[key]);
+        maxWidths[key] = Math.max(maxWidths[key] || 10, val.length + 2);
+      });
+    });
+    worksheet['!cols'] = Object.keys(maxWidths).map(key => ({ wch: maxWidths[key] }));
+
+    XLSX.writeFile(workbook, `Reviewer_Approval_${selectedFinancialYr}_${activeReviewerTab}.xlsx`);
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF('l', 'mm', 'a4');
+    doc.setFontSize(16);
+    doc.text(`Reviewer Approval Report - FY ${selectedFinancialYr}`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${new Date().toLocaleString('en-IN')}`, 14, 22);
+    doc.text(`Tab: ${activeReviewerTab.toUpperCase()}`, 14, 27);
+
+    const tableColumn = [
+      "S.No", "ID", "Name", "Rating", "Current", "Inc %", "Amount", "Revised", "Perf Pay", "Status"
+    ];
+    const tableRows = filteredEmployees.map((emp, index) => [
+      index + 1,
+      emp.empId,
+      emp.name,
+      emp.appraiserRating || '-',
+      emp.currentSalary.toLocaleString('en-IN'),
+      `${emp.incrementPercentage + (emp.incrementCorrectionPercentage || 0)}%`,
+      emp.incrementAmount.toLocaleString('en-IN'),
+      emp.revisedSalary.toLocaleString('en-IN'),
+      emp.performancePay.toLocaleString('en-IN'),
+      getStatusLabel(emp.status)
+    ]);
+
+    // Add totals row to PDF
+    tableRows.push([
+      { content: 'TOTALS', colSpan: 4, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } },
+      { content: totals.currentSalary.toLocaleString('en-IN'), styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } },
+      { content: '-', styles: { fontStyle: 'bold', fillColor: [240, 240, 240], halign: 'center' } },
+      { content: totals.incrementAmount.toLocaleString('en-IN'), styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } },
+      { content: totals.revisedSalary.toLocaleString('en-IN'), styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } },
+      { content: totals.performancePay.toLocaleString('en-IN'), styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } },
+      { content: '', styles: { fillColor: [240, 240, 240] } }
+    ]);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 32,
+      theme: 'grid',
+      headStyles: { fillColor: [38, 39, 96] },
+      styles: { fontSize: 8, cellPadding: 2 }
+    });
+
+    doc.save(`Reviewer_Approval_${selectedFinancialYr}_${activeReviewerTab}.pdf`);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
@@ -1079,6 +1177,26 @@ const ReviewerApproval = () => {
               <CheckCircle className="h-4 w-4 mr-2" />
               Submit to Director
             </button>
+
+            {/* Export Buttons */}
+            <div className="flex items-center space-x-2 border-l pl-4 border-gray-200">
+              <button
+                onClick={exportToExcel}
+                className="flex items-center px-3 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-md hover:bg-emerald-100 transition-all text-xs font-bold"
+                title="Download Excel"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+                Excel
+              </button>
+              <button
+                onClick={exportToPDF}
+                className="flex items-center px-3 py-2 bg-red-50 text-red-700 border border-red-200 rounded-md hover:bg-red-100 transition-all text-xs font-bold"
+                title="Download PDF"
+              >
+                <FileText className="h-4 w-4 mr-1.5" />
+                PDF
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1131,7 +1249,29 @@ const ReviewerApproval = () => {
           ) : (
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-[#262760] sticky top-0 z-10 shadow-md">
-                <tr>
+                {/* Summary Row above Header */}
+                <tr className="bg-indigo-50 border-b border-indigo-100 font-bold">
+                  <th colSpan={5} className="px-4 py-2.5 text-right text-indigo-900 uppercase tracking-wider text-[10px]">
+                    Total Current Salary:
+                  </th>
+                  <th className="px-4 py-2.5 text-right text-indigo-900 text-sm font-black tabular-nums border-r border-indigo-100">
+                    {totals.currentSalary.toLocaleString('en-IN')}
+                  </th>
+                  <th colSpan={2} className="px-4 py-2.5 text-right text-indigo-900 uppercase tracking-wider text-[10px]">
+                    Combined Page Sum:
+                  </th>
+                  <th className="px-4 py-2.5 text-right text-emerald-700 text-sm font-black tabular-nums bg-emerald-100/50 shadow-sm border-x border-emerald-200/30">
+                    {totals.incrementAmount.toLocaleString('en-IN')}
+                  </th>
+                  <th className="px-4 py-2.5 text-right text-indigo-900 text-sm font-black tabular-nums border-r border-indigo-100">
+                    {totals.revisedSalary.toLocaleString('en-IN')}
+                  </th>
+                  <th className="px-4 py-2.5 text-right text-indigo-900 text-sm font-black tabular-nums border-r border-indigo-100">
+                    {totals.performancePay.toLocaleString('en-IN')}
+                  </th>
+                  <th colSpan={4} className="bg-indigo-50"></th>
+                </tr>
+                <tr className="bg-[#262760]">
                   <th className="px-4 py-3 text-center">
                     <input
                       type="checkbox"
