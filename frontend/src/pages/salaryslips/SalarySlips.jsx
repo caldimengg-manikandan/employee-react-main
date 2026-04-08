@@ -352,7 +352,7 @@ const SalarySlips = () => {
   const PayslipViewer = ({ data }) => (
     <div className="bg-white relative min-h-[1120px] w-[794px] mx-auto shadow-lg print:shadow-none print:w-full print:min-h-0 font-sans" id="payslip-content">
       {/* Print Styles */}
-      <style jsx global>{`
+      <style>{`
         @media print {
           @page {
             size: A4;

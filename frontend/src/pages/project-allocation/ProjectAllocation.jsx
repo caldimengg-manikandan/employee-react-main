@@ -73,7 +73,9 @@ const ProjectAllocation = () => {
         ]);
         setProjects(Array.isArray(projRes.data) ? projRes.data : []);
         setAllocations(Array.isArray(allocRes.data) ? allocRes.data : []);
-        setEmployees(Array.isArray(empRes.data) ? empRes.data : []);
+        const allEmployees = Array.isArray(empRes.data) ? empRes.data : [];
+        // Filter for active employees only for new allocations
+        setEmployees(allEmployees.filter(emp => emp.status === 'Active'));
       } catch (e) {
         console.error('Failed to load data from MongoDB:', e);
         alert('Failed to load data from database. Please refresh the page or contact support.');
@@ -326,7 +328,8 @@ const ProjectAllocation = () => {
       ]);
       setProjects(Array.isArray(projRes.data) ? projRes.data : []);
       setAllocations(Array.isArray(allocRes.data) ? allocRes.data : []);
-      setEmployees(Array.isArray(empRes.data) ? empRes.data : []);
+      const allEmployees = Array.isArray(empRes.data) ? empRes.data : [];
+      setEmployees(allEmployees.filter(emp => emp.status === 'Active' || emp.status === 'ACTIVE'));
     } catch (e) {
       console.error('Failed to refresh data from MongoDB:', e);
       alert('Failed to refresh data from database.');

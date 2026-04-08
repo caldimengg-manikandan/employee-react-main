@@ -112,6 +112,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     previousOrganizations: [],
     currentExperience: '',
     status: 'Active',
+    exitDate: '',
+    exitReason: '',
+    lastWorkingDay: '',
 
     // Bank Information
     bankName: '',
@@ -318,7 +321,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   const statusOptions = [
     { value: 'Active', label: 'Active' },
     { value: 'Inactive', label: 'Inactive' },
-    { value: 'Suspended', label: 'Suspended' }
+    { value: 'Exited', label: 'Exited' }
   ];
 
   const sectionColors = {
@@ -407,6 +410,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         previousOrganizations: employee.previousOrganizations || [],
         currentExperience: employee.currentExperience || '',
         status: employee.status || 'Active',
+        exitDate: toInputDate(employee.exitDate) || '',
+        exitReason: employee.exitReason || '',
+        lastWorkingDay: toInputDate(employee.lastWorkingDay) || '',
 
         // Bank Information
         bankName: employee.bankName || '',
@@ -1329,6 +1335,45 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                     ))}
                   </select>
                 </div>
+
+                {formData.status === 'Exited' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Exit Date
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.exitDate}
+                        onChange={(e) => handleInputChange('exitDate', e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Last Working Day
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.lastWorkingDay}
+                        onChange={(e) => handleInputChange('lastWorkingDay', e.target.value)}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                      />
+                    </div>
+                    <div className="md:col-span-2 lg:col-span-3">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Exit Reason
+                      </label>
+                      <textarea
+                        value={formData.exitReason}
+                        onChange={(e) => handleInputChange('exitReason', e.target.value)}
+                        rows={2}
+                        className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-colors text-sm bg-white"
+                        placeholder="Reason for exit..."
+                      />
+                    </div>
+                  </>
+                )}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Location <span className="text-red-600">*</span>

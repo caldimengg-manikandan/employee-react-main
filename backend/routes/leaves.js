@@ -1,5 +1,6 @@
 const express = require('express');
 const auth = require('../middleware/auth');
+const checkActiveEmployee = require('../middleware/checkActiveEmployee');
 const LeaveApplication = require('../models/LeaveApplication');
 const Employee = require('../models/Employee');
 const RegionalHoliday = require('../models/RegionalHoliday');
@@ -464,8 +465,8 @@ router.get('/balance', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     const { employeeId } = req.query;
-    // Fetch employees
-    const filter = employeeId ? { employeeId } : {};
+    // Fetch active employees by default
+    const filter = employeeId ? { employeeId } : { status: 'Active' };
     const employees = await Employee.find(filter).sort({ name: 1 }).lean();
     // Aggregate used leaves per employeeId
     const empIds = employees.map(e => e.employeeId).filter(Boolean);
@@ -934,6 +935,14 @@ router.put('/:id/status', auth, async (req, res) => {
     const existing = await LeaveApplication.findById(req.params.id).select('employeeId userId').lean();
     if (!existing) return res.status(404).json({ error: 'Leave application not found' });
 
+    // Check if the target employee is Active
+    if (existing.employeeId) {
+      const targetEmp = await Employee.findOne({ employeeId: existing.employeeId }).select('status');
+      if (targetEmp && targetEmp.status !== 'Active') {
+        return res.status(403).json({ message: 'Target employee is inactive and cannot be processed.' });
+      }
+    }
+
     let targetEmployeeId = String(existing.employeeId || '');
     if (!targetEmployeeId && existing.userId) {
       const u = await User.findById(existing.userId).select('employeeId').lean();
@@ -1052,7 +1061,7 @@ router.get('/:id/document', auth, async (req, res) => {
   }
 });
 
-router.post('/', auth, upload.single('supportingDocuments'), async (req, res) => {
+router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments'), async (req, res) => {
   try {
     const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, regionalHolidayName, totalDays } = req.body;
     

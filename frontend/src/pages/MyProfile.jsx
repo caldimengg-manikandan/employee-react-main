@@ -65,6 +65,9 @@ const MyProfile = () => {
     previousOrganizations: [],
     currentExperience: '',
     status: 'Active',
+    exitDate: '',
+    exitReason: '',
+    lastWorkingDay: '',
     
     // Bank Information
     bankName: '',
@@ -165,6 +168,9 @@ const MyProfile = () => {
         previousOrganizations: user.previousOrganizations || [],
         currentExperience: user.currentExperience || '',
         status: user.status || 'Active',
+        exitDate: user.exitDate || '',
+        exitReason: user.exitReason || '',
+        lastWorkingDay: user.lastWorkingDay || '',
         bankName: user.bankName || '',
         bankAccount: user.bankAccount || '',
         branch: user.branch || '',
@@ -215,6 +221,9 @@ const MyProfile = () => {
             previousOrganizations: emp.previousOrganizations || base.previousOrganizations,
             currentExperience: emp.currentExperience || base.currentExperience,
             status: emp.status || base.status,
+            exitDate: toInputDate(emp.exitDate) || base.exitDate,
+            exitReason: emp.exitReason || base.exitReason,
+            lastWorkingDay: toInputDate(emp.lastWorkingDay) || base.lastWorkingDay,
             bankName: emp.bankName || base.bankName,
             bankAccount: emp.bankAccount || base.bankAccount,
             branch: emp.branch || base.branch,
@@ -1213,7 +1222,6 @@ const MyProfile = () => {
                       <select
                         value={formData.designation}
                         onChange={(e) => handleInputChange('designation', e.target.value)}
-                        maxLength={25}
                         required
                         disabled
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
@@ -1279,18 +1287,41 @@ const MyProfile = () => {
                       {errors.location && <p className="text-xs text-red-600 mt-1">{errors.location}</p>}
                     </div>
 
-                    {/* <div>
+                    <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Current Experience
+                        Status
                       </label>
-                      <input
-                        type="text"
-                        value={formData.currentExperience}
-                        readOnly
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 text-sm"
-                      />
-                    </div> */}
+                      <div className={`inline-flex items-center px-3 py-1.5 rounded-lg text-sm font-bold border ${
+                        formData.status === 'Active' ? 'bg-green-50 text-green-700 border-green-100' : 
+                        formData.status === 'Exited' ? 'bg-red-50 text-red-700 border-red-100' : 'bg-gray-50 text-gray-700 border-gray-100'
+                      }`}>
+                        {formData.status}
+                      </div>
+                    </div>
                   </div>
+
+                  {formData.status === 'Exited' && (
+                    <div className="mt-6 pt-6 border-t border-cyan-100">
+                      <h4 className="text-sm font-semibold text-cyan-800 mb-4 inline-flex items-center">
+                        <span className="w-2 h-2 bg-red-500 rounded-full mr-2"></span>
+                        Exit Information
+                      </h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div>
+                          <label className="block text-sm text-gray-500 mb-1">Exit Date</label>
+                          <div className="text-sm font-bold text-gray-900">{formData.exitDate ? new Date(formData.exitDate).toLocaleDateString('en-GB') : '-'}</div>
+                        </div>
+                        <div>
+                          <label className="block text-sm text-gray-500 mb-1">Last Working Day</label>
+                          <div className="text-sm font-bold text-gray-900">{formData.lastWorkingDay ? new Date(formData.lastWorkingDay).toLocaleDateString('en-GB') : '-'}</div>
+                        </div>
+                        <div className="lg:col-span-3">
+                          <label className="block text-sm text-gray-500 mb-1">Exit Reason</label>
+                          <div className="text-sm font-medium text-gray-900 italic">{formData.exitReason || '-'}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Previous Experience */}
@@ -1353,7 +1384,6 @@ const MyProfile = () => {
                           <input
                             type="date"
                             value={org.startDate}
-                            max={10}
                             onChange={(e) => handleOrganizationChange(index, 'startDate', e.target.value)}
                             className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm"
                           />

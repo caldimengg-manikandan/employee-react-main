@@ -37,16 +37,25 @@ async function getTeamManagementAssignmentSets(userEmployeeId) {
 // Get all employees - restricted based on user permissions
 router.get('/', auth, async (req, res) => {
   try {
+    const { status } = req.query;
+    let query = {};
     
+    // Default to Active if no status provided and not requesting 'all'
+    if (status && status !== 'all') {
+      query.status = status;
+    } else if (!status) {
+      query.status = 'Active';
+    }
+
     // Full access for users with employee_access
     if (req.user.permissions?.includes('employee_access')) {
-      const employees = await Employee.find().sort({ createdAt: -1 });
+      const employees = await Employee.find(query).sort({ createdAt: -1 });
       return res.json(employees);
     }
 
     // Access for Project Managers (project_access)
     if (req.user.permissions?.includes('project_access') || req.user.role === 'projectmanager' || req.user.role === 'project_manager') {
-      const employees = await Employee.find({}, {
+      const employees = await Employee.find(query, {
         'name': 1,
         'employeeId': 1,
         'email': 1,
@@ -62,14 +71,15 @@ router.get('/', auth, async (req, res) => {
         'dateOfJoining': 1,
         'dateOfBirth': 1,
         'mobileNo': 1,
-        '_id': 1
+        '_id': 1,
+        'status': 1
       }).sort({ name: 1 });
       return res.json(employees);
     }
 
     // Limited access for users with timesheet_access only
     if (req.user.permissions?.includes('timesheet_access')) {
-      const employees = await Employee.find({}, {
+      const employees = await Employee.find(query, {
         'name': 1,
         'employeeId': 1,
         'email': 1,
@@ -80,7 +90,8 @@ router.get('/', auth, async (req, res) => {
         'bankAccount': 1,
         'ifsc': 1,
         'branch': 1,
-        '_id': 1
+        '_id': 1,
+        'status': 1
       }).sort({ name: 1 });
       return res.json(employees);
     }
@@ -118,9 +129,11 @@ router.get('/timesheet/employees', auth, async (req, res) => {
     const isPM = role === "projectmanager" || role === "project_manager";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
-    let query = {};
+    // Timesheet selection MUST only show Active employees
+    let query = { status: 'Active' };
+
     if (isAdmin) {
-      // No filter
+      // Admin sees all Active employees
     } else if (isPM) {
        if (myAssignedMemberIds.length === 0) {
           return res.json([]); 

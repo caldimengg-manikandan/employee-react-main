@@ -97,9 +97,12 @@ const employeeSchema = new mongoose.Schema({
   director: String,
   status: {
     type: String,
-    enum: ['Active', 'Inactive', 'Suspended', 'Closed'],
+    enum: ['Active', 'Inactive', 'Exited'],
     default: 'Active'
-  }
+  },
+  exitDate: Date,
+  exitReason: String,
+  lastWorkingDay: Date
 }, {
   timestamps: true,
   toJSON: {

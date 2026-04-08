@@ -3,6 +3,7 @@ const Attendance = require("../models/Attendance");
 const Employee = require("../models/Employee");
 const AttendanceYearSummary = require("../models/AttendanceYearSummary");
 const auth = require("../middleware/auth");
+const checkActiveEmployee = require("../middleware/checkActiveEmployee");
 
 const router = express.Router();
 
@@ -77,6 +78,13 @@ router.post("/", async (req, res) => {
       return res.status(404).json({
         success: false,
         message: "Employee not found"
+      });
+    }
+
+    if (employee.status !== 'Active') {
+      return res.status(403).json({
+        success: false,
+        message: 'This employee is inactive and their attendance cannot be modified.'
       });
     }
 
@@ -280,6 +288,14 @@ router.put("/year-summary/:employeeId", async (req, res) => {
       });
     }
 
+    const employee = await Employee.findOne({ employeeId }).select('status');
+    if (employee && employee.status !== 'Active') {
+      return res.status(403).json({
+        success: false,
+        message: 'Target employee is inactive and cannot be processed.'
+      });
+    }
+
     const payload = {
       employeeId,
       financialYear,
@@ -350,7 +366,7 @@ router.get("/year-summary/:employeeId", async (req, res) => {
 /**
  * 👤 MY WEEKLY ATTENDANCE
  */
-router.get("/my-week", auth, async (req, res) => {
+router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
 
@@ -518,7 +534,7 @@ router.get("/my-week", auth, async (req, res) => {
 /**
  * ✏️ ATTENDANCE REGULARIZATION
  */
-router.post("/regularize", auth, async (req, res) => {
+router.post("/regularize", auth, checkActiveEmployee, async (req, res) => {
   try {
     const { employeeId, inTime, outTime, deviceId, source, workDurationSeconds } = req.body;
 
@@ -650,6 +666,14 @@ router.put("/:id", async (req, res) => {
     const { id } = req.params;
     const { punchTime, direction, workDurationSeconds, correspondingInTime } = req.body;
 
+    const existing = await Attendance.findById(id).select('employeeId').lean();
+    if (existing) {
+      const employee = await Employee.findOne({ employeeId: existing.employeeId }).select('status');
+      if (employee && employee.status !== 'Active') {
+        return res.status(403).json({ success: false, message: 'Target employee is inactive and cannot be modified.' });
+      }
+    }
+
     const updateData = {};
     if (punchTime) updateData.punchTime = new Date(punchTime);
     if (direction) updateData.direction = direction;
@@ -679,6 +703,13 @@ router.put("/:id", async (req, res) => {
 router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
+    const existing = await Attendance.findById(id).select('employeeId').lean();
+    if (existing) {
+      const employee = await Employee.findOne({ employeeId: existing.employeeId }).select('status');
+      if (employee && employee.status !== 'Active') {
+        return res.status(403).json({ success: false, message: 'Target employee is inactive and cannot be deleted.' });
+      }
+    }
     const deletedRecord = await Attendance.findByIdAndDelete(id);
 
     if (!deletedRecord) {

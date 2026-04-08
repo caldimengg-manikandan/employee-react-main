@@ -54,7 +54,7 @@ export const authAPI = {
 };
 
 export const employeeAPI = {
-  getAllEmployees: () => api.get('/employees'),
+  getAllEmployees: (status) => api.get('/employees', { params: { status } }),
   getEmployeeById: (id) => api.get(`/employees/${id}`),
   getMyProfile: () => api.get('/employees/me'),
   createEmployee: (data) => api.post('/employees', data),
@@ -330,7 +330,7 @@ export const loanAPI = {
 export const expenditureAPI = {
   healthCheck: () => api.get('/expenditure/health-check'),
   saveMonthlyRecord: (data) => api.post('/expenditure/save-monthly', data),
-  updateRecord: (id, data) => api.put('/expenditure/update/${id}', data),
+  updateRecord: (id, data) => api.put(`/expenditure/update/${id}`, data),
   getSummary: (params) => api.get('/expenditure/summary', { params }),
   getRecordById: (id) => api.get(`/expenditure/record/${id}`),
   deleteRecord: (id) => api.delete(`/expenditure/record/${id}`)

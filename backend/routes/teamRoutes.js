@@ -86,6 +86,14 @@ router.post('/', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     const { teamCode, leaderEmployeeId, leaderName, division } = req.body;
+
+    if (leaderEmployeeId) {
+      const leader = await Employee.findOne({ employeeId: leaderEmployeeId });
+      if (leader && leader.status !== "Active") {
+        return res.status(400).json({ message: "Leader is not active. Cannot assign inactive or exited employees as leaders." });
+      }
+    }
+
     let team = await Team.findOne({ teamCode });
     if (team) {
       team.leaderEmployeeId = leaderEmployeeId;
@@ -111,6 +119,9 @@ router.post('/:teamCode/members', auth, async (req, res) => {
     if (!team) return res.status(404).json({ message: 'Team not found' });
     const emp = await Employee.findOne({ employeeId });
     if (!emp) return res.status(404).json({ message: 'Employee not found' });
+    if (emp.status !== "Active") {
+      return res.status(400).json({ message: "Employee is not active. Cannot add inactive or exited employees to teams." });
+    }
     if (!team.members.includes(employeeId)) {
       team.members.push(employeeId);
       await team.save();

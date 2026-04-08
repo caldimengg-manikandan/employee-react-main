@@ -677,7 +677,7 @@ const AdminPolicyPortal = () => {
       )}
 
       {/* Custom CSS */}
-      <style jsx>{`
+      <style>{`
         .policy-content h1 {
           font-size: 1.25rem;
           font-weight: bold;

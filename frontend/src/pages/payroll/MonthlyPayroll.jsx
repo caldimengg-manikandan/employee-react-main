@@ -309,7 +309,8 @@ export default function MonthlyPayroll() {
         loanAPI.list()
       ]);
       
-      const employees = Array.isArray(empResponse.data) ? empResponse.data : [];
+      const allEmployees = Array.isArray(empResponse.data) ? empResponse.data : [];
+      const employees = allEmployees.filter(emp => emp.status === 'Active' || emp.status === 'ACTIVE');
       const payrolls = Array.isArray(payrollResponse.data) ? payrollResponse.data : [];
       const loans = loanResponse.data && loanResponse.data.loans ? loanResponse.data.loans : [];
 

@@ -295,7 +295,7 @@ export default function AttendanceFetcher() {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         .attendance-page {
           min-height: 100vh;
           background: #f8f9fa;

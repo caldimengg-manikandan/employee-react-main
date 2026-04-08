@@ -57,7 +57,7 @@ router.get('/', auth, async (req, res) => {
     };
 
     const appraisals = await SelfAppraisal.find(query)
-      .populate('employeeId', 'name employeeId designation department division avatar location branch ctc');
+      .populate('employeeId', 'name employeeId designation department division avatar location branch ctc status');
 
     const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
       const emp = app.employeeId || {};
@@ -83,6 +83,7 @@ router.get('/', auth, async (req, res) => {
         avatar: emp.avatar || '',
         designation: emp.designation || '',
         status: app.status,
+        employeeStatus: emp.status || 'Active',
         
         selfAppraiseeComments: app.overallContribution || '',
         managerComments: app.managerComments || '',
@@ -151,6 +152,12 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
+    // Check Employee status before manager update
+    const appraisalEmployee = await Employee.findById(appraisal.employeeId);
+    if (appraisalEmployee && appraisalEmployee.status !== 'Active') {
+      return res.status(400).json({ success: false, message: 'Employee is not active. Cannot process appraisal for inactive or exited employees.' });
+    }
+
     const {
       managerComments, keyPerformance, appraiserRating,
       incrementPercentage, incrementCorrectionPercentage, incrementAmount, revisedSalary, performancePay,
@@ -216,6 +223,12 @@ router.put('/:id/review', auth, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
     }
 
+    // Check Employee status before manager review
+    const appraisalEmployee = await Employee.findById(appraisal.employeeId);
+    if (appraisalEmployee && appraisalEmployee.status !== 'Active') {
+      return res.status(400).json({ success: false, message: 'Employee is not active. Cannot process appraisal for inactive or exited employees.' });
+    }
+
     const { rating, behaviouralRatings, comments, strengths, areasOfImprovement, submitReview, summary } = req.body;
 
     // Update managerReview fields
@@ -274,8 +287,12 @@ router.put('/:id/review', auth, async (req, res) => {
 // @route   POST /api/performance/team-appraisals/:id/approve
 router.post('/:id/approve', auth, async (req, res) => {
   try {
-    const appraisal = await SelfAppraisal.findById(req.params.id);
+    const appraisal = await SelfAppraisal.findById(req.params.id).populate('employeeId');
     if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    if (appraisal.employeeId && appraisal.employeeId.status !== 'Active') {
+      return res.status(400).json({ success: false, message: 'Employee is not active. Cannot approve appraisal for inactive or exited employees.' });
+    }
 
     let message = "";
     

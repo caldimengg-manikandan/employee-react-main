@@ -72,7 +72,8 @@ const EmployeeManagement = () => {
     search: '',
     designation: '',
     division: '',
-    location: ''
+    location: '',
+    status: 'Active'
   });
   const [showFilters, setShowFilters] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -91,7 +92,7 @@ const EmployeeManagement = () => {
 
   const fetchEmployees = async () => {
     try {
-      const response = await employeeAPI.getAllEmployees();
+      const response = await employeeAPI.getAllEmployees('all');
       // Sort employees by employeeId
       const sortedEmployees = response.data.sort((a, b) => {
         const idA = a.employeeId || '';
@@ -137,6 +138,11 @@ const EmployeeManagement = () => {
         String(emp.location || emp.branch || '') === filters.location
       );
     }
+    if (filters.status) {
+      filtered = filtered.filter(emp =>
+        emp.status === filters.status
+      );
+    }
 
     setFilteredEmployees(filtered);
   };
@@ -161,7 +167,8 @@ const EmployeeManagement = () => {
       search: '',
       designation: '',
       division: '',
-      location: ''
+      location: '',
+      status: ''
     });
   };
 
@@ -296,13 +303,13 @@ const EmployeeManagement = () => {
   const getStatusColor = (status) => {
     switch (status) {
       case 'Active':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 border border-green-200';
       case 'Inactive':
-        return 'bg-gray-100 text-gray-800';
-      case 'Suspended':
-        return 'bg-red-100 text-red-800';
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
+      case 'Exited':
+        return 'bg-red-100 text-red-800 border border-red-200';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 border border-gray-200';
     }
   };
 
@@ -586,6 +593,29 @@ const EmployeeManagement = () => {
                   </div>
                 </div>
 
+                {viewingEmployee.status === 'Exited' && (
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <div className="flex items-center gap-2 mb-4">
+                      <XMarkIcon className="h-5 w-5 text-red-600" />
+                      <h4 className="text-lg font-semibold text-gray-900">Exit Information</h4>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Exit Date</div>
+                        <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.exitDate)}</div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Last Working Day</div>
+                        <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.lastWorkingDay)}</div>
+                      </div>
+                      <div className="lg:col-span-3 space-y-1">
+                        <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Exit Reason</div>
+                        <div className="text-base font-medium text-gray-900">{viewingEmployee.exitReason || '-'}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Previous Organizations */}
                 {viewingEmployee.previousOrganizations && viewingEmployee.previousOrganizations.length > 0 && (
                   <div className="mt-6 pt-6 border-t border-gray-200">
@@ -691,9 +721,53 @@ const EmployeeManagement = () => {
     <div className="bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="w-full mx-auto px-0">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          {/* Status Tabs */}
+          <div className="px-4 border-b border-gray-200 bg-gray-50/50">
+            <div className="flex space-x-8 overflow-x-auto no-scrollbar">
+              {[
+                { id: '', label: 'All Employees' },
+                { id: 'Active', label: 'Active' },
+                { id: 'Inactive', label: 'Inactive' },
+                { id: 'Exited', label: 'Exited' }
+              ].map((tab) => {
+                const isActive = filters.status === tab.id;
+                const count = employees.filter(e => tab.id === '' || e.status === tab.id).length;
+                
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => handleFilterChange('status', tab.id)}
+                    className={`
+                      whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-all duration-200 flex items-center gap-2
+                      ${isActive 
+                        ? 'border-[#262760] text-[#262760]' 
+                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}
+                    `}
+                  >
+                    {tab.label}
+                    <span className={`
+                      px-2 py-0.5 rounded-full text-[11px] font-bold
+                      ${isActive ? 'bg-[#262760] text-white' : 'bg-gray-200 text-gray-600'}
+                    `}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Header with Actions - All buttons on right side */}
           <div className="px-4 py-5 sm:px-6 border-b border-gray-200 bg-white">
-            <div className="flex justify-end">
+            <div className="flex justify-between items-center">
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">
+                  {filters.status || 'All'} Employees
+                </h1>
+                <p className="text-sm text-gray-500 mt-1">
+                  Manage and monitor employee records and their status.
+                </p>
+              </div>
               <div className="flex items-center space-x-3">
                 {/* Filter Button */}
                 <button
@@ -795,6 +869,19 @@ const EmployeeManagement = () => {
                     ))}
                   </select>
                 </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => handleFilterChange('status', e.target.value)}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
+                  >
+                    <option value="">All Statuses</option>
+                    <option value="Active">Active</option>
+                    <option value="Inactive">Inactive</option>
+                    <option value="Exited">Exited</option>
+                  </select>
+                </div>
               </div>
             </div>
           )}
@@ -838,6 +925,9 @@ const EmployeeManagement = () => {
                       <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Contact
                       </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
+                        Status
+                      </th>
                       <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
                         Actions
                       </th>
@@ -875,6 +965,11 @@ const EmployeeManagement = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100">
                           <div className="font-medium">{employee.mobileNo}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
+                          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold ${getStatusColor(employee.status)}`}>
+                            {employee.status}
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <div className="flex items-center space-x-2">

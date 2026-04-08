@@ -60,7 +60,7 @@ router.get('/', auth, async (req, res) => {
     };
 
     const appraisals = await SelfAppraisal.find(query)
-      .populate('employeeId', 'name employeeId designation department division avatar ctc location branch');
+      .populate('employeeId', 'name employeeId designation department division avatar ctc location branch status');
 
     const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
       const emp = app.employeeId || {};
@@ -75,6 +75,7 @@ router.get('/', auth, async (req, res) => {
         avatar: emp.avatar || '',
         designation: emp.designation || '',
         status: app.status,
+        employeeStatus: emp.status || 'Active',
 
         selfAppraiseeComments: app.overallContribution || '',
         managerComments: app.managerComments || '',
@@ -145,6 +146,12 @@ router.put('/:id', auth, async (req, res) => {
   try {
     const appraisal = await SelfAppraisal.findById(req.params.id);
     if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    // Check Employee status before director update
+    const appraisalEmployee = await Employee.findById(appraisal.employeeId);
+    if (appraisalEmployee && appraisalEmployee.status !== 'Active') {
+      return res.status(400).json({ success: false, message: 'Employee is not active. Cannot process appraisal for inactive or exited employees.' });
+    }
 
     const { 
       directorComments, 
@@ -255,8 +262,12 @@ router.post('/:id/push-back', auth, async (req, res) => {
 // @route   POST /api/performance/director/:id/approve
 router.post('/:id/approve', auth, async (req, res) => {
   try {
-    const appraisal = await SelfAppraisal.findById(req.params.id);
+    const appraisal = await SelfAppraisal.findById(req.params.id).populate('employeeId');
     if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
+
+    if (appraisal.employeeId && appraisal.employeeId.status !== 'Active') {
+      return res.status(400).json({ success: false, message: 'Employee is not active. Cannot approve appraisal for inactive or exited employees.' });
+    }
 
     appraisal.status = 'directorApproved';
     appraisal.workflow.directorApprovedAt = new Date();
@@ -293,10 +304,16 @@ router.post('/release', auth, async (req, res) => {
     }
 
     const appraisals = await SelfAppraisal.find({ _id: { $in: ids }, status: 'directorApproved' })
-      .populate('employeeId', 'employeeId name ctc');
+      .populate('employeeId', 'employeeId name ctc status');
 
     if (!appraisals.length) {
       return res.status(403).json({ success: false, message: 'No eligible appraisals (directorApproved) to release' });
+    }
+
+    // Check if any employee is inactive among the selected ones
+    const inactiveFound = appraisals.some(app => app.employeeId && app.employeeId.status !== 'Active');
+    if (inactiveFound) {
+      return res.status(400).json({ success: false, message: 'Some selected employees are not active. Cannot release appraisals for inactive or exited employees.' });
     }
 
     const allPayroll = await Payroll.find({});

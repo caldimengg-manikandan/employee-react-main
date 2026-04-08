@@ -42,6 +42,14 @@ router.post('/login', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
+    // Check Employee Status before proceeding
+    if (user.role !== 'admin' && user.employeeId) {
+      const employee = await Employee.findOne({ employeeId: user.employeeId });
+      if (employee && employee.status !== 'Active') {
+        return res.status(403).json({ message: 'This account belongs to an inactive or exited employee and cannot access the system.' });
+      }
+    }
+
   
 
     const token = jwt.sign(
@@ -94,6 +102,14 @@ router.post('/forgot-password', async (req, res) => {
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Check Employee Status
+    if (user.role !== 'admin' && user.employeeId) {
+      const employee = await Employee.findOne({ employeeId: user.employeeId });
+      if (employee && employee.status !== 'Active') {
+        return res.status(403).json({ message: 'This account belongs to an inactive or exited employee and cannot reset password.' });
+      }
     }
     const otp = otpGenerator.generate(6, {
       upperCaseAlphabets: false,

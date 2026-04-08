@@ -17,6 +17,13 @@ router.get('/', auth, async (req, res) => {
 // Create a new insurance record
 router.post('/', auth, async (req, res) => {
   try {
+    const Employee = require('../models/Employee');
+    if (req.body.employeeId) {
+      const emp = await Employee.findOne({ employeeId: req.body.employeeId }).select('status');
+      if (emp && emp.status !== 'Active') {
+        return res.status(403).json({ message: 'Employee is inactive and cannot have new insurance records.' });
+      }
+    }
     const newRecord = new Insurance(req.body);
     const savedRecord = await newRecord.save();
     res.status(201).json(savedRecord);
@@ -29,6 +36,13 @@ router.post('/', auth, async (req, res) => {
 // Update an insurance record
 router.put('/:id', auth, async (req, res) => {
   try {
+    if (req.body.employeeId) {
+      const Employee = require('../models/Employee');
+      const emp = await Employee.findOne({ employeeId: req.body.employeeId }).select('status');
+      if (emp && emp.status !== 'Active') {
+        return res.status(403).json({ message: 'Employee is inactive and cannot have insurance records updated.' });
+      }
+    }
     const updatedRecord = await Insurance.findByIdAndUpdate(
       req.params.id,
       { ...req.body, updatedAt: Date.now() },

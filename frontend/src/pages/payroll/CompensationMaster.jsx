@@ -204,7 +204,8 @@ const CompensationMaster = () => {
         ]);
 
         const list = Array.isArray(empRes.data) ? empRes.data : [];
-        setEmployees(list);
+        const activeEmployees = list.filter(e => e.status === 'Active');
+        setEmployees(activeEmployees);
         const depts = [...new Set(list.map(e => e.department || e.division).filter(Boolean))];
         const desigs = [...new Set(list.map(e => e.designation || e.position || e.role).filter(Boolean))];
         const locs = [...new Set(list.map(e => e.location).filter(Boolean))];
@@ -1005,17 +1006,55 @@ We’re excited to have you join our team and look forward to your growth and su
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Candidate Details</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     
-                    <div>
+                    <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Candidate Name *
                       </label>
                       <input
                         type="text"
                         name="name"
+                        autoComplete="off"
                         value={formData.name}
-                        onChange={handleChange}
+                        onChange={(e) => {
+                          handleChange(e);
+                          setEmployeeSearchTerm(e.target.value);
+                          setIsEmployeeDropdownOpen(true);
+                        }}
+                        onFocus={() => setIsEmployeeDropdownOpen(true)}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Search employee..."
                       />
+                      {isEmployeeDropdownOpen && employees.length > 0 && (
+                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {employees
+                            .filter(emp => 
+                              emp.name.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
+                              emp.employeeId.toLowerCase().includes(employeeSearchTerm.toLowerCase())
+                            )
+                            .map((emp) => (
+                              <button
+                                key={emp._id}
+                                type="button"
+                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm flex flex-col"
+                                onClick={() => {
+                                  setFormData({
+                                    ...formData,
+                                    employeeId: emp.employeeId,
+                                    name: emp.name,
+                                    department: emp.department || emp.division || '',
+                                    designation: emp.designation || '',
+                                    location: emp.location || 'Hosur'
+                                  });
+                                  setIsEmployeeDropdownOpen(false);
+                                  setEmployeeSearchTerm('');
+                                }}
+                              >
+                                <span className="font-medium">{emp.name}</span>
+                                <span className="text-xs text-gray-500">{emp.employeeId} • {emp.designation}</span>
+                              </button>
+                            ))}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">

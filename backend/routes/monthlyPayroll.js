@@ -13,8 +13,16 @@ router.post("/run", async (req, res) => {
     }
 
     const saved = [];
+    const Employee = require("../models/Employee");
 
     for (const p of payrolls) {
+      // Check employee status
+      if (p.employeeId) {
+        const emp = await Employee.findOne({ employeeId: p.employeeId }).select('status');
+        if (emp && emp.status !== 'Active') {
+          continue; // Skip inactive employees
+        }
+      }
       const record = await MonthlyPayroll.findOneAndUpdate(
         { employeeId: p.employeeId, salaryMonth: p.salaryMonth },
         p,

@@ -1317,8 +1317,8 @@ const ReviewerApproval = () => {
                           type="checkbox"
                           className="rounded border-gray-300 text-[#262760] focus:ring-[#262760] disabled:opacity-50"
                           checked={isSelected}
-                          onChange={() => isEditable && handleSelectRow(emp.id)}
-                          disabled={!isEditable}
+                          onChange={() => isEditable && emp.employeeStatus === 'Active' && handleSelectRow(emp.id)}
+                          disabled={!isEditable || emp.employeeStatus !== 'Active'}
                         />
                       </td>
                       {/* S.No */}
@@ -1326,7 +1326,16 @@ const ReviewerApproval = () => {
                       {/* Employee ID */}
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{data.empId}</td>
                       {/* Employee Name */}
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{data.name}</td>
+                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">
+                        <div className="flex flex-col">
+                          <span>{data.name}</span>
+                          {emp.employeeStatus && emp.employeeStatus !== 'Active' && (
+                            <span className={`text-[10px] font-bold uppercase mt-0.5 ${emp.employeeStatus === 'Exited' ? 'text-red-500' : 'text-orange-500'}`}>
+                              {emp.employeeStatus}
+                            </span>
+                          )}
+                        </div>
+                      </td>
                       {/* Final Rating */}
                       <td className="px-4 py-4 text-center">
                         <span className={`px-2 py-1 rounded-full text-[10px] font-bold ${String(data.appraiserRating || '').includes('ES') ? 'bg-green-100 text-green-700' :
@@ -1460,8 +1469,14 @@ const ReviewerApproval = () => {
 
                           {isEditable && !isEditing && (
                             <button
-                              className="flex items-center space-x-1 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded text-xs hover:bg-indigo-100 transition-all shadow-sm border border-indigo-200"
+                              disabled={emp.employeeStatus !== 'Active'}
+                              className={`flex items-center space-x-1 px-3 py-1.5 rounded text-xs transition-all shadow-sm ${
+                                emp.employeeStatus === 'Active'
+                                  ? 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border-indigo-200'
+                                  : 'bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200'
+                              }`}
                               onClick={() => handleInlineEditClick(emp)}
+                              title={emp.employeeStatus !== 'Active' ? 'Cannot edit inactive or exited employee' : ''}
                             >
                               <Edit className="h-4 w-4" />
                               <span>Edit</span>

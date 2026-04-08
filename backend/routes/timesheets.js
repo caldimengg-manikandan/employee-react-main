@@ -6,6 +6,7 @@ const Employee = require("../models/Employee");
 const Notification = require("../models/Notification");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
+const checkActiveEmployee = require("../middleware/checkActiveEmployee");
 const nodemailer = require("nodemailer");
 
 const router = express.Router();
@@ -558,7 +559,7 @@ async function upsertAdminTimesheetRecord(user, sheet) {
 /**
  * CREATE / UPDATE Timesheet
  */
-router.post("/", auth, async (req, res) => {
+router.post("/", auth, checkActiveEmployee, async (req, res) => {
   try {
     const { weekStartDate, weekEndDate, entries, totalHours, status, shiftType, dailyShiftTypes, onPremisesTime } = req.body;
     const userId = req.user._id;

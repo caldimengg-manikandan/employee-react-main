@@ -19,6 +19,8 @@ import { exitFormalityAPI, employeeAPI, monthlyPayrollAPI } from '../services/ap
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Modal, message, Input } from 'antd';
+import balaSignature from '../bala signature.png';
+import uvarajSignature from '../uvaraj signature.png';
 
 const ExitApproval = () => {
   const [loading, setLoading] = useState(true);
@@ -208,6 +210,20 @@ const ExitApproval = () => {
     const years = Math.floor((lwd - joinDate) / (365 * 24 * 60 * 60 * 1000));
     const months = Math.floor(((lwd - joinDate) % (365 * 24 * 60 * 60 * 1000)) / (30 * 24 * 60 * 60 * 1000));
 
+    const empId = form.employeeId?.employeeId;
+    const emp = employees.find(e => e.employeeId === empId);
+    const location = (form.location || emp?.location || '').toLowerCase();
+    
+    let signatory = hrManager;
+    let signatureImage = null;
+    if (location.includes('hosur')) {
+      signatory = 'BALA';
+      signatureImage = balaSignature;
+    } else if (location.includes('chennai')) {
+      signatory = 'UVARAJ';
+      signatureImage = uvarajSignature;
+    }
+
     const letterData = {
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
       employeeName: form.employeeName,
@@ -222,7 +238,8 @@ const ExitApproval = () => {
       monthsOfService: months,
       companyName: companyName,
       companyAddress: companyAddress,
-      hrManager: hrManager,
+      hrManager: signatory,
+      signatureImage: signatureImage,
       resignationDate: new Date(form.createdAt || form.resignationDate || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
       finalSettlement: 'Full and final settlement has been processed.',
       assetsReturned: 'All company assets have been returned.',
@@ -297,6 +314,18 @@ const ExitApproval = () => {
       pronounPossessive = 'her';
     }
 
+    const location = (form.location || empRecord?.location || '').toLowerCase();
+    
+    let signatory = hrManager;
+    let signatureImage = null;
+    if (location.includes('hosur')) {
+      signatory = 'BALA';
+      signatureImage = balaSignature;
+    } else if (location.includes('chennai')) {
+      signatory = 'UVARAJ';
+      signatureImage = uvarajSignature;
+    }
+
     const data = {
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
       employeeName: form.employeeName,
@@ -308,7 +337,8 @@ const ExitApproval = () => {
       pronounPossessive,
       experienceText,
       companyName,
-      hrManager
+      hrManager: signatory,
+      signatureImage: signatureImage
     };
 
     setExperienceLetterData(data);
@@ -822,7 +852,7 @@ const ExitApproval = () => {
               </div>
             </div>
             
-            <div id="relieving-letter-template" className="bg-white relative min-h-[1120px] w-[794px] mx-auto shadow-lg">
+            <div id="relieving-letter-template" className="bg-white relative h-[1123px] w-[794px] mx-auto shadow-lg overflow-hidden">
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
                 <img 
                   src="/images/steel-logo.png" 
@@ -830,7 +860,7 @@ const ExitApproval = () => {
                   className="w-[500px] opacity-[0.05] grayscale"
                 />
               </div>
-              <div className="relative z-10 flex flex-col h-full justify-between min-h-[1120px]">
+              <div className="relative z-10 flex flex-col h-full justify-between">
                 <div className="w-full flex h-32 relative overflow-hidden">
                   <div className="absolute inset-0 z-0">
                     <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
@@ -928,10 +958,15 @@ const ExitApproval = () => {
                   </div>
                   <div className="mt-12 flex justify-end">
                     <div className="text-right">
-                      <div className="mb-2 text-sm text-gray-700">For {companyName}</div>
-                      <div className="mt-8">
-                        <div className="w-56 border-t border-gray-900 mb-2"></div>
-                        <div className="font-bold">{letterData.hrManager}</div>
+                      <div className="mb-2 text-sm text-gray-700 font-bold">For {companyName}</div>
+                      <div className="mt-8 relative inline-block">
+                        {letterData.signatureImage && (
+                          <img 
+                            src={letterData.signatureImage} 
+                            alt="Signature" 
+                            className="h-20 w-auto mb-2 ml-auto relative z-10"
+                          />
+                        )}
                         <div className="text-gray-600">Authorized Signatory</div>
                       </div>
                     </div>
@@ -939,9 +974,13 @@ const ExitApproval = () => {
                 </div>
                 <div className="w-full flex items-end mt-auto">
                   <div className="h-3 bg-[#f37021] flex-1 mb-0"></div>
-                  <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center" style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', minWidth: '450px' }}>
-                    <div className="text-sm font-medium tracking-wide">Website : www.caldimengg.com</div>
-                    <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
+                  <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center relative" style={{ minWidth: '450px' }}>
+                    <div 
+                      className="absolute inset-y-0 left-0 w-12 bg-white" 
+                      style={{ transform: 'skewX(-20deg) translateX(-50%)', transformOrigin: 'top' }}
+                    ></div>
+                    <div className="text-sm font-medium tracking-wide relative z-10">Website : www.caldimengg.com</div>
+                    <div className="text-sm font-medium tracking-wide mt-1 relative z-10">CIN U74999TN2016PTC110683</div>
                   </div>
                 </div>
               </div>
@@ -976,7 +1015,7 @@ const ExitApproval = () => {
               </div>
             </div>
             
-            <div id="experience-letter-template" className="bg-white relative min-h-[1120px] w-[794px] mx-auto shadow-lg">
+            <div id="experience-letter-template" className="bg-white relative h-[1123px] w-[794px] mx-auto shadow-lg overflow-hidden">
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
                 <img 
                   src="/images/steel-logo.png" 
@@ -984,7 +1023,7 @@ const ExitApproval = () => {
                   className="w-[500px] opacity-[0.05] grayscale"
                 />
               </div>
-              <div className="relative z-10 flex flex-col h-full justify-between min-h-[1120px]">
+              <div className="relative z-10 flex flex-col h-full justify-between">
                 <div className="w-full flex h-32 relative overflow-hidden">
                   <div className="absolute inset-0 z-0">
                     <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
@@ -1079,20 +1118,30 @@ const ExitApproval = () => {
                     )}
                     <p>We wish you all success in your future endeavors.</p>
                     <p>Thanking you,</p>
-                    <p>For {experienceLetterData.companyName}</p>
+                    <p className="font-bold">For {experienceLetterData.companyName}</p>
                   </div>
                   <div className="mt-16 flex justify-start">
-                    <div className="text-left">
-                      <div className="w-56 border-t border-gray-900 mb-2"></div>
+                    <div className="text-left relative inline-block">
+                      {experienceLetterData.signatureImage && (
+                        <img 
+                          src={experienceLetterData.signatureImage} 
+                          alt="Signature" 
+                          className="h-20 w-auto mb-2 ml-10 relative z-10"
+                        />
+                      )}
                       <div className="text-gray-700">Authorized Signatory</div>
                     </div>
                   </div>
                 </div>
                 <div className="w-full flex items-end mt-auto">
                   <div className="h-3 bg-[#f37021] flex-1 mb-0"></div>
-                  <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center" style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', minWidth: '450px' }}>
-                    <div className="text-sm font-medium tracking-wide">Website : www.caldimengg.com</div>
-                    <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
+                  <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center relative" style={{ minWidth: '450px' }}>
+                    <div 
+                      className="absolute inset-y-0 left-0 w-12 bg-white" 
+                      style={{ transform: 'skewX(-20deg) translateX(-50%)', transformOrigin: 'top' }}
+                    ></div>
+                    <div className="text-sm font-medium tracking-wide relative z-10">Website : www.caldimengg.com</div>
+                    <div className="text-sm font-medium tracking-wide mt-1 relative z-10">CIN U74999TN2016PTC110683</div>
                   </div>
                 </div>
               </div>

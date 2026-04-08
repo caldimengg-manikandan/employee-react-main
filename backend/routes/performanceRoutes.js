@@ -148,6 +148,10 @@ router.post('/self-appraisals', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Employee profile not found' });
     }
 
+    if (employee.status !== 'Active') {
+      return res.status(400).json({ success: false, message: 'Employee is not active. Cannot create appraisal for inactive or exited employees.' });
+    }
+
     // Check if appraisal for this year already exists
     const existing = await SelfAppraisal.findOne({ 
       employeeId: employee._id, 
@@ -216,6 +220,10 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
     const employee = await Employee.findOne({ employeeId: req.user.employeeId });
     if (!employee || appraisal.employeeId.toString() !== employee._id.toString()) {
       return res.status(403).json({ success: false, message: 'Unauthorized' });
+    }
+
+    if (employee.status !== 'Active') {
+      return res.status(400).json({ success: false, message: 'Employee is not active. Cannot update appraisal for inactive or exited employees.' });
     }
 
     if (projects) appraisal.projects = projects;

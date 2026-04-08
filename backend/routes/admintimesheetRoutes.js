@@ -273,16 +273,20 @@ router.get("/list", auth, async (req, res) => {
     try {
       const employeeIds = Array.from(new Set(combined.map(r => r.employeeId).filter(Boolean)));
       if (employeeIds.length > 0) {
-        const employees = await Employee.find({ employeeId: { $in: employeeIds } })
-          .select('employeeId name division location')
+        const employees = await Employee.find({ employeeId: { $in: employeeIds }, status: 'Active' })
+          .select('employeeId name division location status')
           .lean();
         const empMap = employees.reduce((acc, emp) => {
           acc[emp.employeeId] = emp;
           return acc;
         }, {});
-        combined = combined.map(r => {
+        
+        // Filter combined list to only include active employees
+        combined = combined.filter(r => {
           const emp = empMap[r.employeeId];
-          if (!emp) return r;
+          return !!emp; // This effectively filters out non-active employees since the query above only returns active ones
+        }).map(r => {
+          const emp = empMap[r.employeeId];
           return {
             ...r,
             employeeName: emp.name || r.employeeName,
@@ -338,6 +342,14 @@ router.put("/approve/:id", auth, async (req, res) => {
         if (allAssignedMemberIds.includes(targetEmployeeId)) {
           return res.status(403).json({ success: false, message: "Access denied" });
         }
+      }
+    }
+
+    // Check if the target employee is Active
+    if (targetEmployeeId) {
+      const targetEmp = await Employee.findOne({ employeeId: targetEmployeeId }).select('status');
+      if (targetEmp && targetEmp.status !== 'Active') {
+        return res.status(403).json({ success: false, message: "Target employee is inactive and cannot be processed." });
       }
     }
 
@@ -486,6 +498,14 @@ router.put("/reject/:id", auth, async (req, res) => {
         if (allAssignedMemberIds.includes(targetEmployeeId)) {
           return res.status(403).json({ success: false, message: "Access denied" });
         }
+      }
+    }
+
+    // Check if the target employee is Active
+    if (targetEmployeeId) {
+      const targetEmp = await Employee.findOne({ employeeId: targetEmployeeId }).select('status');
+      if (targetEmp && targetEmp.status !== 'Active') {
+        return res.status(403).json({ success: false, message: "Target employee is inactive and cannot be processed." });
       }
     }
 

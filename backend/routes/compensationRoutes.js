@@ -37,7 +37,10 @@ router.post("/", async (req, res) => {
        
        const employee = await Employee.findOne({ employeeId });
        
-       if (employee) {
+        if (employee) {
+          if (employee.status !== "Active") {
+            return res.status(400).json({ message: "Employee is not active. Cannot create compensation for inactive or exited employees." });
+          }
          const payrollData = {
             employeeId: employee.employeeId,
             employeeName: employee.name || employee.employeename,
@@ -103,6 +106,15 @@ router.get("/:id", async (req, res) => {
 // ✏️ UPDATE Compensation
 router.put("/:id", async (req, res) => {
   try {
+    // Check employee status before update
+    if (req.body.employeeId) {
+      const Employee = require("../models/Employee");
+      const employee = await Employee.findOne({ employeeId: req.body.employeeId });
+      if (employee && employee.status !== "Active") {
+        return res.status(400).json({ success: false, message: "Employee is not active. Cannot update compensation for inactive or exited employees." });
+      }
+    }
+    
     const updated = await Compensation.findByIdAndUpdate(
       req.params.id,
       req.body,

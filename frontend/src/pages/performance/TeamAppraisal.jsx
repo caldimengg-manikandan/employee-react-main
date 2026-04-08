@@ -730,7 +730,16 @@ const TeamAppraisal = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.financialYr}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{emp.empId}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.name}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <div className="flex flex-col">
+                        <span>{emp.name}</span>
+                        {emp.employeeStatus && emp.employeeStatus !== 'Active' && (
+                          <span className={`text-[10px] font-bold uppercase mt-0.5 ${emp.employeeStatus === 'Exited' ? 'text-red-500' : 'text-orange-500'}`}>
+                            {emp.employeeStatus}
+                          </span>
+                        )}
+                      </div>
+                    </td>
                     {hasCompensationAccess && (
                       <>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
@@ -777,8 +786,14 @@ const TeamAppraisal = () => {
                         )}
                         {['submitted', 'managerInProgress', 'directorPushedBack'].includes(emp.status) && (
                           <button
+                            disabled={emp.employeeStatus !== 'Active'}
                             onClick={() => handleOpenReviewModal(emp)}
-                            className="flex items-center space-x-1 bg-[#262760] text-white px-3 py-1.5 rounded text-xs hover:bg-[#1e2050] transition-all shadow-sm"
+                            className={`flex items-center space-x-1 px-3 py-1.5 rounded text-xs transition-all shadow-sm ${
+                              emp.employeeStatus === 'Active' 
+                                ? 'bg-[#262760] text-white hover:bg-[#1e2050]' 
+                                : 'bg-gray-200 text-gray-400 cursor-not-allowed border border-gray-300'
+                            }`}
+                            title={emp.employeeStatus !== 'Active' ? 'Cannot review inactive or exited employee' : ''}
                           >
                             <Edit className="h-3.5 w-3.5" />
                             <span>{['managerInProgress', 'directorPushedBack'].includes(emp.status) ? 'Edit Review' : 'Add Rating / Review'}</span>

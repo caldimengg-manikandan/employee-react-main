@@ -6,6 +6,14 @@ const Payroll = require("../models/Payroll");
 // ➕ CREATE payroll
 router.post("/", async (req, res) => {
   try {
+    const { employeeId } = req.body;
+    if (employeeId) {
+      const Employee = require("../models/Employee");
+      const employee = await Employee.findOne({ employeeId });
+      if (employee && employee.status !== "Active") {
+        return res.status(400).json({ message: "Employee is not active. Cannot create payroll for inactive or exited employees." });
+      }
+    }
     const payroll = new Payroll(req.body);
     await payroll.save();
     res.status(201).json(payroll);
@@ -41,6 +49,25 @@ router.get("/:id", async (req, res) => {
 // ✏️ UPDATE payroll
 router.put("/:id", async (req, res) => {
   try {
+    // Check employee status before update
+    if (req.body.employeeId) {
+      const Employee = require("../models/Employee");
+      const employee = await Employee.findOne({ employeeId: req.body.employeeId });
+      if (employee && employee.status !== "Active") {
+        return res.status(400).json({ success: false, message: "Employee is not active. Cannot update payroll for inactive or exited employees." });
+      }
+    } else {
+      // Check existing payroll's employee status
+      const existing = await Payroll.findById(req.params.id);
+      if (existing) {
+        const Employee = require("../models/Employee");
+        const employee = await Employee.findOne({ employeeId: existing.employeeId });
+        if (employee && employee.status !== "Active") {
+          return res.status(400).json({ success: false, message: "Employee is not active. Cannot update payroll for inactive or exited employees." });
+        }
+      }
+    }
+
     const updated = await Payroll.findByIdAndUpdate(
       req.params.id,
       req.body,
