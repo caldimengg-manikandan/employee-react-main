@@ -1086,13 +1086,13 @@ const DirectorApproval = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          {[
+                          [
                             { label: 'Basic Salary', key: 'basic' },
                             { label: 'HRA', key: 'hra' },
                             { label: 'Special Allowance', key: 'special' },
                             { label: 'Gross Salary', key: 'gross', isBold: true },
                             { label: 'Employee PF', key: 'empPF' },
-                            { label: 'Employee ESI', key: 'esi' },
+                            ...(letterData?.salary?.old?.esi > 0 ? [{ label: 'Employee ESI', key: 'esi' }] : []),
                             { label: 'Net Salary', key: 'net', isBold: true },
                             { label: 'Gratuity', key: 'gratuity' },
                             { label: 'CTC', key: 'ctc', isBold: true, isTotal: true }
