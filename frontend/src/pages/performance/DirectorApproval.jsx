@@ -320,7 +320,7 @@ const DirectorApproval = () => {
       const letterDate = formatDisplayDate(today);
       const employeeIdValue = employeeDetails.employeeId || employeeDetails.empId || emp.empId || emp.employeeId;
 
-      let salaryOld = { basic: 0, hra: 0, special: 0, gross: 0, empPF: 0, employerPF: 0, net: 0, gratuity: 0, ctc: 0 };
+      let salaryOld = { basic: 0, hra: 0, special: 0, gross: 0, empPF: 0, employerPF: 0, esi: 0, net: 0, gratuity: 0, ctc: 0 };
       const baseCtc = Number(emp.currentSalary || 0);
       const revisedCtc = Number(emp.revisedSalary || 0);
 
@@ -346,7 +346,8 @@ const DirectorApproval = () => {
               gross: Math.round((rawBasic + rawHra + rawSpecial) * normalizationFactor),
               empPF: Number(payrollRecord.pf || 0),
               employerPF: Number(payrollRecord.employerPF || payrollRecord.pf || 0),
-              net: Math.round(((rawBasic + rawHra + rawSpecial) * normalizationFactor) - Number(payrollRecord.pf || 0)),
+              esi: Number(payrollRecord.esi || 0),
+              net: Math.round(((rawBasic + rawHra + rawSpecial) * normalizationFactor) - Number(payrollRecord.pf || 0) - Number(payrollRecord.esi || 0)),
               gratuity: Math.round(rawGratuity * normalizationFactor),
               ctc: baseCtc
             };
@@ -377,11 +378,14 @@ const DirectorApproval = () => {
             hra: Math.round((salaryOld.hra || 0) * factor),
             special: Math.round((salaryOld.special || 0) * factor),
             gross: Math.round((salaryOld.gross || (salaryOld.basic + salaryOld.hra + salaryOld.special) || baseCtc) * factor),
-            empPF: salaryOld.empPF || 0,
-            employerPF: salaryOld.employerPF || 0,
-            net: Math.round((salaryOld.gross || (salaryOld.basic + salaryOld.hra + salaryOld.special) || baseCtc) * factor) - (salaryOld.empPF || 0),
+            empPF: (salaryOld.gross <= 21000 && Math.round((salaryOld.gross || baseCtc) * factor) > 21000) ? 3750 : (salaryOld.empPF || 0),
+            employerPF: (salaryOld.gross <= 21000 && Math.round((salaryOld.gross || baseCtc) * factor) > 21000) ? 3750 : (salaryOld.employerPF || salaryOld.empPF || 0),
+            esi: Math.round((salaryOld.gross || baseCtc) * factor) > 21000 ? 0 : Math.round((salaryOld.esi || 0) * factor),
+            net: Math.round((salaryOld.gross || (salaryOld.basic + salaryOld.hra + salaryOld.special) || baseCtc) * factor) 
+                 - ((salaryOld.gross <= 21000 && Math.round((salaryOld.gross || baseCtc) * factor) > 21000) ? 3750 : (salaryOld.empPF || 0))
+                 - (Math.round((salaryOld.gross || baseCtc) * factor) > 21000 ? 0 : Math.round((salaryOld.esi || 0) * factor)),
             gratuity: Math.round((salaryOld.gratuity || 0) * factor),
-            ctc: revisedCtc
+            ctc: Math.round((salaryOld.gross || baseCtc) * factor) + Math.round((salaryOld.gratuity || 0) * factor)
           },
         },
         promotion: {
@@ -1088,6 +1092,7 @@ const DirectorApproval = () => {
                             { label: 'Special Allowance', key: 'special' },
                             { label: 'Gross Salary', key: 'gross', isBold: true },
                             { label: 'Employee PF', key: 'empPF' },
+                            { label: 'Employee ESI', key: 'esi' },
                             { label: 'Net Salary', key: 'net', isBold: true },
                             { label: 'Gratuity', key: 'gratuity' },
                             { label: 'CTC', key: 'ctc', isBold: true, isTotal: true }

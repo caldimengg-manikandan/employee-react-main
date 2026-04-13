@@ -333,6 +333,7 @@ router.post('/release', auth, async (req, res) => {
         gross: Math.round(baseCtc * 0.95),
         empPF: Math.round(baseCtc * 0.5 * 0.12),
         employerPF: Math.round(baseCtc * 0.5 * 0.12),
+        esi: 0,
         net: Math.round((baseCtc * 0.95) - (baseCtc * 0.5 * 0.12)),
         gratuity: Math.round(baseCtc * 0.05),
         ctc: baseCtc
@@ -354,7 +355,8 @@ router.post('/release', auth, async (req, res) => {
             gross: Math.round((rawBasic + rawHra + rawSpecial) * normFactor),
             empPF: Number(payrollRecord.pf || Math.round(rawBasic * 0.12 * normFactor)),
             employerPF: Number(payrollRecord.employerPF || payrollRecord.pf || Math.round(rawBasic * 0.12 * normFactor)),
-            net: Math.round(((rawBasic + rawHra + rawSpecial) * normFactor) - Number(payrollRecord.pf || 0)),
+            esi: Number(payrollRecord.esi || 0),
+            net: Math.round(((rawBasic + rawHra + rawSpecial) * normFactor) - Number(payrollRecord.pf || 0) - Number(payrollRecord.esi || 0)),
             gratuity: Math.round(rawGratuity * normFactor),
             ctc: baseCtc
           };
@@ -370,18 +372,21 @@ router.post('/release', auth, async (req, res) => {
       }
       if (revisedCtc < baseCtc) revisedCtc = baseCtc;
 
-      const factor = (baseCtc > 0) ? (revisedCtc / baseCtc) : 1;
+      const newGross = Math.round(salaryOld.gross * factor);
+      const newPF = (salaryOld.gross <= 21000 && newGross > 21000) ? 3750 : salaryOld.empPF;
+      const newESI = newGross > 21000 ? 0 : Math.round((salaryOld.esi || 0) * factor);
       
       const salaryNew = {
         basic: Math.round(salaryOld.basic * factor),
         hra: Math.round(salaryOld.hra * factor),
         special: Math.round(salaryOld.special * factor),
-        gross: Math.round(salaryOld.gross * factor),
-        empPF: salaryOld.empPF,
-        employerPF: salaryOld.employerPF,
-        net: Math.round(salaryOld.gross * factor) - salaryOld.empPF,
+        gross: newGross,
+        empPF: newPF,
+        employerPF: newPF,
+        esi: newESI,
+        net: Math.round(newGross - newPF - newESI),
         gratuity: Math.round(salaryOld.gratuity * factor),
-        ctc: Math.round(revisedCtc)
+        ctc: Math.round(newGross + (salaryOld.gratuity * factor))
       };
 
       appraisal.status = 'released';
