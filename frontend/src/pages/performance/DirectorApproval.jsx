@@ -1086,7 +1086,7 @@ const DirectorApproval = () => {
                           </tr>
                         </thead>
                         <tbody>
-                          [
+                          {[
                             { label: 'Basic Salary', key: 'basic' },
                             { label: 'HRA', key: 'hra' },
                             { label: 'Special Allowance', key: 'special' },
