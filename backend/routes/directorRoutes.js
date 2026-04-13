@@ -333,7 +333,7 @@ router.post('/release', auth, async (req, res) => {
         gross: Math.round(baseCtc * 0.95),
         empPF: Math.round(baseCtc * 0.5 * 0.12),
         employerPF: Math.round(baseCtc * 0.5 * 0.12),
-        net: Math.round(baseCtc * 0.8),
+        net: Math.round((baseCtc * 0.95) - (baseCtc * 0.5 * 0.12)),
         gratuity: Math.round(baseCtc * 0.05),
         ctc: baseCtc
       };
@@ -354,7 +354,7 @@ router.post('/release', auth, async (req, res) => {
             gross: Math.round((rawBasic + rawHra + rawSpecial) * normFactor),
             empPF: Number(payrollRecord.pf || Math.round(rawBasic * 0.12 * normFactor)),
             employerPF: Number(payrollRecord.employerPF || payrollRecord.pf || Math.round(rawBasic * 0.12 * normFactor)),
-            net: Number(payrollRecord.netSalary || ((rawBasic + rawHra + rawSpecial - (payrollRecord.pf || 0)) * normFactor)),
+            net: Math.round(((rawBasic + rawHra + rawSpecial) * normFactor) - Number(payrollRecord.pf || 0)),
             gratuity: Math.round(rawGratuity * normFactor),
             ctc: baseCtc
           };
@@ -379,7 +379,7 @@ router.post('/release', auth, async (req, res) => {
         gross: Math.round(salaryOld.gross * factor),
         empPF: salaryOld.empPF,
         employerPF: salaryOld.employerPF,
-        net: Math.round(salaryOld.net * factor),
+        net: Math.round(salaryOld.gross * factor) - salaryOld.empPF,
         gratuity: Math.round(salaryOld.gratuity * factor),
         ctc: Math.round(revisedCtc)
       };

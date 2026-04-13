@@ -964,22 +964,7 @@ const MyProfile = () => {
                       {errors.guardianName && <p className="text-xs text-red-600 mt-1">{errors.guardianName}</p>}
                     </div>
 
-                    <div>
-                      <label className="block text-sm text-gray-700 mb-1">
-                        State <span className="text-red-600">*</span>
-                      </label>
-                      <select
-                        value={formData.currentState}
-                        onChange={(e) => handleInputChange('currentState', e.target.value)}
-                        required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.currentState ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
-                      >
-                        <option value="">Select State</option>
-                        {indiaStates.map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
-                      </select>
-                    </div>
+
 
                     
                   </div>

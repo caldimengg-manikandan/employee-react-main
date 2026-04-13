@@ -346,7 +346,7 @@ const DirectorApproval = () => {
               gross: Math.round((rawBasic + rawHra + rawSpecial) * normalizationFactor),
               empPF: Number(payrollRecord.pf || 0),
               employerPF: Number(payrollRecord.employerPF || payrollRecord.pf || 0),
-              net: Number(payrollRecord.netSalary || (rawBasic + rawHra + rawSpecial)),
+              net: Math.round(((rawBasic + rawHra + rawSpecial) * normalizationFactor) - Number(payrollRecord.pf || 0)),
               gratuity: Math.round(rawGratuity * normalizationFactor),
               ctc: baseCtc
             };
@@ -379,7 +379,7 @@ const DirectorApproval = () => {
             gross: Math.round((salaryOld.gross || (salaryOld.basic + salaryOld.hra + salaryOld.special) || baseCtc) * factor),
             empPF: salaryOld.empPF || 0,
             employerPF: salaryOld.employerPF || 0,
-            net: Math.round((salaryOld.net || baseCtc) * factor),
+            net: Math.round((salaryOld.gross || (salaryOld.basic + salaryOld.hra + salaryOld.special) || baseCtc) * factor) - (salaryOld.empPF || 0),
             gratuity: Math.round((salaryOld.gratuity || 0) * factor),
             ctc: revisedCtc
           },
