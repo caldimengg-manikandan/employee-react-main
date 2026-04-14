@@ -493,6 +493,11 @@ const DirectorApproval = () => {
       setSelectedRows([]);
     } catch (error) {
       console.error('Error in director action:', error);
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: error.response?.data?.message || 'Failed to process director action'
+      });
     } finally {
       setReleaseConfirm({ isOpen: false, count: 0, ids: [], type: 'approve' });
     }

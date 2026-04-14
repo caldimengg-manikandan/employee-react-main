@@ -270,6 +270,7 @@ router.post('/:id/approve', auth, async (req, res) => {
     }
 
     appraisal.status = 'directorApproved';
+    if (!appraisal.workflow) appraisal.workflow = {};
     appraisal.workflow.directorApprovedAt = new Date();
     
     await appraisal.save();
@@ -372,6 +373,7 @@ router.post('/release', auth, async (req, res) => {
       }
       if (revisedCtc < baseCtc) revisedCtc = baseCtc;
 
+      const factor = (baseCtc > 0) ? (revisedCtc / baseCtc) : 1;
       const newGross = Math.round(salaryOld.gross * factor);
       const newPF = (salaryOld.gross <= 21000 && newGross > 21000) ? 3750 : salaryOld.empPF;
       const newESI = newGross > 21000 ? 0 : Math.round((salaryOld.esi || 0) * factor);
@@ -390,6 +392,7 @@ router.post('/release', auth, async (req, res) => {
       };
 
       appraisal.status = 'released';
+      if (!appraisal.workflow) appraisal.workflow = {};
       appraisal.workflow.releasedAt = new Date();
       
       // Use .set() and markModified for Map fields to ensure persistence
