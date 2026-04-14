@@ -74,6 +74,9 @@ router.get('/', auth, async (req, res) => {
         name: emp.name || 'Unknown',
         avatar: emp.avatar || '',
         designation: emp.designation || '',
+        department: emp.department || '',
+        division: app.division || emp.division || '',
+        location: emp.location || emp.branch || '',
         status: app.status,
         employeeStatus: emp.status || 'Active',
 
