@@ -862,10 +862,15 @@ const SelfAppraisal = () => {
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
       }
 
-      const fileName = `Release_Letter_${letterData.employeeName.replace(/\s+/g, '_')}_${letterData.financialYear}.pdf`;
-      pdf.save(fileName);
-      
-      setStatusPopup({ isOpen: true, status: 'success', message: 'PDF generated successfully!' });
+      // Open in browser's built-in PDF viewer — works on all devices without a PDF reader
+      const blobUrl = pdf.output('bloburl');
+      const newTab = window.open(blobUrl, '_blank');
+      if (!newTab) {
+        // Fallback: if popup was blocked, download directly
+        const fileName = `Release_Letter_${letterData.employeeName.replace(/\s+/g, '_')}_${letterData.financialYear}.pdf`;
+        pdf.save(fileName);
+      }
+      setStatusPopup({ isOpen: true, status: 'success', message: 'PDF opened in a new tab. Use your browser\'s Save button to download.' });
     } catch (error) {
       console.error('PDF Generation Error:', error);
       setStatusPopup({ isOpen: true, status: 'error', message: 'Failed to generate PDF. Please try again.' });
@@ -1151,7 +1156,13 @@ const SelfAppraisal = () => {
         pdf.addImage(imgData3, 'JPEG', 0, 0, imgWidth, pageHeight);
       }
 
-      pdf.save(`Release_Letter_${letterData.employeeId}.pdf`);
+      // Open PDF in browser's built-in viewer (works without any external PDF reader)
+      const blobUrl = pdf.output('bloburl');
+      const newTab = window.open(blobUrl, '_blank');
+      if (!newTab) {
+        // Fallback: if browser blocked the popup, trigger a direct download
+        pdf.save(`Release_Letter_${letterData.employeeId}.pdf`);
+      }
     } catch (error) {
       console.error("PDF Generation failed", error);
       setStatusPopup({ isOpen: true, status: 'error', message: "Failed to generate PDF." });
