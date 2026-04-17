@@ -149,3 +149,34 @@ export const calculateIncrement = (designation, rating, companyPerformance) => {
   // Get rating value
   return performanceData[rating] || 0;
 };
+
+export const calculateSalaryAnnexure = (gross) => {
+  const targetGross = Math.round(gross || 0);
+  const basic = Math.round(targetGross * 0.50);
+  const hra = Math.round(basic * 0.50);
+  
+  const employerPF = 1950;
+  const employeePF = 1800;
+
+  const specialBase = Math.round(basic * 0.50);
+  const special = Math.max(0, specialBase - employeePF - employerPF);
+
+  // Net Salary (Take Home) = Basic + HRA + Special Allowance
+  const net = basic + hra + special;
+  const gratuity = Math.round(basic * 0.0486);
+  
+  // CTC = Net Salary + Employee PF + Employer PF + Gratuity
+  const ctc = net + employeePF + employerPF + gratuity;
+
+  return {
+    basic,
+    hra,
+    special,
+    net,
+    empPF: employeePF,
+    gross: targetGross, // Revised Gross (FIXED)
+    employerPF,
+    gratuity,
+    ctc: Math.round(ctc)
+  };
+};

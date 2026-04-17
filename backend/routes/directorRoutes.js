@@ -34,12 +34,12 @@ router.get('/', auth, async (req, res) => {
       statusFilter = { $in: ['released', 'accepted', 'effective', 'COMPLETED'] };
     } else {
       const basePending = ['reviewerApproved', 'directorInProgress', 'directorApproved', 'DIRECTOR_APPROVED'];
-      
+
       // If Admin, also show what is with the manager or reviewer (submitted / in progress)
       if (isAdmin) {
         basePending.push('submitted', 'managerInProgress', 'managerApproved', 'reviewerPending', 'reviewerInProgress', 'directorPushedBack');
       }
-      
+
       statusFilter = { $in: basePending };
     }
 
@@ -84,17 +84,17 @@ router.get('/', auth, async (req, res) => {
         managerComments: app.managerComments || '',
         reviewerComments: app.reviewerComments || '',
         directorComments: app.directorComments || '',
-        
+
         currentSalary: derivedSalary,
         incrementPercentage: app.incrementPercentage || 0,
         incrementCorrectionPercentage: app.incrementCorrectionPercentage || 0,
         incrementAmount: app.incrementAmount || 0,
         revisedSalary: app.revisedSalary || 0,
         performancePay: Number(app.performancePay || 0),
-        
+
         promotion: app.promotion || { recommended: false, newDesignation: '' },
         pushBack: app.pushBack || { isPushedBack: false },
-        
+
         directorName: app.director || '',
         directorSignature: (app.director === 'Bala Krishnan') ? 'balaSignature' : (app.director === 'Uvaraj') ? 'uvarajSignature' : '',
 
@@ -107,7 +107,7 @@ router.get('/', auth, async (req, res) => {
         technicalSelf: mapToObj(app.technicalBased),
         growthBased: mapToObj(app.growthBased),
         growthSelf: mapToObj(app.growthBased),
-        
+
         projects: app.projects || [],
         overallContribution: app.overallContribution || '',
         effectiveDate: app.effectiveDate,
@@ -156,13 +156,13 @@ router.put('/:id', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Employee is not active. Cannot process appraisal for inactive or exited employees.' });
     }
 
-    const { 
-      directorComments, 
-      incrementPercentage, 
-      incrementCorrectionPercentage, 
+    const {
+      directorComments,
+      incrementPercentage,
+      incrementCorrectionPercentage,
       incrementAmount,
       revisedSalary,
-      performancePay, 
+      performancePay,
       behaviourManagerComments, processManagerComments, technicalManagerComments, growthManagerComments,
       keyPerformance, leadership, attitude, communication,
       behaviourManagerRatings, processManagerRatings, technicalManagerRatings, growthManagerRatings,
@@ -170,7 +170,7 @@ router.put('/:id', auth, async (req, res) => {
       promotion,
       managerComments, appraiserRating
     } = req.body;
- 
+
     if (directorComments !== undefined) appraisal.directorComments = directorComments;
     if (incrementPercentage !== undefined) appraisal.incrementPercentage = incrementPercentage;
     if (incrementCorrectionPercentage !== undefined) appraisal.incrementCorrectionPercentage = incrementCorrectionPercentage;
@@ -184,7 +184,7 @@ router.put('/:id', auth, async (req, res) => {
     if (processManagerComments !== undefined) appraisal.processManagerComments = processManagerComments;
     if (technicalManagerComments !== undefined) appraisal.technicalManagerComments = technicalManagerComments;
     if (growthManagerComments !== undefined) appraisal.growthManagerComments = growthManagerComments;
-    
+
     // Dynamic Manager Ratings (Director can override)
     if (behaviourManagerRatings !== undefined) appraisal.behaviourManagerRatings = behaviourManagerRatings;
     if (processManagerRatings !== undefined) appraisal.processManagerRatings = processManagerRatings;
@@ -207,7 +207,7 @@ router.put('/:id', auth, async (req, res) => {
       // Use numeric value from body if it is purely for initial snap
       if (req.body.currentSalary) appraisal.currentSalarySnapshot = Number(req.body.currentSalary);
     }
-    
+
     await appraisal.save();
     res.json({ success: true, appraisal });
   } catch (err) {
@@ -275,7 +275,7 @@ router.post('/:id/approve', auth, async (req, res) => {
     appraisal.status = 'directorApproved';
     if (!appraisal.workflow) appraisal.workflow = {};
     appraisal.workflow.directorApprovedAt = new Date();
-    
+
     await appraisal.save();
     res.json({ success: true, message: 'Appraisal officially approved by Director' });
   } catch (err) {
@@ -321,7 +321,7 @@ router.post('/release', auth, async (req, res) => {
     }
 
     const allPayroll = await Payroll.find({});
-    
+
     let modifiedCount = 0;
     for (const appraisal of appraisals) {
       const empId = appraisal.employeeId?.employeeId || appraisal.empId;
@@ -329,88 +329,65 @@ router.post('/release', auth, async (req, res) => {
 
       // Find payroll record
       const payrollRecord = allPayroll.find(p => String(p.employeeId || '').toLowerCase() === String(empId || '').toLowerCase());
-      
-      let salaryOld = {
-        basic: Math.round(baseCtc * 0.5),
-        hra: Math.round(baseCtc * 0.2),
-        special: Math.round(baseCtc * 0.25),
-        gross: Math.round(baseCtc * 0.95),
-        empPF: Math.round(baseCtc * 0.5 * 0.12),
-        employerPF: Math.round(baseCtc * 0.5 * 0.12),
-        esi: 0,
-        net: Math.round((baseCtc * 0.95) - (baseCtc * 0.5 * 0.12)),
-        gratuity: Math.round(baseCtc * 0.05),
-        ctc: baseCtc
+
+      const calculateSalaryAnnexure = (gross) => {
+        const grossVal = Math.round(gross || 0);
+        const basic = Math.round(grossVal * 0.50);
+        const hra = Math.round(basic * 0.50);
+        const specialInitial = Math.round(basic * 0.50);
+        
+        const employerPF = 1950;
+        const employeePF = 1800;
+        
+        const special = Math.max(0, specialInitial - employeePF - employerPF);
+        const net = basic + hra + special;
+        const gratuity = Math.round(basic * 0.0486);
+        const ctc = net + employeePF + employerPF + gratuity;
+
+        return {
+          basic,
+          hra,
+          special,
+          net,
+          empPF: employeePF,
+          gross: grossVal,
+          employerPF,
+          gratuity,
+          ctc: Math.round(ctc)
+        };
       };
 
-      if (payrollRecord) {
-        const rawBasic = Number(payrollRecord.basicDA || 0);
-        const rawHra = Number(payrollRecord.hra || 0);
-        const rawSpecial = Number(payrollRecord.specialAllowance || 0);
-        const rawGratuity = Number(payrollRecord.gratuity || 0);
-        const rawCtc = rawBasic + rawHra + rawSpecial + rawGratuity;
-        const normFactor = (rawCtc > 0 && baseCtc > 0) ? (baseCtc / rawCtc) : 1;
-
-        if (rawBasic > 0) {
-          salaryOld = {
-            basic: Math.round(rawBasic * normFactor),
-            hra: Math.round(rawHra * normFactor),
-            special: Math.round(rawSpecial * normFactor),
-            gross: Math.round((rawBasic + rawHra + rawSpecial) * normFactor),
-            empPF: Number(payrollRecord.pf || Math.round(rawBasic * 0.12 * normFactor)),
-            employerPF: Number(payrollRecord.employerPF || payrollRecord.pf || Math.round(rawBasic * 0.12 * normFactor)),
-            esi: Number(payrollRecord.esi || 0),
-            net: Math.round(((rawBasic + rawHra + rawSpecial) * normFactor) - Number(payrollRecord.pf || 0) - Number(payrollRecord.esi || 0)),
-            gratuity: Math.round(rawGratuity * normFactor),
-            ctc: baseCtc
-          };
-        }
-      }
-
+      const salaryOld = calculateSalaryAnnexure(baseCtc);
+      
       const totalPct = Number(appraisal.incrementPercentage || 0) + Number(appraisal.incrementCorrectionPercentage || 0);
-      let revisedCtc = Number(appraisal.releaseRevisedSnapshot?.ctc || appraisal.revisedSalary || (baseCtc * (1 + totalPct / 100)));
-      
-      // Safety check: Ensure revised is not lower than current
-      if (revisedCtc < baseCtc && totalPct > 0) {
-        revisedCtc = Math.round(baseCtc * (1 + totalPct / 100));
-      }
-      if (revisedCtc < baseCtc) revisedCtc = baseCtc;
+      let revisedGross = Number(appraisal.revisedSalary || (baseCtc * (1 + totalPct / 100)));
 
-      const factor = (baseCtc > 0) ? (revisedCtc / baseCtc) : 1;
-      const newGross = Math.round(salaryOld.gross * factor);
-      const newPF = (salaryOld.gross <= 21000 && newGross > 21000) ? 3750 : salaryOld.empPF;
-      const newESI = newGross > 21000 ? 0 : Math.round((salaryOld.esi || 0) * factor);
-      
-      const salaryNew = {
-        basic: Math.round(salaryOld.basic * factor),
-        hra: Math.round(salaryOld.hra * factor),
-        special: Math.round(salaryOld.special * factor),
-        gross: newGross,
-        empPF: newPF,
-        employerPF: newPF,
-        esi: newESI,
-        net: Math.round(newGross - newPF - newESI),
-        gratuity: Math.round(salaryOld.gratuity * factor),
-        ctc: Math.round(newGross + (salaryOld.gratuity * factor))
-      };
+      // Safety check: Ensure revised is not lower than current
+      if (revisedGross < baseCtc && totalPct > 0) {
+        revisedGross = Math.round(baseCtc * (1 + totalPct / 100));
+      }
+      if (revisedGross < baseCtc) revisedGross = baseCtc;
+
+      const salaryNew = calculateSalaryAnnexure(revisedGross);
+
 
       appraisal.status = 'released';
       if (!appraisal.workflow) appraisal.workflow = {};
       appraisal.workflow.releasedAt = new Date();
-      
+
       // Use .set() and markModified for Map fields to ensure persistence
       appraisal.set('releaseSalarySnapshot', salaryOld);
       appraisal.set('releaseRevisedSnapshot', salaryNew);
       appraisal.markModified('releaseSalarySnapshot');
       appraisal.markModified('releaseRevisedSnapshot');
-      
+
       appraisal.releaseDate = new Date();
-      appraisal.revisedSalary = Number(revisedCtc); // Ensure this is also synced
+      appraisal.revisedSalary = Number(revisedGross); // Ensure this is also synced
 
       if (appraisal.promotion?.recommended && appraisal.promotion?.newDesignation) {
         appraisal.promotion.approvedBy = 'director';
       }
-      
+
       await appraisal.save();
 
       await AuditLog.create({
@@ -438,7 +415,7 @@ router.post('/:id/promotion', auth, async (req, res) => {
     if (!appraisal) return res.status(404).json({ success: false, message: 'Not found' });
 
     const { recommended, remarks, effectiveDate, newDesignation } = req.body;
-    
+
     appraisal.promotion = {
       ...appraisal.promotion,
       recommended: recommended !== undefined ? recommended : appraisal.promotion.recommended,
@@ -476,17 +453,17 @@ router.post('/revoke/:id', auth, async (req, res) => {
 
     // 2. Undo Payroll History if finalized
     if (appraisal.payrollProcessed === true) {
-        await PayrollHistory.deleteOne({ appraisalId: appraisal._id });
-        // Restore previous record for this employee (set effectiveTo to null)
-        const previous = await PayrollHistory.findOne({ 
-            employeeId: appraisal.employeeId, 
-            effectiveTo: { $ne: null } 
-        }).sort({ effectiveTo: -1 });
-        
-        if (previous) {
-            previous.effectiveTo = null;
-            await previous.save();
-        }
+      await PayrollHistory.deleteOne({ appraisalId: appraisal._id });
+      // Restore previous record for this employee (set effectiveTo to null)
+      const previous = await PayrollHistory.findOne({
+        employeeId: appraisal.employeeId,
+        effectiveTo: { $ne: null }
+      }).sort({ effectiveTo: -1 });
+
+      if (previous) {
+        previous.effectiveTo = null;
+        await previous.save();
+      }
     }
 
     // 3. Create Audit Trail for revocation
@@ -505,7 +482,7 @@ router.post('/revoke/:id', auth, async (req, res) => {
     delete cloneData._id;
     delete cloneData.createdAt;
     delete cloneData.updatedAt;
-    
+
     const newAppraisal = new SelfAppraisal({
       ...cloneData,
       status: 'managerApproved', // Send back to editable Director state
@@ -524,10 +501,10 @@ router.post('/revoke/:id', auth, async (req, res) => {
 
     await newAppraisal.save();
 
-    res.json({ 
-        success: true, 
-        message: 'Appraisal safely revoked. A new version is available for corrections.',
-        newAppraisalId: newAppraisal._id
+    res.json({
+      success: true,
+      message: 'Appraisal safely revoked. A new version is available for corrections.',
+      newAppraisalId: newAppraisal._id
     });
 
   } catch (err) {

@@ -18,6 +18,7 @@ import {
   RotateCcw,
   Trophy
 } from 'lucide-react';
+import { APPRAISAL_STAGES, calculateSalaryAnnexure } from '../../utils/performanceUtils';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
 import balaSignature from '../../bala signature.png';
 import uvarajSignature from '../../uvaraj signature.png';
@@ -178,7 +179,34 @@ const DirectorApproval = () => {
     setLoading(true);
     try {
       const response = await performanceAPI.getDirectorAppraisals({ tab });
-      setEmployees(response.data || []);
+      const raw = response.data || [];
+
+      // Fetch payroll data for currentGross lookup
+      const payrollRes = await payrollAPI.list();
+      const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+
+      const enhanced = raw.map(emp => {
+        const empId = emp.employeeId || emp.empId;
+        const payroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
+        const currentGross = payroll ? Number(payroll.totalEarnings || 0) : (Number(emp.currentSalary || 0) - 1114);
+        
+        // Store currentGross for later use in edits
+        emp.currentGross = currentGross;
+
+        const { incrementAmount, revisedSalary } = calculateFinancials(
+          currentGross,
+          emp.incrementPercentage || 0,
+          emp.incrementCorrectionPercentage || 0
+        );
+
+        return {
+          ...emp,
+          incrementAmount,
+          revisedSalary
+        };
+      });
+
+      setEmployees(enhanced);
     } catch (error) {
       console.error('Error fetching appraisals:', error);
     } finally {
@@ -186,16 +214,21 @@ const DirectorApproval = () => {
     }
   };
 
-  const calculateFinancials = (current, pct, correctionPct) => {
-    const currentVal = parseFloat(current) || 0;
+  const calculateFinancials = (currentGross, pct, correctionPct) => {
+    const grossVal = parseFloat(currentGross) || 0;
     const pctVal = parseFloat(pct) || 0;
     const correctionPctVal = parseFloat(correctionPct) || 0;
     const totalPct = pctVal + correctionPctVal;
-    const amount = (currentVal * totalPct / 100);
-    const revised = currentVal + amount;
+    
+    const targetRevisedGross = Math.round(grossVal * (1 + totalPct / 100));
+    const incrementAmount = targetRevisedGross - grossVal;
+    
+    // Use shared calculation logic for Revised CTC
+    const salaries = calculateSalaryAnnexure(targetRevisedGross);
+
     return {
-      incrementAmount: amount,
-      revisedSalary: revised
+      incrementAmount,
+      revisedSalary: salaries.ctc
     };
   };
 
@@ -236,7 +269,7 @@ const DirectorApproval = () => {
     let newData = { ...editFormData, [field]: value };
     if (field === 'incrementPercentage' || field === 'incrementCorrectionPercentage') {
       const { incrementAmount, revisedSalary } = calculateFinancials(
-        newData.currentSalary,
+        newData.currentGross || (newData.currentSalary - 1114),
         field === 'incrementPercentage' ? value : newData.incrementPercentage,
         field === 'incrementCorrectionPercentage' ? value : newData.incrementCorrectionPercentage
       );
@@ -320,45 +353,50 @@ const DirectorApproval = () => {
       const letterDate = formatDisplayDate(today);
       const employeeIdValue = employeeDetails.employeeId || employeeDetails.empId || emp.empId || emp.employeeId;
 
-      let salaryOld = { basic: 0, hra: 0, special: 0, gross: 0, empPF: 0, employerPF: 0, esi: 0, net: 0, gratuity: 0, ctc: 0 };
-      const baseCtc = Number(emp.currentSalary || 0);
-      const revisedCtc = Number(emp.revisedSalary || 0);
+      let salaryOld = { basic: 0, hra: 0, special: 0, net: 0, empPF: 0, gross: 0, employerPF: 0, gratuity: 0, ctc: 0 };
+      let salaryNew = { basic: 0, hra: 0, special: 0, net: 0, empPF: 0, gross: 0, employerPF: 0, gratuity: 0, ctc: 0 };
+      const baseSnapshotCtc = Number(emp.currentSalary || 0);
+      const revisedSnapshotCtc = Number(emp.revisedSalary || 0);
+      const incrementAmount = revisedSnapshotCtc - baseSnapshotCtc;
+      const totalPct = Number(emp.incrementPercentage || 0) + Number(emp.incrementCorrectionPercentage || 0);
+
+
 
       try {
         if (employeeIdValue) {
           const payrollRes = await payrollAPI.list();
-          const payrollRecord = (payrollRes.data || []).find(p => String(p.employeeId || '').toLowerCase() === String(employeeIdValue).toLowerCase());
-          if (payrollRecord) {
-            const rawBasic = Number(payrollRecord.basicDA || 0);
-            const rawHra = Number(payrollRecord.hra || 0);
-            const rawSpecial = Number(payrollRecord.specialAllowance || 0);
-            const rawGratuity = Number(payrollRecord.gratuity || 0);
-            const rawCtc = rawBasic + rawHra + rawSpecial + rawGratuity;
+          const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+          const employeePayroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(employeeIdValue).toLowerCase());
 
-            // Core Fix: Proportions come from payroll, but the total base is derived from the frozen snapshot.
-            // This prevents double-incrementing if payroll was already updated.
-            const normalizationFactor = (rawCtc > 0) ? (baseCtc / rawCtc) : 1;
-
+          if (employeePayroll) {
             salaryOld = {
-              basic: Math.round(rawBasic * normalizationFactor),
-              hra: Math.round(rawHra * normalizationFactor),
-              special: Math.round(rawSpecial * normalizationFactor),
-              gross: Math.round((rawBasic + rawHra + rawSpecial) * normalizationFactor),
-              empPF: Number(payrollRecord.pf || 0),
-              employerPF: Number(payrollRecord.employerPF || payrollRecord.pf || 0),
-              esi: Number(payrollRecord.esi || 0),
-              net: Math.round(((rawBasic + rawHra + rawSpecial) * normalizationFactor) - Number(payrollRecord.pf || 0) - Number(payrollRecord.esi || 0)),
-              gratuity: Math.round(rawGratuity * normalizationFactor),
-              ctc: baseCtc
+              basic: Math.round(employeePayroll.basicDA || 0),
+              hra: Math.round(employeePayroll.hra || 0),
+              special: Math.round(employeePayroll.specialAllowance || 0),
+              gross: Math.round(employeePayroll.totalEarnings || 0),
+              net: Math.round(employeePayroll.netSalary || 0),
+              empPF: Math.max(0, Math.round((employeePayroll.pf || 0) - 1950)),
+              employerPF: 1950,
+              gratuity: Math.round(employeePayroll.gratuity || 0),
+              ctc: Math.round(employeePayroll.ctc || 0)
             };
+          } else {
+            salaryOld = calculateSalaryAnnexure(baseSnapshotCtc);
           }
+          
+          const incrementBase = salaryOld.gross || baseSnapshotCtc;
+          const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
+          salaryNew = calculateSalaryAnnexure(targetRevisedGross);
         }
-      } catch (err) { }
+      } catch (err) {
+        console.error("Salary prep error:", err);
+        const targetRevisedGross = Math.round(baseSnapshotCtc * (1 + totalPct / 100));
+        salaryOld = calculateSalaryAnnexure(baseSnapshotCtc);
+        salaryNew = calculateSalaryAnnexure(targetRevisedGross);
+      }
 
-      const incrementAmount = revisedCtc - baseCtc;
-      const totalPct = Number(emp.incrementPercentage || 0) + Number(emp.incrementCorrectionPercentage || 0);
 
-      const factor = (baseCtc > 0) ? (revisedCtc / baseCtc) : 1;
+
 
       const data = {
         date: letterDate,
@@ -372,21 +410,8 @@ const DirectorApproval = () => {
         incrementAmount,
         performancePay: Number(emp.performancePay || 0),
         salary: {
-          old: { ...salaryOld, ctc: baseCtc },
-          new: {
-            basic: Math.round((salaryOld.basic || 0) * factor),
-            hra: Math.round((salaryOld.hra || 0) * factor),
-            special: Math.round((salaryOld.special || 0) * factor),
-            gross: Math.round((salaryOld.gross || (salaryOld.basic + salaryOld.hra + salaryOld.special) || baseCtc) * factor),
-            empPF: (salaryOld.gross <= 21000 && Math.round((salaryOld.gross || baseCtc) * factor) > 21000) ? 3750 : (salaryOld.empPF || 0),
-            employerPF: (salaryOld.gross <= 21000 && Math.round((salaryOld.gross || baseCtc) * factor) > 21000) ? 3750 : (salaryOld.employerPF || salaryOld.empPF || 0),
-            esi: Math.round((salaryOld.gross || baseCtc) * factor) > 21000 ? 0 : Math.round((salaryOld.esi || 0) * factor),
-            net: Math.round((salaryOld.gross || (salaryOld.basic + salaryOld.hra + salaryOld.special) || baseCtc) * factor) 
-                 - ((salaryOld.gross <= 21000 && Math.round((salaryOld.gross || baseCtc) * factor) > 21000) ? 3750 : (salaryOld.empPF || 0))
-                 - (Math.round((salaryOld.gross || baseCtc) * factor) > 21000 ? 0 : Math.round((salaryOld.esi || 0) * factor)),
-            gratuity: Math.round((salaryOld.gratuity || 0) * factor),
-            ctc: Math.round((salaryOld.gross || baseCtc) * factor) + Math.round((salaryOld.gratuity || 0) * factor)
-          },
+          old: salaryOld,
+          new: salaryNew
         },
         promotion: {
           recommended: emp.promotionRecommendedByReviewer || (emp.promotion?.recommended),
@@ -1095,20 +1120,20 @@ const DirectorApproval = () => {
                             { label: 'Basic Salary', key: 'basic' },
                             { label: 'HRA', key: 'hra' },
                             { label: 'Special Allowance', key: 'special' },
+                            { label: 'Net Salary (Take Home)', key: 'net', isBold: true },
+                            { label: 'Employee PF Contribution', key: 'empPF' },
                             { label: 'Gross Salary', key: 'gross', isBold: true },
-                            { label: 'Employee PF', key: 'empPF' },
-                            ...(letterData?.salary?.old?.esi > 0 ? [{ label: 'Employee ESI', key: 'esi' }] : []),
-                            { label: 'Net Salary', key: 'net', isBold: true },
+                            { label: 'Employer PF Contribution', key: 'employerPF' },
                             { label: 'Gratuity', key: 'gratuity' },
                             { label: 'CTC', key: 'ctc', isBold: true, isTotal: true }
                           ].map((row, index) => (
                             <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                               <td className={`border border-gray-300 px-4 py-2 ${row.isBold ? 'font-bold' : ''}`}>{row.label}</td>
                               <td className={`border border-gray-300 px-4 py-2 text-right ${row.isBold ? 'font-bold' : ''}`}>
-                                {letterData.salary.old[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                                {letterData.salary.old[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               <td className={`border border-gray-300 px-4 py-2 text-right ${row.isBold ? 'font-bold' : ''}`}>
-                                {letterData.salary.new[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                                {letterData.salary.new[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                             </tr>
                           ))}

@@ -7,10 +7,13 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const basicDA = parseFloat(salaryData.basicDA) || 0;
   const hra = parseFloat(salaryData.hra) || 0;
   const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
-  const gratuity = parseFloat(salaryData.gratuity) || 0;
+  const gratuity = Math.round((basicDA * 15 / 26) / 12);
   
   // Standard monthly deductions (fixed from master)
-  const stdPf = parseFloat(salaryData.pf) || 0;
+  const stdTotalPF = parseFloat(salaryData.pf) || 0;
+  const employerPF = 1950;
+  const employeePF = Math.max(0, stdTotalPF - employerPF);
+
   const stdEsi = parseFloat(salaryData.esi) || 0;
   const stdTax = parseFloat(salaryData.tax) || 0;
   const stdProfessionalTax = parseFloat(salaryData.professionalTax) || 0;
@@ -31,18 +34,14 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const attendanceRatio = Math.max(0, (safeDaysInMonth - lopDays) / safeDaysInMonth);
 
   // Pro-rate standard deductions based on attendance
-  // This ensures that if earnings are 0 (full LOP), deductions are also 0
-  // UPDATE: User requirement implies deductions should NOT be pro-rated for partial LOP.
-  // Net Salary = (Gross - Std Deductions) - LOP.
   const isFullLop = attendanceRatio === 0;
   
-  const pf = isFullLop ? 0 : stdPf;
+  const pf = isFullLop ? 0 : employeePF;
   const esi = isFullLop ? 0 : stdEsi;
   const tax = isFullLop ? 0 : stdTax;
   const professionalTax = isFullLop ? 0 : stdProfessionalTax;
 
   // Loan deduction: Cap at remaining salary (Net Earnings before loan)
-  // Net Earnings before loan = (Total Earnings - LOP) - (PF + ESI + Tax + PT)
   const earningsAfterLop = Math.max(0, totalEarnings - lopDeduction);
   const otherDeductions = pf + esi + tax + professionalTax;
   const remainingForLoan = Math.max(0, earningsAfterLop - otherDeductions);
@@ -51,7 +50,9 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   // Gratuity is part of CTC but usually not deducted from monthly Net Salary (it's separate)
   const totalDeductions = pf + esi + tax + professionalTax + loanDeduction + lopDeduction;
   const netSalary = totalEarnings - totalDeductions;
-  const ctc = totalEarnings + gratuity;
+  
+  // CTC = Total Earnings + Employer PF + Gratuity
+  const ctc = totalEarnings + employerPF + gratuity;
 
   return {
     ...salaryData,
@@ -61,9 +62,10 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
     ctc,
     lop: lopDeduction,
     lopDays,
-    daysInMonth: safeDaysInMonth, // Store daysInMonth in the record for reference
-    // Return adjusted deductions so they are reflected in UI/Export
+    daysInMonth: safeDaysInMonth, 
     pf,
+    employerPF, // Return these for reference in UI/Export
+    employeePF,
     esi,
     tax,
     professionalTax,
@@ -100,8 +102,16 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
     const basicForEPF = Math.min(record.basicDA || 0, epfCeiling);
     const earnedBasicForEPF = basicForEPF * attendanceRatio;
     
-    const epsDeduction = Math.round(earnedBasicForEPF * 0.0833);
-    const epfDeduction = Math.round(earnedBasicForEPF * 0.0367);
+    // Use the calculated PF components from simulation/record
+    // Employee PF contribution (what used to be calculated as 12% sum)
+    const totalEmployeePF = record.employeePF || 0;
+    
+    // Split Employee PF into EPS and EPF for export if necessary, 
+    // but the user's specific formula is just Employee PF = Total - 1950.
+    // In many companies, the split is 8.33% and 3.67%.
+    // We'll use the record's employeePF value.
+    const epsDeduction = Math.round(totalEmployeePF * (8.33/12));
+    const epfDeduction = totalEmployeePF - epsDeduction;
     
     // Calculate ESI (assuming 0.75% of gross)
     // ESI should be on earned gross
@@ -111,11 +121,6 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
     // Calculate admin charges (assuming 0.5% of basic)
     const earnedBasic = (record.basicDA || 0) * attendanceRatio;
     const adminCharges = Math.round(earnedBasic * 0.005);
-    
-    // Calculate working days (Actual Days - LOP days)
-    // Use stored daysInMonth or calculate it
-    // const actualDays = record.daysInMonth || daysInMonth; // Already defined above
-    // const workingDays = actualDays - (record.lopDays || 0); // Already defined above
     
     // Calculate total deduction
     const totalDeduction = (record.totalDeductions || 0);
@@ -163,12 +168,10 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
     const attendanceRatio = actualDays > 0 ? Math.max(0, workingDays / actualDays) : 0;
     
     // EPF calculations
-    const epfCeiling = 15000;
-    const basicForEPF = Math.min(record.basicDA || 0, epfCeiling);
-    const earnedBasicForEPF = basicForEPF * attendanceRatio;
-    
-    acc.eps += Math.round(earnedBasicForEPF * 0.0833);
-    acc.epf += Math.round(earnedBasicForEPF * 0.0367);
+    const totalEmployeePF = record.employeePF || 0;
+    const epsVal = Math.round(totalEmployeePF * (8.33/12));
+    acc.eps += epsVal;
+    acc.epf += (totalEmployeePF - epsVal);
     
     const earnedGross = (record.totalEarnings || 0) * attendanceRatio;
     acc.esi += Math.round(earnedGross * 0.0075);

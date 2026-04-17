@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import WorkflowTracker from '../../components/Performance/WorkflowTracker';
-import { getWorkflowForUser, APPRAISAL_STAGES } from '../../utils/performanceUtils';
+import { getWorkflowForUser, APPRAISAL_STAGES, calculateSalaryAnnexure } from '../../utils/performanceUtils';
 import { performanceAPI, employeeAPI, leaveAPI, payrollAPI, attendanceAPI, promotionAPI } from '../../services/api';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -438,7 +438,7 @@ const SelfAppraisal = () => {
   const getStageFromStatus = (status) => {
     const s = String(status || 'draft').toLowerCase().trim();
     switch (s) {
-      case 'draft': 
+      case 'draft':
         return 'appraisee';
 
       case 'submitted':
@@ -461,7 +461,7 @@ const SelfAppraisal = () => {
       case 'effective':
         return 'release';
 
-      default: 
+      default:
         return 'appraisee';
     }
   };
@@ -636,7 +636,7 @@ const SelfAppraisal = () => {
     // Strongly prioritize the string employeeId over Mongo _id
     const employeeId =
       employeeInfo.employeeId || employeeInfo.empId || employeeInfo.id || '';
-      
+
     if (!fy || !employeeId) {
       setNewAppraisalAttendance({
         workingDays: 0,
@@ -725,7 +725,24 @@ const SelfAppraisal = () => {
       const id = appraisal._id || appraisal.id;
       if (!id) throw new Error("Appraisal ID not found");
       const response = await performanceAPI.getSelfAppraisalById(id);
-      setViewData(response.data);
+      let data = response.data;
+
+      // Enhance with payroll data for accurate salary display if released
+      if (['released', 'effective'].includes(data.status)) {
+        try {
+          const payrollRes = await payrollAPI.list();
+          const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+          const empId = data.employeeId || data.empId || employeeInfo.employeeId || employeeInfo.empId;
+          const payroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
+          if (payroll) {
+            data.currentGross = payroll.totalEarnings;
+          }
+        } catch (pErr) {
+          console.error("Payroll fetch error in view", pErr);
+        }
+      }
+
+      setViewData(data);
       setShowViewModal(true);
     } catch (error) {
       console.error("Failed to fetch appraisal details", error);
@@ -747,14 +764,31 @@ const SelfAppraisal = () => {
       const id = appraisal._id || appraisal.id;
       if (!id) throw new Error("Appraisal ID not found");
       const response = await performanceAPI.getSelfAppraisalById(id);
-      const statusValue = response.data?.status ?? appraisal.status;
+      let data = response.data;
+
+      // Enhance with payroll data for accurate salary display if released
+      if (['released', 'effective'].includes(data.status)) {
+        try {
+          const payrollRes = await payrollAPI.list();
+          const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+          const empId = data.employeeId || data.empId || employeeInfo.employeeId || employeeInfo.empId;
+          const payroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
+          if (payroll) {
+            data.currentGross = payroll.totalEarnings;
+          }
+        } catch (pErr) {
+          console.error("Payroll fetch error in edit", pErr);
+        }
+      }
+
+      const statusValue = data?.status ?? appraisal.status;
       setFormData({
-        division: response.data.division || 'Software',
-        ...response.data
+        division: data.division || 'Software',
+        ...data
       });
       setIsReadOnly(!isEditableStatus(statusValue));
       setViewMode('edit');
-      
+
       // Load attendance for the existing appraisal's year
       if (response.data.year) {
         loadAttendanceData(response.data.year);
@@ -798,7 +832,7 @@ const SelfAppraisal = () => {
     if (!appraisalId) return;
 
     try {
-      const payload = { 
+      const payload = {
         employeeAcceptanceStatus: newStatus,
         status: newStatus === 'ACCEPTED' ? 'effective' : 'released'
       };
@@ -855,7 +889,7 @@ const SelfAppraisal = () => {
         });
 
         const imgData = canvas.toDataURL('image/jpeg', 1.0);
-        
+
         if (i > 0) {
           pdf.addPage();
         }
@@ -885,7 +919,7 @@ const SelfAppraisal = () => {
       const id = partialAppraisal._id || partialAppraisal.id;
       const appraisalRes = await performanceAPI.getSelfAppraisalById(id);
       const appraisal = appraisalRes.data;
-      
+
       let employeeDetails = {};
 
       try {
@@ -951,9 +985,6 @@ const SelfAppraisal = () => {
       const hasOldSnapshot = hasSnapshotValues(snapshotOld);
       const hasNewSnapshot = hasSnapshotValues(snapshotNew);
 
-      let salaryOld;
-
-
       const baseCtc = Number(appraisal.currentSalary || appraisal.salary || appraisal.releaseSalarySnapshot?.ctc || appraisal.currentSalarySnapshot || employeeDetails.ctc || 0);
       const totalPct = Number(appraisal.incrementPercentage || 0) + Number(appraisal.incrementCorrectionPercentage || 0);
       let revisedCtc = Number(appraisal.releaseRevisedSnapshot?.ctc || appraisal.revisedSalary || 0);
@@ -965,80 +996,50 @@ const SelfAppraisal = () => {
       // Guarantee revised is not less than current
       if (revisedCtc < baseCtc) revisedCtc = baseCtc;
 
-      // 1. Initial Salary Breakdown (Current)
-      salaryOld = {
-        basic: Math.round(baseCtc * 0.5),
-        hra: Math.round(baseCtc * 0.2),
-        special: Math.round(baseCtc * 0.25),
-        gross: Math.round(baseCtc * 0.95),
-        empPF: Math.round(baseCtc * 0.5 * 0.12),
-        employerPF: Math.round(baseCtc * 0.5 * 0.12),
-        net: Math.round(baseCtc * 0.8),
-        gratuity: Math.round(baseCtc * 0.05),
-        ctc: baseCtc
-      };
+      let salaryOld = { basic: 0, hra: 0, special: 0, net: 0, empPF: 0, gross: 0, employerPF: 0, gratuity: 0, ctc: 0 };
+      try {
+        if (employeeIdValue) {
+          const payrollRes = await payrollAPI.list();
+          const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+          const employeePayroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(employeeIdValue).toLowerCase());
 
-      // Try to use DB snapshot if exists and is full
-      const snapOld = appraisal.releaseSalarySnapshot || {};
-      if (snapOld.basic && snapOld.basic > 0) {
-        salaryOld = { ...snapOld, ctc: baseCtc };
-      } else {
-        // Fallback: try to fetch from payroll if no snapshot
-        try {
-          if (employeeIdValue) {
-            const payrollRes = await payrollAPI.list();
-            const record = (payrollRes.data || []).find(p => String(p.employeeId || '').toLowerCase() === String(employeeIdValue).toLowerCase());
-            if (record && Number(record.basicDA || 0) > 0) {
-              const rBasic = Number(record.basicDA || 0);
-              const rCtc = rBasic + Number(record.hra || 0) + Number(record.specialAllowance || 0) + Number(record.gratuity || 0);
-              const norm = (rCtc > 0 && baseCtc > 0) ? (baseCtc / rCtc) : 1;
-              salaryOld = {
-                basic: Math.round(rBasic * norm),
-                hra: Math.round(Number(record.hra || 0) * norm),
-                special: Math.round(Number(record.specialAllowance || 0) * norm),
-                gross: Math.round((rBasic + Number(record.hra || 0) + Number(record.specialAllowance || 0)) * norm),
-                empPF: Number(record.pf || Math.round(rBasic * 0.12 * norm)),
-                employerPF: Number(record.employerPF || record.pf || Math.round(rBasic * 0.12 * norm)),
-                net: Number(record.netSalary || ((rBasic + Number(record.hra || 0) + Number(record.specialAllowance || 0) - (record.pf || 0)) * norm)),
-                gratuity: Math.round(Number(record.gratuity || 0) * norm),
-                ctc: baseCtc
-              };
-            }
+          if (employeePayroll) {
+            salaryOld = {
+              basic: Math.round(employeePayroll.basicDA || 0),
+              hra: Math.round(employeePayroll.hra || 0),
+              special: Math.round(employeePayroll.specialAllowance || 0),
+              gross: Math.round(employeePayroll.totalEarnings || 0),
+              net: Math.round(employeePayroll.netSalary || 0),
+              empPF: Math.max(0, Math.round((employeePayroll.pf || 0) - 1950)),
+              employerPF: 1950,
+              gratuity: Math.round(employeePayroll.gratuity || 0),
+              ctc: Math.round(employeePayroll.ctc || 0)
+            };
+          } else {
+            salaryOld = calculateSalaryAnnexure(baseCtc);
           }
-        } catch (e) {}
+        } else {
+          salaryOld = calculateSalaryAnnexure(baseCtc);
+        }
+      } catch (err) {
+        console.error("Salary prep error:", err);
+        salaryOld = calculateSalaryAnnexure(baseCtc);
       }
-
-      // 2. Revised Salary Breakdown
-      let salaryNew = { ...salaryOld, ctc: revisedCtc };
-      const snapNew = appraisal.releaseRevisedSnapshot || {};
       
-      if (snapNew.basic && snapNew.basic > 0) {
-        salaryNew = { ...snapNew, ctc: revisedCtc };
-      } else {
-        const factor = (baseCtc > 0) ? (revisedCtc / baseCtc) : 1;
-        salaryNew = {
-          basic: Math.round(salaryOld.basic * factor),
-          hra: Math.round(salaryOld.hra * factor),
-          special: Math.round(salaryOld.special * factor),
-          gross: Math.round(salaryOld.gross * factor),
-          empPF: salaryOld.empPF, // typically doesn't change until next cycle or is derived
-          employerPF: salaryOld.employerPF,
-          net: Math.round(salaryOld.net * factor),
-          gratuity: Math.round(salaryOld.gratuity * factor),
-          ctc: revisedCtc
-        };
-      }
+      const incrementBase = salaryOld.gross || baseCtc;
+      const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
+      const salaryNew = calculateSalaryAnnexure(targetRevisedGross);
 
       const incrementAmount = Math.max(0, revisedCtc - baseCtc);
 
       const data = {
         date: letterDate,
         employeeName: employeeDetails.name || employeeDetails.fullName || employeeInfo.name,
-        employeeId: employeeDetails.employeeId || employeeDetails.empId || employeeInfo.employeeId || 'EMP-001',
+        employeeId: employeeIdValue || 'EMP-001',
         designation: employeeDetails.designation || employeeDetails.role || employeeInfo.designation,
         location: employeeDetails.location || employeeDetails.branch || employeeInfo.location || 'Chennai',
         financialYear: financialYear,
-        effectiveDate: appraisal.effectiveDate ? formatDisplayDate(appraisal.effectiveDate) : (appraisal.promotionEffectiveDate ? formatDisplayDate(appraisal.promotionEffectiveDate) : '1st April 2026'),
+        effectiveDate: '1st April 2026',
         performanceRating: (appraisal.managerReview?.performanceRating || appraisal.appraiserRating || ''),
         incrementPercentage: totalPct,
         incrementAmount,
@@ -1287,7 +1288,7 @@ const SelfAppraisal = () => {
 
     try {
       setIsSubmitting(true);
-      
+
       if (action === 'Submit') {
         const missingFields = [];
 
@@ -1360,9 +1361,9 @@ const SelfAppraisal = () => {
     const openFyExisting = appraisals.find((a) => String(a.year || '').trim() === String(openFy).trim());
     const isOpenFyLocked = Boolean(openFyExisting && !isEditableStatus(openFyExisting.status));
 
-    const activePromotion = appraisals.find(a => 
-      (String(a.status || '').toLowerCase().includes('released')) && 
-      a.promotion?.recommended && 
+    const activePromotion = appraisals.find(a =>
+      (String(a.status || '').toLowerCase().includes('released')) &&
+      a.promotion?.recommended &&
       (!a.employeeAcceptanceStatus || a.employeeAcceptanceStatus === 'PENDING')
     );
 
@@ -1434,7 +1435,7 @@ const SelfAppraisal = () => {
                     const status = (appraisal.status || 'draft').toLowerCase();
                     const isDraft = status === 'draft';
                     const isReleased = ['released', 'effective'].includes(status);
-                    
+
                     return (
                       <tr key={appraisal._id || appraisal.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
@@ -1447,9 +1448,9 @@ const SelfAppraisal = () => {
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
                             ${status === 'directorpushedback' ? 'bg-red-100 text-red-800' :
                               isReleased ? 'bg-green-100 text-green-800' :
-                              status === 'submitted' ? 'bg-blue-100 text-blue-800' :
-                              isDraft ? 'bg-gray-100 text-gray-800' :
-                              'bg-indigo-100 text-indigo-800'}`}>
+                                status === 'submitted' ? 'bg-blue-100 text-blue-800' :
+                                  isDraft ? 'bg-gray-100 text-gray-800' :
+                                    'bg-indigo-100 text-indigo-800'}`}>
                             {getStatusLabel(appraisal.status)}
                           </span>
                         </td>
@@ -1724,7 +1725,7 @@ const SelfAppraisal = () => {
                       <div className="bg-white p-4 rounded-lg border border-green-100 shadow-sm">
                         <p className="text-sm font-medium text-gray-500 mb-1">Revised Salary</p>
                         <p className="text-xl font-bold text-[#262760]">
-                          ₹{(viewData.revisedSalary || 0).toLocaleString()}
+                          ₹{(calculateSalaryAnnexure((viewData.currentGross || (viewData.revisedSalary - viewData.incrementAmount)) * (1 + ((viewData.incrementPercentage || 0) + (viewData.incrementCorrectionPercentage || 0)) / 100)).ctc || viewData.revisedSalary || 0).toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -1771,7 +1772,7 @@ const SelfAppraisal = () => {
                         const selfVal = viewData.behaviourBased?.[attr.key] || 0;
                         const mgrVal = viewData.behaviourManagerRatings?.[attr.key] || viewData[`behaviour${attr.key.charAt(0).toUpperCase() + attr.key.slice(1)}Manager`] || 0;
                         if (!isEnabled && selfVal === 0 && mgrVal === 0) return null;
-                        
+
                         const isReleased = ['released', 'accepted', 'effective', 'completed'].includes(String(viewData.status || '').toLowerCase());
 
                         return (
@@ -2237,14 +2238,18 @@ const SelfAppraisal = () => {
                         </div>
                       </div>
 
-                      <div className="mb-3">
-                        <p className="text-[14px] leading-6">
-                          Revised compensation details with effect from <span className="font-semibold">{letterData.effectiveDate}</span>,
-                        </p>
-                      </div>
-
                       <div className="mb-4 text-center">
                         <div className="font-bold text-xl underline decoration-1 underline-offset-4">ANNEXURE - SALARY REVISION DETAILS</div>
+                      </div>
+
+                      <div className="mb-4">
+                        <p className="text-[14px] leading-6 mb-4">
+                          Name: <span className="font-bold text-black uppercase">{letterData.employeeName}</span><br />
+                          Employee ID: <span className="font-bold text-black uppercase">{letterData.employeeId}</span>
+                        </p>
+                        <p className="text-[14px] leading-6 mb-4">
+                          Revised compensation details with effect from <span className="font-bold">{letterData.effectiveDate}</span>:
+                        </p>
                       </div>
 
                       {/* Salary Table */}
@@ -2262,19 +2267,20 @@ const SelfAppraisal = () => {
                               { label: 'Basic Salary', key: 'basic' },
                               { label: 'HRA', key: 'hra' },
                               { label: 'Special Allowance', key: 'special' },
+                              { label: 'Net Salary (Take Home)', key: 'net', isBold: true },
+                              { label: 'Employee PF Contribution', key: 'empPF' },
                               { label: 'Gross Salary', key: 'gross', isBold: true },
-                              { label: 'Employee PF', key: 'empPF' },
-                              { label: 'Net Salary', key: 'net', isBold: true },
+                              { label: 'Employer PF Contribution', key: 'employerPF' },
                               { label: 'Gratuity', key: 'gratuity' },
                               { label: 'CTC', key: 'ctc', isBold: true, isTotal: true }
                             ].map((row, index) => (
                               <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
                                 <td className={`border border-gray-300 px-4 py-2 ${row.isBold ? 'font-bold' : ''}`}>{row.label}</td>
                                 <td className={`border border-gray-300 px-4 py-2 text-right ${row.isBold ? 'font-bold' : ''}`}>
-                                  {letterData.salary.old[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                                  {letterData.salary.old[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </td>
                                 <td className={`border border-gray-300 px-4 py-2 text-right ${row.isBold ? 'font-bold' : ''}`}>
-                                  {letterData.salary.new[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                                  {letterData.salary.new[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </td>
                               </tr>
                             ))}
@@ -2450,11 +2456,11 @@ const SelfAppraisal = () => {
               FY {formData.year || formData.financialYear || newAppraisalYear}
             </span>
           </div>
-          
+
           {newAppraisalAttendance.loading ? (
-             <div className="flex items-center justify-center p-4">
-               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-             </div>
+            <div className="flex items-center justify-center p-4">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-green-50 rounded-lg p-4 border border-green-100 flex items-center">
@@ -2466,7 +2472,7 @@ const SelfAppraisal = () => {
                   <p className="text-2xl font-bold text-green-700">{newAppraisalAttendance.presentDays}</p>
                 </div>
               </div>
-              
+
               <div className="bg-red-50 rounded-lg p-4 border border-red-100 flex items-center">
                 <div className="bg-red-100 p-3 rounded-lg mr-4">
                   <XCircle className="h-6 w-6 text-red-600" />
@@ -2476,7 +2482,7 @@ const SelfAppraisal = () => {
                   <p className="text-2xl font-bold text-red-700">{newAppraisalAttendance.absentDays}</p>
                 </div>
               </div>
-              
+
               <div className="bg-[#262760]/5 rounded-lg p-4 border border-[#262760]/10 flex items-center">
                 <div className="bg-[#262760]/10 p-3 rounded-lg mr-4">
                   <Trophy className="h-6 w-6 text-[#262760]" />
@@ -2489,14 +2495,14 @@ const SelfAppraisal = () => {
             </div>
           )}
         </div>
-        
+
         {/* Increment Summary - Only shown if released */}
         {['released', 'effective'].includes(formData.status) && (
           <div className="mt-6 bg-emerald-50 rounded-xl shadow-sm border border-emerald-200 p-6 overflow-hidden relative">
-             <div className="absolute top-0 right-0 p-4 opacity-10">
-                <TrendingUp className="h-24 w-24 text-emerald-600" />
-             </div>
-             <h2 className="text-xl font-bold text-emerald-900 flex items-center mb-6 relative z-10">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+              <TrendingUp className="h-24 w-24 text-emerald-600" />
+            </div>
+            <h2 className="text-xl font-bold text-emerald-900 flex items-center mb-6 relative z-10">
               <TrendingUp className="h-6 w-6 mr-2 text-emerald-600" />
               Increment Summary
             </h2>
@@ -2507,7 +2513,7 @@ const SelfAppraisal = () => {
                   ₹ {(Number(formData.currentSalary || 0)).toLocaleString('en-IN')}
                 </p>
               </div>
-              
+
               <div className="bg-white rounded-lg p-5 border border-emerald-100 shadow-sm transition-all hover:shadow-md">
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Increment %</p>
                 <div className="flex items-baseline">
@@ -2521,11 +2527,11 @@ const SelfAppraisal = () => {
                   )}
                 </div>
               </div>
-              
+
               <div className="bg-white rounded-lg p-5 border border-emerald-100 shadow-sm transition-all hover:shadow-md border-l-4 border-l-[#262760]">
                 <p className="text-xs font-bold text-[#262760] uppercase tracking-wider mb-2">Revised Salary</p>
                 <p className="text-2xl font-black text-[#262760]">
-                  ₹ {(Number(formData.revisedSalary || 0)).toLocaleString('en-IN')}
+                  ₹ {(calculateSalaryAnnexure((formData.currentGross || (formData.revisedSalary - (formData.incrementAmount || 0))) * (1 + ((formData.incrementPercentage || 0) + (formData.incrementCorrectionPercentage || 0)) / 100)).ctc || Number(formData.revisedSalary || 0)).toLocaleString('en-IN')}
                 </p>
               </div>
             </div>
@@ -2867,7 +2873,7 @@ const SelfAppraisal = () => {
         maxWidth="max-w-2xl"
       >
         <div className="space-y-6">
-          
+
 
 
 

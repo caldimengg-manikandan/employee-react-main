@@ -174,7 +174,7 @@ const SelfAppraisalSchema = new mongoose.Schema({
   releaseLetter: {
     type: String
   },
-  
+
   // Refined Workflow Metadata
   workflow: {
     submittedAt: Date,
@@ -228,7 +228,7 @@ const SelfAppraisalSchema = new mongoose.Schema({
   },
 
   effectiveDate: { type: Date }, // Overall effective date for payroll changes
-  
+
   payrollProcessed: {
     type: Boolean,
     default: false

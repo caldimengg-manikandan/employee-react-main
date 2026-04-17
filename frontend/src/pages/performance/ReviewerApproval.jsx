@@ -29,7 +29,8 @@ import {
   Download,
   FileSpreadsheet
 } from 'lucide-react';
-import { performanceAPI, employeeAPI, promotionAPI } from '../../services/api';
+import { APPRAISAL_STAGES, calculateSalaryAnnexure, calculateIncrement } from '../../utils/performanceUtils';
+import { performanceAPI, employeeAPI, promotionAPI, payrollAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -339,8 +340,19 @@ const ReviewerApproval = () => {
     try {
       const response = await performanceAPI.getReviewerAppraisals({ tab });
       const raw = response.data || [];
+
+      // Fetch payroll data for currentGross lookup
+      const payrollRes = await payrollAPI.list();
+      const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+
       const enhanced = await Promise.all(raw.map(async emp => {
-        const current = Number(emp.currentSalary || 0);
+        const empId = emp.employeeId || emp.empId;
+        const payroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
+        const currentGross = payroll ? Number(payroll.totalEarnings || 0) : (Number(emp.currentSalary || 0) - 1114);
+        
+        // Store currentGross for later use in edits
+        emp.currentGross = currentGross;
+
         let pct = 0;
         const correctionPct = Number(emp.incrementCorrectionPercentage || 0);
         const rating = (emp.managerReview?.performanceRating || emp.appraiserRating || '').split(' ')[0];
@@ -361,7 +373,7 @@ const ReviewerApproval = () => {
         }
 
         const { incrementAmount, revisedSalary } = calculateFinancials(
-          current,
+          currentGross,
           pct,
           correctionPct
         );
@@ -387,20 +399,21 @@ const ReviewerApproval = () => {
     }
   };
 
-
-  const calculateFinancials = (current, pct, correctionPct) => {
-    const currentVal = parseFloat(current) || 0;
+  const calculateFinancials = (currentGross, pct, correctionPct) => {
+    const grossVal = parseFloat(currentGross) || 0;
     const pctVal = parseFloat(pct) || 0;
     const correctionPctVal = parseFloat(correctionPct) || 0;
 
-    // Total percentage = Base Increment % + Correction %
     const totalPct = pctVal + correctionPctVal;
-    const amount = Math.round((currentVal * totalPct) / 100);
-    const revised = Math.round(currentVal + amount);
+    const targetRevisedGross = Math.round(grossVal * (1 + totalPct / 100));
+    const incrementAmount = targetRevisedGross - grossVal;
+    
+    // Use shared calculation logic for Revised CTC
+    const salaries = calculateSalaryAnnexure(targetRevisedGross);
 
     return {
-      incrementAmount: amount,
-      revisedSalary: revised
+      incrementAmount,
+      revisedSalary: salaries.ctc
     };
   };
 
@@ -537,7 +550,7 @@ const ReviewerApproval = () => {
 
     if (field === 'incrementPercentage' || field === 'incrementCorrectionPercentage') {
       const { incrementAmount, revisedSalary } = calculateFinancials(
-        newData.currentSalary,
+        newData.currentGross || (newData.currentSalary - 1114),
         newData.incrementPercentage || 0,
         newData.incrementCorrectionPercentage || 0
       );
@@ -587,7 +600,7 @@ const ReviewerApproval = () => {
     let newData = { ...data };
     // Update Financials with current increment % and correction %
     const { incrementAmount, revisedSalary } = calculateFinancials(
-      newData.currentSalary,
+      newData.currentGross || (newData.currentSalary - 1114),
       newData.incrementPercentage,
       newData.incrementCorrectionPercentage || 0
     );

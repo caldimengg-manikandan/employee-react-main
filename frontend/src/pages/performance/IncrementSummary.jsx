@@ -2,20 +2,21 @@ import React, { useState, useMemo, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import autoTable from 'jspdf-autotable';
-import { 
-  IndianRupee, 
-  Filter, 
-  Search, 
-  Download, 
-  Users, 
-  TrendingUp, 
-  Briefcase, 
+import {
+  IndianRupee,
+  Filter,
+  Search,
+  Download,
+  Users,
+  TrendingUp,
+  Briefcase,
   MapPin,
   Calendar,
   X,
   CheckCircle
 } from 'lucide-react';
-import { performanceAPI, employeeAPI } from '../../services/api';
+import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
+import { calculateSalaryAnnexure } from '../../utils/performanceUtils';
 import balaSignature from '../../bala signature.png';
 import uvarajSignature from '../../uvaraj signature.png';
 
@@ -66,8 +67,13 @@ const IncrementSummary = () => {
 
   const mapStatus = (status) => {
     if (!status) return 'Pending';
-    if (status === 'DIRECTOR_APPROVED') return 'Approved';
-    if (status === 'Released' || status === 'RELEASED') return 'Released';
+    const s = String(status).toLowerCase().trim();
+    // Released / Accepted / Effective — all post-release states
+    if (['released', 'released letter', 'accepted_pending_effect',
+      'accepted', 'effective', 'completed'].includes(s)) return 'Released';
+    // Director-approved but not yet released
+    if (['directorapproved', 'director_approved'].includes(s)) return 'Approved';
+    // Everything else is in-progress / pending
     return 'Pending';
   };
 
@@ -95,22 +101,38 @@ const IncrementSummary = () => {
         setLoading(true);
         setError('');
 
-        const [summaryRes, employeesRes] = await Promise.all([
+        const [summaryRes, employeesRes, payrollRes] = await Promise.all([
           performanceAPI.getIncrementSummary(appliedFilters),
-          employeeAPI.getAllEmployees()
+          employeeAPI.getAllEmployees(),
+          payrollAPI.list()
         ]);
 
         const data = Array.isArray(summaryRes.data) ? summaryRes.data : [];
+        const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+
         const mapped = data.map((item) => {
           const status = mapStatus(item.status);
-          
+
+          const empId = item.employeeId || item.empId;
+          const payroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
+          const currentGross = payroll ? Number(payroll.totalEarnings || 0) : (Number(item.currentSalary || 0) - 1114);
+
+          const totalPct = Number(
+            item.totalIncrementPercentage ??
+            ((item.incrementPercentage || 0) + (item.incrementCorrectionPercentage || 0))
+          );
+
+          // Calculate consistent Revised CTC
+          const targetRevisedGross = Math.round(currentGross * (1 + totalPct / 100));
+          const salaries = calculateSalaryAnnexure(targetRevisedGross);
+
           // Normalize financial year to YYYY-YYYY format if it is YYYY-YY (e.g. 2025-26 -> 2025-2026)
           let fYear = item.financialYr || item.financialYear || '';
           if (fYear && fYear.length === 7 && fYear.indexOf('-') === 4) {
-             const parts = fYear.split('-');
-             if (parts[1].length === 2) {
-               fYear = `${parts[0]}-20${parts[1]}`;
-             }
+            const parts = fYear.split('-');
+            if (parts[1].length === 2) {
+              fYear = `${parts[0]}-20${parts[1]}`;
+            }
           }
 
           return {
@@ -121,17 +143,17 @@ const IncrementSummary = () => {
             division: item.division || '',
             location: item.location || '',
             currentSalary: Number(item.currentSalary || 0),
-            revisedSalary: Number(item.revisedSalary || 0),
-            incrementAmount: Number(item.incrementAmount || 0),
-            incrementPercentage: Number(item.incrementPercentage || 0),
+            currentGross, // Store for letter generation
+            revisedSalary: salaries.ctc,
+            incrementAmount: salaries.ctc - Number(item.currentSalary || 0),
+            incrementPercentage: totalPct,
             financialYear: item.financialYr || item.financialYear || item.year || '',
             status,
-            effectiveDate: deriveEffectiveDate(item.financialYr || item.financialYear || item.year, item.updatedAt)
+            effectiveDate: item.effectiveDate
+              ? new Date(item.effectiveDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+              : deriveEffectiveDate(item.financialYr || item.financialYear || item.year, item.updatedAt)
           };
         });
-        // Backend already filters by status if provided, but we can keep client filter or rely on backend.
-        // Current backend defaults to Approved/Released if no status provided.
-        // So 'mapped' should be correct.
 
         const employeesData = Array.isArray(employeesRes.data) ? employeesRes.data : [];
 
@@ -145,7 +167,7 @@ const IncrementSummary = () => {
       }
     };
     load();
-  }, []);
+  }, [appliedFilters]);
 
   const financialYears = useMemo(() => {
     const list = getFinancialYearOptions();
@@ -187,7 +209,6 @@ const IncrementSummary = () => {
     try {
       setLoading(true);
       setError('');
-      setAppliedFilters(filters);
 
       const params = {
         financialYear: filters.financialYear,
@@ -203,14 +224,11 @@ const IncrementSummary = () => {
 
       const mapped = data.map((item) => {
         const mappedStatus = mapStatus(item.status);
-        
-        // Normalize financial year to YYYY-YYYY format if it is YYYY-YY (e.g. 2025-26 -> 2025-2026)
+
         let fYear = item.financialYr || item.financialYear || '';
         if (fYear && fYear.length === 7 && fYear.indexOf('-') === 4) {
-           const parts = fYear.split('-');
-           if (parts[1].length === 2) {
-             fYear = `${parts[0]}-20${parts[1]}`;
-           }
+          const parts = fYear.split('-');
+          if (parts[1].length === 2) fYear = `${parts[0]}-20${parts[1]}`;
         }
 
         return {
@@ -223,14 +241,21 @@ const IncrementSummary = () => {
           currentSalary: Number(item.currentSalary || 0),
           revisedSalary: Number(item.revisedSalary || 0),
           incrementAmount: Number(item.incrementAmount || 0),
-          incrementPercentage: Number(item.incrementPercentage || 0),
+          incrementPercentage: Number(
+            item.totalIncrementPercentage ??
+            ((item.incrementPercentage || 0) + (item.incrementCorrectionPercentage || 0))
+          ),
           financialYear: fYear,
           status: mappedStatus,
-          effectiveDate: deriveEffectiveDate(item.financialYr || item.financialYear, item.updatedAt),
+          effectiveDate: item.effectiveDate
+            ? new Date(item.effectiveDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
+            : deriveEffectiveDate(item.financialYr || item.financialYear, item.updatedAt),
         };
       });
 
+      // Update records first, THEN sync appliedFilters (prevents double useEffect fetch)
       setRecords(mapped);
+      setAppliedFilters(filters);
     } catch (e) {
       console.error('Failed to simulate increment summary', e);
       setError('Failed to simulate increment summary records');
@@ -292,39 +317,56 @@ const IncrementSummary = () => {
         employeeDetails = { ...row };
       }
 
-      const current = Number(row.currentSalary || 0);
-      const revised = Number(row.revisedSalary || 0);
+      const currentSnapshot = Number(row.currentSalary || 0);
+
+      let salaryOld = { basic: 0, hra: 0, special: 0, net: 0, empPF: 0, gross: 0, employerPF: 0, gratuity: 0, ctc: 0 };
+      let salaryNew = { basic: 0, hra: 0, special: 0, net: 0, empPF: 0, gross: 0, employerPF: 0, gratuity: 0, ctc: 0 };
+
+      try {
+        const empId = employeeDetails.employeeId || employeeDetails.empId || row.empId;
+        if (empId) {
+          const payrollRes = await payrollAPI.list();
+          const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+          const employeePayroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
+
+          if (employeePayroll) {
+            salaryOld = {
+              basic: Math.round(employeePayroll.basicDA || 0),
+              hra: Math.round(employeePayroll.hra || 0),
+              special: Math.round(employeePayroll.specialAllowance || 0),
+              gross: Math.round(employeePayroll.totalEarnings || 0),
+              net: Math.round(employeePayroll.netSalary || 0),
+              empPF: Math.max(0, Math.round((employeePayroll.pf || 0) - 1950)),
+              employerPF: 1950,
+              gratuity: Math.round(employeePayroll.gratuity || 0),
+              ctc: Math.round(employeePayroll.ctc || 0)
+            };
+          } else {
+            salaryOld = calculateSalaryAnnexure(currentSnapshot);
+          }
+        } else {
+          salaryOld = calculateSalaryAnnexure(currentSnapshot);
+        }
+      } catch (err) {
+        console.error("Salary prep error:", err);
+        salaryOld = calculateSalaryAnnexure(currentSnapshot);
+      }
+      
+      const incrementBase = salaryOld.gross || currentSnapshot;
+      const targetRevisedGross = Math.round(incrementBase * (1 + (row.incrementPercentage || 0) / 100));
+      salaryNew = calculateSalaryAnnexure(targetRevisedGross);
+
 
       const data = {
-        date: row.effectiveDate || '',
+        date: row.effectiveDate || formatDisplayDate(new Date()),
         employeeName: employeeDetails.name || employeeDetails.fullName || row.name,
         employeeId: employeeDetails.employeeId || employeeDetails.empId || row.empId || 'EMP-001',
         designation: employeeDetails.designation || employeeDetails.role || row.designation,
         location: employeeDetails.location || employeeDetails.branch || 'Chennai',
         effectiveDate: row.effectiveDate || '',
         salary: {
-          old: {
-            basic: 0,
-            hra: 0,
-            special: 0,
-            gross: current,
-            empPF: 0,
-            employerPF: 0,
-            net: current,
-            gratuity: 0,
-            ctc: current
-          },
-          new: {
-            basic: 0,
-            hra: 0,
-            special: 0,
-            gross: revised,
-            empPF: 0,
-            employerPF: 0,
-            net: revised,
-            gratuity: 0,
-            ctc: revised
-          }
+          old: salaryOld,
+          new: salaryNew
         }
       };
 
@@ -404,19 +446,15 @@ const IncrementSummary = () => {
   const stats = useMemo(() => {
     const totalEmployees = filteredData.length;
     const totalIncrementAmount = filteredData.reduce((sum, item) => sum + item.incrementAmount, 0);
-    const avgIncrementPct = totalEmployees > 0 
-      ? (filteredData.reduce((sum, item) => sum + item.incrementPercentage, 0) / totalEmployees).toFixed(2) 
-      : 0;
-    
-    return {
-      totalEmployees,
-      totalIncrementAmount,
-      avgIncrementPct
-    };
+    const sumPct = filteredData.reduce((sum, item) => sum + item.incrementPercentage, 0);
+    const totalIncrementPct = sumPct.toFixed(2);
+    const avgIncrementPct = totalEmployees > 0 ? (sumPct / totalEmployees).toFixed(2) : '0.00';
+
+    return { totalEmployees, totalIncrementAmount, totalIncrementPct, avgIncrementPct };
   }, [filteredData]);
 
   const getStatusColor = (status) => {
-    switch(status) {
+    switch (status) {
       case 'Released': return 'bg-green-100 text-green-800';
       case 'Approved': return 'bg-blue-100 text-blue-800';
       case 'Pending': return 'bg-yellow-100 text-yellow-800';
@@ -504,16 +542,15 @@ const IncrementSummary = () => {
         <div className="max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
-              
+
             </div>
             <div className="flex items-center space-x-3">
-              <button 
+              <button
                 onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-colors ${
-                  isFilterOpen 
-                    ? 'bg-indigo-50 border-[#262760] text-[#262760]' 
-                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
-                }`}
+                className={`flex items-center px-4 py-2 border rounded-md text-sm font-medium transition-colors ${isFilterOpen
+                  ? 'bg-indigo-50 border-[#262760] text-[#262760]'
+                  : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Filters
@@ -543,7 +580,7 @@ const IncrementSummary = () => {
 
       {/* Main Content */}
       <div className="max-w-[98%] mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
-        
+
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
@@ -555,7 +592,7 @@ const IncrementSummary = () => {
               <h3 className="text-2xl font-bold text-gray-900">{stats.totalEmployees}</h3>
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex items-center">
             <div className="p-3 bg-green-50 rounded-full mr-4">
               <IndianRupee className="h-8 w-8 text-green-600" />
@@ -580,7 +617,7 @@ const IncrementSummary = () => {
         {/* Filters Panel */}
         {isFilterOpen && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-in fade-in slide-in-from-top-2">
-          <div className="flex justify-between items-center mb-4">
+            <div className="flex justify-between items-center mb-4">
               <h3 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Filter Records</h3>
               <div className="flex items-center gap-3">
                 <button
@@ -678,7 +715,6 @@ const IncrementSummary = () => {
                   <th className="px-6 py-4 text-center text-xs font-medium text-white uppercase tracking-wider">Increment %</th>
                   <th className="px-6 py-4 text-center text-xs font-medium text-white uppercase tracking-wider">Effective Date</th>
                   <th className="px-6 py-4 text-center text-xs font-medium text-white uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-center text-xs font-medium text-white uppercase tracking-wider">Release Letter</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -692,13 +728,13 @@ const IncrementSummary = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{row.division}</td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 text-right">
-                        ₹{row.currentSalary.toLocaleString()}
+                        ₹{row.currentSalary.toLocaleString('en-IN')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-[#262760] text-right">
-                        ₹{row.revisedSalary.toLocaleString()}
+                        ₹{row.revisedSalary.toLocaleString('en-IN')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-green-600 text-right">
-                        +₹{row.incrementAmount.toLocaleString()}
+                        +₹{row.incrementAmount.toLocaleString('en-IN')}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-center">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
@@ -711,32 +747,19 @@ const IncrementSummary = () => {
                           {row.status}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                        {row.status === 'Approved' || row.status === 'Released' ? (
-                          <button
-                            onClick={() => handleDownloadLetter(row)}
-                            className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            Download
-                          </button>
-                        ) : (
-                          <span className="text-gray-400 text-xs italic">Pending Release</span>
-                        )}
-                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="10" className="px-6 py-10 text-center text-gray-500">
-                      No records found matching the selected filters.
+                    <td colSpan="9" className="px-6 py-10 text-center text-gray-500">
+                      No records <span className="text-red-500 font-medium">found</span> matching the selected filters.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          
+
           {/* Footer / Pagination (Mock) */}
           <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
             <span className="text-sm text-gray-500">Showing {filteredData.length} records</span>
@@ -872,24 +895,24 @@ const IncrementSummary = () => {
                         <div className="mb-2 text-sm text-gray-700">For CALDIM ENGINEERING PRIVATE LIMITED</div>
                         <div className="mt-8 flex flex-col items-end min-h-[80px]">
                           {letterData.location && letterData.location.toLowerCase().includes('hosur') && (
-                            <img 
-                              src={balaSignature} 
-                              alt="Authorized Signatory" 
-                              className="h-16 mb-2 object-contain" 
+                            <img
+                              src={balaSignature}
+                              alt="Authorized Signatory"
+                              className="h-16 mb-2 object-contain"
                               crossOrigin="anonymous"
                             />
                           )}
                           {letterData.location && letterData.location.toLowerCase().includes('chennai') && (
-                            <img 
-                              src={uvarajSignature} 
-                              alt="Authorized Signatory" 
-                              className="h-16 mb-2 object-contain" 
+                            <img
+                              src={uvarajSignature}
+                              alt="Authorized Signatory"
+                              className="h-16 mb-2 object-contain"
                               crossOrigin="anonymous"
                             />
                           )}
                           {/* Spacer if no signature matches to maintain layout */}
                           {(!letterData.location || (!letterData.location.toLowerCase().includes('hosur') && !letterData.location.toLowerCase().includes('chennai'))) && (
-                              <div className="h-16 mb-2"></div>
+                            <div className="h-16 mb-2"></div>
                           )}
                           <div className="font-bold">Authorized Signatory</div>
                         </div>
@@ -962,30 +985,30 @@ const IncrementSummary = () => {
                       <table className="min-w-full border border-gray-300 text-sm">
                         <thead>
                           <tr className="bg-gray-100">
-                            <th className="border border-gray-300 px-3 py-2 text-left">Component</th>
-                            <th className="border border-gray-300 px-3 py-2 text-right">Existing (₹)</th>
-                            <th className="border border-gray-300 px-3 py-2 text-right">Revised (₹)</th>
+                            <th className="border border-gray-300 px-3 py-2 text-left">Salary Component</th>
+                            <th className="border border-gray-300 px-3 py-2 text-right">Current (Monthly)</th>
+                            <th className="border border-gray-300 px-3 py-2 text-right">Revised (Monthly)</th>
                           </tr>
                         </thead>
                         <tbody>
                           {[
-                            { key: 'basic', label: 'Basic + DA' },
-                            { key: 'hra', label: 'House Rent Allowance' },
+                            { key: 'basic', label: 'Basic Salary' },
+                            { key: 'hra', label: 'HRA' },
                             { key: 'special', label: 'Special Allowance' },
-                            { key: 'gross', label: 'Gross Salary' },
+                            { key: 'net', label: 'Net Salary (Take Home)' },
                             { key: 'empPF', label: 'Employee PF Contribution' },
+                            { key: 'gross', label: 'Gross Salary' },
                             { key: 'employerPF', label: 'Employer PF Contribution' },
-                            { key: 'net', label: 'Net Take Home' },
                             { key: 'gratuity', label: 'Gratuity' },
-                            { key: 'ctc', label: 'Cost to Company (CTC)' },
+                            { key: 'ctc', label: 'CTC' },
                           ].map((row) => (
                             <tr key={row.key}>
                               <td className="border border-gray-300 px-3 py-2">{row.label}</td>
                               <td className="border border-gray-300 px-3 py-2 text-right">
-                                {letterData.salary.old[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                                {letterData.salary.old[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                               <td className="border border-gray-300 px-3 py-2 text-right">
-                                {letterData.salary.new[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}
+                                {letterData.salary.new[row.key]?.toLocaleString('en-IN', { style: 'currency', currency: 'INR', minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </td>
                             </tr>
                           ))}

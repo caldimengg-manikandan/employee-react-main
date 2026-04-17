@@ -23,28 +23,54 @@ import uvarajSignature from '../../uvaraj signature.png';
 
 // Salary Calculation Functions
 const calculateSalaryFields = (salaryData) => {
-  const basicDA = parseFloat(salaryData.basicDA) || 0;
-  const hra = parseFloat(salaryData.hra) || 0;
-  const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
-  const gratuity = parseFloat(salaryData.gratuity) || 0;
-  const pf = parseFloat(salaryData.pf) || 0;
-  const professionalTax = parseFloat(salaryData.professionalTax) || 0;
-  // const loanDeduction = parseFloat(salaryData.loanDeduction) || 0; // Not in initialCompensation but in Payroll
-  // const lop = parseFloat(salaryData.lop) || 0; // Not in initialCompensation but in Payroll
+  const inputGross = Math.round(parseFloat(salaryData.gross) || 0);
+  
+  // Basic Salary = 50% of Gross
+  const basicDA = Math.round(inputGross * 0.50);
+  
+  // HRA = 50% of Basic (25% of Gross)
+  const hra = Math.round(basicDA * 0.50);
+  
+  // PF Contributions (Fixed)
+  const employerPF = 1950;
+  const employeePF = 1800;
+
+  // Special Allowance = (50% of Basic) - Employee PF - Employer PF
+  const specialAllowanceInitial = Math.round(basicDA * 0.50);
+  const specialAllowance = Math.max(0, specialAllowanceInitial - employeePF - employerPF);
+  
+  // Gratuity = Basic Salary x 4.86%
+  const gratuity = Math.round(basicDA * 0.0486);
+  
+  // Net Salary = Basic Salary + HRA + Adjusted Special Allowance
+  const netSalary = basicDA + hra + specialAllowance;
+  
+  // Gross Salary = return original input instead of resubmission to avoid overwriting during typing
+  const gross = inputGross; 
+  
+  // CTC = Net Salary + Employee PF + Employer PF + Gratuity
+  const ctc = netSalary + employeePF + employerPF + gratuity;
 
   const totalEarnings = basicDA + hra + specialAllowance;
-  const totalDeductions = pf + professionalTax; //  + loanDeduction + lop;
-  const netSalary = totalEarnings - totalDeductions;
-  const ctc = totalEarnings + gratuity;
+  const volunteerPFVal = parseFloat(salaryData.volunteerPF) || 0;
+  const totalDeductions = employeePF + volunteerPFVal + (parseFloat(salaryData.professionalTax) || 0);
 
   return {
     ...salaryData,
+    basicDA,
+    hra,
+    specialAllowance,
+    employeePF,
+    employerPF,
+    volunteerPF: salaryData.volunteerPF,
+    gratuity,
+    netSalary,
+    ctc,
     totalEarnings,
     totalDeductions,
-    netSalary,
-    ctc
+    pf: employeePF + employerPF
   };
-};
+};;
 
 const initialCompensation = {
   employeeId: "",
@@ -54,11 +80,13 @@ const initialCompensation = {
   grade: "",
   location: "",
   effectiveDate: new Date().toISOString().split("T")[0],
+  gross: "",
   basicDA: "",
   hra: "",
   specialAllowance: "",
   gratuity: "",
-  pf: "",
+  pf: 3750,
+  volunteerPF: "",
   professionalTax: "",
   modeBasicDA: "amount",
   modeHra: "amount",
@@ -291,8 +319,8 @@ const CompensationMaster = () => {
 
     // Fields that should only contain numbers
     const numericFields = [
-      'basicDA', 'hra', 'specialAllowance', 'gratuity',
-      'pf', 'professionalTax'
+      'gross', 'basicDA', 'hra', 'specialAllowance', 'gratuity',
+      'pf', 'volunteerPF', 'professionalTax'
     ];
 
     if (numericFields.includes(name)) {
@@ -312,7 +340,7 @@ const CompensationMaster = () => {
     }
 
     // Auto-calculate salary fields
-    if (numericFields.includes(name)) {
+    if (name === 'gross' || numericFields.includes(name)) {
       const updatedData = calculateSalaryFields({ ...formData, [name]: value });
       setFormData(updatedData);
     }
@@ -428,14 +456,18 @@ We’re excited to have you join our team and look forward to your growth and su
     const basicDA = parseFloat(comp.basicDA) || 0;
     const hra = parseFloat(comp.hra) || 0;
     const specialAllowance = parseFloat(comp.specialAllowance) || 0;
-    const pf = parseFloat(comp.pf) || 0;
+    const totalPF = parseFloat(comp.pf) || 0;
     const professionalTax = parseFloat(comp.professionalTax) || 0;
     const gratuity = parseFloat(comp.gratuity) || 0;
+    
+    const employerPF = 1950;
+    const employeePF = 1800;
 
     const totalEarnings = basicDA + hra + specialAllowance;
-    const totalDeductions = pf + professionalTax;
-    const netSalary = totalEarnings - totalDeductions;
-    const ctc = totalEarnings + gratuity;
+    const totalDeductions = employeePF + professionalTax;
+    const netSalary = totalEarnings; // Net = Basic + HRA + Special
+    const grossSalary = netSalary + employeePF + employerPF;
+    const ctc = grossSalary + gratuity;
 
     return `
       <div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
@@ -502,8 +534,12 @@ We’re excited to have you join our team and look forward to your growth and su
                    <td style="padding: 12px; border: 1px solid #e5e7eb; background-color: #f3f4f6;" colspan="2"><strong>Deductions</strong></td>
                 </tr>
                 <tr>
-                  <td style="padding: 12px; border: 1px solid #e5e7eb;">PF Contribution</td>
-                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(pf)}</td>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Employee PF Contribution</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(employeePF)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Employer PF Contribution</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(employerPF)}</td>
                 </tr>
                 <tr>
                   <td style="padding: 12px; border: 1px solid #e5e7eb;">Professional Tax</td>
@@ -736,9 +772,12 @@ We’re excited to have you join our team and look forward to your growth and su
   const calcGratuity = selectedCompensation ? (parseFloat(selectedCompensation.gratuity) || 0) : 0;
 
   const calcTotalEarnings = calcBasicDA + calcHRA + calcSpecial;
-  const calcTotalDeductions = calcPF + calcProfessionalTax;
-  const calcNetSalary = calcTotalEarnings - calcTotalDeductions;
-  const calcCTC = calcTotalEarnings + calcGratuity;
+  const calcEmployerPF = 1950;
+  const calcEmployeePF = 1800;
+  const calcTotalDeductions = calcEmployeePF + calcProfessionalTax;
+  const calcNetSalary = calcTotalEarnings; // Net = Basic + HRA + Special
+  const calcGrossSalary = calcNetSalary + calcEmployeePF + calcEmployerPF;
+  const calcCTC = calcGrossSalary + calcGratuity;
 
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -749,18 +788,25 @@ We’re excited to have you join our team and look forward to your growth and su
     const special = parseFloat(viewItem.specialAllowance) || 0;
     const gratuity = parseFloat(viewItem.gratuity) || 0;
     const pf = parseFloat(viewItem.pf) || 0;
+    const volunteerPF = parseFloat(viewItem.volunteerPF) || 0;
     const professionalTax = parseFloat(viewItem.professionalTax) || 0;
 
+    const employerPF = 1950;
+    const employeePF = 1800;
+
     const totalEarnings = basic + hra + special;
-    const totalDeductions = pf + professionalTax;
-    const netSalary = totalEarnings - totalDeductions;
-    const ctc = totalEarnings + gratuity;
+    const totalDeductions = employeePF + volunteerPF + professionalTax;
+    const netSalary = totalEarnings; // Net = Basic + HRA + Special
+    const grossSalary = netSalary + employeePF + employerPF;
+    const ctc = grossSalary + gratuity;
 
     return {
       totalEarnings,
       totalDeductions,
       netSalary,
-      ctc
+      ctc,
+      employeePF,
+      employerPF
     };
   }, [viewItem]);
 
@@ -1121,13 +1167,29 @@ We’re excited to have you join our team and look forward to your growth and su
                   </div>
                 </div>
 
-                {/* Earnings */}
                 <div>
                   <h3 className="text-lg font-medium text-gray-900 mb-4">Earnings & Allowances</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-blue-700 mb-1">
+                        Gross Salary *
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          name="gross"
+                          value={formData.gross}
+                          onChange={handleChange}
+                          className="w-full pl-8 pr-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          placeholder="Enter Gross Salary"
+                        />
+                      </div>
+                    </div>
                     {[
-                      { label: 'Basic + DA *', name: 'basicDA' },
-                      { label: 'HRA *', name: 'hra' },
+                      { label: 'Basic + DA', name: 'basicDA' },
+                      { label: 'HRA', name: 'hra' },
                       { label: 'Special Allowance', name: 'specialAllowance' },
                     ].map((field) => (
                       <div key={field.name}>
@@ -1137,11 +1199,12 @@ We’re excited to have you join our team and look forward to your growth and su
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             name={field.name}
                             value={formData[field.name]}
-                            onChange={handleChange}
-                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            readOnly
+                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                           />
                         </div>
                       </div>
@@ -1163,11 +1226,12 @@ We’re excited to have you join our team and look forward to your growth and su
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             name={field.name}
                             value={formData[field.name]}
-                            onChange={handleChange}
-                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            readOnly
+                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50"
                           />
                         </div>
                       </div>
@@ -1181,6 +1245,7 @@ We’re excited to have you join our team and look forward to your growth and su
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
                       { label: 'PF Contribution', name: 'pf' },
+                      { label: 'Volunteer PF', name: 'volunteerPF' },
                       { label: 'Professional Tax', name: 'professionalTax' },
                     ].map((field) => (
                       <div key={field.name}>
@@ -1190,11 +1255,13 @@ We’re excited to have you join our team and look forward to your growth and su
                         <div className="relative">
                           <span className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-500">₹</span>
                           <input
-                            type="number"
+                            type="text"
+                            inputMode="numeric"
                             name={field.name}
                             value={formData[field.name]}
+                            readOnly={field.name === 'pf'}
                             onChange={handleChange}
-                            className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className={`w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg ${field.name === 'pf' ? 'bg-gray-50' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                           />
                         </div>
                       </div>
@@ -1405,6 +1472,24 @@ We’re excited to have you join our team and look forward to your growth and su
                     </div>
                     <div className="space-y-2.5 text-sm">
                       <div className="flex justify-between">
+                        <span className="text-slate-200">Employee PF</span>
+                        <span className="font-semibold text-rose-100">
+                          {viewSummary.employeePF.toLocaleString("en-IN") || "-"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-200">Employer PF</span>
+                        <span className="font-semibold text-indigo-100">
+                          {viewSummary.employerPF.toLocaleString("en-IN") || "-"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-200">Volunteer PF</span>
+                        <span className="font-semibold text-rose-100">
+                          {viewItem.volunteerPF || "0"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
                         <span className="text-slate-200">Professional Tax</span>
                         <span className="font-semibold text-rose-100">
                           {viewItem.professionalTax || "-"}
@@ -1596,35 +1681,42 @@ We’re excited to have you join our team and look forward to your growth and su
                     </tr>
                  </thead>
                  <tbody>
-                    <tr>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Basic Salary</td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.basicDA || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                    </tr>
-                    <tr>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>HRA</td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.hra || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                    </tr>
-                  
-                    <tr>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Special Allowance</td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.specialAllowance || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                    </tr>
-                    <tr style={{backgroundColor: '#f9fafb'}}>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}><strong>Gross Salary</strong></td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}><strong>{Number(calcTotalEarnings).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
-                    </tr>
-                    <tr>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>PF Contribution </td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcPF).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                    </tr>
-                    <tr>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Gratuity (Part of CTC)</td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcGratuity).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                    </tr>
-                    <tr style={{ backgroundColor: '#eef2ff' }}>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px', color: '#312e81' }}><strong>Total CTC (Cost to Company)</strong></td>
-                       <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right', color: '#312e81' }}><strong>{Number(calcCTC).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
-                    </tr>
+                     <tr>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Basic Salary</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.basicDA || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                     </tr>
+                     <tr>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>HRA</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.hra || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                     </tr>
+                     <tr>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Special Allowance</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.specialAllowance || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                     </tr>
+                     <tr style={{backgroundColor: '#f9fafb'}}>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}><strong>Net Salary (Take Home)</strong></td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}><strong>{Number(calcNetSalary).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
+                     </tr>
+                     <tr>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Employee PF Contribution</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcEmployeePF).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                     </tr>
+                     <tr style={{backgroundColor: '#f9fafb'}}>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}><strong>Gross Salary</strong></td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}><strong>{Number(calcGrossSalary).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
+                     </tr>
+                     <tr>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Employer PF Contribution</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcEmployerPF).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                     </tr>
+                     <tr>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Gratuity (Part of CTC)</td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcGratuity).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                     </tr>
+                     <tr style={{ backgroundColor: '#eef2ff' }}>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', color: '#312e81' }}><strong>Total CTC (Cost to Company)</strong></td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right', color: '#312e81' }}><strong>{Number(calcCTC).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
+                     </tr>
                  </tbody>
               </table>
               
