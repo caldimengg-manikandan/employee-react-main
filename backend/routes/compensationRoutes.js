@@ -56,7 +56,8 @@ router.post("/", async (req, res) => {
             specialAllowance: compensation.modeSpecialAllowance === 'amount' ? compensation.specialAllowance : 0,
             
             // Deductions
-            pf: compensation.modePf === 'amount' ? compensation.pf : 0,
+            employeePfContribution: compensation.modePf === 'amount' ? compensation.pf : 0,
+            employerPfContribution: 1950, // Standard organizational employer contribution
             esi: compensation.modeEsi === 'amount' ? compensation.esi : 0,
             tax: compensation.modeTax === 'amount' ? compensation.tax : 0,
             professionalTax: compensation.modeProfessionalTax === 'amount' ? compensation.professionalTax : 0,
@@ -64,11 +65,11 @@ router.post("/", async (req, res) => {
             
             status: "Pending"
          };
-
+ 
          // Calculate totals
          payrollData.totalEarnings = (payrollData.basicDA || 0) + (payrollData.hra || 0) + (payrollData.specialAllowance || 0);
-         payrollData.totalDeductions = (payrollData.pf || 0) + (payrollData.esi || 0) + (payrollData.tax || 0) + (payrollData.professionalTax || 0);
-         payrollData.netSalary = payrollData.totalEarnings - payrollData.totalDeductions;
+         payrollData.totalDeductions = (payrollData.employeePfContribution || 0) + (payrollData.employerPfContribution || 0) + (payrollData.esi || 0) + (payrollData.tax || 0) + (payrollData.professionalTax || 0);
+         payrollData.netSalary = payrollData.totalEarnings - (payrollData.employeePfContribution || 0) - (payrollData.esi || 0) - (payrollData.tax || 0) - (payrollData.professionalTax || 0);
          payrollData.ctc = payrollData.totalEarnings + (payrollData.gratuity || 0);
 
          const payroll = new Payroll(payrollData);

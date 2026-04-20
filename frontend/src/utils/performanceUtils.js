@@ -15,6 +15,7 @@ export const WORKFLOW_CONFIG = [
       reviewer: 'General Manager',
       director: 'Director'
     }
+    
   },
   {
     department: 'TEKLA',
@@ -153,29 +154,36 @@ export const calculateIncrement = (designation, rating, companyPerformance) => {
 export const calculateSalaryAnnexure = (gross) => {
   const targetGross = Math.round(gross || 0);
   const basic = Math.round(targetGross * 0.50);
-  const hra = Math.round(basic * 0.50);
+  const hra = Math.round(targetGross * 0.25);
   
-  const employerPF = 1950;
-  const employeePF = 1800;
+  const employeePfContribution = 1800;
+  const employerPfContribution = 1950;
 
-  const specialBase = Math.round(basic * 0.50);
-  const special = Math.max(0, specialBase - employeePF - employerPF);
+  // Following the 50/25/25 logic where Special Allowance is the remainder
+  // such that Net (B+H+S) + PFs = Target Gross
+  const special = Math.max(0, targetGross - basic - hra - employeePfContribution - employerPfContribution);
 
   // Net Salary (Take Home) = Basic + HRA + Special Allowance
   const net = basic + hra + special;
+  
+  // Gross Salary = Net Salary + Employee PF + Employer PF
+  const grossFinal = net + employeePfContribution + employerPfContribution;
+  
   const gratuity = Math.round(basic * 0.0486);
   
-  // CTC = Net Salary + Employee PF + Employer PF + Gratuity
-  const ctc = net + employeePF + employerPF + gratuity;
+  // CTC = Gross Salary + Gratuity
+  const ctc = grossFinal + gratuity;
 
   return {
     basic,
     hra,
     special,
-    net,
-    empPF: employeePF,
-    gross: targetGross, // Revised Gross (FIXED)
-    employerPF,
+    net, // Net Salary (Take Home)
+    employeePfContribution,
+    empPF: employeePfContribution, // Alias for backward compatibility
+    gross: grossFinal,
+    employerPfContribution,
+    employerPF: employerPfContribution, // Alias for backward compatibility
     gratuity,
     ctc: Math.round(ctc)
   };

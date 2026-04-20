@@ -29,8 +29,9 @@ const PayrollSchema = new mongoose.Schema(
     hra: Number,
     specialAllowance: Number,
 
-    // Deductions
-    pf: Number,
+    // Deductions & Statutory
+    employeePfContribution: Number,
+    employerPfContribution: Number,
     esi: Number,
     tax: Number,
     professionalTax: Number,

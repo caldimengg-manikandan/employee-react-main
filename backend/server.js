@@ -114,6 +114,7 @@ app.use("/api/performance/attributes", appraisalAttributeRoutes);
 
 // ⭐ Specific history route MUST come before generic :id routes if sharing base path
 app.use("/api/payroll", require("./routes/payrollHistoryRoutes"));
+app.use("/api/payroll", require("./routes/payrollFYRoutes"));
 app.use("/api/payroll", payrollRoutes);
 
 app.use("/api/special-permissions", require("./routes/specialPermissions"));

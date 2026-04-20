@@ -281,7 +281,9 @@ export const payrollAPI = {
   create: (data) => api.post('/payroll', data),
   update: (id, data) => api.put(`/payroll/${id}`, data),
   remove: (id) => api.delete(`/payroll/${id}`),
-  getById: (id) => api.get(`/payroll/${id}`)
+  getById: (id) => api.get(`/payroll/${id}`),
+  getSnapshot: (fy, employeeId) => api.get(`/payroll/snapshot/${fy}/${employeeId}`),
+  getSnapshotsList: (fy) => api.get(`/payroll/snapshot/${fy}`)
 };
 
 export const payrollHistoryAPI = {

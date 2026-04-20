@@ -730,15 +730,13 @@ const SelfAppraisal = () => {
       // Enhance with payroll data for accurate salary display if released
       if (['released', 'effective'].includes(data.status)) {
         try {
-          const payrollRes = await payrollAPI.list();
-          const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
-          const empId = data.employeeId || data.empId || employeeInfo.employeeId || employeeInfo.empId;
-          const payroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
-          if (payroll) {
-            data.currentGross = payroll.totalEarnings;
+          const fySnapshotRes = await payrollAPI.getSnapshot('24-25', employeeInfo.employeeId || employeeInfo.empId);
+          const fySnapshot = fySnapshotRes.data?.data;
+          if (fySnapshot) {
+            data.currentGross = fySnapshot.totalEarnings;
           }
         } catch (pErr) {
-          console.error("Payroll fetch error in view", pErr);
+          console.error("FY snapshot fetch error in view", pErr);
         }
       }
 
@@ -769,15 +767,13 @@ const SelfAppraisal = () => {
       // Enhance with payroll data for accurate salary display if released
       if (['released', 'effective'].includes(data.status)) {
         try {
-          const payrollRes = await payrollAPI.list();
-          const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
-          const empId = data.employeeId || data.empId || employeeInfo.employeeId || employeeInfo.empId;
-          const payroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
-          if (payroll) {
-            data.currentGross = payroll.totalEarnings;
+          const fySnapshotRes = await payrollAPI.getSnapshot('24-25', employeeInfo.employeeId || employeeInfo.empId);
+          const fySnapshot = fySnapshotRes.data?.data;
+          if (fySnapshot) {
+            data.currentGross = fySnapshot.totalEarnings;
           }
         } catch (pErr) {
-          console.error("Payroll fetch error in edit", pErr);
+          console.error("FY snapshot fetch error in edit", pErr);
         }
       }
 
@@ -999,21 +995,21 @@ const SelfAppraisal = () => {
       let salaryOld = { basic: 0, hra: 0, special: 0, net: 0, empPF: 0, gross: 0, employerPF: 0, gratuity: 0, ctc: 0 };
       try {
         if (employeeIdValue) {
-          const payrollRes = await payrollAPI.list();
-          const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
-          const employeePayroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(employeeIdValue).toLowerCase());
+          // Fetch from FY24-25 snapshot for "Current" column
+          const fySnapshotRes = await payrollAPI.getSnapshot('24-25', employeeIdValue);
+          const fySnapshot = fySnapshotRes.data?.data;
 
-          if (employeePayroll) {
+          if (fySnapshot) {
             salaryOld = {
-              basic: Math.round(employeePayroll.basicDA || 0),
-              hra: Math.round(employeePayroll.hra || 0),
-              special: Math.round(employeePayroll.specialAllowance || 0),
-              gross: Math.round(employeePayroll.totalEarnings || 0),
-              net: Math.round(employeePayroll.netSalary || 0),
-              empPF: Math.max(0, Math.round((employeePayroll.pf || 0) - 1950)),
-              employerPF: 1950,
-              gratuity: Math.round(employeePayroll.gratuity || 0),
-              ctc: Math.round(employeePayroll.ctc || 0)
+              basic: Math.round(fySnapshot.basicDA || 0),
+              hra: Math.round(fySnapshot.hra || 0),
+              special: Math.round(fySnapshot.specialAllowance || 0),
+              gross: Math.round(fySnapshot.totalEarnings || 0),
+              net: Math.round(fySnapshot.netSalary || 0),
+              empPF: Math.round(fySnapshot.employeePfContribution || fySnapshot.pf || 0),
+              employerPF: Math.round(fySnapshot.employerPfContribution || 1950),
+              gratuity: Math.round(fySnapshot.gratuity || 0),
+              ctc: Math.round(fySnapshot.ctc || 0)
             };
           } else {
             salaryOld = calculateSalaryAnnexure(baseCtc);

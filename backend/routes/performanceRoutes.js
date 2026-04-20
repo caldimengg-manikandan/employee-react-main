@@ -286,14 +286,22 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
           designation: appraisal.promotion?.recommended && appraisal.promotion?.newDesignation 
              ? appraisal.promotion.newDesignation 
              : employee.designation,
-          basicDA: revised.basic || revised.basicDA || 0,
-          hra: revised.hra || 0,
-          specialAllowance: revised.special || revised.specialAllowance || 0,
-          gratuity: revised.gratuity || 0,
-          pf: revised.empPF || revised.pf || 0,
-          employerPF: revised.employerPF || 0,
-          netSalary: revised.net || revised.netSalary || appraisal.revisedSalary || 0,
-          ctc: revised.ctc || appraisal.revisedSalary || 0,
+          basicDA: Math.round(revised.basic || revised.basicDA || 0),
+          hra: Math.round(revised.hra || 0),
+          specialAllowance: Math.round(revised.special || revised.specialAllowance || 0),
+          gratuity: Math.round(revised.gratuity || 0),
+          employeePfContribution: Math.round(revised.employeePfContribution || 0),
+          employerPfContribution: Math.round(revised.employerPfContribution || 0),
+          totalDeductions: Math.round(
+            (revised.employeePfContribution || 0) + 
+            (revised.employerPfContribution || 0) + 
+            (revised.esi || 0) + 
+            (revised.tax || 0) + 
+            (revised.professionalTax || 0)
+          ),
+          totalEarnings: Math.round(revised.gross || revised.totalEarnings || 0),
+          netSalary: Math.round(revised.net || revised.netSalary || 0),
+          ctc: Math.round(revised.ctc || 0),
           updatedAt: new Date()
         };
 

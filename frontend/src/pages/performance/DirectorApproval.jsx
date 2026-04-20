@@ -181,14 +181,19 @@ const DirectorApproval = () => {
       const response = await performanceAPI.getDirectorAppraisals({ tab });
       const raw = response.data || [];
 
-      // Fetch payroll data for currentGross lookup
-      const payrollRes = await payrollAPI.list();
-      const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+      // Fetch snapshot data from FY24-25 as Ground Truth for "Current" salary
+      const payrollRes = await payrollAPI.getSnapshotsList('24-25');
+      const allSnapshotPayrolls = Array.isArray(payrollRes.data?.data) ? payrollRes.data.data : [];
 
       const enhanced = raw.map(emp => {
         const empId = emp.employeeId || emp.empId;
-        const payroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
-        const currentGross = payroll ? Number(payroll.totalEarnings || 0) : (Number(emp.currentSalary || 0) - 1114);
+        const snapshot = allSnapshotPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
+        
+        // Use FY24-25 totalEarnings as the base Gross
+        const currentGross = snapshot ? Number(snapshot.totalEarnings || 0) : (Number(emp.currentSalary || 0));
+        
+        // Use FY24-25 CTC as the base Current Salary for display
+        const currentCTC = snapshot ? Number(snapshot.ctc || 0) : Number(emp.currentSalary || 0);
         
         // Store currentGross for later use in edits
         emp.currentGross = currentGross;
@@ -201,6 +206,8 @@ const DirectorApproval = () => {
 
         return {
           ...emp,
+          currentSalary: currentCTC, // Display true Current CTC from FY24-25
+          currentGross,
           incrementAmount,
           revisedSalary
         };
@@ -364,28 +371,31 @@ const DirectorApproval = () => {
 
       try {
         if (employeeIdValue) {
-          const payrollRes = await payrollAPI.list();
-          const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
-          const employeePayroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(employeeIdValue).toLowerCase());
+          // Fetch from FY24-25 snapshot for "Current" data
+          const fySnapshotRes = await payrollAPI.getSnapshot('24-25', employeeIdValue);
+          const fySnapshot = fySnapshotRes.data?.data;
 
-          if (employeePayroll) {
+          if (fySnapshot) {
             salaryOld = {
-              basic: Math.round(employeePayroll.basicDA || 0),
-              hra: Math.round(employeePayroll.hra || 0),
-              special: Math.round(employeePayroll.specialAllowance || 0),
-              gross: Math.round(employeePayroll.totalEarnings || 0),
-              net: Math.round(employeePayroll.netSalary || 0),
-              empPF: Math.max(0, Math.round((employeePayroll.pf || 0) - 1950)),
-              employerPF: 1950,
-              gratuity: Math.round(employeePayroll.gratuity || 0),
-              ctc: Math.round(employeePayroll.ctc || 0)
+              basic: Math.round(fySnapshot.basicDA || 0),
+              hra: Math.round(fySnapshot.hra || 0),
+              special: Math.round(fySnapshot.specialAllowance || 0),
+              gross: Math.round(fySnapshot.totalEarnings || 0),
+              net: Math.round(fySnapshot.netSalary || 0),
+              empPF: Math.round(fySnapshot.employeePfContribution || fySnapshot.pf || 0),
+              employerPF: Math.round(fySnapshot.employerPfContribution || 1950),
+              gratuity: Math.round(fySnapshot.gratuity || 0),
+              ctc: Math.round(fySnapshot.ctc || 0)
             };
           } else {
+            // Fallback to legacy snapshot but warn
+            console.warn(`No FY24-25 snapshot for ${employeeIdValue}, falling back...`);
             salaryOld = calculateSalaryAnnexure(baseSnapshotCtc);
           }
           
           const incrementBase = salaryOld.gross || baseSnapshotCtc;
           const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
+          // Revised always follows the new 50/25/25 logic
           salaryNew = calculateSalaryAnnexure(targetRevisedGross);
         }
       } catch (err) {

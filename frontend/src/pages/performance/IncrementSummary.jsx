@@ -104,18 +104,19 @@ const IncrementSummary = () => {
         const [summaryRes, employeesRes, payrollRes] = await Promise.all([
           performanceAPI.getIncrementSummary(appliedFilters),
           employeeAPI.getAllEmployees(),
-          payrollAPI.list()
+          payrollAPI.getSnapshotsList('24-25')
         ]);
 
         const data = Array.isArray(summaryRes.data) ? summaryRes.data : [];
-        const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+        const allSnapshotPayrolls = Array.isArray(payrollRes.data?.data) ? payrollRes.data.data : [];
 
         const mapped = data.map((item) => {
           const status = mapStatus(item.status);
 
           const empId = item.employeeId || item.empId;
-          const payroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
-          const currentGross = payroll ? Number(payroll.totalEarnings || 0) : (Number(item.currentSalary || 0) - 1114);
+          const snapshot = allSnapshotPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
+          const currentGross = snapshot ? Number(snapshot.totalEarnings || 0) : (Number(item.currentSalary || 0));
+          const currentCTC = snapshot ? Number(snapshot.ctc || 0) : Number(item.currentSalary || 0);
 
           const totalPct = Number(
             item.totalIncrementPercentage ??
@@ -142,10 +143,10 @@ const IncrementSummary = () => {
             designation: item.designation || '',
             division: item.division || '',
             location: item.location || '',
-            currentSalary: Number(item.currentSalary || 0),
+            currentSalary: currentCTC,
             currentGross, // Store for letter generation
             revisedSalary: salaries.ctc,
-            incrementAmount: salaries.ctc - Number(item.currentSalary || 0),
+            incrementAmount: salaries.ctc - currentCTC,
             incrementPercentage: totalPct,
             financialYear: item.financialYr || item.financialYear || item.year || '',
             status,
@@ -325,21 +326,21 @@ const IncrementSummary = () => {
       try {
         const empId = employeeDetails.employeeId || employeeDetails.empId || row.empId;
         if (empId) {
-          const payrollRes = await payrollAPI.list();
-          const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
-          const employeePayroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
+          // Fetch specific snapshot for letter preview
+          const fySnapshotRes = await payrollAPI.getSnapshot('24-25', empId);
+          const fySnapshot = fySnapshotRes.data?.data;
 
-          if (employeePayroll) {
+          if (fySnapshot) {
             salaryOld = {
-              basic: Math.round(employeePayroll.basicDA || 0),
-              hra: Math.round(employeePayroll.hra || 0),
-              special: Math.round(employeePayroll.specialAllowance || 0),
-              gross: Math.round(employeePayroll.totalEarnings || 0),
-              net: Math.round(employeePayroll.netSalary || 0),
-              empPF: Math.max(0, Math.round((employeePayroll.pf || 0) - 1950)),
-              employerPF: 1950,
-              gratuity: Math.round(employeePayroll.gratuity || 0),
-              ctc: Math.round(employeePayroll.ctc || 0)
+              basic: Math.round(fySnapshot.basicDA || 0),
+              hra: Math.round(fySnapshot.hra || 0),
+              special: Math.round(fySnapshot.specialAllowance || 0),
+              gross: Math.round(fySnapshot.totalEarnings || 0),
+              net: Math.round(fySnapshot.netSalary || 0),
+              empPF: Math.round(fySnapshot.employeePfContribution || fySnapshot.pf || 0),
+              employerPF: Math.round(fySnapshot.employerPfContribution || 1950),
+              gratuity: Math.round(fySnapshot.gratuity || 0),
+              ctc: Math.round(fySnapshot.ctc || 0)
             };
           } else {
             salaryOld = calculateSalaryAnnexure(currentSnapshot);

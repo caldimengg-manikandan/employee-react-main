@@ -322,54 +322,77 @@ router.post('/release', auth, async (req, res) => {
 
     const allPayroll = await Payroll.find({});
 
+    const db = mongoose.connection.db;
+    const fySnapshotCollection = db.collection('payroll_FY24-25');
+
     let modifiedCount = 0;
     for (const appraisal of appraisals) {
       const empId = appraisal.employeeId?.employeeId || appraisal.empId;
-      const baseCtc = Number(appraisal.currentSalary || appraisal.salary || appraisal.currentSalarySnapshot || appraisal.employeeId?.ctc || 0);
+      
+      // Fetch snapshot for this specific employee
+      const snapshot = await fySnapshotCollection.findOne({ 
+        employeeId: { $regex: new RegExp(`^${empId}$`, 'i') } 
+      });
 
-      // Find payroll record
-      const payrollRecord = allPayroll.find(p => String(p.employeeId || '').toLowerCase() === String(empId || '').toLowerCase());
+      // Use Snapshot Gross as the base for Current Column
+      const baseGross = snapshot ? Number(snapshot.totalEarnings || 0) : Number(appraisal.currentSalary || appraisal.employeeId?.ctc || 0);
 
-      const calculateSalaryAnnexure = (gross) => {
-        const grossVal = Math.round(gross || 0);
+      const calculateSalaryAnnexure = (targetGross) => {
+        const grossVal = Math.round(targetGross || 0);
         const basic = Math.round(grossVal * 0.50);
-        const hra = Math.round(basic * 0.50);
-        const specialInitial = Math.round(basic * 0.50);
+        const hra = Math.round(grossVal * 0.25);
         
-        const employerPF = 1950;
-        const employeePF = 1800;
+        const employeePfContribution = 1800;
+        const employerPfContribution = 1950;
         
-        const special = Math.max(0, specialInitial - employeePF - employerPF);
+        const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution);
         const net = basic + hra + special;
         const gratuity = Math.round(basic * 0.0486);
-        const ctc = net + employeePF + employerPF + gratuity;
+        const ctc = grossVal + gratuity;
 
         return {
           basic,
           hra,
           special,
-          net,
-          empPF: employeePF,
+          net, // Net Salary (Take Home)
+          employeePfContribution, 
           gross: grossVal,
-          employerPF,
+          employerPfContribution,
+          totalDeductions: employeePfContribution + employerPfContribution + (gratuity || 0) * 0, // PT/ESI/Tax typically 0 here
           gratuity,
           ctc: Math.round(ctc)
         };
       };
 
-      const salaryOld = calculateSalaryAnnexure(baseCtc);
+      // Current Structure from Snapshot or calculated from base gross
+      let salaryOld;
+      if (snapshot) {
+        salaryOld = {
+          basic: Math.round(snapshot.basicDA || 0),
+          hra: Math.round(snapshot.hra || 0),
+          special: Math.round(snapshot.specialAllowance || 0),
+          gross: Math.round(snapshot.totalEarnings || 0),
+          net: Math.round(snapshot.netSalary || 0),
+          employeePfContribution: Math.round(snapshot.employeePfContribution || 0),
+          employerPfContribution: Math.round(snapshot.employerPfContribution || 1950),
+          totalDeductions: Math.round(snapshot.totalDeductions || (
+            (snapshot.employeePfContribution || 0) + 
+            (snapshot.employerPfContribution || 1950) + 
+            (snapshot.esi || 0) + 
+            (snapshot.professionalTax || 0) + 
+            (snapshot.tax || 0)
+          )),
+          gratuity: Math.round(snapshot.gratuity || 0),
+          ctc: Math.round(snapshot.ctc || 0)
+        };
+      } else {
+        salaryOld = calculateSalaryAnnexure(baseGross);
+      }
       
       const totalPct = Number(appraisal.incrementPercentage || 0) + Number(appraisal.incrementCorrectionPercentage || 0);
-      let revisedGross = Number(appraisal.revisedSalary || (baseCtc * (1 + totalPct / 100)));
-
-      // Safety check: Ensure revised is not lower than current
-      if (revisedGross < baseCtc && totalPct > 0) {
-        revisedGross = Math.round(baseCtc * (1 + totalPct / 100));
-      }
-      if (revisedGross < baseCtc) revisedGross = baseCtc;
+      const revisedGross = Math.round(baseGross * (1 + totalPct / 100));
 
       const salaryNew = calculateSalaryAnnexure(revisedGross);
-
 
       appraisal.status = 'released';
       if (!appraisal.workflow) appraisal.workflow = {};
@@ -382,7 +405,7 @@ router.post('/release', auth, async (req, res) => {
       appraisal.markModified('releaseRevisedSnapshot');
 
       appraisal.releaseDate = new Date();
-      appraisal.revisedSalary = Number(revisedGross); // Ensure this is also synced
+      appraisal.revisedSalary = Number(revisedGross); 
 
       if (appraisal.promotion?.recommended && appraisal.promotion?.newDesignation) {
         appraisal.promotion.approvedBy = 'director';
