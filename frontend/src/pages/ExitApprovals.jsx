@@ -19,8 +19,8 @@ import { exitFormalityAPI, employeeAPI, monthlyPayrollAPI } from '../services/ap
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Modal, message, Input } from 'antd';
-import balaSignature from '../bala signature.png';
-import uvarajSignature from '../uvaraj signature.png';
+import balaSignature from '../bala_signature.png';
+import uvarajSignature from '../uvaraj_signature.png';
 
 const ExitApproval = () => {
   const [loading, setLoading] = useState(true);
@@ -212,7 +212,7 @@ const ExitApproval = () => {
 
     const empId = form.employeeId?.employeeId;
     const emp = employees.find(e => e.employeeId === empId);
-    const location = (form.location || emp?.location || '').toLowerCase();
+    const location = (form.location || emp?.location || '').toLowerCase().trim();
     
     let signatory = hrManager;
     let signatureImage = null;
@@ -314,7 +314,7 @@ const ExitApproval = () => {
       pronounPossessive = 'her';
     }
 
-    const location = (form.location || empRecord?.location || '').toLowerCase();
+    const location = (form.location || empRecord?.location || '').toLowerCase().trim();
     
     let signatory = hrManager;
     let signatureImage = null;
@@ -965,6 +965,7 @@ const ExitApproval = () => {
                             src={letterData.signatureImage} 
                             alt="Signature" 
                             className="h-20 w-auto mb-2 ml-auto relative z-10"
+                            crossOrigin="anonymous"
                           />
                         )}
                         <div className="text-gray-600">Authorized Signatory</div>
@@ -1127,6 +1128,7 @@ const ExitApproval = () => {
                           src={experienceLetterData.signatureImage} 
                           alt="Signature" 
                           className="h-20 w-auto mb-2 ml-10 relative z-10"
+                          crossOrigin="anonymous"
                         />
                       )}
                       <div className="text-gray-700">Authorized Signatory</div>

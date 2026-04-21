@@ -17,8 +17,8 @@ import {
 } from 'lucide-react';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
 import { calculateSalaryAnnexure } from '../../utils/performanceUtils';
-import balaSignature from '../../bala signature.png';
-import uvarajSignature from '../../uvaraj signature.png';
+import balaSignature from '../../bala_signature.png';
+import uvarajSignature from '../../uvaraj_signature.png';
 
 const getCurrentFinancialYearShort = () => {
   const now = new Date();

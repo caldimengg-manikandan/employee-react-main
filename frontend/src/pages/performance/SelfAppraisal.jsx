@@ -35,8 +35,8 @@ import {
   RotateCcw
 } from 'lucide-react';
 import PromotionPage from './PromotionPage';
-import balaSignature from '../../bala signature.png';
-import uvarajSignature from '../../uvaraj signature.png';
+import balaSignature from '../../bala_signature.png';
+import uvarajSignature from '../../uvaraj_signature.png';
 
 // Colorful Modal Component
 const Modal = ({ isOpen, onClose, title, children, icon: Icon, colorTheme = "blue", maxWidth = "max-w-lg" }) => {

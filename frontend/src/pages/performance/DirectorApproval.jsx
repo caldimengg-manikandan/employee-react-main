@@ -20,8 +20,8 @@ import {
 } from 'lucide-react';
 import { APPRAISAL_STAGES, calculateSalaryAnnexure } from '../../utils/performanceUtils';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
-import balaSignature from '../../bala signature.png';
-import uvarajSignature from '../../uvaraj signature.png';
+import balaSignature from '../../bala_signature.png';
+import uvarajSignature from '../../uvaraj_signature.png';
 
 const StatusPopup = ({ isOpen, onClose, status, message }) => {
   if (!isOpen) return null;
@@ -573,6 +573,16 @@ const DirectorApproval = () => {
     );
   }, [employees, selectedFinancialYr, selectedDivision, selectedDesignation, selectedLocation, searchTerm, activeTab]);
 
+  const totals = useMemo(() => {
+    return filteredEmployees.reduce((acc, current) => {
+      acc.incrementAmount += Number(current.incrementAmount || 0);
+      acc.performancePay += Number(current.performancePay || 0);
+      acc.currentSalary += Number(current.currentSalary || 0);
+      acc.revisedSalary += Number(current.revisedSalary || 0);
+      return acc;
+    }, { incrementAmount: 0, performancePay: 0, currentSalary: 0, revisedSalary: 0 });
+  }, [filteredEmployees]);
+
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
       <div className="max-w-[98%] mx-auto">
@@ -640,7 +650,29 @@ const DirectorApproval = () => {
           {loading ? <div className="p-8 text-center text-gray-500">Loading...</div> : (
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-[#262760] sticky top-0 z-10 shadow-md text-white uppercase text-xs font-medium">
-                <tr>
+                {/* Summary Row above Header */}
+                <tr className="bg-indigo-50 border-b border-indigo-100 font-bold">
+                  <th colSpan={4} className="px-4 py-2.5 text-right text-indigo-900 uppercase tracking-wider text-[10px]">
+                    Total Current Salary:
+                  </th>
+                  <th className="px-4 py-2.5 text-right text-indigo-900 text-sm font-black tabular-nums border-r border-indigo-100">
+                    {totals.currentSalary.toLocaleString('en-IN')}
+                  </th>
+                  <th colSpan={2} className="px-4 py-2.5 text-right text-indigo-900 uppercase tracking-wider text-[10px]">
+                    Combined Page Sum:
+                  </th>
+                  <th className="px-4 py-2.5 text-right text-emerald-700 text-sm font-black tabular-nums bg-emerald-100/50 shadow-sm border-x border-emerald-200/30">
+                    {totals.incrementAmount.toLocaleString('en-IN')}
+                  </th>
+                  <th className="px-4 py-2.5 text-right text-indigo-900 text-sm font-black tabular-nums border-r border-indigo-100">
+                    {totals.revisedSalary.toLocaleString('en-IN')}
+                  </th>
+                  <th className="px-4 py-2.5 text-right text-indigo-900 text-sm font-black tabular-nums border-r border-indigo-100">
+                    {totals.performancePay.toLocaleString('en-IN')}
+                  </th>
+                  <th colSpan={5} className="bg-indigo-50"></th>
+                </tr>
+                <tr className="bg-[#262760]">
                   <th className="px-4 py-3"><input type="checkbox" onChange={handleSelectAll} checked={selectedRows.length > 0 && selectedRows.length === filteredEmployees.filter(e => !COMPLETED_STATUSES.includes(e.status)).length} className="rounded border-gray-300" /></th>
                   <th className="px-4 py-3 text-left">S.No</th>
                   <th className="px-4 py-3 text-left">Employee ID</th>

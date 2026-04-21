@@ -18,8 +18,8 @@ import {
 import { employeeAPI, compensationAPI, mailAPI } from "../../services/api";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import balaSignature from '../../bala signature.png';
-import uvarajSignature from '../../uvaraj signature.png';
+import balaSignature from '../../bala_signature.png';
+import uvarajSignature from '../../uvaraj_signature.png';
 
 // Salary Calculation Functions
 const calculateSalaryFields = (salaryData) => {

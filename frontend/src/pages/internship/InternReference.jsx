@@ -3,8 +3,8 @@ import { internAPI, mailAPI } from "../../services/api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
-import balaSignature from '../../bala signature.png';
-import uvarajSignature from '../../uvaraj signature.png';
+import balaSignature from '../../bala_signature.png';
+import uvarajSignature from '../../uvaraj_signature.png';
 import {
   PencilIcon,
   TrashIcon,

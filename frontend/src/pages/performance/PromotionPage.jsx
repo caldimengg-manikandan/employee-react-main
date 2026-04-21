@@ -1,7 +1,7 @@
 import React from 'react';
 import { Trophy } from 'lucide-react';
-import balaSignature from '../../bala signature.png';
-import uvarajSignature from '../../uvaraj signature.png';
+import balaSignature from '../../bala_signature.png';
+import uvarajSignature from '../../uvaraj_signature.png';
 
 const PromotionPage = ({ data }) => {
   const { 
