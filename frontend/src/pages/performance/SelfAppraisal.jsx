@@ -1023,7 +1023,7 @@ const SelfAppraisal = () => {
               special: Math.round(fySnapshot.specialAllowance || 0),
               gross: Math.round(fySnapshot.totalEarnings || 0),
               net: Math.round(fySnapshot.netSalary || 0),
-              empPF: Math.round(fySnapshot.employeePfContribution || fySnapshot.pf || 0),
+              empPF: Math.round(fySnapshot.employeePfContribution || fySnapshot.pf || 1800),
               employerPF: Math.round(fySnapshot.employerPfContribution || 1950),
               gratuity: Math.round(fySnapshot.gratuity || 0),
               ctc: Math.round(fySnapshot.ctc || 0)
