@@ -341,14 +341,17 @@ const ReviewerApproval = () => {
       const response = await performanceAPI.getReviewerAppraisals({ tab });
       const raw = response.data || [];
 
-      // Fetch payroll data for currentGross lookup
-      const payrollRes = await payrollAPI.list();
-      const allPayrolls = Array.isArray(payrollRes.data) ? payrollRes.data : [];
+      // Fetch FY24-25 snapshot data for true historical currentGross
+      const payrollRes = await payrollAPI.getSnapshotsList('24-25');
+      const allSnapshots = Array.isArray(payrollRes.data?.data) ? payrollRes.data.data : [];
 
       const enhanced = await Promise.all(raw.map(async emp => {
         const empId = emp.employeeId || emp.empId;
-        const payroll = allPayrolls.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
-        const currentGross = payroll ? Number(payroll.totalEarnings || 0) : (Number(emp.currentSalary || 0) - 1114);
+        const snapshot = allSnapshots.find(p => String(p.employeeId).toLowerCase() === String(empId).toLowerCase());
+        
+        // Use FY24-25 totalEarnings as the base Gross, fallback to what's in appraisal
+        const currentGross = snapshot ? Number(snapshot.totalEarnings || 0) : (Number(emp.currentSalary || 0));
+        const currentCTC = snapshot ? Number(snapshot.ctc || 0) : calculateSalaryAnnexure(currentGross).ctc;
         
         // Store currentGross for later use in edits
         emp.currentGross = currentGross;
@@ -380,6 +383,7 @@ const ReviewerApproval = () => {
 
         return {
           ...emp,
+          currentSalary: currentCTC,
           incrementPercentage: pct,
           incrementAmount,
           revisedSalary,

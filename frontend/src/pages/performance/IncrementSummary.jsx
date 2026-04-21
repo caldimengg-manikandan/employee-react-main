@@ -318,7 +318,8 @@ const IncrementSummary = () => {
         employeeDetails = { ...row };
       }
 
-      const currentSnapshot = Number(row.currentSalary || 0);
+      const currentSnapshotCTC = Number(row.currentSalary || 0);
+      const currentSnapshotGross = Number(row.currentGross || row.currentSalary || 0);
 
       let salaryOld = { basic: 0, hra: 0, special: 0, net: 0, empPF: 0, gross: 0, employerPF: 0, gratuity: 0, ctc: 0 };
       let salaryNew = { basic: 0, hra: 0, special: 0, net: 0, empPF: 0, gross: 0, employerPF: 0, gratuity: 0, ctc: 0 };
@@ -343,17 +344,17 @@ const IncrementSummary = () => {
               ctc: Math.round(fySnapshot.ctc || 0)
             };
           } else {
-            salaryOld = calculateSalaryAnnexure(currentSnapshot);
+            salaryOld = calculateSalaryAnnexure(currentSnapshotGross);
           }
         } else {
-          salaryOld = calculateSalaryAnnexure(currentSnapshot);
+          salaryOld = calculateSalaryAnnexure(currentSnapshotGross);
         }
       } catch (err) {
         console.error("Salary prep error:", err);
-        salaryOld = calculateSalaryAnnexure(currentSnapshot);
+        salaryOld = calculateSalaryAnnexure(currentSnapshotGross);
       }
       
-      const incrementBase = salaryOld.gross || currentSnapshot;
+      const incrementBase = salaryOld.gross || currentSnapshotGross;
       const targetRevisedGross = Math.round(incrementBase * (1 + (row.incrementPercentage || 0) / 100));
       salaryNew = calculateSalaryAnnexure(targetRevisedGross);
 

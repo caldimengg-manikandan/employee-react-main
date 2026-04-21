@@ -394,7 +394,24 @@ const SelfAppraisal = () => {
     setLoading(true);
     try {
       const response = await performanceAPI.getMySelfAppraisals();
-      setAppraisals(response.data || []);
+      const raw = response.data || [];
+      
+      // Fetch snapshot for current user
+      let snapshot = null;
+      try {
+        const snapRes = await payrollAPI.getSnapshot('24-25', employeeInfo.employeeId || employeeInfo.empId);
+        snapshot = snapRes.data?.data;
+      } catch (e) {
+        console.warn("No snapshot for current user", e);
+      }
+
+      const enhanced = raw.map(app => ({
+        ...app,
+        currentSalary: snapshot ? snapshot.ctc : (app.currentSalary || app.salary),
+        currentGross: snapshot ? snapshot.totalEarnings : app.currentGross
+      }));
+
+      setAppraisals(enhanced);
     } catch (error) {
       console.error("Failed to fetch appraisals", error);
     } finally {
@@ -1012,17 +1029,17 @@ const SelfAppraisal = () => {
               ctc: Math.round(fySnapshot.ctc || 0)
             };
           } else {
-            salaryOld = calculateSalaryAnnexure(baseCtc);
+            salaryOld = calculateSalaryAnnexure(appraisal.currentGross || baseCtc);
           }
         } else {
-          salaryOld = calculateSalaryAnnexure(baseCtc);
+          salaryOld = calculateSalaryAnnexure(appraisal.currentGross || baseCtc);
         }
       } catch (err) {
         console.error("Salary prep error:", err);
-        salaryOld = calculateSalaryAnnexure(baseCtc);
+        salaryOld = calculateSalaryAnnexure(appraisal.currentGross || baseCtc);
       }
       
-      const incrementBase = salaryOld.gross || baseCtc;
+      const incrementBase = salaryOld.gross || appraisal.currentGross || baseCtc;
       const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
       const salaryNew = calculateSalaryAnnexure(targetRevisedGross);
 

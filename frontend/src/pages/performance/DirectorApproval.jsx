@@ -193,21 +193,14 @@ const DirectorApproval = () => {
         const currentGross = snapshot ? Number(snapshot.totalEarnings || 0) : (Number(emp.currentSalary || 0));
         
         // Use FY24-25 CTC as the base Current Salary for display
-        const currentCTC = snapshot ? Number(snapshot.ctc || 0) : Number(emp.currentSalary || 0);
-        
-        // Store currentGross for later use in edits
-        emp.currentGross = currentGross;
-
-        const { incrementAmount, revisedSalary } = calculateFinancials(
-          currentGross,
-          emp.incrementPercentage || 0,
-          emp.incrementCorrectionPercentage || 0
-        );
+        const currentCTC = snapshot ? Number(snapshot.ctc || 0) : calculateSalaryAnnexure(currentGross).ctc;
+        const currentNet = snapshot ? Number(snapshot.netSalary || 0) : calculateSalaryAnnexure(currentGross).net;
 
         return {
           ...emp,
-          currentSalary: currentCTC, // Display true Current CTC from FY24-25
+          currentSalary: currentCTC,
           currentGross,
+          currentNet,
           incrementAmount,
           revisedSalary
         };
@@ -388,20 +381,21 @@ const DirectorApproval = () => {
               ctc: Math.round(fySnapshot.ctc || 0)
             };
           } else {
-            // Fallback to legacy snapshot but warn
+            // Fallback but use gross if possible
             console.warn(`No FY24-25 snapshot for ${employeeIdValue}, falling back...`);
-            salaryOld = calculateSalaryAnnexure(baseSnapshotCtc);
+            salaryOld = calculateSalaryAnnexure(emp.currentGross || emp.currentSalary || 0);
           }
           
-          const incrementBase = salaryOld.gross || baseSnapshotCtc;
+          const incrementBase = salaryOld.gross || emp.currentGross || baseSnapshotCtc;
           const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
           // Revised always follows the new 50/25/25 logic
           salaryNew = calculateSalaryAnnexure(targetRevisedGross);
         }
       } catch (err) {
         console.error("Salary prep error:", err);
-        const targetRevisedGross = Math.round(baseSnapshotCtc * (1 + totalPct / 100));
-        salaryOld = calculateSalaryAnnexure(baseSnapshotCtc);
+        const fallbackBase = emp.currentGross || baseSnapshotCtc;
+        salaryOld = calculateSalaryAnnexure(fallbackBase);
+        const targetRevisedGross = Math.round(salaryOld.gross * (1 + totalPct / 100));
         salaryNew = calculateSalaryAnnexure(targetRevisedGross);
       }
 
