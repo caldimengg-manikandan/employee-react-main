@@ -18,7 +18,7 @@ import {
   RotateCcw,
   Trophy
 } from 'lucide-react';
-import { APPRAISAL_STAGES, calculateSalaryAnnexure } from '../../utils/performanceUtils';
+import { APPRAISAL_STAGES, calculateSalaryAnnexure, calculateCurrentSalaryAnnexure } from '../../utils/performanceUtils';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
 import balaSignature from '../../bala_signature.png';
 import uvarajSignature from '../../uvaraj_signature.png';
@@ -175,6 +175,24 @@ const DirectorApproval = () => {
     }
   }, [selectedFinancialYr]);
 
+  const calculateFinancials = (currentGross, pct, correctionPct) => {
+    const grossVal = parseFloat(currentGross) || 0;
+    const pctVal = parseFloat(pct) || 0;
+    const correctionPctVal = parseFloat(correctionPct) || 0;
+    const totalPct = pctVal + correctionPctVal;
+    
+    const targetRevisedGross = Math.round(grossVal * (1 + totalPct / 100));
+    const incrementAmount = targetRevisedGross - grossVal;
+    
+    // Use shared calculation logic for Revised CTC
+    const salaries = calculateSalaryAnnexure(targetRevisedGross);
+
+    return {
+      incrementAmount,
+      revisedSalary: salaries.ctc
+    };
+  };
+
   const fetchDirectorAppraisals = async (tab = activeTab) => {
     setLoading(true);
     try {
@@ -196,13 +214,15 @@ const DirectorApproval = () => {
         const currentCTC = snapshot ? Number(snapshot.ctc || 0) : calculateSalaryAnnexure(currentGross).ctc;
         const currentNet = snapshot ? Number(snapshot.netSalary || 0) : calculateSalaryAnnexure(currentGross).net;
 
+        const financials = calculateFinancials(currentGross, emp.incrementPercentage, emp.incrementCorrectionPercentage);
+
         return {
           ...emp,
           currentSalary: currentCTC,
           currentGross,
           currentNet,
-          incrementAmount,
-          revisedSalary
+          incrementAmount: financials.incrementAmount,
+          revisedSalary: financials.revisedSalary
         };
       });
 
@@ -212,24 +232,6 @@ const DirectorApproval = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const calculateFinancials = (currentGross, pct, correctionPct) => {
-    const grossVal = parseFloat(currentGross) || 0;
-    const pctVal = parseFloat(pct) || 0;
-    const correctionPctVal = parseFloat(correctionPct) || 0;
-    const totalPct = pctVal + correctionPctVal;
-    
-    const targetRevisedGross = Math.round(grossVal * (1 + totalPct / 100));
-    const incrementAmount = targetRevisedGross - grossVal;
-    
-    // Use shared calculation logic for Revised CTC
-    const salaries = calculateSalaryAnnexure(targetRevisedGross);
-
-    return {
-      incrementAmount,
-      revisedSalary: salaries.ctc
-    };
   };
 
   const handleEditClick = (emp) => {
@@ -369,17 +371,7 @@ const DirectorApproval = () => {
           const fySnapshot = fySnapshotRes.data?.data;
 
           if (fySnapshot) {
-            salaryOld = {
-              basic: Math.round(fySnapshot.basicDA || 0),
-              hra: Math.round(fySnapshot.hra || 0),
-              special: Math.round(fySnapshot.specialAllowance || 0),
-              gross: Math.round(fySnapshot.totalEarnings || 0),
-              net: Math.round(fySnapshot.netSalary || 0),
-              empPF: Math.round(fySnapshot.employeePfContribution || fySnapshot.pf || 1800),
-              employerPF: Math.round(fySnapshot.employerPfContribution || 1950),
-              gratuity: Math.round(fySnapshot.gratuity || 0),
-              ctc: Math.round(fySnapshot.ctc || 0)
-            };
+            salaryOld = calculateCurrentSalaryAnnexure(fySnapshot);
           } else {
             // Fallback but use gross if possible
             console.warn(`No FY24-25 snapshot for ${employeeIdValue}, falling back...`);

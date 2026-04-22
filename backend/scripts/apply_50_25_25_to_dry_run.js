@@ -14,12 +14,16 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
  *   released, accepted_pending_effect, accepted, effective, completed
  */
 
-const RELEASED_STATUSES = [
+const ALL_STATUSES = [
+  'submitted', 'managerInProgress', 'managerApproved',
+  'reviewerPending', 'reviewerInProgress', 'reviewerApproved',
+  'directorInProgress', 'directorPushedBack', 'directorApproved', 'DIRECTOR_APPROVED',
   'released', 'Released', 'RELEASED',
   'released letter', 'Released Letter',
   'accepted_pending_effect',
   'accepted', 'Accepted',
-  'effective', 'completed', 'COMPLETED'
+  'effective', 'completed', 'COMPLETED',
+  'rejected', 'revoked'
 ];
 
 // 50/25/25 formula ─────────────────────────────────────────────────────────
@@ -66,20 +70,44 @@ async function run() {
     const objectIdToEmpId = {};
     employees.forEach(e => { objectIdToEmpId[String(e._id)] = String(e.employeeId); });
 
-    // ── Load all RELEASED appraisals ───────────────────────────────────────
-    console.log('Loading released appraisals...');
-    const releasedAppraisals = await appraisalCol.find({
-      status: { $in: RELEASED_STATUSES }
+    // ── Load ALL appraisals ───────────────────────────────────────
+    console.log('Loading appraisals...');
+    const allAppraisals = await appraisalCol.find({
+      status: { $in: ALL_STATUSES }
     }).toArray();
-    console.log(`  Found ${releasedAppraisals.length} released appraisals.`);
+    console.log(`  Found ${allAppraisals.length} appraisals.`);
 
-    // Build map: humanEmployeeId → revised gross from releaseRevisedSnapshot
+    // Build map: humanEmployeeId → revised gross
     const revisedGrossMap = {};
-    for (const app of releasedAppraisals) {
+    for (const app of allAppraisals) {
       const empId = objectIdToEmpId[String(app.employeeId)];
       if (!empId) continue;
 
-      const g = extractGross(app.releaseRevisedSnapshot);
+      let g = extractGross(app.releaseRevisedSnapshot);
+      
+      // If not yet released, calculate dynamically based on increment
+      if (!g || g <= 0) {
+        let baselineGross = Number(app.currentSalarySnapshot || 0);
+        // Fallback to employee's CTC if currentSalarySnapshot is 0
+        if (baselineGross === 0) {
+           const empObj = employees.find(e => String(e._id) === String(app.employeeId));
+           if (empObj && empObj.ctc) {
+               baselineGross = Number(empObj.ctc);
+           }
+        }
+        
+        // Let's try getting from payrolls to be fully accurate (like Director Approval)
+        if (baselineGross === 0) {
+           const pr = payrolls.find(p => String(p.employeeId) === empId);
+           if (pr) baselineGross = Number(pr.totalEarnings || 0);
+        }
+
+        if (baselineGross > 0) {
+          const pct = Number(app.incrementPercentage || 0) + Number(app.incrementCorrectionPercentage || 0);
+          g = Math.round(baselineGross * (1 + pct / 100));
+        }
+      }
+
       if (g && g > 0) {
         // If multiple appraisals, keep the most recent (highest gross as proxy)
         if (!revisedGrossMap[empId] || g > revisedGrossMap[empId]) {
@@ -130,7 +158,7 @@ async function run() {
         professionalTax:        Number(record.professionalTax || 0),
         _dataSource:            useRevised ? 'APPRAISAL_REVISED' : 'CURRENT_PAYROLL',
         calculationNote:        useRevised
-          ? `Revised from appraisal snapshot (Gross ₹${c.g})`
+          ? `Revised from appraisal (Gross ₹${c.g})`
           : `Current payroll with 50/25/25 applied (Gross ₹${c.g})`
       };
     });
@@ -150,8 +178,8 @@ async function run() {
     }
 
     console.log(`\nSummary:`);
-    console.log(`  Using REVISED salary (from released appraisal): ${revisedCount2}`);
-    console.log(`  Using CURRENT salary (no released appraisal)  : ${currentCount}`);
+    console.log(`  Using REVISED salary (from appraisal): ${revisedCount2}`);
+    console.log(`  Using CURRENT salary (no appraisal)  : ${currentCount}`);
 
     // ── Spot checks ────────────────────────────────────────────────────────
     const spotIds = ['CDE005', 'CDE007', 'CDE100'];

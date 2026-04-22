@@ -16,7 +16,7 @@ import {
   CheckCircle
 } from 'lucide-react';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
-import { calculateSalaryAnnexure } from '../../utils/performanceUtils';
+import { calculateSalaryAnnexure, calculateCurrentSalaryAnnexure } from '../../utils/performanceUtils';
 import balaSignature from '../../bala_signature.png';
 import uvarajSignature from '../../uvaraj_signature.png';
 
@@ -332,17 +332,7 @@ const IncrementSummary = () => {
           const fySnapshot = fySnapshotRes.data?.data;
 
           if (fySnapshot) {
-            salaryOld = {
-              basic: Math.round(fySnapshot.basicDA || 0),
-              hra: Math.round(fySnapshot.hra || 0),
-              special: Math.round(fySnapshot.specialAllowance || 0),
-              gross: Math.round(fySnapshot.totalEarnings || 0),
-              net: Math.round(fySnapshot.netSalary || 0),
-              empPF: Math.round(fySnapshot.employeePfContribution || fySnapshot.pf || 1800),
-              employerPF: Math.round(fySnapshot.employerPfContribution || 1950),
-              gratuity: Math.round(fySnapshot.gratuity || 0),
-              ctc: Math.round(fySnapshot.ctc || 0)
-            };
+            salaryOld = calculateCurrentSalaryAnnexure(fySnapshot);
           } else {
             salaryOld = calculateSalaryAnnexure(currentSnapshotGross);
           }

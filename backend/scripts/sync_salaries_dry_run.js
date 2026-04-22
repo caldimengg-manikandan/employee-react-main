@@ -46,46 +46,50 @@ async function run() {
     await dryRunCollection.deleteMany({});
     console.log('Cleaned up payroll_DRY_RUN collection.');
 
-    const statusList = ['effective', 'accepted', 'released'];
+    const statusList = [
+      'submitted', 'managerInProgress', 'managerApproved',
+      'reviewerPending', 'reviewerInProgress', 'reviewerApproved',
+      'directorInProgress', 'directorPushedBack', 'directorApproved', 'DIRECTOR_APPROVED',
+      'released', 'Released', 'RELEASED',
+      'released letter', 'Released Letter',
+      'accepted_pending_effect',
+      'accepted', 'Accepted',
+      'effective', 'completed', 'COMPLETED'
+    ];
+
     const appraisals = await SelfAppraisal.find({ status: { $in: statusList } });
-    console.log(`Found ${appraisals.length} appraisals to process.`);
+    const employees = await db.collection('employees').find({}).toArray();
+    const currentPayrolls = await payrollCollection.find({}).toArray();
+    const snapshots = await fySnapshotCollection.find({}).toArray();
 
     let processedCount = 0;
     let missingSnapshotCount = 0;
 
-    for (const app of appraisals) {
-      let empIdString = app.employeeIdValue || app.empId;
-      
-      // If no direct string ID, resolve it from the linked Employee document
-      if (!empIdString && app.employeeId) {
-        const linkedEmp = await db.collection('employees').findOne({ _id: app.employeeId });
-        if (linkedEmp) {
-          empIdString = linkedEmp.employeeId;
-        }
-      }
+    for (const currentPayroll of currentPayrolls) {
+      const empIdString = currentPayroll.employeeId;
+      if (!empIdString) continue;
 
-      if (!empIdString) {
-        console.warn(`Could not resolve string employeeId for appraisal ${app._id}`);
-        continue;
+      // Find the employee ObjectId
+      const empObj = employees.find(e => String(e.employeeId).toLowerCase() === String(empIdString).toLowerCase());
+      
+      // Find appraisal
+      let app = null;
+      if (empObj) {
+        app = appraisals.find(a => String(a.employeeId) === String(empObj._id) || String(a.empId).toLowerCase() === String(empIdString).toLowerCase());
+      }
+      if (!app) {
+        app = appraisals.find(a => (String(a.employeeIdValue || '')).toLowerCase() === String(empIdString).toLowerCase() || (String(a.empId || '')).toLowerCase() === String(empIdString).toLowerCase());
       }
 
       // Fetch snapshot from FY24-25 as the base
-      const snapshot = await fySnapshotCollection.findOne({ 
-        employeeId: { $regex: new RegExp(`^${empIdString}$`, 'i') } 
-      });
+      const snapshot = snapshots.find(s => String(s.employeeId).toLowerCase() === String(empIdString).toLowerCase());
 
+      const baselineGross = snapshot ? Number(snapshot.totalEarnings || 0) : Number(currentPayroll.totalEarnings || 0);
       if (!snapshot) {
         missingSnapshotCount++;
-        continue;
       }
 
-      // Fetch current payroll record for metadata (bank, location, etc.)
-      const currentPayroll = await payrollCollection.findOne({
-        employeeId: { $regex: new RegExp(`^${empIdString}$`, 'i') }
-      }) || {};
-
-      const baselineGross = Number(snapshot.totalEarnings || 0);
-      const totalPct = Number(app.incrementPercentage || 0) + Number(app.incrementCorrectionPercentage || 0);
+      const totalPct = app ? (Number(app.incrementPercentage || 0) + Number(app.incrementCorrectionPercentage || 0)) : 0;
       const revisedGross = Math.round(baselineGross * (1 + totalPct / 100));
 
       const newBreakdown = calculateSalaryAnnexure(revisedGross);
@@ -95,12 +99,12 @@ async function run() {
         ...currentPayroll,
         _id: new mongoose.Types.ObjectId(), // New ID for dummy table
         employeeId: empIdString,
-        employeeName: snapshot.employeeName || currentPayroll.employeeName || app.employeeName,
-        designation: app.promotion?.newDesignation || currentPayroll.designation || snapshot.designation,
-        department: currentPayroll.department || snapshot.department,
-        location: currentPayroll.location || snapshot.location || 'Chennai',
-        dateOfJoining: currentPayroll.dateOfJoining || snapshot.dateOfJoining,
-        employmentType: currentPayroll.employmentType || snapshot.employmentType || 'Permanent',
+        employeeName: snapshot?.employeeName || currentPayroll.employeeName || app?.employeeName,
+        designation: app?.promotion?.newDesignation || currentPayroll.designation || snapshot?.designation,
+        department: currentPayroll.department || snapshot?.department,
+        location: currentPayroll.location || snapshot?.location || 'Chennai',
+        dateOfJoining: currentPayroll.dateOfJoining || snapshot?.dateOfJoining,
+        employmentType: currentPayroll.employmentType || snapshot?.employmentType || 'Permanent',
         
         // Revised Earnings
         basicDA: newBreakdown.basicDA,
@@ -136,7 +140,7 @@ async function run() {
         // Metadata for dry run observation
         dryRunIncrementPct: totalPct,
         dryRunBaselineGross: baselineGross,
-        dryRunAppraisalId: app._id,
+        dryRunAppraisalId: app ? app._id : null,
         processedAt: new Date()
       };
 
@@ -149,8 +153,8 @@ async function run() {
     }
 
     console.log('--- Dry Run Summary ---');
-    console.log(`Total Appraisals: ${appraisals.length}`);
-    console.log(`Matched & Processed: ${processedCount}`);
+    console.log(`Total Active Payrolls Processed: ${processedCount}`);
+    console.log(`Matched with Appraisals: ${appraisals.length}`);
     console.log(`Missing Snapshot Baseline: ${missingSnapshotCount}`);
     console.log('Results saved to collection: payroll_DRY_RUN');
 

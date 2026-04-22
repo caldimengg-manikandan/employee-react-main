@@ -188,3 +188,43 @@ export const calculateSalaryAnnexure = (gross) => {
     ctc: Math.round(ctc)
   };
 };
+
+export const calculateCurrentSalaryAnnexure = (snapshot) => {
+  if (!snapshot) return null;
+
+  // Use the total earnings from the snapshot as the base Gross
+  const gross = Math.round(snapshot.totalEarnings || snapshot.gross || 0);
+  const basic = Math.round(snapshot.basicDA || snapshot.basic || 0);
+  const hra = Math.round(snapshot.hra || 0);
+  
+  // Standard fixed components
+  const employeePfContribution = 1800;
+  const employerPfContribution = 1950;
+
+  // Re-calculate Special Allowance to keep the Gross consistent
+  // Formula: Special = Gross - Basic - HRA - EmployeePF - EmployerPF
+  const special = Math.max(0, gross - basic - hra - employeePfContribution - employerPfContribution);
+
+  // Net Salary (Take Home) = Basic + HRA + Special
+  const net = basic + hra + special;
+  
+  // Ensure Gross is consistent: Gross = Net + EmpPF + EmployerPF
+  const grossFinal = net + employeePfContribution + employerPfContribution;
+  
+  const gratuity = Math.round(snapshot.gratuity || (basic * 0.0486));
+  const ctc = Math.round(snapshot.ctc || (grossFinal + gratuity));
+
+  return {
+    basic,
+    hra,
+    special,
+    net,
+    employeePfContribution,
+    empPF: employeePfContribution,
+    gross: grossFinal,
+    employerPfContribution,
+    employerPF: employerPfContribution,
+    gratuity,
+    ctc
+  };
+};
