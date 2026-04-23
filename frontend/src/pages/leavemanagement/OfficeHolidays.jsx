@@ -151,6 +151,10 @@ const OfficeHolidays = () => {
     try {
       const resp = await officeHolidayAPI.create({ name, date });
       const createdId = String(resp?.data?.id || resp?.data?._id || "");
+      const savedCalendarYear = String(date).slice(0, 4);
+      const savedFinancialYear = getFinancialYearLabelForDate(date);
+      if (/^\d{4}$/.test(savedCalendarYear)) setCalendarYearFilter(savedCalendarYear);
+      if (savedFinancialYear) setYearFilter(savedFinancialYear);
       await loadOfficeHolidays();
       if (createdId) setSelectedSavedHolidayId(createdId);
       setManualHolidayName("");
