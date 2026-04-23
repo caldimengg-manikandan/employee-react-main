@@ -262,6 +262,12 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
           showForRoles: ["admin", "hr"]
         },
         {
+          name: "Office Holidays",
+          path: "/leave-management/office-holidays",
+          permission: "leave_summary",
+          showForRoles: ["admin", "hr"]
+        },
+        {
           name: "Leave Balance",
           path: "/leave-management/balance",
           permission: "leave_balance",

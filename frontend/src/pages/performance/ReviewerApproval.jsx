@@ -346,18 +346,35 @@ const ReviewerApproval = () => {
   };
 
   const handleSubmitToDirector = () => {
-    const candidates = selectedRows.length > 0
-      ? employees.filter(emp => selectedRows.includes(emp.id))
-      : employees;
+    if (selectedRows.length === 0) {
+      setStatusPopup({
+        isOpen: true,
+        status: 'info',
+        message: 'Please select one or more records to submit to Director.'
+      });
+      return;
+    }
 
+    const candidates = employees.filter(emp => selectedRows.includes(emp.id));
     const rowsToSubmit = candidates.filter(emp => emp.status === 'APPRAISER_COMPLETED');
+
+    // Validation: Ensure all selected rows have been reviewed (comments added)
+    const unreviewed = rowsToSubmit.filter(emp => !emp.reviewerComments || emp.reviewerComments.trim() === '');
+    if (unreviewed.length > 0) {
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: `Please add reviewer comments for all selected records before submitting (${unreviewed.length} pending).`
+      });
+      return;
+    }
 
     const count = rowsToSubmit.length;
     if (count === 0) {
       setStatusPopup({
         isOpen: true,
         status: 'info',
-        message: 'No pending records to submit.'
+        message: 'No eligible records found in your selection.'
       });
       return;
     }
@@ -419,7 +436,9 @@ const ReviewerApproval = () => {
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800">Submitted</span>;
       case 'DIRECTOR_APPROVED':
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">Approved</span>;
+      case 'Released':
       case 'RELEASED':
+      case 'Released Letter':
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Released</span>;
       default:
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{status}</span>;
@@ -774,8 +793,10 @@ const ReviewerApproval = () => {
                 </div>
                 <div>
                   <h4 className="text-xl font-bold text-gray-900">{viewModalData.name}</h4>
-                  <p className="text-sm text-gray-500">{viewModalData.designation} • {viewModalData.department}</p>
-                  <p className="text-xs text-gray-400 font-mono mt-1">{viewModalData.empId}</p>
+                  <p className="text-sm text-gray-500">
+                    {[viewModalData.designation, viewModalData.department].filter(Boolean).join(' • ') || '-'}
+                  </p>
+                  <p className="text-xs text-gray-400 font-mono mt-1">{viewModalData.empId || '-'}</p>
                 </div>
               </div>
 
@@ -828,7 +849,7 @@ const ReviewerApproval = () => {
                       </div>
                       <div>
                         <p className="text-xs text-gray-500 font-semibold uppercase">Key Performance Summary</p>
-                        <p className="text-xs text-gray-700 font-medium mt-1">{viewModalData.keyPerformance || 'N/A'}</p>
+                        <p className="text-xs text-gray-700 font-medium mt-1">{viewModalData.keyPerformance || '-'}</p>
                       </div>
                     </div>
 
@@ -847,19 +868,19 @@ const ReviewerApproval = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="bg-white/40 p-2 rounded border border-indigo-50">
                           <p className="text-[10px] text-gray-500 font-bold uppercase">Behavioural</p>
-                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.behaviourManagerComments || 'N/A'}</p>
+                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.behaviourManagerComments || '-'}</p>
                         </div>
                         <div className="bg-white/40 p-2 rounded border border-indigo-50">
                           <p className="text-[10px] text-gray-500 font-bold uppercase">Process Adherence</p>
-                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.processManagerComments || 'N/A'}</p>
+                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.processManagerComments || '-'}</p>
                         </div>
                         <div className="bg-white/40 p-2 rounded border border-indigo-50">
                           <p className="text-[10px] text-gray-500 font-bold uppercase">Technical</p>
-                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.technicalManagerComments || 'N/A'}</p>
+                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.technicalManagerComments || '-'}</p>
                         </div>
                         <div className="bg-white/40 p-2 rounded border border-indigo-50">
                           <p className="text-[10px] text-gray-500 font-bold uppercase">Growth</p>
-                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.growthManagerComments || 'N/A'}</p>
+                          <p className="text-xs text-gray-700 mt-0.5">{viewModalData.growthManagerComments || '-'}</p>
                         </div>
                       </div>
                     </div>
@@ -868,15 +889,15 @@ const ReviewerApproval = () => {
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 border-t border-indigo-100 pt-3">
                       <div className="bg-indigo-100/30 p-2 rounded">
                         <p className="text-[10px] text-gray-500 font-bold uppercase">Leadership</p>
-                        <p className="text-xs font-semibold text-gray-800">{viewModalData.leadership || 'N/A'}</p>
+                        <p className="text-xs font-semibold text-gray-800">{viewModalData.leadership || '-'}</p>
                       </div>
                       <div className="bg-indigo-100/30 p-2 rounded">
                         <p className="text-[10px] text-gray-500 font-bold uppercase">Attitude</p>
-                        <p className="text-xs font-semibold text-gray-800">{viewModalData.attitude || 'N/A'}</p>
+                        <p className="text-xs font-semibold text-gray-800">{viewModalData.attitude || '-'}</p>
                       </div>
                       <div className="bg-indigo-100/30 p-2 rounded">
                         <p className="text-[10px] text-gray-500 font-bold uppercase">Communication</p>
-                        <p className="text-xs font-semibold text-gray-800">{viewModalData.communication || 'N/A'}</p>
+                        <p className="text-xs font-semibold text-gray-800">{viewModalData.communication || '-'}</p>
                       </div>
                     </div>
 

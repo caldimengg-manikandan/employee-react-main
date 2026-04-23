@@ -26,6 +26,7 @@ import LeaveApplications from './pages/leaveapplications/LeaveApplications';
 import LeaveSummary from './pages/leavemanagement/LeaveSummary';
 import LeaveBalance from './pages/leavemanagement/LeaveBalance';
 import RegionalHolidays from './pages/leavemanagement/RegionalHolidays';
+import OfficeHolidays from './pages/leavemanagement/OfficeHolidays';
 
 // Admin Timesheet Pages
 import AdminTimesheet from './pages/admin-timesheet/AdminTimesheet';
@@ -328,6 +329,16 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["leave_group_access", "leave_summary"]} roles={["admin", "hr"]}>
                   <RegionalHolidays />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Office Holidays */}
+            <Route
+              path="leave-management/office-holidays"
+              element={
+                <ProtectedRoute requiredPermissions={["leave_group_access", "leave_summary"]} roles={["admin", "hr"]}>
+                  <OfficeHolidays />
                 </ProtectedRoute>
               }
             />

@@ -14,7 +14,17 @@ router.get('/', auth, async (req, res) => {
     // Check permissions if needed (e.g. req.user.role === 'Admin' or 'Reviewer')
 
     const statusFilter = {
-      $in: ['Submitted', 'SUBMITTED', 'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED', 'Reviewed']
+      $in: [
+        'Submitted',
+        'SUBMITTED',
+        'APPRAISER_COMPLETED',
+        'REVIEWER_COMPLETED',
+        'DIRECTOR_APPROVED',
+        'Released',
+        'RELEASED',
+        'Released Letter',
+        'Reviewed'
+      ]
     };
 
     const query = {
@@ -118,13 +128,13 @@ router.get('/', auth, async (req, res) => {
         return {
           id: app._id,
           financialYr: app.year,
-          empId: emp.employeeId || 'N/A',
+          empId: emp.employeeId || '',
           name: emp.name || 'Unknown',
           avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
-          designation: emp.designation || 'N/A',
-          department: emp.department || 'N/A',
-          division: app.division || emp.division || 'N/A',
-          location: emp.location || 'N/A',
+          designation: emp.designation || '',
+          department: emp.department || '',
+          division: app.division || emp.division || '',
+          location: emp.location || '',
           status: app.status,
 
           // Appraisal content

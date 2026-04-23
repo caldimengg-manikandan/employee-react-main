@@ -9,11 +9,7 @@ const Employee = require('../models/Employee');
 // @access  Private (Director/Admin)
 router.get('/', auth, async (req, res) => {
   try {
-    // In a real app, you might check req.user.role === 'Director'
-
-    // Strict Visibility Rule: Only assigned Director can view
-    // Sequential Flow: Include all post-review stages including final Reviewed state
-    const statusFilter = { $in: ['REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'RELEASED', 'Reviewed'] };
+    const statusFilter = { $in: ['REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'Released Letter', 'RELEASED', 'Reviewed', 'Accepted'] };
 
     const role = (req.user.role || '').toLowerCase();
     const isDirector = role === 'director';
@@ -35,11 +31,9 @@ router.get('/', auth, async (req, res) => {
       ]
     };
 
-    // Populate employee details
     const appraisals = await SelfAppraisal.find(query)
       .populate('employeeId', 'name employeeId designation department division avatar ctc location branch');
 
-    // Transform to frontend format
     const formattedAppraisals = appraisals.map(app => {
       const emp = app.employeeId || {};
 
@@ -47,12 +41,12 @@ router.get('/', auth, async (req, res) => {
         id: app._id,
         financialYr: app.year,
         employeeMongoId: emp._id,
-        empId: emp.employeeId || 'N/A',
+        empId: emp.employeeId || '',
         name: emp.name || 'Unknown',
         avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
-        designation: emp.designation || 'N/A',
-        department: emp.department || 'N/A',
-        division: app.division || emp.division || 'N/A',
+        designation: emp.designation || '',
+        department: emp.department || '',
+        division: app.division || emp.division || '',
         location: emp.location || emp.branch || 'Chennai',
         status: app.status,
 
@@ -125,7 +119,7 @@ router.put('/:id', auth, async (req, res) => {
 
     if (status) {
       appraisal.status = status;
-      if (status === 'DIRECTOR_APPROVED') {
+      if (status === 'DIRECTOR_APPROVED' || status === 'Released Letter') {
         appraisal.employeeAcceptanceStatus = 'PENDING';
         appraisal.finalStatus = undefined;
       }
@@ -141,7 +135,7 @@ router.put('/:id', auth, async (req, res) => {
     await appraisal.save();
 
     // If released, update Employee CTC
-    if (status === 'Released' && appraisal.revisedSalary > 0) {
+    if ((status === 'Released' || status === 'RELEASED' || status === 'Released Letter') && appraisal.revisedSalary > 0) {
       await Employee.findByIdAndUpdate(appraisal.employeeId, {
         $set: { ctc: appraisal.revisedSalary }
       });
@@ -193,7 +187,7 @@ router.post('/release', auth, async (req, res) => {
     let modifiedCount = 0;
 
     for (const appraisal of appraisals) {
-      appraisal.status = 'DIRECTOR_APPROVED';
+      appraisal.status = 'Released Letter';
       appraisal.employeeAcceptanceStatus = 'PENDING';
       appraisal.finalStatus = undefined;
       appraisal.updatedAt = Date.now();

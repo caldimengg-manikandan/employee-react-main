@@ -12,12 +12,12 @@ import {
   Send,
   FileText,
   AlertCircle,
-  XCircle
+  XCircle,
+  TrendingUp
 } from 'lucide-react';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
 import balaSignature from '../../bala signature.png';
 import uvarajSignature from '../../uvaraj signature.png';
-
 
 const StatusPopup = ({ isOpen, onClose, status, message }) => {
   if (!isOpen) return null;
@@ -54,9 +54,7 @@ const StatusPopup = ({ isOpen, onClose, status, message }) => {
         <div className="fixed inset-0 transition-opacity" aria-hidden="true">
           <div className="absolute inset-0 bg-gray-900 opacity-40" onClick={onClose}></div>
         </div>
-
         <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
         <div className={`inline-block align-bottom bg-white rounded-xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-sm sm:w-full border-2 ${border}`}>
           <div className={`${bg} px-4 pt-5 pb-4 sm:p-6 sm:pb-4`}>
             <div className="sm:flex sm:items-start">
@@ -112,26 +110,6 @@ const formatDisplayDate = (value) => {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-const deriveEffectiveDateForAppraisal = (financialYear, updatedAt, effectiveDateField) => {
-  if (effectiveDateField) {
-    const d = new Date(effectiveDateField);
-    if (!Number.isNaN(d.getTime())) return formatDisplayDate(d);
-  }
-  if (updatedAt) {
-    const d = new Date(updatedAt);
-    if (!Number.isNaN(d.getTime())) return formatDisplayDate(d);
-  }
-  if (financialYear && String(financialYear).includes('-')) {
-    const parts = String(financialYear).split(/[-/]/);
-    const yearStart = parseInt(parts[0], 10);
-    if (!Number.isNaN(yearStart)) {
-      const d = new Date(yearStart, 3, 1);
-      return formatDisplayDate(d);
-    }
-  }
-  return '';
-};
-
 const DirectorApproval = () => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -148,27 +126,22 @@ const DirectorApproval = () => {
   const [releaseConfirm, setReleaseConfirm] = useState({
     isOpen: false,
     count: 0,
-    ids: []
+    ids: [],
+    type: 'approve' // 'approve' or 'release'
   });
 
-  // Inline Editing State
   const [editingRowId, setEditingRowId] = useState(null);
   const [editFormData, setEditFormData] = useState({});
   const [performancePayDrafts, setPerformancePayDrafts] = useState({});
   const performancePaySaveTimersRef = useRef({});
 
-  // Comment Modal State
   const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
   const [currentCommentEmpId, setCurrentCommentEmpId] = useState(null);
   const [tempComment, setTempComment] = useState('');
-
-  // View Details Modal State
   const [viewModalData, setViewModalData] = useState(null);
-
   const [showReleaseLetter, setShowReleaseLetter] = useState(false);
   const [letterData, setLetterData] = useState(null);
 
-  // Fetch data
   useEffect(() => {
     fetchDirectorAppraisals();
   }, []);
@@ -183,10 +156,9 @@ const DirectorApproval = () => {
     setLoading(true);
     try {
       const response = await performanceAPI.getDirectorAppraisals();
-      setEmployees(response.data);
+      setEmployees(response.data || []);
     } catch (error) {
       console.error('Error fetching appraisals:', error);
-      // alert('Failed to fetch appraisals');
     } finally {
       setLoading(false);
     }
@@ -196,12 +168,9 @@ const DirectorApproval = () => {
     const currentVal = parseFloat(current) || 0;
     const pctVal = parseFloat(pct) || 0;
     const correctionPctVal = parseFloat(correctionPct) || 0;
-
-    // Total percentage = Base Increment % + Correction %
     const totalPct = pctVal + correctionPctVal;
     const amount = (currentVal * totalPct / 100);
     const revised = currentVal + amount;
-
     return {
       incrementAmount: amount,
       revisedSalary: revised
@@ -243,7 +212,6 @@ const DirectorApproval = () => {
 
   const handleInputChange = (field, value) => {
     let newData = { ...editFormData, [field]: value };
-
     if (field === 'incrementPercentage' || field === 'incrementCorrectionPercentage') {
       const { incrementAmount, revisedSalary } = calculateFinancials(
         newData.currentSalary,
@@ -253,14 +221,12 @@ const DirectorApproval = () => {
       newData.incrementAmount = incrementAmount;
       newData.revisedSalary = revisedSalary;
     }
-
     setEditFormData(newData);
   };
 
   const handlePerformancePayChange = (id, rawValue) => {
     const raw = String(rawValue ?? '');
     setPerformancePayDrafts((prev) => ({ ...prev, [id]: raw }));
-
     const numeric = raw.trim() === '' ? 0 : Number(raw);
     const shouldSave = raw.trim() === '' || Number.isFinite(numeric);
 
@@ -283,11 +249,6 @@ const DirectorApproval = () => {
         await performanceAPI.updateDirectorAppraisal(id, { performancePay: numeric });
       } catch (error) {
         console.error('Failed to save performance pay', error);
-        setStatusPopup({
-          isOpen: true,
-          status: 'error',
-          message: 'Failed to save Performance Pay. Please try again.'
-        });
       }
     }, 600);
   };
@@ -319,146 +280,52 @@ const DirectorApproval = () => {
       });
     } catch (error) {
       console.error('Error saving comment:', error);
-      setStatusPopup({
-        isOpen: true,
-        status: 'error',
-        message: 'Failed to save comment'
-      });
     }
   };
 
   const handlePreviewLetter = async (emp) => {
     try {
       let employeeDetails = {};
-
-      try {
-        // Use Mongo ID if available (from backend update), otherwise fallback to whatever ID we have
-        const idToFetch = emp.employeeMongoId || (emp.employeeId && emp.employeeId.length === 24 ? emp.employeeId : null);
-
-        if (idToFetch) {
-          const res = await employeeAPI.getEmployeeById(idToFetch);
-          employeeDetails = res.data;
-        } else {
-          employeeDetails = { ...emp };
-        }
-      } catch (err) {
-        console.error('Failed to fetch employee details for letter', err);
+      const idToFetch = emp.employeeMongoId || (emp.employeeId && emp.employeeId.length === 24 ? emp.employeeId : null);
+      if (idToFetch) {
+        const res = await employeeAPI.getEmployeeById(idToFetch);
+        employeeDetails = res.data;
+      } else {
         employeeDetails = { ...emp };
       }
-
       const financialYear = emp.financialYr || selectedFinancialYr || getPreviousFinancialYear();
-
       const today = new Date();
       const letterDate = formatDisplayDate(today);
+      const employeeIdValue = employeeDetails.employeeId || employeeDetails.empId || emp.empId || emp.employeeId;
 
-      const employeeIdValue =
-        employeeDetails.employeeId ||
-        employeeDetails.empId ||
-        emp.empId ||
-        emp.employeeId;
-
-      let salaryOld = {
-        basic: 0,
-        hra: 0,
-        special: 0,
-        gross: 0,
-        empPF: 0,
-        employerPF: 0,
-        net: 0,
-        gratuity: 0,
-        ctc: 0
-      };
-
+      let salaryOld = { basic: 0, hra: 0, special: 0, gross: 0, empPF: 0, employerPF: 0, net: 0, gratuity: 0, ctc: 0 };
       try {
         if (employeeIdValue) {
           const payrollRes = await payrollAPI.list();
-          const items = Array.isArray(payrollRes.data) ? payrollRes.data : [];
-          const empIdNorm = String(employeeIdValue).toLowerCase();
-          const record = items.find(
-            (p) => String(p.employeeId || '').toLowerCase() === empIdNorm
-          );
-
+          const record = (payrollRes.data || []).find(p => String(p.employeeId || '').toLowerCase() === String(employeeIdValue).toLowerCase());
           if (record) {
             const basic = Number(record.basicDA || 0);
             const hra = Number(record.hra || 0);
             const special = Number(record.specialAllowance || 0);
-            const gross = Number(
-              record.totalEarnings !== undefined
-                ? record.totalEarnings
-                : basic + hra + special
-            );
-            const empPF = Number(record.pf || 0);
-            const employerPF = Number(record.employerPF || record.pf || 0);
-            const net = Number(record.netSalary || gross);
-            const gratuity = Number(record.gratuity || 0);
-            const ctc = Number(
-              record.ctc !== undefined ? record.ctc : gross + gratuity
-            );
-
+            const gross = Number(record.totalEarnings !== undefined ? record.totalEarnings : basic + hra + special);
             salaryOld = {
-              basic,
-              hra,
-              special,
-              gross,
-              empPF,
-              employerPF,
-              net,
-              gratuity,
-              ctc
+              basic, hra, special, gross, empPF: Number(record.pf || 0), employerPF: Number(record.employerPF || record.pf || 0),
+              net: Number(record.netSalary || gross), gratuity: Number(record.gratuity || 0), ctc: Number(record.ctc !== undefined ? record.ctc : gross + gratuity)
             };
           }
         }
-      } catch (err) {
-        console.error('Failed to fetch payroll details for letter', err);
-      }
+      } catch (err) {}
 
       if (!salaryOld.ctc) {
-        const currentSalary =
-          Number(emp.currentSalary || 0) || Number(emp.salary || 0);
-        if (currentSalary) {
-          salaryOld = {
-            basic: 0,
-            hra: 0,
-            special: 0,
-            gross: currentSalary,
-            empPF: 0,
-            employerPF: 0,
-            net: currentSalary,
-            gratuity: 0,
-            ctc: currentSalary
-          };
-        }
+        const cur = Number(emp.currentSalary || 0) || Number(emp.salary || 0);
+        salaryOld = { basic: 0, hra: 0, special: 0, gross: cur, empPF: 0, employerPF: 0, net: cur, gratuity: 0, ctc: cur };
       }
 
       const baseCtc = salaryOld.ctc || 0;
-      const basePct = Number(emp.incrementPercentage || 0);
-      const correctionPct = Number(emp.incrementCorrectionPercentage || 0);
-      let totalPct = basePct + correctionPct;
-
-      const revisedFromAppraisal = Number(emp.revisedSalary || 0);
-
-      let factor = 1;
-      if (baseCtc && totalPct > 0) {
-        factor = 1 + totalPct / 100;
-      } else if (baseCtc && revisedFromAppraisal > 0) {
-        factor = revisedFromAppraisal / baseCtc;
-      }
-
+      const totalPct = Number(emp.incrementPercentage || 0) + Number(emp.incrementCorrectionPercentage || 0);
+      const factor = (baseCtc && totalPct > 0) ? (1 + totalPct / 100) : (emp.revisedSalary > 0 && baseCtc ? emp.revisedSalary / baseCtc : 1);
       const revisedCtc = Math.round(baseCtc * factor);
-      const incrementAmount = revisedCtc - baseCtc;
-
-      const salaryNew = {
-        basic: Math.round((salaryOld.basic || 0) * factor),
-        hra: Math.round((salaryOld.hra || 0) * factor),
-        special: Math.round((salaryOld.special || 0) * factor),
-        gross: Math.round((salaryOld.gross || baseCtc) * factor),
-        empPF: salaryOld.empPF || 0,
-        employerPF: salaryOld.employerPF || 0,
-        net: Math.round((salaryOld.net || baseCtc) * factor),
-        gratuity: Math.round((salaryOld.gratuity || 0) * factor),
-        ctc: revisedCtc
-      };
-
+      
       const data = {
         date: letterDate,
         employeeName: employeeDetails.name || employeeDetails.fullName || emp.name,
@@ -468,91 +335,86 @@ const DirectorApproval = () => {
         financialYear: financialYear,
         effectiveDate: '1st April 2026',
         incrementPercentage: totalPct,
-        incrementAmount,
+        incrementAmount: revisedCtc - baseCtc,
         performancePay: Number(emp.performancePay || 0),
         salary: {
           old: salaryOld,
-          new: salaryNew
+          new: {
+            basic: Math.round((salaryOld.basic || 0) * factor),
+            hra: Math.round((salaryOld.hra || 0) * factor),
+            special: Math.round((salaryOld.special || 0) * factor),
+            gross: Math.round((salaryOld.gross || baseCtc) * factor),
+            empPF: salaryOld.empPF || 0,
+            employerPF: salaryOld.employerPF || 0,
+            net: Math.round((salaryOld.net || baseCtc) * factor),
+            gratuity: Math.round((salaryOld.gratuity || 0) * factor),
+            ctc: revisedCtc
+          }
         }
       };
       setLetterData(data);
       setShowReleaseLetter(true);
     } catch (error) {
       console.error('Error preparing letter', error);
-      alert('Failed to prepare release letter');
     }
   };
 
-  const handleApproveRelease = (emp) => {
-    setReleaseConfirm({
-      isOpen: true,
-      count: 1,
-      ids: [emp.id]
-    });
+  const handleApproveAction = (emp) => {
+    setReleaseConfirm({ isOpen: true, count: 1, ids: [emp.id], type: 'approve' });
+  };
+
+  const handleReleaseAction = (emp) => {
+    setReleaseConfirm({ isOpen: true, count: 1, ids: [emp.id], type: 'release' });
   };
 
   const handleBulkApprove = () => {
-    const rowsToSubmit = selectedRows.length > 0
-      ? employees.filter(emp => selectedRows.includes(emp.id))
-      : employees;
-
-    const count = rowsToSubmit.length;
-    if (count === 0) {
+    if (selectedRows.length === 0) {
       setStatusPopup({
         isOpen: true,
         status: 'info',
-        message: 'No records to approve.'
+        message: 'Please select one or more records to release letters.'
       });
       return;
     }
-
-    setReleaseConfirm({
-      isOpen: true,
-      count,
-      ids: rowsToSubmit.map(e => e.id)
-    });
-  };
-
-  const confirmRelease = async () => {
-    if (!releaseConfirm.isOpen || !releaseConfirm.ids.length) {
-      setReleaseConfirm({ isOpen: false, count: 0, ids: [] });
-      return;
-    }
-    try {
-      await Promise.all(
-        releaseConfirm.ids.map(id =>
-          performanceAPI.updateDirectorAppraisal(id, { status: 'DIRECTOR_APPROVED' })
-        )
-      );
-
-      setEmployees(employees.map(emp =>
-        releaseConfirm.ids.includes(emp.id)
-          ? { ...emp, status: 'DIRECTOR_APPROVED' }
-          : emp
-      ));
-
-      setStatusPopup({
-        isOpen: true,
-        status: 'success',
-        message: `${releaseConfirm.count} appraisal(s) approved successfully!`
-      });
-
-      setSelectedRows([]);
-    } catch (error) {
-      console.error('Error approving appraisals:', error);
+    const rowsToSubmit = employees.filter(emp => selectedRows.includes(emp.id) && emp.status === 'DIRECTOR_APPROVED');
+    const unreviewed = rowsToSubmit.filter(emp => !emp.directorComments || emp.directorComments.trim() === '');
+    if (unreviewed.length > 0) {
       setStatusPopup({
         isOpen: true,
         status: 'error',
-        message: 'Failed to approve appraisals'
+        message: `Please add director comments for all selected records before releasing (${unreviewed.length} pending).`
       });
+      return;
+    }
+    const count = rowsToSubmit.length;
+    if (count === 0) {
+      setStatusPopup({ isOpen: true, status: 'info', message: 'No eligible records found in your selection.' });
+      return;
+    }
+    setReleaseConfirm({ isOpen: true, count, ids: rowsToSubmit.map(e => e.id), type: 'release' });
+  };
+
+  const confirmRelease = async () => {
+    try {
+      const newStatus = releaseConfirm.type === 'approve' ? 'DIRECTOR_APPROVED' : 'Released Letter';
+      await Promise.all(releaseConfirm.ids.map(id => performanceAPI.updateDirectorAppraisal(id, { status: newStatus })));
+      setEmployees(employees.map(emp => releaseConfirm.ids.includes(emp.id) ? { ...emp, status: newStatus } : emp));
+      setStatusPopup({
+        isOpen: true,
+        status: 'success',
+        message: releaseConfirm.type === 'approve' ? `${releaseConfirm.count} appraisal(s) approved!` : `${releaseConfirm.count} appraisal(s) released!`
+      });
+      setSelectedRows([]);
+    } catch (error) {
+      console.error('Error in director action:', error);
     } finally {
-      setReleaseConfirm({ isOpen: false, count: 0, ids: [] });
+      setReleaseConfirm({ isOpen: false, count: 0, ids: [], type: 'approve' });
     }
   };
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedRows(filteredEmployees.map(emp => emp.id));
+      setSelectedRows(filteredEmployees.filter(emp => !['Released Letter', 'Released', 'RELEASED', 'Accepted'].includes(emp.status)).map(emp => emp.id));
     } else {
       setSelectedRows([]);
     }
@@ -568,242 +430,117 @@ const DirectorApproval = () => {
 
   const divisions = ['All', ...new Set(employees.map(emp => emp.division).filter(Boolean))];
   const designations = ['All', ...new Set(employees.map(emp => emp.designation).filter(Boolean))];
-  const availableYears = [getPreviousFinancialYear()];
-
   const filteredEmployees = employees.filter(emp =>
     (emp.financialYr === selectedFinancialYr) &&
     (selectedDivision === 'All' || emp.division === selectedDivision) &&
     (selectedDesignation === 'All' || emp.designation === selectedDesignation) &&
-    (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      emp.empId.toLowerCase().includes(searchTerm.toLowerCase()))
+    (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.empId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8 font-sans p-8">
       <div className="max-w-[98%] mx-auto">
-
-
-        {/* Top Controls */}
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
           <div className="flex items-center space-x-4">
-            {/* Financial Year Selector */}
-            <select
-              value={selectedFinancialYr}
-              onChange={(e) => setSelectedFinancialYr(e.target.value)}
-              className="block w-48 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
-            >
-              {availableYears.length > 0 ? (
-                availableYears.map(year => (
-                  <option key={year} value={year}>{year}</option>
-                ))
-              ) : (
-                <option value={selectedFinancialYr}>{selectedFinancialYr}</option>
-              )}
+            <select value={selectedFinancialYr} onChange={(e) => setSelectedFinancialYr(e.target.value)} className="block w-48 pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border">
+              <option value={selectedFinancialYr}>{selectedFinancialYr}</option>
             </select>
-
-            {/* Search Box */}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search employee..."
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#262760] w-64"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <input type="text" placeholder="Search employee..." className="pl-10 pr-4 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-[#262760] w-64" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
-
-            {/* Division Filter */}
-            <select
-              value={selectedDivision}
-              onChange={(e) => setSelectedDivision(e.target.value)}
-              className="block w-48 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
-            >
+            <select value={selectedDivision} onChange={(e) => setSelectedDivision(e.target.value)} className="block w-48 pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border">
               <option value="All">All Divisions</option>
-              {divisions.filter(d => d !== 'All').map(div => (
-                <option key={div} value={div}>{div}</option>
-              ))}
-            </select>
-
-            {/* Designation Filter */}
-            <select
-              value={selectedDesignation}
-              onChange={(e) => setSelectedDesignation(e.target.value)}
-              className="block w-48 pl-3 pr-10 py-2 text-sm border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border"
-            >
-              <option value="All">All Designations</option>
-              {designations.filter(d => d !== 'All').map(desig => (
-                <option key={desig} value={desig}>{desig}</option>
-              ))}
+              {divisions.filter(d => d !== 'All').map(div => <option key={div} value={div}>{div}</option>)}
             </select>
           </div>
-
-          {/* Bulk Action Button */}
           <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-500">
-              {selectedRows.length > 0 ? `${selectedRows.length} selected` : 'All records'}
-            </span>
-            <button
-              onClick={handleBulkApprove}
-              className="flex items-center px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] transition-colors shadow-sm"
-            >
+            <span className="text-sm text-gray-500">{selectedRows.length} selected</span>
+            <button onClick={handleBulkApprove} className="flex items-center px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050] transition-colors shadow-sm">
               <Send className="h-4 w-4 mr-2" />
               Release Letters
             </button>
           </div>
         </div>
 
-        {/* Table */}
         <div className="bg-white shadow border-b border-gray-200 sm:rounded-lg overflow-auto max-h-[75vh]">
-          {loading ? (
-            <div className="p-8 text-center text-gray-500">Loading...</div>
-          ) : (
+          {loading ? <div className="p-8 text-center text-gray-500">Loading...</div> : (
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-[#262760] sticky top-0 z-10 shadow-md">
+              <thead className="bg-[#262760] sticky top-0 z-10 shadow-md text-white uppercase text-xs font-medium">
                 <tr>
-                  <th className="px-4 py-3 text-center">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-[#262760] focus:ring-[#262760]"
-                      checked={selectedRows.length === filteredEmployees.length && filteredEmployees.length > 0}
-                      onChange={handleSelectAll}
-                    />
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">S.No</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee Name</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Director Comments</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Current Salary</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Increment %</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Increment Correction %</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Increment Amount</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Revised Salary</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Performance Pay</th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                  <th className="px-4 py-3"><input type="checkbox" onChange={handleSelectAll} checked={selectedRows.length > 0 && selectedRows.length === filteredEmployees.filter(e => !['Released Letter', 'Released', 'Accepted'].includes(e.status)).length} className="rounded border-gray-300" /></th>
+                  <th className="px-4 py-3 text-left">S.No</th>
+                  <th className="px-4 py-3 text-left">Employee ID</th>
+                  <th className="px-4 py-3 text-left">Employee Name</th>
+                  <th className="px-4 py-3 text-center">Director Comments</th>
+                  <th className="px-4 py-3 text-right">Current Salary</th>
+                  <th className="px-4 py-3 text-center">Increment %</th>
+                  <th className="px-4 py-3 text-center">Increment Correction %</th>
+                  <th className="px-4 py-3 text-right">Increment Amount</th>
+                  <th className="px-4 py-3 text-right">Revised Salary</th>
+                  <th className="px-4 py-3 text-right">Performance Pay</th>
+                  <th className="px-4 py-3 text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredEmployees.map((emp, index) => {
                   const isEditing = editingRowId === emp.id;
                   const data = isEditing ? editFormData : emp;
-                  const isSelected = selectedRows.includes(emp.id);
-                  const isRowLocked = ['DIRECTOR_APPROVED', 'Released', 'RELEASED'].includes(emp.status || '');
-                  const performancePayValue =
-                    performancePayDrafts[emp.id] !== undefined
-                      ? performancePayDrafts[emp.id]
-                      : String(Number(data.performancePay || 0));
-
+                  const isReleased = ['Released Letter', 'Released', 'RELEASED', 'Accepted'].includes(emp.status || '');
+                  const isRowLocked = isReleased || emp.status === 'DIRECTOR_APPROVED';
+                  
                   return (
-                    <tr key={emp.id} className={`hover:bg-gray-50 ${isSelected ? 'bg-indigo-50' : ''}`}>
+                    <tr key={emp.id} className={`hover:bg-gray-50 ${selectedRows.includes(emp.id) ? 'bg-indigo-50' : ''}`}>
                       <td className="px-4 py-4 text-center">
-                        <input
-                          type="checkbox"
-                          className="rounded border-gray-300 text-[#262760] focus:ring-[#262760]"
-                          checked={isSelected}
-                          onChange={() => handleSelectRow(emp.id)}
-                        />
+                        {!isReleased && (
+                          <input type="checkbox" checked={selectedRows.includes(emp.id)} onChange={() => handleSelectRow(emp.id)} className="rounded border-gray-300 text-[#262760]" />
+                        )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-500">{index + 1}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{data.empId}</td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900">{data.name}</td>
+                      <td className="px-4 py-4 text-sm font-medium text-gray-900">{data.empId}</td>
+                      <td className="px-4 py-4 text-sm text-gray-900">{data.name}</td>
                       <td className="px-4 py-4 text-center">
                         {isEditing ? (
-                          <textarea
-                            className="w-full border border-gray-300 rounded p-1 text-xs focus:ring-[#262760] focus:border-[#262760] resize-none"
-                            rows={2}
-                            value={data.directorComments || ''}
-                            onChange={(e) => handleInputChange('directorComments', e.target.value)}
-                            placeholder="Enter comments..."
-                          />
+                          <textarea className="w-full border border-gray-300 rounded p-1 text-xs resize-none" rows={2} value={data.directorComments || ''} onChange={(e) => handleInputChange('directorComments', e.target.value)} />
                         ) : (
-                          <div
-                            className="text-xs text-gray-700 max-w-[200px] truncate mx-auto cursor-pointer hover:text-[#262760]"
-                            onClick={() => openCommentModal(emp)}
-                            title={data.directorComments || 'Click to add comments'}
-                          >
+                          <div className="text-xs text-gray-700 max-w-[200px] truncate mx-auto cursor-pointer hover:text-[#262760]" onClick={() => !isReleased && openCommentModal(emp)}>
                             {data.directorComments || <span className="text-gray-400 italic">Add comments...</span>}
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {data.currentSalary.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
-                        <span>{data.incrementPercentage}%</span>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                      <td className="px-4 py-4 text-sm text-right px-6 font-medium">₹{Number(data.currentSalary || 0).toLocaleString()}</td>
+                      <td className="px-4 py-4 text-sm text-center">{data.incrementPercentage}%</td>
+                      <td className="px-4 py-4 text-sm text-center">
                         {isEditing ? (
-                          <div className="relative">
-                            <input
-                              type="number"
-                              className="w-16 px-2 py-1 border border-gray-300 rounded text-right focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm pr-4"
-                              value={data.incrementCorrectionPercentage}
-                              onChange={(e) => handleInputChange('incrementCorrectionPercentage', e.target.value)}
-                            />
-                            <span className="absolute right-1 top-1/2 -translate-y-1/2 text-gray-400 text-xs">%</span>
-                          </div>
+                          <input type="number" className="w-16 px-2 py-1 border rounded text-right" value={data.incrementCorrectionPercentage} onChange={(e) => handleInputChange('incrementCorrectionPercentage', e.target.value)} />
                         ) : (
-                          <span className={`${data.incrementCorrectionPercentage !== 0 ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
-                            {data.incrementCorrectionPercentage > 0 ? '+' : ''}{data.incrementCorrectionPercentage}%
-                          </span>
+                          <span className={data.incrementCorrectionPercentage !== 0 ? 'text-blue-600 font-medium' : 'text-gray-500'}>{data.incrementCorrectionPercentage}%</span>
                         )}
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium text-green-600">
-                        {data.incrementAmount.toLocaleString()}
+                      <td className="px-4 py-4 text-sm text-right text-green-600 font-medium whitespace-nowrap px-6">₹{Number(data.incrementAmount || 0).toLocaleString()}</td>
+                      <td className="px-4 py-4 text-sm text-right font-bold whitespace-nowrap px-6">₹{Number(data.revisedSalary || 0).toLocaleString()}</td>
+                      <td className="px-4 py-4 text-sm text-right px-6">
+                        <input type="number" className="w-24 px-2 py-1 border rounded text-right disabled:bg-gray-100" value={performancePayDrafts[emp.id] !== undefined ? performancePayDrafts[emp.id] : Number(data.performancePay || 0)} onChange={(e) => handlePerformancePayChange(emp.id, e.target.value)} disabled={isRowLocked} />
                       </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
-                        {data.revisedSalary.toLocaleString()}
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          className="w-28 px-2 py-1 border border-gray-300 rounded text-right focus:ring-[#262760] focus:border-[#262760] sm:text-sm disabled:bg-gray-100 disabled:text-gray-500"
-                          value={performancePayValue}
-                          onChange={(e) => handlePerformancePayChange(emp.id, e.target.value)}
-                          disabled={isRowLocked}
-                        />
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-center text-sm font-medium">
-                        <div className="flex justify-center items-center space-x-2">
+                      <td className="px-4 py-4 text-center">
+                        <div className="flex justify-center space-x-2">
                           {isEditing ? (
                             <>
-                              <button onClick={handleSaveRow} className="text-green-600 hover:text-green-900" title="Save">
-                                <Save className="h-5 w-5" />
-                              </button>
-                              <button onClick={handleCancelEdit} className="text-red-600 hover:text-red-900" title="Cancel">
-                                <X className="h-5 w-5" />
-                              </button>
+                              <button onClick={handleSaveRow} className="text-green-600 hover:text-green-900"><Save className="h-5 w-5" /></button>
+                              <button onClick={handleCancelEdit} className="text-red-600 hover:text-red-900"><X className="h-5 w-5" /></button>
                             </>
                           ) : (
                             <>
-                              <button
-                                className="text-gray-400 hover:text-gray-600"
-                                title="View All Comments"
-                                onClick={() => setViewModalData(emp)}
-                              >
-                                <Eye className="h-5 w-5" />
-                              </button>
-                              <button
-                                onClick={() => handlePreviewLetter(emp)}
-                                className="text-[#262760] hover:text-[#1e2050]"
-                                title="Preview Appraisal Letter"
-                              >
-                                <FileText className="h-5 w-5" />
-                              </button>
-                              {!['DIRECTOR_APPROVED', 'Released', 'RELEASED'].includes(emp.status || '') && (
-                                <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900" title="Edit">
-                                  <Edit className="h-5 w-5" />
-                                </button>
-                              )}
-                              {['DIRECTOR_APPROVED', 'Released', 'RELEASED'].includes(emp.status || '') ? (
-                                <span className="text-green-600" title="Approved">
-                                  <CheckCircle className="h-5 w-5 fill-green-100" />
-                                </span>
+                              <button className="text-gray-400 hover:text-gray-600" onClick={() => setViewModalData(emp)}><Eye className="h-5 w-5" /></button>
+                              <button onClick={() => handlePreviewLetter(emp)} className="text-[#262760] hover:text-[#1e2050]"><FileText className="h-5 w-5" /></button>
+                              {!isRowLocked && <button onClick={() => handleEditClick(emp)} className="text-blue-600 hover:text-blue-900"><Edit className="h-4 w-4" /></button>}
+                              {isRowLocked ? (
+                                <span className={isReleased ? "hidden" : "text-green-600"}><CheckCircle className="h-5 w-5 fill-green-100" /></span>
                               ) : (
-                                <button onClick={() => handleApproveRelease(emp)} className="text-green-600 hover:text-green-900" title="Approve & Release">
-                                  <CheckCircle className="h-5 w-5" />
-                                </button>
+                                <button onClick={() => handleApproveAction(emp)} className="text-green-600 hover:text-green-900"><CheckCircle className="h-5 w-5" /></button>
+                              )}
+                              {!isReleased && emp.status === 'DIRECTOR_APPROVED' && (
+                                <button onClick={() => handleReleaseAction(emp)} className="text-orange-500 hover:text-orange-700" title="Release Letter"><Send className="h-5 w-5" /></button>
                               )}
                             </>
                           )}
@@ -817,180 +554,110 @@ const DirectorApproval = () => {
           )}
         </div>
       </div>
-
-      <StatusPopup
-        isOpen={statusPopup.isOpen}
-        onClose={() => setStatusPopup({ ...statusPopup, isOpen: false })}
-        status={statusPopup.status}
-        message={statusPopup.message}
-      />
-
+      
+      {/* Modals and Popups */}
+      <StatusPopup isOpen={statusPopup.isOpen} onClose={() => setStatusPopup({ ...statusPopup, isOpen: false })} {...statusPopup} />
+      
       {releaseConfirm.isOpen && (
-        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden">
-            <div className="px-6 py-4 bg-[#262760] text-white flex items-center">
-              <CheckCircle className="h-5 w-5 mr-2" />
-              <h3 className="text-lg font-semibold">Approve & Release</h3>
-            </div>
-            <div className="px-6 py-5">
-              <p className="text-sm text-gray-700">
-                Approve and Release Letters for {releaseConfirm.count} employee(s)?
-              </p>
-            </div>
-            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
-              <button
-                type="button"
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-100"
-                onClick={() => setReleaseConfirm({ isOpen: false, count: 0, ids: [] })}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="px-4 py-2 text-sm font-medium text-white bg-[#262760] hover:bg-[#1e2050] rounded-md shadow-sm"
-                onClick={confirmRelease}
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Director Comment Modal */}
-      {isCommentModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
-            <div className="px-6 py-4 bg-[#262760] text-white flex justify-between items-center">
-              <h3 className="text-lg font-bold flex items-center">
-                <MessageSquare className="h-5 w-5 mr-2" />
-                Director Comments
-              </h3>
-              <button onClick={() => setIsCommentModalOpen(false)} className="text-white hover:text-gray-200">
-                <X className="h-5 w-5" />
-              </button>
+            <div className={`px-6 py-4 ${releaseConfirm.type === 'approve' ? 'bg-[#262760]' : 'bg-orange-600'} text-white font-bold`}>
+              {releaseConfirm.type === 'approve' ? 'Approve Appraisal' : 'Release Letter'}
             </div>
             <div className="p-6">
-              <textarea
-                className="w-full h-32 border border-gray-300 rounded-md p-3 focus:ring-[#262760] focus:border-[#262760] resize-none"
-                placeholder="Enter your comments here..."
-                value={tempComment}
-                onChange={(e) => setTempComment(e.target.value)}
-              />
+              <p className="text-gray-700">{releaseConfirm.type === 'approve' ? `Approve ${releaseConfirm.count} records?` : `Release letters for ${releaseConfirm.count} records?`}</p>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+              <button onClick={() => setReleaseConfirm({ isOpen: false, count: 0, ids: [], type: 'approve' })} className="px-4 py-2 border rounded">Cancel</button>
+              <button onClick={confirmRelease} className={`px-4 py-2 text-white rounded ${releaseConfirm.type === 'approve' ? 'bg-[#262760]' : 'bg-orange-600'}`}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isCommentModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
+            <div className="px-6 py-4 bg-[#262760] text-white flex justify-between items-center font-bold">
+              Reviewer Comments
+              <button onClick={() => setIsCommentModalOpen(false)}><X className="h-5 w-5" /></button>
+            </div>
+            <div className="p-6 text-right">
+              <textarea className="w-full h-32 border rounded p-3 resize-none" value={tempComment} onChange={(e) => setTempComment(e.target.value)} />
               <div className="mt-4 flex justify-end space-x-3">
-                <button
-                  onClick={() => setIsCommentModalOpen(false)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={saveComment}
-                  className="px-4 py-2 bg-[#262760] text-white rounded-md hover:bg-[#1e2050]"
-                >
-                  Save Comments
-                </button>
+                 <button onClick={() => setIsCommentModalOpen(false)} className="px-4 py-2 border rounded">Cancel</button>
+                 <button onClick={saveComment} className="px-4 py-2 bg-[#262760] text-white rounded">Save</button>
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* View Details Modal (All Comments) */}
       {viewModalData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-3xl overflow-hidden max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 bg-[#262760] text-white flex justify-between items-center">
-              <h3 className="text-lg font-bold flex items-center">
-                <User className="h-5 w-5 mr-2" />
-                Employee Appraisal Details
-              </h3>
-              <button onClick={() => setViewModalData(null)} className="text-white hover:text-gray-200">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-6">
-              {/* Employee Info Header */}
-              <div className="flex items-center space-x-4 pb-4 border-b border-gray-200">
-                <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center text-[#262760] font-bold text-lg">
-                  {viewModalData.name.charAt(0)}
-                </div>
-                <div>
-                  <h4 className="text-xl font-bold text-gray-900">{viewModalData.name}</h4>
-                  <p className="text-sm text-gray-500">{viewModalData.designation} • {viewModalData.department}</p>
-                </div>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+           <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden max-h-[90vh] overflow-y-auto">
+              <div className="px-6 py-4 bg-[#262760] text-white flex justify-between items-center font-bold">
+                 Appraisal Details
+                 <button onClick={() => setViewModalData(null)}><X className="h-5 w-5" /></button>
               </div>
-
-              {/* Comments Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Self Appraisal</h4>
-                  <p className="text-sm text-gray-800">{viewModalData.selfAppraiseeComments || <span className="text-gray-400 italic">No comments</span>}</p>
+              <div className="p-6 space-y-6">
+                <div className="flex items-center space-x-4 pb-4 border-b">
+                   <div className="h-12 w-12 rounded-full bg-indigo-100 flex items-center justify-center text-[#262760] font-bold text-xl">{viewModalData.name.charAt(0)}</div>
+                   <div>
+                      <h4 className="text-xl font-bold">{viewModalData.name}</h4>
+                      <p className="text-sm text-gray-500">
+                        {[viewModalData.designation, viewModalData.department].filter(Boolean).join(' • ') || '-'}
+                      </p>
+                   </div>
                 </div>
-
-                <div className="bg-gray-50 p-4 rounded-lg border border-gray-100">
-                  <h4 className="text-xs font-bold text-gray-500 uppercase mb-2">Manager Review</h4>
-                  <p className="text-sm text-gray-800">{viewModalData.managerComments || <span className="text-gray-400 italic">No comments</span>}</p>
-                </div>
-
+                
                 <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                  <h4 className="text-xs font-bold text-blue-800 uppercase mb-2">Reviewer Comments</h4>
-                  <p className="text-sm text-gray-800">{viewModalData.reviewerComments || <span className="text-gray-400 italic">No comments</span>}</p>
+                   <h4 className="text-sm font-bold text-[#262760] uppercase mb-3 border-b border-blue-200 pb-2">Comments History</h4>
+                   <div className="space-y-3">
+                      <div>
+                        <p className="text-xs text-gray-500 font-bold">Self Appraisal / Contribution</p>
+                        <p className="text-sm bg-white p-2 rounded border italic">"{viewModalData.selfAppraiseeComments || 'No comments'}"</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-bold">Manager Comments</p>
+                        <p className="text-sm bg-white p-2 rounded border italic">"{viewModalData.managerComments || 'No comments'}"</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-bold">Reviewer Comments</p>
+                        <p className="text-sm bg-white p-2 rounded border italic">"{viewModalData.reviewerComments || 'No comments'}"</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-500 font-bold">Director Comments</p>
+                        <p className="text-sm bg-white p-2 rounded border italic">"{viewModalData.directorComments || 'No comments'}"</p>
+                      </div>
+                   </div>
                 </div>
 
-                <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                  <h4 className="text-xs font-bold text-indigo-800 uppercase mb-2">Director Comments</h4>
-                  <p className="text-sm text-gray-800 font-medium">{viewModalData.directorComments || <span className="text-gray-400 italic">No comments</span>}</p>
-                </div>
-              </div>
-
-              {/* Financial Summary */}
-              <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
-                <h4 className="text-sm font-bold text-gray-900 mb-4">Financial Overview</h4>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <span className="block text-xs text-gray-500">Current Salary</span>
-                    <span className="block text-sm font-medium">₹{viewModalData.currentSalary.toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="block text-xs text-gray-500">Increment</span>
-                    <span className="block text-sm font-medium text-green-600">
-                      {viewModalData.incrementPercentage + viewModalData.incrementCorrectionPercentage}%
-                    </span>
-                  </div>
-                  <div>
-                    <span className="block text-xs text-gray-500">Amount</span>
-                    <span className="block text-sm font-medium text-green-600">₹{viewModalData.incrementAmount.toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="block text-xs text-gray-500">Revised Salary</span>
-                    <span className="block text-sm font-bold text-[#262760]">₹{viewModalData.revisedSalary.toLocaleString()}</span>
-                  </div>
+                <div className="bg-gray-50 p-4 rounded-lg border">
+                   <h4 className="text-sm font-bold mb-4">Financial Overview</h4>
+                   <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                      <div><span className="block text-xs text-gray-500">Current Salary</span><span className="text-sm font-medium">₹{Number(viewModalData.currentSalary || 0).toLocaleString()}</span></div>
+                      <div><span className="block text-xs text-gray-500">Base Incr %</span><span className="text-sm font-medium text-blue-600">{viewModalData.incrementPercentage}%</span></div>
+                      <div><span className="block text-xs text-gray-500">Correction %</span><span className="text-sm font-medium text-indigo-600">{viewModalData.incrementCorrectionPercentage}%</span></div>
+                      <div><span className="block text-xs text-gray-500">Revised Salary</span><span className="text-sm font-bold text-[#262760]">₹{Number(viewModalData.revisedSalary || 0).toLocaleString()}</span></div>
+                      <div><span className="block text-xs text-gray-500">Perf Pay</span><span className="text-sm font-bold text-green-600">₹{Number(viewModalData.performancePay || 0).toLocaleString()}</span></div>
+                   </div>
                 </div>
               </div>
-
-            </div>
-
-            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end">
-              <button
-                onClick={() => setViewModalData(null)}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300"
-              >
-                Close
-              </button>
-            </div>
-          </div>
+           </div>
         </div>
       )}
 
       {showReleaseLetter && letterData && (
-        <div className="fixed inset-0 bg-black/80 z-50 backdrop-blur-sm flex justify-center items-center p-4">
+        <div className="fixed inset-0 bg-black/80 z-[70] backdrop-blur-sm flex justify-center items-center p-4">
           <div className="bg-white rounded-lg shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col relative overflow-hidden">
             <div className="flex justify-between items-center p-4 border-b border-gray-200 bg-white z-20 shrink-0">
-              <h2 className="text-xl font-bold text-gray-800">Appraisal Letter Preview</h2>
+              <h2 className="text-xl font-bold text-gray-800">Release Letter Preview</h2>
               <button
-                onClick={() => setShowReleaseLetter(false)}
+                onClick={() => {
+                  setShowReleaseLetter(false);
+                  setLetterData(null);
+                }}
                 className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
               >
                 <X className="w-6 h-6" />
@@ -1000,11 +667,7 @@ const DirectorApproval = () => {
             <div className="p-4 md:p-8 bg-gray-100 overflow-auto flex flex-col items-center gap-8 flex-grow">
               <div id="release-letter-page-1" className="bg-white relative min-h-[1120px] w-[794px] shadow-lg flex-shrink-0 flex flex-col">
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
-                  <img
-                    src="/images/steel-logo.png"
-                    alt=""
-                    className="w-[500px] opacity-[0.05] grayscale"
-                  />
+                  <img src="/images/steel-logo.png" alt="" className="w-[500px] opacity-[0.05] grayscale" />
                 </div>
 
                 <div className="relative z-10 flex flex-col h-full justify-between flex-grow">
@@ -1085,13 +748,7 @@ const DirectorApproval = () => {
                         We are pleased to inform you that based on the available benchmarks in the industry and your performance appraisal, we have revised your compensation effective {letterData.effectiveDate}.
                       </p>
                       <p className="text-justify text-[14px] leading-6 mb-4">
-                        Details are provided in the attached Annexure.
-
-                        We draw your attention to the fact that your compensation is personal to you.
-
-                        As this information is confidential, we expect you to refrain from sharing the same with your colleagues.
-
-                        I take this opportunity to thank you for the contribution made by you during the year of review and wish you success for the year ahead.
+                        Details are provided in the attached Annexure. We draw your attention to the fact that your compensation is personal to you. As this information is confidential, we expect you to refrain from sharing the same with your colleagues. I take this opportunity to thank you for the contribution made by you during the year of review and wish you success for the year ahead.
                       </p>
                       {Number(letterData.performancePay || 0) > 0 && (
                         <div className="text-justify text-[14px] leading-6 mb-4">
@@ -1102,43 +759,28 @@ const DirectorApproval = () => {
                             This amount will be credited in the month of June2026 provided you are in company payroll.
                           </p>
                           <p className="mt-4">
-                            If you are in notice period ,You will not be eligible for the performance pay reciept.
+                            If you are in a notice period ,You will not be eligible for the performance pay reciept.
                           </p>
                         </div>
                       )}
                     </div>
 
                     <div className="mb-8 text-justify text-[14px] leading-6">
-                      <p>
-                        We look forward to your continued dedication and commitment to the organization.
-                      </p>
-                      <p className="mt-4">
-                        All other terms and conditions of your employment remain unchanged.
-                      </p>
+                      <p>We look forward to your continued dedication and commitment to the organization.</p>
+                      <p className="mt-4">All other terms and conditions of your employment remain unchanged.</p>
                     </div>
 
                     <div className="mt-12 flex justify-end">
-                      <div className="text-right">
+                      <div className="text-right relative">
                         <div className="mb-2 text-sm text-gray-700">For CALDIM ENGINEERING PRIVATE LIMITED</div>
                         <div className="mt-8 flex flex-col items-end min-h-[80px]">
                           {letterData.location && letterData.location.toLowerCase().includes('hosur') && (
-                            <img
-                              src={balaSignature}
-                              alt="Authorized Signatory"
-                              className="h-16 mb-2 object-contain"
-                              crossOrigin="anonymous"
-                            />
+                            <img src={balaSignature} alt="Authorized Signatory" className="h-16 mb-2 object-contain" crossOrigin="anonymous" />
                           )}
-                          {letterData.location && (letterData.location.toLowerCase().includes('chennai') || letterData.location.toLowerCase().includes('valasaravakkam')) && (
-                            <img
-                              src={uvarajSignature}
-                              alt="Authorized Signatory"
-                              className="h-16 mb-2 object-contain"
-                              crossOrigin="anonymous"
-                            />
+                          {letterData.location && letterData.location.toLowerCase().includes('chennai') && (
+                            <img src={uvarajSignature} alt="Authorized Signatory" className="h-16 mb-2 object-contain" crossOrigin="anonymous" />
                           )}
-                          {/* Spacer if no signature matches to maintain layout */}
-                          {(!letterData.location || (!letterData.location.toLowerCase().includes('hosur') && !letterData.location.toLowerCase().includes('chennai') && !letterData.location.toLowerCase().includes('valasaravakkam'))) && (
+                          {(!letterData.location || (!letterData.location.toLowerCase().includes('hosur') && !letterData.location.toLowerCase().includes('chennai'))) && (
                             <div className="h-16 mb-2"></div>
                           )}
                           <div className="font-bold">Authorized Signatory</div>
@@ -1167,11 +809,7 @@ const DirectorApproval = () => {
 
               <div id="release-letter-page-2" className="bg-white relative min-h-[1120px] w-[794px] shadow-lg flex-shrink-0 flex flex-col">
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
-                  <img
-                    src="/images/steel-logo.png"
-                    alt=""
-                    className="w-[500px] opacity-[0.05] grayscale"
-                  />
+                  <img src="/images/steel-logo.png" alt="" className="w-[500px] opacity-[0.05] grayscale" />
                 </div>
 
                 <div className="relative z-10 flex flex-col h-full justify-between flex-grow">
@@ -1267,16 +905,25 @@ const DirectorApproval = () => {
                       <div className="mb-4">
                         <p className="font-bold underline mb-1">Notes:</p>
                         <ul className="list-disc pl-5 space-y-1">
-                          <li>CTC includes employer contributions wherever applicable.</li>
-                          <li>All statutory deductions will be as per prevailing laws.</li>
-                          <li>Any variable components are subject to performance and company policy.</li>
+                          <li>Professional Tax (PT): ₹1,250 (deducted every six months) in addition to regular statutory deductions.</li>
+                          <li>Your revised salary will be subject to applicable statutory deductions, including Tax Deducted at Source (TDS) under the Income Tax Act, 1961, as amended from time to time, and any other statutory obligations.</li>
                         </ul>
                       </div>
 
-                      <div className="mt-6">
-                        <p className="mb-4">
-                          This is a system-generated annexure and does not require a physical signature.
+                      <div className="mb-4">
+                        <p>I accept the above offer described in this letter.</p>
+                      </div>
+
+                      <div className="mt-4">
+                        <p className="font-bold underline mb-2">Employee Declaration:</p>
+                        <p className="mb-8 text-justify">
+                          I have read and understood the terms stated in this Annexure and agree to abide by them during my employment with Caldim Engineering Pvt Ltd.
                         </p>
+
+                        <div className="flex justify-between items-end mt-8 px-4">
+                          <div className="font-bold">Signature: ______________________</div>
+                          <div className="font-bold">Date: __________________</div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1302,9 +949,7 @@ const DirectorApproval = () => {
           </div>
         </div>
       )}
-
     </div>
   );
 };
-
 export default DirectorApproval;

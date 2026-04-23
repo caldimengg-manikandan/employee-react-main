@@ -14,7 +14,17 @@ router.get('/', auth, async (req, res) => {
     // Strict Visibility Rule: Only assigned Appraiser can view (for manager roles)
     // Sequential Flow: Include all post-submission stages including final Reviewed state
     const statusFilter = {
-      $in: ['Submitted', 'SUBMITTED', 'APPRAISER_COMPLETED', 'REVIEWER_COMPLETED', 'DIRECTOR_APPROVED', 'Released', 'Reviewed']
+      $in: [
+        'Submitted',
+        'SUBMITTED',
+        'APPRAISER_COMPLETED',
+        'REVIEWER_COMPLETED',
+        'DIRECTOR_APPROVED',
+        'Released',
+        'RELEASED',
+        'Released Letter',
+        'Reviewed'
+      ]
     };
 
     const role = (req.user.role || '').toLowerCase();
@@ -78,13 +88,13 @@ router.get('/', auth, async (req, res) => {
       return {
         id: app._id,
         financialYr: app.year,
-        empId: emp.employeeId || 'N/A',
+        empId: emp.employeeId || '',
         name: emp.name || 'Unknown',
         avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
-        designation: emp.designation || 'N/A',
-        department: emp.department || 'N/A',
+        designation: emp.designation || '',
+        department: emp.department || '',
         division: app.division || '',
-        location: emp.location || 'N/A',
+        location: emp.location || '',
         status: app.status,
         overallContribution: app.overallContribution || '',
         projects: app.projects || [],

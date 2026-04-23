@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { BarChart3, Calendar, RefreshCw, Users, MapPin } from 'lucide-react';
-import { employeeAPI, attendanceAPI } from '../../services/api';
+import { employeeAPI, attendanceAPI, officeHolidayAPI } from '../../services/api';
 
 const getPreviousFinancialYearLabel = () => {
   const now = new Date();
@@ -27,6 +27,49 @@ const getFinancialYearRange = (financialYear) => {
   return { start, end };
 };
 
+const parseDateOnly = (value) => {
+  if (!value) return null;
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return null;
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+
+  const ymd = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (ymd) {
+    const y = Number(ymd[1]);
+    const m = Number(ymd[2]);
+    const d = Number(ymd[3]);
+    const dt = new Date(y, m - 1, d);
+    if (Number.isNaN(dt.getTime())) return null;
+    return dt;
+  }
+
+  const dmy = raw.match(/^(\d{2})[/-](\d{2})[/-](\d{4})/);
+  if (dmy) {
+    const d = Number(dmy[1]);
+    const m = Number(dmy[2]);
+    const y = Number(dmy[3]);
+    const dt = new Date(y, m - 1, d);
+    if (Number.isNaN(dt.getTime())) return null;
+    return dt;
+  }
+
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return null;
+  return new Date(dt.getFullYear(), dt.getMonth(), dt.getDate());
+};
+
+const formatDateDDMMYYYY = (dateValue) => {
+  const d = parseDateOnly(dateValue);
+  if (!d) return '-';
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const year = d.getFullYear();
+  return `${day}/${month}/${year}`;
+};
+
 const getWorkingDaysBetween = (start, end) => {
   let count = 0;
   const current = new Date(start.getTime());
@@ -48,11 +91,17 @@ const getTotalDaysBetween = (start, end) => {
   return diffDays + 1;
 };
 
+const FINANCIAL_YEAR_STORAGE_KEY = 'attendanceSummary.financialYear';
+
 const AttendanceSummary = () => {
-  const [financialYear, setFinancialYear] = useState(getPreviousFinancialYearLabel());
+  const [financialYear, setFinancialYear] = useState(() => {
+    if (typeof window === 'undefined') return getPreviousFinancialYearLabel();
+    return window.localStorage.getItem(FINANCIAL_YEAR_STORAGE_KEY) || getPreviousFinancialYearLabel();
+  });
 
   const [employees, setEmployees] = useState([]);
   const [attendanceSummary, setAttendanceSummary] = useState([]);
+  const [officeHolidays, setOfficeHolidays] = useState([]);
   const [loading, setLoading] = useState(false);
 
   const [filters, setFilters] = useState({
@@ -67,6 +116,11 @@ const AttendanceSummary = () => {
   const [editMap, setEditMap] = useState({});
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(FINANCIAL_YEAR_STORAGE_KEY, financialYear);
+  }, [financialYear]);
+
+  useEffect(() => {
     const loadData = async () => {
       try {
         setLoading(true);
@@ -79,21 +133,32 @@ const AttendanceSummary = () => {
             ? { financialYear }
             : { startDate, endDate, financialYear };
 
-        const [empRes, summaryRes] = await Promise.all([
+        const [empRes, summaryRes, officeHolidayRes] = await Promise.all([
           employeeAPI.getAllEmployees(),
           attendanceAPI.getSummary(summaryParams),
+          officeHolidayAPI.list(),
         ]);
 
         const empData = Array.isArray(empRes.data) ? empRes.data : [];
         const summaryData = Array.isArray(summaryRes.data?.summary)
           ? summaryRes.data.summary
           : [];
+        const officeHolidayData = Array.isArray(officeHolidayRes.data) ? officeHolidayRes.data : [];
+        const mappedOfficeHolidays = officeHolidayData
+          .map((h) => ({
+            id: String(h?.id || h?._id || ''),
+            name: String(h?.name || '').trim(),
+            dateISO: String(h?.dateISO || h?.date || '').trim(),
+          }))
+          .filter((h) => h.dateISO);
 
         setEmployees(empData);
         setAttendanceSummary(summaryData);
+        setOfficeHolidays(mappedOfficeHolidays);
       } catch (error) {
         setEmployees([]);
         setAttendanceSummary([]);
+        setOfficeHolidays([]);
       } finally {
         setLoading(false);
       }
@@ -118,28 +183,69 @@ const AttendanceSummary = () => {
     return Array.from(set).sort();
   }, [employees]);
 
-  const { workingDaysYear, officeHolidaysYear, rows } = useMemo(() => {
+  const { workingDaysYear, workingDaysYearStats, officeHolidaysYear, rows } = useMemo(() => {
     const range = getFinancialYearRange(financialYear);
-    const workingYear = getWorkingDaysBetween(range.start, range.end);
-    const totalDaysYear = getTotalDaysBetween(range.start, range.end);
-    const officeHolidays = Math.max(0, totalDaysYear - workingYear);
+    const today = parseDateOnly(new Date());
+    const rangeEnd = parseDateOnly(range.end);
+    const calcEnd = today && today < range.start ? null : rangeEnd;
+
+    const formatYMD = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${day}`;
+    };
+
+    const holidayDateMap = new Map();
+    officeHolidays.forEach((h) => {
+      const dt = parseDateOnly(h?.dateISO || h?.date || null);
+      if (!dt) return;
+      const key = formatYMD(dt);
+      if (!holidayDateMap.has(key)) holidayDateMap.set(key, dt);
+    });
+    const holidayDates = Array.from(holidayDateMap.values()).sort((a, b) => a.getTime() - b.getTime());
+
+    const countOfficeHolidaysBetween = (start, end) => {
+      if (!start || !end) return 0;
+      const startTime = start.getTime();
+      const endTime = end.getTime();
+      let count = 0;
+      holidayDates.forEach((d) => {
+        const t = d.getTime();
+        if (t < startTime || t > endTime) return;
+        const day = d.getDay();
+        if (day === 0 || day === 6) return;
+        count += 1;
+      });
+      return count;
+    };
+
+    const weekdayWorkingYear = calcEnd ? getWorkingDaysBetween(range.start, calcEnd) : 0;
+    const fyOfficeHolidayCount = calcEnd ? countOfficeHolidaysBetween(range.start, calcEnd) : 0;
+    const netWorkingYear = Math.max(0, weekdayWorkingYear - fyOfficeHolidayCount);
+    const statsWorkingYear = financialYear === '2025-26' ? weekdayWorkingYear : netWorkingYear;
 
     const attendanceMap = {};
     attendanceSummary.forEach((item) => {
       const rawId = item.employeeId || item.employeeCode || '';
       const key = String(rawId || '').toLowerCase();
       if (!key) return;
-      const present =
-        financialYear === '2025-26'
-          ? Number(item.yearlyPresent || 0)
-          : Number(item.inCount || 0);
+
+      if (financialYear === '2025-26') {
+        attendanceMap[key] = {
+          yearlyPresent: Number(item.yearlyPresent || 0),
+          yearlyAbsent: Number(item.yearlyAbsent || 0),
+          regionalHoliday: Number(item.regionalHoliday ?? item.regionalHolidays ?? 0),
+          hasManual: true,
+        };
+        return;
+      }
+
+      const present = Number(item.inCount || 0);
       if (!attendanceMap[key]) {
         attendanceMap[key] = { yearlyPresent: 0, hasManual: false };
       }
       attendanceMap[key].yearlyPresent += present;
-      if (financialYear === '2025-26') {
-        attendanceMap[key].hasManual = true;
-      }
     });
 
     const computedRows = employees
@@ -152,22 +258,94 @@ const AttendanceSummary = () => {
         const key = empId.toLowerCase();
         const attInfo = attendanceMap[key] || { yearlyPresent: 0, hasManual: false };
 
-        const basePresent = Math.max(0, Math.min(workingYear, attInfo.yearlyPresent));
-        let baseAbsent;
-        if (financialYear === '2025-26') {
-          baseAbsent = 0;
-        } else {
-          baseAbsent = Math.max(0, workingYear - basePresent);
+        const dojValue =
+          emp.dateOfJoining || emp.dateofjoin || emp.hireDate || emp.createdAt || null;
+        const dojDate = parseDateOnly(dojValue);
+        const startDate =
+          dojDate && dojDate > range.start ? new Date(dojDate.getTime()) : new Date(range.start.getTime());
+
+        let dojWorkingDays = null;
+        let spanOfficeHolidays = 0;
+        if (dojDate) {
+          if (!calcEnd) {
+            dojWorkingDays = 0;
+          } else if (dojDate > calcEnd) {
+            dojWorkingDays = 0;
+          } else {
+            const rawWorking = getWorkingDaysBetween(startDate, calcEnd);
+            spanOfficeHolidays = countOfficeHolidaysBetween(startDate, calcEnd);
+            dojWorkingDays = Math.max(0, rawWorking - spanOfficeHolidays);
+          }
         }
 
-        const yearlyPct =
-          workingYear > 0 ? Math.max(0, Math.min(100, (basePresent / workingYear) * 100)) : 0;
+        const effectiveWorkingDays =
+          typeof dojWorkingDays === 'number' ? dojWorkingDays : netWorkingYear;
+
+        const totalDaysSpan =
+          calcEnd && startDate <= calcEnd ? getTotalDaysBetween(startDate, calcEnd) : 0;
+        if (!spanOfficeHolidays && calcEnd && startDate <= calcEnd) {
+          spanOfficeHolidays = countOfficeHolidaysBetween(startDate, calcEnd);
+        }
+
+        let basePresent = 0;
+        let baseAbsent = 0;
+        let baseRegionalHoliday = 0;
+        let yearlyPct = 0;
+
+        if (financialYear === '2025-26') {
+          if (attInfo.hasManual) {
+            const storedRegional = Math.max(0, Number(attInfo.regionalHoliday || 0));
+            baseRegionalHoliday = Math.min(effectiveWorkingDays, storedRegional);
+            const denomWorkingDays = Math.max(0, effectiveWorkingDays - baseRegionalHoliday);
+
+            const storedAbsent = Math.max(0, Number(attInfo.yearlyAbsent || 0));
+            baseAbsent = Math.min(denomWorkingDays, storedAbsent);
+            basePresent = Math.max(0, denomWorkingDays - baseAbsent);
+            yearlyPct =
+              denomWorkingDays > 0
+                ? Math.max(0, Math.min(100, (basePresent / denomWorkingDays) * 100))
+                : 0;
+          } else {
+            basePresent = 0;
+            baseAbsent = 0;
+            baseRegionalHoliday = 0;
+            yearlyPct = 0;
+          }
+
+          return {
+            empId,
+            name: emp.name || emp.employeeName || '',
+            division: emp.division || '',
+            location: emp.location || emp.branch || '',
+            dojDisplay: dojDate ? formatDateDDMMYYYY(dojDate) : '-',
+            dojWorkingDays,
+            totalDaysSpan,
+            officeHoliday: spanOfficeHolidays,
+            regionalHoliday: baseRegionalHoliday,
+            yearlyPresent: basePresent,
+            yearlyAbsent: baseAbsent,
+            yearlyPct,
+            hasManualRecord: !!attInfo.hasManual,
+          };
+        }
+
+        basePresent = Math.max(0, Math.min(effectiveWorkingDays, attInfo.yearlyPresent));
+        baseAbsent = Math.max(0, effectiveWorkingDays - basePresent);
+        yearlyPct =
+          effectiveWorkingDays > 0
+            ? Math.max(0, Math.min(100, (basePresent / effectiveWorkingDays) * 100))
+            : 0;
 
         return {
           empId,
           name: emp.name || emp.employeeName || '',
           division: emp.division || '',
           location: emp.location || emp.branch || '',
+          dojDisplay: dojDate ? formatDateDDMMYYYY(dojDate) : '-',
+          dojWorkingDays,
+          totalDaysSpan,
+          officeHoliday: spanOfficeHolidays,
+          regionalHoliday: 0,
           yearlyPresent: basePresent,
           yearlyAbsent: baseAbsent,
           yearlyPct,
@@ -177,49 +355,77 @@ const AttendanceSummary = () => {
       .filter(Boolean);
 
     return {
-      workingDaysYear: workingYear,
-      officeHolidaysYear: officeHolidays,
+      workingDaysYear: netWorkingYear,
+      workingDaysYearStats: statsWorkingYear,
+      officeHolidaysYear: fyOfficeHolidayCount,
       rows: computedRows,
     };
-  }, [employees, attendanceSummary, financialYear]);
+  }, [employees, attendanceSummary, financialYear, officeHolidays]);
 
   const filteredRows = useMemo(() => {
     const adjustedRows = rows.map((row) => {
       const override = rowOverrides[row.empId];
 
+      const effectiveWorkingDays =
+        typeof row.dojWorkingDays === 'number' ? row.dojWorkingDays : workingDaysYear;
+
       let present = row.yearlyPresent;
       let absent = row.yearlyAbsent;
+      let regionalHoliday = row.regionalHoliday || 0;
 
       if (financialYear === '2025-26') {
-        if (override && typeof override.yearlyAbsent === 'number') {
-          const clampedAbsent = Math.max(
-            0,
-            Math.min(workingDaysYear, override.yearlyAbsent)
-          );
-          absent = clampedAbsent;
-          present =
-            workingDaysYear > 0
-              ? Math.max(0, workingDaysYear - clampedAbsent)
-              : 0;
-        } else if (row.hasManualRecord) {
-          present = row.yearlyPresent;
-          const derivedAbsent =
-            workingDaysYear > 0
-              ? Math.max(
-                  0,
-                  Math.min(workingDaysYear, workingDaysYear - present)
-                )
-              : 0;
-          absent = derivedAbsent;
-        } else {
-          present = 0;
-          absent = 0;
+        const hasOverride =
+          override &&
+          (typeof override.yearlyAbsent === 'number' || typeof override.regionalHoliday === 'number');
+
+        if (!row.hasManualRecord && !hasOverride) {
+          return {
+            ...row,
+            regionalHoliday: 0,
+            yearlyPresent: 0,
+            yearlyAbsent: 0,
+            yearlyPct: 0,
+          };
         }
+
+        const rawRegional =
+          override && typeof override.regionalHoliday === 'number'
+            ? override.regionalHoliday
+            : row.hasManualRecord
+            ? row.regionalHoliday
+            : 0;
+        const clampedRegional = Math.max(0, Math.min(effectiveWorkingDays, Number(rawRegional || 0)));
+        regionalHoliday = clampedRegional;
+
+        const denomWorkingDays = Math.max(0, effectiveWorkingDays - clampedRegional);
+
+        const rawAbsent =
+          override && typeof override.yearlyAbsent === 'number'
+            ? override.yearlyAbsent
+            : row.hasManualRecord
+            ? row.yearlyAbsent
+            : 0;
+        const clampedAbsent = Math.max(0, Math.min(denomWorkingDays, Number(rawAbsent || 0)));
+        absent = clampedAbsent;
+        present = denomWorkingDays > 0 ? Math.max(0, denomWorkingDays - clampedAbsent) : 0;
+
+        const pct =
+          denomWorkingDays > 0
+            ? Math.max(0, Math.min(100, (present / denomWorkingDays) * 100))
+            : 0;
+
+        return {
+          ...row,
+          regionalHoliday,
+          yearlyPresent: present,
+          yearlyAbsent: absent,
+          yearlyPct: pct,
+        };
       }
 
       const pct =
-        workingDaysYear > 0
-          ? Math.max(0, Math.min(100, (present / workingDaysYear) * 100))
+        effectiveWorkingDays > 0
+          ? Math.max(0, Math.min(100, (present / effectiveWorkingDays) * 100))
           : 0;
 
       return {
@@ -259,18 +465,34 @@ const AttendanceSummary = () => {
       return;
     }
     const numeric = Number(value);
-    const safeValue =
-      Number.isFinite(numeric) && numeric >= 0
-        ? Math.min(numeric, workingDaysYear)
-        : 0;
-
+    const row = rows.find((r) => r.empId === empId);
+    const effectiveWorkingDays =
+      row && typeof row.dojWorkingDays === 'number' ? row.dojWorkingDays : workingDaysYear;
+    
     setRowOverrides((prev) => {
       const current = prev[empId] || {};
+      const nextOverride = { ...current, [field]: numeric };
+
+      // Determine effective values for capping
+      const targetRegional = typeof nextOverride.regionalHoliday === 'number' 
+        ? nextOverride.regionalHoliday 
+        : (row?.regionalHoliday || 0);
+      
+      const clampedRegional = Math.max(0, Math.min(effectiveWorkingDays, targetRegional));
+      const remainingForAbsent = effectiveWorkingDays - clampedRegional;
+
+      const targetAbsent = typeof nextOverride.yearlyAbsent === 'number'
+        ? nextOverride.yearlyAbsent
+        : (row?.yearlyAbsent || 0);
+
+      const clampedAbsent = Math.max(0, Math.min(remainingForAbsent, targetAbsent));
+
       return {
         ...prev,
         [empId]: {
-          ...current,
-          [field]: safeValue,
+          ...nextOverride,
+          regionalHoliday: field === 'regionalHoliday' ? clampedRegional : (current.regionalHoliday ?? row?.regionalHoliday ?? 0),
+          yearlyAbsent: field === 'yearlyAbsent' ? clampedAbsent : (current.yearlyAbsent ?? row?.yearlyAbsent ?? 0),
         },
       };
     });
@@ -305,7 +527,16 @@ const AttendanceSummary = () => {
         financialYear,
         yearlyPresent: row.yearlyPresent,
         yearlyAbsent: row.yearlyAbsent,
+        officeHoliday: row.officeHoliday,
+        regionalHoliday: row.regionalHoliday,
+        yearlyPct: row.yearlyPct,
       });
+      setRowOverrides((prev) => {
+        const next = { ...prev };
+        delete next[empId];
+        return next;
+      });
+      setRefreshToken((x) => x + 1);
     } catch (error) {
       console.error('Failed to save year summary', error);
       window.alert('Failed to save year summary');
@@ -413,20 +644,22 @@ const AttendanceSummary = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="rounded-xl shadow-sm border border-indigo-100 bg-indigo-50 p-4 text-indigo-900">
             <div className="text-[11px] font-semibold uppercase mb-1">
-              Financial Year Working Days
+              Working Days ({financialYear})
             </div>
-            <div className="text-2xl font-bold">{workingDaysYear}</div>
+            <div className="text-2xl font-bold">{workingDaysYearStats}</div>
             <div className="text-sm mt-1 text-indigo-800/80">
-              Monday to Friday between FY start and end.
+              {financialYear === '2025-26'
+                ? 'Weekdays including office holidays.'
+                : 'Weekdays minus office holidays.'}
             </div>
           </div>
           <div className="rounded-xl shadow-sm border border-amber-100 bg-amber-50 p-4 text-amber-900">
             <div className="text-[11px] font-semibold uppercase mb-1">
-              Office Holidays (Year)
+              Office Holidays ({financialYear})
             </div>
             <div className="text-2xl font-bold">{officeHolidaysYear}</div>
             <div className="text-sm mt-1 text-amber-800/80">
-              Weekends and other non-working days.
+              Saved office holidays (weekdays only).
             </div>
           </div>
           <div className="rounded-xl shadow-sm border border-emerald-100 bg-emerald-50 p-4 text-emerald-900">
@@ -456,6 +689,15 @@ const AttendanceSummary = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                     Employee Name
                   </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                    Date of Joining
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
+                    DOJ Based Working Days
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
+                    REgional holidays
+                  </th>
                   <th className="px-4 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
                     Present Days (Year)
                   </th>
@@ -469,7 +711,7 @@ const AttendanceSummary = () => {
                     Status
                   </th>
                   <th className="px-4 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">
-                    Actions
+                    Action
                   </th>
                 </tr>
               </thead>
@@ -477,7 +719,7 @@ const AttendanceSummary = () => {
                 {filteredRows.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={11}
                       className="px-6 py-8 text-center text-sm text-gray-500"
                     >
                       No records found for current filters.
@@ -488,13 +730,11 @@ const AttendanceSummary = () => {
                     const yearlyStatus =
                       row.yearlyPct >= 95
                         ? { label: 'Excellent', className: 'bg-green-100 text-green-800' }
-                        : row.yearlyPct >= 85
+                        : row.yearlyPct >= 80
                         ? { label: 'Good', className: 'bg-blue-100 text-blue-800' }
-                        : row.yearlyPct >= 75
+                        : row.yearlyPct >= 70
                         ? { label: 'Average', className: 'bg-yellow-100 text-yellow-800' }
-                        : row.yearlyPct >= 60
-                        ? { label: 'Needs Improvement', className: 'bg-orange-100 text-orange-800' }
-                        : { label: 'Critical', className: 'bg-red-100 text-red-800' };
+                        : { label: 'Poor', className: 'bg-red-100 text-red-800' };
 
                     return (
                       <tr key={row.empId} className="hover:bg-gray-50">
@@ -507,14 +747,36 @@ const AttendanceSummary = () => {
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                           {row.name}
                         </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                          {row.dojDisplay}
+                        </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                          {row.yearlyPresent}
+                          {typeof row.dojWorkingDays === 'number' ? row.dojWorkingDays : '-'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
                           <input
                             type="number"
                             min="0"
-                            value={row.yearlyAbsent}
+                            value={(row.hasManualRecord || editMap[row.empId]) ? (row.regionalHoliday || 0) : ''}
+                            onChange={(e) =>
+                              handleDaysChange(row.empId, 'regionalHoliday', e.target.value)
+                            }
+                            disabled={financialYear !== '2025-26' || !editMap[row.empId]}
+                            className={`w-20 px-2 py-1 border border-gray-300 rounded-md text-sm text-right ${
+                              financialYear !== '2025-26' || !editMap[row.empId]
+                                ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
+                                : ''
+                            }`}
+                          />
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {(row.hasManualRecord || editMap[row.empId] || financialYear !== '2025-26') ? row.yearlyPresent : '-'}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
+                          <input
+                            type="number"
+                            min="0"
+                            value={(row.hasManualRecord || editMap[row.empId]) ? (row.yearlyAbsent || 0) : ''}
                             onChange={(e) =>
                               handleDaysChange(row.empId, 'yearlyAbsent', e.target.value)
                             }
@@ -527,14 +789,18 @@ const AttendanceSummary = () => {
                           />
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-right">
-                          {row.yearlyPct.toFixed(1)}%
+                          {(row.hasManualRecord || editMap[row.empId] || financialYear !== '2025-26') ? `${row.yearlyPct.toFixed(1)}%` : '-'}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center">
-                          <span
-                            className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${yearlyStatus.className}`}
-                          >
-                            {yearlyStatus.label}
-                          </span>
+                          {(row.hasManualRecord || editMap[row.empId] || financialYear !== '2025-26') ? (
+                            <span
+                              className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${yearlyStatus.className}`}
+                            >
+                              {yearlyStatus.label}
+                            </span>
+                          ) : (
+                            <span className="text-gray-400">-</span>
+                          )}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900 text-center">
                           {financialYear === '2025-26' ? (

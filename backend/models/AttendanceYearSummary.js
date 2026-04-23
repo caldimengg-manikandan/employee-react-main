@@ -20,6 +20,18 @@ const AttendanceYearSummarySchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    officeHoliday: {
+      type: Number,
+      default: 0,
+    },
+    regionalHoliday: {
+      type: Number,
+      default: 0,
+    },
+    yearlyPct: {
+      type: Number,
+      default: 0,
+    },
     updatedBy: {
       type: String,
       default: "",

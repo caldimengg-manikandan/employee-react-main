@@ -55,9 +55,11 @@ const WorkflowTracker = ({ currentStageId, userFlow }) => {
 
           // Status Label Logic
           let statusText = '';
-          if (isCompleted) statusText = 'Completed';
+          if (isCompleted || (isCurrent && index === userFlow.length - 1)) statusText = 'Completed';
           else if (isCurrent) statusText = 'In Progress';
           else statusText = 'Pending';
+          
+          const isFinished = isCompleted || (isCurrent && index === userFlow.length - 1);
           
           return (
             <div key={step.id} className="relative flex flex-row md:flex-col items-center w-full md:w-1/5 z-10">
@@ -71,14 +73,14 @@ const WorkflowTracker = ({ currentStageId, userFlow }) => {
                    {/* Animated Progress Line */}
                    <div 
                      className={`absolute inset-0 h-full bg-green-500 transition-all duration-500 ease-linear origin-left
-                       ${isCompleted && mounted ? 'w-full' : 'w-0'}
+                       ${isFinished && mounted ? 'w-full' : 'w-0'}
                      `}
                      style={{ transitionDelay: `${lineFillDelay}ms` }}
                    ></div>
 
                    {/* Arrow Head */}
-                   <div 
-                     className={`absolute right-0 -top-1.5 transition-colors duration-300 ${isCompleted && mounted ? 'text-green-500' : 'text-gray-200'}`}
+                    <div 
+                      className={`absolute right-0 -top-1.5 transition-colors duration-300 ${isFinished && mounted ? 'text-green-500' : 'text-gray-200'}`}
                      style={{ transitionDelay: `${lineFillDelay + 200}ms` }}
                    >
                      <ChevronRight size={16} fill="currentColor" />
@@ -88,11 +90,11 @@ const WorkflowTracker = ({ currentStageId, userFlow }) => {
 
               {/* Date Box (Top) */}
               <div className="mb-4 hidden md:block">
-                 <div 
+                 <div
                    className={`
                      px-3 py-1 rounded shadow-sm text-xs font-bold whitespace-nowrap border transition-all duration-500
-                     ${isCompleted && mounted ? 'bg-green-50 border-green-200 text-green-700' : 
-                       isCurrent && mounted ? 'bg-blue-50 border-blue-400 text-blue-700 transform scale-105 shadow-md' : 
+                     ${isFinished && mounted ? 'bg-green-50 border-green-200 text-green-700' :
+                       isCurrent && mounted ? 'bg-blue-50 border-blue-400 text-blue-700 transform scale-105 shadow-md' :
                        'bg-white border-gray-200 text-gray-500'}
                    `}
                    style={{ transitionDelay: `${stepAppearDelay}ms` }}
@@ -106,7 +108,7 @@ const WorkflowTracker = ({ currentStageId, userFlow }) => {
                 <div 
                   className={`
                     relative flex items-center justify-center w-16 h-16 rounded-full border-4 shadow-md transition-all duration-500 z-20
-                    ${isCompleted && mounted
+                    ${isFinished && mounted
                       ? 'bg-green-100 border-green-500 text-green-600' 
                       : isCurrent && mounted
                         ? 'bg-white border-[#262760] text-[#262760] scale-125 shadow-lg ring-4 ring-blue-100' 
@@ -115,13 +117,13 @@ const WorkflowTracker = ({ currentStageId, userFlow }) => {
                   `}
                   style={{ transitionDelay: `${stepAppearDelay}ms` }}
                 >
-                  {/* Pulse Effect for Current Stage */}
-                  {isCurrent && mounted && (
+                  {/* Pulse Effect for In Progress Stage (not the final one) */}
+                  {isCurrent && !isFinished && mounted && (
                     <span className="absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-20 animate-ping"></span>
                   )}
                   
-                  {isCompleted && mounted ? (
-                    <Check size={28} strokeWidth={3} className="transition-transform duration-300 transform scale-100" />
+                  {isFinished && mounted ? (
+                    <Check size={28} strokeWidth={3} className="transition-transform duration-300 transform scale-100 text-green-600" />
                   ) : (
                     <StageIcon size={isCurrent ? 28 : 24} className={`transition-all duration-300 ${isCurrent && mounted ? 'animate-pulse' : ''}`} />
                   )}
@@ -132,7 +134,7 @@ const WorkflowTracker = ({ currentStageId, userFlow }) => {
                   <div className="md:hidden text-xs font-bold text-gray-500 mb-1">{step.date}</div>
                   <div 
                     className={`text-lg font-bold transition-all duration-500
-                      ${isCompleted && mounted ? 'text-green-700' : ''}
+                      ${isFinished && mounted ? 'text-green-700' : ''}
                       ${isCurrent && mounted ? 'text-[#262760] scale-110' : ''}
                       ${isUpcoming ? 'text-gray-400' : ''}
                     `}
@@ -153,7 +155,7 @@ const WorkflowTracker = ({ currentStageId, userFlow }) => {
                   <div 
                     className={`
                       mt-2 text-xs font-bold uppercase tracking-wider transition-colors duration-500
-                      ${isCompleted && mounted ? 'text-green-600' : ''}
+                      ${isFinished && mounted ? 'text-green-600' : ''}
                       ${isCurrent && mounted ? 'text-blue-600 animate-pulse' : ''}
                       ${isUpcoming ? 'text-gray-300' : ''}
                     `}
@@ -170,7 +172,7 @@ const WorkflowTracker = ({ currentStageId, userFlow }) => {
                    <div className="absolute inset-0 bg-gray-200 w-full h-full"></div>
                    <div 
                       className={`absolute inset-0 w-full bg-green-500 transition-all duration-500 ease-linear origin-top
-                        ${isCompleted && mounted ? 'h-full' : 'h-0'}
+                        ${isFinished && mounted ? 'h-full' : 'h-0'}
                       `}
                       style={{ transitionDelay: `${lineFillDelay}ms` }}
                     ></div>

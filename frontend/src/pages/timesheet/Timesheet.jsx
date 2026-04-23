@@ -1,45 +1,11 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { timesheetAPI, allocationAPI, employeeAPI, specialPermissionAPI } from "../../services/api";
+import { timesheetAPI, allocationAPI, employeeAPI, officeHolidayAPI, specialPermissionAPI } from "../../services/api";
 import { ChevronLeft, ChevronRight, Calendar, Plus, Trash2, Save, Send, ChevronUp, ChevronDown } from "lucide-react";
-
-// Holiday Calendar 2026 data
-const holidays2026 = [
-  { date: '01-Jan-26', day: 'THURSDAY', occasion: '' },
-  { date: '15-Jan-26', day: 'THURSDAY', occasion: '' },
-  { date: '16-Jan-26', day: 'FRIDAY', occasion: '' },
-  { date: '26-Jan-26', day: 'MONDAY', occasion: '' },
-  { date: '14-Apr-26', day: 'TUESDAY', occasion: '' },
-  { date: '01-May-26', day: 'FRIDAY', occasion: '' },
-  { date: '14-Sep-26', day: 'MONDAY', occasion: '' },
-  { date: '02-Oct-26', day: 'FRIDAY', occasion: '' },
-  { date: '19-Oct-26', day: 'MONDAY', occasion: '' },
-  { date: 'REGIONAL', day: 'CHOOSE ONE', occasion: '' }
-];
-
-const isHoliday = (date) => {
-  if (!date) return false;
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = date.toLocaleDateString('en-US', { month: 'short' });
-  const year = String(date.getFullYear()).slice(-2);
-  const formattedDate = `${day}-${month}-${year}`;
-
-  return holidays2026.some(h => h.date === formattedDate);
-};
-
-const getHolidayOccasion = (date) => {
-  if (!date) return "";
-  const day = String(date.getDate()).padStart(2, '0');
-  const month = date.toLocaleDateString('en-US', { month: 'short' });
-  const year = String(date.getFullYear()).slice(-2);
-  const formattedDate = `${day}-${month}-${year}`;
-
-  const holiday = holidays2026.find(h => h.date === formattedDate);
-  return holiday ? holiday.occasion : "";
-};
 
 const Timesheet = () => {
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [timesheetRows, setTimesheetRows] = useState([]);
+  const [officeHolidayByISO, setOfficeHolidayByISO] = useState({});
   const [totals, setTotals] = useState({
     daily: [0, 0, 0, 0, 0, 0, 0],
     weekly: 0,
@@ -81,6 +47,22 @@ const Timesheet = () => {
     setErrorMessage(message);
     setErrorTitle(title);
     setShowErrorDialog(true);
+  };
+
+  const toISODateOnly = (d) => {
+    if (!d) return "";
+    const utc = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    return utc.toISOString().slice(0, 10);
+  };
+
+  const isOfficeHoliday = (date) => {
+    const iso = toISODateOnly(date);
+    return Boolean(iso && officeHolidayByISO && officeHolidayByISO[iso]);
+  };
+
+  const getOfficeHolidayName = (date) => {
+    const iso = toISODateOnly(date);
+    return (iso && officeHolidayByISO && officeHolidayByISO[iso]) ? String(officeHolidayByISO[iso]) : "";
   };
 
   const shiftTypes = [
@@ -155,7 +137,7 @@ const Timesheet = () => {
         const attendanceStartStr = normalizeToUTCDateOnly(prevSunday);
 
         // Run all requests in parallel to avoid race conditions
-        const [timesheetRes, attendanceRes, specialRes] = await Promise.allSettled([
+        const [timesheetRes, attendanceRes, specialRes, officeHolidayRes] = await Promise.allSettled([
           timesheetAPI.getTimesheet({
             weekStart: weekStartStr,
             weekEnd: weekEndStr,
@@ -170,13 +152,28 @@ const Timesheet = () => {
              weekStart: weekStartStr,
              weekEnd: weekEndStr,
              _t: Date.now()
-          })
+          }),
+          officeHolidayAPI.list()
         ]);
 
         if (specialRes.status === "fulfilled" && specialRes.value) {
             setMySpecials(Array.isArray(specialRes.value.data?.data) ? specialRes.value.data.data : []);
         } else {
             setMySpecials([]);
+        }
+
+        let officeMap = {};
+        if (officeHolidayRes.status === "fulfilled" && officeHolidayRes.value) {
+          const items = Array.isArray(officeHolidayRes.value.data) ? officeHolidayRes.value.data : [];
+          officeMap = items.reduce((acc, h) => {
+            const iso = String(h?.dateISO || "").trim();
+            const name = String(h?.name || "").trim();
+            if (iso && name) acc[iso] = name;
+            return acc;
+          }, {});
+          setOfficeHolidayByISO(officeMap);
+        } else {
+          setOfficeHolidayByISO({});
         }
 
         // --- Process Timesheet Data ---
@@ -346,7 +343,7 @@ const Timesheet = () => {
         // --- Set Timesheet Rows ---
         if (rows.length === 0) {
           const weekDates = getWeekDates(currentWeek);
-          const holidayHours = weekDates.map(date => isHoliday(date) ? 9.5 : 0);
+          const holidayHours = weekDates.map((date) => (officeMap[toISODateOnly(date)] ? 9.5 : 0));
           const hasHoliday = holidayHours.some(h => h > 0);
 
           const initialRows = [];
@@ -381,7 +378,7 @@ const Timesheet = () => {
         } else {
           // Check if we need to add holiday row for existing timesheet
           const weekDates = getWeekDates(currentWeek);
-          const holidayHours = weekDates.map(date => isHoliday(date) ? 9.5 : 0);
+          const holidayHours = weekDates.map((date) => (officeMap[toISODateOnly(date)] ? 9.5 : 0));
           const hasHoliday = holidayHours.some(h => h > 0);
           const hasHolidayRow = rows.some(r => r.project === "Office Holiday" || r.task === "Office Holiday");
 
@@ -2131,19 +2128,19 @@ const Timesheet = () => {
                 {days.map((day, index) => (
                   <th
                     key={day}
-                    className={`p-3 text-center text-sm font-semibold border border-gray-600 w-32 ${isHoliday(weekDates[index]) ? 'bg-green-700 text-white' : ''}`}
+                    className={`p-3 text-center text-sm font-semibold border border-gray-600 w-32 ${isOfficeHoliday(weekDates[index]) ? 'bg-green-700 text-white' : ''}`}
                   >
                     <div>{day}</div>
-                    <div className={`${isHoliday(weekDates[index]) ? 'text-green-100' : 'text-violet-100'} text-xs font-normal`}>
+                    <div className={`${isOfficeHoliday(weekDates[index]) ? 'text-green-100' : 'text-violet-100'} text-xs font-normal`}>
                       {weekDates[index].toLocaleDateString("en-US", {
                         month: "short",
                         day: "numeric",
                       })}
                     </div>
                     <div className="mt-2">
-                      {isHoliday(weekDates[index]) ? (
+                      {isOfficeHoliday(weekDates[index]) ? (
                         <div className="text-xs font-bold text-white break-words whitespace-normal px-1">
-                          {getHolidayOccasion(weekDates[index])}
+                          {getOfficeHolidayName(weekDates[index])}
                         </div>
                       ) : (
                         <select
@@ -2236,7 +2233,7 @@ const Timesheet = () => {
                   </td>
 
                   {row.hours.map((hours, dayIndex) => (
-                    <td key={dayIndex} className={`p-2 text-center border border-gray-200 w-32 ${isHoliday(weekDates[dayIndex]) ? 'bg-green-100' : ''}`}>
+                    <td key={dayIndex} className={`p-2 text-center border border-gray-200 w-32 ${isOfficeHoliday(weekDates[dayIndex]) ? 'bg-green-100' : ''}`}>
                       <div className="relative inline-flex items-center">
                         <input
                           type="text"

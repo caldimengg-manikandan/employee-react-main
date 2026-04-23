@@ -213,7 +213,7 @@ router.get("/summary", async (req, res) => {
       ]);
     }
 
-    const employeeIds = summary.map(item => item._id || item.employeeId);
+    const employeeIds = summary.map(item => item.employeeId || item._id).filter(Boolean);
     const employees = await Employee.find({
       employeeId: { $in: employeeIds }
     }).select('employeeId name');
@@ -224,7 +224,7 @@ router.get("/summary", async (req, res) => {
     }, {});
 
     const enrichedSummary = summary.map(item => {
-      const employeeId = item._id || item.employeeId;
+      const employeeId = item.employeeId || item._id;
 
       if (financialYear === "2025-26") {
         return {
@@ -232,6 +232,8 @@ router.get("/summary", async (req, res) => {
           employeeName: employeeMap[employeeId] || "Unknown Employee",
           yearlyPresent: item.yearlyPresent || 0,
           yearlyAbsent: item.yearlyAbsent || 0,
+          officeHoliday: item.officeHoliday || 0,
+          regionalHoliday: item.regionalHoliday || 0,
         };
       }
 
@@ -268,7 +270,8 @@ router.get("/summary", async (req, res) => {
 router.put("/year-summary/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
-    const { financialYear, yearlyPresent, yearlyAbsent, updatedBy } = req.body;
+    const { financialYear, yearlyPresent, yearlyAbsent, officeHoliday, regionalHoliday, yearlyPct, updatedBy } = req.body;
+    console.log(`Saving Year Summary for ${employeeId}, FY ${financialYear}: regionalHoliday=${regionalHoliday}, yearlyPct=${yearlyPct}`);
 
     if (!financialYear) {
       return res.status(400).json({
@@ -282,6 +285,9 @@ router.put("/year-summary/:employeeId", async (req, res) => {
       financialYear,
       yearlyPresent: Number(yearlyPresent) || 0,
       yearlyAbsent: Number(yearlyAbsent) || 0,
+      officeHoliday: Number(officeHoliday) || 0,
+      regionalHoliday: Number(regionalHoliday) || 0,
+      yearlyPct: Number(yearlyPct) || 0,
       updatedBy: updatedBy || "",
     };
 
@@ -313,6 +319,7 @@ router.get("/year-summary/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
     const { financialYear } = req.query;
+    console.log(`Getting Year Summary for ${employeeId}, FY ${financialYear}`);
 
     if (!financialYear) {
       return res.status(400).json({

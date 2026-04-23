@@ -495,6 +495,11 @@ const TeamAppraisal = () => {
     }
   };
 
+  const formatEmployeeMetaLine = (emp) => {
+    const parts = [emp?.department, emp?.empId].filter(Boolean);
+    return parts.length ? parts.join(' • ') : '-';
+  };
+
   // Filter Logic
   const uniqueDivisions = [...new Set(employees.map(e => e.division).filter(Boolean))].sort();
   const uniqueLocations = [...new Set(employees.map(e => e.location).filter(Boolean))].sort();
@@ -691,7 +696,7 @@ const TeamAppraisal = () => {
                         <h2 className="text-2xl font-bold">{selectedEmployee.name}</h2>
                         <div className="flex items-center text-indigo-100 text-sm mt-1 flex-wrap gap-2">
                           <span className="bg-white/20 px-2 py-0.5 rounded text-xs">{selectedEmployee.designation}</span>
-                          <span>{selectedEmployee.department} • {selectedEmployee.empId}</span>
+                          <span>{formatEmployeeMetaLine(selectedEmployee)}</span>
                           <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${getStatusColor(selectedEmployee.status)}`}>
                             {selectedEmployee.status}
                           </span>

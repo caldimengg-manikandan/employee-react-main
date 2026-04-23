@@ -295,6 +295,12 @@ export const regionalHolidayAPI = {
   remove: (id) => api.delete(`/regional-holidays/${id}`)
 };
 
+export const officeHolidayAPI = {
+  list: () => api.get('/office-holidays'),
+  create: (data) => api.post('/office-holidays', data),
+  remove: (id) => api.delete(`/office-holidays/${id}`)
+};
+
 export const loanAPI = {
   list: (params) => api.get('/loans', { params }),
   getById: (id) => api.get(`/loans/${id}`),

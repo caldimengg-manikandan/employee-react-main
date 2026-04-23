@@ -19,6 +19,9 @@ import {
   ChevronLeft,
   CheckCircle,
   XCircle,
+  Calendar,
+  CheckCircle2,
+  Trophy,
   Users,
   Code,
   TrendingUp,
@@ -394,14 +397,6 @@ const SelfAppraisal = () => {
       .toUpperCase()
     : 'EM';
 
-  const userFlowConfig = getWorkflowForUser(employeeInfo.department, employeeInfo.designation);
-  const userFlow = APPRAISAL_STAGES.map(stage => {
-    if (userFlowConfig && userFlowConfig[stage.id]) {
-      return { ...stage, description: userFlowConfig[stage.id] };
-    }
-    return stage;
-  });
-
   const map = {
     'knowledgeSubItems': 'behaviourBased',
     'processSubItems': 'processAdherence',
@@ -433,8 +428,12 @@ const SelfAppraisal = () => {
         return 'director';
 
       case 'DIRECTOR_APPROVED':
+        return 'director';
+
       case 'Released':
       case 'Reviewed':
+      case 'Released Letter':
+      case 'Accepted':
         return 'release';
 
       default: return 'appraisee';
@@ -446,8 +445,8 @@ const SelfAppraisal = () => {
     if (!appraisal) return null;
     if (appraisal.employeeAcceptanceStatus) return appraisal.employeeAcceptanceStatus;
     const status = appraisal.status || '';
-    if (status === 'Released' || status === 'Reviewed') return 'ACCEPTED';
-    return null;
+    if (status === 'Released' || status === 'Reviewed' || status === 'Accepted') return 'ACCEPTED';
+    return 'PENDING';
   };
 
   // Appraisals List State
@@ -602,7 +601,34 @@ const SelfAppraisal = () => {
 
   // Letter State
   const [showReleaseLetter, setShowReleaseLetter] = useState(false);
-  const [letterData, setLetterData] = useState(null);
+  const [letterData, setLetterData] = useState({
+    employeeName: '',
+    employeeId: '',
+    designation: '',
+    department: '',
+    division: '',
+    location: '',
+    currentSalary: 0,
+    revisedSalary: 0,
+    incrementAmount: 0,
+    revisedDate: '',
+    financialYear: '',
+    appraisalStatus: '',
+    employeeAcceptanceStatus: ''
+  });
+
+  const userFlowConfig = getWorkflowForUser(employeeInfo.department, employeeInfo.designation);
+  const userFlow = APPRAISAL_STAGES.map(stage => {
+    let label = stage.label;
+    if (stage.id === 'release' && (viewData?.status === 'Released Letter' || viewData?.status === 'Accepted')) {
+      label = 'Released Letter';
+    }
+    if (userFlowConfig && userFlowConfig[stage.id]) {
+      return { ...stage, label, description: userFlowConfig[stage.id] };
+    }
+    return { ...stage, label };
+  });
+
   const [autoDownload, setAutoDownload] = useState(false);
   const [newAppraisalYear, setNewAppraisalYear] = useState(getOpenFinancialYearLabel());
   const [newAppraisalDivision, setNewAppraisalDivision] = useState(employeeInfo.division || '');
@@ -610,6 +636,8 @@ const SelfAppraisal = () => {
     workingDays: 0,
     presentDays: 0,
     absentDays: 0,
+    officeHoliday: 0,
+    regionalHoliday: 0,
     attendancePct: 0,
     loading: false,
   });
@@ -700,13 +728,17 @@ const SelfAppraisal = () => {
   useEffect(() => {
     const loadNewAppraisalAttendance = async () => {
       const fy = newAppraisalYear;
+      // Strongly prioritize the string employeeId over Mongo _id
       const employeeId =
         employeeInfo.employeeId || employeeInfo.empId || employeeInfo.id || '';
+        
       if (!fy || !employeeId) {
         setNewAppraisalAttendance({
           workingDays: 0,
           presentDays: 0,
           absentDays: 0,
+          officeHoliday: 0,
+          regionalHoliday: 0,
           attendancePct: 0,
           loading: false,
         });
@@ -716,11 +748,25 @@ const SelfAppraisal = () => {
       try {
         setNewAppraisalAttendance((prev) => ({ ...prev, loading: true }));
         const range = getFinancialYearRange(fy);
-        const workingDays = getWorkingDaysBetween(range.start, range.end);
+        const joinDate = employeeInfo.dateOfJoining ? new Date(employeeInfo.dateOfJoining) : null;
+        let effectiveStart = range.start;
+        if (joinDate && !Number.isNaN(joinDate.getTime()) && joinDate > range.start) {
+          effectiveStart = joinDate;
+        }
+
+        // Use 'today' if the FY is the current one, similar to AttendanceSummary
+        const now = new Date();
+        const isCurrentFy = (fy === getCurrentFinancialYearLabel());
+        const effectiveEnd = isCurrentFy ? now : range.end;
+
+        const workingDays = getWorkingDaysBetween(effectiveStart, effectiveEnd);
 
         let present = 0;
         let absent = 0;
         let pct = 0;
+        let office = 0;
+        let regional = 0;
+        let savedPct = null;
 
         try {
           const yearRes = await attendanceAPI.getYearSummary(employeeId, {
@@ -730,21 +776,34 @@ const SelfAppraisal = () => {
           if (doc) {
             present = Number(doc.yearlyPresent || 0);
             absent = Number(doc.yearlyAbsent || 0);
+            office = Number(doc.officeHoliday || 0);
+            regional = Number(doc.regionalHoliday || 0);
+            savedPct = typeof doc.yearlyPct === 'number' ? doc.yearlyPct : null;
           }
         } catch (e) {
+          console.error("No saved year summary found, falling back to defaults", e);
         }
 
         if (workingDays > 0) {
           if (present > 0 && absent === 0) {
-            absent = Math.max(0, workingDays - present);
+            absent = Math.max(0, workingDays - present - office - regional);
           }
-          pct = Math.max(0, Math.min(100, (present / workingDays) * 100));
+          if (savedPct !== null) {
+            pct = savedPct;
+          } else {
+            // Match AttendanceSummary.jsx denominator logic:
+            // Denominator = (Total Working Days from DOJ to End of FY) - Office Holidays - Regional Holidays
+            const denom = Math.max(0, workingDays - office - regional);
+            pct = denom > 0 ? Math.max(0, Math.min(100, (present / denom) * 100)) : 0;
+          }
         }
 
         setNewAppraisalAttendance({
           workingDays,
           presentDays: present,
           absentDays: absent,
+          officeHoliday: office,
+          regionalHoliday: regional,
           attendancePct: pct,
           loading: false,
         });
@@ -790,6 +849,11 @@ const SelfAppraisal = () => {
       });
       setIsReadOnly(!isEditableStatus(statusValue));
       setViewMode('edit');
+      
+      // Load attendance for the existing appraisal's year
+      if (response.data.year) {
+        loadAttendanceData(response.data.year);
+      }
     } catch (error) {
       console.error("Failed to fetch appraisal details", error);
       setFormData({
@@ -799,6 +863,9 @@ const SelfAppraisal = () => {
       });
       setIsReadOnly(!isEditableStatus(appraisal.status));
       setViewMode('edit');
+      if (appraisal.year) {
+        loadAttendanceData(appraisal.year);
+      }
     }
   };
 
@@ -826,7 +893,10 @@ const SelfAppraisal = () => {
     if (!appraisalId) return;
 
     try {
-      const payload = { employeeAcceptanceStatus: newStatus };
+      const payload = { 
+        employeeAcceptanceStatus: newStatus,
+        status: newStatus === 'ACCEPTED' ? 'Accepted' : 'Released Letter'
+      };
       if (newStatus === 'ACCEPTED') {
         payload.finalStatus = 'COMPLETED';
       }
@@ -1349,7 +1419,7 @@ const SelfAppraisal = () => {
                   {appraisals.map((appraisal) => {
                     const statusValue = appraisal.status || '';
                     const acceptanceStatus = getEffectiveAcceptanceStatus(appraisal);
-                    const canPreviewLetter = ['DIRECTOR_APPROVED', 'Released', 'Reviewed'].includes(statusValue);
+                    const canPreviewLetter = statusValue === 'Released';
                     const canDownloadLetter = acceptanceStatus === 'ACCEPTED';
 
                     return (
@@ -1362,11 +1432,14 @@ const SelfAppraisal = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full 
-                        ${appraisal.status === 'Released' ? 'bg-green-100 text-green-800' :
-                              appraisal.status === 'Submitted' ? 'bg-blue-100 text-blue-800' :
-                                appraisal.status === 'Draft' ? 'bg-gray-100 text-gray-800' :
-                                  'bg-yellow-100 text-yellow-800'}`}>
-                            {appraisal.status || 'Draft'}
+                        ${appraisal.status === 'Released Letter' || appraisal.status === 'Accepted' ? 'bg-green-100 text-green-800' :
+                              appraisal.status === 'DIRECTOR_APPROVED' ? 'bg-indigo-100 text-indigo-800' :
+                                appraisal.status === 'Submitted' ? 'bg-blue-100 text-blue-800' :
+                                  appraisal.status === 'Draft' ? 'bg-gray-100 text-gray-800' :
+                                    'bg-yellow-100 text-yellow-800'}`}>
+                            {appraisal.status === 'DIRECTOR_APPROVED' ? 'Director Approved' : 
+                             (appraisal.status === 'Released Letter' || appraisal.status === 'Accepted' || appraisal.status === 'Released') ? 'Released Letter' : 
+                             (appraisal.status || 'Draft')}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
@@ -1396,15 +1469,17 @@ const SelfAppraisal = () => {
                                 </button>
                               </>
                             ) : (
-                              <>
-                                <button
-                                  onClick={() => handleViewAppraisal(appraisal)}
-                                  className="text-gray-600 hover:text-gray-900"
-                                  title="View"
-                                >
-                                  <Eye className="h-5 w-5" />
-                                </button>
-                                {canPreviewLetter && (
+                              <div className="flex justify-center space-x-3">
+                                {(statusValue === 'Released' || statusValue === 'Released Letter' || statusValue === 'Accepted' || statusValue === 'DIRECTOR_APPROVED' || statusValue === 'Submitted') && (
+                                  <button
+                                    onClick={() => handleViewAppraisal(appraisal)}
+                                    className="text-gray-600 hover:text-gray-900"
+                                    title="View"
+                                  >
+                                    <Eye className="h-5 w-5" />
+                                  </button>
+                                )}
+                                {(statusValue === 'Released' || statusValue === 'Released Letter' || statusValue === 'Accepted') && (
                                   <button
                                     onClick={() => handleDownloadLetter(appraisal)}
                                     className="text-[#262760] hover:text-[#1e2050]"
@@ -1413,13 +1488,13 @@ const SelfAppraisal = () => {
                                     <FileText className="h-5 w-5" />
                                   </button>
                                 )}
-                              </>
+                              </div>
                             )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
-                          {canPreviewLetter ? (
-                            canDownloadLetter ? (
+                          {(statusValue === 'Released' || statusValue === 'Released Letter' || statusValue === 'Accepted') ? (
+                            (appraisal.employeeAcceptanceStatus === 'ACCEPTED' || statusValue === 'Accepted') ? (
                               <button
                                 onClick={() => handleDownloadPdf(appraisal)}
                                 className="inline-flex items-center px-3 py-1 border border-gray-300 shadow-sm text-xs font-medium rounded text-gray-700 bg-white hover:bg-gray-50"
@@ -1433,7 +1508,7 @@ const SelfAppraisal = () => {
                               </span>
                             )
                           ) : (
-                            <span className="text-gray-400 text-xs italic">Pending Director approval</span>
+                            <span className="text-gray-400 text-xs italic">-</span>
                           )}
                         </td>
                       </tr>
@@ -1469,10 +1544,10 @@ const SelfAppraisal = () => {
                     {employeeInfo.name || employeeInfo.employeeName || 'Employee'}
                   </div>
                   <div className="text-[11px] text-indigo-100 mt-1">
-                    ID: {employeeInfo.employeeId || employeeInfo.empId || 'N/A'}
+                    ID: {employeeInfo.employeeId || employeeInfo.empId || '-'}
                   </div>
                   <div className="text-[11px] text-indigo-100 mt-1">
-                    Designation: {employeeInfo.designation || employeeInfo.role || employeeInfo.position || 'N/A'}
+                    Designation: {employeeInfo.designation || employeeInfo.role || employeeInfo.position || '-'}
                   </div>
                 </div>
               </div>
@@ -1543,17 +1618,17 @@ const SelfAppraisal = () => {
                   <div className="text-sm text-gray-500 mt-2">Loading attendance...</div>
                 ) : (
                   <div className="mt-2 space-y-2 text-sm text-gray-700">
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-green-600">
                       <span>Present Days</span>
                       <span className="font-semibold">{newAppraisalAttendance.presentDays}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between text-red-600">
                       <span>Absent Days</span>
                       <span className="font-semibold">{newAppraisalAttendance.absentDays}</span>
                     </div>
-                    <div className="flex justify-between">
+                    <div className="flex justify-between border-t border-gray-100 pt-2 font-bold text-[#262760]">
                       <span>Attendance %</span>
-                      <span className="font-semibold">
+                      <span>
                         {newAppraisalAttendance.attendancePct.toFixed(1)}%
                       </span>
                     </div>
@@ -1617,8 +1692,8 @@ const SelfAppraisal = () => {
                 />
               </div>
 
-              {/* Increment Summary Section - Visible only after Director Approval */}
-              {['DIRECTOR_APPROVED', 'Released', 'Reviewed'].includes(viewData.status) && (
+              {/* Increment Summary Section - Visible only after Letter Release */}
+              {['Released Letter', 'Released', 'Accepted', 'Reviewed'].includes(viewData.status) && (
                 <div>
                   <h3 className="text-lg font-bold text-gray-900 mb-3 flex items-center">
                     <TrendingUp className="h-5 w-5 mr-2 text-green-600" />
@@ -1682,26 +1757,6 @@ const SelfAppraisal = () => {
                     Knowledge Sharing Assessment
                   </h3>
                   <div className="bg-purple-50 rounded-lg p-5 border border-purple-100 shadow-sm">
-                    {/* Percent summary */}
-                    <div className="mb-4">
-                      <div className="text-xs font-semibold text-purple-700">Score</div>
-                      <div className="flex items-center space-x-3">
-                        {(() => {
-                          const enabledKeys = Object.entries(enabledSections?.knowledgeSubItems || {})
-                            .filter(([k, v]) => v)
-                            .map(([k]) => k);
-                          const values = enabledKeys.map(k => Number(viewData.behaviourBased?.[k] || 0)).filter(v => v > 0);
-                          const avg = values.length ? (values.reduce((a, b) => a + b, 0) / values.length) : 0;
-                          const percent = Math.round((avg / 5) * 100);
-                          return (
-                            <div className="bg-white px-3 py-2 rounded border border-purple-200 text-sm">
-                              <span className="font-bold text-purple-700">{percent}%</span>
-                              <span className="ml-2 text-gray-500">based on enabled items</span>
-                            </div>
-                          );
-                        })()}
-                      </div>
-                    </div>
                     <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
                       {Object.entries(enabledSections?.knowledgeSubItems || {}).map(([k, v]) => {
                         if (!v) return null;
@@ -2002,7 +2057,7 @@ const SelfAppraisal = () => {
                               This amount will be credited in the month of June2026 provided you are in company payroll.
                             </p>
                             <p className="mt-4">
-                              If you are in notice period ,You will not be eligible for the performance pay reciept.
+                              If you are in a notice period ,You will not be eligible for the performance pay reciept.
                             </p>
                           </div>
                         )}
@@ -2226,7 +2281,7 @@ const SelfAppraisal = () => {
                 </div>
               </div>
 
-              {letterData.appraisalStatus === 'DIRECTOR_APPROVED' &&
+              {(letterData.appraisalStatus === 'Released Letter' || letterData.appraisalStatus === 'Released') &&
                 (!letterData.employeeAcceptanceStatus || letterData.employeeAcceptanceStatus === 'PENDING') && (
                   <div className="px-8 pb-6 pt-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white rounded-b-lg">
                     <div className="text-sm font-medium text-gray-800">
@@ -2328,6 +2383,99 @@ const SelfAppraisal = () => {
 
       <div className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <WorkflowTracker currentStageId={currentStageId} userFlow={userFlow} />
+
+        {/* Attendance Snapshot Card */}
+        <div className="mt-4 bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold text-gray-900 flex items-center">
+              <Calendar className="h-6 w-6 mr-2 text-blue-600" />
+              Attendance Snapshot
+            </h2>
+            <span className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-bold rounded-full border border-blue-100 uppercase tracking-wider">
+              FY {formData.year || formData.financialYear || newAppraisalYear}
+            </span>
+          </div>
+          
+          {newAppraisalAttendance.loading ? (
+             <div className="flex items-center justify-center p-4">
+               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+             </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-green-50 rounded-lg p-4 border border-green-100 flex items-center">
+                <div className="bg-green-100 p-3 rounded-lg mr-4">
+                  <CheckCircle2 className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-green-600 uppercase tracking-wider">Present Days</p>
+                  <p className="text-2xl font-bold text-green-700">{newAppraisalAttendance.presentDays}</p>
+                </div>
+              </div>
+              
+              <div className="bg-red-50 rounded-lg p-4 border border-red-100 flex items-center">
+                <div className="bg-red-100 p-3 rounded-lg mr-4">
+                  <XCircle className="h-6 w-6 text-red-600" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-red-600 uppercase tracking-wider">Absent Days</p>
+                  <p className="text-2xl font-bold text-red-700">{newAppraisalAttendance.absentDays}</p>
+                </div>
+              </div>
+              
+              <div className="bg-[#262760]/5 rounded-lg p-4 border border-[#262760]/10 flex items-center">
+                <div className="bg-[#262760]/10 p-3 rounded-lg mr-4">
+                  <Trophy className="h-6 w-6 text-[#262760]" />
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-[#262760] uppercase tracking-wider">Attendance %</p>
+                  <p className="text-2xl font-bold text-[#262760]">{newAppraisalAttendance.attendancePct.toFixed(1)}%</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+        
+        {/* Increment Summary - Only shown if released */}
+        {['Released Letter', 'Released', 'Accepted', 'Reviewed'].includes(formData.status) && (
+          <div className="mt-6 bg-emerald-50 rounded-xl shadow-sm border border-emerald-200 p-6 overflow-hidden relative">
+             <div className="absolute top-0 right-0 p-4 opacity-10">
+                <TrendingUp className="h-24 w-24 text-emerald-600" />
+             </div>
+             <h2 className="text-xl font-bold text-emerald-900 flex items-center mb-6 relative z-10">
+              <TrendingUp className="h-6 w-6 mr-2 text-emerald-600" />
+              Increment Summary
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+              <div className="bg-white rounded-lg p-5 border border-emerald-100 shadow-sm transition-all hover:shadow-md">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Current Salary</p>
+                <p className="text-2xl font-black text-gray-900">
+                  ₹ {(Number(formData.currentSalary || 0)).toLocaleString('en-IN')}
+                </p>
+              </div>
+              
+              <div className="bg-white rounded-lg p-5 border border-emerald-100 shadow-sm transition-all hover:shadow-md">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Increment %</p>
+                <div className="flex items-baseline">
+                  <p className="text-3xl font-black text-emerald-600">
+                    {((Number(formData.incrementPercentage || 0)) + (Number(formData.incrementCorrectionPercentage || 0))).toFixed(1)}%
+                  </p>
+                  {Number(formData.incrementCorrectionPercentage || 0) !== 0 && (
+                    <span className="ml-2 text-xs font-medium text-emerald-500">
+                      ({Number(formData.incrementPercentage || 0)}% + {Number(formData.incrementCorrectionPercentage || 0)}% corr.)
+                    </span>
+                  )}
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-lg p-5 border border-emerald-100 shadow-sm transition-all hover:shadow-md border-l-4 border-l-[#262760]">
+                <p className="text-xs font-bold text-[#262760] uppercase tracking-wider mb-2">Revised Salary</p>
+                <p className="text-2xl font-black text-[#262760]">
+                  ₹ {(Number(formData.revisedSalary || 0)).toLocaleString('en-IN')}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Projects Section */}
         {enabledSections.selfAppraisal && (

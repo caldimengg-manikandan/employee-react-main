@@ -2,11 +2,6 @@ const mongoose = require('mongoose');
 
 const SelfAppraisalSchema = new mongoose.Schema({
   employeeId: {
-    type: String, // Storing Employee ID string (e.g. EMP001) or ObjectId. Based on Employee model, employeeId is a String field. 
-    // However, usually we reference by ObjectId. But the system seems to use `employeeId` string often. 
-    // Let's store the ObjectId ref for populate, but also keep employeeId string if needed.
-    // Looking at other models (e.g. Timesheet), let's see how they reference.
-    // For now I will use ObjectId ref to 'Employee'.
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Employee',
     required: true
@@ -71,21 +66,20 @@ const SelfAppraisalSchema = new mongoose.Schema({
     type: String,
     enum: [
       'Draft',
-      'Submitted', // Employee has submitted
-      'SUBMITTED', // Normalize to uppercase if needed, but keeping mixed for now based on existing code. User requested "SUBMITTED" explicitly. 
-      // Let's support both or standardized. The user input used uppercase. I will add uppercase versions.
+      'Submitted',
+      'SUBMITTED',
       'APPRAISER_COMPLETED',
       'REVIEWER_COMPLETED',
       'DIRECTOR_APPROVED',
-      // Keeping legacy/other statuses for safety if needed, or remove if strict. 
-      // User requested strict flow: DRAFT -> SUBMITTED -> APPRAISER_COMPLETED -> REVIEWER_COMPLETED -> DIRECTOR_APPROVED
-      'AppraiserReview', 'ReviewerReview', 'DirectorApproval', 'Released', 'Reviewed'
+      'AppraiserReview', 'ReviewerReview', 'DirectorApproval', 'Released', 'Reviewed',
+      'Released Letter', 'Accepted'
     ],
     default: 'Draft'
   },
   employeeAcceptanceStatus: {
     type: String,
-    enum: ['PENDING', 'ACCEPTED', 'NOT_ACCEPTED']
+    enum: ['PENDING', 'ACCEPTED', 'NOT_ACCEPTED'],
+    default: 'PENDING'
   },
   finalStatus: {
     type: String,

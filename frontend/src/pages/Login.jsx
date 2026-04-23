@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authAPI } from '../services/api';
+import { authAPI, officeHolidayAPI } from '../services/api';
 import LoginAnnouncements from '../components/LoginAnnouncements';
 
 const Login = () => {
@@ -64,24 +64,24 @@ const Login = () => {
    
   ];
 
-
-  // Holiday Calendar 2026 data
-  const holidays2026 = [
-    { date: '01-Jan-26', day: 'THURSDAY', occasion: 'NEW YEAR' },
-    { date: '15-Jan-26', day: 'THURSDAY', occasion: 'THAI PONGAL' },
-    { date: '16-Jan-26', day: 'FRIDAY', occasion: 'MATTU PONGAL' },
-    { date: '26-Jan-26', day: 'MONDAY', occasion: 'REPUBLIC DAY' },
-    { date: '14-Apr-26', day: 'TUESDAY', occasion: 'TAMIL NEW YEAR' },
-    { date: '01-May-26', day: 'FRIDAY', occasion: 'LABOUR DAY' },
-    { date: '14-Sep-26', day: 'MONDAY', occasion: 'VINAYAGAR CHATHURTHI' },
-    { date: '02-Oct-26', day: 'FRIDAY', occasion: 'GANDHI JAYANTHI' },
-    { date: '19-Oct-26', day: 'MONDAY', occasion: 'AYUDHA POOJA' },
-    { date: 'REGIONAL', day: 'CHOOSE ONE', occasion: 'REGIONAL HOLIDAY (TELUGU NEW YEAR / GOOD FRIDAY / BAKRID / CHRISTMAS)' }
-  ];
-
-  
-
   const [todaysUpdates, setTodaysUpdates] = useState([]);
+  const [officeHolidays, setOfficeHolidays] = useState([]);
+  const [officeHolidayLoading, setOfficeHolidayLoading] = useState(false);
+  const [officeHolidayYear, setOfficeHolidayYear] = useState(String(new Date().getFullYear()));
+
+  const availableHolidayYears = useMemo(() => {
+    const years = new Set();
+    for (const h of officeHolidays) {
+      const y = String(h?.dateISO || '').slice(0, 4);
+      if (/^\d{4}$/.test(y)) years.add(y);
+    }
+    return Array.from(years).sort((a, b) => Number(b) - Number(a));
+  }, [officeHolidays]);
+
+  const filteredOfficeHolidays = useMemo(() => {
+    if (officeHolidayYear === 'All') return officeHolidays;
+    return officeHolidays.filter((h) => String(h?.dateISO || '').startsWith(`${officeHolidayYear}-`));
+  }, [officeHolidays, officeHolidayYear]);
 
   useEffect(() => {
     const loadUpdates = async () => {
@@ -102,6 +102,55 @@ const Login = () => {
     loadUpdates();
   }, []);
 
+  const formatHolidayCardDate = (dateISO) => {
+    const raw = String(dateISO || '').trim();
+    const parts = raw.split('-');
+    if (parts.length !== 3) return raw || '';
+    const year = parts[0];
+    const month = Number(parts[1]);
+    const day = parts[2];
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthLabel = months[month - 1] || parts[1];
+    return `${day}-${monthLabel}-${String(year).slice(-2)}`;
+  };
+
+  useEffect(() => {
+    const loadOfficeHolidays = async () => {
+      setOfficeHolidayLoading(true);
+      try {
+        const res = await officeHolidayAPI.list();
+        const items = Array.isArray(res.data) ? res.data : [];
+        const mapped = items
+          .map((h) => ({
+            id: String(h?.id || h?._id || ''),
+            name: String(h?.name || '').trim(),
+            dateISO: String(h?.dateISO || '').trim()
+          }))
+          .filter((h) => h.id && h.name && h.dateISO)
+          .sort((a, b) => {
+            const d = String(a.dateISO).localeCompare(String(b.dateISO));
+            if (d !== 0) return d;
+            return String(a.name).localeCompare(String(b.name));
+          });
+        setOfficeHolidays(mapped);
+        const years = Array.from(
+          new Set(
+            mapped
+              .map((h) => String(h?.dateISO || '').slice(0, 4))
+              .filter((y) => /^\d{4}$/.test(y))
+          )
+        ).sort((a, b) => Number(b) - Number(a));
+        const currentYear = String(new Date().getFullYear());
+        const initialYear = years.includes(currentYear) ? currentYear : years[0] || currentYear;
+        setOfficeHolidayYear(initialYear);
+      } catch {
+        setOfficeHolidays([]);
+      } finally {
+        setOfficeHolidayLoading(false);
+      }
+    };
+    loadOfficeHolidays();
+  }, []);
 
 
   
@@ -486,33 +535,57 @@ const Login = () => {
       <div className="bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C] rounded-2xl shadow-2xl w-full max-w-4xl max-h-[85vh] overflow-hidden">
         {/* Header */}
         <div className="relative p-6 border-b border-white/20">
-          <h2 className="text-2xl font-bold text-white text-center">
-           CALDIM HOLIDAY LIST 2026
-          </h2>
-          <button
-            onClick={() => setShowHolidays(false)}
-            className="absolute right-6 top-6 text-white hover:text-blue-300 text-xl"
-          >
-            ✕
-          </button>
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-center gap-4">
+            <div className="flex justify-center md:justify-start">
+              <select
+                value={officeHolidayYear}
+                onChange={(e) => setOfficeHolidayYear(e.target.value)}
+                className="bg-white/90 border border-white/30 text-[#0A0F2C] font-semibold rounded-lg px-3 py-2 text-sm outline-none"
+              >
+                <option value="All">All Years</option>
+                {availableHolidayYears.map((y) => (
+                  <option key={y} value={y}>{y}</option>
+                ))}
+              </select>
+            </div>
+            <h2 className="text-2xl font-bold text-white text-center">
+              {officeHolidayYear === 'All' ? 'CALDIM HOLIDAY LIST' : `CALDIM HOLIDAY LIST ${officeHolidayYear}`}
+            </h2>
+            <div className="flex justify-center md:justify-end">
+              <button
+                onClick={() => setShowHolidays(false)}
+                className="text-white hover:text-blue-300 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Content */}
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {holidays2026.map((holiday, index) => (
-              <div 
-                key={index} 
+            {filteredOfficeHolidays.map((holiday) => (
+              <div
+                key={holiday.id}
                 className="bg-white/10 border border-white/10 rounded-xl p-4 hover:bg-white/20 transition-all duration-300"
               >
-                
-                
-                <h3 className="text-xl font-bold text-white mb-1">{holiday.date}</h3>
-                <p className="text-blue-100 font-medium border-t border-white/10 pt-2 mt-2">
-                  {holiday.occasion}
-                </p>
+                <h3 className="text-xl font-bold text-white mb-1">{formatHolidayCardDate(holiday.dateISO)}</h3>
+                <p className="text-blue-100 font-medium border-t border-white/10 pt-2 mt-2">{holiday.name}</p>
               </div>
             ))}
+            {!officeHolidayLoading && filteredOfficeHolidays.length === 0 && (
+              <div className="bg-white/10 border border-white/10 rounded-xl p-6 text-blue-100 text-center md:col-span-2">
+                {officeHolidayYear === 'All'
+                  ? 'No office holidays saved'
+                  : `No office holidays saved for ${officeHolidayYear}`}
+              </div>
+            )}
+            {officeHolidayLoading && filteredOfficeHolidays.length === 0 && (
+              <div className="bg-white/10 border border-white/10 rounded-xl p-6 text-blue-100 text-center md:col-span-2">
+                Loading...
+              </div>
+            )}
           </div>
         </div>
       </div>
