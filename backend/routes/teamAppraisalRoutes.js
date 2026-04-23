@@ -61,12 +61,13 @@ router.get('/', auth, async (req, res) => {
     // Populate employee details
     // Note: employeeId in SelfAppraisal is a ref to Employee model
     const appraisals = await SelfAppraisal.find(query)
-      .populate('employeeId', 'name employeeId designation department avatar location');
+      .populate('employeeId', 'name employeeId designation department division avatar location branch ctc');
 
     // Transform to frontend format
     // Use Promise.all to handle async calculation
     const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
       const emp = app.employeeId || {};
+      const baseSalary = Number(emp.ctc || 0);
 
       // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
       // This ensures Managers see the correct value even if they haven't opened it before
@@ -85,6 +86,34 @@ router.get('/', auth, async (req, res) => {
         }
       }
 
+      let incrementCorrectionPercentage = app.incrementCorrectionPercentage || 0;
+      let incrementAmount = app.incrementAmount || 0;
+      let revisedSalary = app.revisedSalary || 0;
+      const performancePay = Number(app.performancePay || 0);
+
+      if (baseSalary > 0) {
+        const totalPct = finalIncrementPercentage + incrementCorrectionPercentage;
+        const updateDoc = {};
+
+        if (incrementAmount === 0 && totalPct !== 0) {
+          incrementAmount = Math.round((baseSalary * totalPct) / 100);
+          updateDoc.incrementAmount = incrementAmount;
+        }
+
+        if (revisedSalary === 0 && (incrementAmount !== 0 || totalPct !== 0)) {
+          revisedSalary = Math.round(baseSalary + incrementAmount);
+          updateDoc.revisedSalary = revisedSalary;
+        }
+
+        if (Object.keys(updateDoc).length > 0) {
+          try {
+            await SelfAppraisal.updateOne({ _id: app._id }, { $set: updateDoc });
+          } catch (err) {
+            console.error(`Auto-calc amount/revised failed for appraisal ${app._id}:`, err);
+          }
+        }
+      }
+
       return {
         id: app._id,
         financialYr: app.year,
@@ -93,8 +122,8 @@ router.get('/', auth, async (req, res) => {
         avatar: emp.avatar || (emp.name ? emp.name[0] : '?'),
         designation: emp.designation || '',
         department: emp.department || '',
-        division: app.division || '',
-        location: emp.location || '',
+        division: app.division || emp.division || '',
+        location: emp.location || emp.branch || '',
         status: app.status,
         overallContribution: app.overallContribution || '',
         projects: app.projects || [],
@@ -107,6 +136,11 @@ router.get('/', auth, async (req, res) => {
         attitude: app.attitude || '',
         communication: app.communication || '',
         incrementPercentage: finalIncrementPercentage,
+        incrementCorrectionPercentage,
+        incrementAmount,
+        revisedSalary,
+        performancePay,
+        currentSalary: baseSalary,
 
         behaviourBased: app.behaviourBased ? (app.behaviourBased.toJSON ? app.behaviourBased.toJSON() : app.behaviourBased) : {},
         processAdherence: app.processAdherence ? (app.processAdherence.toJSON ? app.processAdherence.toJSON() : app.processAdherence) : {},

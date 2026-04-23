@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   Users,
   Search,
@@ -430,10 +430,32 @@ const TeamAppraisal = () => {
   };
 
   const updateIncrementState = (id, percentage) => {
-    setSelectedEmployee(prev => ({ ...prev, incrementPercentage: percentage }));
-    setEmployees(prev => prev.map(emp =>
-      emp.id === id ? { ...emp, incrementPercentage: percentage } : emp
-    ));
+    setSelectedEmployee(prev => {
+      const currentSalary = Number(prev?.currentSalary || 0);
+      const correctionPct = Number(prev?.incrementCorrectionPercentage || 0);
+      const pct = Number(percentage || 0);
+      const totalPct = pct + correctionPct;
+      const incrementAmount =
+        currentSalary > 0 && totalPct !== 0 ? Math.round((currentSalary * totalPct) / 100) : Number(prev?.incrementAmount || 0);
+      const revisedSalary =
+        currentSalary > 0 ? Math.round(currentSalary + incrementAmount) : Number(prev?.revisedSalary || 0);
+
+      return { ...prev, incrementPercentage: pct, incrementAmount, revisedSalary };
+    });
+
+    setEmployees(prev => prev.map(emp => {
+      if (emp.id !== id) return emp;
+      const currentSalary = Number(emp?.currentSalary || 0);
+      const correctionPct = Number(emp?.incrementCorrectionPercentage || 0);
+      const pct = Number(percentage || 0);
+      const totalPct = pct + correctionPct;
+      const incrementAmount =
+        currentSalary > 0 && totalPct !== 0 ? Math.round((currentSalary * totalPct) / 100) : Number(emp?.incrementAmount || 0);
+      const revisedSalary =
+        currentSalary > 0 ? Math.round(currentSalary + incrementAmount) : Number(emp?.revisedSalary || 0);
+
+      return { ...emp, incrementPercentage: pct, incrementAmount, revisedSalary };
+    }));
   };
 
   const handleSave = async () => {
@@ -501,15 +523,28 @@ const TeamAppraisal = () => {
   };
 
   // Filter Logic
-  const uniqueDivisions = [...new Set(employees.map(e => e.division).filter(Boolean))].sort();
-  const uniqueLocations = [...new Set(employees.map(e => e.location).filter(Boolean))].sort();
-  const uniqueYears = [openFy];
+  const getDivisionValue = (emp) => String(emp?.division || '').trim();
+  const getLocationValue = (emp) => String(emp?.location || emp?.branch || '').trim();
+
+  const uniqueDivisions = [...new Set(employees.map(getDivisionValue).filter(Boolean))].sort();
+  const uniqueLocations = [...new Set(employees.map(getLocationValue).filter(Boolean))].sort();
+  const uniqueYears = useMemo(() => {
+    const years = [...new Set(employees.map(e => e.financialYr).filter(Boolean)), openFy].filter(Boolean);
+    return years.length ? years.sort() : [openFy];
+  }, [employees, openFy]);
+
+  useEffect(() => {
+    if (!uniqueYears.length) return;
+    if (!financialYearFilter || !uniqueYears.includes(financialYearFilter)) {
+      setFinancialYearFilter(uniqueYears[0]);
+    }
+  }, [uniqueYears, financialYearFilter]);
 
   const filteredEmployees = employees.filter(emp => {
     const matchesSearch = emp.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       emp.empId?.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesDivision = !divisionFilter || emp.division === divisionFilter;
-    const matchesLocation = !locationFilter || emp.location === locationFilter;
+    const matchesDivision = !divisionFilter || getDivisionValue(emp) === divisionFilter;
+    const matchesLocation = !locationFilter || getLocationValue(emp) === locationFilter;
     const matchesYear = !financialYearFilter || emp.financialYr === financialYearFilter;
     return matchesSearch && matchesDivision && matchesLocation && matchesYear;
   });
@@ -626,6 +661,16 @@ const TeamAppraisal = () => {
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Financial Yr</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee Name</th>
+                  {hasCompensationAccess && (
+                    <>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Current Salary</th>
+                      <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Increment %</th>
+                      <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Increment Correction %</th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Increment Amount</th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Revised Salary</th>
+                      <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Performance Pay</th>
+                    </>
+                  )}
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Self Appraisee Comments</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Manager Comments</th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
@@ -638,6 +683,28 @@ const TeamAppraisal = () => {
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.financialYr}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{emp.empId}</td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{emp.name}</td>
+                    {hasCompensationAccess && (
+                      <>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {Number(emp.currentSalary || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                          {Number(emp.incrementPercentage || 0)}%
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
+                          {Number(emp.incrementCorrectionPercentage || 0)}%
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {Number(emp.incrementAmount || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-semibold">
+                          {Number(emp.revisedSalary || 0).toLocaleString('en-IN')}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
+                          {Number(emp.performancePay || 0).toLocaleString('en-IN')}
+                        </td>
+                      </>
+                    )}
                     <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
                       {emp.selfAppraiseeComments || '-'}
                     </td>
@@ -1111,16 +1178,40 @@ const TeamAppraisal = () => {
                           </div>
                         </div>
 
-                        {/* Increment Display */}
-                        {/* {selectedEmployee.incrementPercentage > 0 && (
-                          <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mb-6 flex items-center">
-                            <DollarSign className="h-5 w-5 text-indigo-600 mr-3" />
-                            <div>
-                              <p className="text-xs font-bold text-indigo-800 uppercase">Calculated Increment</p>
-                              <p className="text-lg font-bold text-indigo-900">{selectedEmployee.incrementPercentage}%</p>
+                        {hasCompensationAccess && (
+                          <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mb-6">
+                            <div className="flex items-center mb-3">
+                              <DollarSign className="h-5 w-5 text-indigo-600 mr-2" />
+                              <h5 className="text-sm font-bold text-indigo-900">TAT Details</h5>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                              <div className="bg-white rounded-md border border-indigo-100 p-3">
+                                <div className="text-xs font-semibold text-gray-600">Current Salary</div>
+                                <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.currentSalary || 0).toLocaleString('en-IN')}</div>
+                              </div>
+                              <div className="bg-white rounded-md border border-indigo-100 p-3">
+                                <div className="text-xs font-semibold text-gray-600">Increment %</div>
+                                <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.incrementPercentage || 0)}%</div>
+                              </div>
+                              <div className="bg-white rounded-md border border-indigo-100 p-3">
+                                <div className="text-xs font-semibold text-gray-600">Increment Correction %</div>
+                                <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.incrementCorrectionPercentage || 0)}%</div>
+                              </div>
+                              <div className="bg-white rounded-md border border-indigo-100 p-3">
+                                <div className="text-xs font-semibold text-gray-600">Increment Amount</div>
+                                <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.incrementAmount || 0).toLocaleString('en-IN')}</div>
+                              </div>
+                              <div className="bg-white rounded-md border border-indigo-100 p-3">
+                                <div className="text-xs font-semibold text-gray-600">Revised Salary</div>
+                                <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.revisedSalary || 0).toLocaleString('en-IN')}</div>
+                              </div>
+                              <div className="bg-white rounded-md border border-indigo-100 p-3">
+                                <div className="text-xs font-semibold text-gray-600">Performance Pay</div>
+                                <div className="text-sm font-bold text-gray-900">{Number(selectedEmployee.performancePay || 0).toLocaleString('en-IN')}</div>
+                              </div>
                             </div>
                           </div>
-                        )} */}
+                        )}
 
                         {/* Final Manager Comments */}
                         <div>

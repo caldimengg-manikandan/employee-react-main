@@ -117,6 +117,7 @@ const DirectorApproval = () => {
   const [selectedFinancialYr, setSelectedFinancialYr] = useState(getPreviousFinancialYear());
   const [selectedDivision, setSelectedDivision] = useState('All');
   const [selectedDesignation, setSelectedDesignation] = useState('All');
+  const [selectedLocation, setSelectedLocation] = useState('All');
   const [selectedRows, setSelectedRows] = useState([]);
   const [statusPopup, setStatusPopup] = useState({
     isOpen: false,
@@ -430,10 +431,12 @@ const DirectorApproval = () => {
 
   const divisions = ['All', ...new Set(employees.map(emp => emp.division).filter(Boolean))];
   const designations = ['All', ...new Set(employees.map(emp => emp.designation).filter(Boolean))];
+  const locations = ['All', ...new Set(employees.map(emp => emp.location || emp.branch).filter(Boolean))];
   const filteredEmployees = employees.filter(emp =>
     (emp.financialYr === selectedFinancialYr) &&
     (selectedDivision === 'All' || emp.division === selectedDivision) &&
     (selectedDesignation === 'All' || emp.designation === selectedDesignation) &&
+    (selectedLocation === 'All' || (emp.location || emp.branch) === selectedLocation) &&
     (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) || emp.empId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 
@@ -452,6 +455,10 @@ const DirectorApproval = () => {
             <select value={selectedDivision} onChange={(e) => setSelectedDivision(e.target.value)} className="block w-48 pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border">
               <option value="All">All Divisions</option>
               {divisions.filter(d => d !== 'All').map(div => <option key={div} value={div}>{div}</option>)}
+            </select>
+            <select value={selectedLocation} onChange={(e) => setSelectedLocation(e.target.value)} className="block w-48 pl-3 pr-10 py-2 border-gray-300 focus:outline-none focus:ring-[#262760] focus:border-[#262760] rounded-md shadow-sm bg-white border">
+              <option value="All">All Locations</option>
+              {locations.filter(l => l !== 'All').map(loc => <option key={loc} value={loc}>{loc}</option>)}
             </select>
           </div>
           <div className="flex items-center space-x-3">
@@ -579,7 +586,7 @@ const DirectorApproval = () => {
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
             <div className="px-6 py-4 bg-[#262760] text-white flex justify-between items-center font-bold">
-              Reviewer Comments
+              Director Comments
               <button onClick={() => setIsCommentModalOpen(false)}><X className="h-5 w-5" /></button>
             </div>
             <div className="p-6 text-right">

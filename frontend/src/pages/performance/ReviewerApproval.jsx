@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Search,
   Eye,
@@ -141,11 +141,17 @@ const ReviewerApproval = () => {
     fetchReviewerAppraisals();
   }, []);
 
+  const uniqueYears = useMemo(() => {
+    const years = [...new Set(employees.map(e => e.financialYr).filter(Boolean))].sort();
+    return years.length ? years : [getPreviousFinancialYear()];
+  }, [employees]);
+
   useEffect(() => {
-    if (!selectedFinancialYr) {
-      setSelectedFinancialYr(getPreviousFinancialYear());
+    if (!uniqueYears.length) return;
+    if (!selectedFinancialYr || !uniqueYears.includes(selectedFinancialYr)) {
+      setSelectedFinancialYr(uniqueYears[0]);
     }
-  }, [selectedFinancialYr]);
+  }, [uniqueYears, selectedFinancialYr]);
 
   const fetchReviewerAppraisals = async () => {
     setLoading(true);
@@ -453,14 +459,15 @@ const ReviewerApproval = () => {
     }
   };
 
-  const uniqueDivisions = [...new Set(employees.map(e => e.division).filter(Boolean))].sort();
-  const uniqueLocations = [...new Set(employees.map(e => e.location).filter(Boolean))].sort();
-  const uniqueYears = [getPreviousFinancialYear()];
+  const getDivisionValue = (emp) => String(emp?.division || '').trim();
+  const getLocationValue = (emp) => String(emp?.location || emp?.branch || '').trim();
 
+  const uniqueDivisions = [...new Set(employees.map(getDivisionValue).filter(Boolean))].sort();
+  const uniqueLocations = [...new Set(employees.map(getLocationValue).filter(Boolean))].sort();
   const filteredEmployees = employees.filter(emp =>
     (emp.financialYr === selectedFinancialYr) &&
-    (selectedDivision === '' || emp.division === selectedDivision) &&
-    (selectedLocation === '' || emp.location === selectedLocation) &&
+    (selectedDivision === '' || getDivisionValue(emp) === selectedDivision) &&
+    (selectedLocation === '' || getLocationValue(emp) === selectedLocation) &&
     (emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       emp.empId.toLowerCase().includes(searchTerm.toLowerCase()))
   );
@@ -617,7 +624,7 @@ const ReviewerApproval = () => {
                         )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
-                        {data.currentSalary.toLocaleString()}
+                        {Number(data.currentSalary || 0).toLocaleString('en-IN')}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-center">
                         <span className="font-medium text-gray-700">{data.incrementPercentage}%</span>
@@ -640,10 +647,10 @@ const ReviewerApproval = () => {
                         )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-medium text-green-600">
-                        {data.incrementAmount.toLocaleString()}
+                        {Number(data.incrementAmount || 0).toLocaleString('en-IN')}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right font-bold">
-                        {data.revisedSalary.toLocaleString()}
+                        {Number(data.revisedSalary || 0).toLocaleString('en-IN')}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-gray-900 text-right">
                         <input
