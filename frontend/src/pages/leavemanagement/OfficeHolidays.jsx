@@ -40,7 +40,6 @@ const OfficeHolidays = () => {
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [manualHolidayName, setManualHolidayName] = useState("");
-  const [manualHolidayYear, setManualHolidayYear] = useState(getFinancialYearLabelForDate(new Date()));
   const [manualHolidayDate, setManualHolidayDate] = useState("");
   const [selectedSavedHolidayId, setSelectedSavedHolidayId] = useState("");
 
@@ -90,58 +89,6 @@ const OfficeHolidays = () => {
     if (unique.length === 0) return [String(new Date().getFullYear())];
     return unique;
   }, [holidays]);
-
-  useEffect(() => {
-    if (yearFilter && yearFilter !== "All") {
-      setManualHolidayYear(String(yearFilter));
-      return;
-    }
-    const currentYear = getFinancialYearLabelForDate(new Date());
-    if (currentYear) setManualHolidayYear(currentYear);
-  }, [yearFilter]);
-
-  const getFinancialYearRange = (financialYearLabel) => {
-    const raw = String(financialYearLabel || "").trim();
-    const parts = raw.split("-");
-    const startYear = parseInt(parts[0], 10);
-    if (Number.isNaN(startYear)) return null;
-    const start = new Date(startYear, 3, 1);
-    const end = new Date(startYear + 1, 2, 31);
-    return { start, end };
-  };
-
-  const formatDateISO = (dateObj) => {
-    if (!(dateObj instanceof Date) || Number.isNaN(dateObj.getTime())) return "";
-    const y = dateObj.getFullYear();
-    const m = String(dateObj.getMonth() + 1).padStart(2, "0");
-    const d = String(dateObj.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
-  };
-
-  const manualYearOptions = useMemo(() => {
-    const base = availableYears.slice();
-    const currentYear = getFinancialYearLabelForDate(new Date());
-    if (currentYear && !base.includes(currentYear)) base.unshift(currentYear);
-    return base;
-  }, [availableYears]);
-
-  const manualYearRange = useMemo(() => {
-    const range = getFinancialYearRange(manualHolidayYear);
-    if (!range) return { min: "", max: "" };
-    return { min: formatDateISO(range.start), max: formatDateISO(range.end) };
-  }, [manualHolidayYear]);
-
-  useEffect(() => {
-    const date = String(manualHolidayDate || "").trim();
-    if (!date) return;
-    const range = getFinancialYearRange(manualHolidayYear);
-    if (!range) return;
-    const d = new Date(`${date}T00:00:00`);
-    if (Number.isNaN(d.getTime())) return;
-    if (d < range.start || d > range.end) {
-      setManualHolidayDate("");
-    }
-  }, [manualHolidayYear]);
 
   useEffect(() => {
     if (yearFilter === "All") return;
@@ -368,7 +315,7 @@ const OfficeHolidays = () => {
 
             <div className="p-6 space-y-6">
               <div className="border border-emerald-100 rounded-xl p-4 bg-emerald-50">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Office Holiday Name</label>
                     <input
@@ -380,27 +327,11 @@ const OfficeHolidays = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
-                    <select
-                      value={manualHolidayYear}
-                      onChange={(e) => setManualHolidayYear(e.target.value)}
-                      className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm py-2.5 px-3 bg-white"
-                    >
-                      {manualYearOptions.map((y) => (
-                        <option key={y} value={y}>
-                          {y}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
                     <input
                       type="date"
                       value={manualHolidayDate}
                       onChange={(e) => setManualHolidayDate(e.target.value)}
-                      min={manualYearRange.min}
-                      max={manualYearRange.max}
                       className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm py-2.5 px-3 bg-white"
                     />
                   </div>
