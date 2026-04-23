@@ -193,8 +193,8 @@ const ReviewerApproval = () => {
 
     // Total percentage = Base Increment % + Correction %
     const totalPct = pctVal + correctionPctVal;
-    const amount = (currentVal * totalPct / 100);
-    const revised = currentVal + amount;
+    const amount = Math.round((currentVal * totalPct) / 100);
+    const revised = Math.round(currentVal + amount);
 
     return {
       incrementAmount: amount,
@@ -223,17 +223,23 @@ const ReviewerApproval = () => {
         performancePay
       } = editFormData;
 
+      const rounded = calculateFinancials(
+        editFormData.currentSalary,
+        incrementPercentage,
+        incrementCorrectionPercentage
+      );
+
       await performanceAPI.updateReviewerAppraisal(editingRowId, {
         reviewerComments,
         incrementPercentage,
         incrementCorrectionPercentage,
-        incrementAmount,
-        revisedSalary,
+        incrementAmount: rounded.incrementAmount,
+        revisedSalary: rounded.revisedSalary,
         performancePay
       });
 
       setEmployees(employees.map(emp =>
-        emp.id === editingRowId ? editFormData : emp
+        emp.id === editingRowId ? { ...editFormData, ...rounded } : emp
       ));
       setEditingRowId(null);
       setEditFormData({});
@@ -446,6 +452,8 @@ const ReviewerApproval = () => {
       case 'RELEASED':
       case 'Released Letter':
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800">Released</span>;
+      case 'Accepted':
+        return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">Accepted</span>;
       default:
         return <span className="px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800">{status}</span>;
     }

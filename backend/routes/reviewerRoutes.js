@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const SelfAppraisal = require('../models/SelfAppraisal');
 const Employee = require('../models/Employee');
+const Payroll = require('../models/Payroll');
 
 const { calculateIncrement } = require('../utils/incrementUtils');
 
@@ -23,7 +24,8 @@ router.get('/', auth, async (req, res) => {
         'Released',
         'RELEASED',
         'Released Letter',
-        'Reviewed'
+        'Reviewed',
+        'Accepted'
       ]
     };
 
@@ -48,7 +50,30 @@ router.get('/', auth, async (req, res) => {
     const formattedAppraisals = await Promise.all(
       appraisals.map(async (app) => {
         const emp = app.employeeId || {};
-        const baseSalary = Number(emp.ctc || 0);
+        let baseSalary = 0;
+        try {
+          if (emp.employeeId) {
+            const payrollRec = await Payroll.findOne({ employeeId: emp.employeeId }).sort({ createdAt: -1 }).lean();
+            if (payrollRec && (payrollRec.ctc || payrollRec.totalEarnings || payrollRec.basicDA || payrollRec.hra || payrollRec.specialAllowance || payrollRec.gratuity)) {
+              const ctcFromPayroll = Number(payrollRec.ctc || 0);
+              if (ctcFromPayroll > 0) {
+                baseSalary = ctcFromPayroll;
+              } else {
+                const basic = Number(payrollRec.basicDA || 0);
+                const hra = Number(payrollRec.hra || 0);
+                const spec = Number(payrollRec.specialAllowance || 0);
+                const grat = Number(payrollRec.gratuity || 0);
+                const computedCtc = basic + hra + spec + grat;
+                baseSalary = computedCtc > 0 ? computedCtc : 0;
+              }
+            }
+          }
+        } catch (e) {
+          baseSalary = 0;
+        }
+        if (baseSalary === 0) {
+          baseSalary = Number(emp.ctc || 0);
+        }
 
         // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
         // This ensures old records or records where Manager didn't trigger calculation are fixed

@@ -513,6 +513,7 @@ const TeamAppraisal = () => {
       case 'APPRAISER_COMPLETED': return 'bg-green-100 text-green-800 border-green-200';
       case 'Submitted': return 'bg-blue-100 text-blue-800 border-blue-200';
       case 'SUBMITTED': return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'Accepted': return 'bg-purple-100 text-purple-800 border-purple-200';
       default: return 'bg-yellow-100 text-yellow-800 border-yellow-200';
     }
   };
@@ -673,6 +674,7 @@ const TeamAppraisal = () => {
                   )}
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Self Appraisee Comments</th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Manager Comments</th>
+                  <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Status</th>
                   <th scope="col" className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -710,6 +712,11 @@ const TeamAppraisal = () => {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
                       {emp.managerComments || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-center text-sm">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${getStatusColor(emp.status)}`}>
+                        {emp.status || '-'}
+                      </span>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                       <div className="flex justify-center items-center space-x-2">

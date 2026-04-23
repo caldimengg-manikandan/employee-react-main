@@ -23,7 +23,8 @@ router.get('/', auth, async (req, res) => {
         'Released',
         'RELEASED',
         'Released Letter',
-        'Reviewed'
+        'Reviewed',
+        'Accepted'
       ]
     };
 
