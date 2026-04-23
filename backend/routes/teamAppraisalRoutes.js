@@ -68,7 +68,12 @@ router.get('/', auth, async (req, res) => {
     // Use Promise.all to handle async calculation
     const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
       const emp = app.employeeId || {};
-      const baseSalary = Number(emp.ctc || 0);
+      let baseSalary = Number(emp.ctc || 0);
+      const existingSalarySnapshot = Number(app.currentSalarySnapshot || 0);
+      const derivedSalary = baseSalary;
+      if (existingSalarySnapshot > 0) {
+        baseSalary = existingSalarySnapshot;
+      }
 
       // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
       // This ensures Managers see the correct value even if they haven't opened it before
@@ -95,6 +100,9 @@ router.get('/', auth, async (req, res) => {
       if (baseSalary > 0) {
         const totalPct = finalIncrementPercentage + incrementCorrectionPercentage;
         const updateDoc = {};
+        if (existingSalarySnapshot <= 0 && derivedSalary > 0) {
+          updateDoc.currentSalarySnapshot = derivedSalary;
+        }
 
         if (incrementAmount === 0 && totalPct !== 0) {
           incrementAmount = Math.round((baseSalary * totalPct) / 100);

@@ -74,6 +74,11 @@ router.get('/', auth, async (req, res) => {
         if (baseSalary === 0) {
           baseSalary = Number(emp.ctc || 0);
         }
+        const existingSalarySnapshot = Number(app.currentSalarySnapshot || 0);
+        const derivedSalary = baseSalary;
+        if (existingSalarySnapshot > 0) {
+          baseSalary = existingSalarySnapshot;
+        }
 
         // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
         // This ensures old records or records where Manager didn't trigger calculation are fixed
@@ -112,6 +117,9 @@ router.get('/', auth, async (req, res) => {
         if (baseSalary > 0) {
           const totalPct = finalIncrementPercentage + incrementCorrectionPercentage;
           const updateDoc = {};
+          if (existingSalarySnapshot <= 0 && derivedSalary > 0) {
+            updateDoc.currentSalarySnapshot = derivedSalary;
+          }
 
           if (incrementAmount === 0 && totalPct !== 0) {
             incrementAmount = Math.round((baseSalary * totalPct) / 100);

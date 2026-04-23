@@ -140,6 +140,7 @@ const SelfAppraisalSchema = new mongoose.Schema({
   // Reviewer Fields
   reviewerComments: { type: String, default: '' },
   directorComments: { type: String, default: '' },
+  currentSalarySnapshot: { type: Number, default: 0 },
   incrementPercentage: { type: Number, default: 0 },
   incrementCorrectionPercentage: { type: Number, default: 0 },
   incrementAmount: { type: Number, default: 0 },

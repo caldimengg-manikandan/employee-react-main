@@ -159,10 +159,11 @@ const ReviewerApproval = () => {
       const response = await performanceAPI.getReviewerAppraisals();
       const raw = response.data || [];
       const enhanced = raw.map(emp => {
-        const current = emp.currentSalary || 0;
-        const pct = emp.incrementPercentage || 0;
-        const correctionPct = emp.incrementCorrectionPercentage || 0;
-        if (current > 0 && (pct !== 0 || correctionPct !== 0)) {
+        const current = Number(emp.currentSalary || 0);
+        const pct = Number(emp.incrementPercentage || 0);
+        const correctionPct = Number(emp.incrementCorrectionPercentage || 0);
+        const hasComputed = Number(emp.incrementAmount || 0) !== 0 || Number(emp.revisedSalary || 0) !== 0;
+        if (current > 0 && (pct !== 0 || correctionPct !== 0) && !hasComputed) {
           const { incrementAmount, revisedSalary } = calculateFinancials(
             current,
             pct,

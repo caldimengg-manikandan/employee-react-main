@@ -63,6 +63,11 @@ router.get('/', auth, async (req, res) => {
         if (baseSalary === 0) {
           baseSalary = Number(emp.ctc || 0);
         }
+        const existingSalarySnapshot = Number(app.currentSalarySnapshot || 0);
+        const derivedSalary = baseSalary;
+        if (existingSalarySnapshot > 0) {
+          baseSalary = existingSalarySnapshot;
+        }
 
         const incrementPercentage = Number(app.incrementPercentage || 0);
         const incrementCorrectionPercentage = Number(app.incrementCorrectionPercentage || 0);
@@ -72,6 +77,9 @@ router.get('/', auth, async (req, res) => {
         if (baseSalary > 0) {
           const totalPct = incrementPercentage + incrementCorrectionPercentage;
           const updateDoc = {};
+          if (existingSalarySnapshot <= 0 && derivedSalary > 0) {
+            updateDoc.currentSalarySnapshot = derivedSalary;
+          }
 
           if ((!incrementAmount || incrementAmount === 0) && totalPct !== 0) {
             incrementAmount = Math.round((baseSalary * totalPct) / 100);
