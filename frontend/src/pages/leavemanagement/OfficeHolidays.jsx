@@ -10,6 +10,14 @@ const OfficeHolidays = () => {
     return `${startYear}-${endYearSuffix}`;
   };
 
+  const getPreviousFinancialYearLabel = () => {
+    const now = new Date();
+    const currentStartYear = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
+    const prevStartYear = currentStartYear - 1;
+    const prevEndYearSuffix = String(prevStartYear + 1).slice(2);
+    return `${prevStartYear}-${prevEndYearSuffix}`;
+  };
+
   const getCalendarYearForDate = (dateValue) => {
     const d = new Date(dateValue);
     if (Number.isNaN(d.getTime())) return "";
@@ -69,13 +77,17 @@ const OfficeHolidays = () => {
     const years = holidays
       .map((h) => getFinancialYearLabelForDate(String(h?.date || "").trim()))
       .filter((fy) => /^\d{4}-\d{2}$/.test(fy));
-    const unique = Array.from(new Set(years)).sort((a, b) => {
+    const currentYear = getFinancialYearLabelForDate(new Date());
+    const previousYear = getPreviousFinancialYearLabel();
+    const unique = Array.from(new Set([...years, currentYear, previousYear])).filter((fy) =>
+      /^\d{4}-\d{2}$/.test(String(fy || "").trim())
+    );
+    unique.sort((a, b) => {
       const aStart = parseInt(String(a).split("-")[0], 10) || 0;
       const bStart = parseInt(String(b).split("-")[0], 10) || 0;
       return bStart - aStart;
     });
-    const currentYear = getFinancialYearLabelForDate(new Date());
-    if (unique.length === 0) return [currentYear || String(new Date().getFullYear())];
+    if (unique.length === 0) return [String(new Date().getFullYear())];
     return unique;
   }, [holidays]);
 
