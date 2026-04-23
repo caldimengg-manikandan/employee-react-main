@@ -2,17 +2,14 @@ import axios from 'axios';
 
 const origin = typeof window !== 'undefined' ? window.location.origin : '';
 const isVercelHost = typeof window !== 'undefined' && /vercel\.app$/i.test(window.location.host);
+const DEFAULT_REMOTE_API_BASE = 'https://employee-react-main.onrender.com/api';
 const API_BASE_URL =
   process.env.REACT_APP_API_BASE ||
-  (process.env.NODE_ENV === 'development'
+  (origin && /localhost/i.test(origin)
     ? 'http://localhost:5003/api'
-    : (isVercelHost
-      ? 'https://employee-react-main.onrender.com/api'
-      : (origin && /localhost/i.test(origin))
-        ? 'http://localhost:5003/api'
-        : origin
-          ? `${origin}/api`
-          : 'http://localhost:5003/api'));
+    : (process.env.NODE_ENV === 'development'
+      ? 'http://localhost:5003/api'
+      : (isVercelHost ? DEFAULT_REMOTE_API_BASE : DEFAULT_REMOTE_API_BASE)));
 
 const api = axios.create({
   baseURL: API_BASE_URL,

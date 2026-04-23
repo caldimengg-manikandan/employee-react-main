@@ -42,6 +42,8 @@ const OfficeHolidays = () => {
   const [manualHolidayName, setManualHolidayName] = useState("");
   const [manualHolidayDate, setManualHolidayDate] = useState("");
   const [selectedSavedHolidayId, setSelectedSavedHolidayId] = useState("");
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const loadOfficeHolidays = async () => {
     setLoading(true);
@@ -140,20 +142,29 @@ const OfficeHolidays = () => {
     return Boolean(String(manualHolidayName || "").trim() && String(manualHolidayDate || "").trim());
   }, [manualHolidayName, manualHolidayDate]);
 
-  const onSaveManualHoliday = () => {
+  const onSaveManualHoliday = async () => {
     const name = String(manualHolidayName || "").trim();
     const date = String(manualHolidayDate || "").trim();
     if (!name || !date) return;
-    officeHolidayAPI
-      .create({ name, date })
-      .then((resp) => {
-        const createdId = String(resp?.data?.id || resp?.data?._id || "");
-        loadOfficeHolidays();
-        if (createdId) setSelectedSavedHolidayId(createdId);
-        setManualHolidayName("");
-        setManualHolidayDate("");
-      })
-      .catch(() => {});
+    setSaveError("");
+    setSaving(true);
+    try {
+      const resp = await officeHolidayAPI.create({ name, date });
+      const createdId = String(resp?.data?.id || resp?.data?._id || "");
+      await loadOfficeHolidays();
+      if (createdId) setSelectedSavedHolidayId(createdId);
+      setManualHolidayName("");
+      setManualHolidayDate("");
+    } catch (err) {
+      const msg =
+        err?.response?.data?.error ||
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to save office holiday";
+      setSaveError(String(msg));
+    } finally {
+      setSaving(false);
+    }
   };
 
   const onDeleteSavedHoliday = (id) => {
@@ -204,7 +215,10 @@ const OfficeHolidays = () => {
               </select>
             </div>
             <button
-              onClick={() => setIsAddModalOpen(true)}
+              onClick={() => {
+                setSaveError("");
+                setIsAddModalOpen(true);
+              }}
               className="px-4 py-2 bg-[#262760] text-white rounded-lg font-semibold hover:bg-[#1e2050] transition-colors"
             >
               Add Office Holiday
@@ -321,7 +335,10 @@ const OfficeHolidays = () => {
                     <input
                       type="text"
                       value={manualHolidayName}
-                      onChange={(e) => setManualHolidayName(e.target.value)}
+                      onChange={(e) => {
+                        setManualHolidayName(e.target.value);
+                        if (saveError) setSaveError("");
+                      }}
                       className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm py-2.5 px-3 bg-white"
                       placeholder="Enter office holiday name"
                     />
@@ -331,11 +348,20 @@ const OfficeHolidays = () => {
                     <input
                       type="date"
                       value={manualHolidayDate}
-                      onChange={(e) => setManualHolidayDate(e.target.value)}
+                      onChange={(e) => {
+                        setManualHolidayDate(e.target.value);
+                        if (saveError) setSaveError("");
+                      }}
                       className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 sm:text-sm py-2.5 px-3 bg-white"
                     />
                   </div>
                 </div>
+
+                {saveError && (
+                  <div className="mt-3 text-sm font-medium text-red-700 bg-white border border-red-200 rounded-lg px-3 py-2">
+                    {saveError}
+                  </div>
+                )}
 
                 <div className="mt-4 flex justify-end gap-2">
                   <button
@@ -350,10 +376,10 @@ const OfficeHolidays = () => {
                   </button>
                   <button
                     onClick={onSaveManualHoliday}
-                    disabled={!canSave}
+                    disabled={!canSave || saving}
                     className="px-4 py-2 rounded-lg bg-[#262760] text-white hover:bg-[#1e2050] transition-colors disabled:opacity-50"
                   >
-                    Save
+                    {saving ? "Saving..." : "Save"}
                   </button>
                 </div>
               </div>
