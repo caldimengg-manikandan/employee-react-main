@@ -372,8 +372,13 @@ const PayrollDetails = () => {
     const effectiveIndex = idx === -1 ? null : idx;
     const base = effectiveIndex !== null ? payrollRecords[effectiveIndex] : record;
     const emp = employeeList.find(e => (e.employeeId || '').toString() === (base.employeeId || '').toString());
+    const dojRaw = (emp && (emp.dateOfJoining || emp.dateofjoin || emp.hireDate)) || base.dateOfJoining || base.createdAt || '';
+    const dojISO = dojRaw ? new Date(dojRaw).toISOString().split('T')[0] : '';
+    const effectiveLocation = (emp && (emp.location || emp.address || emp.currentAddress)) || base.location || '';
     const data = {
       ...base,
+      location: effectiveLocation,
+      dateOfJoining: dojISO || base.dateOfJoining || '',
       bankName: (emp && emp.bankName) ? emp.bankName : base.bankName,
       accountNumber: (emp && emp.bankAccount) ? emp.bankAccount : base.accountNumber,
       ifscCode: (emp && emp.ifsc) ? emp.ifsc : base.ifscCode
