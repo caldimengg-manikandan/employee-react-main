@@ -46,6 +46,7 @@ import BankRepository from "./pages/bankrepository/BankRepository";
 
 // Payroll
 import PayrollDetails from "./pages/payroll/PayrollDetails";
+import PayrollHistory from "./pages/payroll/PayrollHistory";
 import CompensationMaster from "./pages/payroll/CompensationMaster";
 import CostToTheCompany from "./pages/payroll/CostToTheCompany";
 import LoanSummary from "./pages/payroll/LoanSummary";
@@ -402,6 +403,14 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["payroll_access", "payroll_details"]} roles={["admin", "hr", "finance"]}>
                   <PayrollDetails />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="payroll/history"
+              element={
+                <ProtectedRoute requiredPermissions={["payroll_access"]} roles={["admin", "hr", "finance", "manager", "projectmanager", "project_manager", "director", "employees"]} allowEmployeeRole>
+                  <PayrollHistory />
                 </ProtectedRoute>
               }
             />

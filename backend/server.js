@@ -111,6 +111,7 @@ app.use("/api/performance/director", require("./routes/directorRoutes"));
 app.use("/api/performance/increment-master", require("./routes/incrementRoutes"));
 app.use("/api/performance/increment-summary", require("./routes/incrementSummaryRoutes"));
 app.use("/api/performance/attributes", require("./routes/appraisalAttributeRoutes"));
+app.use("/api/payroll", require("./routes/payrollHistoryRoutes"));
 
 app.use("/api/notifications", require("./routes/notificationRoutes"));
 

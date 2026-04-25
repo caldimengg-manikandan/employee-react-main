@@ -75,9 +75,14 @@ router.get('/', auth, async (req, res) => {
           baseSalary = Number(emp.ctc || 0);
         }
         const existingSalarySnapshot = Number(app.currentSalarySnapshot || 0);
-        const derivedSalary = baseSalary;
-        if (existingSalarySnapshot > 0) {
-          baseSalary = existingSalarySnapshot;
+        const derivedSalary = (existingSalarySnapshot > 0) ? existingSalarySnapshot : baseSalary;
+        if (derivedSalary > 0 && existingSalarySnapshot !== derivedSalary) {
+          try {
+            await SelfAppraisal.updateOne(
+              { _id: app._id },
+              { $set: { currentSalarySnapshot: derivedSalary } }
+            );
+          } catch (e) {}
         }
 
         // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
@@ -114,20 +119,17 @@ router.get('/', auth, async (req, res) => {
         const performancePay = Number(app.performancePay || 0);
 
         // AUTO-CALC: Derive increment amount and revised salary if missing but we have salary and %
-        if (baseSalary > 0) {
+        if (derivedSalary > 0) {
           const totalPct = finalIncrementPercentage + incrementCorrectionPercentage;
           const updateDoc = {};
-          if (existingSalarySnapshot <= 0 && derivedSalary > 0) {
-            updateDoc.currentSalarySnapshot = derivedSalary;
-          }
 
           if (incrementAmount === 0 && totalPct !== 0) {
-            incrementAmount = Math.round((baseSalary * totalPct) / 100);
+            incrementAmount = Math.round((derivedSalary * totalPct) / 100);
             updateDoc.incrementAmount = incrementAmount;
           }
 
           if (revisedSalary === 0 && (incrementAmount !== 0 || totalPct !== 0)) {
-            revisedSalary = Math.round(baseSalary + incrementAmount);
+            revisedSalary = Math.round(derivedSalary + incrementAmount);
             updateDoc.revisedSalary = revisedSalary;
           }
 
@@ -203,7 +205,7 @@ router.get('/', auth, async (req, res) => {
 
           // Reviewer content
           reviewerComments: app.reviewerComments || '',
-          currentSalary: baseSalary,
+          currentSalary: derivedSalary,
           incrementPercentage: finalIncrementPercentage,
           incrementCorrectionPercentage,
           incrementAmount,

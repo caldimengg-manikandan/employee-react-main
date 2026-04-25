@@ -956,6 +956,17 @@ const SelfAppraisal = () => {
         employeeInfo.employeeId ||
         appraisal.employeeId;
 
+      // Start with immutable snapshots captured at release time, if available
+      const hasSnapshotValues = (snapshot) => {
+        if (!snapshot || typeof snapshot !== 'object') return false;
+        return Object.values(snapshot).some((v) => Number(v || 0) > 0);
+      };
+
+      const snapshotOld = appraisal?.releaseSalarySnapshot || null;
+      const snapshotNew = appraisal?.releaseRevisedSnapshot || null;
+      const hasOldSnapshot = hasSnapshotValues(snapshotOld);
+      const hasNewSnapshot = hasSnapshotValues(snapshotNew);
+
       let salaryOld = {
         basic: 0,
         hra: 0,
@@ -968,8 +979,24 @@ const SelfAppraisal = () => {
         ctc: 0
       };
 
+      if (hasOldSnapshot) {
+        salaryOld = {
+          basic: Number(snapshotOld.basic || 0),
+          hra: Number(snapshotOld.hra || 0),
+          special: Number(snapshotOld.special || 0),
+          gross: Number(snapshotOld.gross || 0),
+          empPF: Number(snapshotOld.empPF || 0),
+          employerPF: Number(snapshotOld.employerPF || 0),
+          net: Number(snapshotOld.net || 0),
+          gratuity: Number(snapshotOld.gratuity || 0),
+          ctc: Number(snapshotOld.ctc || 0)
+        };
+      }
+
+      let lastPayrollRecord = null;
       try {
-        if (employeeIdValue) {
+        // Only fetch payroll for fallback if no snapshot exists
+        if (!salaryOld.ctc && employeeIdValue) {
           const payrollRes = await payrollAPI.list();
           const items = Array.isArray(payrollRes.data) ? payrollRes.data : [];
           const empIdNorm = String(employeeIdValue).toLowerCase();
@@ -978,6 +1005,7 @@ const SelfAppraisal = () => {
           );
 
           if (record) {
+            lastPayrollRecord = record;
             const basic = Number(record.basicDA || 0);
             const hra = Number(record.hra || 0);
             const special = Number(record.specialAllowance || 0);
@@ -1011,6 +1039,35 @@ const SelfAppraisal = () => {
         console.error('Failed to fetch payroll details for letter', err);
       }
 
+      // If payroll has changed post-acceptance and we have a currentSalarySnapshot,
+      // back-calculate the pre-acceptance breakdown from latest payroll by scaling down.
+      if (!hasOldSnapshot && salaryOld.ctc && appraisal?.currentSalarySnapshot && lastPayrollRecord) {
+        const latestCtc = Number(salaryOld.ctc || 0);
+        const oldCtcSnap = Number(appraisal.currentSalarySnapshot || 0);
+        if (latestCtc > 0 && oldCtcSnap > 0 && oldCtcSnap !== latestCtc) {
+          const scaleDown = oldCtcSnap / latestCtc;
+          const basic = Math.round(Number(lastPayrollRecord.basicDA || 0) * scaleDown);
+          const hra = Math.round(Number(lastPayrollRecord.hra || 0) * scaleDown);
+          const special = Math.round(Number(lastPayrollRecord.specialAllowance || 0) * scaleDown);
+          const gross = Math.round(
+            (Number(lastPayrollRecord.totalEarnings !== undefined ? lastPayrollRecord.totalEarnings : (Number(lastPayrollRecord.basicDA || 0) + Number(lastPayrollRecord.hra || 0) + Number(lastPayrollRecord.specialAllowance || 0))) || 0) * scaleDown
+          );
+          const net = Math.round(Number(lastPayrollRecord.netSalary || gross) * scaleDown);
+          const gratuity = Math.round(Number(lastPayrollRecord.gratuity || 0) * scaleDown);
+          salaryOld = {
+            basic,
+            hra,
+            special,
+            gross,
+            empPF: Number(lastPayrollRecord.pf || 0), // leave pf as-is for current letter
+            employerPF: Number(lastPayrollRecord.employerPF || lastPayrollRecord.pf || 0),
+            net,
+            gratuity,
+            ctc: oldCtcSnap
+          };
+        }
+      }
+
       if (!salaryOld.ctc) {
         const currentSalary =
           Number(appraisal.currentSalary || 0) || Number(appraisal.salary || 0);
@@ -1029,34 +1086,49 @@ const SelfAppraisal = () => {
         }
       }
 
-      const baseCtc = salaryOld.ctc || 0;
+      const baseCtc = Number(salaryOld.ctc || 0);
       const basePct = Number(appraisal.incrementPercentage || 0);
       const correctionPct = Number(appraisal.incrementCorrectionPercentage || 0);
       let totalPct = basePct + correctionPct;
 
       const revisedFromAppraisal = Number(appraisal.revisedSalary || 0);
 
-      let factor = 1;
-      if (baseCtc && totalPct > 0) {
-        factor = 1 + totalPct / 100;
-      } else if (baseCtc && revisedFromAppraisal > 0) {
-        factor = revisedFromAppraisal / baseCtc;
+      let salaryNew;
+      let incrementAmount = 0;
+      if (hasNewSnapshot) {
+        salaryNew = {
+          basic: Number(snapshotNew.basic || 0),
+          hra: Number(snapshotNew.hra || 0),
+          special: Number(snapshotNew.special || 0),
+          gross: Number(snapshotNew.gross || 0),
+          empPF: Number(snapshotNew.empPF || 0),
+          employerPF: Number(snapshotNew.employerPF || 0),
+          net: Number(snapshotNew.net || 0),
+          gratuity: Number(snapshotNew.gratuity || 0),
+          ctc: Number(snapshotNew.ctc || 0)
+        };
+        incrementAmount = Math.max(0, (salaryNew.ctc || 0) - (baseCtc || 0));
+      } else {
+        let factor = 1;
+        if (baseCtc && totalPct > 0) {
+          factor = 1 + totalPct / 100;
+        } else if (baseCtc && revisedFromAppraisal > 0) {
+          factor = revisedFromAppraisal / baseCtc;
+        }
+        const revisedCtc = Math.round(baseCtc * factor);
+        incrementAmount = revisedCtc - baseCtc;
+        salaryNew = {
+          basic: Math.round((salaryOld.basic || 0) * factor),
+          hra: Math.round((salaryOld.hra || 0) * factor),
+          special: Math.round((salaryOld.special || 0) * factor),
+          gross: Math.round((salaryOld.gross || baseCtc) * factor),
+          empPF: salaryOld.empPF || 0,
+          employerPF: salaryOld.employerPF || 0,
+          net: Math.round((salaryOld.net || baseCtc) * factor),
+          gratuity: Math.round((salaryOld.gratuity || 0) * factor),
+          ctc: revisedCtc
+        };
       }
-
-      const revisedCtc = Math.round(baseCtc * factor);
-      const incrementAmount = revisedCtc - baseCtc;
-
-      const salaryNew = {
-        basic: Math.round((salaryOld.basic || 0) * factor),
-        hra: Math.round((salaryOld.hra || 0) * factor),
-        special: Math.round((salaryOld.special || 0) * factor),
-        gross: Math.round((salaryOld.gross || baseCtc) * factor),
-        empPF: salaryOld.empPF || 0,
-        employerPF: salaryOld.employerPF || 0,
-        net: Math.round((salaryOld.net || baseCtc) * factor),
-        gratuity: Math.round((salaryOld.gratuity || 0) * factor),
-        ctc: revisedCtc
-      };
 
       const data = {
         date: letterDate,
@@ -1066,6 +1138,7 @@ const SelfAppraisal = () => {
         location: employeeDetails.location || employeeDetails.branch || employeeInfo.location || 'Chennai',
         financialYear: financialYear,
         effectiveDate: '1st April 2026',
+        performanceRating: appraisal.appraiserRating || '',
         incrementPercentage: totalPct,
         incrementAmount,
         appraisalId: appraisal._id || appraisal.id,
@@ -2181,18 +2254,27 @@ const SelfAppraisal = () => {
 
                     {/* Body */}
                     <div className="px-12 py-4 flex-grow">
-                      <div className="mb-4 text-center">
-                        <div className="font-bold text-xl underline decoration-1 underline-offset-4">ANNEXURE - SALARY REVISION DETAILS</div>
+                      <div className="mb-4">
+                        <div className="flex items-center justify-between text-[14px] leading-6">
+                          <div>
+                            <span className="font-bold">Performance Rating:</span>{' '}
+                            <span className="font-bold">{letterData.performanceRating || '-'}</span>
+                          </div>
+                          <div>
+                            <span className="font-bold">Increment %:</span>{' '}
+                            <span className="font-bold">{Number(letterData.incrementPercentage || 0)}%</span>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="mb-4">
-                        <p className="text-[14px] leading-6 mb-4">
-                          Name: <span className="font-semibold">{letterData.employeeName}</span><br />
-                          Employee ID: <span className="font-semibold">{letterData.employeeId}</span>
+                      <div className="mb-3">
+                        <p className="text-[14px] leading-6">
+                          Revised compensation details with effect from <span className="font-semibold">{letterData.effectiveDate}</span>,
                         </p>
-                        <p className="text-[14px] leading-6 mb-4">
-                          Revised compensation details with effect from <span className="font-semibold">{letterData.effectiveDate}</span>:
-                        </p>
+                      </div>
+
+                      <div className="mb-4 text-center">
+                        <div className="font-bold text-xl underline decoration-1 underline-offset-4">ANNEXURE - SALARY REVISION DETAILS</div>
                       </div>
 
                       {/* Salary Table */}

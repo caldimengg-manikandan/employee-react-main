@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const auth = require('../middleware/auth');
 const SelfAppraisal = require('../models/SelfAppraisal');
 const Employee = require('../models/Employee');
+const Payroll = require('../models/Payroll');
 
 // @desc    Get current user's self appraisals
 // @route   GET /api/performance/self-appraisals/me
@@ -250,6 +251,113 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
     appraisal.updatedAt = Date.now();
 
     await appraisal.save();
+
+    if (employeeAcceptanceStatus === 'ACCEPTED' || status === 'Accepted') {
+      appraisal.isLocked = true;
+      appraisal.status = 'Accepted';
+      await appraisal.save();
+
+      if (appraisal.revisedSalary > 0) {
+        await Employee.findByIdAndUpdate(appraisal.employeeId, {
+          $set: { ctc: appraisal.revisedSalary }
+        });
+        
+        try {
+          const emp = await Employee.findById(appraisal.employeeId).select('employeeId name').lean();
+          const employeeIdStr = emp?.employeeId;
+          const employeeName = emp?.name || '';
+          
+          if (employeeIdStr) {
+            // Retrieve previous and new snapshots from appraisal
+            const previousCTCSnapshot = Number(appraisal.currentSalarySnapshot || 0);
+            const incrementPercentage = Number(appraisal.incrementPercentage || 0) + Number(appraisal.incrementCorrectionPercentage || 0);
+            const incrementAmount = Number(appraisal.incrementAmount || 0);
+            const performancePay = Number(appraisal.performancePay || 0);
+            
+            const releaseRevisedSnapshot = appraisal.releaseRevisedSnapshot && appraisal.releaseRevisedSnapshot.get ? Object.fromEntries(appraisal.releaseRevisedSnapshot) : appraisal.releaseRevisedSnapshot || {};
+
+            // Record into PayrollHistory
+            const PayrollHistory = require('../models/PayrollHistory');
+            const newHistory = new PayrollHistory({
+              employeeId: employeeIdStr,
+              financialYear: appraisal.year,
+              previousCTC: previousCTCSnapshot,
+              revisedCTC: appraisal.revisedSalary,
+              incrementPercentage,
+              incrementAmount,
+              salary: {
+                 basic: Number(releaseRevisedSnapshot.basic || 0),
+                 hra: Number(releaseRevisedSnapshot.hra || 0),
+                 special: Number(releaseRevisedSnapshot.special || 0),
+                 gross: Number(releaseRevisedSnapshot.gross || 0),
+                 net: Number(releaseRevisedSnapshot.net || 0),
+                 gratuity: Number(releaseRevisedSnapshot.gratuity || 0)
+              },
+              performancePay,
+              appraisalId: appraisal._id,
+              releasedAt: appraisal.releaseDate || appraisal.updatedAt,
+              acceptedAt: Date.now(),
+              status: 'ACTIVE',
+              version: appraisal.version,
+              createdBy: req.user.name || 'System'
+            });
+            await newHistory.save();
+
+            // Also update the active Payroll record safely without full overwrite (re-calculate deductions as before)
+            const Payroll = require('../models/Payroll');
+            const payrollRec = await Payroll.findOne({ employeeId: employeeIdStr }).sort({ createdAt: -1 });
+            if (payrollRec) {
+              const currentCtc = Number(
+                payrollRec.ctc ||
+                  (Number(payrollRec.basicDA || 0) +
+                    Number(payrollRec.hra || 0) +
+                    Number(payrollRec.specialAllowance || 0) +
+                    Number(payrollRec.gratuity || 0)) ||
+                  0
+              );
+              if (currentCtc > 0) {
+                const factor = Number(appraisal.revisedSalary) / currentCtc;
+                if (Number.isFinite(factor) && factor > 0) {
+                  payrollRec.basicDA = Math.round(Number(payrollRec.basicDA || 0) * factor);
+                  payrollRec.hra = Math.round(Number(payrollRec.hra || 0) * factor);
+                  payrollRec.specialAllowance = Math.round(Number(payrollRec.specialAllowance || 0) * factor);
+                  payrollRec.gratuity = Math.round(Number(payrollRec.gratuity || 0) * factor);
+
+                  payrollRec.totalEarnings = Number(payrollRec.basicDA || 0) + Number(payrollRec.hra || 0) + Number(payrollRec.specialAllowance || 0);
+                  payrollRec.totalDeductions =
+                    Number(payrollRec.pf || 0) +
+                    Number(payrollRec.esi || 0) +
+                    Number(payrollRec.tax || 0) +
+                    Number(payrollRec.professionalTax || 0) +
+                    Number(payrollRec.loanDeduction || 0) +
+                    Number(payrollRec.lop || 0);
+                  payrollRec.netSalary = payrollRec.totalEarnings - payrollRec.totalDeductions;
+                  payrollRec.ctc = payrollRec.totalEarnings + Number(payrollRec.gratuity || 0);
+
+                  await payrollRec.save();
+                }
+              }
+            } else {
+               // If no payroll record exists, create a new one to keep system consistent
+               const newPayroll = new Payroll({
+                  employeeId: employeeIdStr,
+                  employeeName: employeeName,
+                  basicDA: Number(releaseRevisedSnapshot.basic || 0),
+                  hra: Number(releaseRevisedSnapshot.hra || 0),
+                  specialAllowance: Number(releaseRevisedSnapshot.special || 0),
+                  gratuity: Number(releaseRevisedSnapshot.gratuity || 0),
+                  totalEarnings: Number(releaseRevisedSnapshot.gross || 0),
+                  ctc: appraisal.revisedSalary,
+                  netSalary: Number(releaseRevisedSnapshot.net || appraisal.revisedSalary)
+               });
+               await newPayroll.save();
+            }
+          }
+        } catch (e) {
+          console.error("Error creating PayrollHistory:", e);
+        }
+      }
+    }
 
     res.json(appraisal);
   } catch (error) {

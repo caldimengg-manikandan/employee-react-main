@@ -147,6 +147,21 @@ const SelfAppraisalSchema = new mongoose.Schema({
   revisedSalary: { type: Number, default: 0 },
   performancePay: { type: Number, default: 0 },
 
+  // Snapshots captured at the moment of release so letters never change later
+  releaseSalarySnapshot: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  releaseRevisedSnapshot: {
+    type: Map,
+    of: Number,
+    default: {}
+  },
+  releaseDate: {
+    type: Date
+  },
+
   releaseLetter: {
     type: String
   },
@@ -157,6 +172,32 @@ const SelfAppraisalSchema = new mongoose.Schema({
   updatedAt: {
     type: Date,
     default: Date.now
+  },
+  // Versioning & Locking
+  version: {
+    type: Number,
+    default: 1
+  },
+  isLocked: {
+    type: Boolean,
+    default: false
+  },
+  revoked: {
+    type: Boolean,
+    default: false
+  },
+  revokedAt: {
+    type: Date,
+    default: null
+  },
+  revokedReason: {
+    type: String,
+    default: null
+  },
+  parentAppraisalId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'SelfAppraisal',
+    default: null
   }
 });
 

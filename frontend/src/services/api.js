@@ -238,19 +238,13 @@ export const performanceAPI = {
   getTeamAppraisals: () => api.get('/performance/team-appraisals'),
   updateTeamAppraisal: (id, data) => api.put(`/performance/team-appraisals/${id}`, data),
   
-  // Reviewer Endpoints
   getReviewerAppraisals: () => api.get('/performance/reviewer'),
   updateReviewerAppraisal: (id, data) => api.put(`/performance/reviewer/${id}`, data),
   submitToDirector: (ids) => api.post('/performance/reviewer/submit-director', { ids }),
-  
-  // Director Endpoints
+
   getDirectorAppraisals: () => api.get('/performance/director'),
   updateDirectorAppraisal: (id, data) => api.put(`/performance/director/${id}`, data),
-
-  // Increment Master
-  getIncrementMatrix: (params) => api.get('/performance/increment-master', { params }),
-  saveIncrementMatrix: (data) => api.post('/performance/increment-master', data),
-  calculateIncrement: (data) => api.post('/performance/increment-master/calculate', data),
+  revokeAppraisal: (id, reason) => api.post(`/performance/director/revoke/${id}`, { reason }),
 
   getIncrementSummary: (params) => api.get('/performance/increment-summary', { params }),
 

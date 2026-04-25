@@ -13,7 +13,8 @@ import {
   FileText,
   AlertCircle,
   XCircle,
-  TrendingUp
+  TrendingUp,
+  RotateCcw
 } from 'lucide-react';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
 import balaSignature from '../../bala signature.png';
@@ -129,6 +130,12 @@ const DirectorApproval = () => {
     count: 0,
     ids: [],
     type: 'approve' // 'approve' or 'release'
+  });
+  
+  const [revokeConfirm, setRevokeConfirm] = useState({
+    isOpen: false,
+    id: null,
+    reason: ''
   });
 
   const [editingRowId, setEditingRowId] = useState(null);
@@ -300,33 +307,44 @@ const DirectorApproval = () => {
       const employeeIdValue = employeeDetails.employeeId || employeeDetails.empId || emp.empId || emp.employeeId;
 
       let salaryOld = { basic: 0, hra: 0, special: 0, gross: 0, empPF: 0, employerPF: 0, net: 0, gratuity: 0, ctc: 0 };
+      const baseCtc = Number(emp.currentSalary || 0);
+      const revisedCtc = Number(emp.revisedSalary || 0);
+
       try {
         if (employeeIdValue) {
           const payrollRes = await payrollAPI.list();
-          const record = (payrollRes.data || []).find(p => String(p.employeeId || '').toLowerCase() === String(employeeIdValue).toLowerCase());
-          if (record) {
-            const basic = Number(record.basicDA || 0);
-            const hra = Number(record.hra || 0);
-            const special = Number(record.specialAllowance || 0);
-            const gross = Number(record.totalEarnings !== undefined ? record.totalEarnings : basic + hra + special);
+          const payrollRecord = (payrollRes.data || []).find(p => String(p.employeeId || '').toLowerCase() === String(employeeIdValue).toLowerCase());
+          if (payrollRecord) {
+            const rawBasic = Number(payrollRecord.basicDA || 0);
+            const rawHra = Number(payrollRecord.hra || 0);
+            const rawSpecial = Number(payrollRecord.specialAllowance || 0);
+            const rawGratuity = Number(payrollRecord.gratuity || 0);
+            const rawCtc = rawBasic + rawHra + rawSpecial + rawGratuity;
+
+            // Core Fix: Proportions come from payroll, but the total base is derived from the frozen snapshot.
+            // This prevents double-incrementing if payroll was already updated.
+            const normalizationFactor = (rawCtc > 0) ? (baseCtc / rawCtc) : 1;
+
             salaryOld = {
-              basic, hra, special, gross, empPF: Number(record.pf || 0), employerPF: Number(record.employerPF || record.pf || 0),
-              net: Number(record.netSalary || gross), gratuity: Number(record.gratuity || 0), ctc: Number(record.ctc !== undefined ? record.ctc : gross + gratuity)
+              basic: Math.round(rawBasic * normalizationFactor),
+              hra: Math.round(rawHra * normalizationFactor),
+              special: Math.round(rawSpecial * normalizationFactor),
+              gross: Math.round((rawBasic + rawHra + rawSpecial) * normalizationFactor),
+              empPF: Number(payrollRecord.pf || 0),
+              employerPF: Number(payrollRecord.employerPF || payrollRecord.pf || 0),
+              net: Number(payrollRecord.netSalary || (rawBasic + rawHra + rawSpecial)),
+              gratuity: Math.round(rawGratuity * normalizationFactor),
+              ctc: baseCtc
             };
           }
         }
       } catch (err) {}
 
-      if (!salaryOld.ctc) {
-        const cur = Number(emp.currentSalary || 0) || Number(emp.salary || 0);
-        salaryOld = { basic: 0, hra: 0, special: 0, gross: cur, empPF: 0, employerPF: 0, net: cur, gratuity: 0, ctc: cur };
-      }
-
-      const baseCtc = salaryOld.ctc || 0;
+      const incrementAmount = revisedCtc - baseCtc;
       const totalPct = Number(emp.incrementPercentage || 0) + Number(emp.incrementCorrectionPercentage || 0);
-      const factor = (baseCtc && totalPct > 0) ? (1 + totalPct / 100) : (emp.revisedSalary > 0 && baseCtc ? emp.revisedSalary / baseCtc : 1);
-      const revisedCtc = Math.round(baseCtc * factor);
       
+      const factor = (baseCtc > 0) ? (revisedCtc / baseCtc) : 1;
+
       const data = {
         date: letterDate,
         employeeName: employeeDetails.name || employeeDetails.fullName || emp.name,
@@ -336,15 +354,15 @@ const DirectorApproval = () => {
         financialYear: financialYear,
         effectiveDate: '1st April 2026',
         incrementPercentage: totalPct,
-        incrementAmount: revisedCtc - baseCtc,
+        incrementAmount,
         performancePay: Number(emp.performancePay || 0),
         salary: {
-          old: salaryOld,
+          old: { ...salaryOld, ctc: baseCtc },
           new: {
             basic: Math.round((salaryOld.basic || 0) * factor),
             hra: Math.round((salaryOld.hra || 0) * factor),
             special: Math.round((salaryOld.special || 0) * factor),
-            gross: Math.round((salaryOld.gross || baseCtc) * factor),
+            gross: Math.round((salaryOld.gross || (salaryOld.basic + salaryOld.hra + salaryOld.special) || baseCtc) * factor),
             empPF: salaryOld.empPF || 0,
             employerPF: salaryOld.employerPF || 0,
             net: Math.round((salaryOld.net || baseCtc) * factor),
@@ -366,6 +384,41 @@ const DirectorApproval = () => {
 
   const handleReleaseAction = (emp) => {
     setReleaseConfirm({ isOpen: true, count: 1, ids: [emp.id], type: 'release' });
+  };
+
+  const handleRevokeAction = (emp) => {
+    setRevokeConfirm({ isOpen: true, id: emp.id, reason: '' });
+  };
+
+  const confirmRevoke = async () => {
+    if (!revokeConfirm.reason.trim()) {
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: 'Please provide a reason for revoking the appraisal.'
+      });
+      return;
+    }
+    try {
+      setLoading(true);
+      await performanceAPI.revokeAppraisal(revokeConfirm.id, revokeConfirm.reason);
+      setStatusPopup({
+        isOpen: true,
+        status: 'success',
+        message: 'Appraisal safely revoked. A new version has been created for the employee.'
+      });
+      fetchDirectorAppraisals();
+    } catch (error) {
+      console.error('Error revoking appraisal:', error);
+      setStatusPopup({
+        isOpen: true,
+        status: 'error',
+        message: error.response?.data?.message || 'Failed to revoke appraisal'
+      });
+    } finally {
+      setLoading(false);
+      setRevokeConfirm({ isOpen: false, id: null, reason: '' });
+    }
   };
 
   const handleBulkApprove = () => {
@@ -549,6 +602,11 @@ const DirectorApproval = () => {
                               {!isReleased && emp.status === 'DIRECTOR_APPROVED' && (
                                 <button onClick={() => handleReleaseAction(emp)} className="text-orange-500 hover:text-orange-700" title="Release Letter"><Send className="h-5 w-5" /></button>
                               )}
+                              {isRowLocked && (
+                                <button onClick={() => handleRevokeAction(emp)} className="text-red-500 hover:text-red-700 ml-1" title="Revoke Appraisal">
+                                  <RotateCcw className="h-4 w-4" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
@@ -577,6 +635,43 @@ const DirectorApproval = () => {
             <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
               <button onClick={() => setReleaseConfirm({ isOpen: false, count: 0, ids: [], type: 'approve' })} className="px-4 py-2 border rounded">Cancel</button>
               <button onClick={confirmRelease} className={`px-4 py-2 text-white rounded ${releaseConfirm.type === 'approve' ? 'bg-[#262760]' : 'bg-orange-600'}`}>Confirm</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {revokeConfirm.isOpen && (
+        <div className="fixed inset-0 z-[55] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-sm overflow-hidden border-2 border-red-500">
+            <div className="px-6 py-4 bg-red-600 text-white font-bold flex items-center">
+              <AlertCircle className="w-5 h-5 mr-2" /> Revoke Appraisal
+            </div>
+            <div className="p-6">
+              <p className="text-gray-700 mb-4 whitespace-normal font-medium leading-relaxed">
+                Are you sure you want to revoke this appraisal?
+              </p>
+              <div className="bg-red-50 p-3 rounded text-sm text-red-800 mb-4 border border-red-100">
+                <ul className="list-disc pl-4 space-y-1 font-medium">
+                  <li>Unlocks the appraisal.</li>
+                  <li>Creates a new version.</li>
+                  <li>Marks this one as REVOKED (and revokes payroll history if any).</li>
+                </ul>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Reason <span className="text-red-500">*</span></label>
+                <textarea 
+                  className="w-full h-24 border border-gray-300 rounded p-2 focus:ring-red-500 focus:border-red-500 text-sm" 
+                  value={revokeConfirm.reason} 
+                  onChange={(e) => setRevokeConfirm({ ...revokeConfirm, reason: e.target.value })} 
+                  placeholder="Mandatory reason for revocation..."
+                />
+              </div>
+            </div>
+            <div className="px-6 py-4 bg-gray-50 flex justify-end space-x-3">
+              <button onClick={() => setRevokeConfirm({ isOpen: false, id: null, reason: '' })} className="px-4 py-2 border border-gray-300 rounded bg-white text-gray-700 hover:bg-gray-50">Cancel</button>
+              <button onClick={confirmRevoke} className="px-4 py-2 text-white rounded bg-red-600 hover:bg-red-700 flex items-center font-medium">
+                <RotateCcw className="w-4 h-4 mr-2" /> Confirm Revoke
+              </button>
             </div>
           </div>
         </div>

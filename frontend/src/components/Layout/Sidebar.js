@@ -333,6 +333,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
           showForRoles: ["admin", "hr", "finance"]
         },
         {
+          name: "Payroll History",
+          path: "/payroll/history",
+          permission: "payroll_access",
+          showForRoles: ["admin", "hr", "finance", "manager", "projectmanager", "project_manager", "director", "employees"],
+          allowEmployeeRole: true
+        },
+        {
           name: "Cost to the Company",
           path: "/payroll/cost-to-the-company",
           permission: "cost_to_company",

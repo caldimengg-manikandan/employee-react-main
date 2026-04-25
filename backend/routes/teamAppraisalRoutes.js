@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const SelfAppraisal = require('../models/SelfAppraisal');
 const Employee = require('../models/Employee');
+const Payroll = require('../models/Payroll');
 
 const { calculateIncrement } = require('../utils/incrementUtils');
 
@@ -68,11 +69,39 @@ router.get('/', auth, async (req, res) => {
     // Use Promise.all to handle async calculation
     const formattedAppraisals = await Promise.all(appraisals.map(async (app) => {
       const emp = app.employeeId || {};
-      let baseSalary = Number(emp.ctc || 0);
+      let baseSalary = 0;
+      try {
+        if (emp.employeeId) {
+          const payrollRec = await Payroll.findOne({ employeeId: emp.employeeId }).sort({ createdAt: -1 }).lean();
+          if (payrollRec && (payrollRec.ctc || payrollRec.totalEarnings || payrollRec.basicDA || payrollRec.hra || payrollRec.specialAllowance || payrollRec.gratuity)) {
+            const ctcFromPayroll = Number(payrollRec.ctc || 0);
+            if (ctcFromPayroll > 0) {
+              baseSalary = ctcFromPayroll;
+            } else {
+              const basic = Number(payrollRec.basicDA || 0);
+              const hra = Number(payrollRec.hra || 0);
+              const spec = Number(payrollRec.specialAllowance || 0);
+              const grat = Number(payrollRec.gratuity || 0);
+              const computedCtc = basic + hra + spec + grat;
+              baseSalary = computedCtc > 0 ? computedCtc : 0;
+            }
+          }
+        }
+      } catch (e) {
+        baseSalary = 0;
+      }
+      if (baseSalary === 0) {
+        baseSalary = Number(emp.ctc || 0);
+      }
       const existingSalarySnapshot = Number(app.currentSalarySnapshot || 0);
-      const derivedSalary = baseSalary;
-      if (existingSalarySnapshot > 0) {
-        baseSalary = existingSalarySnapshot;
+      const derivedSalary = (existingSalarySnapshot > 0) ? existingSalarySnapshot : baseSalary;
+      if (derivedSalary > 0 && existingSalarySnapshot !== derivedSalary) {
+        try {
+          await SelfAppraisal.updateOne(
+            { _id: app._id },
+            { $set: { currentSalarySnapshot: derivedSalary } }
+          );
+        } catch (e) {}
       }
 
       // AUTO-FIX: If incrementPercentage is 0 or missing, try to calculate it
@@ -97,20 +126,17 @@ router.get('/', auth, async (req, res) => {
       let revisedSalary = app.revisedSalary || 0;
       const performancePay = Number(app.performancePay || 0);
 
-      if (baseSalary > 0) {
+      if (derivedSalary > 0) {
         const totalPct = finalIncrementPercentage + incrementCorrectionPercentage;
         const updateDoc = {};
-        if (existingSalarySnapshot <= 0 && derivedSalary > 0) {
-          updateDoc.currentSalarySnapshot = derivedSalary;
-        }
 
         if (incrementAmount === 0 && totalPct !== 0) {
-          incrementAmount = Math.round((baseSalary * totalPct) / 100);
+          incrementAmount = Math.round((derivedSalary * totalPct) / 100);
           updateDoc.incrementAmount = incrementAmount;
         }
 
         if (revisedSalary === 0 && (incrementAmount !== 0 || totalPct !== 0)) {
-          revisedSalary = Math.round(baseSalary + incrementAmount);
+          revisedSalary = Math.round(derivedSalary + incrementAmount);
           updateDoc.revisedSalary = revisedSalary;
         }
 
@@ -149,7 +175,7 @@ router.get('/', auth, async (req, res) => {
         incrementAmount,
         revisedSalary,
         performancePay,
-        currentSalary: baseSalary,
+        currentSalary: derivedSalary,
 
         behaviourBased: app.behaviourBased ? (app.behaviourBased.toJSON ? app.behaviourBased.toJSON() : app.behaviourBased) : {},
         processAdherence: app.processAdherence ? (app.processAdherence.toJSON ? app.processAdherence.toJSON() : app.processAdherence) : {},
