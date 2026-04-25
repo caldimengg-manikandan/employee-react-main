@@ -196,23 +196,19 @@ export const calculateCurrentSalaryAnnexure = (snapshot) => {
   const gross = Math.round(snapshot.totalEarnings || snapshot.gross || 0);
   const basic = Math.round(snapshot.basicDA || snapshot.basic || 0);
   const hra = Math.round(snapshot.hra || 0);
+  const net = Math.round(snapshot.netSalary || snapshot.net || 0);
   
-  // Standard fixed components
-  const employeePfContribution = 1800;
-  const employerPfContribution = 1950;
+  // For historical data (Current column), components typically sum to Gross
+  // Special = Gross - Basic - HRA
+  const special = Math.max(0, gross - basic - hra);
 
-  // Re-calculate Special Allowance to keep the Gross consistent
-  // Formula: Special = Gross - Basic - HRA - EmployeePF - EmployerPF
-  const special = Math.max(0, gross - basic - hra - employeePfContribution - employerPfContribution);
+  // Equalize PF: Take the total deduction from snapshot and split it
+  const totalDeduction = Math.max(0, gross - net);
+  const employeePfContribution = 1800; // Standard fixed part
+  const employerPfContribution = Math.max(0, totalDeduction - employeePfContribution);
 
-  // Net Salary (Take Home) = Basic + HRA + Special
-  const net = basic + hra + special;
-  
-  // Ensure Gross is consistent: Gross = Net + EmpPF + EmployerPF
-  const grossFinal = net + employeePfContribution + employerPfContribution;
-  
   const gratuity = Math.round(snapshot.gratuity || (basic * 0.0486));
-  const ctc = Math.round(snapshot.ctc || (grossFinal + gratuity));
+  const ctc = Math.round(snapshot.ctc || (gross + gratuity));
 
   return {
     basic,
@@ -221,10 +217,10 @@ export const calculateCurrentSalaryAnnexure = (snapshot) => {
     net,
     employeePfContribution,
     empPF: employeePfContribution,
-    gross: grossFinal,
+    gross,
     employerPfContribution,
     employerPF: employerPfContribution,
     gratuity,
-    ctc
+    ctc: Math.round(ctc)
   };
 };

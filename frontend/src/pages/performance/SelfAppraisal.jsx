@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import WorkflowTracker from '../../components/Performance/WorkflowTracker';
-import { getWorkflowForUser, APPRAISAL_STAGES, calculateSalaryAnnexure } from '../../utils/performanceUtils';
+import { getWorkflowForUser, APPRAISAL_STAGES, calculateSalaryAnnexure, calculateCurrentSalaryAnnexure } from '../../utils/performanceUtils';
 import { performanceAPI, employeeAPI, leaveAPI, payrollAPI, attendanceAPI, promotionAPI } from '../../services/api';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -1017,17 +1017,7 @@ const SelfAppraisal = () => {
           const fySnapshot = fySnapshotRes.data?.data;
 
           if (fySnapshot) {
-            salaryOld = {
-              basic: Math.round(fySnapshot.basicDA || 0),
-              hra: Math.round(fySnapshot.hra || 0),
-              special: Math.round(fySnapshot.specialAllowance || 0),
-              gross: Math.round(fySnapshot.totalEarnings || 0),
-              net: Math.round(fySnapshot.netSalary || 0),
-              empPF: Math.round(fySnapshot.employeePfContribution || fySnapshot.pf || 1800),
-              employerPF: Math.round(fySnapshot.employerPfContribution || 1950),
-              gratuity: Math.round(fySnapshot.gratuity || 0),
-              ctc: Math.round(fySnapshot.ctc || 0)
-            };
+            salaryOld = calculateCurrentSalaryAnnexure(fySnapshot);
           } else {
             salaryOld = calculateSalaryAnnexure(appraisal.currentGross || baseCtc);
           }
