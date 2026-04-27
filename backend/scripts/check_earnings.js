@@ -13,15 +13,17 @@ async function checkTotalEarnings() {
     await mongoose.connect(uri);
     const db = mongoose.connection.db;
     
-    const p = await db.collection('payrolls').findOne({ employeeId: 'CDE110' });
+    const p = await db.collection('payroll_FY24-25').findOne({ employeeId: 'CDE111' });
     if (p) {
-        console.log('CDE110 Record:');
+        console.log('CDE111 Record (Rohini):');
         console.log(`  totalEarnings: ${p.totalEarnings}`);
         console.log(`  basicDA: ${p.basicDA}`);
         console.log(`  hra: ${p.hra}`);
         console.log(`  specialAllowance: ${p.specialAllowance}`);
         console.log(`  pf: ${p.pf}`);
         console.log(`  esi: ${p.esi}`);
+        console.log(`  employeePfContribution: ${p.employeePfContribution}`);
+        console.log(`  employerPfContribution: ${p.employerPfContribution}`);
     }
     
     process.exit(0);
