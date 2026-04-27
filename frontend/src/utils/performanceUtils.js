@@ -151,23 +151,25 @@ export const calculateIncrement = (designation, rating, companyPerformance) => {
   return performanceData[rating] || 0;
 };
 
-export const calculateSalaryAnnexure = (gross) => {
+export const calculateSalaryAnnexure = (gross, customPFs = null) => {
   const targetGross = Math.round(gross || 0);
   const basic = Math.round(targetGross * 0.50);
   const hra = Math.round(targetGross * 0.25);
   
-  const employeePfContribution = 1800;
-  const employerPfContribution = 1950;
+  // PF Contributions (Use custom values if provided, else defaults)
+  const employeePfContribution = customPFs?.employeePfContribution !== undefined ? Number(customPFs.employeePfContribution) : 1800;
+  const employerPfContribution = customPFs?.employerPfContribution !== undefined ? Number(customPFs.employerPfContribution) : 1950;
+  const esi = customPFs?.esi !== undefined ? Number(customPFs.esi) : 0;
 
   // Following the 50/25/25 logic where Special Allowance is the remainder
-  // such that Net (B+H+S) + PFs = Target Gross
-  const special = Math.max(0, targetGross - basic - hra - employeePfContribution - employerPfContribution);
+  // such that Net (B+H+S) + PFs + ESI = Target Gross
+  const special = Math.max(0, targetGross - basic - hra - employeePfContribution - employerPfContribution - esi);
 
   // Net Salary (Take Home) = Basic + HRA + Special Allowance
   const net = basic + hra + special;
   
-  // Gross Salary = Net Salary + Employee PF + Employer PF
-  const grossFinal = net + employeePfContribution + employerPfContribution;
+  // Gross Salary = Net Salary + Employee PF + Employer PF + ESI
+  const grossFinal = net + employeePfContribution + employerPfContribution + esi;
   
   const gratuity = Math.round(basic * 0.0486);
   
@@ -184,6 +186,7 @@ export const calculateSalaryAnnexure = (gross) => {
     gross: grossFinal,
     employerPfContribution,
     employerPF: employerPfContribution, // Alias for backward compatibility
+    esi,
     gratuity,
     ctc: Math.round(ctc)
   };

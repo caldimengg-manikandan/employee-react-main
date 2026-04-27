@@ -338,15 +338,16 @@ router.post('/release', auth, async (req, res) => {
       // Use Snapshot Gross as the base for Current Column
       const baseGross = snapshot ? Number(snapshot.totalEarnings || 0) : Number(appraisal.currentSalary || appraisal.employeeId?.ctc || 0);
 
-      const calculateSalaryAnnexure = (targetGross) => {
+      const calculateSalaryAnnexure = (targetGross, customPFs = null) => {
         const grossVal = Math.round(targetGross || 0);
         const basic = Math.round(grossVal * 0.50);
         const hra = Math.round(grossVal * 0.25);
         
-        const employeePfContribution = 1800;
-        const employerPfContribution = 1950;
+        const employeePfContribution = customPFs?.employeePfContribution !== undefined ? Number(customPFs.employeePfContribution) : 1800;
+        const employerPfContribution = customPFs?.employerPfContribution !== undefined ? Number(customPFs.employerPfContribution) : 1950;
+        const esi = customPFs?.esi !== undefined ? Number(customPFs.esi) : 0;
         
-        const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution);
+        const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi);
         const net = basic + hra + special;
         const gratuity = Math.round(basic * 0.0486);
         const ctc = grossVal + gratuity;
@@ -359,7 +360,8 @@ router.post('/release', auth, async (req, res) => {
           employeePfContribution, 
           gross: grossVal,
           employerPfContribution,
-          totalDeductions: employeePfContribution + employerPfContribution + (gratuity || 0) * 0, // PT/ESI/Tax typically 0 here
+          esi,
+          totalDeductions: employeePfContribution + employerPfContribution + esi,
           gratuity,
           ctc: Math.round(ctc)
         };
@@ -374,11 +376,12 @@ router.post('/release', auth, async (req, res) => {
           special: Math.round(snapshot.specialAllowance || 0),
           gross: Math.round(snapshot.totalEarnings || 0),
           net: Math.round(snapshot.netSalary || 0),
-          employeePfContribution: Math.round(snapshot.employeePfContribution || 0),
-          employerPfContribution: Math.round(snapshot.employerPfContribution || 1950),
+          employeePfContribution: Math.round(snapshot.employeePfContribution || 1800),
+          employerPfContribution: Math.round(snapshot.employerPfContribution || 1620), // Fallback to 1620 if missing to handle legacy
+          esi: Math.round(snapshot.esi || 0),
           totalDeductions: Math.round(snapshot.totalDeductions || (
-            (snapshot.employeePfContribution || 0) + 
-            (snapshot.employerPfContribution || 1950) + 
+            (snapshot.employeePfContribution || 1800) + 
+            (snapshot.employerPfContribution || 1620) + 
             (snapshot.esi || 0) + 
             (snapshot.professionalTax || 0) + 
             (snapshot.tax || 0)
@@ -393,7 +396,12 @@ router.post('/release', auth, async (req, res) => {
       const totalPct = Number(appraisal.incrementPercentage || 0) + Number(appraisal.incrementCorrectionPercentage || 0);
       const revisedGross = Math.round(baseGross * (1 + totalPct / 100));
 
-      const salaryNew = calculateSalaryAnnexure(revisedGross);
+      const customPFs = {
+        employeePfContribution: salaryOld.employeePfContribution,
+        employerPfContribution: salaryOld.employerPfContribution,
+        esi: salaryOld.esi
+      };
+      const salaryNew = calculateSalaryAnnexure(revisedGross, customPFs);
 
       appraisal.status = 'released';
       if (!appraisal.workflow) appraisal.workflow = {};

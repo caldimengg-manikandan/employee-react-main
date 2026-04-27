@@ -380,15 +380,26 @@ const DirectorApproval = () => {
           
           const incrementBase = salaryOld.gross || emp.currentGross || baseSnapshotCtc;
           const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
-          // Revised always follows the new 50/25/25 logic
-          salaryNew = calculateSalaryAnnexure(targetRevisedGross);
+          // Revised always follows the new 50/25/25 logic but preserves custom PF/ESI if present in snapshot
+          const customPFs = {
+            employeePfContribution: salaryOld.employeePfContribution,
+            employerPfContribution: salaryOld.employerPfContribution,
+            esi: salaryOld.esi
+          };
+          salaryNew = calculateSalaryAnnexure(targetRevisedGross, customPFs);
         }
       } catch (err) {
         console.error("Salary prep error:", err);
         const fallbackBase = emp.currentGross || baseSnapshotCtc;
         salaryOld = calculateSalaryAnnexure(fallbackBase);
         const targetRevisedGross = Math.round(salaryOld.gross * (1 + totalPct / 100));
-        salaryNew = calculateSalaryAnnexure(targetRevisedGross);
+        
+        const customPFs = {
+          employeePfContribution: salaryOld.employeePfContribution,
+          employerPfContribution: salaryOld.employerPfContribution,
+          esi: salaryOld.esi
+        };
+        salaryNew = calculateSalaryAnnexure(targetRevisedGross, customPFs);
       }
 
 
