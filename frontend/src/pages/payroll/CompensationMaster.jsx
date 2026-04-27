@@ -780,6 +780,7 @@ We’re excited to have you join our team and look forward to your growth and su
   const calcEmployerPF = selectedCompensation ? (parseFloat(selectedCompensation.employerPfContribution) || 0) : 0;
   const calcEmployeePF = selectedCompensation ? (parseFloat(selectedCompensation.employeePfContribution) || 0) : 0;
   const calcESI = selectedCompensation ? (parseFloat(selectedCompensation.esi) || 0) : 0;
+  const calcTotalEarnings = calcBasicDA + calcHRA + calcSpecial;
   const calcTotalDeductions = calcEmployeePF + calcProfessionalTax + calcESI;
   const calcNetSalary = calcTotalEarnings - calcEmployeePF - calcESI - calcProfessionalTax; 
   const calcGrossSalary = calcTotalEarnings;
