@@ -56,9 +56,9 @@ router.post("/", async (req, res) => {
             specialAllowance: compensation.modeSpecialAllowance === 'amount' ? compensation.specialAllowance : 0,
             
             // Deductions
-            employeePfContribution: compensation.modePf === 'amount' ? compensation.pf : 0,
-            employerPfContribution: 1950, // Standard organizational employer contribution
-            esi: compensation.modeEsi === 'amount' ? compensation.esi : 0,
+            employeePfContribution: compensation.modePf === 'amount' ? (compensation.employeePfContribution || compensation.pf || 0) : 0,
+            employerPfContribution: compensation.employerPfContribution || 1950, 
+            esi: compensation.modeEsi === 'amount' ? (compensation.esi || 0) : 0,
             tax: compensation.modeTax === 'amount' ? compensation.tax : 0,
             professionalTax: compensation.modeProfessionalTax === 'amount' ? compensation.professionalTax : 0,
             gratuity: compensation.modeGratuity === 'amount' ? compensation.gratuity : 0,

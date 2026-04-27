@@ -20,6 +20,8 @@ const CompensationSchema = new mongoose.Schema(
     // Deductions / Others
     gratuity: { type: Number, default: 0 },
     pf: { type: Number, default: 0 },
+    employeePfContribution: { type: Number, default: 0 },
+    employerPfContribution: { type: Number, default: 0 },
     esi: { type: Number, default: 0 },
     tax: { type: Number, default: 0 },
     professionalTax: { type: Number, default: 0 },

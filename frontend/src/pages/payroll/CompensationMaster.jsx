@@ -31,37 +31,40 @@ const calculateSalaryFields = (salaryData) => {
   // HRA = 50% of Basic (25% of Gross)
   const hra = Math.round(basicDA * 0.50);
   
-  // PF Contributions (Fixed)
-  const employerPF = 1950;
-  const employeePF = 1800;
+  // PF Contributions (Prioritize manual entry or fallback to calculated)
+  const employerPF = parseFloat(salaryData.employerPfContribution) || (inputGross > 0 ? 1950 : 0);
+  const employeePF = parseFloat(salaryData.employeePfContribution) || (inputGross > 0 ? 1800 : 0);
+  const esi = parseFloat(salaryData.esi) || 0;
 
-  // Special Allowance = (50% of Basic) - Employee PF - Employer PF
-  const specialAllowanceInitial = Math.round(basicDA * 0.50);
-  const specialAllowance = Math.max(0, specialAllowanceInitial - employeePF - employerPF);
+  // Special Allowance = Gross - Basic - HRA
+  // Note: We keep this consistent with the Gross Components model
+  const specialAllowance = Math.max(0, inputGross - basicDA - hra);
   
   // Gratuity = Basic Salary x 4.86%
   const gratuity = Math.round(basicDA * 0.0486);
   
-  // Net Salary = Basic Salary + HRA + Adjusted Special Allowance
-  const netSalary = basicDA + hra + specialAllowance;
+  // Net Salary = Basic Salary + HRA + Special Allowance - Employee PF - ESI - Professional Tax
+  const professionalTax = parseFloat(salaryData.professionalTax) || 0;
+  const volunteerPFVal = parseFloat(salaryData.volunteerPF) || 0;
+  const netSalary = Math.round(basicDA + hra + specialAllowance - employeePF - esi - professionalTax - volunteerPFVal);
   
   // Gross Salary = return original input instead of resubmission to avoid overwriting during typing
   const gross = inputGross; 
   
-  // CTC = Net Salary + Employee PF + Employer PF + Gratuity
-  const ctc = netSalary + employeePF + employerPF + gratuity;
+  // CTC = Gross + Employer PF + Gratuity
+  const ctc = inputGross + employerPF + gratuity;
 
   const totalEarnings = basicDA + hra + specialAllowance;
-  const volunteerPFVal = parseFloat(salaryData.volunteerPF) || 0;
-  const totalDeductions = employeePF + volunteerPFVal + (parseFloat(salaryData.professionalTax) || 0);
+  const totalDeductions = employeePF + volunteerPFVal + professionalTax + esi;
 
   return {
     ...salaryData,
     basicDA,
     hra,
     specialAllowance,
-    employeePF,
-    employerPF,
+    employeePfContribution: employeePF,
+    employerPfContribution: employerPF,
+    esi,
     volunteerPF: salaryData.volunteerPF,
     gratuity,
     netSalary,
@@ -86,6 +89,9 @@ const initialCompensation = {
   specialAllowance: "",
   gratuity: "",
   pf: 3750,
+  employeePfContribution: 1800,
+  employerPfContribution: 1950,
+  esi: 0,
   volunteerPF: "",
   professionalTax: "",
   modeBasicDA: "amount",
@@ -320,7 +326,7 @@ const CompensationMaster = () => {
     // Fields that should only contain numbers
     const numericFields = [
       'gross', 'basicDA', 'hra', 'specialAllowance', 'gratuity',
-      'pf', 'volunteerPF', 'professionalTax'
+      'pf', 'employeePfContribution', 'employerPfContribution', 'esi', 'volunteerPF', 'professionalTax'
     ];
 
     if (numericFields.includes(name)) {
@@ -771,13 +777,13 @@ We’re excited to have you join our team and look forward to your growth and su
   const calcProfessionalTax = selectedCompensation ? (parseFloat(selectedCompensation.professionalTax) || 0) : 0;
   const calcGratuity = selectedCompensation ? (parseFloat(selectedCompensation.gratuity) || 0) : 0;
 
-  const calcTotalEarnings = calcBasicDA + calcHRA + calcSpecial;
-  const calcEmployerPF = 1950;
-  const calcEmployeePF = 1800;
-  const calcTotalDeductions = calcEmployeePF + calcProfessionalTax;
-  const calcNetSalary = calcTotalEarnings; // Net = Basic + HRA + Special
-  const calcGrossSalary = calcNetSalary + calcEmployeePF + calcEmployerPF;
-  const calcCTC = calcGrossSalary + calcGratuity;
+  const calcEmployerPF = selectedCompensation ? (parseFloat(selectedCompensation.employerPfContribution) || 0) : 0;
+  const calcEmployeePF = selectedCompensation ? (parseFloat(selectedCompensation.employeePfContribution) || 0) : 0;
+  const calcESI = selectedCompensation ? (parseFloat(selectedCompensation.esi) || 0) : 0;
+  const calcTotalDeductions = calcEmployeePF + calcProfessionalTax + calcESI;
+  const calcNetSalary = calcTotalEarnings - calcEmployeePF - calcESI - calcProfessionalTax; 
+  const calcGrossSalary = calcTotalEarnings;
+  const calcCTC = calcGrossSalary + calcEmployerPF + calcGratuity;
 
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -787,18 +793,14 @@ We’re excited to have you join our team and look forward to your growth and su
     const hra = parseFloat(viewItem.hra) || 0;
     const special = parseFloat(viewItem.specialAllowance) || 0;
     const gratuity = parseFloat(viewItem.gratuity) || 0;
-    const pf = parseFloat(viewItem.pf) || 0;
-    const volunteerPF = parseFloat(viewItem.volunteerPF) || 0;
-    const professionalTax = parseFloat(viewItem.professionalTax) || 0;
-
-    const employerPF = 1950;
-    const employeePF = 1800;
+    const esi = parseFloat(viewItem.esi) || 0;
+    const employeePF = parseFloat(viewItem.employeePfContribution) || 0;
+    const employerPF = parseFloat(viewItem.employerPfContribution) || 0;
 
     const totalEarnings = basic + hra + special;
-    const totalDeductions = employeePF + volunteerPF + professionalTax;
-    const netSalary = totalEarnings; // Net = Basic + HRA + Special
-    const grossSalary = netSalary + employeePF + employerPF;
-    const ctc = grossSalary + gratuity;
+    const totalDeductions = employeePF + volunteerPF + professionalTax + esi;
+    const netSalary = totalEarnings - employeePF - esi - professionalTax - volunteerPF; 
+    const ctc = totalEarnings + employerPF + gratuity;
 
     return {
       totalEarnings,
@@ -806,7 +808,8 @@ We’re excited to have you join our team and look forward to your growth and su
       netSalary,
       ctc,
       employeePF,
-      employerPF
+      employerPF,
+      esi
     };
   }, [viewItem]);
 
@@ -1244,8 +1247,10 @@ We’re excited to have you join our team and look forward to your growth and su
                   <h3 className="text-lg font-medium text-red-900 mb-4">Deductions</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
-                      { label: 'PF Contribution', name: 'pf' },
+                      { label: 'Employee PF', name: 'employeePfContribution' },
+                      { label: 'Employer PF', name: 'employerPfContribution' },
                       { label: 'Volunteer PF', name: 'volunteerPF' },
+                      { label: 'ESI', name: 'esi' },
                       { label: 'Professional Tax', name: 'professionalTax' },
                     ].map((field) => (
                       <div key={field.name}>
@@ -1259,9 +1264,8 @@ We’re excited to have you join our team and look forward to your growth and su
                             inputMode="numeric"
                             name={field.name}
                             value={formData[field.name]}
-                            readOnly={field.name === 'pf'}
                             onChange={handleChange}
-                            className={`w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg ${field.name === 'pf' ? 'bg-gray-50' : 'focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                            className={`w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500`}
                           />
                         </div>
                       </div>
@@ -1487,6 +1491,12 @@ We’re excited to have you join our team and look forward to your growth and su
                         <span className="text-slate-200">Volunteer PF</span>
                         <span className="font-semibold text-rose-100">
                           {viewItem.volunteerPF || "0"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-200">ESI</span>
+                        <span className="font-semibold text-rose-100">
+                          {viewItem.esi || "0"}
                         </span>
                       </div>
                       <div className="flex justify-between">
