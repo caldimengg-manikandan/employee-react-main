@@ -4,15 +4,18 @@ import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI, mailAPI 
 import * as XLSX from 'xlsx';
 
 const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
+  // Use the totalEarnings (Gross) from the database as the base
+  const totalGross = parseFloat(salaryData.totalEarnings) || 0;
   const basicDA = parseFloat(salaryData.basicDA) || 0;
   const hra = parseFloat(salaryData.hra) || 0;
-  const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
-  const gratuity = Math.round((basicDA * 15 / 26) / 12);
+  // Note: specialAllowance in our DB is the Net Special (after PF).
+  // For simulation display, we'll use the components but ensure they add up correctly.
   
   // Standard monthly deductions (fixed from master)
-  const stdTotalPF = parseFloat(salaryData.pf) || 0;
+  // In this org, PF is the TOTAL deduction (Emp + Empr)
+  const pf = parseFloat(salaryData.pf) || 0;
   const employerPF = 1950;
-  const employeePF = Math.max(0, stdTotalPF - employerPF);
+  const employeePF = Math.max(0, pf - employerPF);
 
   const stdEsi = parseFloat(salaryData.esi) || 0;
   const stdTax = parseFloat(salaryData.tax) || 0;
@@ -22,37 +25,33 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   // Use input if provided, otherwise check record, otherwise 0
   const lopDays = lopDaysInput !== undefined ? lopDaysInput : (salaryData.lopDays || 0);
 
-  const totalEarnings = basicDA + hra + specialAllowance;
+  const totalEarnings = totalGross;
   
   // Calculate LOP deduction
-  // Per Day Salary = Total Earnings / Actual Days in Month
   const safeDaysInMonth = daysInMonth > 0 ? daysInMonth : 30;
   const perDaySalary = totalEarnings / safeDaysInMonth;
   const lopDeduction = Math.round(perDaySalary * lopDays);
 
-  // Calculate Attendance Ratio for pro-rating deductions
-  const attendanceRatio = Math.max(0, (safeDaysInMonth - lopDays) / safeDaysInMonth);
-
   // Pro-rate standard deductions based on attendance
+  const attendanceRatio = Math.max(0, (safeDaysInMonth - lopDays) / safeDaysInMonth);
   const isFullLop = attendanceRatio === 0;
   
-  const pf = isFullLop ? 0 : employeePF;
-  const esi = isFullLop ? 0 : stdEsi;
-  const tax = isFullLop ? 0 : stdTax;
-  const professionalTax = isFullLop ? 0 : stdProfessionalTax;
+  const currentPF = isFullLop ? 0 : pf;
+  const currentESI = isFullLop ? 0 : stdEsi;
+  const currentTax = isFullLop ? 0 : stdTax;
+  const currentPT = isFullLop ? 0 : stdProfessionalTax;
 
-  // Loan deduction: Cap at remaining salary (Net Earnings before loan)
+  // Loan deduction cap
   const earningsAfterLop = Math.max(0, totalEarnings - lopDeduction);
-  const otherDeductions = pf + esi + tax + professionalTax;
+  const otherDeductions = currentPF + currentESI + currentTax + currentPT;
   const remainingForLoan = Math.max(0, earningsAfterLop - otherDeductions);
   const loanDeduction = Math.min(stdLoanDeduction, remainingForLoan);
 
-  // Gratuity is part of CTC but usually not deducted from monthly Net Salary (it's separate)
-  const totalDeductions = pf + esi + tax + professionalTax + loanDeduction + lopDeduction;
+  const totalDeductions = currentPF + currentESI + currentTax + currentPT + loanDeduction + lopDeduction;
   const netSalary = totalEarnings - totalDeductions;
   
-  // CTC = Total Earnings + Employer PF + Gratuity
-  const ctc = totalEarnings + employerPF + gratuity;
+  const gratuity = parseFloat(salaryData.gratuity) || 0;
+  const ctc = totalEarnings + gratuity;
 
   return {
     ...salaryData,
@@ -63,12 +62,12 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
     lop: lopDeduction,
     lopDays,
     daysInMonth: safeDaysInMonth, 
-    pf,
-    employerPF, // Return these for reference in UI/Export
+    pf: currentPF,
+    employerPF,
     employeePF,
-    esi,
-    tax,
-    professionalTax,
+    esi: currentESI,
+    tax: currentTax,
+    professionalTax: currentPT,
     loanDeduction
   };
 };
@@ -345,6 +344,7 @@ export default function MonthlyPayroll() {
           dateOfJoining: emp.dateOfJoining,
           
           // Use payroll record if available, else fallback to employee record
+          totalEarnings: payrollRec ? (payrollRec.totalEarnings || 0) : (emp.totalEarnings || emp.gross || 0),
           basicDA: payrollRec ? (payrollRec.basicDA || 0) : (emp.basicDA || emp.basic || 0),
           hra: payrollRec ? (payrollRec.hra || 0) : (emp.hra || 0),
           specialAllowance: payrollRec ? (payrollRec.specialAllowance || 0) : (emp.specialAllowance || 0),
