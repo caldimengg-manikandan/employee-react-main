@@ -4,78 +4,89 @@ const Compensation = require("../models/Compensation");
 const Payroll = require("../models/Payroll");
 const Employee = require("../models/Employee");
 
+// Helper: Build payroll data from compensation fields (50/25/25 Rule)
+const buildPayrollData = (comp, employee) => {
+  const basicDA = Number(comp.basicDA) || 0;
+  const hra = Number(comp.hra) || 0;
+  const specialAllowance = Number(comp.specialAllowance) || 0;
+  const employeePF = Number(comp.employeePfContribution) || Number(comp.pf) || 1800;
+  const employerPF = Number(comp.employerPfContribution) || 1950;
+  const esi = Number(comp.esi) || 0;
+  const tax = Number(comp.tax) || 0;
+  const professionalTax = Number(comp.professionalTax) || 0;
+  const gratuity = Number(comp.gratuity) || 0;
+
+  const totalEarnings = basicDA + hra + specialAllowance;
+  const reconstructedGross = totalEarnings + employeePF + employerPF + esi;
+  const totalDeductions = employeePF + employerPF + esi + tax + professionalTax;
+  const netSalary = totalEarnings; // Net = Basic + HRA + Special
+  const ctc = Math.round(reconstructedGross + gratuity); // CTC = Gross + Gratuity
+
+  return {
+    employeeId: employee.employeeId,
+    employeeName: employee.name || employee.employeename,
+    designation: comp.designation,
+    department: comp.department,
+    location: comp.location || employee.location || 'Chennai',
+    dateOfJoining: employee.dateOfJoining,
+    employmentType: "Permanent",
+    basicDA,
+    hra,
+    specialAllowance,
+    employeePfContribution: employeePF,
+    employerPfContribution: employerPF,
+    esi,
+    tax,
+    professionalTax,
+    gratuity,
+    totalEarnings,
+    totalDeductions,
+    netSalary,
+    ctc,
+    status: "Pending"
+  };
+};
+
+// Helper: Find employee by ID or name
+const findEmployee = async (employeeId, employeeName) => {
+  if (employeeId) {
+    const emp = await Employee.findOne({ employeeId });
+    if (emp) return emp;
+  }
+  if (employeeName) {
+    const emp = await Employee.findOne({
+      $or: [
+        { name: { $regex: new RegExp(`^${employeeName}$`, "i") } },
+        { employeename: { $regex: new RegExp(`^${employeeName}$`, "i") } }
+      ]
+    });
+    if (emp) return emp;
+  }
+  return null;
+};
+
 // ➕ CREATE Compensation
 router.post("/", async (req, res) => {
   try {
     const compensation = new Compensation(req.body);
     await compensation.save();
 
-    // Create Payroll record
-    let employeeId = req.body.employeeId;
-    let employeeName = req.body.name;
+    // Create/Update Payroll record
+    const employee = await findEmployee(req.body.employeeId, req.body.name);
 
-    // If employeeId is not provided, try to find by name
-    if (!employeeId && employeeName) {
-      const employee = await Employee.findOne({ 
-        $or: [
-          { name: { $regex: new RegExp(`^${employeeName}$`, "i") } },
-          { employeename: { $regex: new RegExp(`^${employeeName}$`, "i") } }
-        ]
-      });
-      if (employee) {
-        employeeId = employee.employeeId;
+    if (employee) {
+      if (employee.status !== "Active") {
+        return res.status(400).json({ message: "Employee is not active. Cannot create compensation for inactive or exited employees." });
       }
-    }
 
-    if (employeeId) {
-       // Check if payroll already exists for this employee? 
-       // The user said "add the new payroll", implying a new record or updating existing?
-       // Usually there is only one active payroll structure per employee.
-       // Let's check if one exists and update it, or create new.
-       // But PayrollDetails.jsx shows a list. Maybe history?
-       // The request says "add the new payroll". I'll create a new one.
-       
-       const employee = await Employee.findOne({ employeeId });
-       
-        if (employee) {
-          if (employee.status !== "Active") {
-            return res.status(400).json({ message: "Employee is not active. Cannot create compensation for inactive or exited employees." });
-          }
-         const payrollData = {
-            employeeId: employee.employeeId,
-            employeeName: employee.name || employee.employeename,
-            designation: compensation.designation,
-            department: compensation.department,
-            location: compensation.location,
-            dateOfJoining: employee.dateOfJoining,
-            employmentType: "Permanent", // Default or fetch from employee if available
-            
-            // Earnings
-            basicDA: compensation.modeBasicDA === 'amount' ? compensation.basicDA : 0,
-            hra: compensation.modeHra === 'amount' ? compensation.hra : 0,
-            specialAllowance: compensation.modeSpecialAllowance === 'amount' ? compensation.specialAllowance : 0,
-            
-            // Deductions
-            employeePfContribution: compensation.modePf === 'amount' ? (compensation.employeePfContribution || compensation.pf || 0) : 0,
-            employerPfContribution: compensation.employerPfContribution || 1950, 
-            esi: compensation.modeEsi === 'amount' ? (compensation.esi || 0) : 0,
-            tax: compensation.modeTax === 'amount' ? compensation.tax : 0,
-            professionalTax: compensation.modeProfessionalTax === 'amount' ? compensation.professionalTax : 0,
-            gratuity: compensation.modeGratuity === 'amount' ? compensation.gratuity : 0,
-            
-            status: "Pending"
-         };
- 
-         // Calculate totals (50/25/25 Rule)
-         payrollData.totalEarnings = (payrollData.basicDA || 0) + (payrollData.hra || 0) + (payrollData.specialAllowance || 0);
-         const reconstructedGross = payrollData.totalEarnings + (payrollData.employeePfContribution || 0) + (payrollData.employerPfContribution || 0) + (payrollData.esi || 0);
-         payrollData.totalDeductions = (payrollData.employeePfContribution || 0) + (payrollData.employerPfContribution || 0) + (payrollData.esi || 0) + (payrollData.tax || 0) + (payrollData.professionalTax || 0);
-         payrollData.netSalary = payrollData.totalEarnings; // Net = Basic + HRA + Special
-         payrollData.ctc = Math.round(reconstructedGross + (payrollData.gratuity || 0)); // CTC = Gross + Gratuity
+      const payrollData = buildPayrollData(compensation, employee);
 
-         const payroll = new Payroll(payrollData);
-         await payroll.save();
-       }
+      // Upsert: update if exists, create if not
+      await Payroll.findOneAndUpdate(
+        { employeeId: { $regex: new RegExp(`^${employee.employeeId}$`, 'i') } },
+        { $set: payrollData },
+        { upsert: true, new: true }
+      );
     }
 
     res.status(201).json(compensation);
@@ -105,16 +116,13 @@ router.get("/:id", async (req, res) => {
   }
 });
 
-// ✏️ UPDATE Compensation
+// ✏️ UPDATE Compensation + Sync to Payroll
 router.put("/:id", async (req, res) => {
   try {
     // Check employee status before update
-    if (req.body.employeeId) {
-      const Employee = require("../models/Employee");
-      const employee = await Employee.findOne({ employeeId: req.body.employeeId });
-      if (employee && employee.status !== "Active") {
-        return res.status(400).json({ success: false, message: "Employee is not active. Cannot update compensation for inactive or exited employees." });
-      }
+    const employee = await findEmployee(req.body.employeeId, req.body.name);
+    if (employee && employee.status !== "Active") {
+      return res.status(400).json({ success: false, message: "Employee is not active. Cannot update compensation for inactive or exited employees." });
     }
     
     const updated = await Compensation.findByIdAndUpdate(
@@ -122,6 +130,18 @@ router.put("/:id", async (req, res) => {
       req.body,
       { new: true }
     );
+
+    // Sync changes to Payroll record
+    if (employee && updated) {
+      const payrollData = buildPayrollData(updated, employee);
+
+      await Payroll.findOneAndUpdate(
+        { employeeId: { $regex: new RegExp(`^${employee.employeeId}$`, 'i') } },
+        { $set: payrollData },
+        { upsert: true, new: true }
+      );
+    }
+
     res.json(updated);
   } catch (error) {
     res.status(400).json({ message: error.message });

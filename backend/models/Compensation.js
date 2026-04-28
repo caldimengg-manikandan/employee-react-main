@@ -11,11 +11,13 @@ const CompensationSchema = new mongoose.Schema(
     effectiveDate: { type: Date, default: Date.now },
     
     // Earnings
+    gross: { type: Number, default: 0 },
     basicDA: { type: Number, default: 0 },
     hra: { type: Number, default: 0 },
     specialAllowance: { type: Number, default: 0 },
     bonus: { type: Number, default: 0 },
     variablePay: { type: Number, default: 0 },
+    volunteerPF: { type: Number, default: 0 },
 
     // Deductions / Others
     gratuity: { type: Number, default: 0 },

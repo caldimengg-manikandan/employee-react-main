@@ -105,6 +105,8 @@ const initialCompensation = {
   modeSpecialAllowance: "amount",
   modeGratuity: "amount",
   modePf: "amount",
+  modeEsi: "amount",
+  modeTax: "amount",
   modeProfessionalTax: "amount",
   
   // Calculated Fields
@@ -208,6 +210,12 @@ const CompensationMaster = () => {
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
   const [employeeLookupError, setEmployeeLookupError] = useState('');
 
+  // Editable combo-box states for Designation and Department
+  const [isDesignationDropdownOpen, setIsDesignationDropdownOpen] = useState(false);
+  const [designationSearchTerm, setDesignationSearchTerm] = useState('');
+  const [isDepartmentDropdownOpen, setIsDepartmentDropdownOpen] = useState(false);
+  const [departmentSearchTerm, setDepartmentSearchTerm] = useState('');
+
   // Email state
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
@@ -294,7 +302,18 @@ const CompensationMaster = () => {
 
   const handleEdit = (index) => {
     setEditingIndex(index);
-    setFormData(compensation[index]);
+    const comp = { ...compensation[index] };
+    // Reconstruct gross if not saved (legacy records before gross was added to schema)
+    if (!comp.gross && (comp.basicDA || comp.hra || comp.specialAllowance)) {
+      const basic = Number(comp.basicDA) || 0;
+      const hra = Number(comp.hra) || 0;
+      const special = Number(comp.specialAllowance) || 0;
+      const empPF = Number(comp.employeePfContribution) || 1800;
+      const emprPF = Number(comp.employerPfContribution) || 1950;
+      const esi = Number(comp.esi) || 0;
+      comp.gross = basic + hra + special + empPF + emprPF + esi;
+    }
+    setFormData(comp);
     setOpenDialog(true);
   };
 
@@ -1125,37 +1144,163 @@ We’re excited to have you join our team and look forward to your growth and su
                         </div>
                       )}
                     </div>
-                    <div>
+                    {/* Designation - Editable Combo Box */}
+                    <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Designation *
                       </label>
-                      <select
-                        name="designation"
-                        value={formData.designation}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select Designation</option>
-                        {designations.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          name="designation"
+                          autoComplete="off"
+                          value={formData.designation}
+                          onChange={(e) => {
+                            handleChange(e);
+                            setDesignationSearchTerm(e.target.value);
+                            setIsDesignationDropdownOpen(true);
+                          }}
+                          onFocus={() => {
+                            setDesignationSearchTerm(formData.designation || '');
+                            setIsDesignationDropdownOpen(true);
+                          }}
+                          onBlur={() => {
+                            // Delay close so click on dropdown item registers
+                            setTimeout(() => setIsDesignationDropdownOpen(false), 200);
+                          }}
+                          placeholder="Search or type new..."
+                          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setIsDesignationDropdownOpen(prev => !prev)}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                        >
+                          <ChevronDown size={16} className={`transition-transform duration-200 ${isDesignationDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                      {isDesignationDropdownOpen && (
+                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {designations
+                            .filter(d => d.toLowerCase().includes((formData.designation || '').toLowerCase()))
+                            .map((d) => (
+                              <button
+                                key={d}
+                                type="button"
+                                className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 transition-colors ${formData.designation === d ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700'}`}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  setFormData(prev => ({ ...prev, designation: d }));
+                                  setIsDesignationDropdownOpen(false);
+                                  setDesignationSearchTerm('');
+                                }}
+                              >
+                                {d}
+                              </button>
+                            ))}
+                          {formData.designation && !designations.some(d => d.toLowerCase() === formData.designation.toLowerCase()) && (
+                            <button
+                              type="button"
+                              className="w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 font-medium border-t border-gray-100 flex items-center gap-2"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                const newVal = formData.designation.trim();
+                                if (newVal && !designations.includes(newVal)) {
+                                  setDesignations(prev => [...prev, newVal].sort());
+                                }
+                                setIsDesignationDropdownOpen(false);
+                                setDesignationSearchTerm('');
+                              }}
+                            >
+                              <Plus size={14} />
+                              Add "{formData.designation}"
+                            </button>
+                          )}
+                          {designations.filter(d => d.toLowerCase().includes((formData.designation || '').toLowerCase())).length === 0 && !formData.designation && (
+                            <div className="px-4 py-3 text-sm text-gray-400 text-center">No designations found</div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div>
+
+                    {/* Department - Editable Combo Box */}
+                    <div className="relative">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Department *
                       </label>
-                      <select
-                        name="department"
-                        value={formData.department}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      >
-                        <option value="">Select Department</option>
-                        {departments.map((d) => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
-                      </select>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          name="department"
+                          autoComplete="off"
+                          value={formData.department}
+                          onChange={(e) => {
+                            handleChange(e);
+                            setDepartmentSearchTerm(e.target.value);
+                            setIsDepartmentDropdownOpen(true);
+                          }}
+                          onFocus={() => {
+                            setDepartmentSearchTerm(formData.department || '');
+                            setIsDepartmentDropdownOpen(true);
+                          }}
+                          onBlur={() => {
+                            setTimeout(() => setIsDepartmentDropdownOpen(false), 200);
+                          }}
+                          placeholder="Search or type new..."
+                          className="w-full px-3 py-2 pr-8 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onClick={() => setIsDepartmentDropdownOpen(prev => !prev)}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                        >
+                          <ChevronDown size={16} className={`transition-transform duration-200 ${isDepartmentDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                      {isDepartmentDropdownOpen && (
+                        <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {departments
+                            .filter(d => d.toLowerCase().includes((formData.department || '').toLowerCase()))
+                            .map((d) => (
+                              <button
+                                key={d}
+                                type="button"
+                                className={`w-full text-left px-4 py-2 text-sm hover:bg-indigo-50 transition-colors ${formData.department === d ? 'bg-indigo-50 text-indigo-700 font-medium' : 'text-gray-700'}`}
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => {
+                                  setFormData(prev => ({ ...prev, department: d }));
+                                  setIsDepartmentDropdownOpen(false);
+                                  setDepartmentSearchTerm('');
+                                }}
+                              >
+                                {d}
+                              </button>
+                            ))}
+                          {formData.department && !departments.some(d => d.toLowerCase() === formData.department.toLowerCase()) && (
+                            <button
+                              type="button"
+                              className="w-full text-left px-4 py-2 text-sm text-indigo-600 hover:bg-indigo-50 font-medium border-t border-gray-100 flex items-center gap-2"
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => {
+                                const newVal = formData.department.trim();
+                                if (newVal && !departments.includes(newVal)) {
+                                  setDepartments(prev => [...prev, newVal].sort());
+                                }
+                                setIsDepartmentDropdownOpen(false);
+                                setDepartmentSearchTerm('');
+                              }}
+                            >
+                              <Plus size={14} />
+                              Add "{formData.department}"
+                            </button>
+                          )}
+                          {departments.filter(d => d.toLowerCase().includes((formData.department || '').toLowerCase())).length === 0 && !formData.department && (
+                            <div className="px-4 py-3 text-sm text-gray-400 text-center">No departments found</div>
+                          )}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
