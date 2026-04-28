@@ -282,6 +282,11 @@ export const payrollAPI = {
   update: (id, data) => api.put(`/payroll/${id}`, data),
   remove: (id) => api.delete(`/payroll/${id}`),
   getById: (id) => api.get(`/payroll/${id}`),
+  getByEmployeeId: (employeeId) => api.get('/payroll').then(res => {
+    const list = Array.isArray(res.data) ? res.data : [];
+    const found = list.find(p => String(p.employeeId || '').toLowerCase() === String(employeeId || '').toLowerCase());
+    return { data: found || null };
+  }),
   getSnapshot: (fy, employeeId) => api.get(`/payroll/snapshot/${fy}/${employeeId}`),
   getSnapshotsList: (fy) => api.get(`/payroll/snapshot/${fy}`)
 };

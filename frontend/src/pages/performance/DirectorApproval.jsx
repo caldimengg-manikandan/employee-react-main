@@ -366,40 +366,54 @@ const DirectorApproval = () => {
 
       try {
         if (employeeIdValue) {
-          // Fetch from FY24-25 snapshot for "Current" data
+          // "Current" column: fetch from FY24-25 snapshot
           const fySnapshotRes = await payrollAPI.getSnapshot('24-25', employeeIdValue);
           const fySnapshot = fySnapshotRes.data?.data;
+          salaryOld = fySnapshot
+            ? calculateCurrentSalaryAnnexure(fySnapshot)
+            : calculateSalaryAnnexure(emp.currentGross || emp.currentSalary || 0);
 
-          if (fySnapshot) {
-            salaryOld = calculateCurrentSalaryAnnexure(fySnapshot);
+          // "Revised" column: read directly from payrolls table (ground truth)
+          const payrollRes = await payrollAPI.getByEmployeeId(employeeIdValue);
+          const pr = payrollRes.data;
+          if (pr && Number(pr.totalEarnings || 0) > 0) {
+            const newGross    = Number(pr.totalEarnings || 0);
+            const newBasic    = Number(pr.basicDA || 0);
+            const newHra      = Number(pr.hra || 0);
+            const newSpecial  = Number(pr.specialAllowance || 0);
+            const newEmpPF    = Number(pr.employeePfContribution || 0);
+            const newEmrPF    = Number(pr.employerPfContribution || 0);
+            const newEsi      = Number(pr.esi || 0);
+            const newNet      = newBasic + newHra + newSpecial;
+            const newGratuity = Number(pr.gratuity || Math.round(newBasic * 0.0486));
+            const newCtc      = Number(pr.ctc || (newGross + newGratuity));
+            salaryNew = {
+              basic: newBasic, hra: newHra, special: newSpecial,
+              net: newNet, empPF: newEmpPF, employeePfContribution: newEmpPF,
+              gross: newGross, employerPF: newEmrPF, employerPfContribution: newEmrPF,
+              esi: newEsi, gratuity: newGratuity, ctc: newCtc,
+            };
           } else {
-            // Fallback but use gross if possible
-            console.warn(`No FY24-25 snapshot for ${employeeIdValue}, falling back...`);
-            salaryOld = calculateSalaryAnnexure(emp.currentGross || emp.currentSalary || 0);
+            // Fallback: recalculate from FY24-25 gross + increment %
+            const incrementBase = salaryOld.gross || emp.currentGross || baseSnapshotCtc;
+            const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
+            salaryNew = calculateSalaryAnnexure(targetRevisedGross, {
+              employeePfContribution: salaryOld.employeePfContribution,
+              employerPfContribution: salaryOld.employerPfContribution,
+              esi: salaryOld.esi
+            });
           }
-          
-          const incrementBase = salaryOld.gross || emp.currentGross || baseSnapshotCtc;
-          const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
-          // Revised always follows the new 50/25/25 logic but preserves custom PF/ESI if present in snapshot
-          const customPFs = {
-            employeePfContribution: salaryOld.employeePfContribution,
-            employerPfContribution: salaryOld.employerPfContribution,
-            esi: salaryOld.esi
-          };
-          salaryNew = calculateSalaryAnnexure(targetRevisedGross, customPFs);
         }
       } catch (err) {
         console.error("Salary prep error:", err);
         const fallbackBase = emp.currentGross || baseSnapshotCtc;
         salaryOld = calculateSalaryAnnexure(fallbackBase);
         const targetRevisedGross = Math.round(salaryOld.gross * (1 + totalPct / 100));
-        
-        const customPFs = {
+        salaryNew = calculateSalaryAnnexure(targetRevisedGross, {
           employeePfContribution: salaryOld.employeePfContribution,
           employerPfContribution: salaryOld.employerPfContribution,
           esi: salaryOld.esi
-        };
-        salaryNew = calculateSalaryAnnexure(targetRevisedGross, customPFs);
+        });
       }
 
 

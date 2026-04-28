@@ -422,6 +422,29 @@ router.post('/release', auth, async (req, res) => {
 
       await appraisal.save();
 
+      // Synchronize with production Payroll collection
+      await Payroll.findOneAndUpdate(
+        { employeeId: { $regex: new RegExp(`^${empId}$`, 'i') } },
+        { 
+          $set: {
+            basicDA: salaryNew.basic,
+            hra: salaryNew.hra,
+            specialAllowance: salaryNew.special,
+            employeePfContribution: salaryNew.employeePfContribution,
+            employerPfContribution: salaryNew.employerPfContribution,
+            esi: salaryNew.esi,
+            totalEarnings: salaryNew.gross,
+            totalDeductions: salaryNew.totalDeductions,
+            netSalary: salaryNew.net,
+            gratuity: salaryNew.gratuity,
+            ctc: salaryNew.ctc,
+            status: 'Pending',
+            updatedAt: new Date()
+          }
+        },
+        { upsert: true }
+      );
+
       await AuditLog.create({
         employeeId: appraisal.employeeId?._id || appraisal.employeeId,
         appraisalId: appraisal._id,

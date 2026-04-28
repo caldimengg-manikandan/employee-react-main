@@ -1029,11 +1029,51 @@ const SelfAppraisal = () => {
         salaryOld = calculateSalaryAnnexure(appraisal.currentGross || baseCtc);
       }
       
-      const incrementBase = salaryOld.gross || appraisal.currentGross || baseCtc;
-      const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
-      const salaryNew = calculateSalaryAnnexure(targetRevisedGross);
+      // ── Revised (Monthly): read directly from the payrolls table ──────────
+      let salaryNew;
+      try {
+        const payrollRes = await payrollAPI.getByEmployeeId(employeeIdValue);
+        const pr = payrollRes.data;
+        if (pr && Number(pr.totalEarnings || 0) > 0) {
+          // Use the live payrolls record — this is the ground truth
+          const newGross   = Number(pr.totalEarnings || 0);
+          const newBasic   = Number(pr.basicDA || 0);
+          const newHra     = Number(pr.hra || 0);
+          const newSpecial = Number(pr.specialAllowance || 0);
+          const newEmpPF   = Number(pr.employeePfContribution || 0);
+          const newEmrPF   = Number(pr.employerPfContribution || 0);
+          const newEsi     = Number(pr.esi || 0);
+          const newNet     = newBasic + newHra + newSpecial;
+          const newGratuity = Number(pr.gratuity || Math.round(newBasic * 0.0486));
+          const newCtc     = Number(pr.ctc || (newGross + newGratuity));
+          salaryNew = {
+            basic: newBasic,
+            hra: newHra,
+            special: newSpecial,
+            net: newNet,
+            empPF: newEmpPF,
+            employeePfContribution: newEmpPF,
+            gross: newGross,
+            employerPF: newEmrPF,
+            employerPfContribution: newEmrPF,
+            esi: newEsi,
+            gratuity: newGratuity,
+            ctc: newCtc,
+          };
+        } else {
+          // Fallback: recalculate from FY24-25 gross + increment %
+          const incrementBase = salaryOld.gross || appraisal.currentGross || baseCtc;
+          const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
+          salaryNew = calculateSalaryAnnexure(targetRevisedGross);
+        }
+      } catch (payrollErr) {
+        console.error('Failed to fetch payroll for revised column:', payrollErr);
+        const incrementBase = salaryOld.gross || appraisal.currentGross || baseCtc;
+        const targetRevisedGross = Math.round(incrementBase * (1 + totalPct / 100));
+        salaryNew = calculateSalaryAnnexure(targetRevisedGross);
+      }
 
-      const incrementAmount = Math.max(0, revisedCtc - baseCtc);
+      const incrementAmount = Math.max(0, (salaryNew.ctc || revisedCtc) - baseCtc);
 
       const data = {
         date: letterDate,
