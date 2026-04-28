@@ -22,7 +22,7 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const stdLoanDeduction = parseFloat(salaryData.loanDeduction) || 0;
 
   // Use input if provided, otherwise check record, otherwise 0
-  const lopDays = lopDaysInput !== undefined ? lopDaysInput : (salaryData.lopDays || 0);
+  const lopDays = lopDaysInput !== undefined ? lopDaysInput : (parseFloat(salaryData.lopDays) || 0);
 
   const totalEarnings = totalGross;
   
@@ -54,6 +54,9 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
 
   return {
     ...salaryData,
+    basicDA,
+    hra,
+    specialAllowance,
     totalEarnings,
     totalDeductions,
     netSalary,
@@ -69,6 +72,16 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
     professionalTax: currentPT,
     loanDeduction
   };
+};
+
+const formatCurrency = (amount) => {
+  const num = parseFloat(amount);
+  if (isNaN(num)) return '₹0';
+  return new Intl.NumberFormat('en-IN', {
+    style: 'currency',
+    currency: 'INR',
+    minimumFractionDigits: 0
+  }).format(num);
 };
 
 const createPayrollWorkbook = (simulation, selectedMonth) => {
@@ -453,8 +466,23 @@ export default function MonthlyPayroll() {
         let joiningDate = null;
         
         if (rec.dateOfJoining) {
-            joiningDate = new Date(rec.dateOfJoining);
-            joiningDate.setHours(0,0,0,0);
+            // Robust date parsing
+            const parseDOJ = (d) => {
+              if (!d) return null;
+              const date = new Date(d);
+              if (!isNaN(date.getTime())) return date;
+              // Handle DD-MM-YYYY or DD/MM/YYYY
+              if (typeof d === 'string') {
+                const parts = d.split(/[-/]/);
+                if (parts.length === 3) {
+                  if (parts[2].length === 4) return new Date(parts[2], parts[1] - 1, parts[0]);
+                  if (parts[0].length === 4) return new Date(parts[0], parts[1] - 1, parts[2]);
+                }
+              }
+              return null;
+            };
+            joiningDate = parseDOJ(rec.dateOfJoining);
+            if (joiningDate) joiningDate.setHours(0,0,0,0);
             
             // Payroll Month Boundaries
             const payrollMonthStart = new Date(parseInt(year), parseInt(month) - 1, 1);

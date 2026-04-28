@@ -27,7 +27,12 @@ const calculateSalaryFields = (salaryData) => {
   const hra = parseFloat(salaryData.hra) || 0;
   const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
   const gratuity = parseFloat(salaryData.gratuity) || 0;
-  const pf = parseFloat(salaryData.pf) || 0;
+  
+  // Sum up PF components if available, fallback to 'pf' field
+  const employeePF = parseFloat(salaryData.employeePfContribution) || 0;
+  const employerPF = parseFloat(salaryData.employerPfContribution) || 0;
+  const pf = (employeePF + employerPF) || parseFloat(salaryData.pf) || 0;
+  
   const esi = parseFloat(salaryData.esi) || 0;
   const tax = parseFloat(salaryData.tax) || 0;
   const professionalTax = parseFloat(salaryData.professionalTax) || 0;
@@ -41,11 +46,41 @@ const calculateSalaryFields = (salaryData) => {
 
   return {
     ...salaryData,
+    basicDA,
+    hra,
+    specialAllowance,
+    gratuity,
+    pf,
+    esi,
+    tax,
+    professionalTax,
+    loanDeduction,
+    lop,
     totalEarnings,
     totalDeductions,
     netSalary,
     ctc
   };
+};
+
+// Robust date parsing helper
+const parseDate = (dateVal) => {
+  if (!dateVal) return null;
+  const d = new Date(dateVal);
+  if (!isNaN(d.getTime())) return d;
+  
+  // Handle DD-MM-YYYY or DD/MM/YYYY
+  if (typeof dateVal === 'string') {
+    const parts = dateVal.split(/[-/]/);
+    if (parts.length === 3) {
+      if (parts[2].length === 4) { // YYYY is last
+        return new Date(parts[2], parts[1] - 1, parts[0]);
+      } else if (parts[0].length === 4) { // YYYY is first
+        return new Date(parts[0], parts[1] - 1, parts[2]);
+      }
+    }
+  }
+  return null;
 };
 
 const initialSalaryData = {
@@ -76,7 +111,7 @@ const initialSalaryData = {
   netSalary: 0,
   ctc: 0,
   
-  location: '', // Add location field
+  location: '', 
 
   // Status
   status: 'Pending',
@@ -109,7 +144,7 @@ const PayrollDetails = () => {
   const [isEmployeeDropdownOpen, setIsEmployeeDropdownOpen] = useState(false);
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState('');
 
-  // Load payroll data on mount (fallback to empty if API fails)
+  // Load payroll data on mount
   useEffect(() => {
     payrollAPI.list()
       .then(res => {
@@ -189,8 +224,6 @@ const PayrollDetails = () => {
     ];
 
     if (numericFields.includes(name)) {
-      // Remove symbols like +, -, e and other non-numeric characters except decimal
-      // We keep the decimal point but ensure only one exists
       value = value.replace(/[^0-9.]/g, '');
       const parts = value.split('.');
       if (parts.length > 2) {
@@ -203,7 +236,6 @@ const PayrollDetails = () => {
       [name]: value
     }));
 
-    // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -211,7 +243,6 @@ const PayrollDetails = () => {
       }));
     }
 
-    // Auto-calculate salary fields
     const salaryFields = [
       'basicDA', 'hra', 'specialAllowance', 'gratuity',
       'pf', 'esi', 'tax', 'professionalTax', 'loanDeduction', 'lop'
@@ -227,7 +258,6 @@ const PayrollDetails = () => {
       }, 100);
     }
     
-    // Auto-fill employee details when entering Employee ID
     if (name === 'employeeId') {
       setEmployeeLookupError('');
       const v = String(value || '').trim();
@@ -241,7 +271,11 @@ const PayrollDetails = () => {
               return;
             }
             const doj = emp.dateOfJoining || emp.dateofjoin || emp.hireDate || emp.createdAt || '';
-            const dojISO = doj ? new Date(doj).toISOString().split('T')[0] : formData.dateOfJoining;
+            const dojParsed = parseDate(doj);
+            const dojISO = dojParsed ? dojParsed.toISOString().split('T')[0] : formData.dateOfJoining;
+            
+            const empPF = Number(emp.pf || 0) || (Number(emp.employeePfContribution || 0) + Number(emp.employerPfContribution || 0));
+
             const filled = {
               employeeId: v,
               employeeName: emp.name || emp.employeename || '',
@@ -249,18 +283,18 @@ const PayrollDetails = () => {
               department: emp.department || emp.division || '',
               location: emp.location || emp.address || emp.currentAddress || '',
               dateOfJoining: dojISO,
-              // Salary Components from employee profile when available
               basicDA: emp.basicDA ?? formData.basicDA,
               hra: emp.hra ?? formData.hra,
               specialAllowance: emp.specialAllowance ?? formData.specialAllowance,
               gratuity: emp.gratuity ?? formData.gratuity,
-              pf: emp.pf ?? formData.pf,
+              pf: empPF || formData.pf,
+              employeePfContribution: emp.employeePfContribution || 0,
+              employerPfContribution: emp.employerPfContribution || 0,
               esi: emp.esi ?? formData.esi,
               tax: emp.tax ?? formData.tax,
               professionalTax: emp.professionalTax ?? formData.professionalTax,
               loanDeduction: emp.loanDeduction ?? formData.loanDeduction,
               lop: emp.lop ?? formData.lop,
-              // Bank details
               bankName: emp.bankName || formData.bankName || '',
               accountNumber: emp.bankAccount || formData.accountNumber || '',
               ifscCode: emp.ifsc || formData.ifscCode || ''
@@ -426,6 +460,8 @@ const PayrollDetails = () => {
     const emp = employeeList.find(e => (e.employeeId || '').toString() === (record.employeeId || '').toString());
     const merged = {
       ...record,
+      designation: emp?.designation || record.designation,
+      department: emp?.department || record.department,
       bankName: (emp && emp.bankName) ? emp.bankName : record.bankName,
       accountNumber: (emp && emp.bankAccount) ? emp.bankAccount : record.accountNumber,
       ifscCode: (emp && emp.ifsc) ? emp.ifsc : record.ifscCode
@@ -491,17 +527,17 @@ const PayrollDetails = () => {
     ];
 
     const body = filteredRecords.map((record, index) => {
-      const location =
-        employeeList.find(e => e.employeeId === record.employeeId)?.location ||
-        record.location ||
-        'N/A';
+      const emp = employeeList.find(e => e.employeeId === record.employeeId);
+      const designation = emp?.designation || record.designation || '';
+      const department = emp?.department || record.department || '';
+      const location = emp?.location || record.location || 'N/A';
 
       return [
         index + 1,
         record.employeeId || '',
         record.employeeName || '',
-        record.designation || '',
-        record.department || '',
+        designation,
+        department,
         location,
         formatNumberIN(record.basicDA),
         formatNumberIN(record.hra),
@@ -568,15 +604,18 @@ const PayrollDetails = () => {
     ];
 
     const data = filteredRecords.map(record => {
-      const effectiveLocation = employeeList.find(e => e.employeeId === record.employeeId)?.location || 
+      const emp = employeeList.find(e => e.employeeId === record.employeeId);
+      const designation = emp?.designation || record.designation || '';
+      const department = emp?.department || record.department || '';
+      const effectiveLocation = emp?.location || 
                                 record.location || 
-                                employeeList.find(e => e.employeeId === record.employeeId)?.address || 
+                                emp?.address || 
                                 'Unknown';
       return [
         record.employeeId,
         record.employeeName,
-        record.designation,
-        record.department,
+        designation,
+        department,
         effectiveLocation,
         record.basicDA,
         record.hra,
@@ -642,11 +681,13 @@ const PayrollDetails = () => {
   });
 
   const formatCurrency = (amount) => {
+    const num = parseFloat(amount);
+    if (isNaN(num)) return '₹0';
     return new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 0
-    }).format(amount);
+    }).format(num);
   };
 
   const locations = [
@@ -841,7 +882,7 @@ const PayrollDetails = () => {
                     <div className="font-medium text-gray-900">{record.employeeName}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-gray-900">{record.designation}</div>
+                    <div className="text-gray-900">{emp?.designation || record.designation}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-gray-900">{formatCurrency(record.basicDA)}</div>
@@ -1116,13 +1157,6 @@ const PayrollDetails = () => {
                 <div>
                   <div className="flex justify-between items-center mb-4">
                     <h3 className="text-lg font-medium text-gray-900">Earnings & Allowances</h3>
-                    {/* <button
-                      onClick={handleCalculateSalary}
-                      className="flex items-center px-3 py-1 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200"
-                    >
-                      <Calculator className="w-4 h-4 mr-1" />
-                      Calculate Salary
-                    </button> */}
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
