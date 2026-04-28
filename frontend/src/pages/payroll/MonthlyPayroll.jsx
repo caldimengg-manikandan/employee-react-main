@@ -288,6 +288,7 @@ export default function MonthlyPayroll() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   const [selectedEmployees, setSelectedEmployees] = useState([]);
+  const [employeeList, setEmployeeList] = useState([]);
   const [simulation, setSimulation] = useState(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editingRecord, setEditingRecord] = useState(null);
@@ -390,6 +391,7 @@ export default function MonthlyPayroll() {
       });
 
       setSalaryRecords(mapped);
+      setEmployeeList(allEmployees);
     } catch (e) {
       console.error('Failed to fetch employees or payrolls', e);
       setMessage('Error fetching data. Please check permissions.');
