@@ -302,7 +302,16 @@ const CompensationMaster = () => {
 
   const handleEdit = (index) => {
     setEditingIndex(index);
-    const comp = { ...compensation[index] };
+    let comp = { ...compensation[index] };
+
+    // Format effectiveDate for type="date" input (requires YYYY-MM-DD)
+    if (comp.effectiveDate) {
+      const date = new Date(comp.effectiveDate);
+      if (!isNaN(date.getTime())) {
+        comp.effectiveDate = date.toISOString().split('T')[0];
+      }
+    }
+
     // Reconstruct gross if not saved (legacy records before gross was added to schema)
     if (!comp.gross && (comp.basicDA || comp.hra || comp.specialAllowance)) {
       const basic = Number(comp.basicDA) || 0;
@@ -313,6 +322,10 @@ const CompensationMaster = () => {
       const esi = Number(comp.esi) || 0;
       comp.gross = basic + hra + special + empPF + emprPF + esi;
     }
+    
+    // Ensure all calculated fields (totalEarnings, netSalary, etc.) are populated for the summary display
+    comp = calculateSalaryFields(comp);
+
     setFormData(comp);
     setOpenDialog(true);
   };
@@ -1109,6 +1122,9 @@ We’re excited to have you join our team and look forward to your growth and su
                           setIsEmployeeDropdownOpen(true);
                         }}
                         onFocus={() => setIsEmployeeDropdownOpen(true)}
+                        onBlur={() => {
+                          setTimeout(() => setIsEmployeeDropdownOpen(false), 200);
+                        }}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                         placeholder="Search employee..."
                       />

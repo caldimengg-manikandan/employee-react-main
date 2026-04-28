@@ -4,20 +4,19 @@ import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI, mailAPI 
 import * as XLSX from 'xlsx';
 
 const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
-  // Use the totalEarnings (Gross) from the database as the base
-  const totalGross = parseFloat(salaryData.totalEarnings) || 0;
+  // Use the components to calculate true Gross Salary
   const basicDA = parseFloat(salaryData.basicDA) || 0;
   const hra = parseFloat(salaryData.hra) || 0;
-  // Note: specialAllowance in our DB is the Net Special (after PF).
-  // For simulation display, we'll use the components but ensure they add up correctly.
+  const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
   
-  // Standard monthly deductions (fixed from master)
   // In this org, PF is the TOTAL deduction (Emp + Empr)
-  const pf = parseFloat(salaryData.pf) || 0;
-  const employerPF = 1950;
-  const employeePF = Math.max(0, pf - employerPF);
-
+  const employeePF = parseFloat(salaryData.employeePfContribution) || 0;
+  const employerPF = parseFloat(salaryData.employerPfContribution) || 0;
+  const pf = (employeePF + employerPF) || parseFloat(salaryData.pf) || 0;
+  
   const stdEsi = parseFloat(salaryData.esi) || 0;
+  const totalGross = basicDA + hra + specialAllowance + pf + stdEsi;
+  
   const stdTax = parseFloat(salaryData.tax) || 0;
   const stdProfessionalTax = parseFloat(salaryData.professionalTax) || 0;
   const stdLoanDeduction = parseFloat(salaryData.loanDeduction) || 0;
@@ -351,6 +350,8 @@ export default function MonthlyPayroll() {
           gratuity: payrollRec ? (payrollRec.gratuity || 0) : (emp.gratuity || 0),
           
           pf: payrollRec ? (payrollRec.pf || 0) : (emp.pf || 0),
+          employeePfContribution: payrollRec ? (payrollRec.employeePfContribution || 0) : (emp.employeePfContribution || 0),
+          employerPfContribution: payrollRec ? (payrollRec.employerPfContribution || 0) : (emp.employerPfContribution || 0),
           esi: payrollRec ? (payrollRec.esi || 0) : (emp.esi || 0),
           tax: payrollRec ? (payrollRec.tax || 0) : (emp.tax || 0),
           professionalTax: payrollRec ? (payrollRec.professionalTax || 0) : (emp.professionalTax || 0),
@@ -1438,7 +1439,7 @@ Payroll Department
 
                     <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                       <div>
-                        <div className="text-xs text-gray-500">Total Earnings</div>
+                        <div className="text-xs text-gray-500">Gross Salary</div>
                         <div className="font-medium text-gray-900">{formatCurrency(result.totalEarnings)}</div>
                       </div>
                       <div>
@@ -1489,7 +1490,7 @@ Payroll Department
                   <div className="text-sm font-semibold text-gray-900">Totals</div>
                   <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
                     <div>
-                      <div className="text-xs text-gray-500">Total Earnings</div>
+                      <div className="text-xs text-gray-500">Gross Salary</div>
                       <div className="font-medium text-gray-900">{formatCurrency(simulation.totals.totalEarnings)}</div>
                     </div>
                     <div>
@@ -1527,7 +1528,7 @@ Payroll Department
                         Employee Name
                       </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
-                          Total Earnings
+                          Gross Salary
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
                           LOP Days
