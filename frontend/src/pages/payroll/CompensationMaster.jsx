@@ -75,7 +75,7 @@ const calculateSalaryFields = (salaryData) => {
     gratuity,
     netSalary,
     ctc,
-    totalEarnings,
+    totalEarnings: inputGross,
     totalDeductions,
     pf: employeePF + employerPF
   };

@@ -28,7 +28,7 @@ const buildPayrollData = (comp, employee) => {
     designation: comp.designation,
     department: comp.department,
     location: comp.location || employee.location || 'Chennai',
-    dateOfJoining: employee.dateOfJoining,
+    dateOfJoining: comp.effectiveDate || employee.dateOfJoining,
     employmentType: "Permanent",
     basicDA,
     hra,
@@ -87,6 +87,14 @@ router.post("/", async (req, res) => {
         { $set: payrollData },
         { upsert: true, new: true }
       );
+
+      // Sync dateOfJoining back to Employee if effectiveDate is set
+      if (compensation.effectiveDate) {
+        await Employee.findOneAndUpdate(
+          { employeeId: employee.employeeId },
+          { $set: { dateOfJoining: compensation.effectiveDate } }
+        );
+      }
     }
 
     res.status(201).json(compensation);
@@ -140,6 +148,14 @@ router.put("/:id", async (req, res) => {
         { $set: payrollData },
         { upsert: true, new: true }
       );
+
+      // Sync dateOfJoining back to Employee if effectiveDate is set
+      if (updated.effectiveDate) {
+        await Employee.findOneAndUpdate(
+          { employeeId: employee.employeeId },
+          { $set: { dateOfJoining: updated.effectiveDate } }
+        );
+      }
     }
 
     res.json(updated);
