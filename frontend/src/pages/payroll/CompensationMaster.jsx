@@ -22,40 +22,46 @@ import balaSignature from '../../bala_signature.png';
 import uvarajSignature from '../../uvaraj_signature.png';
 
 // Salary Calculation Functions
+// === 50/25/25 Rule (matches backend: update_payrolls_50_25_25.js & directorRoutes.js) ===
+// Basic = 50% of Gross, HRA = 25% of Gross
+// Special Allowance = Gross - Basic - HRA - Employee PF - Employer PF - ESI (remainder)
+// Net Salary = Basic + HRA + Special Allowance
+// CTC = Gross + Gratuity
 const calculateSalaryFields = (salaryData) => {
   const inputGross = Math.round(parseFloat(salaryData.gross) || 0);
   
-  // === 50/25/25 Structure ===
   // Basic + DA = 50% of Gross
   const basicDA = Math.round(inputGross * 0.50);
   
   // HRA = 25% of Gross
   const hra = Math.round(inputGross * 0.25);
   
-  // Special Allowance = 25% of Gross (remainder to absorb rounding)
-  const specialAllowance = Math.max(0, inputGross - basicDA - hra);
-  
   // PF Contributions (Prioritize manual entry or fallback to fixed defaults)
   const employerPF = parseFloat(salaryData.employerPfContribution) || (inputGross > 0 ? 1950 : 0);
   const employeePF = parseFloat(salaryData.employeePfContribution) || (inputGross > 0 ? 1800 : 0);
   const esi = parseFloat(salaryData.esi) || 0;
   
+  // Special Allowance = Gross - Basic - HRA - Employee PF - Employer PF - ESI
+  const specialAllowance = Math.max(0, inputGross - basicDA - hra - employeePF - employerPF - esi);
+  
   // Gratuity = Basic Salary x 4.86%
   const gratuity = Math.round(basicDA * 0.0486);
   
-  // Deductions
+  // Other deductions
   const professionalTax = parseFloat(salaryData.professionalTax) || 0;
   const volunteerPFVal = parseFloat(salaryData.volunteerPF) || 0;
-  const totalDeductions = employeePF + volunteerPFVal + professionalTax + esi;
 
-  // Total Earnings = Basic + HRA + Special Allowance (= Gross)
+  // Total Earnings = Basic + HRA + Special Allowance (take-home components)
   const totalEarnings = basicDA + hra + specialAllowance;
   
-  // Net Salary = Total Earnings - Total Deductions
-  const netSalary = Math.round(totalEarnings - totalDeductions);
+  // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax + Volunteer PF
+  const totalDeductions = employeePF + employerPF + esi + professionalTax + volunteerPFVal;
   
-  // CTC = Gross + Employer PF + Gratuity
-  const ctc = inputGross + employerPF + gratuity;
+  // Net Salary = Basic + HRA + Special Allowance (= Gross - PF - ESI)
+  const netSalary = basicDA + hra + specialAllowance;
+  
+  // CTC = Gross + Gratuity
+  const ctc = Math.round(inputGross + gratuity);
 
   return {
     ...salaryData,
@@ -458,7 +464,7 @@ We’re excited to have you join our team and look forward to your growth and su
         return isNaN(val) ? val : Number(val).toLocaleString('en-IN', { style: 'currency', currency: 'INR' });
     };
 
-    // === 50/25/25 Structure (same logic as calculateSalaryFields) ===
+    // === 50/25/25 Rule (matches backend) ===
     const basicDA = parseFloat(comp.basicDA) || 0;
     const hra = parseFloat(comp.hra) || 0;
     const specialAllowance = parseFloat(comp.specialAllowance) || 0;
@@ -469,16 +475,16 @@ We’re excited to have you join our team and look forward to your growth and su
     const employerPF = parseFloat(comp.employerPfContribution) || 1950;
     const employeePF = parseFloat(comp.employeePfContribution) || 1800;
 
-    // Total Earnings = Basic + HRA + Special Allowance (= Gross)
+    // Gross = Basic + HRA + Special + Employee PF + Employer PF + ESI
+    const grossSalary = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
+    // Total Earnings = Basic + HRA + Special Allowance (take-home components)
     const totalEarnings = basicDA + hra + specialAllowance;
-    // Total Deductions = Employee PF + Professional Tax + ESI
-    const totalDeductions = employeePF + professionalTax + esi;
-    // Net Salary = Total Earnings - Total Deductions
-    const netSalary = totalEarnings - totalDeductions;
-    // Gross Salary = Total Earnings (Basic + HRA + Special)
-    const grossSalary = totalEarnings;
-    // CTC = Gross + Employer PF + Gratuity
-    const ctc = grossSalary + employerPF + gratuity;
+    // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax
+    const totalDeductions = employeePF + employerPF + esi + professionalTax;
+    // Net Salary = Basic + HRA + Special Allowance
+    const netSalary = totalEarnings;
+    // CTC = Gross + Gratuity
+    const ctc = Math.round(grossSalary + gratuity);
 
     return `
       <div style="font-family: Arial, sans-serif; color: #333; max-width: 800px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden;">
@@ -774,7 +780,7 @@ We’re excited to have you join our team and look forward to your growth and su
     link.remove();
   };
 
-  // === 50/25/25 Structure: Calculate totals dynamically for the PDF offer letter ===
+  // === 50/25/25 Rule: Calculate totals dynamically for the PDF offer letter ===
   const calcBasicDA = selectedCompensation ? (parseFloat(selectedCompensation.basicDA) || 0) : 0;
   const calcHRA = selectedCompensation ? (parseFloat(selectedCompensation.hra) || 0) : 0;
   const calcSpecial = selectedCompensation ? (parseFloat(selectedCompensation.specialAllowance) || 0) : 0;
@@ -784,16 +790,16 @@ We’re excited to have you join our team and look forward to your growth and su
   const calcEmployerPF = selectedCompensation ? (parseFloat(selectedCompensation.employerPfContribution) || 1950) : 0;
   const calcEmployeePF = selectedCompensation ? (parseFloat(selectedCompensation.employeePfContribution) || 1800) : 0;
   const calcESI = selectedCompensation ? (parseFloat(selectedCompensation.esi) || 0) : 0;
-  // Total Earnings = Basic + HRA + Special Allowance (= Gross)
+  // Gross = Basic + HRA + Special + PFs + ESI
+  const calcGrossSalary = calcBasicDA + calcHRA + calcSpecial + calcEmployeePF + calcEmployerPF + calcESI;
+  // Total Earnings = Basic + HRA + Special Allowance (take-home components)
   const calcTotalEarnings = calcBasicDA + calcHRA + calcSpecial;
-  // Total Deductions = Employee PF + Professional Tax + ESI
-  const calcTotalDeductions = calcEmployeePF + calcProfessionalTax + calcESI;
-  // Net Salary = Total Earnings - Total Deductions
-  const calcNetSalary = calcTotalEarnings - calcTotalDeductions;
-  // Gross Salary = Total Earnings (= Gross input)
-  const calcGrossSalary = calcTotalEarnings;
-  // CTC = Gross + Employer PF + Gratuity
-  const calcCTC = calcGrossSalary + calcEmployerPF + calcGratuity;
+  // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax
+  const calcTotalDeductions = calcEmployeePF + calcEmployerPF + calcESI + calcProfessionalTax;
+  // Net Salary = Basic + HRA + Special Allowance
+  const calcNetSalary = calcTotalEarnings;
+  // CTC = Gross + Gratuity
+  const calcCTC = Math.round(calcGrossSalary + calcGratuity);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -809,10 +815,12 @@ We’re excited to have you join our team and look forward to your growth and su
     const volunteerPF = parseFloat(viewItem.volunteerPF) || 0;
     const professionalTax = parseFloat(viewItem.professionalTax) || 0;
 
-    const totalEarnings = basic + hra + special;
-    const totalDeductions = employeePF + volunteerPF + professionalTax + esi;
-    const netSalary = totalEarnings - employeePF - esi - professionalTax - volunteerPF;
-    const ctc = totalEarnings + employerPF + gratuity;
+    // 50/25/25 Rule
+    const totalEarnings = basic + hra + special; // Take-home components
+    const grossSalary = totalEarnings + employeePF + employerPF + esi; // Reconstruct Gross
+    const totalDeductions = employeePF + employerPF + esi + volunteerPF + professionalTax;
+    const netSalary = totalEarnings; // Net = Basic + HRA + Special
+    const ctc = Math.round(grossSalary + gratuity); // CTC = Gross + Gratuity
 
     return {
       totalEarnings,

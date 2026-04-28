@@ -66,11 +66,12 @@ router.post("/", async (req, res) => {
             status: "Pending"
          };
  
-         // Calculate totals
+         // Calculate totals (50/25/25 Rule)
          payrollData.totalEarnings = (payrollData.basicDA || 0) + (payrollData.hra || 0) + (payrollData.specialAllowance || 0);
+         const reconstructedGross = payrollData.totalEarnings + (payrollData.employeePfContribution || 0) + (payrollData.employerPfContribution || 0) + (payrollData.esi || 0);
          payrollData.totalDeductions = (payrollData.employeePfContribution || 0) + (payrollData.employerPfContribution || 0) + (payrollData.esi || 0) + (payrollData.tax || 0) + (payrollData.professionalTax || 0);
-         payrollData.netSalary = payrollData.totalEarnings - (payrollData.employeePfContribution || 0) - (payrollData.esi || 0) - (payrollData.tax || 0) - (payrollData.professionalTax || 0);
-         payrollData.ctc = payrollData.totalEarnings + (payrollData.gratuity || 0);
+         payrollData.netSalary = payrollData.totalEarnings; // Net = Basic + HRA + Special
+         payrollData.ctc = Math.round(reconstructedGross + (payrollData.gratuity || 0)); // CTC = Gross + Gratuity
 
          const payroll = new Payroll(payrollData);
          await payroll.save();

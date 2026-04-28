@@ -370,24 +370,30 @@ router.post('/release', auth, async (req, res) => {
       // Current Structure from Snapshot or calculated from base gross
       let salaryOld;
       if (snapshot) {
+        // Normalize PF values to standard amounts (fixes legacy data with inflated employer PF)
+        const empPF = 1800;
+        const emprPF = 1950;
+        const snapshotESI = Math.round(snapshot.esi || 0);
+        const snapshotBasic = Math.round(snapshot.basicDA || 0);
+        const snapshotHRA = Math.round(snapshot.hra || 0);
+        const snapshotGross = Math.round(snapshot.totalEarnings || 0);
+        // Recalculate Special Allowance using 50/25/25 rule with standard PF
+        const snapshotSpecial = Math.max(0, snapshotGross - snapshotBasic - snapshotHRA - empPF - emprPF - snapshotESI);
+        const snapshotNet = snapshotBasic + snapshotHRA + snapshotSpecial;
+        const snapshotGratuity = Math.round(snapshot.gratuity || (snapshotBasic * 0.0486));
+
         salaryOld = {
-          basic: Math.round(snapshot.basicDA || 0),
-          hra: Math.round(snapshot.hra || 0),
-          special: Math.round(snapshot.specialAllowance || 0),
-          gross: Math.round(snapshot.totalEarnings || 0),
-          net: Math.round(snapshot.netSalary || 0),
-          employeePfContribution: Math.round(snapshot.employeePfContribution || 1800),
-          employerPfContribution: Math.round(snapshot.employerPfContribution || 1620), // Fallback to 1620 if missing to handle legacy
-          esi: Math.round(snapshot.esi || 0),
-          totalDeductions: Math.round(snapshot.totalDeductions || (
-            (snapshot.employeePfContribution || 1800) + 
-            (snapshot.employerPfContribution || 1620) + 
-            (snapshot.esi || 0) + 
-            (snapshot.professionalTax || 0) + 
-            (snapshot.tax || 0)
-          )),
-          gratuity: Math.round(snapshot.gratuity || 0),
-          ctc: Math.round(snapshot.ctc || 0)
+          basic: snapshotBasic,
+          hra: snapshotHRA,
+          special: snapshotSpecial,
+          gross: snapshotGross,
+          net: snapshotNet,
+          employeePfContribution: empPF,
+          employerPfContribution: emprPF,
+          esi: snapshotESI,
+          totalDeductions: empPF + emprPF + snapshotESI,
+          gratuity: snapshotGratuity,
+          ctc: Math.round(snapshotGross + snapshotGratuity)
         };
       } else {
         salaryOld = calculateSalaryAnnexure(baseGross);
@@ -396,12 +402,8 @@ router.post('/release', auth, async (req, res) => {
       const totalPct = Number(appraisal.incrementPercentage || 0) + Number(appraisal.incrementCorrectionPercentage || 0);
       const revisedGross = Math.round(baseGross * (1 + totalPct / 100));
 
-      const customPFs = {
-        employeePfContribution: salaryOld.employeePfContribution,
-        employerPfContribution: salaryOld.employerPfContribution,
-        esi: salaryOld.esi
-      };
-      const salaryNew = calculateSalaryAnnexure(revisedGross, customPFs);
+      // Use standard PF defaults for revised salary (not legacy values)
+      const salaryNew = calculateSalaryAnnexure(revisedGross);
 
       appraisal.status = 'released';
       if (!appraisal.workflow) appraisal.workflow = {};
