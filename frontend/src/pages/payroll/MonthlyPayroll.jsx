@@ -465,7 +465,10 @@ export default function MonthlyPayroll() {
         let preDojDays = 0;
         let joiningDate = null;
         
-        if (rec.dateOfJoining) {
+        const emp = employeeList.find(e => (e.employeeId || '').toString() === (rec.employeeId || '').toString());
+        const actualDoj = (emp && (emp.dateOfJoining || emp.dateofjoin || emp.hireDate)) || rec.dateOfJoining;
+        
+        if (actualDoj) {
             // Robust date parsing
             const parseDOJ = (d) => {
               if (!d) return null;
@@ -481,7 +484,7 @@ export default function MonthlyPayroll() {
               }
               return null;
             };
-            joiningDate = parseDOJ(rec.dateOfJoining);
+            joiningDate = parseDOJ(actualDoj);
             if (joiningDate) joiningDate.setHours(0,0,0,0);
             
             // Payroll Month Boundaries

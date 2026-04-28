@@ -149,7 +149,12 @@ const PayrollDetails = () => {
     payrollAPI.list()
       .then(res => {
         const items = Array.isArray(res.data) ? res.data : [];
-        const mapped = items.map(p => ({ id: p._id, ...p }));
+        const mapped = items.map(p => ({ 
+          ...p, 
+          id: p._id,
+          pf: p.pf || (Number(p.employeePfContribution || 0) + Number(p.employerPfContribution || 0)) || 0,
+          lop: p.lop || 0
+        }));
         setPayrollRecords(mapped);
       })
       .catch(() => {
