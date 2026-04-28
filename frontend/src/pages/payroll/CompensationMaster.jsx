@@ -797,10 +797,12 @@ We’re excited to have you join our team and look forward to your growth and su
     const esi = parseFloat(viewItem.esi) || 0;
     const employeePF = parseFloat(viewItem.employeePfContribution) || 0;
     const employerPF = parseFloat(viewItem.employerPfContribution) || 0;
+    const volunteerPF = parseFloat(viewItem.volunteerPF) || 0;
+    const professionalTax = parseFloat(viewItem.professionalTax) || 0;
 
     const totalEarnings = basic + hra + special;
     const totalDeductions = employeePF + volunteerPF + professionalTax + esi;
-    const netSalary = totalEarnings - employeePF - esi - professionalTax - volunteerPF; 
+    const netSalary = totalEarnings - employeePF - esi - professionalTax - volunteerPF;
     const ctc = totalEarnings + employerPF + gratuity;
 
     return {
