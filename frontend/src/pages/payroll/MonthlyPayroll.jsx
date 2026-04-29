@@ -20,6 +20,7 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const stdTax = parseFloat(salaryData.tax) || 0;
   const stdProfessionalTax = parseFloat(salaryData.professionalTax) || 0;
   const stdLoanDeduction = parseFloat(salaryData.loanDeduction) || 0;
+  const volunteerPF = parseFloat(salaryData.volunteerPF) || 0;
 
   // Use input if provided, otherwise check record, otherwise 0
   const lopDays = lopDaysInput !== undefined ? lopDaysInput : (parseFloat(salaryData.lopDays) || 0);
@@ -46,7 +47,7 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const remainingForLoan = Math.max(0, earningsAfterLop - otherDeductions);
   const loanDeduction = Math.min(stdLoanDeduction, remainingForLoan);
 
-  const totalDeductions = currentPF + currentESI + currentTax + currentPT + loanDeduction + lopDeduction;
+  const totalDeductions = currentPF + currentESI + currentTax + currentPT + loanDeduction + lopDeduction + volunteerPF;
   const netSalary = totalEarnings - totalDeductions;
   
   const gratuity = parseFloat(salaryData.gratuity) || 0;
@@ -70,7 +71,8 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
     esi: currentESI,
     tax: currentTax,
     professionalTax: currentPT,
-    loanDeduction
+    loanDeduction,
+    volunteerPF
   };
 };
 
@@ -154,7 +156,7 @@ const createPayrollWorkbook = (simulation, selectedMonth) => {
       epfDeduction, // EPF 3.67%
       adminCharges, // ADMIN CHARGES
       esiDeduction, // ESI 3.25%
-      0, // VOLUNTARY CON
+      record.volunteerPF || 0, // VOLUNTARY CON
       record.tax || 0, // TDS DEDUC
       record.professionalTax || 0, // PROFESSIONALTAX DEDUC
       record.loanDeduction || 0, // LOAN DEDUC
@@ -369,6 +371,7 @@ export default function MonthlyPayroll() {
           esi: payrollRec ? (payrollRec.esi || 0) : (emp.esi || 0),
           tax: payrollRec ? (payrollRec.tax || 0) : (emp.tax || 0),
           professionalTax: payrollRec ? (payrollRec.professionalTax || 0) : (emp.professionalTax || 0),
+          volunteerPF: payrollRec ? (payrollRec.volunteerPF || 0) : (emp.volunteerPF || 0),
           
           // Use calculated loan deduction if available, otherwise fallback
           loanDeduction: calculatedLoanDeduction > 0 ? calculatedLoanDeduction : (payrollRec ? (payrollRec.loanDeduction || 0) : (emp.loanDeduction || 0)),

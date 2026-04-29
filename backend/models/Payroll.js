@@ -38,6 +38,10 @@ const PayrollSchema = new mongoose.Schema(
     loanDeduction: Number,
     lop: Number,
     gratuity: Number,
+    volunteerPF: {
+      type: Number,
+      default: 0,
+    },
 
     // Calculated
     totalEarnings: Number,

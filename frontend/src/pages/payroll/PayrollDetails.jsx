@@ -38,9 +38,10 @@ const calculateSalaryFields = (salaryData) => {
   const professionalTax = parseFloat(salaryData.professionalTax) || 0;
   const loanDeduction = parseFloat(salaryData.loanDeduction) || 0;
   const lop = parseFloat(salaryData.lop) || 0;
+  const volunteerPF = parseFloat(salaryData.volunteerPF) || 0;
 
   const totalEarnings = basicDA + hra + specialAllowance;
-  const totalDeductions = pf + esi + tax + professionalTax + loanDeduction + lop;
+  const totalDeductions = pf + esi + tax + professionalTax + loanDeduction + lop + volunteerPF;
   const netSalary = totalEarnings - totalDeductions;
   const ctc = totalEarnings + gratuity;
 
@@ -104,6 +105,7 @@ const initialSalaryData = {
   loanDeduction: '',
   lop: '',
   gratuity: '',
+  volunteerPF: '',
   
   // Calculated Fields
   totalEarnings: 0,
@@ -225,7 +227,7 @@ const PayrollDetails = () => {
     // Fields that should only contain numbers
     const numericFields = [
       'basicDA', 'hra', 'specialAllowance', 'pf', 'esi', 'tax', 
-      'professionalTax', 'loanDeduction', 'lop', 'gratuity'
+      'professionalTax', 'loanDeduction', 'lop', 'gratuity', 'volunteerPF'
     ];
 
     if (numericFields.includes(name)) {
@@ -250,7 +252,7 @@ const PayrollDetails = () => {
 
     const salaryFields = [
       'basicDA', 'hra', 'specialAllowance', 'gratuity',
-      'pf', 'esi', 'tax', 'professionalTax', 'loanDeduction', 'lop'
+      'pf', 'esi', 'tax', 'professionalTax', 'loanDeduction', 'lop', 'volunteerPF'
     ];
     
     if (salaryFields.includes(name)) {
@@ -300,6 +302,7 @@ const PayrollDetails = () => {
               professionalTax: emp.professionalTax ?? formData.professionalTax,
               loanDeduction: emp.loanDeduction ?? formData.loanDeduction,
               lop: emp.lop ?? formData.lop,
+              volunteerPF: emp.volunteerPF || 0,
               bankName: emp.bankName || formData.bankName || '',
               accountNumber: emp.bankAccount || formData.accountNumber || '',
               ifscCode: emp.ifsc || formData.ifscCode || ''
@@ -525,6 +528,7 @@ const PayrollDetails = () => {
         'Loan',
         'LOP',
         'Total Ded',
+        'Vol PF',
         'Net Salary',
         'CTC',
         'Status'
@@ -555,6 +559,7 @@ const PayrollDetails = () => {
         formatNumberIN(record.loanDeduction),
         formatNumberIN(record.lop),
         formatNumberIN(record.totalDeductions),
+        formatNumberIN(record.volunteerPF || 0),
         formatNumberIN(record.netSalary),
         formatNumberIN(record.ctc),
         record.status || ''
@@ -600,6 +605,7 @@ const PayrollDetails = () => {
       'Loan Deduction',
       'LOP',
       'Total Deductions',
+      'Volunteer PF',
       'Net Salary',
       'CTC',
       'Status',
@@ -633,6 +639,7 @@ const PayrollDetails = () => {
         record.loanDeduction,
         record.lop,
         record.totalDeductions,
+        record.volunteerPF || 0,
         record.netSalary,
         record.ctc,
         record.status,
@@ -1231,6 +1238,7 @@ const PayrollDetails = () => {
                       { label: 'Professional Tax', name: 'professionalTax' },
                       { label: 'Loan Deduction', name: 'loanDeduction' },
                       { label: 'Loss of Pay (LOP)', name: 'lop' },
+                      { label: 'Volunteer PF', name: 'volunteerPF' },
                     ].map((field) => (
                       <div key={field.name}>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -1494,6 +1502,10 @@ const PayrollDetails = () => {
                     <div>
                       <label className="text-sm font-medium text-gray-500">LOP</label>
                       <p className="font-medium">{formatCurrency(viewRecord.lop)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Volunteer PF</label>
+                      <p className="font-medium">{formatCurrency(viewRecord.volunteerPF)}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">Total Deductions</label>

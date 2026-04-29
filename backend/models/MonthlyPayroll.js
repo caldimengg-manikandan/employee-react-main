@@ -36,6 +36,10 @@ const MonthlyPayrollSchema = new mongoose.Schema(
     lop: Number,
     lopDays: Number,
     gratuity: Number,
+    volunteerPF: {
+      type: Number,
+      default: 0,
+    },
 
     // Calculated
     totalEarnings: Number,
