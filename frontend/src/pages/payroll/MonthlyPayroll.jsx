@@ -36,18 +36,23 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const attendanceRatio = Math.max(0, (safeDaysInMonth - lopDays) / safeDaysInMonth);
   const isFullLop = attendanceRatio === 0;
   
-  const currentPF = isFullLop ? 0 : pf;
+  // Standard PF components
+  const stdEmployeePF = isFullLop ? 0 : employeePF;
+  const stdEmployerPF = isFullLop ? 0 : employerPF;
+  const currentPF = stdEmployeePF + stdEmployerPF;
+  
   const currentESI = isFullLop ? 0 : stdEsi;
   const currentTax = isFullLop ? 0 : stdTax;
   const currentPT = isFullLop ? 0 : stdProfessionalTax;
+  const currentVolunteerPF = isFullLop ? 0 : volunteerPF;
 
   // Loan deduction cap
   const earningsAfterLop = Math.max(0, totalEarnings - lopDeduction);
-  const otherDeductions = currentPF + currentESI + currentTax + currentPT;
+  const otherDeductions = currentPF + currentESI + currentTax + currentPT + currentVolunteerPF;
   const remainingForLoan = Math.max(0, earningsAfterLop - otherDeductions);
   const loanDeduction = Math.min(stdLoanDeduction, remainingForLoan);
 
-  const totalDeductions = currentPF + currentESI + currentTax + currentPT + loanDeduction + lopDeduction + volunteerPF;
+  const totalDeductions = currentPF + currentESI + currentTax + currentPT + loanDeduction + lopDeduction + currentVolunteerPF;
   const netSalary = totalEarnings - totalDeductions;
   
   const gratuity = parseFloat(salaryData.gratuity) || 0;
@@ -66,13 +71,13 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
     lopDays,
     daysInMonth: safeDaysInMonth, 
     pf: currentPF,
-    employerPF,
-    employeePF,
+    employerPF: stdEmployerPF,
+    employeePF: stdEmployeePF,
     esi: currentESI,
     tax: currentTax,
     professionalTax: currentPT,
     loanDeduction,
-    volunteerPF
+    volunteerPF: currentVolunteerPF
   };
 };
 

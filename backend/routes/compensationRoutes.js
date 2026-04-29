@@ -16,9 +16,11 @@ const buildPayrollData = (comp, employee) => {
   const professionalTax = Number(comp.professionalTax) || 0;
   const gratuity = Number(comp.gratuity) || 0;
 
+  const volunteerPF = Number(comp.volunteerPF) || 0;
+
   const totalEarnings = basicDA + hra + specialAllowance;
-  const reconstructedGross = totalEarnings + employeePF + employerPF + esi;
-  const totalDeductions = employeePF + employerPF + esi + tax + professionalTax;
+  const reconstructedGross = totalEarnings + employeePF + employerPF + esi + volunteerPF;
+  const totalDeductions = employeePF + employerPF + esi + tax + professionalTax + volunteerPF;
   const netSalary = totalEarnings; // Net = Basic + HRA + Special
   const ctc = Math.round(reconstructedGross + gratuity); // CTC = Gross + Gratuity
 
@@ -39,6 +41,7 @@ const buildPayrollData = (comp, employee) => {
     tax,
     professionalTax,
     gratuity,
+    volunteerPF,
     totalEarnings,
     totalDeductions,
     netSalary,

@@ -67,6 +67,7 @@ const employeeSchema = new mongoose.Schema({
   tax: Number,
   professionalTax: Number,
   loanDeduction: Number,
+  volunteerPF: { type: Number, default: 0 },
   totalEarnings: Number,
   totalDeductions: Number,
   netSalary: Number,

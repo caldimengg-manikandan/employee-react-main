@@ -347,7 +347,8 @@ router.post('/release', auth, async (req, res) => {
         const employerPfContribution = customPFs?.employerPfContribution !== undefined ? Number(customPFs.employerPfContribution) : 1950;
         const esi = customPFs?.esi !== undefined ? Number(customPFs.esi) : 0;
         
-        const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi);
+        const volunteerPF = customPFs?.volunteerPF !== undefined ? Number(customPFs.volunteerPF) : 0;
+        const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi - volunteerPF);
         const net = basic + hra + special;
         const gratuity = Math.round(basic * 0.0486);
         const ctc = grossVal + gratuity;
@@ -361,7 +362,8 @@ router.post('/release', auth, async (req, res) => {
           gross: grossVal,
           employerPfContribution,
           esi,
-          totalDeductions: employeePfContribution + employerPfContribution + esi,
+          volunteerPF,
+          totalDeductions: employeePfContribution + employerPfContribution + esi + volunteerPF,
           gratuity,
           ctc: Math.round(ctc)
         };
@@ -391,7 +393,8 @@ router.post('/release', auth, async (req, res) => {
           employeePfContribution: empPF,
           employerPfContribution: emprPF,
           esi: snapshotESI,
-          totalDeductions: empPF + emprPF + snapshotESI,
+          volunteerPF: Math.round(snapshot.volunteerPF || 0),
+          totalDeductions: empPF + emprPF + snapshotESI + Math.round(snapshot.volunteerPF || 0),
           gratuity: snapshotGratuity,
           ctc: Math.round(snapshotGross + snapshotGratuity)
         };
@@ -437,6 +440,7 @@ router.post('/release', auth, async (req, res) => {
             esi: salaryNew.esi,
             totalEarnings: salaryNew.gross,
             totalDeductions: salaryNew.totalDeductions,
+            volunteerPF: salaryNew.volunteerPF,
             netSalary: salaryNew.net,
             gratuity: salaryNew.gratuity,
             ctc: salaryNew.ctc,

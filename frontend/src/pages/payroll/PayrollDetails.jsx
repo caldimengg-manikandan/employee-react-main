@@ -28,10 +28,12 @@ const calculateSalaryFields = (salaryData) => {
   const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
   const gratuity = parseFloat(salaryData.gratuity) || 0;
   
-  // Sum up PF components if available, fallback to 'pf' field
+  // Standard PF components
   const employeePF = parseFloat(salaryData.employeePfContribution) || 0;
   const employerPF = parseFloat(salaryData.employerPfContribution) || 0;
-  const pf = (employeePF + employerPF) || parseFloat(salaryData.pf) || 0;
+  
+  // totalPF display value (for UI fallback)
+  const pfDisplay = (employeePF + employerPF) || parseFloat(salaryData.pf) || 0;
   
   const esi = parseFloat(salaryData.esi) || 0;
   const tax = parseFloat(salaryData.tax) || 0;
@@ -41,7 +43,8 @@ const calculateSalaryFields = (salaryData) => {
   const volunteerPF = parseFloat(salaryData.volunteerPF) || 0;
 
   const totalEarnings = basicDA + hra + specialAllowance;
-  const totalDeductions = pf + esi + tax + professionalTax + loanDeduction + lop + volunteerPF;
+  // Total Deductions = Employee PF + Employer PF + ESI + Tax + PT + Loan + LOP + Volunteer PF
+  const totalDeductions = employeePF + employerPF + esi + tax + professionalTax + loanDeduction + lop + volunteerPF;
   const netSalary = totalEarnings - totalDeductions;
   const ctc = totalEarnings + gratuity;
 
@@ -51,12 +54,13 @@ const calculateSalaryFields = (salaryData) => {
     hra,
     specialAllowance,
     gratuity,
-    pf,
+    pf: pfDisplay,
     esi,
     tax,
     professionalTax,
     loanDeduction,
     lop,
+    volunteerPF,
     totalEarnings,
     totalDeductions,
     netSalary,

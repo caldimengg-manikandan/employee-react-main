@@ -16,7 +16,8 @@ function calculateSalaryAnnexure(targetGross, customPFs = null) {
   const employerPfContribution = customPFs?.employerPfContribution !== undefined ? Number(customPFs.employerPfContribution) : 1950;
   const esi = customPFs?.esi !== undefined ? Number(customPFs.esi) : 0;
 
-  const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi);
+  const volunteerPF = customPFs?.volunteerPF !== undefined ? Number(customPFs.volunteerPF) : 0;
+  const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi - volunteerPF);
   const net = basic + hra + special;
   const gratuity = Math.round(basic * 0.0486);
   const ctc = grossVal + gratuity;
@@ -29,7 +30,8 @@ function calculateSalaryAnnexure(targetGross, customPFs = null) {
     employeePfContribution,
     employerPfContribution,
     esi,
-    totalDeductions: employeePfContribution + employerPfContribution + esi,
+    volunteerPF,
+    totalDeductions: employeePfContribution + employerPfContribution + esi + volunteerPF,
     gratuity,
     gross: grossVal,
     ctc: Math.round(ctc)
@@ -90,12 +92,14 @@ async function syncReleasedPayrolls() {
           totalEarnings: Math.round(revised.gross || revised.totalEarnings || 0),
           netSalary: Math.round(revised.net || revised.netSalary || 0),
           gratuity: Math.round(revised.gratuity || 0),
+          volunteerPF: Math.round(revised.volunteerPF || 0),
           ctc: Math.round(revised.ctc || 0)
         };
         updateData.totalDeductions =
           updateData.employeePfContribution +
           updateData.employerPfContribution +
-          updateData.esi;
+          updateData.esi +
+          (updateData.volunteerPF || 0);
       } else if (appraisal.revisedSalary > 0) {
         // Fallback: recalculate from revisedSalary
         console.log(`  ${empId}: No releaseRevisedSnapshot — recalculating from revisedSalary ${appraisal.revisedSalary}`);
@@ -111,6 +115,7 @@ async function syncReleasedPayrolls() {
           totalDeductions: s.totalDeductions,
           netSalary: s.net,
           gratuity: s.gratuity,
+          volunteerPF: s.volunteerPF,
           ctc: s.ctc
         };
       } else {

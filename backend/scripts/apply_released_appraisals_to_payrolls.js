@@ -55,6 +55,7 @@ async function syncPayrolls() {
       const special = Number(snapshot.special || 0);
       const empPF = Number(snapshot.employeePfContribution || 1800);
       const emprPF = Number(snapshot.employerPfContribution || 1950);
+      const volunteerPF = Number(snapshot.volunteerPF || 0);
       const gratuity = Number(snapshot.gratuity || 0);
       const ctc = Number(snapshot.ctc || 0);
 
@@ -75,8 +76,8 @@ async function syncPayrolls() {
       const lop = Number(payrollRecord.lop || 0);
 
       // Recalculate total deductions and net salary
-      // Updated rule: totalDeductions = EmpPF + EmprPF + ESI + PT + Tax + Loan + LOP
-      const totalDeductions = empPF + emprPF + esi + pt + tax + loan + lop;
+      // Updated rule: totalDeductions = EmpPF + EmprPF + ESI + PT + Tax + Loan + LOP + VPF
+      const totalDeductions = empPF + emprPF + esi + pt + tax + loan + lop + volunteerPF;
       const netSalary = gross - totalDeductions;
 
       // Update the Payroll record
@@ -90,6 +91,7 @@ async function syncPayrolls() {
             employeePfContribution: empPF,
             employerPfContribution: emprPF,
             esi: esi,
+            volunteerPF: volunteerPF,
             totalEarnings: gross,
             totalDeductions: totalDeductions,
             netSalary: netSalary,
