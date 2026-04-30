@@ -348,8 +348,15 @@ router.post('/release', auth, async (req, res) => {
         const esi = customPFs?.esi !== undefined ? Number(customPFs.esi) : 0;
         
         const volunteerPF = customPFs?.volunteerPF !== undefined ? Number(customPFs.volunteerPF) : 0;
-        const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi - volunteerPF);
-        const net = basic + hra + special;
+        
+        // Special Allowance is the remainder after subtracting standard statutory components from Gross
+        // Volunteer PF should NOT be subtracted here
+        const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi);
+        
+        // Net Salary (Take Home) = (Basic + HRA + Special) - (Volunteer PF)
+        // PF and ESI are already excluded from the (B+H+S) sum
+        const net = (basic + hra + special) - volunteerPF;
+        
         const gratuity = Math.round(basic * 0.0486);
         const ctc = grossVal + gratuity;
 

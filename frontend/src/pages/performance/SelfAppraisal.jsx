@@ -1043,7 +1043,9 @@ const SelfAppraisal = () => {
           const newEmpPF   = Number(pr.employeePfContribution || 0);
           const newEmrPF   = Number(pr.employerPfContribution || 0);
           const newEsi     = Number(pr.esi || 0);
-          const newNet     = newBasic + newHra + newSpecial;
+          const newVolunteerPF = Number(pr.volunteerPF || 0);
+          // Net Salary = (Basic + HRA + Special) - Volunteer PF
+          const newNet     = (newBasic + newHra + newSpecial) - newVolunteerPF;
           const newGratuity = Number(pr.gratuity || Math.round(newBasic * 0.0486));
           const newCtc     = Number(pr.ctc || (newGross + newGratuity));
           salaryNew = {
@@ -1057,6 +1059,7 @@ const SelfAppraisal = () => {
             employerPF: newEmrPF,
             employerPfContribution: newEmrPF,
             esi: newEsi,
+            volunteerPF: newVolunteerPF,
             gratuity: newGratuity,
             ctc: newCtc,
           };

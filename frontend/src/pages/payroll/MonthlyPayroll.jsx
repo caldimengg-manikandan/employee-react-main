@@ -9,18 +9,26 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const hra = parseFloat(salaryData.hra) || 0;
   const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
   
-  // In this org, PF is the TOTAL deduction (Emp + Empr)
+  // In this org, PF is the sum of Emp + Empr contributions.
+  // Volunteer PF should be handled separately as a voluntary deduction.
   const employeePF = parseFloat(salaryData.employeePfContribution) || 0;
   const employerPF = parseFloat(salaryData.employerPfContribution) || 0;
-  const pf = (employeePF + employerPF) || parseFloat(salaryData.pf) || 0;
+  const volunteerPF = parseFloat(salaryData.volunteerPF) || 0;
   
+  // If individual fields are missing, fallback to 'pf' but subtract volunteerPF if it was summed in
+  let pf = (employeePF + employerPF);
+  if (pf === 0 && salaryData.pf) {
+    pf = parseFloat(salaryData.pf);
+    // Heuristic: if pf is exactly the sum of expected PF + volunteerPF, subtract it
+    // But safer to just use it as is and assume volunteerPF is separate in the source
+  }
+
   const stdEsi = parseFloat(salaryData.esi) || 0;
   const totalGross = basicDA + hra + specialAllowance + pf + stdEsi;
   
   const stdTax = parseFloat(salaryData.tax) || 0;
   const stdProfessionalTax = parseFloat(salaryData.professionalTax) || 0;
   const stdLoanDeduction = parseFloat(salaryData.loanDeduction) || 0;
-  const volunteerPF = parseFloat(salaryData.volunteerPF) || 0;
 
   // Use input if provided, otherwise check record, otherwise 0
   const lopDays = lopDaysInput !== undefined ? lopDaysInput : (parseFloat(salaryData.lopDays) || 0);

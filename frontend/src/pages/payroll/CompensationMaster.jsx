@@ -57,8 +57,9 @@ const calculateSalaryFields = (salaryData) => {
   // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax + Volunteer PF
   const totalDeductions = employeePF + employerPF + esi + professionalTax + volunteerPFVal;
   
-  // Net Salary = Basic + HRA + Special Allowance (= Gross - PF - ESI)
-  const netSalary = basicDA + hra + specialAllowance;
+  // Net Salary = (Basic + HRA + Special Allowance) - (Professional Tax + Volunteer PF)
+  // This represents the actual take-home amount
+  const netSalary = (basicDA + hra + specialAllowance) - (professionalTax + volunteerPFVal);
   
   // CTC = Gross + Gratuity
   const ctc = Math.round(inputGross + gratuity);
@@ -72,6 +73,7 @@ const calculateSalaryFields = (salaryData) => {
     employerPfContribution: employerPF,
     esi,
     volunteerPF: salaryData.volunteerPF,
+    professionalTax,
     gratuity,
     netSalary,
     ctc,
@@ -850,10 +852,14 @@ We’re excited to have you join our team and look forward to your growth and su
     const professionalTax = parseFloat(viewItem.professionalTax) || 0;
 
     // 50/25/25 Rule
-    const totalEarnings = basic + hra + special; // Take-home components
+    const totalEarnings = basic + hra + special; // Take-home components (pre-deduction)
     const grossSalary = totalEarnings + employeePF + employerPF + esi; // Reconstruct Gross
     const totalDeductions = employeePF + employerPF + esi + volunteerPF + professionalTax;
-    const netSalary = totalEarnings; // Net = Basic + HRA + Special
+    
+    // Net Salary = Take-home components - (Volunteer PF + Professional Tax)
+    // PF and ESI are already excluded from the take-home components sum
+    const netSalary = totalEarnings - (volunteerPF + professionalTax);
+    
     const ctc = Math.round(grossSalary + gratuity); // CTC = Gross + Gratuity
 
     return {
@@ -863,7 +869,9 @@ We’re excited to have you join our team and look forward to your growth and su
       ctc,
       employeePF,
       employerPF,
-      esi
+      esi,
+      volunteerPF,
+      professionalTax
     };
   }, [viewItem]);
 

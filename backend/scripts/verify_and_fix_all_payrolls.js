@@ -37,10 +37,19 @@ async function verifyAndFixAllPayrolls() {
       const vPF = Number(pr.volunteerPF || 0);
       
       const pool25 = gross * 0.25;
-      const expSpecial = Math.round(Math.max(0, pool25 - (empPF + emrPF + esi + vPF)));
+      // Volunteer PF should NOT be deducted from Special Allowance
+      const expSpecial = Math.round(Math.max(0, pool25 - (empPF + emrPF + esi)));
       
+      const tax = Number(pr.tax || 0);
+      const pt = Number(pr.professionalTax || 0);
+      const loan = Number(pr.loanDeduction || 0);
+      const lop = Number(pr.lop || 0);
+
       const expGratuity = Math.round(expBasic * 0.0486);
-      const expNet = expBasic + expHRA + expSpecial;
+      
+      // Net Salary (Take Home) = (Basic + HRA + Special) - (Tax + PT + Loan + LOP + Volunteer PF)
+      // Statutory PF/ESI are already excluded from the (B+H+S) sum
+      const expNet = (expBasic + expHRA + expSpecial) - (tax + pt + loan + lop + vPF);
       const expCTC = Math.round(gross + expGratuity);
 
       const expSnapshot = {

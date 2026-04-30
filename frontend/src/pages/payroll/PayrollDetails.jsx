@@ -42,9 +42,14 @@ const calculateSalaryFields = (salaryData) => {
   const lop = parseFloat(salaryData.lop) || 0;
   const volunteerPF = parseFloat(salaryData.volunteerPF) || 0;
 
-  const totalEarnings = basicDA + hra + specialAllowance;
+  // Total Earnings (Gross) = Basic + HRA + Special + Employee PF + Employer PF + ESI
+  const totalEarnings = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
+  
   // Total Deductions = Employee PF + Employer PF + ESI + Tax + PT + Loan + LOP + Volunteer PF
   const totalDeductions = employeePF + employerPF + esi + tax + professionalTax + loanDeduction + lop + volunteerPF;
+  
+  // Net Salary = Gross - Total Deductions
+  // This simplifies to (Basic + HRA + Special) - (Tax + PT + Loan + LOP + VolPF)
   const netSalary = totalEarnings - totalDeductions;
   const ctc = totalEarnings + gratuity;
 
@@ -54,7 +59,8 @@ const calculateSalaryFields = (salaryData) => {
     hra,
     specialAllowance,
     gratuity,
-    pf: pfDisplay,
+    employeePfContribution: employeePF,
+    employerPfContribution: employerPF,
     esi,
     tax,
     professionalTax,
@@ -1480,8 +1486,12 @@ const PayrollDetails = () => {
                   <h3 className="text-lg font-medium text-gray-900 mb-3">Deductions</h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <label className="text-sm font-medium text-gray-500">PF Contribution</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.pf)}</p>
+                      <label className="text-sm font-medium text-gray-500">Employee PF</label>
+                      <p className="font-medium">{formatCurrency(viewRecord.employeePfContribution || (viewRecord.pf / 2))}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-500">Employer PF</label>
+                      <p className="font-medium">{formatCurrency(viewRecord.employerPfContribution || (viewRecord.pf / 2))}</p>
                     </div>
                     <div>
                       <label className="text-sm font-medium text-gray-500">ESI Contribution</label>

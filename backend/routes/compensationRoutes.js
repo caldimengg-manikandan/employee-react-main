@@ -9,7 +9,9 @@ const buildPayrollData = (comp, employee) => {
   const basicDA = Number(comp.basicDA) || 0;
   const hra = Number(comp.hra) || 0;
   const specialAllowance = Number(comp.specialAllowance) || 0;
-  const employeePF = Number(comp.employeePfContribution) || Number(comp.pf) || 1800;
+  // Ensure we use the specific contribution fields if available, otherwise fallback to defaults
+  // Do NOT fallback to 'pf' as it may contain the combined (Emp+Empr) value
+  const employeePF = Number(comp.employeePfContribution) || 1800;
   const employerPF = Number(comp.employerPfContribution) || 1950;
   const esi = Number(comp.esi) || 0;
   const tax = Number(comp.tax) || 0;
@@ -21,7 +23,11 @@ const buildPayrollData = (comp, employee) => {
   const reconstructedGross = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
   const totalEarnings = Math.round(reconstructedGross);
   const totalDeductions = employeePF + employerPF + esi + tax + professionalTax + volunteerPF;
-  const netSalary = basicDA + hra + specialAllowance; // Net = Basic + HRA + Special
+  
+  // Net Salary = Take-home components (Basic+HRA+Special) - (Tax + PT + Volunteer PF)
+  // PF and ESI are already excluded from the take-home components sum
+  const netSalary = (basicDA + hra + specialAllowance) - (tax + professionalTax + volunteerPF);
+  
   const ctc = Math.round(reconstructedGross + gratuity); // CTC = Gross + Gratuity
 
   return {
@@ -48,7 +54,6 @@ const buildPayrollData = (comp, employee) => {
     ctc,
     status: "Pending"
   };
-
 };
 
 // Helper: Find employee by ID or name

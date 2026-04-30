@@ -161,12 +161,16 @@ export const calculateSalaryAnnexure = (gross, customPFs = null) => {
   const employerPfContribution = customPFs?.employerPfContribution !== undefined ? Number(customPFs.employerPfContribution) : 1950;
   const esi = customPFs?.esi !== undefined ? Number(customPFs.esi) : 0;
 
+  const volunteerPF = customPFs?.volunteerPF !== undefined ? Number(customPFs.volunteerPF) : 0;
+
   // Following the 50/25/25 logic where Special Allowance is the remainder
   // such that Net (B+H+S) + PFs + ESI = Target Gross
+  // Volunteer PF should NOT be subtracted from Special Allowance
   const special = Math.max(0, targetGross - basic - hra - employeePfContribution - employerPfContribution - esi);
 
-  // Net Salary (Take Home) = Basic + HRA + Special Allowance
-  const net = basic + hra + special;
+  // Net Salary (Take Home) = (Basic + HRA + Special Allowance) - Volunteer PF
+  // Statutory PF/ESI are already excluded from the (B+H+S) sum
+  const net = (basic + hra + special) - volunteerPF;
   
   // Gross Salary = Net Salary + Employee PF + Employer PF + ESI
   const grossFinal = net + employeePfContribution + employerPfContribution + esi;
@@ -187,6 +191,7 @@ export const calculateSalaryAnnexure = (gross, customPFs = null) => {
     employerPfContribution,
     employerPF: employerPfContribution, // Alias for backward compatibility
     esi,
+    volunteerPF,
     gratuity,
     ctc: Math.round(ctc)
   };
@@ -205,12 +210,14 @@ export const calculateCurrentSalaryAnnexure = (snapshot) => {
   // FIXED: Use actual snapshot value or standard 1950, NOT derived from gross-net
   const employerPfContribution = Math.round(snapshot.employerPfContribution || 1950);
   const esi = Math.round(snapshot.esi || 0);
+  const volunteerPF = Math.round(snapshot.volunteerPF || 0);
 
   // 50/25/25 Rule: Special = Gross - Basic - HRA - Employee PF - Employer PF - ESI
+  // Volunteer PF should NOT be subtracted from Special Allowance
   const special = Math.max(0, gross - basic - hra - employeePfContribution - employerPfContribution - esi);
 
-  // Net Salary = Basic + HRA + Special Allowance
-  const net = basic + hra + special;
+  // Net Salary = (Basic + HRA + Special Allowance) - Volunteer PF
+  const net = (basic + hra + special) - volunteerPF;
 
   const gratuity = Math.round(snapshot.gratuity || (basic * 0.0486));
   const ctc = Math.round(snapshot.ctc || (gross + gratuity));
@@ -226,6 +233,7 @@ export const calculateCurrentSalaryAnnexure = (snapshot) => {
     employerPfContribution,
     employerPF: employerPfContribution,
     esi,
+    volunteerPF,
     gratuity,
     ctc: Math.round(ctc)
   };
