@@ -11,7 +11,7 @@ const shards = [
 const ATLAS_URI = `mongodb://caldimenggcloud_db_user:Caldim12345678@${shards.join(',')}/test?ssl=true&authSource=admin&retryWrites=true&w=majority`;
 
 // Replicating the logic from frontend/src/utils/performanceUtils.js
-function calculateSalaryAnnexure(gross) {
+function calculateSalaryAnnexure(gross, vpf = 0) {
     const targetGross = Math.round(gross || 0);
     const basic = Math.round(targetGross * 0.50);
     const hra = Math.round(targetGross * 0.25);
@@ -19,7 +19,8 @@ function calculateSalaryAnnexure(gross) {
     const employeePfContribution = 1800;
     const employerPfContribution = 1950;
 
-    const special = Math.max(0, targetGross - basic - hra - employeePfContribution - employerPfContribution);
+    const volunteerPF = Number(vpf || 0);
+    const special = Math.max(0, targetGross - basic - hra - employeePfContribution - employerPfContribution - volunteerPF);
     const net = basic + hra + special;
     const gratuity = Math.round(basic * 0.0486);
     const ctc = targetGross + gratuity;
@@ -31,6 +32,7 @@ function calculateSalaryAnnexure(gross) {
         net,
         employeePfContribution,
         employerPfContribution,
+        volunteerPF,
         gratuity,
         ctc: Math.round(ctc),
         gross: targetGross
@@ -91,7 +93,9 @@ async function syncProductionPayrolls() {
             continue;
         }
 
-        const structure = calculateSalaryAnnexure(revisedGross);
+        // Keep existing volunteerPF if available
+        const currentVPF = Number(payroll?.volunteerPF || emp?.volunteerPF || 0);
+        const structure = calculateSalaryAnnexure(revisedGross, currentVPF);
 
         // ESI Logic: Based on Net Salary
         let esi = 0;
@@ -115,8 +119,9 @@ async function syncProductionPayrolls() {
         const tax = Number(payroll.tax || 0);
         const loan = Number(payroll.loanDeduction || 0);
         const lop = Number(payroll.lop || 0);
+        const volunteerPF = Number(payroll.volunteerPF || 0);
 
-        const totalDeductions = structure.employeePfContribution + structure.employerPfContribution + esi + pt + tax + loan + lop;
+        const totalDeductions = structure.employeePfContribution + structure.employerPfContribution + esi + pt + tax + loan + lop + volunteerPF;
         const finalNet = revisedGross - totalDeductions;
 
         await db.collection('payrolls').updateOne(
@@ -131,6 +136,7 @@ async function syncProductionPayrolls() {
                     esi: esi,
                     totalEarnings: revisedGross,
                     totalDeductions: totalDeductions,
+                    volunteerPF: volunteerPF,
                     netSalary: finalNet,
                     gratuity: structure.gratuity,
                     ctc: structure.ctc,

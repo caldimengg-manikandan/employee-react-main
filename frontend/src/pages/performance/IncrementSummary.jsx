@@ -152,7 +152,9 @@ const IncrementSummary = () => {
             status,
             effectiveDate: item.effectiveDate
               ? new Date(item.effectiveDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
-              : deriveEffectiveDate(item.financialYr || item.financialYear || item.year, item.updatedAt)
+              : deriveEffectiveDate(item.financialYr || item.financialYear || item.year, item.updatedAt),
+            releaseSalarySnapshot: item.releaseSalarySnapshot,
+            releaseRevisedSnapshot: item.releaseRevisedSnapshot
           };
         });
 

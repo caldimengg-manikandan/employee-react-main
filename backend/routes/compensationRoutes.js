@@ -18,10 +18,9 @@ const buildPayrollData = (comp, employee) => {
 
   const volunteerPF = Number(comp.volunteerPF) || 0;
 
-  const totalEarnings = basicDA + hra + specialAllowance;
-  const reconstructedGross = totalEarnings + employeePF + employerPF + esi + volunteerPF;
+  const totalEarnings = Math.round(reconstructedGross);
   const totalDeductions = employeePF + employerPF + esi + tax + professionalTax + volunteerPF;
-  const netSalary = totalEarnings; // Net = Basic + HRA + Special
+  const netSalary = basicDA + hra + specialAllowance; // Net = Basic + HRA + Special
   const ctc = Math.round(reconstructedGross + gratuity); // CTC = Gross + Gratuity
 
   return {
@@ -48,6 +47,7 @@ const buildPayrollData = (comp, employee) => {
     ctc,
     status: "Pending"
   };
+
 };
 
 // Helper: Find employee by ID or name

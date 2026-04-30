@@ -301,6 +301,7 @@ router.put('/self-appraisals/:id', auth, async (req, res) => {
           ),
           totalEarnings: Math.round(revised.gross || revised.totalEarnings || 0),
           netSalary: Math.round(revised.net || revised.netSalary || 0),
+
           ctc: Math.round(revised.ctc || 0),
           updatedAt: new Date()
         };

@@ -98,6 +98,8 @@ router.get('/', auth, async (req, res) => {
         revisedSalary:                 Number(app.revisedSalary  || 0),
         effectiveDate:                 app.effectiveDate || null,
         updatedAt:                     app.updatedAt,
+        releaseSalarySnapshot:         app.releaseSalarySnapshot || {},
+        releaseRevisedSnapshot:        app.releaseRevisedSnapshot || {},
       };
     });
 
