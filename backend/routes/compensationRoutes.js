@@ -18,6 +18,7 @@ const buildPayrollData = (comp, employee) => {
 
   const volunteerPF = Number(comp.volunteerPF) || 0;
 
+  const reconstructedGross = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
   const totalEarnings = Math.round(reconstructedGross);
   const totalDeductions = employeePF + employerPF + esi + tax + professionalTax + volunteerPF;
   const netSalary = basicDA + hra + specialAllowance; // Net = Basic + HRA + Special
