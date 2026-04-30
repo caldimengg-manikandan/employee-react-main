@@ -130,11 +130,10 @@ router.get("/:id", async (req, res) => {
 // ✏️ UPDATE Compensation + Sync to Payroll
 router.put("/:id", async (req, res) => {
   try {
-    // Check employee status before update
+    // Optional: Log if employee is not active, but don't block the update
+    // Compensation Master is often used for F&F for exited employees
     const employee = await findEmployee(req.body.employeeId, req.body.name);
-    if (employee && employee.status !== "Active") {
-      return res.status(400).json({ success: false, message: "Employee is not active. Cannot update compensation for inactive or exited employees." });
-    }
+
     
     const updated = await Compensation.findByIdAndUpdate(
       req.params.id,

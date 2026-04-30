@@ -787,8 +787,10 @@ We’re excited to have you join our team and look forward to your growth and su
       showMessage('Success', "Compensation saved successfully!", 'success');
     } catch (error) {
       console.error("Error saving compensation", error);
-      showMessage('Error', "Failed to save compensation", 'error');
+      const errorMsg = error.response?.data?.message || "Failed to save compensation";
+      showMessage('Error', errorMsg, 'error');
     }
+
   };
 
   const exportCSV = () => {
