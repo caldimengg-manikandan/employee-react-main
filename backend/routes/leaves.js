@@ -464,7 +464,8 @@ router.get('/balance', auth, async (req, res) => {
     if (!hasPermission(req.user, 'leave_view')) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    const { employeeId } = req.query;
+    const { employeeId, calculationDate } = req.query;
+    const calcDate = calculationDate ? new Date(calculationDate) : new Date();
     // Fetch active employees by default
     const filter = employeeId ? { employeeId } : { status: 'Active' };
     const employees = await Employee.find(filter).sort({ name: 1 }).lean();
@@ -476,7 +477,11 @@ router.get('/balance', auth, async (req, res) => {
     try {
       if (empIds.length > 0) {
         const [approvals, storedBalances] = await Promise.all([
-          LeaveApplication.find({ employeeId: { $in: empIds }, status: 'Approved' }).lean(),
+          LeaveApplication.find({ 
+            employeeId: { $in: empIds }, 
+            status: 'Approved',
+            startDate: { $lte: calcDate }
+          }).lean(),
           LeaveBalance.find({ employeeId: { $in: empIds } }).lean()
         ]);
 
@@ -500,7 +505,7 @@ router.get('/balance', auth, async (req, res) => {
       const currentYear = new Date().getFullYear();
       const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
 
-      const systemCalc = calcBalanceForEmployee(emp, usedMap[emp.employeeId] || []);
+      const systemCalc = calcBalanceForEmployee(emp, usedMap[emp.employeeId] || [], calcDate);
 
       // Check if employee is in "No Carry Forward" period (Trainee or < 6 months)
       // If so, we bypass stored balances to ensure monthly reset logic is strictly followed
@@ -521,7 +526,7 @@ router.get('/balance', auth, async (req, res) => {
           position: emp.position || emp.role || '',
           division: emp.division || '',
           location: emp.location || emp.branch || '',
-          monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt),
+          monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt, calcDate),
           balances: mergedBalances
         };
       }

@@ -90,7 +90,7 @@ async function getTeamManagementAssignmentSets(userEmployeeId) {
 
 router.get("/list", auth, async (req, res) => {
   try {
-    const { employeeId, division, location, status, week, project } = req.query;
+    const { employeeId, division, location, status, week, project, fromDate, toDate } = req.query;
     const role = String(req.user?.role || "").toLowerCase();
     const isAdmin = role === "admin";
     const isPM = role === "projectmanager" || role === "project_manager";
@@ -131,6 +131,12 @@ router.get("/list", auth, async (req, res) => {
     if (week && week !== "All Weeks") adminQuery.week = week;
     if (project && project !== "All Projects") adminQuery["timeEntries.project"] = project;
 
+    if (fromDate || toDate) {
+      adminQuery.submittedDate = {};
+      if (fromDate) adminQuery.submittedDate.$gte = fromDate;
+      if (toDate) adminQuery.submittedDate.$lte = toDate;
+    }
+
     const adminDocs = await AdminTimesheet.find(adminQuery)
       .populate('timesheetId', 'dailyShiftTypes shiftType')
       .sort({ submittedDate: -1 })
@@ -150,6 +156,12 @@ router.get("/list", auth, async (req, res) => {
 
     if (includeSubmitted) {
       const tsQuery = { status: "Submitted" };
+      
+      if (fromDate || toDate) {
+        tsQuery.submittedAt = {};
+        if (fromDate) tsQuery.submittedAt.$gte = new Date(fromDate);
+        if (toDate) tsQuery.submittedAt.$lte = new Date(toDate + "T23:59:59.999Z");
+      }
       if (week && week !== "All Weeks") {
         // Match weekStartDate's ISO week
         // We'll filter after transform using week string

@@ -20,8 +20,10 @@ function calculateSalaryAnnexure(gross, vpf = 0) {
     const employerPfContribution = 1950;
 
     const volunteerPF = Number(vpf || 0);
-    const special = Math.max(0, targetGross - basic - hra - employeePfContribution - employerPfContribution - volunteerPF);
-    const net = basic + hra + special;
+    // Special Allowance should NOT have volunteerPF deducted
+    const special = Math.max(0, targetGross - basic - hra - employeePfContribution - employerPfContribution);
+    // Net Salary = (Basic + HRA + Special) - volunteerPF
+    const net = (basic + hra + special) - volunteerPF;
     const gratuity = Math.round(basic * 0.0486);
     const ctc = targetGross + gratuity;
 

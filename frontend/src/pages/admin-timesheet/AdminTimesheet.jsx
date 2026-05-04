@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { adminTimesheetAPI, employeeAPI } from '../../services/api';
+import * as XLSX from 'xlsx';
 import { 
   BarChart3, 
   Clock, 
@@ -33,7 +34,9 @@ const AdminTimesheet = () => {
     status: 'All Status',
     week: 'All Weeks',
     project: 'All Projects',
-    year: 'All Years'
+    year: 'All Years',
+    fromDate: '',
+    toDate: ''
   });
 
   // Get user role
@@ -825,6 +828,16 @@ const AdminTimesheet = () => {
   }, [filters, allEmployees]);
 
   const handleFilterChange = (filterName, value) => {
+    // Validation for date range
+    if (filterName === 'fromDate' && filters.toDate && value > filters.toDate) {
+      alert('From Date cannot be greater than To Date');
+      return;
+    }
+    if (filterName === 'toDate' && filters.fromDate && value < filters.fromDate) {
+      alert('To Date cannot be less than From Date');
+      return;
+    }
+
     setFilters(prev => ({
       ...prev,
       [filterName]: value,
@@ -840,7 +853,9 @@ const AdminTimesheet = () => {
       filters.status !== 'All Status' ||
       filters.week !== 'All Weeks' ||
       filters.project !== 'All Projects' ||
-      filters.year !== 'All Years'
+      filters.year !== 'All Years' ||
+      filters.fromDate !== '' ||
+      filters.toDate !== ''
     );
   };
 
@@ -852,7 +867,9 @@ const AdminTimesheet = () => {
       status: 'All Status',
       week: 'All Weeks',
       project: 'All Projects',
-      year: 'All Years'
+      year: 'All Years',
+      fromDate: '',
+      toDate: ''
     });
   };
 
@@ -866,51 +883,92 @@ const AdminTimesheet = () => {
       return;
     }
 
+    // Group data by employee
+    const groupedData = timesheets.reduce((acc, ts) => {
+      const empId = ts.employeeId || 'Unknown';
+      if (!acc[empId]) {
+        acc[empId] = {
+          id: empId,
+          name: ts.employeeName || 'Unknown',
+          division: ts.division || '',
+          location: ts.location || '',
+          status: ts.status || '',
+          projects: {},
+          totalHours: 0
+        };
+      }
+
+      // Aggregate project hours
+      (ts.timeEntries || []).forEach(entry => {
+        const projName = (entry.project || '').trim();
+        const taskName = (entry.task || '').toLowerCase();
+        
+        // Skip Leave entries
+        const isLeave = projName.toLowerCase() === 'leave' || 
+                        taskName.includes('leave') || 
+                        taskName.includes('holiday');
+        
+        if (isLeave) return;
+
+        const hours = Number(entry.total || 0);
+        acc[empId].projects[projName] = (acc[empId].projects[projName] || 0) + hours;
+        acc[empId].totalHours += hours;
+      });
+
+      return acc;
+    }, {});
+
     // Define CSV headers
     const headers = [
       'Employee ID',
       'Name',
       'Division',
       'Location',
-      'Week',
-      'Projects',
-      'Total Hours',
-      'Status',
-      'Submitted Date'
+      'Project Name',
+      'Project Hours (HH:MM)',
+      'Total Employee Hours (HH:MM)',
+      'Status'
     ];
 
     // Format data rows
-    const rows = timesheets.map(ts => {
-      const projects = (ts.timeEntries || []).map(entry => entry.project).filter(Boolean).join('; ');
-      return [
-        ts.employeeId || '',
-        ts.employeeName || '',
-        ts.division || '',
-        ts.location || '',
-        ts.week || '',
-        `"${projects}"`, // Wrap in quotes to handle commas/semicolons
-        formatDuration(ts.weeklyTotal || 0),
-        ts.status || '',
-        ts.submittedDate || ''
-      ];
+    const rows = [];
+    Object.values(groupedData).forEach(emp => {
+      const projectNames = Object.keys(emp.projects);
+      
+      if (projectNames.length === 0) {
+        rows.push({
+          'Employee ID': emp.id,
+          'Name': emp.name,
+          'Division': emp.division,
+          'Location': emp.location,
+          'Project Name': 'No Projects',
+          'Project Hours': '00:00',
+          'Total Employee Hours': formatDuration(emp.totalHours),
+          'Status': emp.status
+        });
+      } else {
+        projectNames.forEach((proj, index) => {
+          rows.push({
+            'Employee ID': emp.id,
+            'Name': emp.name,
+            'Division': emp.division,
+            'Location': emp.location,
+            'Project Name': proj,
+            'Project Hours': formatDuration(emp.projects[proj]),
+            'Total Employee Hours': index === 0 ? formatDuration(emp.totalHours) : '',
+            'Status': emp.status
+          });
+        });
+      }
     });
 
-    // Combine headers and rows
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
+    // Create Excel workbook and worksheet
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheets Summary');
 
-    // Create download link
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
-    link.setAttribute('download', `timesheets_export_${new Date().toISOString().split('T')[0]}.csv`);
-    link.style.visibility = 'hidden';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Generate and download Excel file
+    XLSX.writeFile(workbook, `timesheets_summary_export_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   const showMessage = (title, message, type = 'success') => {
@@ -1223,6 +1281,32 @@ const AdminTimesheet = () => {
                 <option key={p}>{p}</option>
               ))}
             </select>
+          </div>
+
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>
+              <Calendar size={14} />
+              From Date
+            </label>
+            <input
+              type="date"
+              style={styles.filterInput}
+              value={filters.fromDate}
+              onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+            />
+          </div>
+
+          <div style={styles.filterGroup}>
+            <label style={styles.filterLabel}>
+              <Calendar size={14} />
+              To Date
+            </label>
+            <input
+              type="date"
+              style={styles.filterInput}
+              value={filters.toDate}
+              onChange={(e) => handleFilterChange('toDate', e.target.value)}
+            />
           </div>
         </div>
       </div>

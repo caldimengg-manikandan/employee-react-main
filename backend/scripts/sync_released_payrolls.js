@@ -17,8 +17,10 @@ function calculateSalaryAnnexure(targetGross, customPFs = null) {
   const esi = customPFs?.esi !== undefined ? Number(customPFs.esi) : 0;
 
   const volunteerPF = customPFs?.volunteerPF !== undefined ? Number(customPFs.volunteerPF) : 0;
-  const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi - volunteerPF);
-  const net = basic + hra + special;
+  // Special Allowance should NOT have volunteerPF deducted
+  const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi);
+  // Net Salary = (Basic + HRA + Special) - volunteerPF
+  const net = (basic + hra + special) - volunteerPF;
   const gratuity = Math.round(basic * 0.0486);
   const ctc = grossVal + gratuity;
 

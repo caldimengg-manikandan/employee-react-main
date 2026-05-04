@@ -5,13 +5,13 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 async function checkCompensation() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/employees');
+    await mongoose.connect(process.env.MONGODB_URI);
     const db = mongoose.connection.db;
-    const rec = await db.collection('payrolls').findOne({ employeeId: 'CDE007' });
+    const rec = await db.collection('compensations').findOne({ employeeId: 'CDE088' });
     if (rec) {
-      console.log('Payroll record found for CDE007 (SAKTHIVEL G):', JSON.stringify(rec, null, 2));
+      console.log('Compensation found:', JSON.stringify(rec, null, 2));
     } else {
-      console.log('No payroll record for CDE007');
+      console.log('No compensation record for CDE088');
     }
     process.exit(0);
   } catch (err) {

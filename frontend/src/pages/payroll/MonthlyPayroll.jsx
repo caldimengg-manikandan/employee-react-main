@@ -455,7 +455,7 @@ export default function MonthlyPayroll() {
           endDate: monthEnd.toISOString(),
           overlap: 'true'
         }),
-        leaveAPI.getBalance()
+        leaveAPI.getBalance({ calculationDate: monthEnd.toISOString() })
       ]);
       
       const leaves = leavesResponse.data || [];

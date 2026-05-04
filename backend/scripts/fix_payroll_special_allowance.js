@@ -41,24 +41,29 @@ async function fixPayrolls() {
       const empPF = Number(p.employeePfContribution || 1800);
       const emrPF = Number(p.employerPfContribution || 1950);
       const esi   = Number(p.esi || 0);
+      const vpf   = Number(p.volunteerPF || 0);
       const pt    = Number(p.professionalTax || 0);
       const tax   = Number(p.tax || 0);
       const loan  = Number(p.loanDeduction || 0);
       const lop   = Number(p.lop || 0);
 
-      // Correct formula
+      // Correct formula: Special is remainder after statutory PF/ESI
+      // Volunteer PF should NOT be subtracted from Special Allowance
       const correctSpecial = Math.max(0, gross - basic - hra - empPF - emrPF - esi);
       const currentSpecial = Number(p.specialAllowance || 0);
 
       // Check if correction is needed (tolerance of ₹1 for rounding)
-      if (Math.abs(correctSpecial - currentSpecial) <= 1) {
+      if (Math.abs(correctSpecial - currentSpecial) <= 1 && p.netSalary > 0) {
         noChangeCount++;
         continue;
       }
 
-      const netSalary = basic + hra + correctSpecial;
+      // Net Salary (Take Home) = (Basic + HRA + Special) - (PT + Tax + Loan + LOP + Volunteer PF)
+      const netSalary = (basic + hra + correctSpecial) - (pt + tax + loan + lop + vpf);
       const gratuity  = Math.round(basic * 0.0486);
-      const totalDeductions = empPF + emrPF + esi + pt + tax + loan + lop + gratuity;
+      
+      // Total Deductions = Statutory PF/ESI + Voluntary Deductions
+      const totalDeductions = empPF + emrPF + esi + pt + tax + loan + lop + vpf;
       const ctc = gross + gratuity;
 
       await Payroll.updateOne(

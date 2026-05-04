@@ -29,6 +29,9 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
   const position = emp.position || emp.role || '';
   const doj = emp.dateOfJoining || emp.hireDate || emp.createdAt;
   
+  // Filter leaves to only include those that started on or before the calculationDate
+  const filteredLeaves = approvedLeaves.filter(l => new Date(l.startDate) <= currentDate);
+
   // Use calculationDate for months of service
   const mos = monthsBetween(doj, currentDate);
   const isTrainee = toLower(position) === 'trainee' || toLower(position).includes('trainee');
@@ -82,12 +85,12 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
     }
 
     // Filter usage for CURRENT YEAR only
-    usedCL = approvedLeaves
+    usedCL = filteredLeaves
       .filter(l => l.leaveType === 'CL')
       .filter(l => new Date(l.startDate).getFullYear() === currentYear)
       .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
 
-    usedSL = approvedLeaves
+    usedSL = filteredLeaves
       .filter(l => l.leaveType === 'SL')
       .filter(l => new Date(l.startDate).getFullYear() === currentYear)
       .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
@@ -97,11 +100,11 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
     casual += afterSix * 0.5;
     sick += afterSix * 0.5;
 
-    usedCL = approvedLeaves
+    usedCL = filteredLeaves
       .filter(l => l.leaveType === 'CL')
       .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
       
-    usedSL = approvedLeaves
+    usedSL = filteredLeaves
       .filter(l => l.leaveType === 'SL')
       .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
   }
@@ -130,7 +133,7 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
       const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
       const currentMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
       
-      plUsed = approvedLeaves
+      plUsed = filteredLeaves
           .filter(l => l.leaveType === 'PL')
           .filter(l => {
               const d = new Date(l.startDate);
@@ -148,7 +151,7 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
               const currentMonthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
               const currentMonthEnd = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
               
-              plUsed = approvedLeaves
+              plUsed = filteredLeaves
                   .filter(l => l.leaveType === 'PL')
                   .filter(l => {
                       const d = new Date(l.startDate);
@@ -163,7 +166,7 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
               const monthsAfterThreshold = monthsBetweenRange(sixMonthThreshold, currentDate) + 1;
               plAllocated = monthsAfterThreshold * 1.25;
               
-              plUsed = approvedLeaves
+              plUsed = filteredLeaves
                   .filter(l => l.leaveType === 'PL')
                   .filter(l => new Date(l.startDate) >= sixMonthThreshold)
                    .reduce((sum, l) => sum + (Number(l.totalDays) || 0), 0);
