@@ -62,6 +62,8 @@ import Notification from '../../components/Notifications/Notification';
   const [warningModal, setWarningModal] = useState({ isOpen: false, message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [regionalHolidays, setRegionalHolidays] = useState([]);
+  const [leaveSplit, setLeaveSplit] = useState(null);
+  const [loadingSplit, setLoadingSplit] = useState(false);
 
   const showNotification = (message, type = 'success') => {
     setNotification({ message, type, isVisible: true });
@@ -85,6 +87,11 @@ import Notification from '../../components/Notifications/Notification';
         endDate: l.endDate,
         dayType: l.dayType,
         totalDays: l.totalDays,
+        clUsed: l.clUsed || 0,
+        slUsed: l.slUsed || 0,
+        plUsed: l.plUsed || 0,
+        negativePL: l.negativePL || 0,
+        lopDays: l.lopDays || 0,
         status: l.status,
         appliedDate: l.appliedDate,
        
@@ -101,6 +108,25 @@ import Notification from '../../components/Notifications/Notification';
     const timer = setInterval(fetchMyLeaves, 30000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const fetchSplit = async () => {
+      if (totalLeaveDays > 0 && ['CL', 'SL', 'PL'].includes(leaveData.leaveType)) {
+        setLoadingSplit(true);
+        try {
+          const res = await leaveAPI.getPreviewSplit(totalLeaveDays);
+          setLeaveSplit(res.data);
+        } catch {
+          setLeaveSplit(null);
+        } finally {
+          setLoadingSplit(false);
+        }
+      } else {
+        setLeaveSplit(null);
+      }
+    };
+    fetchSplit();
+  }, [totalLeaveDays, leaveData.leaveType]);
 
   useEffect(() => {
     const loadRegionalHolidays = async () => {
@@ -570,6 +596,12 @@ import Notification from '../../components/Notifications/Notification';
           endDate: l.endDate,
           dayType: l.dayType,
           totalDays: l.totalDays,
+          clUsed: l.clUsed || 0,
+          slUsed: l.slUsed || 0,
+          plUsed: l.plUsed || 0,
+          negativePL: l.negativePL || 0,
+          lopDays: l.lopDays || 0,
+          remainingBalance: l.remainingBalance,
           status: l.status,
           appliedDate: l.appliedDate,
            
@@ -588,6 +620,12 @@ import Notification from '../../components/Notifications/Notification';
           endDate: l.endDate,
           dayType: l.dayType,
           totalDays: l.totalDays,
+          clUsed: l.clUsed || 0,
+          slUsed: l.slUsed || 0,
+          plUsed: l.plUsed || 0,
+          negativePL: l.negativePL || 0,
+          lopDays: l.lopDays || 0,
+          remainingBalance: l.remainingBalance,
           status: l.status,
           appliedDate: l.appliedDate,
            
@@ -761,8 +799,15 @@ import Notification from '../../components/Notifications/Notification';
     };
 
     leaveHistory.forEach(leave => {
-      if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(leave.leaveType) && leave.status === 'Approved') {
-        used[leave.leaveType] += leave.totalDays;
+      if (leave.status === 'Approved') {
+        if (leave.clUsed !== undefined || leave.slUsed !== undefined || leave.plUsed !== undefined) {
+          used.CL += Number(leave.clUsed || 0);
+          used.SL += Number(leave.slUsed || 0);
+          used.PL += Number(leave.plUsed || 0) + Number(leave.negativePL || 0);
+          if (leave.leaveType === 'BEREAVEMENT') used.BEREAVEMENT += Number(leave.totalDays || 0);
+        } else if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(leave.leaveType)) {
+          used[leave.leaveType] += Number(leave.totalDays || 0);
+        }
       }
     });
 
@@ -778,8 +823,15 @@ import Notification from '../../components/Notifications/Notification';
       BEREAVEMENT: 0
     };
     leaveHistory.forEach(leave => {
-      if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(leave.leaveType) && leave.status === 'Pending') {
-        pending[leave.leaveType] += leave.totalDays;
+      if (leave.status === 'Pending') {
+        if (leave.clUsed !== undefined || leave.slUsed !== undefined || leave.plUsed !== undefined) {
+          pending.CL += Number(leave.clUsed || 0);
+          pending.SL += Number(leave.slUsed || 0);
+          pending.PL += Number(leave.plUsed || 0) + Number(leave.negativePL || 0);
+          if (leave.leaveType === 'BEREAVEMENT') pending.BEREAVEMENT += Number(leave.totalDays || 0);
+        } else if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(leave.leaveType)) {
+          pending[leave.leaveType] += Number(leave.totalDays || 0);
+        }
       }
     });
     return pending;
@@ -789,7 +841,9 @@ import Notification from '../../components/Notifications/Notification';
     const base = Number(leaveBalance[type] || 0);
     const pending = Number(pendingLeaves[type] || 0);
     const used = Number(usedLeaves[type] || 0);
-    return base - pending - used;
+    const val = base - pending - used;
+    if (type === 'CL' || type === 'SL') return Math.max(0, val);
+    return val;
   };
 
   const isRegionalHoliday = leaveData.leaveType === 'REGIONAL_HOLIDAY';
@@ -1027,6 +1081,49 @@ import Notification from '../../components/Notifications/Notification';
         </div>
       )}
 
+      {/* Leave Split Preview */}
+      {leaveSplit && totalLeaveDays > 0 && (
+        <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-100 space-y-2 mb-6">
+          <h4 className="text-sm font-semibold text-indigo-900 flex items-center gap-2">
+            <FileText className="w-4 h-4" />
+            Leave Deduction Breakdown
+          </h4>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-xs">
+            {leaveSplit.clUsed > 0 && (
+              <div className="flex justify-between">
+                <span className="text-indigo-700">Casual Leave:</span>
+                <span className="font-bold text-indigo-900">{leaveSplit.clUsed} days</span>
+              </div>
+            )}
+            {leaveSplit.slUsed > 0 && (
+              <div className="flex justify-between">
+                <span className="text-indigo-700">Sick Leave:</span>
+                <span className="font-bold text-indigo-900">{leaveSplit.slUsed} days</span>
+              </div>
+            )}
+            {leaveSplit.plUsed > 0 && (
+              <div className="flex justify-between">
+                <span className="text-indigo-700">Privilege Leave:</span>
+                <span className="font-bold text-indigo-900">{leaveSplit.plUsed} days</span>
+              </div>
+            )}
+            {leaveSplit.negativePL > 0 && (
+              <div className="flex justify-between">
+                <span className="text-red-700">Negative PL:</span>
+                <span className="font-bold text-red-900">{leaveSplit.negativePL} days</span>
+              </div>
+            )}
+            {leaveSplit.lopDays > 0 && (
+              <div className="flex justify-between">
+                <span className="text-orange-700">Loss of Pay (LOP):</span>
+                <span className="font-bold text-orange-900">{leaveSplit.lopDays} days</span>
+              </div>
+            )}
+            
+          </div>
+        </div>
+      )}
+
       {/* Submit Button */}
       <button
         type="submit"
@@ -1194,6 +1291,18 @@ import Notification from '../../components/Notifications/Notification';
                         <div><span className="font-medium text-gray-700">Holiday:</span> {viewLeave.regionalHolidayName || '—'}</div>
                       )}
                       
+                      {(viewLeave.clUsed > 0 || viewLeave.slUsed > 0 || viewLeave.plUsed > 0 || viewLeave.negativePL > 0 || viewLeave.lopDays > 0) && (
+                        <div className="mt-4 pt-4 border-t border-gray-100">
+                          <div className="font-medium text-gray-800 mb-2">Deduction Breakdown:</div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            {viewLeave.clUsed > 0 && <div>CL: {viewLeave.clUsed} days</div>}
+                            {viewLeave.slUsed > 0 && <div>SL: {viewLeave.slUsed} days</div>}
+                            {viewLeave.plUsed > 0 && <div>PL: {viewLeave.plUsed} days</div>}
+                            {viewLeave.negativePL > 0 && <div className="text-red-600 font-medium">Negative PL: {viewLeave.negativePL} days</div>}
+                            {viewLeave.lopDays > 0 && <div className="text-orange-600 font-medium">LOP: {viewLeave.lopDays} days</div>}
+                          </div>
+                        </div>
+                      )}
                     </div>
                     <div className="p-4 border-t flex justify-end">
                       <button

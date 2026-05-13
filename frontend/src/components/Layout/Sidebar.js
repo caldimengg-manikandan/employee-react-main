@@ -1,4 +1,4 @@
-// Sidebar.jsx - Updated with Exit Management
+// Sidebar.jsx - Updated with Support Center
 import React, { useState } from "react";
 import { X, ChevronDown, ChevronRight } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
@@ -26,18 +26,15 @@ import {
   UserGroupIcon,
   BriefcaseIcon,
   ChartPieIcon,
-  // NEW ICONS FOR EXIT MANAGEMENT
   ArrowRightOnRectangleIcon,
   ClipboardDocumentCheckIcon as ApprovalIcon,
   UserCircleIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
-  // ADDITIONAL UNIQUE ICONS
   DocumentDuplicateIcon,
   ReceiptPercentIcon,
   BuildingLibraryIcon,
   NewspaperIcon,
-  // MORE UNIQUE ICONS TO REPLACE DUPLICATES
   PresentationChartLineIcon,
   ClipboardIcon,
   GiftIcon,
@@ -45,14 +42,14 @@ import {
   DocumentMagnifyingGlassIcon,
   UserIcon,
   CalendarDaysIcon,
-  StarIcon
+  StarIcon,
+  ChatBubbleLeftRightIcon
 } from "@heroicons/react/24/outline";
 
 const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }) => {
   const location = useLocation();
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const permissions = user.permissions || [];
-  // Normalize role to handle inconsistency (project_manager vs projectmanager)
   let role = user.role || "employees";
   if (role === 'project_manager') role = 'projectmanager';
 
@@ -65,7 +62,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     setOpenDropdown(openDropdown === name ? null : name);
   };
 
-  // icon mapping - All unique icons, no duplicates
   const iconMap = {
     Dashboard: HomeIcon,
     Home: HomeIcon,
@@ -104,16 +100,15 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Intern Reference": DocumentTextIcon,
     "Resume Repository": DocumentTextIcon,
     "Holidays Allowance": CalendarDaysIcon,
-    // NEW ICONS FOR EXIT MANAGEMENT
     "Employee Exit Form": ArrowRightOnRectangleIcon,
     "Exit Approval": DocumentMagnifyingGlassIcon,
     "Exit Management": UserCircleIcon,
     "Performance Management": StarIcon,
     "Attendance Summary": ChartBarIcon,
     "Edit In and Out Time": ClockIcon,
-    "Unified Hub Calendar": CalendarDaysIcon
+    "Unified Hub Calendar": CalendarDaysIcon,
+    "Support Center": ChatBubbleLeftRightIcon
   };
-
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
 
@@ -158,7 +153,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "attendance_approval",
       showForRoles: ["admin", "hr",],
     },
-    
     {
       name: "Admin Timesheet",
       hasDropdown: true,
@@ -179,77 +173,24 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       allowEmployeeRole: false,
       permission: "project_access"
     },
-
-
-    // PERFORMANCE MANAGEMENT
     {
       name: "Performance Management",
       hasDropdown: true,
       icon: getIconForMenu("Performance Management"),
-      // permission: "performance_access", // REMOVED: Parent visibility depends on children
-      allowEmployeeRole: true, // ALLOWED: Visibility controlled by children permissions
-      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "employees"], // ADDED: employees
+      allowEmployeeRole: true,
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "employees"],
       children: [
-        {
-          name: "Self Appraisal",
-          path: "/performance/self-appraisal",
-          allowEmployeeRole: true, // CHANGED: Explicitly allow employees
-          permission: "self_appraisal"
-        },
-        {
-          name: "Team Appraisal",
-          path: "/performance/team-appraisal",
-          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
-          permission: "team_appraisal"
-        },
-        {
-          name: "Reviewer Approval",
-          path: "/performance/reviewer-approval",
-          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
-          permission: "reviewer_approval"
-        },
-        {
-          name: "Director Approval",
-          path: "/performance/director-approval",
-          showForRoles: ["admin", "hr", "manager", "director"],
-          permission: "director_approval"
-        },
-
-
-        {
-          name: "Appraisal Workflow",
-          path: "/performance/appraisal-workflow",
-          showForRoles: ["admin", "hr", "director"],
-          permission: "appraisal_workflow"
-        },
-        {
-          name: "Appraisal Master",
-          path: "/performance/increment-master",
-          showForRoles: ["admin", "hr"],
-          permission: "appraisal_master"
-        },
-        {
-          name: "Increment Summary",
-          path: "/performance/increment-summary",
-          showForRoles: ["admin", "hr", "manager"],
-          permission: "increment_summary"
-        },
-        {
-          name: "Attendance Summary",
-          path: "/performance/attendance-summary",
-          showForRoles: ["admin", "hr", "manager"],
-          permission: "attendance_summary"
-        },
-        {
-          name: "Promotion History",
-          path: "/performance/promotion-history",
-          showForRoles: ["admin", "hr"],
-
-          permission: "promotion_history"
-        },
+        { name: "Self Appraisal", path: "/performance/self-appraisal", allowEmployeeRole: true, permission: "self_appraisal" },
+        { name: "Team Appraisal", path: "/performance/team-appraisal", showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"], permission: "team_appraisal" },
+        { name: "Reviewer Approval", path: "/performance/reviewer-approval", showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"], permission: "reviewer_approval" },
+        { name: "Director Approval", path: "/performance/director-approval", showForRoles: ["admin", "hr", "manager", "director"], permission: "director_approval" },
+        { name: "Appraisal Workflow", path: "/performance/appraisal-workflow", showForRoles: ["admin", "hr", "director"], permission: "appraisal_workflow" },
+        { name: "Appraisal Master", path: "/performance/increment-master", showForRoles: ["admin", "hr"], permission: "appraisal_master" },
+        { name: "Increment Summary", path: "/performance/increment-summary", showForRoles: ["admin", "hr", "manager"], permission: "increment_summary" },
+        { name: "Attendance Summary", path: "/performance/attendance-summary", showForRoles: ["admin", "hr", "manager"], permission: "attendance_summary" },
+        { name: "Promotion History", path: "/performance/promotion-history", showForRoles: ["admin", "hr"], permission: "promotion_history" },
       ],
     },
-    // LEAVE MANAGEMENT MODULE
     {
       name: "Leave Management",
       hasDropdown: true,
@@ -258,42 +199,12 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       allowEmployeeRole: false,
       showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
       children: [
-        {
-          name: "Leave Summary",
-          path: "/leave-management/summary",
-          permission: "leave_summary",
-          showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"]
-        },
-        {
-          name: "Regional Holidays",
-          path: "/leave-management/regional-holidays",
-          permission: "leave_summary",
-          showForRoles: ["admin", "hr"]
-        },
-        {
-          name: "Office Holidays",
-          path: "/leave-management/office-holidays",
-          permission: "leave_summary",
-          showForRoles: ["admin", "hr"]
-        },
-        {
-          name: "Leave Balance",
-          path: "/leave-management/balance",
-          permission: "leave_balance",
-          allowEmployeeRole: true,
-          showForRoles: ["admin", "hr"]
-        }
+        { name: "Leave Summary", path: "/leave-management/summary", permission: "leave_summary", showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"] },
+        { name: "Regional Holidays", path: "/leave-management/regional-holidays", permission: "leave_summary", showForRoles: ["admin", "hr"] },
+        { name: "Office Holidays", path: "/leave-management/office-holidays", permission: "leave_summary", showForRoles: ["admin", "hr"] },
+        { name: "Leave Balance", path: "/leave-management/balance", permission: "leave_balance", allowEmployeeRole: true, showForRoles: ["admin", "hr"] }
       ],
     },
-    // PROJECT MANAGER: LEAVE SUMMARY (Top Level)
-    // { 
-    //   name: "Leave Summary", 
-    //   path: "/leave-management/summary",
-    //   permission: "leave_view",
-    //   icon: getIconForMenu("Leave Summary"),
-    //   showForRoles: ["projectmanager", "project_manager"]
-    // },
-    // LEAVE APPLICATIONS
     {
       name: "Leave Applications",
       path: "/leave-applications",
@@ -317,7 +228,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance", "employees"],
       permission: "policy_portal"
     },
-    // SALARY SLIPS
     {
       name: "Salary Slips",
       path: "/salaryslips",
@@ -326,7 +236,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance", "employees"],
       permission: "salary_slips"
     },
-    // PAYROLL MANAGEMENT
     {
       name: "Payroll Management",
       hasDropdown: true,
@@ -335,59 +244,16 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       showForRoles: ["admin", "hr", "finance"],
       allowEmployeeRole: false,
       children: [
-        {
-          name: "Payroll Details",
-          path: "/payroll/details",
-          permission: "payroll_details",
-          showForRoles: ["admin", "hr", "finance"]
-        },
-        {
-          name: "Payroll History",
-          path: "/payroll/history",
-          permission: "payroll_access",
-          showForRoles: ["admin", "hr", "finance", "manager", "projectmanager", "project_manager", "director", "employees"],
-          allowEmployeeRole: true
-        },
-        {
-          name: "Cost to the Company",
-          path: "/payroll/cost-to-the-company",
-          permission: "cost_to_company",
-          showForRoles: ["admin", "hr", "finance"]
-        },
-        {
-          name: "Compensation Master",
-          path: "/payroll/compensation-master",
-          permission: "compensation_master",
-          showForRoles: ["admin", "hr", "finance"]
-        },
-        {
-          name: "Loan Summary",
-          path: "/payroll/loan-summary",
-          permission: "loan_summary",
-          showForRoles: ["admin", "hr", "finance"]
-        },
-        {
-          name: "Gratuity Summary",
-          path: "/payroll/gratuity-summary",
-          permission: "gratuity_summary",
-          showForRoles: ["admin", "hr", "finance"]
-        },
-        {
-          name: "Monthly Payroll",
-          path: "/payroll/monthly",
-          permission: "monthly_payroll",
-          showForRoles: ["admin", "hr", "finance"],
-          allowEmployeeRole: false
-        },
-        {
-          name: "Marriage Allowance",
-          path: "/payroll/marriage-allowance",
-          permission: "marriage_allowance",
-          showForRoles: ["admin", "hr", "finance"]
-        }
+        { name: "Payroll Details", path: "/payroll/details", permission: "payroll_details", showForRoles: ["admin", "hr", "finance"] },
+        { name: "Payroll History", path: "/payroll/history", permission: "payroll_access", showForRoles: ["admin", "hr", "finance", "manager", "projectmanager", "project_manager", "director", "employees"], allowEmployeeRole: true },
+        { name: "Cost to the Company", path: "/payroll/cost-to-the-company", permission: "cost_to_company", showForRoles: ["admin", "hr", "finance"] },
+        { name: "Compensation Master", path: "/payroll/compensation-master", permission: "compensation_master", showForRoles: ["admin", "hr", "finance"] },
+        { name: "Loan Summary", path: "/payroll/loan-summary", permission: "loan_summary", showForRoles: ["admin", "hr", "finance"] },
+        { name: "Gratuity Summary", path: "/payroll/gratuity-summary", permission: "gratuity_summary", showForRoles: ["admin", "hr", "finance"] },
+        { name: "Monthly Payroll", path: "/payroll/monthly", permission: "monthly_payroll", showForRoles: ["admin", "hr", "finance"], allowEmployeeRole: false },
+        { name: "Marriage Allowance", path: "/payroll/marriage-allowance", permission: "marriage_allowance", showForRoles: ["admin", "hr", "finance"] }
       ],
     },
-    // EXPENDITURE MANAGEMENT
     {
       name: "Expenditure Management",
       path: "/expenditure-management",
@@ -396,7 +262,18 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       showForRoles: ["admin", "hr", "finance"],
       allowEmployeeRole: false,
     },
-    // ANNOUNCEMENTS
+    {
+      name: "Support Center",
+      hasDropdown: true,
+      icon: getIconForMenu("Support Center"),
+      allowEmployeeRole: true,
+      permission: "support_group_access",
+      children: [
+        { name: "Raise Ticket", path: "/support/raise-ticket", allowEmployeeRole: true, permission: "raise_ticket_access" },
+        { name: "My Tickets", path: "/support/my-tickets", allowEmployeeRole: true, permission: "my_tickets_access" },
+        { name: "Support Dashboard", path: "/admin/support/dashboard", showForRoles: ["admin", "hr"], permission: "support_dashboard_access" },
+      ]
+    },
     {
       name: "Announcements",
       path: "/announcements",
@@ -405,7 +282,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       showForRoles: ["admin", "hr", "manager"],
       allowEmployeeRole: false,
     },
-    // INTERN REFERENCE
     {
       name: "Intern Reference",
       path: "/admin/interns",
@@ -420,7 +296,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "resume_access",
       showForRoles: ["admin", "hr"],
     },
-    // EMPLOYEE EXIT FORM - Top level for employees
     {
       name: "Employee Exit Form",
       path: "/employee-exit/form",
@@ -429,7 +304,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       showForRoles: ["employees", "hr", "project_manager", "projectmanager"],
       permission: "exit_form_access"
     },
-    // EXIT MANAGEMENT - Admin/HR/Manager
     {
       name: "Exit Management",
       hasDropdown: true,
@@ -437,15 +311,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "exit_access",
       showForRoles: ["admin", "hr", "manager"],
       children: [
-        {
-          name: "Exit Approval",
-          path: "/employee-exit/approval",
-          permission: "exit_approval_access",
-          showForRoles: ["admin", "hr", "manager"]
-        }
+        { name: "Exit Approval", path: "/employee-exit/approval", permission: "exit_approval_access", showForRoles: ["admin", "hr", "manager"] }
       ],
     },
-    // EMPLOYEE REWARD TRACKER
     {
       name: "Employee Reward Tracker",
       path: "/employee-reward-tracker",
@@ -453,7 +321,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "reward_access",
       showForRoles: ["admin", "hr", "manager"],
     },
-    // HOLIDAY 
     {
       name: "Holidays Allowance",
       path: "/holidays-allowance",
@@ -461,7 +328,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "holiday_allowance",
       showForRoles: ["admin", "hr",],
     },
-    // EMPLOYEE MANAGEMENT
     {
       name: "Employee Management",
       path: "/employee-management",
@@ -469,7 +335,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "employee_access",
       showForRoles: ["admin", "hr"],
     },
-    // USER ACCESS
     {
       name: "User Access",
       path: "/user-access",
@@ -477,7 +342,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "user_access",
       showForRoles: ["admin"],
     },
-    // TEAM MANAGEMENT
     {
       name: "Team Management",
       path: "/admin/team-management",
@@ -485,7 +349,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "team_access",
       showForRoles: ["admin", "manager"],
     },
-
     {
       name: "Edit In and Out Time",
       path: "/attendance/edit-time",
@@ -493,67 +356,56 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "edit_attendance",
       showForRoles: ["admin", "hr", "manager"],
     },
-
     {
       name: "Unified Hub Calendar",
       path: "/calendar-master",
       icon: getIconForMenu("Unified Hub Calendar"),
       allowEmployeeRole: true,
-      permission: "home" // Using home permission so most people can see it
+      permission: "home"
     },
-
-
   ];
 
-  // Filter dropdown children
   const getFilteredChildren = (children) => {
     if (!children) return [];
-
     return children.filter((child) => {
-      // 1. Permission Check (Primary) - Now enforced for everyone
       if (child.permission && !permissions.includes(child.permission)) {
+        if (child.permission === 'home') return true; // Special case for home items
         return false;
       }
-
-      // 2. Role-based restrictions (Secondary/Legacy)
-      // Role checks are only used as a safeguard for legacy items without explicit permissions
       if (child.showForRoles && !child.showForRoles.includes(role)) {
         if (role !== "admin" && !child.permission) return false;
       }
-
-      // 3. For employees role specifically
       if (role === "employees" && !child.allowEmployeeRole && !child.permission) {
         return false;
       }
-
       return true;
     });
   };
 
-  // Filter logic
   const filteredMenuItems = menuItems.filter((item) => {
-    // 1. Permission Check (Primary) - Enforced for everyone
-    if (item.permission && !permissions.includes(item.permission)) {
-      // Safety for Admin on User Access module to prevent burnout lock-out
-      if (role === "admin" && item.permission === "user_access") return true;
-      return false;
+    // 1. Check for basic permissions (with special cases for home and admin)
+    const hasDirectPermission = !item.permission || 
+                               permissions.includes(item.permission) || 
+                               item.permission === 'home' ||
+                               (role === "admin" && (item.permission === "user_access" || item.permission === "support_group_access"));
+
+    // 2. For dropdowns, check if any children are visible
+    let visibleChildren = [];
+    if (item.hasDropdown) {
+      visibleChildren = getFilteredChildren(item.children);
     }
 
-    // 2. Role-based restrictions (Secondary)
+    // 3. Decide visibility: visible if has direct permission OR has visible children
+    const isVisibleByPermission = item.hasDropdown ? (hasDirectPermission || visibleChildren.length > 0) : hasDirectPermission;
+
+    if (!isVisibleByPermission) return false;
+
+    // 4. Role-based visibility check (respect explicitly restricted roles)
     if (item.showForRoles && !item.showForRoles.includes(role)) {
       if (role !== "admin" && !item.permission) return false;
     }
 
-    // 3. Dropdown Empty Check
-    // If it has a dropdown, hide the whole parent if NO children are visible
-    if (item.hasDropdown) {
-      const visibleChildren = getFilteredChildren(item.children);
-      if (visibleChildren.length === 0) {
-        return false;
-      }
-    }
-
-    // 4. Employee specific check
+    // 5. Employee specific exclusion (if no specific permission is granted)
     if (role === "employees" && !item.allowEmployeeRole && !item.permission) {
       return false;
     }
@@ -564,21 +416,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
   const isItemActive = (item) => {
     if (item.path) return location.pathname === item.path;
     if (item.children) {
-      return item.children.some((child) =>
-        child.path && location.pathname === child.path
-      );
+      return item.children.some((child) => child.path && location.pathname === child.path);
     }
     return false;
   };
 
-  const isChildActive = (childPath) => {
-    if (!childPath) return false;
+  const isChildActive = (childPath) => location.pathname === childPath;
 
-    // Exact match only to prevent multiple children being active
-    return location.pathname === childPath;
-  };
-
-  // DropdownIcons - Updated with Exit Management icons
   const DropdownIcons = {
     "Timesheet": <DocumentTextIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Timesheet History": <DocumentChartBarIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
@@ -594,96 +438,40 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Monthly Payroll": <BanknotesIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Compensation Master": <CurrencyRupeeIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Marriage Allowance": <CurrencyRupeeIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
-    // NEW ICONS FOR EXIT MANAGEMENT
     "Employee Exit Form": <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Exit Approval": <ApprovalIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "default": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />
   };
 
-  const getChildIcon = (childName) => {
-    return DropdownIcons[childName] || DropdownIcons["default"];
-  };
+  const getChildIcon = (childName) => DropdownIcons[childName] || DropdownIcons["default"];
 
   return (
     <>
-      {/* Mobile backdrop */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={onClose}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div
-        className={`fixed inset-y-0 left-0 z-50 bg-[#262760] shadow-lg flex flex-col transform transition-all duration-300 ease-in-out
-        lg:relative lg:translate-x-0 lg:z-auto lg:h-screen
-        ${isOpen ? "translate-x-0" : "-translate-x-full"}
-        ${isDesktopOpen ? "w-64" : "w-64 lg:w-20"}`}
-      >
-        {/* Logo */}
+      {isOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={onClose} />}
+      <div className={`fixed inset-y-0 left-0 z-50 bg-[#262760] shadow-lg flex flex-col transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 lg:z-auto lg:h-screen ${isOpen ? "translate-x-0" : "-translate-x-full"} ${isDesktopOpen ? "w-64" : "w-64 lg:w-20"}`}>
         <div className="flex items-center justify-between p-4 border-b border-[#1e2050] relative min-h-[64px]">
           <div className={`text-center w-full px-2 transition-all duration-200 ${!isDesktopOpen ? 'lg:opacity-0 lg:hidden' : 'opacity-100'}`}>
-            <img
-              src="/images/steel-logo.png"
-              alt="caldim"
-              className="h-auto w-full max-w-[160px] object-contain mx-auto"
-            />
+            <img src="/images/steel-logo.png" alt="caldim" className="h-auto w-full max-w-[160px] object-contain mx-auto" />
           </div>
-          <button
-            onClick={onClose}
-            className="lg:hidden text-white p-1 rounded-md hover:bg-[#1e2050] transition-colors duration-200 absolute right-4"
-          >
-            <X size={24} />
-          </button>
-
-          {/* Desktop Toggle Button */}
-          <button
-            onClick={toggleDesktopSidebar}
-            className={`hidden lg:flex items-center justify-center text-white p-1 rounded-md hover:bg-[#1e2050] transition-colors duration-200 
-             ${!isDesktopOpen ? 'w-full' : 'absolute right-2'}`}
-          >
-            {isDesktopOpen ? <ChevronDoubleLeftIcon className="h-5 w-5" /> : <ChevronDoubleRightIcon className="h-6 w-6" />}
-          </button>
+          <button onClick={onClose} className="lg:hidden text-white p-1 rounded-md hover:bg-[#1e2050] transition-colors duration-200 absolute right-4"><X size={24} /></button>
+          <button onClick={toggleDesktopSidebar} className={`hidden lg:flex items-center justify-center text-white p-1 rounded-md hover:bg-[#1e2050] transition-colors duration-200 ${!isDesktopOpen ? 'w-full' : 'absolute right-2'}`}>{isDesktopOpen ? <ChevronDoubleLeftIcon className="h-5 w-5" /> : <ChevronDoubleRightIcon className="h-6 w-6" />}</button>
         </div>
-
-        {/* Navigation */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {filteredMenuItems.map((item) => (
             <div key={item.name}>
               {item.hasDropdown ? (
                 <>
-                  <button
-                    onClick={() => toggleDropdown(item.name)}
-                    className={`w-full flex items-center ${!isDesktopOpen ? 'justify-center' : 'justify-between'} px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${isItemActive(item)
-                      ? "bg-[#1e2050] text-white shadow-sm"
-                      : "text-violet-100 hover:bg-[#1e2050] hover:text-white"
-                      }`}
-                    title={!isDesktopOpen ? item.name : ''}
-                  >
+                  <button onClick={() => toggleDropdown(item.name)} className={`w-full flex items-center ${!isDesktopOpen ? 'justify-center' : 'justify-between'} px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${isItemActive(item) ? "bg-[#1e2050] text-white shadow-sm" : "text-violet-100 hover:bg-[#1e2050] hover:text-white"}`} title={!isDesktopOpen ? item.name : ''}>
                     <div className={`flex items-center ${!isDesktopOpen ? 'justify-center' : ''}`}>
                       <item.icon className={`${isDesktopOpen ? 'mr-3' : ''} h-5 w-5`} />
                       {isDesktopOpen && <span>{item.name}</span>}
                     </div>
-                    {isDesktopOpen && (openDropdown === item.name ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    ))}
+                    {isDesktopOpen && (openDropdown === item.name ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />)}
                   </button>
-
                   {openDropdown === item.name && isDesktopOpen && (
                     <div className="ml-4 mt-1 mb-2 space-y-1 bg-[#1e2050]/70 rounded-lg py-2 border-l-2 border-[#3730a3]">
                       {getFilteredChildren(item.children).map((child) => (
-                        <Link
-                          key={child.path}
-                          to={child.path}
-                          onClick={onClose}
-                          className={`flex items-center px-3 py-2.5 text-sm rounded-md transition-all mx-1 ${isChildActive(child.path)
-                            ? "bg-[#1e2050] text-white border-l-2 border-white"
-                            : "text-violet-100 hover:bg-[#1e2050] hover:text-white hover:border-l-2 hover:border-violet-300"
-                            }`}
-                        >
+                        <Link key={child.path} to={child.path} onClick={onClose} className={`flex items-center px-3 py-2.5 text-sm rounded-md transition-all mx-1 ${isChildActive(child.path) ? "bg-[#1e2050] text-white border-l-2 border-white" : "text-violet-100 hover:bg-[#1e2050] hover:text-white hover:border-l-2 hover:border-violet-300"}`}>
                           {getChildIcon(child.name)}
                           <span>{child.name}</span>
                         </Link>
@@ -692,30 +480,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
                   )}
                 </>
               ) : (
-                <Link
-                  to={item.path}
-                  onClick={onClose}
-                  className={`flex items-center ${!isDesktopOpen ? 'justify-center' : ''} px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${isItemActive(item)
-                    ? "bg-[#1e2050] text-white shadow-sm"
-                    : "text-violet-100 hover:bg-[#1e2050] hover:text-white"
-                    }`}
-                  title={!isDesktopOpen ? item.name : ''}
-                >
+                <Link to={item.path} onClick={onClose} className={`flex items-center ${!isDesktopOpen ? 'justify-center' : ''} px-3 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${isItemActive(item) ? "bg-[#1e2050] text-white shadow-sm" : "text-violet-100 hover:bg-[#1e2050] hover:text-white"}`} title={!isDesktopOpen ? item.name : ''}>
                   <item.icon className={`${isDesktopOpen ? 'mr-3' : ''} h-5 w-5`} />
                   {isDesktopOpen && <span>{item.name}</span>}
                 </Link>
               )}
             </div>
           ))}
-
-          {filteredMenuItems.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-violet-200 text-sm">No menu items available</p>
-              <p className="text-violet-300 text-xs mt-2">
-                Check your permissions
-              </p>
-            </div>
-          )}
         </nav>
       </div>
     </>

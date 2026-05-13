@@ -75,6 +75,13 @@ import AttendanceSummary from "./pages/performance/AttendanceSummary";
 import PromotionHistory from "./pages/performance/PromotionHistory";
 import CalendarMaster from "./pages/calendar/CalendarMaster";
 
+// Support Center
+import RaiseTicket from "./pages/support-center/RaiseTicket";
+import MyTickets from "./pages/support-center/MyTickets";
+import TicketDetails from "./pages/support-center/TicketDetails";
+import SupportDashboard from "./pages/support-center/SupportDashboard";
+import AllTickets from "./pages/support-center/AllTickets";
+
 
 
 function App() {
@@ -596,6 +603,58 @@ function App() {
               element={
                 <ProtectedRoute allowEmployeeRole>
                   <CalendarMaster />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ---------------- Support Center ---------------- */}
+            <Route
+              path="support/raise-ticket"
+              element={
+                <ProtectedRoute requiredPermissions={["raise_ticket_access"]} allowEmployeeRole>
+                  <RaiseTicket />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="support/my-tickets"
+              element={
+                <ProtectedRoute requiredPermissions={["my_tickets_access"]} allowEmployeeRole>
+                  <MyTickets />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="support/tickets/:id"
+              element={
+                <ProtectedRoute requiredPermissions={["my_tickets_access"]} allowEmployeeRole>
+                  <TicketDetails />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Admin Support Routes */}
+            <Route
+              path="admin/support/dashboard"
+              element={
+                <ProtectedRoute requiredPermissions={["support_dashboard_access"]} roles={["admin", "hr"]}>
+                  <SupportDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/support/all-tickets"
+              element={
+                <ProtectedRoute requiredPermissions={["support_dashboard_access"]} roles={["admin", "hr"]}>
+                  <AllTickets />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/support/tickets/:id"
+              element={
+                <ProtectedRoute requiredPermissions={["support_dashboard_access"]} roles={["admin", "hr"]}>
+                  <TicketDetails />
                 </ProtectedRoute>
               }
             />

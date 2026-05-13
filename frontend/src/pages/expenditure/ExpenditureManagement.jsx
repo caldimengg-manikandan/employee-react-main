@@ -35,19 +35,8 @@ const ExpenditureManagement = () => {
   const [selectedRecord, setSelectedRecord] = useState(null);
 
   /* ---------------- MASTER DATA ---------------- */
-  const expenditureTypes = [
-    "Milk",
-    "Food",
-    "Maid Salary",
-    "Bakery",
-    "Intern Stipend",
-    "LinkedIn Subscription",
-    "The Cake Home",
-    "Flower Bill",
-    "Electricity Bill",
-    "AirFiber Bill",
-    "Others"
-  ];
+  const [expenditureTypes, setExpenditureTypes] = useState([]);
+  const [typesLoading, setTypesLoading] = useState(false);
 
   const paymentModes = [
     "Net Banking",
@@ -136,6 +125,14 @@ const ExpenditureManagement = () => {
   const [summaryErrors, setSummaryErrors] = useState({});
   const [editingExpenditureId, setEditingExpenditureId] = useState(null);
 
+  // New Type Modal States
+  const [typeModalOpen, setTypeModalOpen] = useState(false);
+  const [newTypeData, setNewTypeData] = useState({
+    type_name: "",
+    description: ""
+  });
+  const [typeSubmitLoading, setTypeSubmitLoading] = useState(false);
+
   const monthMap = {
     "Jan": 0, "Feb": 1, "Mar": 2, "Apr": 3, "May": 4, "Jun": 5,
     "Jul": 6, "Aug": 7, "Sep": 8, "Oct": 9, "Nov": 10, "Dec": 11
@@ -174,7 +171,62 @@ const ExpenditureManagement = () => {
   /* ---------------- INITIAL LOAD ---------------- */
   useEffect(() => {
     testAPIConnection();
+    fetchExpenseTypes();
   }, []);
+
+  const fetchExpenseTypes = async () => {
+    try {
+      setTypesLoading(true);
+      const res = await expenditureAPI.getExpenseTypes();
+      if (res.data && res.data.success) {
+        setExpenditureTypes(res.data.data.map(t => t.type_name));
+      }
+    } catch (err) {
+      console.error("Error fetching expense types:", err);
+      // Fallback to defaults if API fails
+      setExpenditureTypes([
+        "Milk", "Food", "Maid Salary", "Bakery", "Intern Stipend", 
+        "LinkedIn Subscription", "The Cake Home", "Flower Bill", 
+        "Electricity Bill", "AirFiber Bill", "Others"
+      ]);
+    } finally {
+      setTypesLoading(false);
+    }
+  };
+
+  const handleAddType = async () => {
+    if (!newTypeData.type_name.trim()) {
+      message.error("Type name is mandatory");
+      return;
+    }
+
+    try {
+      setTypeSubmitLoading(true);
+      const res = await expenditureAPI.addExpenseType(newTypeData);
+      
+      if (res.data && res.data.success) {
+        message.success(res.data.message || "Expense type added successfully");
+        
+        // Refresh types list
+        await fetchExpenseTypes();
+        
+        // Auto-select the newly added type
+        setNewExpense({
+          ...newExpense,
+          type: newTypeData.type_name.trim()
+        });
+        
+        // Reset modal and close
+        setNewTypeData({ type_name: "", description: "" });
+        setTypeModalOpen(false);
+      }
+    } catch (err) {
+      console.error("Error adding expense type:", err);
+      message.error(err.response?.data?.message || "Failed to add expense type");
+    } finally {
+      setTypeSubmitLoading(false);
+    }
+  };
 
   // Auto-load summary when switching to Summary tab or changing year/location
   useEffect(() => {
@@ -1206,7 +1258,17 @@ const ExpenditureManagement = () => {
               <h3 className="text-lg font-semibold text-gray-800 mb-4">{editingExpenditureId ? "Edit Expenditure" : "Add New Expenditure"}</h3>
               <div className="grid grid-cols-1 md:grid-cols-8 gap-4">
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Type *</label>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block text-sm font-medium text-gray-700">Type *</label>
+                    <button
+                      type="button"
+                      onClick={() => setTypeModalOpen(true)}
+                      className="text-xs font-semibold text-[#262760] hover:text-[#1e2050] flex items-center gap-1"
+                    >
+                      <Plus className="w-3 h-3" />
+                      Add Type
+                    </button>
+                  </div>
                   <select
                     className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent ${errors.type ? 'border-red-500' : ''}`}
                     value={newExpense.type}
@@ -1232,6 +1294,54 @@ const ExpenditureManagement = () => {
                     />
                   )}
                 </div>
+
+                {/* Add Type Modal */}
+                <Modal
+                  title={<div className="flex items-center gap-2"><Plus className="w-5 h-5 text-[#262760]" /> <span>Add New Expense Type</span></div>}
+                  open={typeModalOpen}
+                  onCancel={() => setTypeModalOpen(false)}
+                  footer={[
+                    <button
+                      key="cancel"
+                      onClick={() => setTypeModalOpen(false)}
+                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 border rounded-lg mr-2"
+                    >
+                      Cancel
+                    </button>,
+                    <button
+                      key="save"
+                      onClick={handleAddType}
+                      disabled={typeSubmitLoading}
+                      className="px-4 py-2 text-sm font-medium text-white bg-[#262760] hover:bg-[#1e2050] rounded-lg disabled:opacity-50"
+                    >
+                      {typeSubmitLoading ? "Saving..." : "Save Type"}
+                    </button>
+                  ]}
+                >
+                  <div className="space-y-4 py-2">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Type Name *</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Travel, Stationery"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
+                        value={newTypeData.type_name}
+                        onChange={(e) => setNewTypeData({ ...newTypeData, type_name: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Description (Optional)</label>
+                      <textarea
+                        placeholder="Brief description of this expense category"
+                        className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent"
+                        rows="3"
+                        value={newTypeData.description}
+                        onChange={(e) => setNewTypeData({ ...newTypeData, description: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </Modal>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Payment Mode *</label>

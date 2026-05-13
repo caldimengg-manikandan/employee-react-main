@@ -28,7 +28,13 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
+
 const defaultUploadRoot = path.join(__dirname, "uploads");
+const fs = require("fs");
+if (!fs.existsSync(defaultUploadRoot)) fs.mkdirSync(defaultUploadRoot, { recursive: true });
+const supportUploadRoot = path.join(defaultUploadRoot, "support-tickets");
+if (!fs.existsSync(supportUploadRoot)) fs.mkdirSync(supportUploadRoot, { recursive: true });
+
 app.use("/uploads", express.static(defaultUploadRoot));
 
 const marriageAllowanceUploadRoot =
@@ -120,7 +126,7 @@ app.use("/api/payroll", payrollRoutes);
 app.use("/api/special-permissions", require("./routes/specialPermissions"));
 app.use("/api/celebrations", require("./routes/celebrationRoutes"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
-app.use("/api/notifications", require("./routes/notificationRoutes"));
+app.use("/api/support", require("./routes/supportRoutes"));
 
 
 // Base Route

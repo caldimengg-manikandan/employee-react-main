@@ -3,6 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const router = express.Router();
 const MonthlyExpenditure = require('../models/MonthlyExpenditure');
+const ExpenseType = require('../models/ExpenseType');
 const auth = require('../middleware/auth');
 
 async function processExpenditures(expenditures) {
@@ -164,6 +165,75 @@ router.delete('/record/:id', auth, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Record not found' });
     }
     res.json({ success: true, message: 'Record deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Get Expense Types
+router.get('/expense-types', auth, async (req, res) => {
+  try {
+    let types = await ExpenseType.find({ status: 'active' }).sort({ type_name: 1 });
+    
+    // Seed default types if empty
+    if (types.length === 0) {
+      const defaultTypes = [
+        "Milk", "Food", "Maid Salary", "Bakery", "Intern Stipend", 
+        "LinkedIn Subscription", "The Cake Home", "Flower Bill", 
+        "Electricity Bill", "AirFiber Bill", "Others"
+      ];
+      
+      const seedData = defaultTypes.map(name => ({
+        type_name: name,
+        created_by: req.user.id,
+        status: 'active'
+      }));
+      
+      await ExpenseType.insertMany(seedData);
+      types = await ExpenseType.find({ status: 'active' }).sort({ type_name: 1 });
+    }
+    
+    res.json({ success: true, data: types });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// Add Expense Type
+router.post('/expense-types', auth, async (req, res) => {
+  try {
+    const { type_name, description } = req.body;
+    
+    if (!type_name) {
+      return res.status(400).json({ success: false, message: 'Type name is mandatory' });
+    }
+
+    const trimmedName = type_name.trim();
+    
+    // Check for duplicates
+    const existing = await ExpenseType.findOne({ 
+      type_name: { $regex: new RegExp(`^${trimmedName}$`, 'i') } 
+    });
+    
+    if (existing) {
+      return res.status(400).json({ success: false, message: 'Expense type already exists' });
+    }
+
+    const isAdmin = ['admin', 'finance', 'director'].includes(req.user.role);
+    
+    const newType = new ExpenseType({
+      type_name: trimmedName,
+      description,
+      created_by: req.user.id,
+      status: isAdmin ? 'active' : 'pending' // Employees added types go for approval
+    });
+
+    await newType.save();
+    res.status(201).json({ 
+      success: true, 
+      data: newType,
+      message: isAdmin ? 'Expense type added successfully' : 'Expense type submitted for admin approval'
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

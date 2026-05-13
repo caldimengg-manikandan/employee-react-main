@@ -1,7 +1,7 @@
 // src/pages/salaryslips/SalarySlips.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { monthlyPayrollAPI, employeeAPI } from '../../services/api';
+import { monthlyPayrollAPI, employeeAPI, payrollAPI } from '../../services/api';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -77,19 +77,50 @@ const SalarySlips = () => {
         const historyResponse = await monthlyPayrollAPI.getEmployeeHistory(empId);
         const history = Array.isArray(historyResponse?.data) ? historyResponse.data : (Array.isArray(historyResponse) ? historyResponse : []);
         setPayrollHistory(history);
-
-        const years = new Set();
-        history.forEach(record => {
-          const [y, m] = record.salaryMonth.split('-').map(Number);
-          years.add(getFinancialYear(y, m));
-        });
-        setAvailableYears(Array.from(years).sort().reverse());
       } catch (err) {
         console.error("Failed to fetch payroll history:", err);
       }
     };
     init();
   }, [navigate]);
+
+  useEffect(() => {
+    const years = new Set();
+    
+    // Add years from payroll history
+    if (payrollHistory && payrollHistory.length > 0) {
+      payrollHistory.forEach(record => {
+        if (record?.salaryMonth && typeof record.salaryMonth === 'string') {
+          const parts = record.salaryMonth.split('-');
+          if (parts.length >= 2) {
+            const y = parseInt(parts[0]);
+            const m = parseInt(parts[1]);
+            if (!isNaN(y) && !isNaN(m)) {
+              years.add(getFinancialYear(y, m));
+            }
+          }
+        }
+      });
+    }
+
+    // Always include 2025-2026 and 2026-2027 as per request
+    years.add('2025-2026');
+    years.add('2026-2027');
+
+    const sortedYears = Array.from(years).sort().reverse();
+    setAvailableYears(sortedYears);
+    
+    // Auto-select most recent year if none selected
+    if (sortedYears.length > 0 && !financialYear) {
+      const now = new Date();
+      const currentFY = getFinancialYear(now.getFullYear(), now.getMonth() + 1);
+      if (sortedYears.includes(currentFY)) {
+        setFinancialYear(currentFY);
+      } else {
+        setFinancialYear(sortedYears[0]);
+      }
+    }
+  }, [payrollHistory]);
 
   const fetchPayslip = async (selectedMonth) => {
     if (!financialYear || !selectedMonth) return;
@@ -121,7 +152,8 @@ const SalarySlips = () => {
     try {
       const response = await monthlyPayrollAPI.list({ month: formattedMonth });
       const records = Array.isArray(response?.data) ? response.data : [];
-      const rec = records.find(r => String(r.employeeId) === String(employeeId));
+      const rec = records.find(r => String(r.employeeId).toLowerCase() === String(employeeId).toLowerCase());
+
       if (!rec) {
         alert('Payslip not found for the selected period');
         setIsLoading(false);
@@ -157,6 +189,7 @@ const SalarySlips = () => {
         lopDeduction: Number(rec.lop || 0),
         loanDeduction: Number(rec.loanDeduction || 0),
         gratuity: Number(rec.gratuity || 0),
+        volunteerPF: Number(rec.volunteerPF || 0),
         otherDeductions: 0,
         totalDeductions: Number(rec.totalDeductions || 0),
         netSalary: Number(rec.netSalary || 0),
@@ -228,21 +261,54 @@ const SalarySlips = () => {
   }, [panNumber, uanNumber, joiningDate]);
 
   useEffect(() => {
-    if (financialYear && payrollHistory.length > 0) {
-      const recordsForYear = payrollHistory.filter(record => {
-        const [y, m] = record.salaryMonth.split('-').map(Number);
-        return getFinancialYear(y, m) === financialYear;
+    if (financialYear) {
+      const [startYearStr, endYearStr] = financialYear.split('-');
+      const startYear = parseInt(startYearStr);
+      const endYear = parseInt(endYearStr);
+      
+      const fyMonthConfig = [
+        { name: 'April', year: startYear, num: 4 },
+        { name: 'May', year: startYear, num: 5 },
+        { name: 'June', year: startYear, num: 6 },
+        { name: 'July', year: startYear, num: 7 },
+        { name: 'August', year: startYear, num: 8 },
+        { name: 'September', year: startYear, num: 9 },
+        { name: 'October', year: startYear, num: 10 },
+        { name: 'November', year: startYear, num: 11 },
+        { name: 'December', year: startYear, num: 12 },
+        { name: 'January', year: endYear, num: 1 },
+        { name: 'February', year: endYear, num: 2 },
+        { name: 'March', year: endYear, num: 3 },
+      ];
+
+      // Get months that HAVE payroll records for this financial year
+      const monthsWithData = new Set();
+      if (payrollHistory && payrollHistory.length > 0) {
+        payrollHistory.forEach(record => {
+          if (record?.salaryMonth && typeof record.salaryMonth === 'string') {
+            const parts = record.salaryMonth.split('-');
+            if (parts.length >= 2) {
+              const y = parseInt(parts[0]);
+              const m = parseInt(parts[1]);
+              if (!isNaN(y) && !isNaN(m)) {
+                if (getFinancialYear(y, m) === financialYear) {
+                  monthsWithData.add(monthNames[m - 1]);
+                }
+              }
+            }
+          }
+        });
+      }
+
+      const months = [];
+      fyMonthConfig.forEach(m => {
+        // Only show if it has data in history
+        if (monthsWithData.has(m.name)) {
+          months.push(m.name);
+        }
       });
 
-      const distinctMonths = new Set();
-      recordsForYear.forEach(record => {
-        const monthNum = parseInt(record.salaryMonth.split('-')[1]);
-        distinctMonths.add(monthNames[monthNum - 1]);
-      });
-
-      setAvailableMonths(Array.from(distinctMonths).sort((a, b) => {
-        return monthNames.indexOf(a) - monthNames.indexOf(b);
-      }));
+      setAvailableMonths(months);
     } else {
       setAvailableMonths([]);
     }
@@ -541,6 +607,7 @@ const SalarySlips = () => {
               <div>
                 <div className="p-4 space-y-3">
                   <div className="flex justify-between text-sm"><span className="text-gray-600">Provident Fund</span> <span className="font-bold text-gray-800">{data.pfDeduction.toLocaleString('en-IN')}</span></div>
+                  {data.volunteerPF > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Volunteer PF</span> <span className="font-bold text-gray-800">{data.volunteerPF.toLocaleString('en-IN')}</span></div>}
                   <div className="flex justify-between text-sm"><span className="text-gray-600">Professional Tax</span> <span className="font-bold text-gray-800">{data.professionalTax.toLocaleString('en-IN')}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-gray-600">TDS</span> <span className="font-bold text-gray-800">{data.tds.toLocaleString('en-IN')}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-gray-600">ESI</span> <span className="font-bold text-gray-800">{data.esi.toLocaleString('en-IN')}</span></div>
@@ -644,10 +711,7 @@ const SalarySlips = () => {
                   <select
                     id="finYear"
                     value={financialYear}
-                    onChange={(e) => {
-                      setFinancialYear(e.target.value);
-                      if (month) handleMonthChange(month);
-                    }}
+                    onChange={(e) => setFinancialYear(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                     disabled={isLoading}
                   >

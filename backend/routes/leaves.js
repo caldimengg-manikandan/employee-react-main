@@ -11,7 +11,9 @@ const Team = require('../models/Team');
 const Notification = require('../models/Notification');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
-const { monthsBetween, calcBalanceForEmployee, mergeBalances } = require('../services/leaveService');
+const { monthsBetween, calcBalanceForEmployee, mergeBalances, runMonthlyAllocation, recordTransaction, calculateLeaveSplit, getPendingDeductions, applyLeaveDeduction } = require('../services/leaveService');
+const LeaveLedger = require('../models/LeaveLedger');
+const LeaveAllocationLog = require('../models/LeaveAllocationLog');
 const multer = require('multer');
 
 const router = express.Router();
@@ -464,8 +466,14 @@ router.get('/balance', auth, async (req, res) => {
     if (!hasPermission(req.user, 'leave_view')) {
       return res.status(403).json({ message: 'Access denied' });
     }
-    const { employeeId, calculationDate } = req.query;
+    let { employeeId, calculationDate } = req.query;
     const calcDate = calculationDate ? new Date(calculationDate) : new Date();
+
+    // Requirement 9: Employees should only view their own leave balance
+    if (req.user.role !== 'admin' && !hasPermission(req.user, 'leave_manage')) {
+      employeeId = req.user.employeeId;
+    }
+
     // Fetch active employees by default
     const filter = employeeId ? { employeeId } : { status: 'Active' };
     const employees = await Employee.find(filter).sort({ name: 1 }).lean();
@@ -480,7 +488,10 @@ router.get('/balance', auth, async (req, res) => {
           LeaveApplication.find({ 
             employeeId: { $in: empIds }, 
             status: 'Approved',
-            startDate: { $lte: calcDate }
+            startDate: { 
+              $gte: new Date(calcDate.getFullYear(), 0, 1),
+              $lte: new Date(calcDate.getFullYear(), 11, 31, 23, 59, 59)
+            }
           }).lean(),
           LeaveBalance.find({ employeeId: { $in: empIds } }).lean()
         ]);
@@ -500,25 +511,26 @@ router.get('/balance', auth, async (req, res) => {
     }
 
     const result = employees.map(emp => {
-      // If persisted leaveBalances exist in separate collection, use them
       const stored = storedBalancesMap[emp.employeeId];
       const currentYear = new Date().getFullYear();
       const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
 
+      // System calculation fallback or reference
       const systemCalc = calcBalanceForEmployee(emp, usedMap[emp.employeeId] || [], calcDate);
 
-      // Check if employee is in "No Carry Forward" period (Trainee or < 6 months)
-      // If so, we bypass stored balances to ensure monthly reset logic is strictly followed
-      const isNoCarryForward = (systemCalc.regularMonths || 0) < 6;
+      if (stored && stored.balances && storedYear === currentYear) {
+        // Use stored balances (which include manual edits and automated allocations)
+        const balances = JSON.parse(JSON.stringify(stored.balances));
+        
+        // Always sync 'used' with actual approved applications to ensure real-time accuracy
+        ['casual', 'sick', 'privilege'].forEach(type => {
+          const systemType = type === 'casual' ? 'casual' : type === 'sick' ? 'sick' : 'privilege';
+          balances[type].used = systemCalc.balances[systemType].used;
+          balances[type].balance = (balances[type].allocated || 0) - (balances[type].used || 0);
+        });
 
-      if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
-        // Calculate what the system WOULD have allocated at the time of last update
-        const lastUpdateDate = stored.lastUpdated ? new Date(stored.lastUpdated) : new Date(stored.createdAt);
-        // We pass empty array for used leaves because we only care about allocation
-        const pastSystemCalc = calcBalanceForEmployee(emp, [], lastUpdateDate);
-
-        // Merge stored allocated with system used to ensure dynamic LOP detection
-        const mergedBalances = mergeBalances(stored.balances, systemCalc, pastSystemCalc);
+        const totalBalance = (balances.casual.balance || 0) + (balances.sick.balance || 0) + (balances.privilege.balance || 0);
+        balances.totalBalance = totalBalance;
 
         return {
           employeeId: emp.employeeId || '',
@@ -527,10 +539,20 @@ router.get('/balance', auth, async (req, res) => {
           division: emp.division || '',
           location: emp.location || emp.branch || '',
           monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt, calcDate),
-          balances: mergedBalances
+          balances
         };
       }
-      return systemCalc;
+
+      // Fallback to system calculation if no stored balance for current year
+      return {
+        employeeId: emp.employeeId || '',
+        name: emp.name || emp.employeename || '',
+        position: emp.position || emp.role || '',
+        division: emp.division || '',
+        location: emp.location || emp.branch || '',
+        monthsOfService: systemCalc.monthsOfService,
+        balances: systemCalc.balances
+      };
     });
     res.json(result);
   } catch (err) {
@@ -555,6 +577,8 @@ router.put('/balance/save', auth, async (req, res) => {
     const approvals = await LeaveApplication.find({ employeeId, status: 'Approved' }).lean();
 
     let finalBalances;
+
+    const existingDoc = await LeaveBalance.findOne({ employeeId });
 
     if (manualBalances) {
       // If manual balances provided, use them but respect used counts from system
@@ -581,7 +605,20 @@ router.put('/balance/save', auth, async (req, res) => {
         },
         totalBalance: (Number(manualBalances.casual) || 0) + (Number(manualBalances.sick) || 0) + (Number(manualBalances.privilege) || 0)
       };
-    } else {
+
+      // Record Reset in Ledger if values changed
+      const now = new Date();
+      for (const type of ['casual', 'sick', 'privilege']) {
+        const typeCode = type === 'casual' ? 'CL' : type === 'sick' ? 'SL' : 'PL';
+        const newVal = Number(manualBalances[type]) || 0;
+        const oldVal = existingDoc?.balances[type]?.balance || 0;
+        
+        if (newVal !== oldVal) {
+        // Removed recordTransaction as per requirement to not use LeaveLedger
+        // The balance update below will handle the manual adjustment tracking implicitly in LeaveBalance
+      }
+    }
+  } else {
       // Default: System calculation
       finalBalances = calcBalanceForEmployee(emp, approvals).balances;
     }
@@ -686,6 +723,108 @@ router.post('/balance/sync-all', auth, async (req, res) => {
     }
 
     res.json({ message: `Synced ${updates.length} employee balances`, count: updates.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get leave ledger transactions
+// Removed /ledger/:employeeId route as per requirement to not use LeaveLedger
+
+// Manually trigger monthly allocation
+router.post('/run-allocation', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Only admin can trigger allocation' });
+    }
+    const { date } = req.body;
+    const targetDate = date ? new Date(date) : new Date();
+    
+    const result = await runMonthlyAllocation(targetDate);
+    
+    // Log the run
+    try {
+      await LeaveAllocationLog.create({
+        performedBy: req.user.employeeId || req.user._id,
+        performedByName: req.user.name,
+        targetMonth: targetDate.getMonth() + 1,
+        targetYear: targetDate.getFullYear(),
+        processedCount: result.processedCount,
+        status: 'Success',
+        details: result.details
+      });
+    } catch (logErr) {
+      console.error('Failed to save allocation log:', logErr);
+    }
+
+    res.json(result);
+  } catch (err) {
+    // Log the failure
+    try {
+      const { date } = req.body;
+      const targetDate = date ? new Date(date) : new Date();
+      await LeaveAllocationLog.create({
+        performedBy: req.user.employeeId || req.user._id,
+        performedByName: req.user.name,
+        targetMonth: targetDate.getMonth() + 1,
+        targetYear: targetDate.getFullYear(),
+        status: 'Failed',
+        error: err.message
+      });
+    } catch (_) {}
+    
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get allocation run history
+router.get('/allocation-history', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const history = await LeaveAllocationLog.find().sort({ runDate: -1 }).limit(50);
+    res.json(history);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+// Get split preview for a leave application
+router.get('/preview-split', auth, async (req, res) => {
+  try {
+    const { days, employeeId } = req.query;
+    const requestedDays = parseFloat(days);
+    if (isNaN(requestedDays) || requestedDays <= 0) {
+      return res.status(400).json({ error: 'Invalid days' });
+    }
+
+    const targetId = employeeId || req.user.employeeId;
+    if (!targetId) return res.status(400).json({ error: 'Employee ID required' });
+
+    const emp = await Employee.findOne({ employeeId: targetId }).lean();
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
+
+    // Get current balances
+    const stored = await LeaveBalance.findOne({ employeeId: targetId }).lean();
+    let balances;
+
+    if (stored) {
+      balances = stored.balances;
+    } else {
+      // Fallback to system calculation
+      const system = calcBalanceForEmployee(emp, []);
+      balances = system.balances;
+    }
+
+    const pending = await getPendingDeductions(targetId);
+    const availableBalances = {
+      casual: { balance: (balances.casual?.balance || 0) - (pending?.CL || 0) },
+      sick: { balance: (balances.sick?.balance || 0) - (pending?.SL || 0) },
+      privilege: { balance: (balances.privilege?.balance || 0) - (pending?.PL || 0) }
+    };
+
+    const split = calculateLeaveSplit(requestedDays, availableBalances);
+    res.json(split);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -979,6 +1118,15 @@ router.put('/:id/status', auth, async (req, res) => {
       await syncTimesheetWithLeave(updated);
       // try { await sendLeaveStatusEmail(updated); } catch (_) {}
 
+      // NEW: Record Debit in LeaveLedger if Approved
+      if (status === 'Approved') {
+        try {
+          await applyLeaveDeduction(updated);
+        } catch (err) {
+          console.error('Error updating ledger/balance on approval:', err);
+        }
+      }
+
       // Create Notification
       try {
         const notifType = status === 'Approved' ? 'LEAVE_APPROVED' : status === 'Rejected' ? 'LEAVE_REJECTED' : 'OTHER';
@@ -1155,9 +1303,32 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
       }
       : undefined;
 
+    // NEW: Calculate Leave Split
+    const targetEmployeeId = req.user.employeeId || emp?.employeeId || '';
+    let split = { clUsed: 0, slUsed: 0, plUsed: 0, negativePL: 0, lopDays: 0, remainingBalance: 0 };
+    
+    if (['CL', 'SL', 'PL'].includes(normalizedType)) {
+      const storedBal = await LeaveBalance.findOne({ employeeId: targetEmployeeId }).lean();
+      let currentBalances;
+      if (storedBal) {
+        currentBalances = storedBal.balances;
+      } else {
+        const system = calcBalanceForEmployee(emp || { employeeId: targetEmployeeId }, []);
+        currentBalances = system.balances;
+      }
+      const pending = await getPendingDeductions(targetEmployeeId);
+      const availableBalances = {
+        casual: { balance: (currentBalances.casual?.balance || 0) - (pending?.CL || 0) },
+        sick: { balance: (currentBalances.sick?.balance || 0) - (pending?.SL || 0) },
+        privilege: { balance: (currentBalances.privilege?.balance || 0) - (pending?.PL || 0) }
+      };
+
+      split = calculateLeaveSplit(finalDays, availableBalances);
+    }
+
     const created = await LeaveApplication.create({
       userId: req.user._id,
-      employeeId: req.user.employeeId || emp?.employeeId || '',
+      employeeId: targetEmployeeId,
       employeeName,
       location,
       leaveType: finalLeaveType,
@@ -1165,6 +1336,12 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
       endDate: finalEndDate,
       dayType: finalDayType,
       totalDays: finalDays,
+      clUsed: split.clUsed,
+      slUsed: split.slUsed,
+      plUsed: split.plUsed,
+      negativePL: split.negativePL,
+      lopDays: split.lopDays,
+      remainingBalance: split.remainingBalance,
       reason: reason || '',
       bereavementRelation: bereavementRelation || '',
       regionalHolidayName: normalizedType === REGIONAL_HOLIDAY_TYPE ? (regionalHolidayName || '') : '',
@@ -1254,7 +1431,10 @@ router.get('/email-action', async (req, res) => {
     }
     const updated = await LeaveApplication.findByIdAndUpdate(leaveId, { status: action, rejectionReason: action === 'Rejected' ? '' : leave.rejectionReason }, { new: true });
     if (updated && action === 'Approved') {
-      try { await syncTimesheetWithLeave(updated); } catch (_) { }
+      try { 
+        await syncTimesheetWithLeave(updated); 
+        await applyLeaveDeduction(updated);
+      } catch (_) { }
     }
     // try { if (updated) await sendLeaveStatusEmail(updated); } catch (_) {}
 
@@ -1371,6 +1551,38 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
       return res.status(400).json({ error: 'Medical certificate is required for sick leave exceeding 5 days' });
     }
 
+    // Recalculate Split for update
+    const targetEmployeeId = existing.employeeId;
+    let split = { 
+      clUsed: existing.clUsed || 0, 
+      slUsed: existing.slUsed || 0, 
+      plUsed: existing.plUsed || 0, 
+      negativePL: existing.negativePL || 0, 
+      lopDays: existing.lopDays || 0, 
+      remainingBalance: existing.remainingBalance 
+    };
+    
+    if (['CL', 'SL', 'PL'].includes(normalizedType)) {
+      const storedBal = await LeaveBalance.findOne({ employeeId: targetEmployeeId }).lean();
+      let currentBalances;
+      if (storedBal) {
+        currentBalances = storedBal.balances;
+      } else {
+        const emp = await Employee.findOne({ employeeId: targetEmployeeId }).lean();
+        const system = calcBalanceForEmployee(emp || { employeeId: targetEmployeeId }, []);
+        currentBalances = system.balances;
+      }
+      
+      const pending = await getPendingDeductions(targetEmployeeId, req.params.id);
+      const availableBalances = {
+        casual: { balance: (currentBalances.casual?.balance || 0) - pending.CL },
+        sick: { balance: (currentBalances.sick?.balance || 0) - pending.SL },
+        privilege: { balance: (currentBalances.privilege?.balance || 0) - pending.PL }
+      };
+
+      split = calculateLeaveSplit(finalDays || existing.totalDays, availableBalances);
+    }
+
     const updated = await LeaveApplication.findByIdAndUpdate(
       req.params.id,
       {
@@ -1379,6 +1591,12 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
         endDate: finalEndDate,
         dayType: finalDayType,
         totalDays: finalDays || existing.totalDays,
+        clUsed: split.clUsed,
+        slUsed: split.slUsed,
+        plUsed: split.plUsed,
+        negativePL: split.negativePL,
+        lopDays: split.lopDays,
+        remainingBalance: split.remainingBalance,
         reason: typeof reason === 'string' ? reason : existing.reason,
         bereavementRelation: typeof bereavementRelation === 'string' ? bereavementRelation : existing.bereavementRelation,
         regionalHolidayName: normalizedType === REGIONAL_HOLIDAY_TYPE

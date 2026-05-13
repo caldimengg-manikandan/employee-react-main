@@ -127,9 +127,13 @@ export const leaveAPI = {
   saveBalance: (data) => api.put('/leaves/balance/save', data),
   syncAllBalances: () => api.post('/leaves/balance/sync-all'),
   list: (params) => api.get('/leaves', params ? { params } : undefined),
+  getLedger: (employeeId, params) => api.get(`/leaves/ledger/${employeeId}`, params ? { params } : undefined),
+  runAllocation: (data) => api.post('/leaves/run-allocation', data),
+  getAllocationHistory: () => api.get('/leaves/allocation-history'),
   updateStatus: (id, status, rejectionReason) => api.put(`/leaves/${id}/status`, { status, rejectionReason }),
   update: (id, data) => api.put(`/leaves/${id}`, data),
   remove: (id) => api.delete(`/leaves/${id}`),
+  getPreviewSplit: (days, employeeId) => api.get('/leaves/preview-split', { params: { days, employeeId } }),
   downloadDocument: (documentUrl) => {
     const raw = typeof documentUrl === 'string' ? documentUrl.trim() : '';
     if (!raw) return Promise.reject(new Error('Invalid documentUrl'));
@@ -340,7 +344,9 @@ export const expenditureAPI = {
   updateRecord: (id, data) => api.put(`/expenditure/update/${id}`, data),
   getSummary: (params) => api.get('/expenditure/summary', { params }),
   getRecordById: (id) => api.get(`/expenditure/record/${id}`),
-  deleteRecord: (id) => api.delete(`/expenditure/record/${id}`)
+  deleteRecord: (id) => api.delete(`/expenditure/record/${id}`),
+  getExpenseTypes: () => api.get('/expenditure/expense-types'),
+  addExpenseType: (data) => api.post('/expenditure/expense-types', data),
 };
 
 export const exitFormalityAPI = {
@@ -402,6 +408,16 @@ export const promotionAPI = {
   getMyLatestApprovedPromotion: () => api.get('/promotionHistory/me/latest', { params: { status: 'Approved' } }),
 };
 
+export const supportAPI = {
+  createTicket: (formData) => api.post('/support/tickets', formData),
+  getMyTickets: () => api.get('/support/tickets/my'),
+  getAllTickets: (params) => api.get('/support/tickets/all', { params }),
+  getTicketById: (id) => api.get(`/support/tickets/${id}`),
+  updateStatus: (id, data) => api.put(`/support/tickets/${id}/status`, data),
+  addComment: (id, data) => api.post(`/support/tickets/${id}/comments`, data),
+  getDashboardStats: () => api.get('/support/dashboard-stats'),
+};
+
 // Announcements (management + public active list)
 authAPI.announcement = {
   getAll: async () => {
@@ -417,11 +433,11 @@ authAPI.announcement = {
     return res.data;
   },
   update: async (id, data) => {
-    const res = await api.put(`/announcements/${id}`, data);
+    const res = await api.put('/announcements/${id}', data);
     return res.data;
   },
   delete: async (id) => {
-    const res = await api.delete(`/announcements/${id}`);
+    const res = await api.delete('/announcements/${id}');
     return res.data;
   }
 };

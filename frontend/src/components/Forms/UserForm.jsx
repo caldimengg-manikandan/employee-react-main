@@ -33,6 +33,15 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       ]
     },
     {
+      name: "Support Center",
+      key: "support_group_access",
+      children: [
+        { key: 'raise_ticket_access', label: 'Raise Ticket' },
+        { key: 'my_tickets_access', label: 'My Tickets' },
+        { key: 'support_dashboard_access', label: 'Support Dashboard' }
+      ]
+    },
+    {
       name: "Timesheet Management",
       key: 'timesheet_access',
       children: [
@@ -76,7 +85,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         { key: 'leave_summary', label: 'Leave Summary' },
         { key: 'regional_holidays', label: 'Regional Holidays' },
         { key: 'office_holidays', label: 'Office Holidays' },
-        { key: 'leave_balance', label: 'Leave Balance' }
+        { key: 'leave_balance', label: 'Leave Balance' },
+        { key: 'leave_manage', label: 'Leave Ledger (Admin)' }
       ]
     },
     {
@@ -128,7 +138,6 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       name: "Unified Hub Calendar",
       children: [
         { key: 'unified_calendar', label: 'Unified Hub Calendar' }
-
       ]
     }
   ];
@@ -144,8 +153,10 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   };
 
   const alwaysOnPermissionKeys = ['home', 'my_profile'];
-  const restrictedPermissionsForNonAdmin = ['user_access'];
-
+  const restrictedPermissionsForNonAdmin = [
+    'user_access',
+    'support_dashboard_access'
+  ];
 
   const rolePermissionDefaults = {
     admin: getAllPermissionKeys(),
@@ -162,9 +173,11 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'performance_access',
       'self_appraisal',
       'salary_slips',
-
       'unified_calendar',
-
+      'support_group_access',
+      'raise_ticket_access',
+      'my_tickets_access',
+      'support_dashboard_access',
     ],
 
     employees: [
@@ -179,11 +192,11 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'exit_form_access',
       'salary_slips',
       'policy_portal',
-
       'unified_calendar',
-
+      'support_group_access',
+      'raise_ticket_access',
+      'my_tickets_access',
     ]
-
   };
 
   const roleOptions = [
@@ -294,7 +307,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         const group = moduleHierarchy.find(m => m.key === permission);
         if (group) {
           const childKeys = group.children.map(c => c.key).filter(k => !alwaysOnPermissionKeys.includes(k));
-          const allSelected = childKeys.every(k => nextPermissions.includes(k)) && nextPermissions.includes(permission);
+          const allSelected = childKeys.length > 0 && childKeys.every(k => nextPermissions.includes(k)) && nextPermissions.includes(permission);
 
           if (allSelected) {
             nextPermissions = nextPermissions.filter(p => p !== permission && !childKeys.includes(p));

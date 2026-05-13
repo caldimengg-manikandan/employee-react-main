@@ -64,6 +64,7 @@ router.post('/login', async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        employeeId: user.employeeId,
         role: user.role,
         permissions: user.permissions,
         lastLogin: user.lastLogin
@@ -198,6 +199,7 @@ router.get('/verify', auth, async (req, res) => {
       id: req.user._id,
       name: req.user.name,
       email: req.user.email,
+      employeeId: req.user.employeeId,
       role: req.user.role,
       permissions: req.user.permissions,
       lastLogin: req.user.lastLogin
@@ -284,6 +286,7 @@ router.put('/users/:id', auth, async (req, res) => {
     }
 
     const { name, email, role, permissions, employeeId } = req.body;
+    console.log("DEBUG: Update User Request Body:", JSON.stringify(req.body, null, 2));
     
     // Find user first to properly handle password and permissions
     const user = await User.findById(req.params.id);
@@ -324,6 +327,7 @@ router.put('/users/:id', auth, async (req, res) => {
       return res.status(400).json({ message: 'Email already exists' });
     }
     if (error && error.name === 'ValidationError') {
+      console.error("DEBUG: Validation Error details:", JSON.stringify(error.errors, null, 2));
       const messages = Object.values(error.errors || {}).map(e => e.message);
       return res.status(400).json({ message: messages.join(', ') || 'Validation error' });
     }

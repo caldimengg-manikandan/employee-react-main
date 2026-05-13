@@ -57,12 +57,11 @@ const PFGratuitySummary = () => {
         employeeRecords = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
       } catch (err) {
         // If 404 (endpoint not found or API issue), fallback to legacy method (list all & filter)
-        // This handles cases where backend server hasn't restarted yet to pick up the new route
         if (err.response && (err.response.status === 404 || err.response.status === 500)) {
            console.warn("Optimized history endpoint failed, falling back to client-side filtering.");
            const response = await monthlyPayrollAPI.list({});
            const allRecords = Array.isArray(response?.data) ? response.data : (Array.isArray(response) ? response : []);
-           employeeRecords = allRecords.filter(r => String(r.employeeId) === String(employeeId));
+           employeeRecords = allRecords.filter(r => String(r.employeeId).toLowerCase() === String(employeeId).toLowerCase());
         } else {
            throw err;
         }

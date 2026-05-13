@@ -30,6 +30,9 @@ const notificationSchema = new mongoose.Schema({
       'SPECIAL_PERMISSION_SUBMIT',
       'SPECIAL_PERMISSION_APPROVED',
       'SPECIAL_PERMISSION_REJECTED',
+      'SUPPORT_TICKET',
+      'SUPPORT_STATUS',
+      'SUPPORT_COMMENT',
       'OTHER'
     ],
     default: 'OTHER'
@@ -38,6 +41,12 @@ const notificationSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  sender: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  link: String,
+  relatedId: mongoose.Schema.Types.ObjectId,
   createdAt: {
     type: Date,
     default: Date.now

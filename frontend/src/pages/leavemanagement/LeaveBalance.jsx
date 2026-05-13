@@ -16,6 +16,15 @@ const LeaveBalance = () => {
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [historyLeaves, setHistoryLeaves] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [ledgerTransactions, setLedgerTransactions] = useState([]);
+   const [showRunHistoryModal, setShowRunHistoryModal] = useState(false);
+  const [allocationRuns, setAllocationRuns] = useState([]);
+  const [runHistoryLoading, setRunHistoryLoading] = useState(false);
+  const [selectedRun, setSelectedRun] = useState(null);
+  const [showRunDetailsModal, setShowRunDetailsModal] = useState(false);
+  const [runDetailsSearch, setRunDetailsSearch] = useState('');
+  const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+  const isAdmin = user.role === 'admin';
 
   const monthsBetween = (dateString) => {
     if (!dateString) return 0;
@@ -65,9 +74,17 @@ const LeaveBalance = () => {
           if (!agg[id]) agg[id] = { CL: 0, SL: 0, PL: 0 };
           const type = r.leaveType;
           const days = Number(r.totalDays || 0);
-          if (type === 'CL') agg[id].CL += days;
-          else if (type === 'SL') agg[id].SL += days;
-          else if (type === 'PL') agg[id].PL += days;
+          
+          // Use pre-calculated split if available, otherwise fallback to leaveType mapping
+          if (r.clUsed !== undefined || r.slUsed !== undefined || r.plUsed !== undefined) {
+            agg[id].CL += Number(r.clUsed || 0);
+            agg[id].SL += Number(r.slUsed || 0);
+            agg[id].PL += Number(r.plUsed || 0) + Number(r.negativePL || 0);
+          } else {
+            if (type === 'CL') agg[id].CL += days;
+            else if (type === 'SL') agg[id].SL += days;
+            else if (type === 'PL') agg[id].PL += days;
+          }
         });
         setPendingMap(agg);
       } catch {
@@ -109,51 +126,6 @@ const LeaveBalance = () => {
     }
   };
 
-  // Function to calculate leave balances based on designation and duration
-  const calculateLeaveBalances = (employee) => {
-    const { designation, monthsOfService } = employee;
-    let casual = 0, sick = 0, privilege = 0;
-    
-    const isTrainee = String(designation || '').toLowerCase().includes('trainee');
-    const traineeMonths = Math.min(monthsOfService, 12);
-    const usedCasual = 0;
-    const usedSick = 0;
-    const usedPrivilege = 0;
-    
-    if (isTrainee) {
-      privilege = traineeMonths * 1;
-      casual = 0;
-      sick = 0;
-    } else {
-      const firstSix = Math.min(monthsOfService, 6);
-      const afterSix = Math.max(monthsOfService - 6, 0);
-      const plNonCarry = (firstSix * 1);
-      const plCarry = afterSix * 1.25;
-      privilege = plNonCarry + plCarry;
-      casual = afterSix * 0.5;
-      sick = afterSix * 0.5;
-    }
-    
-    const base = {
-      casual: { 
-        allocated: casual, 
-        used: usedCasual, 
-        balance: (casual - usedCasual)
-      },
-      sick: { 
-        allocated: sick, 
-        used: usedSick, 
-        balance: (sick - usedSick)
-      },
-      privilege: { 
-        allocated: privilege, 
-        used: usedPrivilege, 
-        balance: (privilege - usedPrivilege)
-      },
-      totalBalance: (casual + sick + privilege - (usedCasual + usedSick + usedPrivilege))
-    };
-    return base;
-  };
 
   // Calculate PL settlement amount
   const calculatePLSettlement = (employee, balance) => {
@@ -162,12 +134,8 @@ const LeaveBalance = () => {
     return ((basicSalary / daysInMonth) * balance).toFixed(2);
   };
 
-  const employeesWithBalances = employees.map(emp => {
-    if (emp.balances) return emp;
-    return { ...emp, balances: calculateLeaveBalances(emp) };
-  });
-
-  const filteredEmployees = employeesWithBalances.filter(emp => {
+  const filteredEmployees = employees.filter(emp => {
+    if (!emp.balances) return false;
     const matchesSearch = emp.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          String(emp.empId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
                          String(emp.location || '').toLowerCase().includes(searchTerm.toLowerCase());
@@ -249,6 +217,43 @@ const LeaveBalance = () => {
     }
   };
 
+  const handleRunMonthlyAllocation = async () => {
+    const monthYear = new Date().toLocaleString('default', { month: 'long', year: 'numeric' });
+    if (!window.confirm(`Are you sure you want to run the automatic leave allocation for ${monthYear}? This will expire unused leaves for trainees/probationers and credit new leaves according to policy.`)) return;
+    
+    setLoading(true);
+    try {
+      const res = await leaveAPI.runAllocation({});
+      alert(`Success! Processed ${res.data.processedCount} employees.`);
+      loadBalances();
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || 'Failed to run allocation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewRunHistory = async () => {
+    setShowRunHistoryModal(true);
+    setRunHistoryLoading(true);
+    try {
+      const res = await leaveAPI.getAllocationHistory();
+      setAllocationRuns(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error(err);
+      setAllocationRuns([]);
+    } finally {
+      setRunHistoryLoading(false);
+    }
+  };
+
+  const handleViewRunDetails = (run) => {
+    setSelectedRun(run);
+    setShowRunDetailsModal(true);
+    setRunDetailsSearch('');
+  };
+
   const handleDownloadExcel = () => {
     const data = filteredEmployees.map(emp => ({
       'Employee ID': emp.empId || emp.id,
@@ -282,11 +287,13 @@ const LeaveBalance = () => {
     setShowHistoryModal(true);
     setHistoryLoading(true);
     try {
-      const res = await leaveAPI.list({ employeeId: employee.empId || employee.id });
-      setHistoryLeaves(Array.isArray(res.data) ? res.data : []);
+      const leavesRes = await leaveAPI.list({ employeeId: employee.empId || employee.id });
+      setHistoryLeaves(Array.isArray(leavesRes.data) ? leavesRes.data : []);
+      setLedgerTransactions([]); // No longer using ledger
     } catch (err) {
       console.error(err);
       setHistoryLeaves([]);
+      setLedgerTransactions([]);
     } finally {
       setHistoryLoading(false);
     }
@@ -300,7 +307,9 @@ const LeaveBalance = () => {
       type === 'SL' ? (emp.balances.sick.balance || 0) :
       (emp.balances.privilege.balance || 0);
     const cut = type === 'CL' ? pending.CL : type === 'SL' ? pending.SL : pending.PL;
-    return Number(base) - Number(cut);
+    const val = Number(base) - Number(cut);
+    if (type === 'CL' || type === 'SL') return Math.max(0, val);
+    return val;
   };
 
   return (
@@ -346,6 +355,26 @@ const LeaveBalance = () => {
           </button>
 
          
+          {/* Run Allocation Button (Admin Only) */}
+          {isAdmin && (
+            <div className="flex gap-2">
+              <button
+                onClick={handleRunMonthlyAllocation}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
+                title="Run Monthly Leave Allocation"
+              >
+                <span>⚙</span> Run Allocation
+              </button>
+              <button
+                onClick={handleViewRunHistory}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors text-sm"
+                title="View Allocation History"
+              >
+                <History size={16} /> Run History
+              </button>
+            </div>
+          )}
+
           {/* Refresh Button */}
           <button
             onClick={handleRefresh}
@@ -522,6 +551,14 @@ const LeaveBalance = () => {
                         <span className="text-sm font-medium text-gray-700">Balance</span>
                         <span className="font-bold text-xl text-green-600">{selectedEmployee.balances.casual.balance} </span>
                       </div>
+                      <div className="flex justify-between text-xs text-orange-600">
+                        <span>Expired (Current Period)</span>
+                        <span>{selectedEmployee.balances.casual.expired || 0} </span>
+                      </div>
+                      <div className="flex justify-between text-xs text-blue-600">
+                        <span>Carry Forward Balance</span>
+                        <span>{selectedEmployee.balances.casual.carryForwardBalance || 0} </span>
+                      </div>
                     </div>
                   </div>
                   
@@ -541,15 +578,22 @@ const LeaveBalance = () => {
                         <span className="text-sm font-medium text-gray-700">Balance</span>
                         <span className="font-bold text-xl text-green-600">{selectedEmployee.balances.sick.balance} </span>
                       </div>
+                      <div className="flex justify-between text-xs text-orange-600">
+                        <span>Expired (Current Period)</span>
+                        <span>{selectedEmployee.balances.sick.expired || 0} </span>
+                      </div>
+                      <div className="flex justify-between text-xs text-blue-600">
+                        <span>Carry Forward Balance</span>
+                        <span>{selectedEmployee.balances.sick.carryForwardBalance || 0} </span>
+                      </div>
                     </div>
                   </div>
-                  
                   {/* Privilege Leave Card */}
                   <div className="bg-purple-50 p-4 rounded-lg border border-purple-100">
-                    <h4 className="font-semibold text-purple-700 mb-3">Privilege Leave</h4>
+                    <h4 className="font-semibold text-purple-700 mb-3">Privilege Leave (PL)</h4>
                     <div className="space-y-2">
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-600">Allocated</span>
+                        <span className="text-sm text-gray-600">Allocated (Total)</span>
                         <span className="font-bold">{selectedEmployee.balances.privilege.allocated} </span>
                       </div>
                       <div className="flex justify-between">
@@ -557,8 +601,16 @@ const LeaveBalance = () => {
                         <span className="font-bold text-red-600">{selectedEmployee.balances.privilege.used} </span>
                       </div>
                       <div className="flex justify-between border-t pt-2">
-                        <span className="text-sm font-medium text-gray-700">Balance</span>
+                        <span className="text-sm font-medium text-gray-700">Remaining Balance</span>
                         <span className="font-bold text-xl text-green-600">{selectedEmployee.balances.privilege.balance} </span>
+                      </div>
+                      <div className="flex justify-between text-xs text-orange-600">
+                        <span>Expired (Current Period)</span>
+                        <span>{selectedEmployee.balances.privilege.expired || 0} </span>
+                      </div>
+                      <div className="flex justify-between text-xs text-blue-600">
+                        <span>Carry Forward Balance</span>
+                        <span>{selectedEmployee.balances.privilege.carryForwardBalance || 0} </span>
                       </div>
                       {selectedEmployee.balances.privilege.balance >= 7 && (
                         <div className="mt-3 p-2 bg-purple-100 rounded">
@@ -572,7 +624,7 @@ const LeaveBalance = () => {
                   </div>
                 </div>
               </div>
-              
+
               {/* Summary */}
               <div className="bg-gray-100 p-4 rounded-lg">
                 <div className="flex justify-between items-center">
@@ -612,59 +664,57 @@ const LeaveBalance = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto">
               {historyLoading ? (
                 <div className="flex justify-center p-8">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
                 </div>
-              ) : historyLeaves.length === 0 ? (
-                <p className="text-center text-gray-500 p-8">No leave applications found.</p>
               ) : (
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-50 sticky top-0">
-                    <tr>
-                      <th className="p-3 text-left font-medium text-gray-600">Type</th>
-                      <th className="p-3 text-left font-medium text-gray-600">Start Date</th>
-                      <th className="p-3 text-left font-medium text-gray-600">End Date</th>
-                      <th className="p-3 text-left font-medium text-gray-600">Days</th>
-                      <th className="p-3 text-left font-medium text-gray-600">Status</th>
-                      <th className="p-3 text-left font-medium text-gray-600">Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {historyLeaves.map((leave, idx) => (
-                      <tr key={leave._id || idx} className="hover:bg-gray-50">
-                        <td className="p-3 font-medium">
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            leave.leaveType === 'CL' ? 'bg-blue-100 text-blue-800' :
-                            leave.leaveType === 'SL' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
-                          }`}>
-                            {leave.leaveType}
-                          </span>
-                        </td>
-                        <td className="p-3">{formatDate(leave.startDate)}</td>
-                        <td className="p-3">{formatDate(leave.endDate)}</td>
-                        <td className="p-3">{leave.totalDays}</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-1 rounded text-xs ${
-                            leave.status === 'Approved' ? 'bg-green-100 text-green-800' :
-                            leave.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
-                            'bg-red-100 text-red-800'
-                          }`}>
-                            {leave.status}
-                          </span>
-                        </td>
-                        <td className="p-3 text-gray-600 max-w-xs truncate" title={leave.reason}>
-                          {leave.reason}
-                        </td>
+                historyLeaves.length === 0 ? (
+                  <p className="text-center text-gray-500 p-8">No leave applications found.</p>
+                ) : (
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50 sticky top-0">
+                      <tr>
+                        <th className="p-3 text-left font-medium text-gray-600">Type</th>
+                        <th className="p-3 text-left font-medium text-gray-600">Start Date</th>
+                        <th className="p-3 text-left font-medium text-gray-600">End Date</th>
+                        <th className="p-3 text-left font-medium text-gray-600">Days</th>
+                        <th className="p-3 text-left font-medium text-gray-600">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody className="divide-y">
+                      {historyLeaves.map((leave, idx) => (
+                        <tr key={leave._id || idx} className="hover:bg-gray-50">
+                          <td className="p-3 font-medium">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              leave.leaveType === 'CL' ? 'bg-blue-100 text-blue-800' :
+                              leave.leaveType === 'SL' ? 'bg-red-100 text-red-800' :
+                              'bg-yellow-100 text-yellow-800'
+                            }`}>
+                              {leave.leaveType}
+                            </span>
+                          </td>
+                          <td className="p-3">{formatDate(leave.startDate)}</td>
+                          <td className="p-3">{formatDate(leave.endDate)}</td>
+                          <td className="p-3">{leave.totalDays}</td>
+                          <td className="p-3">
+                            <span className={`px-2 py-1 rounded text-xs ${
+                              leave.status === 'Approved' ? 'bg-green-100 text-green-800' :
+                              leave.status === 'Pending' ? 'bg-orange-100 text-orange-800' :
+                              'bg-red-100 text-red-800'
+                            }`}>
+                              {leave.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )
               )}
-            </div>
+            </div> 
           </div>
         </div>
       )}
@@ -732,6 +782,173 @@ const LeaveBalance = () => {
                 Save Changes
               </button>
 
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Run History Modal */}
+      {showRunHistoryModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b flex justify-between items-center">
+              <h2 className="text-xl font-bold text-gray-800">Allocation Run History</h2>
+              <button onClick={() => setShowRunHistoryModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {runHistoryLoading ? (
+                <div className="flex justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#262760]"></div>
+                </div>
+              ) : allocationRuns.length === 0 ? (
+                <p className="text-center text-gray-500 py-8">No allocation run history found.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 sticky top-0">
+                    <tr>
+                      <th className="p-3 text-left font-medium text-gray-600">Run Date</th>
+                      <th className="p-3 text-left font-medium text-gray-600">Target Month</th>
+                      <th className="p-3 text-left font-medium text-gray-600">Processed</th>
+                      <th className="p-3 text-left font-medium text-gray-600">Status</th>
+                      <th className="p-3 text-left font-medium text-gray-600">Performed By</th>
+                      <th className="p-3 text-left font-medium text-gray-600">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {allocationRuns.map((run, idx) => (
+                      <tr key={run._id || idx} className="hover:bg-gray-50">
+                        <td className="p-3 text-gray-600">{formatDate(run.runDate)}</td>
+                        <td className="p-3 font-medium">
+                          {new Date(run.targetYear, run.targetMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                        </td>
+                        <td className="p-3 text-center">{run.processedCount || 0}</td>
+                        <td className="p-3">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            run.status === 'Success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {run.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-gray-500 text-xs">
+                          {run.performedByName || run.performedBy}
+                        </td>
+                        <td className="p-3">
+                          <button
+                            onClick={() => handleViewRunDetails(run)}
+                            className="p-1 text-blue-600 hover:bg-blue-50 rounded flex items-center gap-1"
+                            title="View Details"
+                          >
+                            <Eye size={16} /> <span className="text-xs font-medium">View</span>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            
+            <div className="p-6 border-t flex justify-end">
+              <button
+                onClick={() => setShowRunHistoryModal(false)}
+                className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+       {/* Run Details Modal */}
+      {showRunDetailsModal && selectedRun && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-lg shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="p-6 border-b flex justify-between items-center bg-gray-50">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Allocation Details</h2>
+                <p className="text-sm text-gray-600">
+                  Run on {formatDate(selectedRun.runDate)} for {new Date(selectedRun.targetYear, selectedRun.targetMonth - 1).toLocaleString('default', { month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+              <button onClick={() => setShowRunDetailsModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl">×</button>
+            </div>
+
+            <div className="p-4 border-b bg-white flex items-center gap-2">
+              <div className="relative flex-1">
+                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search employee by name or ID..."
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg outline-none focus:ring-2 focus:ring-blue-500"
+                  value={runDetailsSearch}
+                  onChange={(e) => setRunDetailsSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-0">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-100 sticky top-0 z-10">
+                  <tr>
+                    <th className="p-3 text-left font-semibold text-gray-700">Employee</th>
+                    <th className="p-3 text-center font-semibold text-gray-700">CL Credit</th>
+                    <th className="p-3 text-center font-semibold text-gray-700">SL Credit</th>
+                    <th className="p-3 text-center font-semibold text-gray-700">PL Credit</th>
+                    <th className="p-3 text-center font-semibold text-gray-700">Type</th>
+                    <th className="p-3 text-center font-semibold text-gray-700">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {(selectedRun.details || [])
+                    .filter(d => 
+                      d.employeeName.toLowerCase().includes(runDetailsSearch.toLowerCase()) ||
+                      d.employeeId.toLowerCase().includes(runDetailsSearch.toLowerCase())
+                    )
+                    .map((detail, idx) => (
+                    <tr key={idx} className="hover:bg-blue-50 transition-colors">
+                      <td className="p-3">
+                        <div className="font-medium text-gray-900">{detail.employeeName}</div>
+                        <div className="text-xs text-gray-500">{detail.employeeId}</div>
+                      </td>
+                      <td className="p-3 text-center font-medium text-blue-600">
+                        {detail.cl > 0 ? `+${detail.cl}` : '-'}
+                      </td>
+                      <td className="p-3 text-center font-medium text-red-600">
+                        {detail.sl > 0 ? `+${detail.sl}` : '-'}
+                      </td>
+                      <td className="p-3 text-center font-medium text-purple-600">
+                        {detail.pl > 0 ? `+${detail.pl}` : '-'}
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${detail.isConfirmed ? 'bg-indigo-100 text-indigo-700' : 'bg-orange-100 text-orange-700'}`}>
+                          {detail.isConfirmed ? 'CONFIRMED' : 'TRAINEE/PROB'}
+                        </span>
+                      </td>
+                      <td className="p-3 text-center">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${detail.status === 'Success' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                          {detail.status?.toUpperCase()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                  {(!selectedRun.details || selectedRun.details.length === 0) && (
+                    <tr>
+                      <td colSpan="6" className="p-8 text-center text-gray-500 italic">
+                        No individual details were recorded for this run.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="p-4 border-t bg-gray-50 flex justify-end">
+              <button
+                onClick={() => setShowRunDetailsModal(false)}
+                className="px-6 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

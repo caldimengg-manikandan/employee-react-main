@@ -64,7 +64,9 @@ router.get("/", async (req, res) => {
 router.get("/history/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
-    const records = await MonthlyPayroll.find({ employeeId }).sort({ salaryMonth: -1 });
+    const records = await MonthlyPayroll.find({ 
+      employeeId: { $regex: new RegExp(`^${employeeId}$`, "i") } 
+    }).sort({ salaryMonth: -1 });
     res.json(records);
   } catch (error) {
     res.status(500).json({ message: error.message });

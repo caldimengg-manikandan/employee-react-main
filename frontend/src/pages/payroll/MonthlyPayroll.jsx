@@ -577,11 +577,8 @@ export default function MonthlyPayroll() {
                     while (curr <= end) {
                         // Only count days within the selected month
                         if (isDateInMonth(curr)) {
-                            const day = curr.getDay();
-                            // Skip weekends
-                            if (day !== 0 && day !== 6) {
-                                count += (leave.dayType === 'Half Day' ? 0.5 : 1);
-                            }
+                            // Count every day (consistent with Leave System)
+                            count += (leave.dayType === 'Half Day' ? 0.5 : 1);
                         }
                         curr.setDate(curr.getDate() + 1);
                     }
@@ -589,9 +586,9 @@ export default function MonthlyPayroll() {
              return count;
         };
 
-        const clUsedInMonth = calcUsedInMonth('CL');
-        const slUsedInMonth = calcUsedInMonth('SL');
-        const plUsedInMonth = calcUsedInMonth('PL');
+        const clUsedInMonth = calcUsedInMonth('CL') + calcUsedInMonth('CASUAL_LEAVE');
+        const slUsedInMonth = calcUsedInMonth('SL') + calcUsedInMonth('SICK_LEAVE');
+        const plUsedInMonth = calcUsedInMonth('PL') + calcUsedInMonth('PRIVILEGE_LEAVE');
 
         // Note: If balance API includes future leaves, this subtraction might be imperfect,
         // but it is the best we can do without fetching the full history.
@@ -601,8 +598,8 @@ export default function MonthlyPayroll() {
 
         employeeLeaves.forEach(leave => {
             // Determine leave type category
-            const type = (leave.leaveType || '').toUpperCase().trim();
-            const isExplicitLOP = ['LOP', 'LOSSOFPAY', 'UNPAID', 'LWOP'].some(t => type.replace(/\s+/g, '') === t);
+            const type = (leave.leaveType || '').toUpperCase().trim().replace(/\s+/g, '_');
+            const isExplicitLOP = ['LOP', 'LOSS_OF_PAY', 'LOSSOFPAY', 'UNPAID', 'LWOP'].some(t => type === t || type.replace(/_/g, '') === t);
             
             // Iterate day by day for this leave
             const startD = new Date(leave.startDate);
@@ -632,12 +629,8 @@ export default function MonthlyPayroll() {
                     continue;
                 }
 
-                // Skip weekends (Saturday and Sunday)
-                const dayOfWeek = currentD.getDay();
-                if (dayOfWeek === 0 || dayOfWeek === 6) {
-                    currentD.setDate(currentD.getDate() + 1);
-                    continue;
-                }
+                // Count every day (consistent with Leave System)
+
 
                 // Determine day value (0.5 for Half Day, 1 for Full Day)
                 let dayValue = 1;
@@ -651,7 +644,7 @@ export default function MonthlyPayroll() {
                     lopAmount = dayValue;
                 } else {
                     // Check balance
-                    if (type === 'CL') {
+                    if (type === 'CL' || type === 'CASUAL_LEAVE') {
                         if (clUsed + dayValue <= clAlloc) {
                             clUsed += dayValue;
                         } else if (clUsed < clAlloc) {
@@ -661,7 +654,7 @@ export default function MonthlyPayroll() {
                         } else {
                             lopAmount = dayValue;
                         }
-                    } else if (type === 'SL') {
+                    } else if (type === 'SL' || type === 'SICK_LEAVE') {
                         if (slUsed + dayValue <= slAlloc) {
                             slUsed += dayValue;
                         } else if (slUsed < slAlloc) {
@@ -671,7 +664,7 @@ export default function MonthlyPayroll() {
                         } else {
                             lopAmount = dayValue;
                         }
-                    } else if (type === 'PL') {
+                    } else if (type === 'PL' || type === 'PRIVILEGE_LEAVE') {
                          if (plUsed + dayValue <= plAlloc) {
                             plUsed += dayValue;
                         } else if (plUsed < plAlloc) {
@@ -692,7 +685,7 @@ export default function MonthlyPayroll() {
                 // If this day contributes to LOP and falls in the selected month, add to count
                 if (lopAmount > 0 && isDateInMonth(currentD)) {
                     lopDaysInMonth += lopAmount;
-                    if (type === 'PL') {
+                    if (type === 'PL' || type === 'PRIVILEGE_LEAVE') {
                         plLopDaysInMonth += lopAmount;
                     }
                 }
