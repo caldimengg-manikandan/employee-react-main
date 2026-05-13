@@ -20,8 +20,8 @@ import {
 } from 'lucide-react';
 import { APPRAISAL_STAGES, calculateSalaryAnnexure, calculateCurrentSalaryAnnexure } from '../../utils/performanceUtils';
 import { performanceAPI, employeeAPI, payrollAPI } from '../../services/api';
-import balaSignature from '../../bala_signature.png';
-import uvarajSignature from '../../uvaraj_signature.png';
+import { getAbsoluteSignatureUrl } from '../../utils/signatureUtils';
+
 
 const StatusPopup = ({ isOpen, onClose, status, message }) => {
   if (!isOpen) return null;
@@ -1076,15 +1076,13 @@ const DirectorApproval = () => {
                       <div className="text-right relative">
                         <div className="mb-2 text-sm text-gray-700">For CALDIM ENGINEERING PRIVATE LIMITED</div>
                         <div className="mt-8 flex flex-col items-end min-h-[80px]">
-                          {letterData.location && letterData.location.toLowerCase().includes('hosur') && (
-                            <img src={balaSignature} alt="Authorized Signatory" className="h-16 mb-2 object-contain" crossOrigin="anonymous" />
-                          )}
-                          {letterData.location && letterData.location.toLowerCase().includes('chennai') && (
-                            <img src={uvarajSignature} alt="Authorized Signatory" className="h-16 mb-2 object-contain" crossOrigin="anonymous" />
-                          )}
-                          {(!letterData.location || (!letterData.location.toLowerCase().includes('hosur') && !letterData.location.toLowerCase().includes('chennai'))) && (
-                            <div className="h-16 mb-2"></div>
-                          )}
+                          <img 
+                            src={getAbsoluteSignatureUrl(letterData.location)} 
+                            alt="Authorized Signatory" 
+                            className="h-16 mb-2 object-contain" 
+                            crossOrigin="anonymous" 
+                          />
+
                           <div className="font-bold">Authorized Signatory</div>
                         </div>
                       </div>
@@ -1334,15 +1332,14 @@ const DirectorApproval = () => {
                         <div className="w-[380px] text-right">
                           <p className="text-[11px] text-gray-600 font-bold uppercase tracking-wide mb-3">FOR CALDIM ENGINEERING PRIVATE LIMITED</p>
                           <div className="min-h-[90px] flex items-center justify-end">
-                            {letterData.location && letterData.location.toLowerCase().includes('hosur') && (
-                              <img src={balaSignature} alt="Authorized Signatory" className="h-20 object-contain" crossOrigin="anonymous" style={{ display: 'block' }} />
-                            )}
-                            {letterData.location && letterData.location.toLowerCase().includes('chennai') && (
-                              <img src={uvarajSignature} alt="Authorized Signatory" className="h-20 object-contain" crossOrigin="anonymous" style={{ display: 'block' }} />
-                            )}
-                            {(!letterData.location || (!letterData.location.toLowerCase().includes('hosur') && !letterData.location.toLowerCase().includes('chennai'))) && (
-                              <div className="h-20 w-full" />
-                            )}
+                            <img 
+                              src={getAbsoluteSignatureUrl(letterData.location)} 
+                              alt="Authorized Signatory" 
+                              className="h-20 object-contain" 
+                              crossOrigin="anonymous" 
+                              style={{ display: 'block' }} 
+                            />
+
                           </div>
                           <p className="font-black text-gray-900 text-[13px] mt-1">Authorized Signatory</p>
                         </div>

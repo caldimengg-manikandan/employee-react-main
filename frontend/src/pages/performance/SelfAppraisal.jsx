@@ -35,8 +35,8 @@ import {
   RotateCcw
 } from 'lucide-react';
 import PromotionPage from './PromotionPage';
-import balaSignature from '../../bala_signature.png';
-import uvarajSignature from '../../uvaraj_signature.png';
+import { getAbsoluteSignatureUrl } from '../../utils/signatureUtils';
+
 
 // Colorful Modal Component
 const Modal = ({ isOpen, onClose, title, children, icon: Icon, colorTheme = "blue", maxWidth = "max-w-lg" }) => {
@@ -2167,26 +2167,13 @@ const SelfAppraisal = () => {
                         <div className="text-right relative">
                           <div className="mb-2 text-sm text-gray-700">For CALDIM ENGINEERING PRIVATE LIMITED</div>
                           <div className="mt-8 flex flex-col items-end min-h-[80px]">
-                            {letterData.location && letterData.location.toLowerCase().includes('hosur') && (
-                              <img
-                                src={balaSignature}
-                                alt="Authorized Signatory"
-                                className="h-16 mb-2 object-contain"
-                                crossOrigin="anonymous"
-                              />
-                            )}
-                            {letterData.location && letterData.location.toLowerCase().includes('chennai') && (
-                              <img
-                                src={uvarajSignature}
-                                alt="Authorized Signatory"
-                                className="h-16 mb-2 object-contain"
-                                crossOrigin="anonymous"
-                              />
-                            )}
-                            {/* Spacer if no signature matches to maintain layout */}
-                            {(!letterData.location || (!letterData.location.toLowerCase().includes('hosur') && !letterData.location.toLowerCase().includes('chennai'))) && (
-                              <div className="h-16 mb-2"></div>
-                            )}
+                            <img 
+                              src={getAbsoluteSignatureUrl(letterData.location)} 
+                              alt="Authorized Signatory" 
+                              className="h-16 mb-2 object-contain" 
+                              crossOrigin="anonymous" 
+                            />
+
                             <div className="font-bold">Authorized Signatory</div>
                           </div>
                         </div>

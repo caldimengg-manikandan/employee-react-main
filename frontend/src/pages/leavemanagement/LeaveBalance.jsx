@@ -23,6 +23,7 @@ const LeaveBalance = () => {
   const [selectedRun, setSelectedRun] = useState(null);
   const [showRunDetailsModal, setShowRunDetailsModal] = useState(false);
   const [runDetailsSearch, setRunDetailsSearch] = useState('');
+  const [allocationRunThisMonth, setAllocationRunThisMonth] = useState(false);
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const isAdmin = user.role === 'admin';
 
@@ -41,7 +42,29 @@ const LeaveBalance = () => {
 
   useEffect(() => {
     loadBalances();
+    if (isAdmin) {
+      checkAllocationStatus();
+    }
   }, []);
+
+  const checkAllocationStatus = async () => {
+    try {
+      const res = await leaveAPI.getAllocationHistory();
+      const history = Array.isArray(res.data) ? res.data : [];
+      const now = new Date();
+      const currentMonth = now.getMonth() + 1;
+      const currentYear = now.getFullYear();
+      
+      const hasRun = history.some(run => 
+        run.targetMonth === currentMonth && 
+        run.targetYear === currentYear && 
+        run.status === 'Success'
+      );
+      setAllocationRunThisMonth(hasRun);
+    } catch (err) {
+      console.error("Failed to check allocation status", err);
+    }
+  };
 
   const loadBalances = async () => {
     setLoading(true);
@@ -226,6 +249,7 @@ const LeaveBalance = () => {
       const res = await leaveAPI.runAllocation({});
       alert(`Success! Processed ${res.data.processedCount} employees.`);
       loadBalances();
+      checkAllocationStatus();
     } catch (err) {
       console.error(err);
       alert(err.response?.data?.message || 'Failed to run allocation');
@@ -360,8 +384,11 @@ const LeaveBalance = () => {
             <div className="flex gap-2">
               <button
                 onClick={handleRunMonthlyAllocation}
-                className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm"
-                title="Run Monthly Leave Allocation"
+                disabled={allocationRunThisMonth}
+                className={`flex items-center gap-2 px-4 py-2 text-white rounded-lg transition-colors text-sm ${
+                  allocationRunThisMonth ? 'bg-gray-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'
+                }`}
+                title={allocationRunThisMonth ? "Already run for this month" : "Run Monthly Leave Allocation"}
               >
                 <span>⚙</span> Run Allocation
               </button>

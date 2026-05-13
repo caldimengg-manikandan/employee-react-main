@@ -18,8 +18,8 @@ import {
 import { employeeAPI, compensationAPI, mailAPI } from "../../services/api";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import balaSignature from '../../bala_signature.png';
-import uvarajSignature from '../../uvaraj_signature.png';
+import { getAbsoluteSignatureUrl } from '../../utils/signatureUtils';
+
 
 // Salary Calculation Functions
 // === 50/25/25 Rule (matches backend: update_payrolls_50_25_25.js & directorRoutes.js) ===
@@ -1995,13 +1995,13 @@ confirmation of employment will be communicated in writing.
                 <div style={{ fontSize: '12pt', fontWeight: 'bold' }}>For Caldim Engineering Pvt Ltd</div>
                 
                 <div style={{ marginTop: '10px', height: '60px', display: 'flex', alignItems: 'flex-end' }}>
-                  {selectedCompensation?.location === 'Hosur' ? (
-                    <img src={balaSignature} alt="Authorized Signature" style={{ maxHeight: '60px' }} />
-                  ) : selectedCompensation?.location === 'Chennai' ? (
-                    <img src={uvarajSignature} alt="Authorized Signature" style={{ maxHeight: '90px' }} />
-                  ) : (
-                    <div style={{ height: '60px' }}></div>
-                  )}
+                  <img 
+                    src={getAbsoluteSignatureUrl(selectedCompensation?.location)} 
+                    alt="Authorized Signature" 
+                    style={{ maxHeight: '60px' }} 
+                    crossOrigin="anonymous" 
+                  />
+
                 </div>
 
                 <div style={{ fontSize: '12pt', fontWeight: 'bold' }}>Authorized Signatory</div>

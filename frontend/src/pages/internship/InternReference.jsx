@@ -3,8 +3,7 @@ import { internAPI, mailAPI } from "../../services/api";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
-import balaSignature from '../../bala_signature.png';
-import uvarajSignature from '../../uvaraj_signature.png';
+import { getAbsoluteSignatureUrl } from '../../utils/signatureUtils';
 import {
   PencilIcon,
   TrashIcon,
@@ -1530,190 +1529,92 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
 
       {/* Add CSS animation for notification */}
       <style>{`
-        @keyframes fadeIn {
-          from { opacity: 0; transform: translateY(-10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        
-        .animate-fade-in {
-          animation: fadeIn 0.3s ease-out;
-        }
+        .animate-fade-in { animation: fade-in 0.3s ease-out; }
       `}</style>
-      
-      {/* Hidden Offer Letter Templates - Both Pages with Same Letter Pad */}
+
+
+      {/* Hidden PDF Template */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-        {/* Page 1 - Main Offer Letter */}
-        <div id="intern-offer-letter-p1" className="bg-white relative" style={{ width: '210mm', minHeight: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
+        {/* Page 1: Offer Letter */}
+        <div id="intern-offer-letter-p1" className="bg-white p-0" style={{ width: '794px', minHeight: '1120px', position: 'relative', display: 'flex', flexDirection: 'column' }}>
           <LetterHeader />
-          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <div className="px-8 py-6 flex-grow" style={{ paddingLeft: '32px', paddingRight: '32px', paddingTop: '24px', paddingBottom: '24px', flexGrow: 1 }}>
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-                <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '4px' }}>INTERNSHIP OFFER LETTER</div>
-                <div style={{ height: '2px', width: '100px', backgroundColor: '#f37021', margin: '8px auto' }}></div>
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '14px', marginBottom: '4px' }}>
-                    <strong>Date:</strong> {formatDate(new Date())}
-                  </div>
-                  <div style={{ fontSize: '14px', marginBottom: '4px' }}>
-                    <strong>Intern ID:</strong> {selectedIntern?.internId || '-'}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '14px', marginBottom: '8px' }}>To:</div>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>{selectedIntern?.fullName || ''}</div>
-                <div style={{ fontSize: '14px', marginBottom: '4px' }}>{selectedIntern?.address || ''}</div>
-                <div style={{ fontSize: '14px', marginBottom: '4px' }}>{selectedIntern?.contactEmail || ''}</div>
-                <div style={{ fontSize: '14px', marginBottom: '4px' }}>{selectedIntern?.contactPhone || ''}</div>
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '12px' }}>Subject: Internship Offer at CALDIM</div>
-                
-                <div style={{ fontSize: '14px', lineHeight: '1.8', marginBottom: '16px' }}>
-                  Dear {selectedIntern?.fullName || 'Candidate'},
-                </div>
-
-                <div style={{ fontSize: '14px', lineHeight: '1.8', marginBottom: '16px' }}>
-                  We are pleased to offer you an opportunity to join CALDIM as an Intern in the <strong>{selectedIntern?.department || ''}</strong> department.
-                </div>
-
-                <div style={{ fontSize: '14px', lineHeight: '1.8', marginBottom: '16px' }}>
-                  Your internship with CALDIM Engineering Private Limited will commence on <strong>{formatDate(selectedIntern?.startDate)}</strong> and will continue until <strong>{formatDate(selectedIntern?.endDate)}</strong>, unless extended or terminated earlier in accordance with the company policies.
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Internship Details</div>
-                
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                  <tr>
-                    <td style={{ padding: '8px 0', width: '40%', fontWeight: 'bold' }}>Position:</td>
-                    <td style={{ padding: '8px 0' }}>Intern – {selectedIntern?.internshipType || 'Internship'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 0', fontWeight: 'bold' }}>Department:</td>
-                    <td style={{ padding: '8px 0' }}>{selectedIntern?.department || ''}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 0', fontWeight: 'bold' }}>Reporting To:</td>
-                    <td style={{ padding: '8px 0' }}>{selectedIntern?.mentor || ''}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 0', fontWeight: 'bold' }}>Location:</td>
-                    <td style={{ padding: '8px 0' }}>{selectedIntern?.workLocation || 'Chennai'}</td>
-                  </tr>
-                  <tr>
-                    <td style={{ padding: '8px 0', fontWeight: 'bold' }}>Internship Duration:</td>
-                    <td style={{ padding: '8px 0' }}>{diffDuration(selectedIntern?.startDate, selectedIntern?.endDate)}</td>
-                  </tr>
-                </table>
-              </div>
-
-              <div style={{ marginTop: '16px' }}>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Stipend</div>
-                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-                  During the internship period, you will receive a stipend of ₹{selectedIntern?.stipendAmount || ''} per month, payable as per the company’s payment cycle. Any statutory deductions, if applicable, will be made in accordance with prevailing regulations.
-                </div>
-              </div>
-
-             
-
-              {/* End of Page 1 content */}
+          <div className="p-16 flex-grow" style={{ padding: '60px 80px' }}>
+            <div className="text-right mb-8">
+              <div className="font-bold text-gray-800">Date: {formatDate(new Date())}</div>
             </div>
-            <LetterFooter />
+            <div className="mb-8">
+              <div className="font-bold text-gray-800 mb-2">To:</div>
+              <div className="font-bold text-lg text-gray-900">{selectedIntern?.fullName}</div>
+              <div className="text-gray-700">{selectedIntern?.collegeName}</div>
+              <div className="text-gray-700">{selectedIntern?.degree} - {selectedIntern?.department}</div>
+            </div>
+            <div className="text-center mb-10">
+              <h2 className="text-2xl font-bold text-[#1e2b58] underline decoration-[#f37021] underline-offset-8">INTERNSHIP OFFER LETTER</h2>
+            </div>
+
+            <div className="space-y-6 text-justify leading-relaxed text-gray-800">
+              <p>Dear <span className="font-bold text-gray-900">{selectedIntern?.fullName}</span>,</p>
+              
+              <p>
+                We are pleased to offer you an opportunity to join <span className="font-bold text-[#1e2b58]">CALDIM Engineering Private Limited</span> as an Intern in the <span className="font-bold text-gray-900">{selectedIntern?.department}</span> department.
+              </p>
+
+              <p>
+                Your internship will commence on <span className="font-bold text-gray-900">{formatDate(selectedIntern?.startDate)}</span> and will continue until <span className="font-bold text-gray-900">{formatDate(selectedIntern?.endDate)}</span>, unless extended or terminated earlier in accordance with the company policies.
+              </p>
+
+              <p>
+                During this period, you will be reporting to <span className="font-bold text-gray-900">{selectedIntern?.mentor}</span>. We expect you to maintain high standards of discipline and professionalism during your tenure with us.
+              </p>
+
+              <p>
+                As discussed, you will be eligible for a monthly stipend of <span className="font-bold text-gray-900">₹{selectedIntern?.stipendAmount || 'N/A'}</span>.
+              </p>
+
+              <p>
+                We look forward to a mutually beneficial association.
+              </p>
+            </div>
+
+            <div className="mt-20 flex justify-end">
+              <div className="text-right">
+                <div className="font-bold text-gray-800 mb-2">For CALDIM Engineering Pvt Ltd</div>
+                <div className="h-20 flex items-end justify-end mb-2">
+                  <img 
+                    src={getAbsoluteSignatureUrl(selectedIntern?.workLocation)} 
+                    alt="Signature" 
+                    style={{ maxHeight: '60px' }}
+                    crossOrigin="anonymous"
+                  />
+                </div>
+                <div className="font-bold text-gray-900">Authorized Signatory</div>
+              </div>
+            </div>
           </div>
+          <LetterFooter />
         </div>
 
-        {/* Page 2 - Annexure */}
-        <div id="intern-offer-letter-p2" className="bg-white relative" style={{ width: '210mm', minHeight: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
+        {/* Page 2: Terms & Conditions */}
+        <div id="intern-offer-letter-p2" className="bg-white p-0" style={{ width: '794px', minHeight: '1120px', position: 'relative', display: 'flex', flexDirection: 'column' }}>
           <LetterHeader />
-          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
-            <div className="px-8 py-6 flex-grow" style={{ paddingLeft: '32px', paddingRight: '32px', paddingTop: '24px', paddingBottom: '24px', flexGrow: 1 }}>
-              <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-               
-              </div>
-
-             
-
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Roles & Responsibilities</div>
-                <ul style={{ fontSize: '14px', lineHeight: '1.8', paddingLeft: '20px', margin: '0' }}>
-                  <li>Assist the team in assigned project activities</li>
-                  <li>Support documentation, reporting, and technical tasks as required</li>
-                  <li>Participate in learning and development activities</li>
-                  <li>Maintain professionalism and adhere to company standards and policies</li>
-                </ul>
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Confidentiality</div>
-                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-                  You are required to maintain strict confidentiality regarding all proprietary information, business processes, client information, and internal data of CALDIM. Such information must not be disclosed during or after the completion of your internship.
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Company Policies</div>
-                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-                  You are expected to comply with all organizational policies, rules, and regulations, including working hours, code of conduct, and security guidelines.
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58', marginBottom: '12px' }}>Completion Certificate</div>
-                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-                  Upon successful completion of the internship and submission of assigned work or reports, CALDIM may issue an Internship Completion Certificate, subject to performance evaluation.
-                </div>
-              </div>
-              
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#1e2b58' }}>Termination</div>
-                <div style={{ fontSize: '14px', lineHeight: '1.8', marginTop: '8px' }}>
-                  Either party may terminate the internship by providing {selectedIntern?.noticePeriod || '7 days'} notice, or immediately in case of violation of company policies or misconduct.
-                </div>
-              </div>
-              
-              <div style={{ fontSize: '14px', lineHeight: '1.8', marginBottom: '16px' }}>
-                Kindly confirm your acceptance of this offer by signing this letter and returning a copy to us via email within {selectedIntern?.acceptanceDeadline || '3 days'}.
-              </div>
-              
-              <div style={{ fontSize: '14px', lineHeight: '1.8', marginBottom: '24px' }}>
-                We look forward to your contribution and wish you a valuable learning experience with CALDIM.
-              </div>
-              
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '24px' }}>
-                <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-                  Signature: ___________________________<br />
-                  Date: ________________________________
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '14px', marginBottom: '6px' }}>For Caldim Engineering Private.Ltd</div>
-                  <div style={{ minHeight: '70px', display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end' }}>
-                    {selectedIntern?.workLocation && selectedIntern.workLocation.toLowerCase().includes('hosur') && (
-                      <img src={balaSignature} alt="Authorized Signatory" style={{ maxHeight: '60px' }} crossOrigin="anonymous" />
-                    )}
-                    {selectedIntern?.workLocation && selectedIntern.workLocation.toLowerCase().includes('chennai') && (
-                      <img src={uvarajSignature} alt="Authorized Signatory" style={{ maxHeight: '60px' }} crossOrigin="anonymous" />
-                    )}
-                    {(!selectedIntern?.workLocation || (!selectedIntern.workLocation.toLowerCase().includes('hosur') && !selectedIntern.workLocation.toLowerCase().includes('chennai'))) && (
-                      <div style={{ height: '60px' }}></div>
-                    )}
-                  </div>
-                  <div style={{ borderTop: '2px solid #1e2b58', width: '220px', marginLeft: 'auto', marginTop: '8px', marginBottom: '6px' }} />
-                  <div style={{ fontSize: '14px', fontWeight: '800', letterSpacing: '0.02em' }}>DIRECTOR</div>
-                  <div style={{ fontSize: '14px', color: '#4b5563' }}>Authorized Signatory</div>
-                </div>
-              </div>
+          <div className="p-16 flex-grow" style={{ padding: '60px 80px' }}>
+            <h3 className="text-xl font-bold text-[#1e2b58] underline decoration-[#f37021] underline-offset-8 mb-8 text-center">Terms and Conditions</h3>
+            <div className="space-y-6 text-[13px] text-justify text-gray-800 leading-relaxed">
+              <p><span className="font-bold text-gray-900">1. Working Hours:</span> Your working hours will be as per the company's rules and regulations.</p>
+              <p><span className="font-bold text-gray-900">2. Confidentiality:</span> You shall maintain absolute confidentiality of all information, documents, and data belonging to the company that you may come across during your internship.</p>
+              <p><span className="font-bold text-gray-900">3. Intellectual Property:</span> Any intellectual property created by you during the internship shall belong exclusively to CALDIM Engineering Private Limited.</p>
+              <p><span className="font-bold text-gray-900">4. Code of Conduct:</span> You are expected to follow the company's code of conduct and maintain professionalism at all times.</p>
+              <p><span className="font-bold text-gray-900">5. Termination:</span> The company reserves the right to terminate the internship at any time without prior notice in case of breach of conduct or performance issues.</p>
             </div>
-            <LetterFooter />
           </div>
+          <LetterFooter />
         </div>
       </div>
+
+
+
+
+
     </div>
   );
 };

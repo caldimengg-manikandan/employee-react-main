@@ -19,8 +19,9 @@ import { exitFormalityAPI, employeeAPI, monthlyPayrollAPI } from '../services/ap
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { Modal, message, Input } from 'antd';
-import balaSignature from '../bala_signature.png';
-import uvarajSignature from '../uvaraj_signature.png';
+
+import { getAbsoluteSignatureUrl } from '../utils/signatureUtils';
+
 
 const ExitApproval = () => {
   const [loading, setLoading] = useState(true);
@@ -215,14 +216,15 @@ const ExitApproval = () => {
     const location = (form.location || emp?.location || '').toLowerCase().trim();
     
     let signatory = hrManager;
-    let signatureImage = null;
+    const signatureImage = getAbsoluteSignatureUrl(location);
+    
     if (location.includes('hosur')) {
       signatory = 'BALA';
-      signatureImage = balaSignature;
     } else if (location.includes('chennai')) {
       signatory = 'UVARAJ';
-      signatureImage = uvarajSignature;
     }
+
+
 
     const letterData = {
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
@@ -317,13 +319,12 @@ const ExitApproval = () => {
     const location = (form.location || empRecord?.location || '').toLowerCase().trim();
     
     let signatory = hrManager;
-    let signatureImage = null;
+    const signatureImage = getAbsoluteSignatureUrl(location);
+
     if (location.includes('hosur')) {
       signatory = 'BALA';
-      signatureImage = balaSignature;
     } else if (location.includes('chennai')) {
       signatory = 'UVARAJ';
-      signatureImage = uvarajSignature;
     }
 
     const data = {
