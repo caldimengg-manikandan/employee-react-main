@@ -238,8 +238,8 @@ const ProjectDashboard = () => {
         { name: 'Project Allocation', description: 'Assign employees to projects', path: '/project-allocation', icon: FolderIcon, showForRoles: ['admin', 'projectmanager', 'manager',], allowEmployeeRole: true, category: 'Work & Productivity' },
 
         // Leave Management
-        { name: 'Leave Summary', description: 'View leave summary', path: '/leave-management/summary', icon: ChartBarIcon, permission: 'leave_view', showForRoles: ['admin', 'hr', 'manager'], category: 'Leave Management' },
-        { name: 'Leave Balance', description: 'Check leave balance', path: '/leave-management/balance', icon: ClipboardDocumentListIcon, permission: 'leave_view', category: 'Leave Management' },
+        { name: 'Leave Summary', description: 'View leave summary', path: '/leave-management/summary', icon: ChartBarIcon, permission: 'leave_summary', showForRoles: ['admin', 'hr', 'manager'], category: 'Leave Management' },
+        { name: 'Leave Balance', description: 'Check leave balance', path: '/leave-management/balance', icon: ClipboardDocumentListIcon, permission: 'leave_balance', category: 'Leave Management' },
         { name: 'Leave Applications', description: 'Apply & track leaves', path: '/leave-applications', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true, category: 'Leave Management' },
 
         // Insurance & Policy
@@ -303,11 +303,11 @@ const ProjectDashboard = () => {
 
             // 2. Role Check (Secondary Safeguard)
             if (m.showForRoles && !m.showForRoles.includes(role)) {
-                if (!m.permission) return false;
+                if (role !== 'admin' && m.allowEmployeeRole !== true) return false;
             }
 
             // 3. Employee Specific Check
-            if (role === 'employees' && !m.allowEmployeeRole && !m.permission) {
+            if (role === 'employees' && m.allowEmployeeRole === false) {
                 return false;
             }
 

@@ -176,7 +176,7 @@ const RaiseTicket = () => {
         <div className="max-w-2xl mx-auto animate-stagger-1">
           <div className="mb-10 flex justify-between items-start">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">New Support Ticket</h2>
+              <h2 className="text-2xl font-bold text-gray-900">Raise Ticket</h2>
               <p className="text-gray-500 text-sm mt-1">Please fill out the form below to register your concern.</p>
             </div>
             <div className="bg-blue-50 p-3 rounded-2xl animate-bounce">

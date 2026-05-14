@@ -373,9 +373,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         return false;
       }
       if (child.showForRoles && !child.showForRoles.includes(role)) {
-        if (role !== "admin" && !child.permission) return false;
+        if (role !== "admin" && child.allowEmployeeRole !== true) return false;
       }
-      if (role === "employees" && !child.allowEmployeeRole && !child.permission) {
+      if (role === "employees" && child.allowEmployeeRole === false) {
         return false;
       }
       return true;
@@ -402,11 +402,11 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
 
     // 4. Role-based visibility check (respect explicitly restricted roles)
     if (item.showForRoles && !item.showForRoles.includes(role)) {
-      if (role !== "admin" && !item.permission) return false;
+      if (role !== "admin" && item.allowEmployeeRole !== true) return false;
     }
 
-    // 5. Employee specific exclusion (if no specific permission is granted)
-    if (role === "employees" && !item.allowEmployeeRole && !item.permission) {
+    // 5. Employee specific exclusion
+    if (role === "employees" && item.allowEmployeeRole === false) {
       return false;
     }
 

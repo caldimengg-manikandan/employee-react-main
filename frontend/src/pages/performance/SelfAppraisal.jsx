@@ -38,6 +38,7 @@ import PromotionPage from './PromotionPage';
 import { getAbsoluteSignatureUrl } from '../../utils/signatureUtils';
 
 
+
 // Colorful Modal Component
 const Modal = ({ isOpen, onClose, title, children, icon: Icon, colorTheme = "blue", maxWidth = "max-w-lg" }) => {
   if (!isOpen) return null;
@@ -2054,17 +2055,17 @@ const SelfAppraisal = () => {
                       {/* SVG Background for Header */}
                       <div className="absolute inset-0 z-0">
                         <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
-                          <path d="M0,0 L400,0 L340,128 L0,128 Z" fill="#1e2b58" />
-                          <path d="M400,0 L430,0 L370,128 L340,128 Z" fill="#f37021" />
+                          <path d="M0,0 L480,0 L410,128 L0,128 Z" fill="#1e2b58" />
+                          <path d="M480,0 L510,0 L440,128 L410,128 Z" fill="#f37021" />
                         </svg>
                       </div>
 
-                      <div className="relative w-[60%] flex items-center pl-8 pr-12 z-10">
+                      <div className="relative w-[60%] flex items-center pl-2 pr-12 z-10">
                         <div className="flex items-center gap-4">
                           <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ display: 'block' }} />
-                          <div className="text-white">
-                            <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
-                            <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">ENGINEERING PRIVATE LIMITED</p>
+                          <div className="text-white font-bitsumishi">
+                            <h1 className="text-5xl font-bold leading-none tracking-[0.05em]">CALDIM</h1>
+                            <p className="text-[9px] tracking-[0.18em] mt-1 text-orange-400 font-semibold uppercase">ENGINEERING PRIVATE LIMITED</p>
                           </div>
                         </div>
                       </div>
@@ -2165,7 +2166,7 @@ const SelfAppraisal = () => {
                       {/* Signatory */}
                       <div className="mt-12 flex justify-end">
                         <div className="text-right relative">
-                          <div className="mb-2 text-sm text-gray-700">For CALDIM ENGINEERING PRIVATE LIMITED</div>
+                          <div className="mb-2 text-sm text-gray-700 font-bold font-bitsumishi">For CALDIM ENGINEERING PRIVATE LIMITED</div>
                           <div className="mt-8 flex flex-col items-end min-h-[80px]">
                             <img 
                               src={getAbsoluteSignatureUrl(letterData.location)} 
@@ -2219,17 +2220,17 @@ const SelfAppraisal = () => {
                       {/* SVG Background for Header */}
                       <div className="absolute inset-0 z-0">
                         <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
-                          <path d="M0,0 L400,0 L340,128 L0,128 Z" fill="#1e2b58" />
-                          <path d="M400,0 L430,0 L370,128 L340,128 Z" fill="#f37021" />
+                          <path d="M0,0 L480,0 L410,128 L0,128 Z" fill="#1e2b58" />
+                          <path d="M480,0 L510,0 L440,128 L410,128 Z" fill="#f37021" />
                         </svg>
                       </div>
 
-                      <div className="relative w-[60%] flex items-center pl-8 pr-12 z-10">
+                      <div className="relative w-[60%] flex items-center pl-2 pr-12 z-10">
                         <div className="flex items-center gap-4">
                           <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ display: 'block' }} />
-                          <div className="text-white">
-                            <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
-                            <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">ENGINEERING PRIVATE LIMITED</p>
+                          <div className="text-white font-bitsumishi">
+                            <h1 className="text-5xl font-bold leading-none tracking-[0.05em]">CALDIM</h1>
+                            <p className="text-[9px] tracking-[0.18em] mt-1 text-orange-400 font-semibold uppercase">ENGINEERING PRIVATE LIMITED</p>
                           </div>
                         </div>
                       </div>

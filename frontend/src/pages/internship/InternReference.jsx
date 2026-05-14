@@ -75,7 +75,7 @@ const InternReference = () => {
   });
   const [sendingEmail, setSendingEmail] = useState(false);
 
-  const headerSvg = "data:image/svg+xml;charset=utf-8,%3Csvg width='1000' height='128' viewBox='0 0 1000 128' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'%3E%3Cpath d='M0,0 L560,0 L490,128 L0,128 Z' fill='%231e2b58' /%3E%3Cpath d='M560,0 L610,0 L540,128 L490,128 Z' fill='%23f37021' /%3E%3C/svg%3E";
+  const headerSvg = "data:image/svg+xml;charset=utf-8,%3Csvg width='1000' height='128' viewBox='0 0 1000 128' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'%3E%3Cpath d='M0,0 L600,0 L530,128 L0,128 Z' fill='%231e2b58' /%3E%3Cpath d='M600,0 L630,0 L560,128 L530,128 Z' fill='%23f37021' /%3E%3C/svg%3E";
 
   const LetterHeader = () => (
     <div className="w-full h-32 relative overflow-hidden flex" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
@@ -83,12 +83,12 @@ const InternReference = () => {
         <img src={headerSvg} alt="" style={{ width: '100%', height: '100%', display: 'block', objectFit: 'fill' }} />
       </div>
       <div className="relative z-10 w-full flex" style={{ height: '100%' }}>
-        <div className="w-[60%] flex items-center pl-8 pr-12" style={{ width: '60%', display: 'flex', alignItems: 'center', paddingLeft: '32px', paddingRight: '48px' }}>
+        <div className="w-[60%] flex items-center pl-2 pr-12" style={{ width: '60%', display: 'flex', alignItems: 'center', paddingLeft: '8px', paddingRight: '48px' }}>
           <div className="flex items-center gap-4" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
             <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" style={{ height: '64px', width: 'auto', filter: 'brightness(0) invert(1)' }} />
-            <div className="text-white" style={{ color: 'white' }}>
-              <h1 className="text-4xl font-bold leading-none tracking-wide">CALDIM</h1>
-              <p className="text-[11px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">ENGINEERING PRIVATE LIMITED</p>
+            <div className="text-white font-bitsumishi">
+              <h1 className="text-5xl font-bold leading-none tracking-[0.05em]">CALDIM</h1>
+              <p className="text-[9px] tracking-[0.18em] mt-1 text-orange-400 font-semibold uppercase">ENGINEERING PRIVATE LIMITED</p>
             </div>
           </div>
         </div>
@@ -1578,7 +1578,7 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
 
             <div className="mt-20 flex justify-end">
               <div className="text-right">
-                <div className="font-bold text-gray-800 mb-2">For CALDIM Engineering Pvt Ltd</div>
+                <div className="font-bold text-gray-800 mb-2 font-bitsumishi">For CALDIM Engineering Private Limited</div>
                 <div className="h-20 flex items-end justify-end mb-2">
                   <img 
                     src={getAbsoluteSignatureUrl(selectedIntern?.workLocation)} 

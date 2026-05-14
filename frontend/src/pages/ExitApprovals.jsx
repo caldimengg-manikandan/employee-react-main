@@ -865,12 +865,12 @@ const ExitApproval = () => {
                 <div className="w-full flex h-32 relative overflow-hidden">
                   <div className="absolute inset-0 z-0">
                     <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
-                      <path d="M0,0 L400,0 L340,128 L0,128 Z" fill="#1e2b58" />
-                      <path d="M400,0 L430,0 L370,128 L340,128 Z" fill="#f37021" />
+                      <path d="M0,0 L480,0 L410,128 L0,128 Z" fill="#1e2b58" />
+                      <path d="M480,0 L510,0 L440,128 L410,128 Z" fill="#f37021" />
                     </svg>
                   </div>
 
-                  <div className="relative w-[60%] flex items-center pl-8 pr-12 z-10">
+                  <div className="relative w-[60%] flex items-center pl-2 pr-12 z-10">
                     <div className="flex items-center gap-4">
                       <img
                         src="/images/steel-logo.png"
@@ -879,9 +879,9 @@ const ExitApproval = () => {
                         crossOrigin="anonymous"
                         style={{ display: 'block' }}
                       />
-                      <div className="text-white">
-                        <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
-                        <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">
+                      <div className="text-white font-bitsumishi">
+                        <h1 className="text-5xl font-bold leading-none tracking-[0.05em]">CALDIM</h1>
+                        <p className="text-[10px] tracking-[0.17em] mt-4 text-orange-400 font-semibold uppercase">
                           ENGINEERING PRIVATE LIMITED
                         </p>
                       </div>
@@ -957,15 +957,15 @@ const ExitApproval = () => {
                     <p>While accepting the Same, we thank you very much for close association you had with us during the tenure from <span className="font-semibold">{letterData.joinDate}</span> to <span className="font-semibold">{letterData.lastWorkingDate}</span> as a <span className="font-semibold">{letterData.designation}</span>. You have been relieved from your service with effect from the closing working hours of <span className="font-semibold">{letterData.lastWorkingDate}</span> and your work with us is found to be satisfactory.</p>
                     <p>We wish you all the best in your future career.</p>
                   </div>
-                  <div className="mt-12 flex justify-end">
+                  <div className="mt-10 flex justify-end">
                     <div className="text-right">
-                      <div className="mb-2 text-sm text-gray-700 font-bold">For {companyName}</div>
-                      <div className="mt-8 relative inline-block">
+                      <div className="mb-2 text-sm text-gray-700 font-bold font-bitsumishi">For {companyName}</div>
+                      <div className="mt-8 relative inline-block text-center">
                         {letterData.signatureImage && (
                           <img 
                             src={letterData.signatureImage} 
                             alt="Signature" 
-                            className="h-20 w-auto mb-2 ml-auto relative z-10"
+                            className="h-20 w-auto mb-2 relative z-10 mx-auto"
                             crossOrigin="anonymous"
                           />
                         )}
@@ -974,15 +974,15 @@ const ExitApproval = () => {
                     </div>
                   </div>
                 </div>
-                <div className="w-full flex items-end mt-auto">
-                  <div className="h-3 bg-[#f37021] flex-1 mb-0"></div>
-                  <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center relative" style={{ minWidth: '450px' }}>
+                <div className="w-full flex items-end mt-auto relative h-20">
+                  <div className="bg-[#f37021] flex-1 mb-0 h-8"></div>
+                  <div className="bg-[#1e2b58] text-white flex flex-col items-end justify-center relative min-w-[400px] h-16 px-10">
                     <div 
-                      className="absolute inset-y-0 left-0 w-12 bg-white" 
-                      style={{ transform: 'skewX(-20deg) translateX(-50%)', transformOrigin: 'top' }}
+                      className="absolute inset-y-0 left-0 w-16 bg-[#1e2b58]" 
+                      style={{ transform: 'skewX(-25deg) translateX(-50%)', transformOrigin: 'top' }}
                     ></div>
-                    <div className="text-sm font-medium tracking-wide relative z-10">Website : www.caldimengg.com</div>
-                    <div className="text-sm font-medium tracking-wide mt-1 relative z-10">CIN U74999TN2016PTC110683</div>
+                    <div className="text-[13px] font-bold tracking-wide relative z-10">Website : www.caldimengg.com</div>
+                    <div className="text-[13px] font-bold tracking-wide mt-1 relative z-10">CIN U74999TN2016PTC110683</div>
                   </div>
                 </div>
               </div>
@@ -1029,12 +1029,12 @@ const ExitApproval = () => {
                 <div className="w-full flex h-32 relative overflow-hidden">
                   <div className="absolute inset-0 z-0">
                     <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
-                      <path d="M0,0 L400,0 L340,128 L0,128 Z" fill="#1e2b58" />
-                      <path d="M400,0 L430,0 L370,128 L340,128 Z" fill="#f37021" />
+                      <path d="M0,0 L480,0 L410,128 L0,128 Z" fill="#1e2b58" />
+                      <path d="M480,0 L510,0 L440,128 L410,128 Z" fill="#f37021" />
                     </svg>
                   </div>
 
-                  <div className="relative w-[60%] flex items-center pl-8 pr-12 z-10">
+                  <div className="relative w-[60%] flex items-center pl-2 pr-12 z-10">
                     <div className="flex items-center gap-4">
                       <img
                         src="/images/steel-logo.png"
@@ -1043,9 +1043,9 @@ const ExitApproval = () => {
                         crossOrigin="anonymous"
                         style={{ display: 'block' }}
                       />
-                      <div className="text-white">
-                        <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
-                        <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">
+                      <div className="text-white font-bitsumishi">
+                        <h1 className="text-5xl font-bold leading-none tracking-[0.05em]">CALDIM</h1>
+                        <p className="text-[10px] tracking-[0.17em] mt-4 text-orange-400 font-semibold uppercase">
                           ENGINEERING PRIVATE LIMITED
                         </p>
                       </div>
@@ -1120,15 +1120,16 @@ const ExitApproval = () => {
                     )}
                     <p>We wish you all success in your future endeavors.</p>
                     <p>Thanking you,</p>
-                    <p className="font-bold">For {experienceLetterData.companyName}</p>
                   </div>
-                  <div className="mt-16 flex justify-start">
-                    <div className="text-left relative inline-block">
+                  <div className="mt-10 flex justify-end">
+                    <div className="text-right">
+                      <p className="font-bold mb-2 font-bitsumishi">For {experienceLetterData.companyName}</p>
+                      <div className="text-center relative inline-block">
                       {experienceLetterData.signatureImage && (
                         <img 
                           src={experienceLetterData.signatureImage} 
                           alt="Signature" 
-                          className="h-20 w-auto mb-2 ml-10 relative z-10"
+                          className="h-20 w-auto mb-2 relative z-10 mx-auto"
                           crossOrigin="anonymous"
                         />
                       )}
@@ -1136,15 +1137,16 @@ const ExitApproval = () => {
                     </div>
                   </div>
                 </div>
-                <div className="w-full flex items-end mt-auto">
-                  <div className="h-3 bg-[#f37021] flex-1 mb-0"></div>
-                  <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center relative" style={{ minWidth: '450px' }}>
+              </div>
+                <div className="w-full flex items-end mt-auto relative h-20">
+                  <div className="bg-[#f37021] flex-1 mb-0 h-8"></div>
+                  <div className="bg-[#1e2b58] text-white flex flex-col items-end justify-center relative min-w-[400px] h-16 px-10">
                     <div 
-                      className="absolute inset-y-0 left-0 w-12 bg-white" 
-                      style={{ transform: 'skewX(-20deg) translateX(-50%)', transformOrigin: 'top' }}
+                      className="absolute inset-y-0 left-0 w-16 bg-[#1e2b58]" 
+                      style={{ transform: 'skewX(-25deg) translateX(-50%)', transformOrigin: 'top' }}
                     ></div>
-                    <div className="text-sm font-medium tracking-wide relative z-10">Website : www.caldimengg.com</div>
-                    <div className="text-sm font-medium tracking-wide mt-1 relative z-10">CIN U74999TN2016PTC110683</div>
+                    <div className="text-[13px] font-bold tracking-wide relative z-10">Website : www.caldimengg.com</div>
+                    <div className="text-[13px] font-bold tracking-wide mt-1 relative z-10">CIN U74999TN2016PTC110683</div>
                   </div>
                 </div>
               </div>
