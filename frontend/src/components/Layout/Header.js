@@ -33,8 +33,8 @@ const Header = ({ onMenuClick }) => {
       '/insurance': 'Insurance',
       '/expenditure-management': 'Expenditure Management',
       '/employee-reward-tracker': 'Employee Reward Tracker',
-      '/holidays-allowance': 'Holidays Allowance',
-      '/holidays-allowance/summary': 'Holidays Allowance Summary',
+      '/holidays-allowance': 'Allowance Master',
+      '/holidays-allowance/summary': 'Allowance Master Summary',
 
       // Timesheet Management
       '/timesheet': 'Timesheet',

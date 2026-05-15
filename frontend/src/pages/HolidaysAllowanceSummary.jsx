@@ -75,14 +75,12 @@ const HolidaysAllowanceSummary = () => {
         const applicableRows = rows.filter((row) => {
           const holidayDays = Number(row.holidayDays || 0);
           const shiftDays = Number(row.shiftDays || 0);
-          const holidayTotal = Number(row.holidayTotal || 0);
-          const shiftTotal = Number(row.shiftTotal || 0);
+          const foodDays = Number(row.foodDays || 0);
           const totalAmount = Number(row.totalAmount || 0);
           return (
             holidayDays > 0 ||
             shiftDays > 0 ||
-            holidayTotal > 0 ||
-            shiftTotal > 0 ||
+            foodDays > 0 ||
             totalAmount > 0
           );
         });
@@ -100,7 +98,7 @@ const HolidaysAllowanceSummary = () => {
 
   useEffect(() => {
     loadSummary();
-  }, []);
+  }, [monthFilter, yearFilter]);
 
   const handleApplyFilter = () => {
     const searchParams = new URLSearchParams();
@@ -134,6 +132,7 @@ const HolidaysAllowanceSummary = () => {
       ['Total Employees', summary?.totalEmployees ?? 0],
       ['Total Holiday Amount', summary?.totalHolidayAmount ?? 0],
       ['Total Shift Amount', summary?.totalShiftAmount ?? 0],
+      ['Total Food Amount', summary?.totalFoodAmount ?? 0],
       ['Grand Total Amount', summary?.totalAmount ?? 0],
       [],
       ['DETAILED RECORDS']
@@ -144,6 +143,7 @@ const HolidaysAllowanceSummary = () => {
       'S.No', 
       'Employee ID', 
       'Employee Name', 
+      'Division',
       'Bank Name',
       'IFSC',
       'Account Number', 
@@ -152,6 +152,8 @@ const HolidaysAllowanceSummary = () => {
       'Holiday Amount', 
       'Shift Days', 
       'Shift Amount', 
+      'Food Days',
+      'Food Amount',
       'Total Amount'
     ];
 
@@ -160,14 +162,17 @@ const HolidaysAllowanceSummary = () => {
       index + 1,
       row.employeeId,
       row.employeeName,
-      row.bankName || '',
-      row.ifsc || '',
+      row.division || '-',
+      row.bankName || '-',
+      row.ifsc || '-',
       row.accountNumber,
       row.location,
       row.holidayDays ?? 0,
       row.holidayTotal ?? 0,
       row.shiftDays ?? 0,
       row.shiftTotal ?? 0,
+      row.foodDays ?? 0,
+      row.foodTotal ?? 0,
       row.totalAmount ?? 0
     ]);
 
@@ -182,12 +187,17 @@ const HolidaysAllowanceSummary = () => {
       { wch: 6 },  // S.No
       { wch: 15 }, // ID
       { wch: 25 }, // Name
+      { wch: 15 }, // Division
+      { wch: 20 }, // Bank
+      { wch: 15 }, // IFSC
       { wch: 20 }, // Account
       { wch: 15 }, // Location
-      { wch: 12 }, // Month (re-used for H-Days)
+      { wch: 12 }, // H-Days
       { wch: 15 }, // H-Amt
       { wch: 12 }, // S-Days
       { wch: 15 }, // S-Amt
+      { wch: 12 }, // F-Days
+      { wch: 15 }, // F-Amt
       { wch: 15 }  // Total
     ];
     worksheet['!cols'] = wscols;
@@ -271,7 +281,7 @@ const HolidaysAllowanceSummary = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
           <div className="text-2xl font-bold text-blue-700">
             {summary?.totalEmployees ?? 0}
@@ -298,6 +308,14 @@ const HolidaysAllowanceSummary = () => {
         </div>
         <div className="p-4 bg-purple-50 rounded-lg border border-purple-100">
           <div className="text-2xl font-bold text-purple-700">
+            ₹{(summary?.totalFoodAmount || 0).toFixed(2)}
+          </div>
+          <div className="mt-1 text-xs font-medium text-gray-600 uppercase tracking-wide">
+            Food Allowance Amount
+          </div>
+        </div>
+        <div className="p-4 bg-rose-50 rounded-lg border border-rose-100">
+          <div className="text-2xl font-bold text-rose-700">
             ₹{(summary?.totalAmount || 0).toFixed(2)}
           </div>
           <div className="mt-1 text-xs font-medium text-gray-600 uppercase tracking-wide">
@@ -314,16 +332,17 @@ const HolidaysAllowanceSummary = () => {
                 <th className="px-4 py-3">S.No</th>
                 <th className="px-4 py-3">Employee ID</th>
                 <th className="px-4 py-3">Employee Name</th>
+                <th className="px-4 py-3">Division</th>
+                <th className="px-4 py-3">Location</th>
                 <th className="px-4 py-3">Bank Name</th>
                 <th className="px-4 py-3">IFSC</th>
                 <th className="px-4 py-3">Account Number</th>
-                <th className="px-4 py-3">Location</th>
-                <th className="px-4 py-3">Month</th>
-                <th className="px-4 py-3">Year</th>
                 <th className="px-4 py-3 text-right">Holiday Days</th>
                 <th className="px-4 py-3 text-right">Holiday Amount</th>
                 <th className="px-4 py-3 text-right">Shift Days</th>
                 <th className="px-4 py-3 text-right">Shift Amount</th>
+                <th className="px-4 py-3 text-right">Food Days</th>
+                <th className="px-4 py-3 text-right">Food Amount</th>
                 <th className="px-4 py-3 text-right">Total Amount</th>
               </tr>
             </thead>
@@ -331,7 +350,7 @@ const HolidaysAllowanceSummary = () => {
               {records.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={14}
+                    colSpan={15}
                     className="px-6 py-10 text-center text-gray-500"
                   >
                     <div className="flex flex-col items-center gap-2">
@@ -351,14 +370,11 @@ const HolidaysAllowanceSummary = () => {
                       {row.employeeId}
                     </td>
                     <td className="px-4 py-3">{row.employeeName}</td>
+                    <td className="px-4 py-3">{row.division || '-'}</td>
+                    <td className="px-4 py-3">{row.location}</td>
                     <td className="px-4 py-3">{row.bankName || '-'}</td>
                     <td className="px-4 py-3 font-mono">{row.ifsc || '-'}</td>
                     <td className="px-4 py-3 font-mono">{row.accountNumber}</td>
-                    <td className="px-4 py-3">{row.location}</td>
-                    <td className="px-4 py-3">
-                      {months.find(m => m.value === row.month)?.label || row.month}
-                    </td>
-                    <td className="px-4 py-3">{row.year}</td>
                     <td className="px-4 py-3 text-right">
                       {row.holidayDays ?? 0}
                     </td>
@@ -370,6 +386,12 @@ const HolidaysAllowanceSummary = () => {
                     </td>
                     <td className="px-4 py-3 text-right">
                       ₹{(row.shiftTotal || 0).toFixed(2)}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      {row.foodDays ?? 0}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      ₹{(row.foodTotal || 0).toFixed(2)}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-[#1e2050]">
                       ₹{(row.totalAmount || 0).toFixed(2)}

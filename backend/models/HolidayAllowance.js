@@ -8,6 +8,7 @@ const HolidayAllowanceSchema = new mongoose.Schema(
       index: true,
     },
     employeeName: String,
+    division: String,
     location: String,
     accountNumber: String,
     grossSalary: {
@@ -43,6 +44,18 @@ const HolidayAllowanceSchema = new mongoose.Schema(
       default: 0,
     },
     shiftTotal: {
+      type: Number,
+      default: 0,
+    },
+    foodDays: {
+      type: Number,
+      default: 0,
+    },
+    foodAllottedAmount: {
+      type: Number,
+      default: 0,
+    },
+    foodTotal: {
       type: Number,
       default: 0,
     },

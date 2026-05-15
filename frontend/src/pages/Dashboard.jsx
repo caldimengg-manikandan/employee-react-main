@@ -257,7 +257,7 @@ const ProjectDashboard = () => {
         { name: 'Gratuity Summary', description: 'View gratuity', path: '/payroll/gratuity-summary', icon: BanknotesIcon, permission: 'gratuity_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         { name: 'Monthly Payroll', description: 'Process monthly payroll', path: '/payroll/monthly', icon: BanknotesIcon, permission: 'payroll_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         { name: 'Marriage Allowance', description: 'Manage marriage allowance claims', path: '/payroll/marriage-allowance', icon: BanknotesIcon, permission: 'marriage_allowance', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
-        { name: 'Holiday Allowance', description: 'Manage holiday working allowances', path: '/holidays-allowance', icon: BanknotesIcon, permission: 'holiday_allowance', showForRoles: ['admin', 'hr', 'manager'], category: 'Finance & Payroll' },
+        { name: 'Allowance Master', description: 'Manage holiday working allowances', path: '/holidays-allowance', icon: BanknotesIcon, permission: 'holiday_allowance', showForRoles: ['admin', 'hr', 'manager'], category: 'Finance & Payroll' },
 
 
 

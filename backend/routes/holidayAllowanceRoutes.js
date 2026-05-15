@@ -40,18 +40,18 @@ router.post("/bulk-save", auth, async (req, res) => {
 
       const filter = {
         employeeId: item.employeeId,
-        month,
-        year,
+        month: Number(month),
+        year: Number(year),
       };
 
-      // Backend validation for ₹1500 limit on per day amount, not on the total
+      // Backend validation for ₹1500 limit on per day amount
       let perDayAmountUsed = Number(item.perDayAmount) || 0;
       if (perDayAmountUsed > 1500) perDayAmountUsed = 1500;
       
-      let calculatedHolidayTotal = Math.round((Number(item.holidayDays) || 0) * perDayAmountUsed);
-      
+      const calculatedHolidayTotal = Math.round((Number(item.holidayDays) || 0) * perDayAmountUsed);
       const calculatedShiftTotal = Math.round((Number(item.shiftAllottedAmount) || 0) * (Number(item.shiftDays) || 0));
-      const calculatedTotalAmount = calculatedHolidayTotal + calculatedShiftTotal;
+      const calculatedFoodTotal = Math.round((Number(item.foodDays) || 0) * (Number(item.foodAllottedAmount) || 0));
+      const calculatedTotalAmount = calculatedHolidayTotal + calculatedShiftTotal + calculatedFoodTotal;
 
       const emp = employeeMap.get(item.employeeId);
       const latestAccountNumber =
@@ -62,6 +62,7 @@ router.post("/bulk-save", auth, async (req, res) => {
         $set: {
           employeeId: item.employeeId,
           employeeName: item.employeeName,
+          division: item.division,
           location: item.location,
           accountNumber: latestAccountNumber,
           grossSalary: Number(item.grossSalary) || 0,
@@ -73,6 +74,9 @@ router.post("/bulk-save", auth, async (req, res) => {
           shiftAllottedAmount: Number(item.shiftAllottedAmount) || 0,
           shiftDays: Number(item.shiftDays) || 0,
           shiftTotal: calculatedShiftTotal,
+          foodDays: Number(item.foodDays) || 0,
+          foodAllottedAmount: Number(item.foodAllottedAmount) || 0,
+          foodTotal: calculatedFoodTotal,
           totalAmount: calculatedTotalAmount,
         }
       };
@@ -126,7 +130,7 @@ router.get("/", auth, async (req, res) => {
     const employees = employeeIds.length
       ? await Employee.find(
           { employeeId: { $in: employeeIds } },
-          { employeeId: 1, bankName: 1, bankAccount: 1, ifsc: 1, branch: 1 }
+          { employeeId: 1, bankName: 1, bankAccount: 1, ifsc: 1, branch: 1, division: 1, location: 1 }
         ).lean()
       : [];
     const employeeMap = new Map(employees.map((e) => [e.employeeId, e]));
@@ -141,10 +145,12 @@ router.get("/", auth, async (req, res) => {
       return {
         ...r,
         accountNumber: bankAccount,
-        bankName: emp?.bankName || "",
+        bankName: emp?.bankName || r.bankName || "",
         bankAccount,
-        ifsc: emp?.ifsc || "",
-        branch: emp?.branch || "",
+        ifsc: emp?.ifsc || r.ifsc || "",
+        branch: emp?.branch || r.location || "",
+        division: r.division || emp?.division || "-",
+        location: r.location || emp?.location || emp?.branch || "-",
       };
     });
 
@@ -189,6 +195,7 @@ router.get("/summary", auth, async (req, res) => {
           totalHolidayAmount: { $sum: "$holidayTotal" },
           totalShiftDays: { $sum: "$shiftDays" },
           totalShiftAmount: { $sum: "$shiftTotal" },
+          totalFoodAmount: { $sum: "$foodTotal" },
           totalAmount: { $sum: "$totalAmount" },
           avgPerDayAmount: { $avg: "$perDayAmount" },
         },
@@ -203,6 +210,7 @@ router.get("/summary", auth, async (req, res) => {
         totalHolidayAmount: 0,
         totalShiftDays: 0,
         totalShiftAmount: 0,
+        totalFoodAmount: 0,
         totalAmount: 0,
         avgPerDayAmount: 0,
       };

@@ -104,11 +104,8 @@ const HolidaysAllowance = () => {
         year: selectedYear,
       };
 
-      if (selectedLocation) {
-        filteredEmps = filteredEmps.filter(e => e.location === selectedLocation);
-        params.location = selectedLocation;
-      }
-
+      // We fetch all records for the month/year to ensure we have the saved data
+      // even if the employee's current location has changed.
       let savedRecords = [];
       try {
         const savedRes = await holidayAllowanceAPI.list(params);
@@ -117,6 +114,10 @@ const HolidaysAllowance = () => {
         }
       } catch (err) {
         console.error("Error fetching saved holiday allowances:", err);
+      }
+
+      if (selectedLocation) {
+        filteredEmps = filteredEmps.filter(e => e.location === selectedLocation);
       }
 
       const savedMap = new Map();
@@ -152,7 +153,8 @@ const HolidaysAllowance = () => {
           sNo: index + 1,
           employeeId: emp.employeeId,
           employeeName: emp.name || emp.employeename,
-          location: payroll?.location || emp.location || '-',
+          division: saved?.division || emp.division || payroll?.division || '-',
+          location: saved?.location || payroll?.location || emp.location || '-',
           bankName: saved?.bankName || emp.bankName || payroll?.bankName || '-',
           ifsc: saved?.ifsc || saved?.ifscCode || emp.ifsc || payroll?.ifscCode || '-',
           accountNumber:
@@ -173,15 +175,31 @@ const HolidaysAllowance = () => {
           shiftAllottedAmount: shiftAllottedAmount,
           shiftDays: shiftDays,
           shiftTotal: shiftTotal,
+          
+          // Food Allowance Fields
+          foodDays: saved?.foodDays ?? 0,
+          foodAllottedAmount: saved?.foodAllottedAmount ?? 75,
+          foodTotal: Math.round((saved?.foodDays ?? 0) * (saved?.foodAllottedAmount ?? 75)),
 
           // Combined Total
-          totalAmount: totalAmount,
+          totalAmount: holidayTotal + shiftTotal + Math.round((saved?.foodDays ?? 0) * (saved?.foodAllottedAmount ?? 75)),
           
           status: saved ? 'Saved' : 'Draft'
         };
       });
 
-      setTableData(merged);
+      // Sort by employeeId sequentially
+      merged.sort((a, b) => {
+        return a.employeeId.localeCompare(b.employeeId, undefined, { numeric: true, sensitivity: 'base' });
+      });
+
+      // Re-assign S.No after sorting
+      const sortedWithSNo = merged.map((item, idx) => ({
+        ...item,
+        sNo: idx + 1
+      }));
+
+      setTableData(sortedWithSNo);
 
     } catch (error) {
       console.error("Error loading data:", error);
@@ -199,7 +217,8 @@ const HolidaysAllowance = () => {
     const recalcTotals = () => {
       row.holidayTotal = Math.round((row.holidayDays || 0) * (row.perDayAmount || 0));
       row.shiftTotal = Math.round((row.shiftAllottedAmount || 0) * (row.shiftDays || 0));
-      row.totalAmount = row.holidayTotal + row.shiftTotal;
+      row.foodTotal = Math.round((row.foodDays || 0) * (row.foodAllottedAmount || 0));
+      row.totalAmount = row.holidayTotal + row.shiftTotal + row.foodTotal;
     };
 
     if (field === 'holidayDays') {
@@ -218,6 +237,14 @@ const HolidaysAllowance = () => {
     } else if (field === 'shiftDays') {
       const days = parseFloat(value) || 0;
       row.shiftDays = days;
+      recalcTotals();
+    } else if (field === 'foodDays') {
+      const days = parseFloat(value) || 0;
+      row.foodDays = days;
+      recalcTotals();
+    } else if (field === 'foodAllottedAmount') {
+      const amount = parseFloat(value) || 0;
+      row.foodAllottedAmount = amount;
       recalcTotals();
     }
 
@@ -241,6 +268,9 @@ const HolidaysAllowance = () => {
           shiftAllottedAmount: row.shiftAllottedAmount,
           shiftDays: row.shiftDays,
           shiftTotal: row.shiftTotal,
+          foodDays: row.foodDays,
+          foodAllottedAmount: row.foodAllottedAmount,
+          foodTotal: row.foodTotal,
           totalAmount: row.totalAmount
         }))
       };
@@ -305,7 +335,9 @@ const HolidaysAllowance = () => {
       )}
 
       {/* Header */}
-      
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">Allowance Master</h1>
+      </div>
 
       {/* Controls */}
       <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-center">
@@ -394,6 +426,7 @@ const HolidaysAllowance = () => {
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">S.No</th>
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Employee ID</th>
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Employee Name</th>
+                <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Division</th>
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Location</th>
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">Bank Name</th>
                 <th rowSpan="2" className="px-4 py-3 border-r border-gray-500">IFSC</th>
@@ -405,6 +438,9 @@ const HolidaysAllowance = () => {
                 <th colSpan="3" className="px-4 py-2 text-center border-r border-gray-500 border-b border-gray-500">
                   Shift Allowance
                 </th>
+                <th colSpan="3" className="px-4 py-2 text-center border-r border-gray-500 border-b border-gray-500">
+                  Food Allowance
+                </th>
                 <th rowSpan="2" className="px-4 py-3">Total Amount</th>
               </tr>
               <tr>
@@ -413,6 +449,9 @@ const HolidaysAllowance = () => {
                 <th className="px-4 py-2 border-r border-gray-500 text-center">Total</th>
                 <th className="px-4 py-2 border-r border-gray-500 text-center">Allotted Amount</th>
                 <th className="px-4 py-2 border-r border-gray-500 text-center">No. of Days</th>
+                <th className="px-4 py-2 border-r border-gray-500 text-center">Total</th>
+                <th className="px-4 py-2 border-r border-gray-500 text-center">No. of Days</th>
+                <th className="px-4 py-2 border-r border-gray-500 text-center">Allotted Amount</th>
                 <th className="px-4 py-2 border-r border-gray-500 text-center">Total</th>
               </tr>
             </thead>
@@ -432,7 +471,22 @@ const HolidaysAllowance = () => {
                     <td className="px-4 py-3 border-r">{row.sNo}</td>
                     <td className="px-4 py-3 border-r font-medium text-gray-900">{row.employeeId}</td>
                     <td className="px-4 py-3 border-r">{row.employeeName}</td>
-                    <td className="px-4 py-3 border-r">{row.location}</td>
+                    <td className="px-2 py-2 border-r">
+                      <input 
+                        type="text"
+                        className="w-full px-2 py-1 border rounded focus:ring-[#1e2050] focus:border-[#1e2050]"
+                        value={row.division}
+                        onChange={(e) => handleInputChange(index, 'division', e.target.value)}
+                      />
+                    </td>
+                    <td className="px-2 py-2 border-r">
+                      <input 
+                        type="text"
+                        className="w-full px-2 py-1 border rounded focus:ring-[#1e2050] focus:border-[#1e2050]"
+                        value={row.location}
+                        onChange={(e) => handleInputChange(index, 'location', e.target.value)}
+                      />
+                    </td>
                     <td className="px-4 py-3 border-r">{row.bankName}</td>
                     <td className="px-4 py-3 border-r font-mono">{row.ifsc}</td>
                     <td className="px-4 py-3 border-r font-mono">{row.accountNumber}</td>
@@ -482,6 +536,29 @@ const HolidaysAllowance = () => {
                     </td>
                     <td className="px-4 py-3 border-r text-right font-medium text-gray-700 bg-gray-50">
                       {row.shiftTotal?.toLocaleString()}
+                    </td>
+
+                    {/* Food Allowance Inputs */}
+                    <td className="px-2 py-2 border-r">
+                      <input 
+                        type="number" 
+                        min="0"
+                        className="w-full px-2 py-1 border rounded focus:ring-[#1e2050] focus:border-[#1e2050] text-center"
+                        value={row.foodDays}
+                        onChange={(e) => handleInputChange(index, 'foodDays', e.target.value)}
+                      />
+                    </td>
+                    <td className="px-2 py-2 border-r">
+                      <input 
+                        type="number"
+                        min="0" 
+                        className="w-full px-2 py-1 border rounded focus:ring-[#1e2050] focus:border-[#1e2050] text-right"
+                        value={row.foodAllottedAmount}
+                        onChange={(e) => handleInputChange(index, 'foodAllottedAmount', e.target.value)}
+                      />
+                    </td>
+                    <td className="px-4 py-3 border-r text-right font-medium text-gray-700 bg-gray-50">
+                      {row.foodTotal?.toLocaleString()}
                     </td>
                     
                     {/* Final Total */}
