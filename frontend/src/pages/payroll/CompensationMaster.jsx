@@ -83,6 +83,23 @@ const calculateSalaryFields = (salaryData) => {
   };
 };
 
+// Helper to prepare compensation data (handles legacy records and calculations)
+const prepareCompensationData = (comp) => {
+  if (!comp) return comp;
+  let prepared = { ...comp };
+  // Reconstruct gross if not saved (legacy records before gross was added to schema)
+  if (!prepared.gross && (prepared.basicDA || prepared.hra || prepared.specialAllowance)) {
+    const basic = Number(prepared.basicDA) || 0;
+    const hra = Number(prepared.hra) || 0;
+    const special = Number(prepared.specialAllowance) || 0;
+    const empPF = Number(prepared.employeePfContribution) || 1800;
+    const emprPF = Number(prepared.employerPfContribution) || 1950;
+    const esi = Number(prepared.esi) || 0;
+    prepared.gross = basic + hra + special + empPF + emprPF + esi;
+  }
+  return calculateSalaryFields(prepared);
+};
+
 const initialCompensation = {
   employeeId: "",
   name: "",
@@ -260,7 +277,7 @@ const CompensationMaster = () => {
         if (locs.length > 0) setLocations(locs);
 
         if (Array.isArray(compRes.data)) {
-          setCompensation(compRes.data);
+          setCompensation(compRes.data.map(item => prepareCompensationData(item)));
         }
       } catch (error) {
         console.error("Error loading data", error);
@@ -300,7 +317,7 @@ const CompensationMaster = () => {
 
   const handleEdit = (index) => {
     setEditingIndex(index);
-    let comp = { ...compensation[index] };
+    let comp = prepareCompensationData(compensation[index]);
 
     // Format effectiveDate for type="date" input (requires YYYY-MM-DD)
     if (comp.effectiveDate) {
@@ -309,20 +326,6 @@ const CompensationMaster = () => {
         comp.effectiveDate = date.toISOString().split('T')[0];
       }
     }
-
-    // Reconstruct gross if not saved (legacy records before gross was added to schema)
-    if (!comp.gross && (comp.basicDA || comp.hra || comp.specialAllowance)) {
-      const basic = Number(comp.basicDA) || 0;
-      const hra = Number(comp.hra) || 0;
-      const special = Number(comp.specialAllowance) || 0;
-      const empPF = Number(comp.employeePfContribution) || 1800;
-      const emprPF = Number(comp.employerPfContribution) || 1950;
-      const esi = Number(comp.esi) || 0;
-      comp.gross = basic + hra + special + empPF + emprPF + esi;
-    }
-    
-    // Ensure all calculated fields (totalEarnings, netSalary, etc.) are populated for the summary display
-    comp = calculateSalaryFields(comp);
 
     setFormData(comp);
     setOpenDialog(true);
@@ -787,11 +790,11 @@ We’re excited to have you join our team and look forward to your growth and su
         const id = compensation[editingIndex]._id;
         const res = await compensationAPI.update(id, payload);
         const next = [...compensation];
-        next[editingIndex] = res.data;
+        next[editingIndex] = prepareCompensationData(res.data);
         setCompensation(next);
       } else {
         const res = await compensationAPI.create(payload);
-        setCompensation(prev => [res.data, ...prev]);
+        setCompensation(prev => [prepareCompensationData(res.data), ...prev]);
       }
       setOpenDialog(false);
       setEditingIndex(null);
