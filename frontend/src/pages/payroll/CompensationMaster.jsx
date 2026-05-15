@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+// Forced reload comment
 import {
   Plus,
   Search,
@@ -51,15 +52,14 @@ const calculateSalaryFields = (salaryData) => {
   const professionalTax = parseFloat(salaryData.professionalTax) || 0;
   const volunteerPFVal = parseFloat(salaryData.volunteerPF) || 0;
 
-  // Total Earnings = Basic + HRA + Special Allowance (take-home components)
-  const totalEarnings = basicDA + hra + specialAllowance;
+  // Total Earnings (Gross) = Basic + HRA + Special + Employee PF + Employer PF + ESI
+  const totalEarnings = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
   
   // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax + Volunteer PF
   const totalDeductions = employeePF + employerPF + esi + professionalTax + volunteerPFVal;
   
-  // Net Salary = (Basic + HRA + Special Allowance) - (Professional Tax + Volunteer PF)
-  // This represents the actual take-home amount
-  const netSalary = (basicDA + hra + specialAllowance) - (professionalTax + volunteerPFVal);
+  // Net Salary = Total Earnings - Total Deductions
+  const netSalary = totalEarnings - totalDeductions;
   
   // CTC = Gross + Gratuity
   const ctc = Math.round(inputGross + gratuity);
@@ -128,35 +128,38 @@ const initialCompensation = {
 };
 
 
-const headerSvg = "data:image/svg+xml;charset=utf-8,%3Csvg width='1000' height='128' viewBox='0 0 1000 128' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'%3E%3Cpath d='M0,0 L600,0 L530,128 L0,128 Z' fill='%231e2b58' /%3E%3Cpath d='M600,0 L630,0 L560,128 L530,128 Z' fill='%23f37021' /%3E%3C/svg%3E";
+
 
 const LetterHeader = () => (
   <div className="w-full h-32 relative overflow-hidden flex" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
     <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
-      <img src={headerSvg} alt="" style={{ width: '100%', height: '100%', display: 'block', objectFit: 'fill' }} />
+      <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
+        <path d="M0,0 L480,0 L410,128 L0,128 Z" fill="#1e2b58" />
+        <path d="M480,0 L510,0 L440,128 L410,128 Z" fill="#f37021" />
+      </svg>
     </div>
-    <div className="relative z-10 w-full flex" style={{ height: '100%' }}>
-      <div className="w-[60%] flex items-center pl-2 pr-12" style={{ width: '60%', display: 'flex', alignItems: 'center', paddingLeft: '8px', paddingRight: '48px' }}>
+    <div className="relative z-10 w-full flex h-full" style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%', display: 'flex' }}>
+      <div className="w-[60%] flex items-center pl-2 pr-8" style={{ width: '60%', display: 'flex', alignItems: 'center', paddingLeft: '8px', paddingRight: '32px' }}>
         <div className="flex items-center gap-4" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" style={{ height: '64px', width: 'auto', filter: 'brightness(0) invert(1)' }} />
-          <div className="text-white font-bitsumishi" style={{ color: 'white' }}>
-             <h1 className="text-5xl font-bold leading-none tracking-[0.05em]">CALDIM</h1>
-             <p className="text-[9px] tracking-[0.18em] mt-1 text-orange-400 font-semibold uppercase">ENGINEERING PRIVATE LIMITED</p>
+          <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ height: '64px', width: 'auto', display: 'block' }} />
+          <div className="text-white font-bitsumishi">
+            <h1 className="text-5xl font-bold leading-none tracking-[0.05em]" style={{ color: 'white' }}>CALDIM</h1>
+            <p className="text-[10px] tracking-[0.17em] mt-4 text-orange-400 font-semibold uppercase">ENGINEERING PRIVATE LIMITED</p>
           </div>
         </div>
       </div>
       <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', paddingRight: '32px', paddingTop: '8px' }}>
         <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-          <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', color: '#1f2937', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
-          <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+          <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
+          <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
             </svg>
           </div>
         </div>
         <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
-          <span className="text-sm font-semibold text-gray-700 w-64 leading-tight" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', width: '256px', lineHeight: 1.25 }}>No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
-          <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', marginLeft: '12px', marginTop: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+          <span className="text-sm font-semibold text-gray-700 w-64 leading-tight" style={{ fontSize: '14px', fontWeight: 600, width: '256px', lineHeight: 1.25 }}>No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
+          <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '12px', marginTop: '4px' }}>
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
@@ -170,23 +173,15 @@ const LetterHeader = () => (
 
 
 const LetterFooter = () => (
-  <div className="w-full flex items-end mt-auto relative" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative' }}>
-    <div className="bg-[#f37021] flex-1 mb-0" style={{ height: '8px', backgroundColor: '#f37021', flex: 1, marginBottom: 0 }}></div>
-    <div className="relative text-white flex flex-col items-end justify-center" style={{ 
-      position: 'relative', 
-      minWidth: '350px', 
-      height: '60px',
-      background: 'linear-gradient(135deg, transparent 25px, #1e2b58 25px)',
-      padding: '0 40px 0 60px', 
-      display: 'flex', 
-      flexDirection: 'column', 
-      alignItems: 'flex-end', 
-      justifyContent: 'center' 
-    }}>
-      <div className="relative z-10" style={{ position: 'relative', zIndex: 10, textAlign: 'right' }}>
-        <div style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.05em', fontFamily: 'Arial, sans-serif' }}>Website : www.caldimengg.com</div>
-        <div style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.05em', marginTop: '4px', fontFamily: 'Arial, sans-serif' }}>CIN U74999TN2016PTC110683</div>
-      </div>
+  <div className="w-full flex items-end mt-auto relative h-20" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative', height: '80px' }}>
+    <div className="bg-[#f37021] flex-1 mb-0 h-8" style={{ backgroundColor: '#f37021', flex: 1, marginBottom: 0, height: '32px' }}></div>
+    <div className="bg-[#1e2b58] text-white flex flex-col items-end justify-center relative min-w-[400px] h-16 px-10" style={{ backgroundColor: '#1e2b58', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', position: 'relative', minWidth: '400px', height: '64px', paddingLeft: '40px', paddingRight: '40px' }}>
+      <div 
+        className="absolute inset-y-0 left-0 w-16 bg-[#1e2b58]" 
+        style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '64px', backgroundColor: '#1e2b58', transform: 'skewX(-25deg) translateX(-50%)', transformOrigin: 'top' }}
+      ></div>
+      <div className="text-[13px] font-bold tracking-wide relative z-10" style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.025em', position: 'relative', zIndex: 10 }}>Website : www.caldimengg.com</div>
+      <div className="text-[13px] font-bold tracking-wide mt-1 relative z-10" style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.025em', marginTop: '4px', position: 'relative', zIndex: 10 }}>CIN U74999TN2016PTC110683</div>
     </div>
   </div>
 );
@@ -221,6 +216,7 @@ const CompensationMaster = () => {
   // Email state
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState(false);
   const [emailData, setEmailData] = useState({
     to: "",
     cc: "",
@@ -511,12 +507,12 @@ We’re excited to have you join our team and look forward to your growth and su
 
     // Gross = Basic + HRA + Special + Employee PF + Employer PF + ESI
     const grossSalary = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
-    // Total Earnings = Basic + HRA + Special Allowance (take-home components)
-    const totalEarnings = basicDA + hra + specialAllowance;
+    // Total Earnings (Gross) = Basic + HRA + Special + Employee PF + Employer PF + ESI
+    const totalEarnings = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
     // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax
     const totalDeductions = employeePF + employerPF + esi + professionalTax;
-    // Net Salary = Basic + HRA + Special Allowance
-    const netSalary = totalEarnings;
+    // Net Salary = Total Earnings - Total Deductions
+    const netSalary = totalEarnings - totalDeductions;
     // CTC = Gross + Gratuity
     const ctc = Math.round(grossSalary + gratuity);
 
@@ -626,8 +622,11 @@ We’re excited to have you join our team and look forward to your growth and su
 
   const handlePreviewLetter = async () => {
     try {
-      // Small delay to ensure DOM is ready with new data
-      await new Promise(resolve => setTimeout(resolve, 500));
+      setGeneratingPDF(true);
+      console.log("Generating preview for:", selectedCompensation?.name);
+      
+      // Wait a bit for DOM to settle
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       const pages = ['offer-letter-p1', 'offer-letter-p2', 'offer-letter-p3', 'offer-letter-p4'];
       const pdf = new jsPDF('p', 'mm', 'a4');
@@ -637,22 +636,24 @@ We’re excited to have you join our team and look forward to your growth and su
         const element = document.getElementById(pages[i]);
         if (!element) continue;
 
-        if (pageAdded) {
-          pdf.addPage();
-        }
+        if (pageAdded) pdf.addPage();
 
         const canvas = await html2canvas(element, {
           scale: 1.5,
           useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff'
+          logging: false, // Disabled for performance
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          scrollY: -window.scrollY,
+          scrollX: -window.scrollX,
         });
 
-        const imgData = canvas.toDataURL('image/jpeg', 0.8);
+        const imgData = canvas.toDataURL('image/jpeg', 0.85); // Slightly lower quality for speed
         const imgWidth = 210;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        const finalHeight = Math.min(imgHeight, 297);
 
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
+        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, finalHeight);
         pageAdded = true;
       }
       
@@ -662,6 +663,8 @@ We’re excited to have you join our team and look forward to your growth and su
     } catch (error) {
       console.error("Error generating preview", error);
       showMessage('Error', "Failed to generate preview", 'error');
+    } finally {
+      setGeneratingPDF(false);
     }
   };
 
@@ -676,28 +679,35 @@ We’re excited to have you join our team and look forward to your growth and su
 
     for (let i = 0; i < pages.length; i++) {
       const element = document.getElementById(pages[i]);
-      if (!element) continue;
+      if (!element) {
+        console.warn(`Element ${pages[i]} not found during attachment`);
+        continue;
+      }
 
       if (pageAdded) {
         pdf.addPage();
       }
 
-        const canvas = await html2canvas(element, {
-          scale: 1.5, // Reduced scale to optimize file size
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff'
-        });
+      const canvas = await html2canvas(element, {
+        scale: 1.5,
+        useCORS: true,
+        logging: true,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        scrollY: -window.scrollY,
+        scrollX: -window.scrollX,
+      });
 
-        // Use JPEG with 0.8 quality for better compression
-        const imgData = canvas.toDataURL('image/jpeg', 0.8);
-        const imgWidth = 210;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const imgData = canvas.toDataURL('image/jpeg', 0.9);
+      const imgWidth = 210;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-        // Use JPEG format in PDF
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, imgHeight);
-        pageAdded = true;
-      }
+      // Cap height to A4
+      const finalHeight = Math.min(imgHeight, 297);
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, finalHeight);
+      pageAdded = true;
+    }
       
       // Get base64 without prefix
       const pdfBase64 = pdf.output('datauristring').split(',')[1];
@@ -826,16 +836,14 @@ We’re excited to have you join our team and look forward to your growth and su
   const calcEmployerPF = selectedCompensation ? (parseFloat(selectedCompensation.employerPfContribution) || 1950) : 0;
   const calcEmployeePF = selectedCompensation ? (parseFloat(selectedCompensation.employeePfContribution) || 1800) : 0;
   const calcESI = selectedCompensation ? (parseFloat(selectedCompensation.esi) || 0) : 0;
-  // Gross = Basic + HRA + Special + PFs + ESI
-  const calcGrossSalary = calcBasicDA + calcHRA + calcSpecial + calcEmployeePF + calcEmployerPF + calcESI;
-  // Total Earnings = Basic + HRA + Special Allowance (take-home components)
-  const calcTotalEarnings = calcBasicDA + calcHRA + calcSpecial;
+  // Total Earnings (Gross) = Basic + HRA + Special + PFs + ESI
+  const calcTotalEarnings = calcBasicDA + calcHRA + calcSpecial + calcEmployeePF + calcEmployerPF + calcESI;
   // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax
   const calcTotalDeductions = calcEmployeePF + calcEmployerPF + calcESI + calcProfessionalTax;
-  // Net Salary = Basic + HRA + Special Allowance
-  const calcNetSalary = calcTotalEarnings;
+  // Net Salary = Total Earnings - Total Deductions
+  const calcNetSalary = calcTotalEarnings - calcTotalDeductions;
   // CTC = Gross + Gratuity
-  const calcCTC = Math.round(calcGrossSalary + calcGratuity);
+  const calcCTC = Math.round(calcTotalEarnings + calcGratuity);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -851,16 +859,14 @@ We’re excited to have you join our team and look forward to your growth and su
     const volunteerPF = parseFloat(viewItem.volunteerPF) || 0;
     const professionalTax = parseFloat(viewItem.professionalTax) || 0;
 
-    // 50/25/25 Rule
-    const totalEarnings = basic + hra + special; // Take-home components (pre-deduction)
-    const grossSalary = totalEarnings + employeePF + employerPF + esi; // Reconstruct Gross
+    // Total Earnings (Gross) = Basic + HRA + Special + Employee PF + Employer PF + ESI
+    const totalEarnings = basic + hra + special + employeePF + employerPF + esi;
     const totalDeductions = employeePF + employerPF + esi + volunteerPF + professionalTax;
     
-    // Net Salary = Take-home components - (Volunteer PF + Professional Tax)
-    // PF and ESI are already excluded from the take-home components sum
-    const netSalary = totalEarnings - (volunteerPF + professionalTax);
+    // Net Salary = Gross - Total Deductions
+    const netSalary = totalEarnings - totalDeductions;
     
-    const ctc = Math.round(grossSalary + gratuity); // CTC = Gross + Gratuity
+    const ctc = Math.round(totalEarnings + gratuity); // CTC = Gross + Gratuity
 
     return {
       totalEarnings,
@@ -1803,11 +1809,20 @@ We’re excited to have you join our team and look forward to your growth and su
                 
                 <button
                   onClick={handlePreviewLetter}
-                  className="px-4 py-2 border border-blue-600 text-blue-600 rounded hover:bg-blue-50 flex items-center gap-2"
-                  disabled={sendingEmail}
+                  className={`px-4 py-2 border border-blue-600 text-blue-600 rounded hover:bg-blue-50 flex items-center gap-2 transition-all ${generatingPDF ? 'opacity-70 cursor-not-allowed' : ''}`}
+                  disabled={sendingEmail || generatingPDF}
                 >
-                  <Eye size={16} />
-                  Preview Letter
+                  {generatingPDF ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                      Generating...
+                    </>
+                  ) : (
+                    <>
+                      <Eye size={16} />
+                      Preview Letter
+                    </>
+                  )}
                 </button>
                
                 <button
@@ -1840,7 +1855,7 @@ We’re excited to have you join our team and look forward to your growth and su
       {/* Hidden PDF Template */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         {/* Page 1: Offer Letter */}
-        <div id="offer-letter-p1" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', height: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
+        <div id="offer-letter-p1" className="bg-white relative mx-auto shadow-lg" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           
           {/* Header */}
             <LetterHeader />
@@ -1903,8 +1918,8 @@ We’re excited to have you join our team and look forward to your growth and su
                         <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcEmployeePF).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
                      </tr>
                      <tr style={{backgroundColor: '#f9fafb'}}>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}><strong>Gross Salary</strong></td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}><strong>{Number(calcGrossSalary).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}><strong>Total Earnings (Gross)</strong></td>
+                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}><strong>{Number(calcTotalEarnings).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
                      </tr>
                      <tr>
                         <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Employer PF Contribution</td>
@@ -1932,15 +1947,13 @@ We’re excited to have you join our team and look forward to your growth and su
             </div>
 
             {/* Footer */}
-            <div style={{ width: '100%' }}>
-              <LetterFooter />
-            </div>
+            <LetterFooter />
 
           </div>
         </div>
 
         {/* Page 2: Annexure */}
-        <div id="offer-letter-p2" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', height: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
+        <div id="offer-letter-p2" className="bg-white relative mx-auto shadow-lg" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           
            {/* Header (Same as Page 1) */}
             <LetterHeader />
@@ -2020,15 +2033,13 @@ confirmation of employment will be communicated in writing.
             </div>
 
             {/* Footer */}
-            <div style={{ width: '100%' }}>
-              <LetterFooter />
-            </div>
+            <LetterFooter />
 
           </div>
         </div>
 
         {/* Page 3: Annexure */}
-        <div id="offer-letter-p3" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', height: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
+        <div id="offer-letter-p3" className="bg-white relative mx-auto shadow-lg" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           
            {/* Header (Same as Page 1) */}
             <LetterHeader />
@@ -2108,15 +2119,13 @@ confirmation of employment will be communicated in writing.
             </div>
 
             {/* Footer */}
-            <div style={{ width: '100%' }}>
-              <LetterFooter />
-            </div>
+            <LetterFooter />
 
           </div>
         </div>
 
         {/* Page 4: Annexure Continued */}
-        <div id="offer-letter-p4" className="bg-white relative w-[794px] mx-auto shadow-lg" style={{ width: '210mm', height: '297mm', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column' }}>
+        <div id="offer-letter-p4" className="bg-white relative mx-auto shadow-lg" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           
            {/* Header (Same as Page 1) */}
             <LetterHeader />
@@ -2162,9 +2171,7 @@ confirmation of employment will be communicated in writing.
             </div>
 
             {/* Footer */}
-            <div style={{ width: '100%' }}>
-              <LetterFooter />
-            </div>
+            <LetterFooter />
 
           </div>
         </div>

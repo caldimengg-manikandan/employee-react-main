@@ -468,76 +468,40 @@ const SalarySlips = () => {
 
       <div className="relative z-10 flex flex-col h-full justify-between min-h-[1120px] print:min-h-0">
         {/* Header */}
-        <div className="w-full flex h-32 relative overflow-hidden bg-white">
-          <div className="absolute inset-0 z-0">
-            <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none">
-              <path d="M0,0 L420,0 L360,128 L0,128 Z" fill="#1e2b58" />
-              <path d="M420,0 L470,0 L410,128 L360,128 Z" fill="#f37021" />
+        <div className="w-full h-32 relative overflow-hidden flex bg-white" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
+          <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
+            <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
+              <path d="M0,0 L480,0 L410,128 L0,128 Z" fill="#1e2b58" />
+              <path d="M480,0 L510,0 L440,128 L410,128 Z" fill="#f37021" />
             </svg>
           </div>
-
-          <div className="relative w-[60%] flex items-center pl-8 pr-12 z-10">
-            <div className="flex items-center gap-4">
-              <img
-                src="/images/steel-logo.png"
-                alt="CALDIM"
-                className="h-16 w-auto brightness-0 invert"
-                crossOrigin="anonymous"
-                style={{ display: "block" }}
-              />
-              <div className="text-white">
-                <h1 className="text-3xl font-bold leading-none tracking-wide">CALDIM</h1>
-                <p className="text-[10px] tracking-[0.2em] mt-1 text-orange-400 font-semibold">
-                  ENGINEERING PRIVATE LIMITED
-                </p>
+          <div className="relative z-10 w-full flex h-full" style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%', display: 'flex' }}>
+            <div className="w-[60%] flex items-center pl-2 pr-8" style={{ width: '60%', display: 'flex', alignItems: 'center', paddingLeft: '8px', paddingRight: '32px' }}>
+              <div className="flex items-center gap-4" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ height: '64px', width: 'auto', display: 'block' }} />
+                <div className="text-white font-bitsumishi">
+                  <h1 className="text-5xl font-bold leading-none tracking-[0.05em]" style={{ color: 'white' }}>CALDIM</h1>
+                  <p className="text-[10px] tracking-[0.17em] mt-4 text-orange-400 font-semibold uppercase">ENGINEERING PRIVATE LIMITED</p>
+                </div>
               </div>
             </div>
-          </div>
-
-          <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2 z-10">
-            <div className="flex items-center mb-2">
-              <span className="font-bold text-gray-800 mr-3 text-lg">044-47860455</span>
-              <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-4 h-4"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z"
-                  />
-                </svg>
+            <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', paddingRight: '32px', paddingTop: '8px' }}>
+              <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
+                <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
+                <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                  </svg>
+                </div>
               </div>
-            </div>
-            <div className="flex items-start justify-end text-right">
-              <span className="text-sm font-semibold text-gray-700 w-64 leading-tight">
-                No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.
-              </span>
-              <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  strokeWidth={2}
-                  stroke="currentColor"
-                  className="w-4 h-4"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"
-                  />
-                </svg>
+              <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
+                <span className="text-sm font-semibold text-gray-700 w-64 leading-tight" style={{ fontSize: '14px', fontWeight: 600, width: '256px', lineHeight: 1.25 }}>No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
+                <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '12px', marginTop: '4px' }}>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                  </svg>
+                </div>
               </div>
             </div>
           </div>
@@ -645,14 +609,15 @@ const SalarySlips = () => {
         </div>
 
         {/* Footer */}
-        <div className="w-full flex items-end mt-auto">
-          {/* Orange Line */}
-          <div className="h-3 bg-[#f37021] flex-1 mb-0"></div>
-
-          {/* Blue Block */}
-          <div className="bg-[#1e2b58] text-white py-3 px-10 pl-16 flex flex-col items-end justify-center" style={{ clipPath: 'polygon(15% 0, 100% 0, 100% 100%, 0% 100%)', minWidth: '450px' }}>
-            <div className="text-sm font-medium tracking-wide">Website : www.caldimengg.com</div>
-            <div className="text-sm font-medium tracking-wide mt-1">CIN U74999TN2016PTC110683</div>
+        <div className="w-full flex items-end mt-auto relative h-20" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative', height: '80px' }}>
+          <div className="bg-[#f37021] flex-1 mb-0 h-8" style={{ backgroundColor: '#f37021', flex: 1, marginBottom: 0, height: '32px' }}></div>
+          <div className="bg-[#1e2b58] text-white flex flex-col items-end justify-center relative min-w-[400px] h-16 px-10" style={{ backgroundColor: '#1e2b58', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', position: 'relative', minWidth: '400px', height: '64px', paddingLeft: '40px', paddingRight: '40px' }}>
+            <div 
+              className="absolute inset-y-0 left-0 w-16 bg-[#1e2b58]" 
+              style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '64px', backgroundColor: '#1e2b58', transform: 'skew(-20deg)', transformOrigin: 'top left', marginLeft: '-32px' }}
+            ></div>
+            <div className="text-sm font-medium tracking-wide" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em' }}>Website : www.caldimengg.com</div>
+            <div className="text-sm font-medium tracking-wide mt-1" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em', marginTop: '4px' }}>CIN U74999TN2016PTC110683</div>
           </div>
         </div>
       </div>

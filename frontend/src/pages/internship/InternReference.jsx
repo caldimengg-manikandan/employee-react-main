@@ -78,32 +78,35 @@ const InternReference = () => {
   const headerSvg = "data:image/svg+xml;charset=utf-8,%3Csvg width='1000' height='128' viewBox='0 0 1000 128' xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='none'%3E%3Cpath d='M0,0 L600,0 L530,128 L0,128 Z' fill='%231e2b58' /%3E%3Cpath d='M600,0 L630,0 L560,128 L530,128 Z' fill='%23f37021' /%3E%3C/svg%3E";
 
   const LetterHeader = () => (
-    <div className="w-full h-32 relative overflow-hidden flex" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
+    <div className="w-full h-32 relative overflow-hidden flex bg-white" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
       <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
-        <img src={headerSvg} alt="" style={{ width: '100%', height: '100%', display: 'block', objectFit: 'fill' }} />
+        <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
+          <path d="M0,0 L480,0 L410,128 L0,128 Z" fill="#1e2b58" />
+          <path d="M480,0 L510,0 L440,128 L410,128 Z" fill="#f37021" />
+        </svg>
       </div>
-      <div className="relative z-10 w-full flex" style={{ height: '100%' }}>
-        <div className="w-[60%] flex items-center pl-2 pr-12" style={{ width: '60%', display: 'flex', alignItems: 'center', paddingLeft: '8px', paddingRight: '48px' }}>
+      <div className="relative z-10 w-full flex h-full" style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%', display: 'flex' }}>
+        <div className="w-[60%] flex items-center pl-2 pr-8" style={{ width: '60%', display: 'flex', alignItems: 'center', paddingLeft: '8px', paddingRight: '32px' }}>
           <div className="flex items-center gap-4" style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" style={{ height: '64px', width: 'auto', filter: 'brightness(0) invert(1)' }} />
+            <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ height: '64px', width: 'auto', display: 'block' }} />
             <div className="text-white font-bitsumishi">
-              <h1 className="text-5xl font-bold leading-none tracking-[0.05em]">CALDIM</h1>
-              <p className="text-[9px] tracking-[0.18em] mt-1 text-orange-400 font-semibold uppercase">ENGINEERING PRIVATE LIMITED</p>
+              <h1 className="text-5xl font-bold leading-none tracking-[0.05em]" style={{ color: 'white' }}>CALDIM</h1>
+              <p className="text-[10px] tracking-[0.17em] mt-4 text-orange-400 font-semibold uppercase">ENGINEERING PRIVATE LIMITED</p>
             </div>
           </div>
         </div>
         <div className="flex-1 flex flex-col justify-center items-end pr-8 pt-2" style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-end', paddingRight: '32px', paddingTop: '8px' }}>
           <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-            <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', color: '#1f2937', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
-            <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+            <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
+            <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
               </svg>
             </div>
           </div>
           <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
-            <span className="text-sm font-semibold text-gray-700 w-64 leading-tight" style={{ fontSize: '14px', fontWeight: 600, color: '#374151', width: '256px', lineHeight: 1.25 }}>No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
-            <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', marginLeft: '12px', marginTop: '4px', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)' }}>
+            <span className="text-sm font-semibold text-gray-700 w-64 leading-tight" style={{ fontSize: '14px', fontWeight: 600, width: '256px', lineHeight: 1.25 }}>No.118, Minimac Center, Arcot Road, Valasaravakkam, Chennai - 600 087.</span>
+            <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '12px', marginTop: '4px' }}>
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
@@ -116,23 +119,15 @@ const InternReference = () => {
   );
 
   const LetterFooter = () => (
-    <div className="w-full flex items-end mt-auto relative" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative' }}>
-      <div className="bg-[#f37021] flex-1 mb-0" style={{ height: '8px', backgroundColor: '#f37021', flex: 1, marginBottom: 0 }}></div>
-      <div className="relative text-white flex flex-col items-end justify-center" style={{ 
-        position: 'relative', 
-        minWidth: '350px', 
-        height: '60px',
-        background: 'linear-gradient(135deg, transparent 25px, #1e2b58 25px)',
-        padding: '0 40px 0 60px', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'flex-end', 
-        justifyContent: 'center' 
-      }}>
-        <div className="relative z-10" style={{ position: 'relative', zIndex: 10, textAlign: 'right' }}>
-          <div style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.05em', fontFamily: 'Arial, sans-serif' }}>Website : www.caldimengg.com</div>
-          <div style={{ fontSize: '12px', fontWeight: 500, letterSpacing: '0.05em', marginTop: '4px', fontFamily: 'Arial, sans-serif' }}>CIN U74999TN2016PTC110683</div>
-        </div>
+    <div className="w-full flex items-end mt-auto relative h-20" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative', height: '80px' }}>
+      <div className="bg-[#f37021] flex-1 mb-0 h-8" style={{ backgroundColor: '#f37021', flex: 1, marginBottom: 0, height: '32px' }}></div>
+      <div className="bg-[#1e2b58] text-white flex flex-col items-end justify-center relative min-w-[400px] h-16 px-10" style={{ backgroundColor: '#1e2b58', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', position: 'relative', minWidth: '400px', height: '64px', paddingLeft: '40px', paddingRight: '40px' }}>
+        <div 
+          className="absolute inset-y-0 left-0 w-16 bg-[#1e2b58]" 
+          style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '64px', backgroundColor: '#1e2b58', transform: 'skew(-20deg)', transformOrigin: 'top left', marginLeft: '-32px' }}
+        ></div>
+        <div className="text-sm font-medium tracking-wide" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em' }}>Website : www.caldimengg.com</div>
+        <div className="text-sm font-medium tracking-wide mt-1" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em', marginTop: '4px' }}>CIN U74999TN2016PTC110683</div>
       </div>
     </div>
   );
@@ -1536,78 +1531,82 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
       {/* Hidden PDF Template */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
         {/* Page 1: Offer Letter */}
-        <div id="intern-offer-letter-p1" className="bg-white p-0" style={{ width: '794px', minHeight: '1120px', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        <div id="intern-offer-letter-p1" className="bg-white relative mx-auto" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <LetterHeader />
-          <div className="p-16 flex-grow" style={{ padding: '60px 80px' }}>
-            <div className="text-right mb-8">
-              <div className="font-bold text-gray-800">Date: {formatDate(new Date())}</div>
-            </div>
-            <div className="mb-8">
-              <div className="font-bold text-gray-800 mb-2">To:</div>
-              <div className="font-bold text-lg text-gray-900">{selectedIntern?.fullName}</div>
-              <div className="text-gray-700">{selectedIntern?.collegeName}</div>
-              <div className="text-gray-700">{selectedIntern?.degree} - {selectedIntern?.department}</div>
-            </div>
-            <div className="text-center mb-10">
-              <h2 className="text-2xl font-bold text-[#1e2b58] underline decoration-[#f37021] underline-offset-8">INTERNSHIP OFFER LETTER</h2>
-            </div>
+          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div className="px-12 py-6 flex-grow" style={{ paddingLeft: '60px', paddingRight: '60px', paddingTop: '40px', paddingBottom: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+              <div className="text-right mb-8">
+                <div className="font-bold text-gray-800">Date: {formatDate(new Date())}</div>
+              </div>
+              <div className="mb-8">
+                <div className="font-bold text-gray-800 mb-2">To:</div>
+                <div className="font-bold text-lg text-gray-900">{selectedIntern?.fullName}</div>
+                <div className="text-gray-700">{selectedIntern?.collegeName}</div>
+                <div className="text-gray-700">{selectedIntern?.degree} - {selectedIntern?.department}</div>
+              </div>
+              <div className="text-center mb-10">
+                <h2 className="text-2xl font-bold text-[#1e2b58] underline decoration-[#f37021] underline-offset-8">INTERNSHIP OFFER LETTER</h2>
+              </div>
 
-            <div className="space-y-6 text-justify leading-relaxed text-gray-800">
-              <p>Dear <span className="font-bold text-gray-900">{selectedIntern?.fullName}</span>,</p>
-              
-              <p>
-                We are pleased to offer you an opportunity to join <span className="font-bold text-[#1e2b58]">CALDIM Engineering Private Limited</span> as an Intern in the <span className="font-bold text-gray-900">{selectedIntern?.department}</span> department.
-              </p>
+              <div className="space-y-6 text-justify leading-relaxed text-gray-800">
+                <p>Dear <span className="font-bold text-gray-900">{selectedIntern?.fullName}</span>,</p>
+                
+                <p>
+                  We are pleased to offer you an opportunity to join <span className="font-bold text-[#1e2b58]">CALDIM Engineering Private Limited</span> as an Intern in the <span className="font-bold text-gray-900">{selectedIntern?.department}</span> department.
+                </p>
 
-              <p>
-                Your internship will commence on <span className="font-bold text-gray-900">{formatDate(selectedIntern?.startDate)}</span> and will continue until <span className="font-bold text-gray-900">{formatDate(selectedIntern?.endDate)}</span>, unless extended or terminated earlier in accordance with the company policies.
-              </p>
+                <p>
+                  Your internship will commence on <span className="font-bold text-gray-900">{formatDate(selectedIntern?.startDate)}</span> and will continue until <span className="font-bold text-gray-900">{formatDate(selectedIntern?.endDate)}</span>, unless extended or terminated earlier in accordance with the company policies.
+                </p>
 
-              <p>
-                During this period, you will be reporting to <span className="font-bold text-gray-900">{selectedIntern?.mentor}</span>. We expect you to maintain high standards of discipline and professionalism during your tenure with us.
-              </p>
+                <p>
+                  During this period, you will be reporting to <span className="font-bold text-gray-900">{selectedIntern?.mentor}</span>. We expect you to maintain high standards of discipline and professionalism during your tenure with us.
+                </p>
 
-              <p>
-                As discussed, you will be eligible for a monthly stipend of <span className="font-bold text-gray-900">₹{selectedIntern?.stipendAmount || 'N/A'}</span>.
-              </p>
+                <p>
+                  As discussed, you will be eligible for a monthly stipend of <span className="font-bold text-gray-900">₹{selectedIntern?.stipendAmount || 'N/A'}</span>.
+                </p>
 
-              <p>
-                We look forward to a mutually beneficial association.
-              </p>
-            </div>
+                <p>
+                  We look forward to a mutually beneficial association.
+                </p>
+              </div>
 
-            <div className="mt-20 flex justify-end">
-              <div className="text-right">
-                <div className="font-bold text-gray-800 mb-2 font-bitsumishi">For CALDIM Engineering Private Limited</div>
-                <div className="h-20 flex items-end justify-end mb-2">
-                  <img 
-                    src={getAbsoluteSignatureUrl(selectedIntern?.workLocation)} 
-                    alt="Signature" 
-                    style={{ maxHeight: '60px' }}
-                    crossOrigin="anonymous"
-                  />
+              <div className="mt-auto pt-10 flex justify-end">
+                <div className="text-right">
+                  <div className="font-bold text-gray-800 mb-2 font-bitsumishi">For CALDIM Engineering Private Limited</div>
+                  <div className="h-20 flex items-end justify-end mb-2">
+                    <img 
+                      src={getAbsoluteSignatureUrl(selectedIntern?.workLocation)} 
+                      alt="Signature" 
+                      style={{ maxHeight: '60px' }}
+                      crossOrigin="anonymous"
+                    />
+                  </div>
+                  <div className="font-bold text-gray-900">Authorized Signatory</div>
                 </div>
-                <div className="font-bold text-gray-900">Authorized Signatory</div>
               </div>
             </div>
+            <LetterFooter />
           </div>
-          <LetterFooter />
         </div>
 
         {/* Page 2: Terms & Conditions */}
-        <div id="intern-offer-letter-p2" className="bg-white p-0" style={{ width: '794px', minHeight: '1120px', position: 'relative', display: 'flex', flexDirection: 'column' }}>
+        <div id="intern-offer-letter-p2" className="bg-white relative mx-auto" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <LetterHeader />
-          <div className="p-16 flex-grow" style={{ padding: '60px 80px' }}>
-            <h3 className="text-xl font-bold text-[#1e2b58] underline decoration-[#f37021] underline-offset-8 mb-8 text-center">Terms and Conditions</h3>
-            <div className="space-y-6 text-[13px] text-justify text-gray-800 leading-relaxed">
-              <p><span className="font-bold text-gray-900">1. Working Hours:</span> Your working hours will be as per the company's rules and regulations.</p>
-              <p><span className="font-bold text-gray-900">2. Confidentiality:</span> You shall maintain absolute confidentiality of all information, documents, and data belonging to the company that you may come across during your internship.</p>
-              <p><span className="font-bold text-gray-900">3. Intellectual Property:</span> Any intellectual property created by you during the internship shall belong exclusively to CALDIM Engineering Private Limited.</p>
-              <p><span className="font-bold text-gray-900">4. Code of Conduct:</span> You are expected to follow the company's code of conduct and maintain professionalism at all times.</p>
-              <p><span className="font-bold text-gray-900">5. Termination:</span> The company reserves the right to terminate the internship at any time without prior notice in case of breach of conduct or performance issues.</p>
+          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
+            <div className="px-12 py-10 flex-grow" style={{ paddingLeft: '80px', paddingRight: '80px', paddingTop: '60px', paddingBottom: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
+              <h3 className="text-xl font-bold text-[#1e2b58] underline decoration-[#f37021] underline-offset-8 mb-8 text-center">Terms and Conditions</h3>
+              <div className="space-y-6 text-[14px] text-justify text-gray-800 leading-relaxed">
+                <p><span className="font-bold text-gray-900">1. Working Hours:</span> Your working hours will be as per the company's rules and regulations.</p>
+                <p><span className="font-bold text-gray-900">2. Confidentiality:</span> You shall maintain absolute confidentiality of all information, documents, and data belonging to the company that you may come across during your internship.</p>
+                <p><span className="font-bold text-gray-900">3. Intellectual Property:</span> Any intellectual property created by you during the internship shall belong exclusively to CALDIM Engineering Private Limited.</p>
+                <p><span className="font-bold text-gray-900">4. Code of Conduct:</span> You are expected to follow the company's code of conduct and maintain professionalism at all times.</p>
+                <p><span className="font-bold text-gray-900">5. Termination:</span> The company reserves the right to terminate the internship at any time without prior notice in case of breach of conduct or performance issues.</p>
+              </div>
             </div>
+            <LetterFooter />
           </div>
-          <LetterFooter />
         </div>
       </div>
 
