@@ -125,9 +125,29 @@ export default function LoanSummary() {
 
   function remainingBalance(loan) {
     if (!loan) return 0;
-    if (loan.remainingBalance !== undefined && loan.remainingBalance !== null) return loan.remainingBalance;
-    const paid = loan.paidMonths || 0;
-    return Math.max((loan.amount || 0) - calcMonthlyDeduction(loan) * paid, 0);
+    if (loan.status === "completed") return 0;
+
+    // Use the balance calculated by the backend if available
+    if (loan.remainingBalance !== undefined && loan.remainingBalance !== null) {
+      return Math.max(Number(loan.remainingBalance), 0);
+    }
+
+    // Sum up actual payments from repayment history
+    let totalPaid = (loan.repaymentHistory || []).reduce((sum, item) => {
+      // Only count successfully deducted or paid installments
+      if (item.paymentStatus === "deducted" || item.paymentStatus === "paid" || !item.paymentStatus) {
+        return sum + (Number(item.emiAmount) || 0);
+      }
+      return sum;
+    }, 0);
+
+    // Fallback to paidMonths if history is empty (legacy support)
+    if (totalPaid === 0 && (loan.paidMonths || 0) > 0) {
+      totalPaid = calcMonthlyDeduction(loan) * loan.paidMonths;
+    }
+
+    const balance = (Number(loan.amount) || 0) - totalPaid;
+    return Math.max(balance, 0);
   }
 
   function formatLoanId(counter) {
@@ -444,7 +464,17 @@ export default function LoanSummary() {
     };
 
     const monthlyEMI = calcMonthlyDeduction(loan);
-    const totalPaid = monthlyEMI * (loan.paidMonths || 0);
+    let totalPaid = (loan.repaymentHistory || []).reduce((sum, item) => {
+      if (item.paymentStatus === "deducted" || item.paymentStatus === "paid" || !item.paymentStatus) {
+        return sum + (Number(item.emiAmount) || 0);
+      }
+      return sum;
+    }, 0);
+
+    // Fallback for legacy support
+    if (totalPaid === 0 && (loan.paidMonths || 0) > 0) {
+      totalPaid = monthlyEMI * loan.paidMonths;
+    }
 
     drawKpiCard(15, 82, 33, 18, "TOTAL LOAN", `INR ${Number(loan.amount || 0).toLocaleString("en-IN")}`, [100, 100, 100], [51, 51, 51], [255, 255, 255]);
     drawKpiCard(52, 82, 33, 18, "TENURE (MONTHS)", `${loan.tenureMonths} Months`, [100, 100, 100], [51, 51, 51], [255, 255, 255]);
@@ -488,12 +518,18 @@ export default function LoanSummary() {
       "PAYMENT STATUS"
     ];
 
+    let cumulativePaid = 0;
     const tableBody = history.map((record, index) => {
+      const emi = Number(record.emiAmount || monthlyEMI);
+      if (record.paymentStatus === "deducted" || record.paymentStatus === "paid" || !record.paymentStatus) {
+        cumulativePaid += emi;
+      }
       const installNo = `#${index + 1}`;
       const month = record.emiMonth || "N/A";
-      const amount = `INR ${Number(record.emiAmount || monthlyEMI).toLocaleString("en-IN")}`;
+      const amount = `INR ${emi.toLocaleString("en-IN")}`;
       const txDate = record.deductionDate ? new Date(record.deductionDate).toLocaleDateString("en-IN") : "N/A";
-      const balance = `INR ${Number(record.remainingBalance).toLocaleString("en-IN")}`;
+      const currentBalance = Math.max((Number(loan.amount) || 0) - cumulativePaid, 0);
+      const balance = `INR ${currentBalance.toLocaleString("en-IN")}`;
       const status = String(record.paymentStatus || "Deducted").toUpperCase();
 
       return [installNo, month, amount, txDate, balance, status];
@@ -1289,21 +1325,34 @@ export default function LoanSummary() {
                             </td>
                           </tr>
                         ) : (
-                          selectedLoan.repaymentHistory.map((history, idx) => (
-                            <tr key={idx} className="bg-white border-b hover:bg-gray-50">
-                              <td className="px-4 py-3 font-medium text-gray-900">{history.emiMonth}</td>
-                              <td className="px-4 py-3">₹{Number(history.emiAmount || 0).toLocaleString("en-IN")}</td>
-                              <td className="px-4 py-3">
-                                {history.deductionDate ? new Date(history.deductionDate).toLocaleDateString("en-IN") : "N/A"}
-                              </td>
-                              <td className="px-4 py-3">₹{Number(history.remainingBalance || 0).toLocaleString("en-IN")}</td>
-                              <td className="px-4 py-3">
-                                <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
-                                  {history.paymentStatus || "deducted"}
-                                </span>
-                              </td>
-                            </tr>
-                          ))
+                          selectedLoan.repaymentHistory.map((history, idx) => {
+                            // Calculate cumulative paid up to this row
+                            const cumulativePaid = selectedLoan.repaymentHistory
+                              .slice(0, idx + 1)
+                              .reduce((sum, item) => {
+                                if (item.paymentStatus === "deducted" || item.paymentStatus === "paid" || !item.paymentStatus) {
+                                  return sum + (Number(item.emiAmount) || 0);
+                                }
+                                return sum;
+                              }, 0);
+                            const rowBalance = Math.max((Number(selectedLoan.amount) || 0) - cumulativePaid, 0);
+
+                            return (
+                              <tr key={idx} className="bg-white border-b hover:bg-gray-50">
+                                <td className="px-4 py-3 font-medium text-gray-900">{history.emiMonth}</td>
+                                <td className="px-4 py-3">₹{Number(history.emiAmount || 0).toLocaleString("en-IN")}</td>
+                                <td className="px-4 py-3">
+                                  {history.deductionDate ? new Date(history.deductionDate).toLocaleDateString("en-IN") : "N/A"}
+                                </td>
+                                <td className="px-4 py-3">₹{rowBalance.toLocaleString("en-IN")}</td>
+                                <td className="px-4 py-3">
+                                  <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                    {history.paymentStatus || "deducted"}
+                                  </span>
+                                </td>
+                              </tr>
+                            );
+                          })
                         )}
                       </tbody>
                     </table>

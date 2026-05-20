@@ -29,16 +29,6 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       children: [
         { key: 'home', label: 'Home', alwaysOn: true },
         { key: 'my_profile', label: 'My Profile', alwaysOn: true },
-        { key: 'dashboard', label: 'Dashboard' },
-      ]
-    },
-    {
-      name: "Support Center",
-      key: "support_group_access",
-      children: [
-        { key: 'raise_ticket_access', label: 'Raise Ticket' },
-        { key: 'my_tickets_access', label: 'My Tickets' },
-        { key: 'support_dashboard_access', label: 'Support Dashboard' }
       ]
     },
     {
@@ -121,13 +111,21 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       ]
     },
     {
+      name: "Support Center",
+      key: "support_group_access",
+      children: [
+        { key: 'raise_ticket_access', label: 'Raise Ticket' },
+        { key: 'support_dashboard_access', label: 'Support Dashboard' }
+      ]
+    },
+    {
       name: "Other Modules",
       children: [
         { key: 'project_access', label: 'Project Allocation' },
         { key: 'insurance_access', label: 'Insurance' },
         { key: 'policy_portal', label: 'Policy Portal' },
         { key: 'salary_slips', label: 'Salary Slips' },
-        { key: 'holiday_allowance', label: 'Holidays Allowance' },
+        { key: 'holiday_allowance', label: 'Allowance Master' },
         { key: 'expenditure_access', label: 'Expenditure Management' },
         { key: 'announcement_manage', label: 'Announcements' },
         { key: 'intern_reference', label: 'Intern Reference' },
@@ -137,7 +135,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     {
       name: "Unified Hub Calendar",
       children: [
-        { key: 'unified_calendar', label: 'Unified Hub Calendar' }
+        { key: 'unified_calendar', label: 'Unified Hub Calendar', alwaysOn: true }
       ]
     }
   ];
@@ -152,7 +150,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     return Array.from(keys);
   };
 
-  const alwaysOnPermissionKeys = ['home', 'my_profile'];
+  const alwaysOnPermissionKeys = ['home', 'my_profile', 'unified_calendar'];
   const restrictedPermissionsForNonAdmin = [
     'user_access',
     'support_dashboard_access'
@@ -162,7 +160,6 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     admin: getAllPermissionKeys(),
 
     projectmanager: [
-      'dashboard',
       'timesheet_access',
       'project_access',
       'leave_access',
@@ -176,7 +173,6 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'unified_calendar',
       'support_group_access',
       'raise_ticket_access',
-      'my_tickets_access',
       'support_dashboard_access',
     ],
 
@@ -194,7 +190,6 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'unified_calendar',
       'support_group_access',
       'raise_ticket_access',
-      'my_tickets_access',
     ]
   };
 
@@ -690,7 +685,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
               // Calculate if all children are selected for the "Full Access" state
               const childKeys = module.children
-                .filter(c => !c.alwaysOn && !['home', 'my_profile'].includes(c.key))
+                .filter(c => !c.alwaysOn)
                 .map(c => c.key);
 
               const allChildrenSelected = childKeys.length > 0 && childKeys.every(k => formData.permissions.includes(k));
