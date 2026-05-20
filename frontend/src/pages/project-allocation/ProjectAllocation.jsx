@@ -449,7 +449,20 @@ const ProjectAllocation = () => {
     onToggle,
     type = 'text'
   }) => {
+    const [searchQuery, setSearchQuery] = useState('');
     const allSelected = selectedValues.length === options.length;
+
+    // Reset search query when dropdown closes
+    useEffect(() => {
+      if (!isOpen) {
+        setSearchQuery('');
+      }
+    }, [isOpen]);
+
+    const q = searchQuery.toLowerCase().trim();
+    const filteredOptions = q.length === 0
+      ? options
+      : options.filter(option => String(option || '').toLowerCase().includes(q));
 
     return (
       <div className="relative">
@@ -472,39 +485,67 @@ const ProjectAllocation = () => {
           </button>
 
           {isOpen && (
-            <div className="absolute z-10 w-full mt-1 z-2 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto" >
-              <div className="p-2 border-b border-gray-200">
+            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-72 overflow-hidden flex flex-col" style={{ minWidth: '220px' }}>
+              <div className="p-2 border-b border-gray-200 bg-gray-50 flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  placeholder="Search..."
+                  onClick={(e) => e.stopPropagation()} // Stop toggle when clicking input
+                />
                 <div className="flex justify-between items-center">
                   <button
                     type="button"
-                    onClick={() => onSelectAll(allSelected ? [] : options)}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    onClick={() => {
+                      if (q.length > 0) {
+                        const isAllFilteredSelected = filteredOptions.every(opt => selectedValues.includes(opt));
+                        if (isAllFilteredSelected) {
+                          // deselect filtered
+                          onSelectAll(selectedValues.filter(val => !filteredOptions.includes(val)));
+                        } else {
+                          // select filtered
+                          onSelectAll(Array.from(new Set([...selectedValues, ...filteredOptions])));
+                        }
+                      } else {
+                        onSelectAll(allSelected ? [] : options);
+                      }
+                    }}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800"
                   >
-                    {allSelected ? 'Deselect All' : 'Select All'}
+                    {q.length > 0
+                      ? (filteredOptions.every(opt => selectedValues.includes(opt)) ? 'Deselect Filtered' : 'Select Filtered')
+                      : (allSelected ? 'Deselect All' : 'Select All')
+                    }
                   </button>
                   {selectedValues.length > 0 && (
                     <button
                       type="button"
                       onClick={onClear}
-                      className="text-sm text-red-600 hover:text-red-800"
+                      className="text-xs font-semibold text-red-600 hover:text-red-800"
                     >
                       Clear
                     </button>
                   )}
                 </div>
               </div>
-              <div className="max-h-48 overflow-y-auto">
-                {options.map(option => (
-                  <label key={option} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedValues.includes(option)}
-                      onChange={() => onChange(option)}
-                      className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
-                    <span className={`text-sm ${type === 'code' ? 'font-mono' : ''}`}>{option}</span>
-                  </label>
-                ))}
+              <div className="overflow-y-auto max-h-48">
+                {filteredOptions.length === 0 ? (
+                  <div className="p-3 text-xs text-gray-500 text-center">No results</div>
+                ) : (
+                  filteredOptions.map(option => (
+                    <label key={option} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedValues.includes(option)}
+                        onChange={() => onChange(option)}
+                        className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className={`text-sm ${type === 'code' ? 'font-mono' : ''}`}>{option}</span>
+                    </label>
+                  ))
+                )}
               </div>
             </div>
           )}

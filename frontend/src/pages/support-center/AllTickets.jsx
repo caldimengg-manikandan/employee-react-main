@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { supportAPI } from '../../services/api';
 import { 
   Search, ChevronRight, AlertCircle, 
-  Download, ListFilter
+  Download, ListFilter, ArrowLeft
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -64,19 +64,46 @@ const AllTickets = () => {
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
 
-    const tableColumn = ["S.No", "Ticket ID", "Employee ID", "Employee Name", "Subject", "Priority", "Status", "Created"];
+    const tableColumn = [
+      "S.No", 
+      "Ticket ID", 
+      "Employee ID", 
+      "Employee Name", 
+      "Division", 
+      "Location", 
+      "Subject", 
+      "Priority", 
+      "Status", 
+      "Created", 
+      "Resolved Date", 
+      "Closed Date"
+    ];
     const tableRows = [];
 
     filteredTickets.forEach((ticket, index) => {
+      const resolvedEntry = ticket.history?.find(h => h.status === 'Resolved');
+      const resolvedDate = resolvedEntry 
+        ? new Date(resolvedEntry.updatedAt).toLocaleDateString('en-GB') 
+        : (ticket.resolution?.resolvedAt ? new Date(ticket.resolution.resolvedAt).toLocaleDateString('en-GB') : '-');
+
+      const closedEntry = ticket.history?.find(h => h.status === 'Closed');
+      const closedDate = closedEntry 
+        ? new Date(closedEntry.updatedAt).toLocaleDateString('en-GB') 
+        : '-';
+
       const ticketData = [
         index + 1,
         ticket.ticketId,
         ticket.employeeId?.employeeId || 'N/A',
         ticket.employeeId?.name || 'N/A',
+        ticket.employeeId?.division || 'N/A',
+        ticket.employeeId?.location || 'N/A',
         ticket.subject,
         ticket.priority,
         ticket.status,
-        new Date(ticket.createdAt).toLocaleDateString()
+        new Date(ticket.createdAt).toLocaleDateString('en-GB'),
+        resolvedDate,
+        closedDate
       ];
       tableRows.push(ticketData);
     });
@@ -87,14 +114,23 @@ const AllTickets = () => {
       startY: 40,
       theme: 'grid',
       headStyles: { fillColor: [38, 39, 96], textColor: [255, 255, 255] },
-      styles: { fontSize: 9 }
+      styles: { fontSize: 8 }
     });
 
     doc.save(`Support_Queue_${new Date().getTime()}.pdf`);
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-full mx-auto px-6 py-8">
+      {/* Back Button */}
+      <button 
+        onClick={() => navigate('/admin/support/dashboard')} 
+        className="flex items-center gap-2 text-[#262760] hover:text-indigo-700 transition-colors mb-6 group text-sm font-semibold"
+      >
+        <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+        Back to Dashboard
+      </button>
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Support Queue</h1>
@@ -132,43 +168,63 @@ const AllTickets = () => {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-[#262760] text-white">
+              <tr className="bg-[#262760] text-white whitespace-nowrap">
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">S.No</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Ticket ID</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Employee ID</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Employee Name</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Division</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Location</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Subject</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Priority</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Created</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Resolved Date</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Closed Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
-                <tr><td colSpan="8" className="p-20 text-center font-medium text-gray-500">Loading...</td></tr>
+                <tr><td colSpan="12" className="p-20 text-center font-medium text-gray-500">Loading...</td></tr>
               ) : filteredTickets.length === 0 ? (
-                <tr><td colSpan="8" className="p-20 text-center font-medium text-gray-500">No tickets found.</td></tr>
+                <tr><td colSpan="12" className="p-20 text-center font-medium text-gray-500">No tickets found.</td></tr>
               ) : (
-                filteredTickets.map((ticket, index) => (
-                  <tr key={ticket._id} onClick={() => navigate(`/admin/support/tickets/${ticket._id}`)} className="hover:bg-gray-50 transition-all cursor-pointer group">
-                    <td className="px-6 py-4 text-sm font-medium text-gray-600">{index + 1}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-800">{ticket.ticketId}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-700">{ticket.employeeId?.employeeId || 'N/A'}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-800">{ticket.employeeId?.name || 'Unknown'}</td>
-                    <td className="px-6 py-4 text-sm font-bold text-gray-800 truncate max-w-xs">{ticket.subject}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${ticket.priority === 'Critical' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
-                        {ticket.priority}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border ${getStatusColor(ticket.status)}`}>
-                        {ticket.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-500">{new Date(ticket.createdAt).toLocaleDateString()}</td>
-                  </tr>
-                ))
+                filteredTickets.map((ticket, index) => {
+                  const resolvedEntry = ticket.history?.find(h => h.status === 'Resolved');
+                  const resolvedDate = resolvedEntry 
+                    ? new Date(resolvedEntry.updatedAt).toLocaleDateString('en-GB') 
+                    : (ticket.resolution?.resolvedAt ? new Date(ticket.resolution.resolvedAt).toLocaleDateString('en-GB') : '-');
+
+                  const closedEntry = ticket.history?.find(h => h.status === 'Closed');
+                  const closedDate = closedEntry 
+                    ? new Date(closedEntry.updatedAt).toLocaleDateString('en-GB') 
+                    : '-';
+
+                  return (
+                    <tr key={ticket._id} className="hover:bg-gray-50 transition-all group whitespace-nowrap">
+                      <td className="px-6 py-4 text-sm font-medium text-gray-600">{index + 1}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-gray-800">{ticket.ticketId}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-gray-700">{ticket.employeeId?.employeeId || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-gray-800">{ticket.employeeId?.name || 'Unknown'}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-gray-700">{ticket.employeeId?.division || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-gray-700">{ticket.employeeId?.location || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-gray-800 truncate max-w-xs">{ticket.subject}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${ticket.priority === 'Critical' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
+                          {ticket.priority}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase border ${getStatusColor(ticket.status)}`}>
+                          {ticket.status}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{new Date(ticket.createdAt).toLocaleDateString('en-GB')}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{resolvedDate}</td>
+                      <td className="px-6 py-4 text-sm text-gray-500">{closedDate}</td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

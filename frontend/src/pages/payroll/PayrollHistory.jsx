@@ -37,8 +37,13 @@ const PayrollHistory = () => {
     const fetchEmployees = async () => {
         try {
             const res = await employeeAPI.getAllEmployees();
-            setEmployees(res.data);
-            if (res.data?.length > 0) setSelectedEmployee(res.data[0].employeeId);
+            const sortedEmployees = (res.data || []).sort((a, b) => {
+                const idA = a.employeeId || '';
+                const idB = b.employeeId || '';
+                return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            setEmployees(sortedEmployees);
+            if (sortedEmployees.length > 0) setSelectedEmployee(sortedEmployees[0].employeeId);
         } catch (error) {
             console.error('Failed to load employees', error);
         }
@@ -77,7 +82,7 @@ const PayrollHistory = () => {
     // ── Filtered data (search + division + location) ──────────────────────────
     const filteredData = useMemo(() => {
         if (!snapshotData) return [];
-        return snapshotData.filter(item => {
+        const filtered = snapshotData.filter(item => {
             const matchSearch =
                 item.employeeName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 item.employeeId?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -86,6 +91,13 @@ const PayrollHistory = () => {
             const matchLocation = locationFilter === 'All' || itemLocation === locationFilter;
 
             return matchSearch && matchLocation;
+        });
+
+        // Sort by Employee ID order wise (natural sort)
+        return [...filtered].sort((a, b) => {
+            const idA = a.employeeId || '';
+            const idB = b.employeeId || '';
+            return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
         });
     }, [snapshotData, searchTerm, locationFilter]);
 

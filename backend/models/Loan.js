@@ -2,7 +2,11 @@ const mongoose = require("mongoose");
 
 const LoanSchema = new mongoose.Schema(
   {
-    // loanId field removed as per user request
+    loanId: {
+      type: String,
+      required: false,
+    },
+
     employeeId: {
       type: String,
       required: true,
@@ -34,6 +38,16 @@ const LoanSchema = new mongoose.Schema(
       default: 0,
     },
 
+    remainingBalance: {
+      type: Number,
+      default: 0,
+    },
+
+    monthlyEMI: {
+      type: Number,
+      default: 0,
+    },
+
     location: {
       type: String,
       required: true,
@@ -58,10 +72,28 @@ const LoanSchema = new mongoose.Schema(
       type: Date,
     },
 
+    lastDeductionDate: {
+      type: Date,
+    },
+
+    nextDeductionDate: {
+      type: Date,
+    },
+
     paymentEnabled: {
       type: Boolean,
       default: true,
     },
+
+    repaymentHistory: [
+      {
+        emiMonth: { type: String, required: true },
+        emiAmount: { type: Number, required: true },
+        deductionDate: { type: Date, required: true },
+        remainingBalance: { type: Number, required: true },
+        paymentStatus: { type: String, default: "deducted" },
+      }
+    ],
   },
   { timestamps: true }
 );

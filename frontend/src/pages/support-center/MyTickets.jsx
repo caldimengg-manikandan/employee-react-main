@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supportAPI } from '../../services/api';
-import { Plus, Search, Filter, Clock, CheckCircle2, AlertCircle, ChevronRight, MessageSquare } from 'lucide-react';
+import { Plus, Search, Filter, Clock, CheckCircle2, AlertCircle, ChevronRight, MessageSquare, ArrowLeft } from 'lucide-react';
 
 const MyTickets = () => {
   const navigate = useNavigate();
@@ -46,19 +46,21 @@ const MyTickets = () => {
   });
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-8">
+    <div className="max-w-full mx-auto px-6 py-8">
+      {/* Back Button */}
+      <button 
+        onClick={() => navigate('/support/raise-ticket')}
+        className="flex items-center gap-2 text-gray-500 hover:text-gray-800 transition-all group mb-6 font-bold"
+      >
+        <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform text-[#262760]" />
+        <span className="text-sm tracking-wide uppercase">Back to Raise Ticket</span>
+      </button>
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-gray-800">Support Tickets</h1>
+          <h1 className="text-3xl font-bold text-gray-800">My Tickets</h1>
           <p className="text-gray-600 mt-1">Track and manage your reported issues.</p>
         </div>
-        <button
-          onClick={() => navigate('/support/raise-ticket')}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-[#262760] text-white font-bold rounded-xl shadow-lg hover:bg-[#1e2b58] transition-all"
-        >
-          <Plus className="w-5 h-5" />
-          Raise New Ticket
-        </button>
       </div>
 
       {/* Stats Cards */}

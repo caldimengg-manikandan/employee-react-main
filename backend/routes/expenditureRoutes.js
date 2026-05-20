@@ -130,12 +130,26 @@ router.put('/update/:id', auth, async (req, res) => {
 // Get Summary
 router.get('/summary', auth, async (req, res) => {
   try {
-    const { year, location } = req.query;
+    const { year, location, sort } = req.query;
     const query = {};
     if (year) query.year = parseInt(year);
     if (location && location !== 'Select All') query.location = location;
 
     const records = await MonthlyExpenditure.find(query);
+    
+    // Sort expenditures inside each monthly record by date
+    const sortOrder = sort && sort.toLowerCase() === 'desc' ? 'desc' : 'asc';
+    records.forEach(record => {
+      if (record.expenditures && Array.isArray(record.expenditures)) {
+        record.expenditures.sort((a, b) => {
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          const timeA = isNaN(dateA.getTime()) ? 0 : dateA.getTime();
+          const timeB = isNaN(dateB.getTime()) ? 0 : dateB.getTime();
+          return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+        });
+      }
+    });
     
     res.json({ success: true, data: records });
   } catch (error) {

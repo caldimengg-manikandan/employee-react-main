@@ -51,12 +51,13 @@ const calculateSalaryFields = (salaryData) => {
   // Other deductions
   const professionalTax = parseFloat(salaryData.professionalTax) || 0;
   const volunteerPFVal = parseFloat(salaryData.volunteerPF) || 0;
+  const tax = parseFloat(salaryData.tax) || 0;
 
   // Total Earnings (Gross) = Basic + HRA + Special + Employee PF + Employer PF + ESI
   const totalEarnings = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
   
-  // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax + Volunteer PF
-  const totalDeductions = employeePF + employerPF + esi + professionalTax + volunteerPFVal;
+  // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax + Volunteer PF + Income Tax
+  const totalDeductions = employeePF + employerPF + esi + professionalTax + volunteerPFVal + tax;
   
   // Net Salary = Total Earnings - Total Deductions
   const netSalary = totalEarnings - totalDeductions;
@@ -74,6 +75,7 @@ const calculateSalaryFields = (salaryData) => {
     esi,
     volunteerPF: salaryData.volunteerPF,
     professionalTax,
+    tax,
     gratuity,
     netSalary,
     ctc,
@@ -119,6 +121,7 @@ const initialCompensation = {
   esi: 0,
   volunteerPF: "",
   professionalTax: "",
+  tax: "",
   modeBasicDA: "amount",
   modeHra: "amount",
   modeSpecialAllowance: "amount",
@@ -365,7 +368,7 @@ const CompensationMaster = () => {
     // Fields that should only contain numbers
     const numericFields = [
       'gross', 'basicDA', 'hra', 'specialAllowance', 'gratuity',
-      'pf', 'employeePfContribution', 'employerPfContribution', 'esi', 'volunteerPF', 'professionalTax'
+      'pf', 'employeePfContribution', 'employerPfContribution', 'esi', 'volunteerPF', 'professionalTax', 'tax'
     ];
 
     if (numericFields.includes(name)) {
@@ -502,6 +505,7 @@ We’re excited to have you join our team and look forward to your growth and su
     const hra = parseFloat(comp.hra) || 0;
     const specialAllowance = parseFloat(comp.specialAllowance) || 0;
     const professionalTax = parseFloat(comp.professionalTax) || 0;
+    const tax = parseFloat(comp.tax) || 0;
     const gratuity = parseFloat(comp.gratuity) || 0;
     const esi = parseFloat(comp.esi) || 0;
     
@@ -512,8 +516,8 @@ We’re excited to have you join our team and look forward to your growth and su
     const grossSalary = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
     // Total Earnings (Gross) = Basic + HRA + Special + Employee PF + Employer PF + ESI
     const totalEarnings = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
-    // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax
-    const totalDeductions = employeePF + employerPF + esi + professionalTax;
+    // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax + Income Tax
+    const totalDeductions = employeePF + employerPF + esi + professionalTax + tax;
     // Net Salary = Total Earnings - Total Deductions
     const netSalary = totalEarnings - totalDeductions;
     // CTC = Gross + Gratuity
@@ -527,7 +531,7 @@ We’re excited to have you join our team and look forward to your growth and su
         
         <div style="padding: 30px;">
           <div style="font-size: 16px; line-height: 1.6; color: #555; white-space: pre-wrap;">${message.replace(/\n/g, '<br>')}</div>
-
+ 
           <div style="margin-top: 30px; background-color: #f9fafb; padding: 20px; border-radius: 8px;">
             <h3 style="margin-top: 0; color: #262760; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Employee Details</h3>
             <table style="width: 100%; border-collapse: collapse;">
@@ -553,7 +557,7 @@ We’re excited to have you join our team and look forward to your growth and su
               </tr>
             </table>
           </div>
-
+ 
           <div style="margin-top: 30px;">
             <h3 style="color: #262760; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px;">Salary Breakdown</h3>
             <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
@@ -590,6 +594,10 @@ We’re excited to have you join our team and look forward to your growth and su
                 <tr>
                   <td style="padding: 12px; border: 1px solid #e5e7eb;">Employer PF Contribution</td>
                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(employerPF)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Income Tax</td>
+                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(tax)}</td>
                 </tr>
                 <tr>
                   <td style="padding: 12px; border: 1px solid #e5e7eb;">Professional Tax</td>
@@ -811,8 +819,8 @@ We’re excited to have you join our team and look forward to your growth and su
   const exportCSV = () => {
     const cols = [
       "name","department","designation","grade","location","effectiveDate",
-      "basicDA","hra","specialAllowance","gratuity","pf","professionalTax",
-      "modeBasicDA","modeHra","modeSpecialAllowance","modeGratuity","modePf","modeProfessionalTax"
+      "basicDA","hra","specialAllowance","gratuity","pf","professionalTax","tax",
+      "modeBasicDA","modeHra","modeSpecialAllowance","modeGratuity","modePf","modeProfessionalTax","modeTax"
     ];
     const header = cols.join(",");
     const rows = compensation.map(t =>
@@ -835,14 +843,15 @@ We’re excited to have you join our team and look forward to your growth and su
   const calcSpecial = selectedCompensation ? (parseFloat(selectedCompensation.specialAllowance) || 0) : 0;
   const calcProfessionalTax = selectedCompensation ? (parseFloat(selectedCompensation.professionalTax) || 0) : 0;
   const calcGratuity = selectedCompensation ? (parseFloat(selectedCompensation.gratuity) || 0) : 0;
+  const calcTax = selectedCompensation ? (parseFloat(selectedCompensation.tax) || 0) : 0;
 
   const calcEmployerPF = selectedCompensation ? (parseFloat(selectedCompensation.employerPfContribution) || 1950) : 0;
   const calcEmployeePF = selectedCompensation ? (parseFloat(selectedCompensation.employeePfContribution) || 1800) : 0;
   const calcESI = selectedCompensation ? (parseFloat(selectedCompensation.esi) || 0) : 0;
   // Total Earnings (Gross) = Basic + HRA + Special + PFs + ESI
   const calcTotalEarnings = calcBasicDA + calcHRA + calcSpecial + calcEmployeePF + calcEmployerPF + calcESI;
-  // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax
-  const calcTotalDeductions = calcEmployeePF + calcEmployerPF + calcESI + calcProfessionalTax;
+  // Total Deductions = Employee PF + Employer PF + ESI + Professional Tax + Income Tax
+  const calcTotalDeductions = calcEmployeePF + calcEmployerPF + calcESI + calcProfessionalTax + calcTax;
   // Net Salary = Total Earnings - Total Deductions
   const calcNetSalary = calcTotalEarnings - calcTotalDeductions;
   // CTC = Gross + Gratuity
@@ -861,10 +870,11 @@ We’re excited to have you join our team and look forward to your growth and su
     const employerPF = parseFloat(viewItem.employerPfContribution) || 0;
     const volunteerPF = parseFloat(viewItem.volunteerPF) || 0;
     const professionalTax = parseFloat(viewItem.professionalTax) || 0;
+    const tax = parseFloat(viewItem.tax) || 0;
 
     // Total Earnings (Gross) = Basic + HRA + Special + Employee PF + Employer PF + ESI
     const totalEarnings = basic + hra + special + employeePF + employerPF + esi;
-    const totalDeductions = employeePF + employerPF + esi + volunteerPF + professionalTax;
+    const totalDeductions = employeePF + employerPF + esi + volunteerPF + professionalTax + tax;
     
     // Net Salary = Gross - Total Deductions
     const netSalary = totalEarnings - totalDeductions;
@@ -880,7 +890,8 @@ We’re excited to have you join our team and look forward to your growth and su
       employerPF,
       esi,
       volunteerPF,
-      professionalTax
+      professionalTax,
+      tax
     };
   }, [viewItem]);
 
@@ -1451,6 +1462,7 @@ We’re excited to have you join our team and look forward to your growth and su
                       { label: 'Employer PF', name: 'employerPfContribution' },
                       { label: 'Volunteer PF', name: 'volunteerPF' },
                       { label: 'ESI', name: 'esi' },
+                      { label: 'Income Tax', name: 'tax' },
                       { label: 'Professional Tax', name: 'professionalTax' },
                     ].map((field) => (
                       <div key={field.name}>
@@ -1700,6 +1712,12 @@ We’re excited to have you join our team and look forward to your growth and su
                         </span>
                       </div>
                       <div className="flex justify-between">
+                        <span className="text-slate-200">Income Tax</span>
+                        <span className="font-semibold text-rose-100">
+                          {viewItem.tax || "0"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
                         <span className="text-slate-200">Professional Tax</span>
                         <span className="font-semibold text-rose-100">
                           {viewItem.professionalTax || "-"}
@@ -1920,6 +1938,24 @@ We’re excited to have you join our team and look forward to your growth and su
                         <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Employee PF Contribution</td>
                         <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcEmployeePF).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
                      </tr>
+                     {calcESI > 0 && (
+                      <tr>
+                         <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>ESI Contribution</td>
+                         <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcESI).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                      </tr>
+                     )}
+                     {calcTax > 0 && (
+                      <tr>
+                         <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Income Tax</td>
+                         <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcTax).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                      </tr>
+                     )}
+                     {calcProfessionalTax > 0 && (
+                      <tr>
+                         <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Professional Tax</td>
+                         <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcProfessionalTax).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
+                      </tr>
+                     )}
                      <tr style={{backgroundColor: '#f9fafb'}}>
                         <td style={{ border: '1px solid #d1d5db', padding: '6px' }}><strong>Total Earnings (Gross)</strong></td>
                         <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}><strong>{Number(calcTotalEarnings).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>

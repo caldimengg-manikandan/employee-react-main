@@ -270,7 +270,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permission: "support_group_access",
       children: [
         { name: "Raise Ticket", path: "/support/raise-ticket", allowEmployeeRole: true, permission: "raise_ticket_access" },
-        { name: "My Tickets", path: "/support/my-tickets", allowEmployeeRole: true, permission: "my_tickets_access" },
         { name: "Support Dashboard", path: "/admin/support/dashboard", showForRoles: ["admin", "hr"], permission: "support_dashboard_access" },
       ]
     },

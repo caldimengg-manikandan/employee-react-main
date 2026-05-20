@@ -18,10 +18,19 @@ const RaiseTicket = () => {
   });
 
   const categories = [
-    'Login Issue', 'Attendance Issue', 'Leave Issue', 'Timesheet Issue',
-    'Payroll/Salary Issue', 'PF/ESI Issue', 'Reimbursement Issue',
-    'Appraisal Issue', 'Portal Error', 'Technical Support',
-    'HR Complaint', 'Other'
+    'Attendance Issue',
+    'Leave Management Issue',
+    'Timesheet Issue',
+    'Payroll & Salary Issue',
+    'PF/ESI Issue',
+    'Appraisal Issue',
+    'Employee Letter/Document Issue/download issues',
+    'Portal Bug/Error',
+    'Technical Support',
+    'Exit & Relieving Process Issue',
+    'HR Support',
+    'General Query',
+    'Other'
   ];
 
   const priorities = [
@@ -67,7 +76,7 @@ const RaiseTicket = () => {
         particleCount: 150,
         spread: 70,
         origin: { y: 0.6 },
-        colors: ['#262760', '#7c3aed', '#3b82f6', '#10b981']
+        colors: ['#4F1A6F', '#7c3aed', '#3b82f6', '#10b981']
       });
 
       setTimeout(() => navigate('/support/my-tickets'), 3000);
@@ -98,15 +107,17 @@ const RaiseTicket = () => {
   return (
     <div className="min-h-screen bg-[#f8fafc] flex flex-col lg:flex-row">
       {/* Left Panel: Info & Aesthetics */}
-      <div className="lg:w-1/3 bg-[#262760] p-8 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden">
+      <div className="lg:w-1/3 bg-gradient-to-br from-[#1A0E2E] via-[#311145] to-[#120720] p-8 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden">
         <div className="relative z-10 animate-stagger-1">
-          <button 
-            onClick={() => navigate(-1)}
-            className="flex items-center gap-2 text-violet-200 hover:text-white mb-12 transition-all group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
-            <span className="text-sm font-semibold tracking-wide uppercase">Back to Support</span>
-          </button>
+          <div className="flex flex-col sm:flex-row lg:flex-col gap-4 mb-12">
+            <button 
+              onClick={() => navigate(-1)}
+              className="flex items-center gap-2 text-violet-200 hover:text-white transition-all group"
+            >
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+              <span className="text-sm font-semibold tracking-wide uppercase">Back to Support</span>
+            </button>
+          </div>
 
           <div className="space-y-6">
             <div className="w-16 h-16 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-md border border-white/20 animate-pulse-soft">
@@ -147,7 +158,7 @@ const RaiseTicket = () => {
           <div className="flex items-center gap-3">
             <div className="flex -space-x-2">
               {[1,2,3].map(i => (
-                <div key={i} className="w-8 h-8 rounded-full border-2 border-[#262760] bg-violet-400 flex items-center justify-center text-[10px] font-bold">
+                <div key={i} className="w-8 h-8 rounded-full border-2 border-[#1A0E2E] bg-violet-400 flex items-center justify-center text-[10px] font-bold">
                   {String.fromCharCode(64 + i)}
                 </div>
               ))}
@@ -174,26 +185,36 @@ const RaiseTicket = () => {
       {/* Right Panel: The Form */}
       <div className="flex-1 p-6 lg:p-16 overflow-y-auto">
         <div className="max-w-2xl mx-auto animate-stagger-1">
-          <div className="mb-10 flex justify-between items-start">
+          <div className="mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h2 className="text-2xl font-bold text-gray-900">Raise Ticket</h2>
               <p className="text-gray-500 text-sm mt-1">Please fill out the form below to register your concern.</p>
             </div>
-            <div className="bg-blue-50 p-3 rounded-2xl animate-bounce">
-              <Sparkles className="w-5 h-5 text-blue-600" />
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => navigate('/support/my-tickets')}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 text-gray-700 hover:text-[#4F1A6F] hover:border-[#4F1A6F]/20 hover:bg-[#4F1A6F]/5 font-bold rounded-2xl shadow-sm transition-all"
+              >
+                <FileText className="w-4 h-4 text-[#4F1A6F]" />
+                My Tickets History
+              </button>
+              <div className="bg-[#4F1A6F]/10 p-3 rounded-2xl animate-bounce shrink-0">
+                <Sparkles className="w-5 h-5 text-[#4F1A6F]" />
+              </div>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 animate-stagger-2">
               <div className="space-y-2 group">
-                <label className="text-sm font-bold text-gray-700 tracking-wide uppercase flex items-center gap-2 group-focus-within:text-blue-600 transition-colors">
+                <label className="text-sm font-bold text-gray-700 tracking-wide uppercase flex items-center gap-2 group-focus-within:text-[#4F1A6F] transition-colors">
                   Issue Category
                   <span className="text-red-500">*</span>
                 </label>
                 <select
                   required
-                  className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-gray-800 font-medium shadow-sm appearance-none cursor-pointer hover:border-gray-300"
+                  className="w-full px-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-[#4F1A6F]/10 focus:border-[#4F1A6F] transition-all outline-none text-gray-800 font-medium shadow-sm appearance-none cursor-pointer hover:border-gray-300"
                   style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem center', backgroundSize: '1.25rem' }}
                   value={formData.category}
                   onChange={(e) => setFormData({...formData, category: e.target.value})}
@@ -225,7 +246,7 @@ const RaiseTicket = () => {
             </div>
 
             <div className="space-y-2 animate-stagger-3 group">
-              <label className="text-sm font-bold text-gray-700 tracking-wide uppercase flex items-center gap-2 group-focus-within:text-blue-600 transition-colors">
+              <label className="text-sm font-bold text-gray-700 tracking-wide uppercase flex items-center gap-2 group-focus-within:text-[#4F1A6F] transition-colors">
                 Subject Line
                 <span className="text-red-500">*</span>
               </label>
@@ -233,14 +254,14 @@ const RaiseTicket = () => {
                 type="text"
                 required
                 placeholder="Brief summary of the issue"
-                className="w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none text-gray-800 font-medium shadow-sm hover:border-gray-300"
+                className="w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-[#4F1A6F]/10 focus:border-[#4F1A6F] transition-all outline-none text-gray-800 font-medium shadow-sm hover:border-gray-300"
                 value={formData.subject}
                 onChange={(e) => setFormData({...formData, subject: e.target.value})}
               />
             </div>
 
             <div className="space-y-2 animate-stagger-4 group">
-              <label className="text-sm font-bold text-gray-700 tracking-wide uppercase flex items-center gap-2 group-focus-within:text-blue-600 transition-colors">
+              <label className="text-sm font-bold text-gray-700 tracking-wide uppercase flex items-center gap-2 group-focus-within:text-[#4F1A6F] transition-colors">
                 Full Description
                 <span className="text-red-500">*</span>
               </label>
@@ -248,7 +269,7 @@ const RaiseTicket = () => {
                 required
                 rows="6"
                 placeholder="Provide as much detail as possible..."
-                className="w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 transition-all outline-none resize-none text-gray-800 font-medium shadow-sm hover:border-gray-300"
+                className="w-full px-5 py-4 bg-white border border-gray-200 rounded-2xl focus:ring-4 focus:ring-[#4F1A6F]/10 focus:border-[#4F1A6F] transition-all outline-none resize-none text-gray-800 font-medium shadow-sm hover:border-gray-300"
                 value={formData.description}
                 onChange={(e) => setFormData({...formData, description: e.target.value})}
               ></textarea>
@@ -258,7 +279,7 @@ const RaiseTicket = () => {
               <label className="text-sm font-bold text-gray-700 tracking-wide uppercase">Evidence & Attachments</label>
               <div 
                 onClick={() => fileInputRef.current.click()}
-                className="relative group overflow-hidden bg-white border-2 border-dashed border-gray-200 rounded-3xl p-10 flex flex-col items-center justify-center gap-4 hover:border-blue-500 hover:bg-blue-50/30 transition-all cursor-pointer"
+                className="relative group overflow-hidden bg-white border-2 border-dashed border-gray-200 rounded-3xl p-10 flex flex-col items-center justify-center gap-4 hover:border-[#4F1A6F] hover:bg-[#4F1A6F]/5 transition-all cursor-pointer"
               >
                 <input 
                   type="file" 
@@ -269,13 +290,13 @@ const RaiseTicket = () => {
                   accept="image/*,.pdf,.doc,.docx"
                 />
                 <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-300 shadow-sm border border-gray-100">
-                  <Upload className="w-8 h-8 text-blue-600" />
+                  <Upload className="w-8 h-8 text-[#4F1A6F]" />
                 </div>
                 <div className="text-center">
                   <p className="text-gray-900 font-bold text-lg">Drop files here or click to browse</p>
                   <p className="text-gray-500 text-sm mt-1">Upload up to 5 files (Max 10MB each)</p>
                 </div>
-                <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
+                <div className="absolute inset-0 bg-[#4F1A6F]/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"></div>
               </div>
 
               {selectedFiles.length > 0 && (
@@ -283,8 +304,8 @@ const RaiseTicket = () => {
                   {selectedFiles.map((file, idx) => (
                     <div key={idx} className="flex items-center justify-between p-4 bg-white rounded-2xl border border-gray-100 shadow-sm animate-in slide-in-from-bottom-2 duration-300">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center shrink-0">
-                          <FileText className="w-5 h-5 text-blue-600" />
+                        <div className="w-10 h-10 bg-[#4F1A6F]/10 rounded-xl flex items-center justify-center shrink-0">
+                          <FileText className="w-5 h-5 text-[#4F1A6F]" />
                         </div>
                         <div className="truncate">
                           <p className="text-sm font-bold text-gray-800 truncate">{file.name}</p>
@@ -306,7 +327,7 @@ const RaiseTicket = () => {
 
             <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-10 border-t border-gray-100">
               <div className="flex items-center gap-3 text-gray-500">
-                <AlertCircle className="w-5 h-5 text-blue-400" />
+                <AlertCircle className="w-5 h-5 text-[#4F1A6F]" />
                 <span className="text-xs font-medium italic">Our team typically responds within 24 hours.</span>
               </div>
               <div className="flex items-center gap-4 w-full sm:w-auto">
@@ -320,7 +341,7 @@ const RaiseTicket = () => {
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className={`flex-1 sm:flex-none px-12 py-4 bg-[#262760] text-white font-bold rounded-2xl shadow-xl shadow-[#262760]/20 hover:bg-[#1a1b4d] hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-3 ${
+                  className={`flex-1 sm:flex-none px-12 py-4 bg-gradient-to-r from-[#4F1A6F] to-[#2B0940] hover:from-[#5C1F82] hover:to-[#380C52] text-white font-bold rounded-2xl shadow-xl shadow-[#4F1A6F]/20 hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-3 ${
                     isLoading ? 'opacity-70 cursor-not-allowed' : ''
                   }`}
                 >

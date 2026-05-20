@@ -17,6 +17,13 @@ const TicketDetails = () => {
 
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const isAdmin = ['admin', 'hr'].includes(user.role);
+  const isOwner = ticket && (ticket.employeeId?._id === user._id || ticket.employeeId === user._id);
+
+  const showInReview = isAdmin && !isOwner && ticket?.status === 'Open';
+  const showResolved = isAdmin && !isOwner && ['Open', 'In Review', 'Assigned'].includes(ticket?.status);
+  const showClose = ticket?.status === 'Resolved';
+  const showReopen = ticket?.status === 'Resolved' && (!isAdmin || isOwner);
+  const hasActions = showInReview || showResolved || showClose || showReopen;
 
   useEffect(() => {
     fetchDetails();
@@ -177,50 +184,51 @@ const TicketDetails = () => {
         </div>
 
         {/* Sidebar Actions */}
-        <div className="space-y-6">
-          <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-800 mb-4">Actions</h3>
-            <div className="space-y-3">
-              {isAdmin && ticket.status === 'Open' && (
-                <button 
-                  onClick={() => updateStatus('In Review')}
-                  className="w-full py-2.5 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
-                >
-                  <Clock className="w-4 h-4" />
-                  Mark as In Review
-                </button>
-              )}
-              {isAdmin && ['Open', 'In Review', 'Assigned'].includes(ticket.status) && (
-                <button 
-                  onClick={() => updateStatus('Resolved')}
-                  className="w-full py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Mark as Resolved
-                </button>
-              )}
-              {ticket.status === 'Resolved' && (
-                <button 
-                  onClick={() => updateStatus('Closed')}
-                  className="w-full py-2.5 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 transition-all flex items-center justify-center gap-2"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  Close Ticket
-                </button>
-              )}
-              {ticket.status === 'Resolved' && !isAdmin && (
-                <button 
-                  onClick={() => updateStatus('Reopened')}
-                  className="w-full py-2.5 bg-yellow-600 text-white rounded-xl font-bold hover:bg-yellow-700 transition-all flex items-center justify-center gap-2"
-                >
-                  <AlertCircle className="w-4 h-4" />
-                  Reopen Ticket
-                </button>
-              )}
+        {hasActions && (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl shadow-xl p-6 border border-gray-100">
+              <h3 className="text-lg font-bold text-gray-800 mb-4">Actions</h3>
+              <div className="space-y-3">
+                {showInReview && (
+                  <button 
+                    onClick={() => updateStatus('In Review')}
+                    className="w-full py-2.5 bg-purple-600 text-white rounded-xl font-bold hover:bg-purple-700 transition-all flex items-center justify-center gap-2"
+                  >
+                    <Clock className="w-4 h-4" />
+                    Mark as In Review
+                  </button>
+                )}
+                {showResolved && (
+                  <button 
+                    onClick={() => updateStatus('Resolved')}
+                    className="w-full py-2.5 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 transition-all flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Mark as Resolved
+                  </button>
+                )}
+                {showClose && (
+                  <button 
+                    onClick={() => updateStatus('Closed')}
+                    className="w-full py-2.5 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-900 transition-all flex items-center justify-center gap-2"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    Close Ticket
+                  </button>
+                )}
+                {showReopen && (
+                  <button 
+                    onClick={() => updateStatus('Reopened')}
+                    className="w-full py-2.5 bg-yellow-600 text-white rounded-xl font-bold hover:bg-yellow-700 transition-all flex items-center justify-center gap-2"
+                  >
+                    <AlertCircle className="w-4 h-4" />
+                    Reopen Ticket
+                  </button>
+                )}
+              </div>
             </div>
           </div>
-
-        </div>
+        )}
       </div>
     </div>
   );

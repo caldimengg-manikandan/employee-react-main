@@ -343,18 +343,29 @@ router.post('/release', auth, async (req, res) => {
         const basic = Math.round(grossVal * 0.50);
         const hra = Math.round(grossVal * 0.25);
         
-        const employeePfContribution = customPFs?.employeePfContribution !== undefined ? Number(customPFs.employeePfContribution) : 1800;
-        const employerPfContribution = customPFs?.employerPfContribution !== undefined ? Number(customPFs.employerPfContribution) : 1950;
+        let calculatedEmployeePF = 1800;
+        let calculatedEmployerPF = 1950;
+        if (basic > 0) {
+          if (basic < 15000) {
+            calculatedEmployeePF = Math.round(basic * 0.12);
+            calculatedEmployerPF = Math.round(basic * 0.13) + 150;
+          } else {
+            calculatedEmployeePF = 1800;
+            calculatedEmployerPF = 1950;
+          }
+        }
+
+        const employeePfContribution = calculatedEmployeePF;
+        const employerPfContribution = calculatedEmployerPF;
         const esi = customPFs?.esi !== undefined ? Number(customPFs.esi) : 0;
         
         const volunteerPF = customPFs?.volunteerPF !== undefined ? Number(customPFs.volunteerPF) : 0;
         
-        // Special Allowance is the remainder after subtracting standard statutory components from Gross
-        // Volunteer PF should NOT be subtracted here
+        // Special Allowance is the remainder after subtracting employee, employer PF and ESI from targetGross
         const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi);
         
-        // Net Salary (Take Home) = (Basic + HRA + Special) - (Volunteer PF)
-        // PF and ESI are already excluded from the (B+H+S) sum
+        const totalDeductions = employeePfContribution + employerPfContribution + esi + volunteerPF;
+        // Net Salary = (Basic + HRA + Special) - Volunteer PF
         const net = (basic + hra + special) - volunteerPF;
         
         const gratuity = Math.round(basic * 0.0486);
@@ -370,7 +381,7 @@ router.post('/release', auth, async (req, res) => {
           employerPfContribution,
           esi,
           volunteerPF,
-          totalDeductions: employeePfContribution + employerPfContribution + esi + volunteerPF,
+          totalDeductions,
           gratuity,
           ctc: Math.round(ctc)
         };

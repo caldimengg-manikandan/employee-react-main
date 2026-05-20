@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supportAPI } from '../../services/api';
 import { 
   BarChart, Activity, CheckCircle, Clock, 
-  AlertTriangle, MessageCircle, ArrowUpRight, Filter
+  AlertTriangle, MessageCircle, ArrowUpRight, Filter,
+  XCircle, RefreshCw
 } from 'lucide-react';
 
 const SupportDashboard = () => {
@@ -33,14 +34,16 @@ const SupportDashboard = () => {
   );
 
   const cards = [
-    { title: 'Total Tickets', value: stats.total, icon: Activity, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { title: 'Open Tickets', value: stats.open, icon: MessageCircle, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-    { title: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-50' },
-    { title: 'High Priority', value: stats.highPriority, icon: AlertTriangle, color: 'text-red-600', bg: 'bg-red-50' },
+    { title: 'Total Tickets', value: stats.total, icon: Activity, color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-l-blue-500' },
+    { title: 'Open Tickets', value: stats.open, icon: MessageCircle, color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-l-amber-500' },
+    { title: 'Resolved', value: stats.resolved, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50', border: 'border-l-emerald-500' },
+    { title: 'Closed', value: stats.closed, icon: XCircle, color: 'text-slate-600', bg: 'bg-slate-50', border: 'border-l-slate-500' },
+    { title: 'Reopen Tickets', value: stats.reopened, icon: RefreshCw, color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-l-purple-500' },
+    { title: 'High Priority', value: stats.highPriority, icon: AlertTriangle, color: 'text-rose-600', bg: 'bg-rose-50', border: 'border-l-rose-500' },
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-full mx-auto px-6 py-8">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-800">Support Dashboard</h1>
@@ -55,13 +58,13 @@ const SupportDashboard = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6 mb-8">
         {cards.map((card, i) => (
-          <div key={i} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+          <div key={i} className={`bg-white p-6 rounded-2xl shadow-sm border-l-4 ${card.border} border-y border-r border-gray-100 hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}>
             <div className={`w-12 h-12 ${card.bg} rounded-xl flex items-center justify-center mb-4`}>
               <card.icon className={`w-6 h-6 ${card.color}`} />
             </div>
-            <p className="text-sm font-bold text-gray-400 uppercase tracking-widest">{card.title}</p>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">{card.title}</p>
             <p className="text-3xl font-black text-gray-800 mt-1">{card.value}</p>
           </div>
         ))}

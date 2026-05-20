@@ -352,20 +352,45 @@ const SalarySlips = () => {
     }
 
     try {
-      // Use higher scale for better quality
+      // Use fixed windowWidth/windowHeight and explicit onclone styles to prevent mobile layout clipping
       const canvas = await html2canvas(element, {
-        scale: 3,
+        scale: 2,
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
         width: 794,
-        height: 1123,
+        height: 1120,
+        windowWidth: 794,
+        windowHeight: 1120,
         onclone: (clonedDoc) => {
           const clonedElement = clonedDoc.getElementById('payslip-content');
           if (clonedElement) {
+            // Reset mobile zoom scale and force standard desktop width/height
             clonedElement.style.transform = 'none';
             clonedElement.style.margin = '0';
             clonedElement.style.boxShadow = 'none';
+            clonedElement.style.width = '794px';
+            clonedElement.style.minWidth = '794px';
+            clonedElement.style.height = '1120px';
+            clonedElement.style.minHeight = '1120px';
+
+            // Ensure body and html inside the cloned frame do not constrain the layout
+            clonedDoc.body.style.width = '794px';
+            clonedDoc.body.style.minWidth = '794px';
+            clonedDoc.body.style.padding = '0';
+            clonedDoc.body.style.margin = '0';
+            clonedDoc.body.style.overflow = 'visible';
+
+            // Configure immediate parent
+            const parent = clonedElement.parentElement;
+            if (parent) {
+              parent.style.width = '794px';
+              parent.style.minWidth = '794px';
+              parent.style.transform = 'none';
+              parent.style.padding = '0';
+              parent.style.margin = '0';
+              parent.style.overflow = 'visible';
+            }
           }
         }
       });
@@ -373,9 +398,8 @@ const SalarySlips = () => {
       const imgData = canvas.toDataURL('image/png', 1.0);
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
 
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, 297); // 297mm is A4 height
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, 297); // 297mm is standard A4 height
       pdf.save(`payslip_${employeeId}_${payslipData.monthYear}.pdf`);
     } catch (error) {
       console.error("PDF Export failed:", error);

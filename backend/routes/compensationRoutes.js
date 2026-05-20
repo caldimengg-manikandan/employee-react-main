@@ -9,10 +9,23 @@ const buildPayrollData = (comp, employee) => {
   const basicDA = Number(comp.basicDA) || 0;
   const hra = Number(comp.hra) || 0;
   const specialAllowance = Number(comp.specialAllowance) || 0;
-  // Ensure we use the specific contribution fields if available, otherwise fallback to defaults
+  // Calculate dynamic PF based on basicDA
+  let calculatedEmployeePF = 1800;
+  let calculatedEmployerPF = 1950;
+  if (basicDA > 0) {
+    if (basicDA < 15000) {
+      calculatedEmployeePF = Math.round(basicDA * 0.12);
+      calculatedEmployerPF = Math.round(basicDA * 0.13) + 150;
+    } else {
+      calculatedEmployeePF = 1800;
+      calculatedEmployerPF = 1950;
+    }
+  }
+
+  // Ensure we use the specific contribution fields if available, otherwise fallback to dynamic calculated values
   // Do NOT fallback to 'pf' as it may contain the combined (Emp+Empr) value
-  const employeePF = Number(comp.employeePfContribution) || 1800;
-  const employerPF = Number(comp.employerPfContribution) || 1950;
+  const employeePF = calculatedEmployeePF;
+  const employerPF = calculatedEmployerPF;
   const esi = Number(comp.esi) || 0;
   const tax = Number(comp.tax) || 0;
   const professionalTax = Number(comp.professionalTax) || 0;
@@ -20,13 +33,13 @@ const buildPayrollData = (comp, employee) => {
 
   const volunteerPF = Number(comp.volunteerPF) || 0;
 
+  // Reconstructed Gross (Total Earnings) = Basic + HRA + Special + Employee PF + Employer PF + ESI
   const reconstructedGross = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
   const totalEarnings = Math.round(reconstructedGross);
   const totalDeductions = employeePF + employerPF + esi + tax + professionalTax + volunteerPF;
   
-  // Net Salary = Take-home components (Basic+HRA+Special) - (Tax + PT + Volunteer PF)
-  // PF and ESI are already excluded from the take-home components sum
-  const netSalary = (basicDA + hra + specialAllowance) - (tax + professionalTax + volunteerPF);
+  // Net Salary = (Basic + HRA + Special) - Tax - Professional Tax - Volunteer PF
+  const netSalary = (basicDA + hra + specialAllowance) - tax - professionalTax - volunteerPF;
   
   const ctc = Math.round(reconstructedGross + gratuity); // CTC = Gross + Gratuity
 

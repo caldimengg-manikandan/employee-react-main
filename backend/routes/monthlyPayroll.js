@@ -28,6 +28,60 @@ router.post("/run", async (req, res) => {
         p,
         { upsert: true, new: true }
       );
+
+      // Process loan updates if the employee has active loans
+      try {
+        const Loan = require("../models/Loan");
+        const activeLoans = await Loan.find({
+          employeeId: p.employeeId,
+          status: "active",
+          paymentEnabled: true
+        });
+
+        for (const loan of activeLoans) {
+          const monthStr = p.salaryMonth || new Date().toISOString().substring(0, 7);
+          const alreadyDeducted = loan.repaymentHistory && loan.repaymentHistory.some(h => h.emiMonth === monthStr);
+          if (alreadyDeducted) {
+            continue;
+          }
+
+          const monthlyEMI = Math.round(loan.amount / loan.tenureMonths);
+          
+          loan.paidMonths = (loan.paidMonths || 0) + 1;
+          
+          const remaining = loan.amount - (monthlyEMI * loan.paidMonths);
+          loan.remainingBalance = remaining < 0 ? 0 : remaining;
+          loan.lastDeductionDate = new Date();
+          
+          const nextDate = new Date();
+          nextDate.setMonth(nextDate.getMonth() + 1);
+          loan.nextDeductionDate = nextDate;
+          
+          if (loan.paidMonths >= loan.tenureMonths) {
+            loan.status = "completed";
+            loan.paymentEnabled = false;
+            loan.remainingBalance = 0;
+            loan.nextDeductionDate = null;
+          }
+          
+          if (!loan.repaymentHistory) {
+            loan.repaymentHistory = [];
+          }
+
+          loan.repaymentHistory.push({
+            emiMonth: monthStr,
+            emiAmount: monthlyEMI,
+            deductionDate: new Date(),
+            remainingBalance: loan.remainingBalance,
+            paymentStatus: "deducted"
+          });
+          
+          await loan.save();
+        }
+      } catch (loanErr) {
+        console.error("Error processing loan deduction for employee", p.employeeId, loanErr);
+      }
+
       saved.push(record);
     }
 

@@ -88,8 +88,17 @@ const Header = ({ onMenuClick }) => {
       // Exit Management
       '/employee-exit/form': 'Employee Exit Form',
       '/employee-exit/approval': 'Exit Approval',
+
+      // Support Center
+      '/support/raise-ticket': 'Caldim Support Center',
+      '/support/my-tickets': 'Caldim Support Center',
+      '/admin/support/dashboard': 'Caldim Support Center',
+      '/admin/support/all-tickets': 'Caldim Support Center',
     };
 
+    if (location.pathname.startsWith('/support/tickets/') || location.pathname.startsWith('/admin/support/tickets/')) {
+      return 'Caldim Support Center';
+    }
 
     return routeTitles[location.pathname] || 'Caldim Employee Portal';
   };

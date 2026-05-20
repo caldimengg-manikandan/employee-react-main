@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Eye, Download, Trash2, Plus, Edit2, Check, X, User, Calendar, Building, CreditCard, DollarSign, Clock, AlertCircle, Power } from "lucide-react";
 import { employeeAPI, loanAPI } from "../../services/api";
 import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import useNotification from "../../hooks/useNotification";
 import Notification from "../../components/Notifications/Notification";
 import Modal from "../../components/Modals/Modal";
@@ -118,13 +119,15 @@ export default function LoanSummary() {
 
   /* -------- HELPERS -------- */
   function calcMonthlyDeduction(loan) {
-    if (!loan.amount || !loan.tenureMonths) return 0;
+    if (!loan || !loan.amount || !loan.tenureMonths) return 0;
     return Math.round(loan.amount / loan.tenureMonths);
   }
 
   function remainingBalance(loan) {
+    if (!loan) return 0;
+    if (loan.remainingBalance !== undefined && loan.remainingBalance !== null) return loan.remainingBalance;
     const paid = loan.paidMonths || 0;
-    return Math.max(loan.amount - calcMonthlyDeduction(loan) * paid, 0);
+    return Math.max((loan.amount || 0) - calcMonthlyDeduction(loan) * paid, 0);
   }
 
   function formatLoanId(counter) {
@@ -324,101 +327,226 @@ export default function LoanSummary() {
 
   function downloadPDF(loan) {
     const doc = new jsPDF();
-    
-    // Add Company/Title Header
-    doc.setFontSize(22);
-    doc.setTextColor(38, 39, 96); // #262760
-    doc.text("Loan Statement", 105, 20, { align: "center" });
-    
-    // Add Divider Line
-    doc.setDrawColor(200, 200, 200);
-    doc.line(20, 25, 190, 25);
-    
-    // Reset Font
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(12);
-    
-    let y = 40;
-    const lineHeight = 10;
-    const leftColX = 20;
-    const rightColX = 110;
-    
-    // Helper to add row
-    const addRow = (label, value) => {
-      doc.setFont("helvetica", "bold");
-      doc.text(label, leftColX, y);
+    const loanId = loan.loanId || loan.id || "N/A";
+
+    // --- COLOR PALETTE ---
+    const primaryColor = [38, 39, 96]; // #262760 Deep Navy
+    const accentColor = [224, 90, 0];  // Orange Accent
+    const textColor = [51, 51, 51];    // Charcoal Text
+
+    // --- TOP DECORATIVE HEADER ---
+    doc.setFillColor(38, 39, 96);
+    doc.rect(0, 0, 210, 8, "F"); // Header stripe
+
+    // --- BRANDING ---
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(18);
+    doc.setTextColor(38, 39, 96);
+    doc.text("CALDIM ENGINEERING PRIVATE LIMITED", 20, 25);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(120, 120, 120);
+    doc.text("Registered Corporate Loan Statement & Ledger", 20, 30);
+
+    // Decorative Orange Accent Line
+    doc.setFillColor(224, 90, 0);
+    doc.rect(20, 33, 40, 2, "F");
+
+    // Metadata Right-aligned
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text(`Statement Date: ${new Date().toLocaleDateString("en-IN")}`, 190, 25, { align: "right" });
+    doc.text(`Doc Type: Automated Statement`, 190, 30, { align: "right" });
+
+    // --- METADATA CONTAINER ---
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(15, 42, 180, 34, 4, 4, "FD"); // Padded container
+
+    // Left Column Info
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(38, 39, 96);
+    doc.text("EMPLOYEE INFORMATION", 20, 48);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Employee ID:", 20, 55);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(51, 51, 51);
+    doc.text(String(loan.employeeId || ""), 50, 55);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text("Full Name:", 20, 61);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(51, 51, 51);
+    doc.text(String(loan.employeeName || ""), 50, 61);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text("Division / Loc:", 20, 67);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(51, 51, 51);
+    doc.text(`${loan.division || "N/A"} / ${loan.location || "N/A"}`, 50, 67);
+
+    // Right Column Info
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(38, 39, 96);
+    doc.text("LOAN REGISTRATION", 115, 48);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text("Loan Account ID:", 115, 55);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(51, 51, 51);
+    doc.text(String(loanId), 150, 55);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text("Start Date:", 115, 61);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(51, 51, 51);
+    doc.text(loan.startDate ? new Date(loan.startDate).toLocaleDateString("en-IN") : "N/A", 150, 61);
+
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text("Account Status:", 115, 67);
+    doc.setFont("helvetica", "bold");
+    const statusStr = String(loan.status || "active").toUpperCase();
+    if (statusStr === "ACTIVE") {
+      doc.setTextColor(34, 197, 94); // Green
+    } else if (statusStr === "COMPLETED") {
+      doc.setTextColor(59, 130, 246); // Blue
+    } else {
+      doc.setTextColor(224, 90, 0); // Orange/Accent
+    }
+    doc.text(statusStr, 150, 67);
+
+    // --- FINANCIAL SUMMARY BOXES (KPIs) ---
+    const drawKpiCard = (x, y, width, height, title, value, titleColor, valColor, bg) => {
+      doc.setFillColor(bg[0], bg[1], bg[2]);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(x, y, width, height, 3, 3, "FD");
+
       doc.setFont("helvetica", "normal");
-      doc.text(String(value), leftColX + 40, y);
+      doc.setFontSize(8);
+      doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
+      doc.text(title, x + 5, y + 6);
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(valColor[0], valColor[1], valColor[2]);
+      doc.text(value, x + 5, y + 14);
     };
 
-    // Loan Information
-    doc.setFontSize(14);
-    doc.setTextColor(38, 39, 96);
-    doc.text("Loan Details", leftColX, y);
-    y += 10;
-    
-    doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
+    const monthlyEMI = calcMonthlyDeduction(loan);
+    const totalPaid = monthlyEMI * (loan.paidMonths || 0);
 
-    const loanId = loan.loanId || loan.id || "N/A";
-    
-    doc.text("Loan ID:", leftColX, y);
-    doc.text(loanId, leftColX + 40, y);
-    
-    doc.text("Date:", rightColX, y);
-    doc.text(new Date().toLocaleDateString(), rightColX + 20, y);
-    y += lineHeight;
+    drawKpiCard(15, 82, 33, 18, "TOTAL LOAN", `INR ${Number(loan.amount || 0).toLocaleString("en-IN")}`, [100, 100, 100], [51, 51, 51], [255, 255, 255]);
+    drawKpiCard(52, 82, 33, 18, "TENURE (MONTHS)", `${loan.tenureMonths} Months`, [100, 100, 100], [51, 51, 51], [255, 255, 255]);
+    drawKpiCard(89, 82, 33, 18, "MONTHLY EMI", `INR ${Number(monthlyEMI || 0).toLocaleString("en-IN")}`, [100, 100, 100], [38, 39, 96], [255, 255, 255]);
+    drawKpiCard(126, 82, 33, 18, "TOTAL DEDUCTED", `INR ${Number(totalPaid || 0).toLocaleString("en-IN")}`, [100, 100, 100], [34, 197, 94], [240, 253, 244]);
+    drawKpiCard(162, 82, 33, 18, "REMAINING BAL.", `INR ${Number(remainingBalance(loan) || 0).toLocaleString("en-IN")}`, [100, 100, 100], [220, 38, 38], [254, 242, 242]);
 
-    doc.text("Employee:", leftColX, y);
-    doc.text(`${loan.employeeName} (${loan.employeeId})`, leftColX + 40, y);
-    y += lineHeight;
-
-    doc.text("Location:", leftColX, y);
-    doc.text(loan.location || "N/A", leftColX + 40, y);
-    
-    doc.text("Division:", rightColX, y);
-    doc.text(loan.division || "N/A", rightColX + 20, y);
-    y += lineHeight + 5;
-
-    // Financials Box
-    doc.setFillColor(245, 247, 250);
-    doc.rect(15, y, 180, 70, "F");
-    y += 10;
-
-    doc.text("Loan Amount:", leftColX + 5, y);
-    doc.text(`Rs. ${loan.amount}`, leftColX + 45, y);
-    
-    doc.text("Tenure:", rightColX, y);
-    doc.text(`${loan.tenureMonths} months`, rightColX + 25, y);
-    y += lineHeight;
-
-    doc.text("Start Date:", leftColX + 5, y);
-    doc.text(new Date(loan.startDate).toLocaleDateString(), leftColX + 45, y);
-    
-    doc.text("Monthly EMI:", rightColX, y);
-    doc.text(`Rs. ${calcMonthlyDeduction(loan)}`, rightColX + 25, y);
-    y += lineHeight;
-
-    doc.text("Paid Months:", leftColX + 5, y);
-    doc.text(String(loan.paidMonths || 0), leftColX + 45, y);
-    y += lineHeight;
-
+    // --- REPAYMENT HISTORY TABLE ---
     doc.setFont("helvetica", "bold");
-    doc.text("Remaining Balance:", leftColX + 5, y);
-    doc.text(`Rs. ${remainingBalance(loan)}`, leftColX + 45, y);
+    doc.setFontSize(11);
+    doc.setTextColor(38, 39, 96);
+    doc.text("DETAILED REPAYMENT HISTORY LEDGER", 15, 110);
+
+    // Reconstruct payment history if empty for legacy support
+    let history = [];
+    if (loan.repaymentHistory && loan.repaymentHistory.length > 0) {
+      history = [...loan.repaymentHistory];
+    } else if (loan.paidMonths > 0) {
+      const start = new Date(loan.startDate || new Date());
+      for (let i = 1; i <= loan.paidMonths; i++) {
+        const deductionDate = new Date(start);
+        deductionDate.setMonth(start.getMonth() + i - 1);
+        const monthStr = deductionDate.toISOString().substring(0, 7);
+        const rem = Math.max((loan.amount || 0) - (monthlyEMI * i), 0);
+        history.push({
+          emiMonth: monthStr,
+          emiAmount: monthlyEMI,
+          deductionDate: deductionDate,
+          remainingBalance: rem,
+          paymentStatus: "deducted"
+        });
+      }
+    }
+
+    const tableHeaders = [
+      "INSTALLMENT",
+      "DEDUCTION MONTH",
+      "EMI AMOUNT",
+      "TRANSACTION DATE",
+      "REMAINING BALANCE",
+      "PAYMENT STATUS"
+    ];
+
+    const tableBody = history.map((record, index) => {
+      const installNo = `#${index + 1}`;
+      const month = record.emiMonth || "N/A";
+      const amount = `INR ${Number(record.emiAmount || monthlyEMI).toLocaleString("en-IN")}`;
+      const txDate = record.deductionDate ? new Date(record.deductionDate).toLocaleDateString("en-IN") : "N/A";
+      const balance = `INR ${Number(record.remainingBalance).toLocaleString("en-IN")}`;
+      const status = String(record.paymentStatus || "Deducted").toUpperCase();
+
+      return [installNo, month, amount, txDate, balance, status];
+    });
+
+    if (tableBody.length === 0) {
+      tableBody.push(["-", "No payments recorded yet.", "-", "-", "-", "-"]);
+    }
+
+    autoTable(doc, {
+      head: [tableHeaders],
+      body: tableBody,
+      startY: 115,
+      styles: { fontSize: 8.5, halign: "center", cellPadding: 3 },
+      headStyles: { fillColor: [38, 39, 96], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 28 },
+        1: { cellWidth: 32 },
+        2: { cellWidth: 28 },
+        3: { cellWidth: 32 },
+        4: { fontStyle: "bold", cellWidth: 34 },
+        5: { fontStyle: "bold", cellWidth: 26 }
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 5) {
+          const val = String(data.cell.raw).toUpperCase();
+          if (val === "DEDUCTED") {
+            data.cell.styles.textColor = [22, 163, 74]; // Green
+          } else if (val === "PENDING") {
+            data.cell.styles.textColor = [220, 38, 38]; // Red
+          }
+        }
+      }
+    });
+
+    const pageHeight = doc.internal.pageSize.height;
+    
+    // Bottom Signature block
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    doc.setTextColor(80, 80, 80);
+    doc.text("Authorized Signature & Seal", 190, pageHeight - 35, { align: "right" });
+    
+    doc.setDrawColor(200, 200, 200);
+    doc.line(140, pageHeight - 23, 190, pageHeight - 23); // Signature line
+
     doc.setFont("helvetica", "normal");
-    y += lineHeight;
+    doc.setFontSize(7.5);
+    doc.setTextColor(140, 140, 140);
+    doc.text("This is an official computer-generated corporate ledger document. No physical signature is required.", 105, pageHeight - 12, { align: "center" });
 
-    doc.text("Status:", leftColX + 5, y);
-    doc.text(loan.status.charAt(0).toUpperCase() + loan.status.slice(1), leftColX + 45, y);
-    y += lineHeight + 15;
-
-    // Footer
-    doc.setFontSize(10);
-    doc.setTextColor(100, 100, 100);
-    doc.text("This is a computer generated document.", 105, 280, { align: "center" });
-
-    doc.save(`Loan_${loanId}.pdf`);
+    doc.save(`Loan_Statement_${loan.employeeId || "EMP"}_${loanId}.pdf`);
   }
 
   async function deleteLoan(loan) {
@@ -535,8 +663,11 @@ export default function LoanSummary() {
         <table className="w-full min-w-[1200px]">
           <thead className="bg-gradient-to-r from-[#262760] to-[#3a3b8c] text-white">
             <tr>
+              <th className="px-6 py-4 text-center">S.No</th>
               <th className="px-6 py-4">Employee ID</th>
               <th className="px-6 py-4">Employee Name</th>
+              <th className="px-6 py-4">Division</th>
+              <th className="px-6 py-4">Location</th>
               <th className="px-6 py-4 text-right">Loan Amount</th>
               <th className="px-6 py-4 text-right">Tenure</th>
               <th className="px-6 py-4 text-right">Monthly EMI</th>
@@ -549,28 +680,34 @@ export default function LoanSummary() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan="9" className="py-10 text-center text-gray-500">
+                <td colSpan="12" className="py-10 text-center text-gray-500">
                   <div className="flex justify-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#262760]"></div>
                   </div>
                 </td>
               </tr>
-            ) : filteredLoans.map((loan) => {
+            ) : filteredLoans.map((loan, idx) => {
               const isPaymentAllowed = loan.paymentEnabled && loan.status !== 'completed';
               
               return (
                 <tr key={loan._id || loan.id} className="border-t hover:bg-gray-50">
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 text-center whitespace-nowrap">
+                    <div className="font-semibold text-gray-600">{idx + 1}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
                     <div className="font-medium">{loan.employeeId}</div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="font-medium">{loan.employeeName}</div>
-                    <div className="text-xs text-gray-500">
-                      {loan.division} | {loan.location}
-                    </div>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-semibold text-gray-900">{loan.employeeName}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium text-gray-700">{loan.division || "N/A"}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium text-gray-700">{loan.location || "N/A"}</div>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="font-semibold">₹{loan.amount.toLocaleString("en-IN")}</div>
+                    <div className="font-semibold">₹{Number(loan.amount || 0).toLocaleString("en-IN")}</div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
@@ -578,11 +715,11 @@ export default function LoanSummary() {
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">
-                    <div className="font-medium">₹{calcMonthlyDeduction(loan).toLocaleString("en-IN")}</div>
+                    <div className="font-medium">₹{Number(calcMonthlyDeduction(loan) || 0).toLocaleString("en-IN")}</div>
                   </td>
                   <td className="px-6 py-4 text-right">
                     <div className={`font-bold ${remainingBalance(loan) === 0 ? 'text-green-600' : 'text-[#262760]'}`}>
-                      ₹{remainingBalance(loan).toLocaleString("en-IN")}
+                      ₹{Number(remainingBalance(loan) || 0).toLocaleString("en-IN")}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-center">
@@ -653,7 +790,7 @@ export default function LoanSummary() {
             })}
             {!loading && filteredLoans.length === 0 && (
               <tr>
-                <td colSpan="9" className="py-10 text-center text-gray-500">
+                <td colSpan="12" className="py-10 text-center text-gray-500">
                   <div className="flex flex-col items-center">
                     <AlertCircle size={48} className="text-gray-300 mb-2" />
                     <p className="text-lg">No loans found matching your filters</p>
@@ -803,7 +940,7 @@ export default function LoanSummary() {
             onSubmit={updateLoan}
             className="bg-white p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
           >
-            <h2 className="text-xl font-semibold mb-4 text-[#262760]">Edit Loan - {selectedLoan.id}</h2>
+            <h2 className="text-xl font-semibold mb-4 text-[#262760]">Edit Loan - {selectedLoan.loanId || selectedLoan.id}</h2>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
@@ -811,11 +948,11 @@ export default function LoanSummary() {
                 <input 
                   name="employeeId" 
                   value={form.employeeId}
-                  onChange={handleChange}
                   placeholder="E001" 
                   maxLength={10}
-                  className="border p-2 w-full rounded-lg"
-                  required
+                  className="border p-2 w-full rounded-lg bg-gray-100 cursor-not-allowed"
+                  disabled
+                  readOnly
                 />
               </div>
               <div>
@@ -823,10 +960,9 @@ export default function LoanSummary() {
                 <input 
                   name="employeeName" 
                   value={form.employeeName}
-                  onChange={handleChange}
                   placeholder="Full Name" 
-                  className="border p-2 w-full rounded-lg"
-                  required
+                  className="border p-2 w-full rounded-lg bg-gray-100 cursor-not-allowed"
+                  readOnly
                 />
               </div>
               <div>
@@ -1012,7 +1148,7 @@ export default function LoanSummary() {
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Loan ID:</span>
-                      <span className="font-bold text-[#262760]">{selectedLoan.id}</span>
+                      <span className="font-bold text-[#262760]">{selectedLoan.loanId || selectedLoan.id}</span>
                     </div>
                   </div>
                 </div>
@@ -1032,7 +1168,7 @@ export default function LoanSummary() {
                       <div className="flex items-center gap-2">
                         <DollarSign size={14} className="text-green-600" />
                         <span className="font-bold text-lg text-green-900">
-                          ₹{selectedLoan.amount.toLocaleString("en-IN")}
+                          ₹{Number(selectedLoan.amount || 0).toLocaleString("en-IN")}
                         </span>
                       </div>
                     </div>
@@ -1047,18 +1183,18 @@ export default function LoanSummary() {
                       <span className="text-gray-600">Start Date:</span>
                       <div className="flex items-center gap-2">
                         <Calendar size={10} className="text-gray-400" />
-                        <span className="font-semibold">{selectedLoan.startDate}</span>
+                        <span className="font-semibold">{selectedLoan.startDate ? new Date(selectedLoan.startDate).toLocaleDateString("en-IN") : "N/A"}</span>
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Monthly EMI:</span>
                       <span className="font-bold text-green-900">
-                        ₹{calcMonthlyDeduction(selectedLoan).toLocaleString("en-IN")}
+                        ₹{Number(calcMonthlyDeduction(selectedLoan) || 0).toLocaleString("en-IN")}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600">Paid Months:</span>
-                      <span className="font-semibold text-green-900">{selectedLoan.paidMonths}</span>
+                      <span className="font-semibold text-green-900">{selectedLoan.paidMonths || 0}</span>
                     </div>
                   </div>
                 </div>
@@ -1076,7 +1212,7 @@ export default function LoanSummary() {
                     <div className="bg-white p-4 rounded-lg shadow-sm">
                       <div className="text-sm text-gray-500 mb-1">Remaining Balance</div>
                       <div className="text-2xl font-bold text-[#262760]">
-                        ₹{remainingBalance(selectedLoan).toLocaleString("en-IN")}
+                        ₹{Number(remainingBalance(selectedLoan) || 0).toLocaleString("en-IN")}
                       </div>
                     </div>
                     <div className="bg-white p-4 rounded-lg shadow-sm">
@@ -1100,18 +1236,77 @@ export default function LoanSummary() {
                     </div>
                   </div>
 
+                  {/* Dates Panel */}
+                  <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-white p-3 rounded-lg border border-purple-50 flex justify-between items-center text-sm">
+                      <span className="text-gray-500">Last Deduction:</span>
+                      <span className="font-semibold text-gray-700">
+                        {selectedLoan.lastDeductionDate ? new Date(selectedLoan.lastDeductionDate).toLocaleDateString("en-IN") : "N/A"}
+                      </span>
+                    </div>
+                    <div className="bg-white p-3 rounded-lg border border-purple-50 flex justify-between items-center text-sm">
+                      <span className="text-gray-500">Next EMI Date:</span>
+                      <span className="font-semibold text-[#262760]">
+                        {selectedLoan.nextDeductionDate ? new Date(selectedLoan.nextDeductionDate).toLocaleDateString("en-IN") : (selectedLoan.status === "completed" ? "N/A" : "Next Payroll Run")}
+                      </span>
+                    </div>
+                  </div>
+
                   {/* Progress Bar */}
                   <div className="mt-6">
                     <div className="flex justify-between text-sm text-gray-600 mb-2">
-                      <span>Payment Progress</span>
-                      <span>{selectedLoan.paidMonths} of {selectedLoan.tenureMonths} months</span>
+                      <span>Payment Progress ({Math.round(((selectedLoan.paidMonths || 0) / (selectedLoan.tenureMonths || 1)) * 100)}%)</span>
+                      <span>{selectedLoan.paidMonths || 0} of {selectedLoan.tenureMonths} months</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
                       <div 
                         className="bg-gradient-to-r from-green-500 to-emerald-500 h-3 rounded-full transition-all duration-500"
-                        style={{ width: `${(selectedLoan.paidMonths / selectedLoan.tenureMonths) * 100}%` }}
+                        style={{ width: `${Math.min(((selectedLoan.paidMonths || 0) / (selectedLoan.tenureMonths || 1)) * 100, 100)}%` }}
                       ></div>
                     </div>
+                  </div>
+                </div>
+
+                {/* Repayment History Section */}
+                <div className="md:col-span-2 bg-white rounded-xl p-5 border border-gray-200 mt-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-3">Loan Repayment History</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left text-gray-500">
+                      <thead className="text-xs text-gray-700 uppercase bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2">EMI Month</th>
+                          <th className="px-4 py-2">EMI Amount</th>
+                          <th className="px-4 py-2">Deduction Date</th>
+                          <th className="px-4 py-2">Remaining Balance</th>
+                          <th className="px-4 py-2">Payment Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {!selectedLoan.repaymentHistory || selectedLoan.repaymentHistory.length === 0 ? (
+                          <tr>
+                            <td colSpan="5" className="px-4 py-6 text-center text-gray-400">
+                              No repayments recorded yet.
+                            </td>
+                          </tr>
+                        ) : (
+                          selectedLoan.repaymentHistory.map((history, idx) => (
+                            <tr key={idx} className="bg-white border-b hover:bg-gray-50">
+                              <td className="px-4 py-3 font-medium text-gray-900">{history.emiMonth}</td>
+                              <td className="px-4 py-3">₹{Number(history.emiAmount || 0).toLocaleString("en-IN")}</td>
+                              <td className="px-4 py-3">
+                                {history.deductionDate ? new Date(history.deductionDate).toLocaleDateString("en-IN") : "N/A"}
+                              </td>
+                              <td className="px-4 py-3">₹{Number(history.remainingBalance || 0).toLocaleString("en-IN")}</td>
+                              <td className="px-4 py-3">
+                                <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">
+                                  {history.paymentStatus || "deducted"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               </div>

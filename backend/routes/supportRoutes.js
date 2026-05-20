@@ -8,6 +8,7 @@ const SupportTicket = require('../models/SupportTicket');
 const SupportComment = require('../models/SupportComment');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
+const Employee = require('../models/Employee');
 
 // Multer Setup
 const storage = multer.diskStorage({
@@ -105,8 +106,26 @@ router.get('/tickets/all', auth, async (req, res) => {
       .populate('employeeId', 'name employeeId email')
       .populate('assignedTo', 'name')
       .sort({ createdAt: -1 });
+
+    const enrichedTickets = await Promise.all(tickets.map(async (t) => {
+      const ticketObj = t.toObject();
+      if (ticketObj.employeeId && ticketObj.employeeId.employeeId) {
+        const emp = await Employee.findOne({ employeeId: ticketObj.employeeId.employeeId }).select('division location');
+        if (emp) {
+          ticketObj.employeeId.division = emp.division || 'N/A';
+          ticketObj.employeeId.location = emp.location || 'N/A';
+        } else {
+          ticketObj.employeeId.division = 'N/A';
+          ticketObj.employeeId.location = 'N/A';
+        }
+      } else if (ticketObj.employeeId) {
+        ticketObj.employeeId.division = 'N/A';
+        ticketObj.employeeId.location = 'N/A';
+      }
+      return ticketObj;
+    }));
     
-    res.json(tickets);
+    res.json(enrichedTickets);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -127,8 +146,23 @@ router.get('/tickets/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Ticket not found' });
     }
 
+    const ticketObj = ticket.toObject();
+    if (ticketObj.employeeId && ticketObj.employeeId.employeeId) {
+      const emp = await Employee.findOne({ employeeId: ticketObj.employeeId.employeeId }).select('division location');
+      if (emp) {
+        ticketObj.employeeId.division = emp.division || 'N/A';
+        ticketObj.employeeId.location = emp.location || 'N/A';
+      } else {
+        ticketObj.employeeId.division = 'N/A';
+        ticketObj.employeeId.location = 'N/A';
+      }
+    } else if (ticketObj.employeeId) {
+      ticketObj.employeeId.division = 'N/A';
+      ticketObj.employeeId.location = 'N/A';
+    }
+
     // Check ownership
-    const isOwner = ticket.employeeId && ticket.employeeId._id.toString() === req.user._id.toString();
+    const isOwner = ticketObj.employeeId && ticketObj.employeeId._id.toString() === req.user._id.toString();
     if (!isOwner && !['admin', 'hr'].includes(req.user.role)) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -137,7 +171,7 @@ router.get('/tickets/:id', auth, async (req, res) => {
       .populate('userId', 'name role')
       .sort({ createdAt: 1 });
 
-    res.json({ ticket, comments });
+    res.json({ ticket: ticketObj, comments });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Server Error');
@@ -262,8 +296,9 @@ router.get('/dashboard-stats', auth, async (req, res) => {
       total: await SupportTicket.countDocuments(),
       open: await SupportTicket.countDocuments({ status: 'Open' }),
       resolved: await SupportTicket.countDocuments({ status: 'Resolved' }),
-      highPriority: await SupportTicket.countDocuments({ priority: { $in: ['High', 'Critical'] }, status: { $ne: 'Closed' } }),
-      pending: await SupportTicket.countDocuments({ status: { $in: ['In Review', 'Assigned', 'Reopened'] } }),
+      closed: await SupportTicket.countDocuments({ status: 'Closed' }),
+      reopened: await SupportTicket.countDocuments({ status: 'Reopened' }),
+      highPriority: await SupportTicket.countDocuments({ priority: { $in: ['High', 'Critical'] } }),
       recent: await SupportTicket.find().sort({ createdAt: -1 }).limit(5).populate('employeeId', 'name')
     };
 

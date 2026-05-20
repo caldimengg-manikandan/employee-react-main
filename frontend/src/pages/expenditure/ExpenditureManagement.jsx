@@ -26,7 +26,7 @@ import {
 import { message, Popconfirm, Modal } from "antd";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import * as XLSX from "xlsx";
+import XLSX from "xlsx-js-style";
 import { expenditureAPI, BASE_URL } from "../../services/api";
 
 const ExpenditureManagement = () => {
@@ -111,6 +111,18 @@ const ExpenditureManagement = () => {
   const [summaryYear, setSummaryYear] = useState(new Date().getFullYear().toString());
   const [loading, setLoading] = useState(false);
   const [summaryData, setSummaryData] = useState([]);
+
+  /* ---------------- EXPORT STATES ---------------- */
+  const [exportModalOpen, setExportModalOpen] = useState(false);
+  const [exportType, setExportType] = useState("monthly");
+  const [exportFY, setExportFY] = useState("2025-26");
+  const [exportMonth, setExportMonth] = useState("");
+  const [exportYear, setExportYear] = useState("");
+  const [exportLocation, setExportLocation] = useState("");
+  const [exportStartDate, setExportStartDate] = useState("");
+  const [exportEndDate, setExportEndDate] = useState("");
+  const [exportFormat, setExportFormat] = useState("excel");
+  const [exportSortOrder, setExportSortOrder] = useState("asc");
 
   /* ---------------- MODAL STATES ---------------- */
   const [viewModalOpen, setViewModalOpen] = useState(false);
@@ -816,6 +828,954 @@ const ExpenditureManagement = () => {
   };
 
   /* ---------------- EXPORT FUNCTIONS ---------------- */
+  const generateStyledExcel = (title, subtitle, recordsList, filename, sortOrder = 'asc') => {
+    const wb = XLSX.utils.book_new();
+
+    recordsList.forEach((record) => {
+      const sheetName = `${monthNames[record.month] || record.month} ${record.year}`.substring(0, 31);
+      const merges = [];
+      const ws = {};
+
+      const writeCell = (r, c, val, style = {}, type = 's', numFmt = undefined) => {
+        const cellRef = XLSX.utils.encode_cell({ r, c });
+        const cell = { t: type, v: val };
+        if (numFmt) {
+          cell.z = numFmt;
+        }
+        if (style) {
+          cell.s = style;
+        }
+        ws[cellRef] = cell;
+      };
+
+      // Styles
+      const titleStyle = {
+        font: { name: "Arial", sz: 14, bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "262760" } },
+        alignment: { horizontal: "center", vertical: "center" }
+      };
+
+      const subtitleStyle = {
+        font: { name: "Arial", sz: 11, bold: true, color: { rgb: "333333" } },
+        fill: { fgColor: { rgb: "F0F2F5" } },
+        alignment: { horizontal: "center", vertical: "center" }
+      };
+
+      const sectionTitleStyle = {
+        font: { name: "Arial", sz: 11, bold: true, color: { rgb: "262760" } },
+        fill: { fgColor: { rgb: "E6E8F0" } },
+        alignment: { horizontal: "left", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "CCCCCC" } },
+          bottom: { style: "thin", color: { rgb: "CCCCCC" } }
+        }
+      };
+
+      const headerStyle = {
+        font: { name: "Arial", sz: 10, bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "262760" } },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "CCCCCC" } },
+          bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+          left: { style: "thin", color: { rgb: "CCCCCC" } },
+          right: { style: "thin", color: { rgb: "CCCCCC" } }
+        }
+      };
+
+      const dataStyleLeft = {
+        font: { name: "Arial", sz: 10 },
+        alignment: { horizontal: "left", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "E2E8F0" } },
+          bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+          left: { style: "thin", color: { rgb: "E2E8F0" } },
+          right: { style: "thin", color: { rgb: "E2E8F0" } }
+        }
+      };
+
+      const dataStyleCenter = {
+        font: { name: "Arial", sz: 10 },
+        alignment: { horizontal: "center", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "E2E8F0" } },
+          bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+          left: { style: "thin", color: { rgb: "E2E8F0" } },
+          right: { style: "thin", color: { rgb: "E2E8F0" } }
+        }
+      };
+
+      const dataStyleRight = {
+        font: { name: "Arial", sz: 10 },
+        alignment: { horizontal: "right", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "E2E8F0" } },
+          bottom: { style: "thin", color: { rgb: "E2E8F0" } },
+          left: { style: "thin", color: { rgb: "E2E8F0" } },
+          right: { style: "thin", color: { rgb: "E2E8F0" } }
+        }
+      };
+
+      const totalRowStyle = {
+        font: { name: "Arial", sz: 10, bold: true, color: { rgb: "000000" } },
+        alignment: { horizontal: "right", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "000000" } },
+          bottom: { style: "double", color: { rgb: "000000" } }
+        }
+      };
+
+      const summaryHeaderStyle = {
+        font: { name: "Arial", sz: 11, bold: true, color: { rgb: "FFFFFF" } },
+        fill: { fgColor: { rgb: "262760" } },
+        alignment: { horizontal: "center", vertical: "center" }
+      };
+
+      const summaryLabelStyle = {
+        font: { name: "Arial", sz: 10, bold: true },
+        alignment: { horizontal: "left", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "CCCCCC" } },
+          bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+          left: { style: "thin", color: { rgb: "CCCCCC" } },
+          right: { style: "thin", color: { rgb: "CCCCCC" } }
+        }
+      };
+
+      const summaryValStyle = {
+        font: { name: "Arial", sz: 10, bold: true },
+        alignment: { horizontal: "right", vertical: "center" },
+        border: {
+          top: { style: "thin", color: { rgb: "CCCCCC" } },
+          bottom: { style: "thin", color: { rgb: "CCCCCC" } },
+          left: { style: "thin", color: { rgb: "CCCCCC" } },
+          right: { style: "thin", color: { rgb: "CCCCCC" } }
+        }
+      };
+
+      let currRow = 0;
+
+      // Row 1: Merged Title
+      writeCell(currRow, 0, "CALDIM ENGINEERING PRIVATE LIMITED", titleStyle);
+      merges.push({ s: { r: currRow, c: 0 }, e: { r: currRow, c: 3 } });
+      currRow++;
+
+      // Row 2: Merged Subtitle
+      writeCell(currRow, 0, `${title} - ${record.location} (${monthNames[record.month] || record.month} ${record.year})`, subtitleStyle);
+      merges.push({ s: { r: currRow, c: 0 }, e: { r: currRow, c: 3 } });
+      currRow++;
+
+      // Row 3: Blank
+      currRow++;
+
+      // Sort expenditures before categorizing/using them!
+      const exps = [...(record.expenditures || [])].sort((a, b) => {
+        const da = new Date(a.date);
+        const db = new Date(b.date);
+        const timeA = isNaN(da.getTime()) ? 0 : da.getTime();
+        const timeB = isNaN(db.getTime()) ? 0 : db.getTime();
+        return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+      });
+
+      const categorized = {
+        "BANK TRANSFER": [],
+        "UPI": [],
+        "CARD PAYMENTS": [],
+        "CASH PAYMENTS (DISBURSEMENT)": []
+      };
+
+      exps.forEach((exp) => {
+        const mode = (exp.paymentMode || "").toLowerCase();
+        if (mode.includes("cash") || mode.includes("disbursement") || mode.includes("petty")) {
+          categorized["CASH PAYMENTS (DISBURSEMENT)"].push(exp);
+        } else if (mode.includes("upi")) {
+          categorized["UPI"].push(exp);
+        } else if (mode.includes("card")) {
+          categorized["CARD PAYMENTS"].push(exp);
+        } else {
+          categorized["BANK TRANSFER"].push(exp);
+        }
+      });
+
+      // Track totals
+      let totalSpent = 0;
+      let cashSpent = 0;
+      let onlineSpent = 0;
+
+      const categoriesOrder = ["CASH PAYMENTS (DISBURSEMENT)", "UPI", "CARD PAYMENTS", "BANK TRANSFER"];
+      const categoryIcons = {
+        "BANK TRANSFER": "🏦",
+        "UPI": "📱",
+        "CARD PAYMENTS": "💳",
+        "CASH PAYMENTS (DISBURSEMENT)": "💵"
+      };
+
+      categoriesOrder.forEach((catKey) => {
+        const list = categorized[catKey];
+        if (list.length === 0) return;
+
+        // Write Category Header
+        writeCell(currRow, 0, `${categoryIcons[catKey] || ""} ${catKey}`, sectionTitleStyle);
+        merges.push({ s: { r: currRow, c: 0 }, e: { r: currRow, c: 3 } });
+        currRow++;
+
+        // Write Table Headers
+        const cols = ["S.No", "Date", "Description/Type", "Amount (₹)"];
+        cols.forEach((h, cIdx) => {
+          writeCell(currRow, cIdx, h, headerStyle);
+        });
+        currRow++;
+
+        // Write Table Data
+        let catTotal = 0;
+        list.forEach((item, idx) => {
+          const sNo = idx + 1;
+          
+          const dObj = new Date(item.date);
+          const formattedDate = !isNaN(dObj.getTime())
+            ? dObj.toLocaleDateString("en-GB")
+            : item.date;
+
+          const amount = parseFloat(item.amount || 0);
+          catTotal += amount;
+          totalSpent += amount;
+
+          if (catKey === "CASH PAYMENTS (DISBURSEMENT)") {
+            cashSpent += amount;
+          } else {
+            onlineSpent += amount;
+          }
+
+          writeCell(currRow, 0, sNo, dataStyleCenter, 'n');
+          writeCell(currRow, 1, formattedDate, dataStyleCenter);
+          writeCell(currRow, 2, item.type || item.description || "-", dataStyleLeft);
+          writeCell(currRow, 3, amount, dataStyleRight, 'n', '"₹"#,##0.00');
+          currRow++;
+        });
+
+        // Write Category Total
+        writeCell(currRow, 2, "Total " + (catKey === "CASH PAYMENTS (DISBURSEMENT)" ? "Cash" : catKey.toLowerCase()), totalRowStyle);
+        writeCell(currRow, 3, catTotal, totalRowStyle, 'n', '"₹"#,##0.00');
+        currRow++;
+
+        // Blank row
+        currRow++;
+      });
+
+      // Write Overall Summary Block
+      writeCell(currRow, 0, "📊 SUMMARY CALCULATIONS", summaryHeaderStyle);
+      merges.push({ s: { r: currRow, c: 0 }, e: { r: currRow, c: 3 } });
+      currRow++;
+
+      const budgetAllocated = parseFloat(record.budgetAllocated || 0);
+      const openingBalance = parseFloat(record.openingBalance || 0);
+      const remainingBalance = openingBalance + budgetAllocated - totalSpent;
+
+      const summaryItems = [
+        { label: "Opening Balance", val: openingBalance, color: "000000" },
+        { label: "Budget Allocated", val: budgetAllocated, color: "262760" },
+        { label: "Total Expenditure", val: totalSpent, color: "FF0000" },
+        { label: "  - Cash Payment Total", val: cashSpent, color: "FF0000" },
+        { label: "  - Online Payment Total", val: onlineSpent, color: "000000" },
+        { label: "Remaining Balance", val: remainingBalance, color: remainingBalance >= 0 ? "008000" : "FF0000" }
+      ];
+
+      summaryItems.forEach((sItem) => {
+        const itemLabelStyle = {
+          ...summaryLabelStyle,
+          font: { ...summaryLabelStyle.font, color: { rgb: sItem.color } }
+        };
+        const itemValStyle = {
+          ...summaryValStyle,
+          font: { ...summaryValStyle.font, color: { rgb: sItem.color } }
+        };
+
+        writeCell(currRow, 0, sItem.label, itemLabelStyle);
+        merges.push({ s: { r: currRow, c: 0 }, e: { r: currRow, c: 2 } });
+
+        writeCell(currRow, 3, sItem.val, itemValStyle, 'n', '"₹"#,##0.00');
+        currRow++;
+      });
+
+      const maxCol = 3;
+      const range = { s: { r: 0, c: 0 }, e: { r: currRow, c: maxCol } };
+      ws['!ref'] = XLSX.utils.encode_range(range);
+      ws['!merges'] = merges;
+
+      const wscols = [];
+      for (let colIdx = 0; colIdx <= maxCol; colIdx++) {
+        let maxLen = 12;
+        if (colIdx === 2) maxLen = 30;
+
+        for (let rowIdx = 0; rowIdx <= currRow; rowIdx++) {
+          const cellRef = XLSX.utils.encode_cell({ r: rowIdx, c: colIdx });
+          const cell = ws[cellRef];
+          if (cell && cell.v) {
+            let str = String(cell.v);
+            if (cell.z && typeof cell.v === 'number') {
+              str = "₹" + cell.v.toLocaleString("en-IN", { minimumFractionDigits: 2 });
+            }
+            if (str.length > maxLen) {
+              maxLen = str.length;
+            }
+          }
+        }
+        wscols.push({ wch: maxLen + 2 });
+      }
+      ws['!cols'] = wscols;
+
+      XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    });
+
+    XLSX.writeFile(wb, filename);
+  };
+
+  const generateStyledPDF = (title, subtitle, recordsList, filename, sortOrder = 'asc') => {
+    const doc = new jsPDF();
+
+    recordsList.forEach((record, recordIdx) => {
+      if (recordIdx > 0) {
+        doc.addPage();
+      }
+
+      const drawHeader = (rec) => {
+        // Add Company/Report Header
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(14);
+        doc.setTextColor(38, 39, 96);
+        doc.text("CALDIM ENGINEERING PRIVATE LIMITED", 14, 20);
+
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.setTextColor(85, 85, 85);
+        doc.text(`${title} - ${rec.location || "All Locations"}`, 14, 26);
+
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(119, 119, 119);
+        doc.text(`${subtitle} (${monthNames[rec.month] || rec.month} ${rec.year})`, 14, 31);
+
+        // Clean decorative border line under header
+        doc.setFillColor(38, 39, 96);
+        doc.rect(14, 34, doc.internal.pageSize.getWidth() - 28, 0.8, 'F');
+      };
+
+      drawHeader(record);
+      let y = 42;
+
+      // Group expenditures
+      const exps = record.expenditures || [];
+
+      // Sort all expenditures by Date Ascending/Descending first (Requirement 8)
+      const sortedExps = [...exps].sort((a, b) => {
+        const da = new Date(a.date);
+        const db = new Date(b.date);
+        const timeA = isNaN(da.getTime()) ? 0 : da.getTime();
+        const timeB = isNaN(db.getTime()) ? 0 : db.getTime();
+        return sortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+      });
+
+      // Initialize groups (Requirement 2)
+      const categorized = {
+        "CASH PAYMENT": [],
+        "UPI PAYMENT": [],
+        "CARD PAYMENT": [],
+        "NET BANKING": [],
+        "OTHER PAYMENT MODES": []
+      };
+
+      sortedExps.forEach((exp) => {
+        const mode = (exp.paymentMode || "").toLowerCase();
+        if (mode.includes("cash") || mode.includes("disbursement") || mode.includes("petty")) {
+          categorized["CASH PAYMENT"].push(exp);
+        } else if (mode.includes("upi")) {
+          categorized["UPI PAYMENT"].push(exp);
+        } else if (mode.includes("card")) {
+          categorized["CARD PAYMENT"].push(exp);
+        } else if (mode.includes("net banking") || mode.includes("cheque") || mode.includes("bank") || mode.includes("transfer")) {
+          categorized["NET BANKING"].push(exp);
+        } else {
+          categorized["OTHER PAYMENT MODES"].push(exp);
+        }
+      });
+
+      // Track totals
+      let totalSpent = 0;
+      let cashSpent = 0;
+      let onlineSpent = 0;
+
+      const categoriesOrder = ["CASH PAYMENT", "UPI PAYMENT", "CARD PAYMENT", "NET BANKING", "OTHER PAYMENT MODES"];
+
+      categoriesOrder.forEach((catKey) => {
+        const list = categorized[catKey];
+        if (list.length === 0) return;
+
+        // Check if we need a new page for the section header + some table rows
+        if (y > 245) {
+          doc.addPage();
+          drawHeader(record);
+          y = 42;
+        }
+
+        // Draw Section Header
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(11);
+        doc.setTextColor(38, 39, 96);
+        doc.text(catKey, 14, y);
+        y += 4; // Space after title
+
+        // Prepare table columns and rows
+        const tableColumn = ["S.No", "Date", "Type", "Amount (Rs.)", "Remarks"];
+        const tableRows = [];
+        let catTotal = 0;
+
+        list.forEach((item, idx) => {
+          const sNo = idx + 1;
+          const dObj = new Date(item.date);
+          const formattedDate = !isNaN(dObj.getTime())
+            ? dObj.toLocaleDateString("en-GB")
+            : item.date;
+
+          const amount = parseFloat(item.amount || 0);
+          catTotal += amount;
+          totalSpent += amount;
+
+          if (catKey === "CASH PAYMENT") {
+            cashSpent += amount;
+          } else {
+            onlineSpent += amount;
+          }
+
+          tableRows.push([
+            sNo,
+            formattedDate,
+            item.type || "-",
+            amount.toFixed(2),
+            item.remarks || "-"
+          ]);
+        });
+
+        // Add Table using autoTable
+        autoTable(doc, {
+          startY: y,
+          head: [tableColumn],
+          body: tableRows,
+          theme: 'grid',
+          headStyles: { 
+            fillColor: [38, 39, 96],
+            textColor: [255, 255, 255],
+            fontStyle: 'bold',
+            fontSize: 9
+          },
+          bodyStyles: {
+            fontSize: 9,
+            textColor: [51, 51, 51]
+          },
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 15 },
+            1: { halign: 'center', cellWidth: 25 },
+            2: { halign: 'left' },
+            3: { halign: 'right', cellWidth: 30 },
+            4: { halign: 'left' }
+          },
+          // Foot section showing category total
+          foot: [['', '', `Total ${catKey.toLowerCase()}`, `Rs. ${catTotal.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, '']],
+          footStyles: { 
+            fillColor: [245, 246, 250], 
+            textColor: [38, 39, 96], 
+            fontStyle: 'bold',
+            fontSize: 9,
+            halign: 'right'
+          },
+          margin: { left: 14, right: 14 },
+          didParseCell: function (data) {
+            if (data.row.section === 'foot') {
+              if (data.column.index === 2) {
+                data.cell.styles.halign = 'right';
+              }
+            }
+          }
+        });
+
+        // Update y position to the bottom of the drawn table
+        y = doc.lastAutoTable.finalY + 8; // add space after table
+      });
+
+      // Check if we need a new page for the final summary
+      if (y > 210) {
+        doc.addPage();
+        drawHeader(record);
+        y = 42;
+      }
+
+      // Draw final summary calculations header
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.setTextColor(38, 39, 96);
+      doc.text("SUMMARY CALCULATIONS", 14, y);
+      y += 4;
+
+      const budgetAllocated = parseFloat(record.budgetAllocated || 0);
+      const openingBalance = parseFloat(record.openingBalance || 0);
+      const remainingBalance = openingBalance + budgetAllocated - totalSpent;
+      const isOverspent = remainingBalance < 0;
+
+      const summaryRows = [
+        ["Opening Balance", `Rs. ${openingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ["Budget Allocated", `Rs. ${budgetAllocated.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ["Total Expenditure", `Rs. ${totalSpent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ["  - Cash Payment Total", `Rs. ${cashSpent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ["  - Online Payment Total", `Rs. ${onlineSpent.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ["Remaining Balance", `Rs. ${remainingBalance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`],
+        ["Budget Status", isOverspent ? "Over Spent" : "Within Budget"]
+      ];
+
+      // Draw a neat summary autoTable
+      autoTable(doc, {
+        startY: y,
+        body: summaryRows,
+        theme: 'plain',
+        bodyStyles: {
+          fontSize: 9.5,
+          textColor: [51, 51, 51]
+        },
+        columnStyles: {
+          0: { fontStyle: 'bold', cellWidth: 60 },
+          1: { halign: 'right', fontStyle: 'bold', cellWidth: 50 }
+        },
+        margin: { left: 14 },
+        didParseCell: function(data) {
+          if (data.row.index === 5 || data.row.index === 6) {
+            if (isOverspent) {
+              data.cell.styles.textColor = [220, 38, 38]; // Red
+            } else {
+              data.cell.styles.textColor = [22, 163, 74]; // Green
+            }
+          }
+        }
+      });
+
+      y = doc.lastAutoTable.finalY + 10;
+    });
+
+    // Two-pass to add clean page number footers
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(153, 153, 153);
+      
+      const footerLeft = "CALDIM ENGINEERING PRIVATE LIMITED | EXPENDITURE REPORT";
+      const footerRight = `Page ${i} of ${totalPages}`;
+      
+      doc.text(footerLeft, 14, doc.internal.pageSize.getHeight() - 10);
+      doc.text(footerRight, doc.internal.pageSize.getWidth() - 14 - doc.getTextWidth(footerRight), doc.internal.pageSize.getHeight() - 10);
+    }
+
+    doc.save(filename);
+  };
+
+  const handleExportPDF = async () => {
+    try {
+      setLoading(true);
+      
+      if (exportType === "fy") {
+        if (!exportFY) {
+          message.error("Please select a Financial Year");
+          return;
+        }
+        const [startYearStr, endYearStr] = exportFY.split("-");
+        const startYear = parseInt(startYearStr);
+        const endYear = startYear + 1;
+
+        const [resStart, resEnd] = await Promise.all([
+          expenditureAPI.getSummary({ year: startYear.toString(), sort: exportSortOrder }),
+          expenditureAPI.getSummary({ year: endYear.toString(), sort: exportSortOrder })
+        ]);
+
+        const startData = resStart.data?.data || [];
+        const endData = resEnd.data?.data || [];
+        const combined = [...startData, ...endData];
+
+        const fyMonthsOrder = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
+        
+        let filtered = combined;
+        if (exportLocation && exportLocation !== "Select All") {
+          filtered = combined.filter(r => r.location === exportLocation);
+        }
+
+        filtered = filtered.filter(r => {
+          const isStartYearMonth = r.year === startYear && ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].includes(r.month);
+          const isEndYearMonth = r.year === endYear && ["Jan", "Feb", "Mar"].includes(r.month);
+          return isStartYearMonth || isEndYearMonth;
+        });
+
+        filtered.sort((a, b) => {
+          if (a.year !== b.year) {
+            return a.year - b.year;
+          }
+          return fyMonthsOrder.indexOf(a.month) - fyMonthsOrder.indexOf(b.month);
+        });
+
+        if (filtered.length === 0) {
+          message.warning("No data found for the selected Financial Year");
+          return;
+        }
+
+        const processedRecords = filtered.map((record) => {
+          const opBal = calculateOpeningBalanceFromSummary(filtered, record.month);
+          return {
+            month: record.month,
+            year: record.year,
+            location: record.location,
+            budgetAllocated: record.budget || record.budgetAllocated || 0,
+            openingBalance: opBal,
+            expenditures: record.expenditures || []
+          };
+        });
+
+        generateStyledPDF(
+          "Financial Year Report",
+          `FINANCIAL YEAR ${exportFY}`,
+          processedRecords,
+          `Expenditure_Report_${exportLocation || "All"}_FY_${exportFY}.pdf`,
+          exportSortOrder
+        );
+        message.success("Financial Year PDF report exported successfully!");
+        setExportModalOpen(false);
+
+      } else if (exportType === "monthly") {
+        if (!exportMonth || !exportYear) {
+          message.error("Please select a Month and Year");
+          return;
+        }
+
+        const res = await expenditureAPI.getSummary({ year: exportYear, sort: exportSortOrder });
+        const list = res.data?.data || [];
+        
+        let filtered = list.filter(r => r.month === exportMonth);
+        if (exportLocation && exportLocation !== "Select All") {
+          filtered = filtered.filter(r => r.location === exportLocation);
+        }
+
+        if (filtered.length === 0) {
+          message.warning(`No data found for ${exportMonth} ${exportYear}`);
+          return;
+        }
+
+        const processedRecords = filtered.map((record) => {
+          const opBal = calculateOpeningBalanceFromSummary(list, record.month);
+          return {
+            month: record.month,
+            year: record.year,
+            location: record.location,
+            budgetAllocated: record.budget || record.budgetAllocated || 0,
+            openingBalance: opBal,
+            expenditures: record.expenditures || []
+          };
+        });
+
+        generateStyledPDF(
+          "Monthly Expenditure Summary",
+          "MONTHLY REPORT",
+          processedRecords,
+          `Expenditure_Report_${exportLocation || "All"}_${exportMonth}_${exportYear}.pdf`,
+          exportSortOrder
+        );
+        message.success("Monthly PDF report exported successfully!");
+        setExportModalOpen(false);
+
+      } else if (exportType === "date_range") {
+        if (!exportStartDate || !exportEndDate) {
+          message.error("Please select a Start and End Date");
+          return;
+        }
+
+        const start = new Date(exportStartDate);
+        const end = new Date(exportEndDate);
+
+        if (start > end) {
+          message.error("Start Date cannot be after End Date");
+          return;
+        }
+
+        const startYear = start.getFullYear();
+        const endYear = end.getFullYear();
+        
+        const yearsToFetch = [];
+        for (let y = startYear; y <= endYear; y++) {
+          yearsToFetch.push(y);
+        }
+
+        const responses = await Promise.all(
+          yearsToFetch.map(y => expenditureAPI.getSummary({ year: y.toString(), sort: exportSortOrder }))
+        );
+
+        let allRecords = [];
+        responses.forEach(res => {
+          if (res.data?.data) {
+            allRecords = [...allRecords, ...res.data.data];
+          }
+        });
+
+        let allExps = [];
+        allRecords.forEach(record => {
+          if (exportLocation && exportLocation !== "Select All" && record.location !== exportLocation) {
+            return;
+          }
+          const recExps = record.expenditures || [];
+          recExps.forEach(exp => {
+            const expDate = new Date(exp.date);
+            if (expDate >= start && expDate <= end) {
+              allExps.push(exp);
+            }
+          });
+        });
+
+        if (allExps.length === 0) {
+          message.warning("No expenditures found within the selected date range");
+          return;
+        }
+
+        allExps.sort((a, b) => {
+          const da = new Date(a.date);
+          const db = new Date(b.date);
+          const timeA = isNaN(da.getTime()) ? 0 : da.getTime();
+          const timeB = isNaN(db.getTime()) ? 0 : db.getTime();
+          return exportSortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+        });
+
+        const formatRangeDate = (d) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        const consolidatedRecord = {
+          month: "Summary",
+          year: `${formatRangeDate(start)} - ${formatRangeDate(end)}`,
+          location: exportLocation || "All Locations",
+          budgetAllocated: 0,
+          openingBalance: 0,
+          expenditures: allExps
+        };
+
+        generateStyledPDF(
+          "Date Range Expenditure Report",
+          `PERIOD: ${exportStartDate} TO ${exportEndDate}`,
+          [consolidatedRecord],
+          `Expenditure_Report_${exportLocation || "All"}_DateRange_${exportStartDate}_to_${exportEndDate}.pdf`,
+          exportSortOrder
+        );
+        message.success("Date Filter PDF report exported successfully!");
+        setExportModalOpen(false);
+      }
+
+    } catch (err) {
+      console.error("Export error:", err);
+      message.error("Failed to export PDF report: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setLoading(true);
+      let recordsToUse = [];
+
+      if (exportType === "fy") {
+        if (!exportFY) {
+          message.error("Please select a Financial Year");
+          return;
+        }
+        const [startYearStr, endYearStr] = exportFY.split("-");
+        const startYear = parseInt(startYearStr);
+        const endYear = startYear + 1;
+
+        const [resStart, resEnd] = await Promise.all([
+          expenditureAPI.getSummary({ year: startYear.toString(), sort: exportSortOrder }),
+          expenditureAPI.getSummary({ year: endYear.toString(), sort: exportSortOrder })
+        ]);
+
+        const startData = resStart.data?.data || [];
+        const endData = resEnd.data?.data || [];
+        const combined = [...startData, ...endData];
+
+        const fyMonthsOrder = ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb", "Mar"];
+        
+        let filtered = combined;
+        if (exportLocation && exportLocation !== "Select All") {
+          filtered = combined.filter(r => r.location === exportLocation);
+        }
+
+        filtered = filtered.filter(r => {
+          const isStartYearMonth = r.year === startYear && ["Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].includes(r.month);
+          const isEndYearMonth = r.year === endYear && ["Jan", "Feb", "Mar"].includes(r.month);
+          return isStartYearMonth || isEndYearMonth;
+        });
+
+        filtered.sort((a, b) => {
+          if (a.year !== b.year) {
+            return a.year - b.year;
+          }
+          return fyMonthsOrder.indexOf(a.month) - fyMonthsOrder.indexOf(b.month);
+        });
+
+        if (filtered.length === 0) {
+          message.warning("No data found for the selected Financial Year");
+          return;
+        }
+
+        const processedRecords = filtered.map((record) => {
+          const opBal = calculateOpeningBalanceFromSummary(filtered, record.month);
+          return {
+            month: record.month,
+            year: record.year,
+            location: record.location,
+            budgetAllocated: record.budget || record.budgetAllocated || 0,
+            openingBalance: opBal,
+            expenditures: record.expenditures || []
+          };
+        });
+
+        generateStyledExcel(
+          "Financial Year Report",
+          `FINANCIAL YEAR ${exportFY}`,
+          processedRecords,
+          `Expenditure_Report_${exportLocation || "All"}_FY_${exportFY}.xlsx`,
+          exportSortOrder
+        );
+        message.success("Financial Year Excel report exported successfully!");
+        setExportModalOpen(false);
+
+      } else if (exportType === "monthly") {
+        if (!exportMonth || !exportYear) {
+          message.error("Please select a Month and Year");
+          return;
+        }
+
+        const res = await expenditureAPI.getSummary({ year: exportYear, sort: exportSortOrder });
+        const list = res.data?.data || [];
+        
+        let filtered = list.filter(r => r.month === exportMonth);
+        if (exportLocation && exportLocation !== "Select All") {
+          filtered = filtered.filter(r => r.location === exportLocation);
+        }
+
+        if (filtered.length === 0) {
+          message.warning(`No data found for ${exportMonth} ${exportYear}`);
+          return;
+        }
+
+        const processedRecords = filtered.map((record) => {
+          const opBal = calculateOpeningBalanceFromSummary(list, record.month);
+          return {
+            month: record.month,
+            year: record.year,
+            location: record.location,
+            budgetAllocated: record.budget || record.budgetAllocated || 0,
+            openingBalance: opBal,
+            expenditures: record.expenditures || []
+          };
+        });
+
+        generateStyledExcel(
+          "Monthly Expenditure Summary",
+          "MONTHLY REPORT",
+          processedRecords,
+          `Expenditure_Report_${exportLocation || "All"}_${exportMonth}_${exportYear}.xlsx`,
+          exportSortOrder
+        );
+        message.success("Monthly Excel report exported successfully!");
+        setExportModalOpen(false);
+
+      } else if (exportType === "date_range") {
+        if (!exportStartDate || !exportEndDate) {
+          message.error("Please select a Start and End Date");
+          return;
+        }
+
+        const start = new Date(exportStartDate);
+        const end = new Date(exportEndDate);
+
+        if (start > end) {
+          message.error("Start Date cannot be after End Date");
+          return;
+        }
+
+        const startYear = start.getFullYear();
+        const endYear = end.getFullYear();
+        
+        const yearsToFetch = [];
+        for (let y = startYear; y <= endYear; y++) {
+          yearsToFetch.push(y);
+        }
+
+        const responses = await Promise.all(
+          yearsToFetch.map(y => expenditureAPI.getSummary({ year: y.toString(), sort: exportSortOrder }))
+        );
+
+        let allRecords = [];
+        responses.forEach(res => {
+          if (res.data?.data) {
+            allRecords = [...allRecords, ...res.data.data];
+          }
+        });
+
+        let allExps = [];
+        allRecords.forEach(record => {
+          if (exportLocation && exportLocation !== "Select All" && record.location !== exportLocation) {
+            return;
+          }
+          const recExps = record.expenditures || [];
+          recExps.forEach(exp => {
+            const expDate = new Date(exp.date);
+            if (expDate >= start && expDate <= end) {
+              allExps.push(exp);
+            }
+          });
+        });
+
+        if (allExps.length === 0) {
+          message.warning("No expenditures found within the selected date range");
+          return;
+        }
+
+        allExps.sort((a, b) => {
+          const da = new Date(a.date);
+          const db = new Date(b.date);
+          const timeA = isNaN(da.getTime()) ? 0 : da.getTime();
+          const timeB = isNaN(db.getTime()) ? 0 : db.getTime();
+          return exportSortOrder === 'desc' ? timeB - timeA : timeA - timeB;
+        });
+
+        const formatRangeDate = (d) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+        const consolidatedRecord = {
+          month: "Summary",
+          year: `${formatRangeDate(start)} - ${formatRangeDate(end)}`,
+          location: exportLocation || "All Locations",
+          budgetAllocated: 0,
+          openingBalance: 0,
+          expenditures: allExps
+        };
+
+        generateStyledExcel(
+          "Date Range Expenditure Report",
+          `PERIOD: ${exportStartDate} TO ${exportEndDate}`,
+          [consolidatedRecord],
+          `Expenditure_Report_${exportLocation || "All"}_DateRange_${exportStartDate}_to_${exportEndDate}.xlsx`,
+          exportSortOrder
+        );
+        message.success("Date Filter Excel report exported successfully!");
+        setExportModalOpen(false);
+      }
+
+    } catch (err) {
+      console.error("Export error:", err);
+      message.error("Failed to export Excel report: " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /* ---------------- EXPORT FUNCTIONS ---------------- */
   const exportToCSV = () => {
     if (!month || !year || !location || !budgetAllocated) {
       message.warning("Please fill all required fields: Month, Year, Location, and Budget Allocated");
@@ -928,130 +1888,47 @@ const ExpenditureManagement = () => {
   };
 
   const downloadRowPDF = (row) => {
-    const doc = new jsPDF();
     const monthName = monthNames[row.month] || row.month;
-    const title = `Expenditure Report - ${monthName} ${summaryYear}`;
-
-    // Add Company/Report Header
-    doc.setFontSize(18);
-    doc.text(title, 14, 20);
-
-    // Add Summary Details
-    doc.setFontSize(12);
-    doc.text(`Location: ${row.location}`, 14, 30);
-    doc.text(`Budget Allocated: Rs. ${row.budgetAllocated?.toLocaleString('en-IN')}`, 14, 40);
-    doc.text(`Total Expenditure: Rs. ${row.totalExpenditure?.toLocaleString('en-IN')}`, 14, 50);
-    doc.text(`Balance: Rs. ${row.totalBalance?.toLocaleString('en-IN')}`, 14, 60);
+    const opBal = calculateOpeningBalanceFromSummary(summaryData, row.month);
     
-    // Fix: Replace Rupee symbol with "Rs." to avoid encoding issues in PDF
-    const safeStatusText = (row.statusText || "").replace(/₹/g, "Rs.");
-    doc.text(`Status: ${safeStatusText}`, 14, 70);
+    const recordToExport = {
+      month: row.month,
+      year: row.year,
+      location: row.location,
+      budgetAllocated: row.budgetAllocated,
+      openingBalance: opBal,
+      expenditures: row.expenditures || []
+    };
 
-    // Prepare table data
-    const tableColumn = ["S.No", "Date", "Type", "Payment Mode", "Amount (Rs.)", "Remarks"];
-    const tableRows = [];
-
-    if (row.expenditures && row.expenditures.length > 0) {
-      row.expenditures.forEach((exp, index) => {
-        // Format date to be readable (DD-MM-YYYY)
-        const dateObj = new Date(exp.date);
-        const formattedDate = !isNaN(dateObj.getTime()) 
-          ? dateObj.toLocaleDateString('en-GB') // DD/MM/YYYY
-          : exp.date;
-
-        const expData = [
-          index + 1,
-          formattedDate,
-          exp.type,
-          exp.paymentMode,
-          parseFloat(exp.amount || 0).toFixed(2),
-          exp.remarks || "-"
-        ];
-        tableRows.push(expData);
-      });
-    }
-
-    // Add Table
-    autoTable(doc, {
-      startY: 80,
-      head: [tableColumn],
-      body: tableRows,
-      theme: 'grid',
-      headStyles: { fillColor: [38, 39, 96] }, // #262760
-      styles: { fontSize: 10 },
-      foot: [['', '', '', 'Total', row.totalExpenditure?.toFixed(2), '']],
-      footStyles: { fillColor: [240, 240, 240], textColor: [0, 0, 0], fontStyle: 'bold' }
-    });
-
-    doc.save(`Expenditure_Report_${row.location}_${monthName}_${summaryYear}.pdf`);
+    generateStyledPDF(
+      "Expenditure Report", 
+      "MONTHLY EXPENDITURE", 
+      [recordToExport], 
+      `Expenditure_Report_${row.location}_${monthName}_${row.year}.pdf`,
+      exportSortOrder
+    );
   };
 
   const downloadRowExcel = (row) => {
     const monthName = monthNames[row.month] || row.month;
+    const opBal = calculateOpeningBalanceFromSummary(summaryData, row.month);
     
-    // Create workbook and worksheet
-    const wb = XLSX.utils.book_new();
-    const wsData = [];
+    const recordToExport = {
+      month: row.month,
+      year: row.year,
+      location: row.location,
+      budgetAllocated: row.budgetAllocated,
+      openingBalance: opBal,
+      expenditures: row.expenditures || []
+    };
 
-    // Add Header Info
-    wsData.push(["Expenditure Report", `${monthName} ${summaryYear}`]);
-    wsData.push(["Location", row.location]);
-    wsData.push(["Generated On", new Date().toLocaleDateString()]);
-    wsData.push([]); // Empty row
-
-    // Add Summary Stats
-    wsData.push(["Budget Summary"]);
-    wsData.push(["Budget Allocated", row.budgetAllocated]);
-    wsData.push(["Total Expenditure", row.totalExpenditure]);
-    wsData.push(["Balance", row.totalBalance]);
-    wsData.push(["Status", row.statusText]);
-    wsData.push([]); // Empty row
-
-    // Add Expenditures Table Header
-    wsData.push(["S.No", "Date", "Type", "Payment Mode", "Amount", "Remarks"]);
-
-    // Add Expenditures Data
-    if (row.expenditures && row.expenditures.length > 0) {
-      row.expenditures.forEach((exp, index) => {
-        // Format date to be readable (DD-MM-YYYY)
-        const dateObj = new Date(exp.date);
-        const formattedDate = !isNaN(dateObj.getTime()) 
-          ? dateObj.toLocaleDateString('en-GB') // DD/MM/YYYY
-          : exp.date;
-
-        wsData.push([
-          index + 1,
-          formattedDate,
-          exp.type,
-          exp.paymentMode,
-          parseFloat(exp.amount || 0),
-          exp.remarks || "-"
-        ]);
-      });
-    }
-
-    // Add Total Row
-    wsData.push(["", "", "", "Total", row.totalExpenditure, ""]);
-
-    // Create worksheet
-    const ws = XLSX.utils.aoa_to_sheet(wsData);
-
-    // Set column widths
-    const wscols = [
-      { wch: 8 },  // S.No
-      { wch: 15 }, // Date
-      { wch: 20 }, // Type
-      { wch: 15 }, // Payment Mode
-      { wch: 15 }, // Amount
-      { wch: 30 }  // Remarks
-    ];
-    ws['!cols'] = wscols;
-
-    // Add worksheet to workbook
-    XLSX.utils.book_append_sheet(wb, ws, "Expenditure Report");
-
-    // Save file
-    XLSX.writeFile(wb, `Expenditure_Report_${row.location}_${monthName}_${summaryYear}.xlsx`);
+    generateStyledExcel(
+      "Expenditure Report", 
+      "MONTHLY EXPENDITURE", 
+      [recordToExport], 
+      `Expenditure_Report_${row.location}_${monthName}_${row.year}.xlsx`,
+      exportSortOrder
+    );
   };
 
   return (
@@ -1084,14 +1961,39 @@ const ExpenditureManagement = () => {
 
         <div className="flex items-center gap-3 pb-2">
          
-          {activeTab === "summary" && summaryData.length > 0 && (
-            <button
-              onClick={exportSummaryToCSV}
-              className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Export Summary
-            </button>
+          {activeTab === "summary" && (
+            <>
+              <button
+                onClick={() => {
+                  setExportFormat("excel");
+                  setExportModalOpen(true);
+                  setExportLocation(summaryLocation);
+                  setExportYear(summaryYear);
+                  setExportMonth(month);
+                  setExportStartDate("");
+                  setExportEndDate("");
+                }}
+                className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors flex items-center gap-2"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Export Excel Report
+              </button>
+              <button
+                onClick={() => {
+                  setExportFormat("pdf");
+                  setExportModalOpen(true);
+                  setExportLocation(summaryLocation);
+                  setExportYear(summaryYear);
+                  setExportMonth(month);
+                  setExportStartDate("");
+                  setExportEndDate("");
+                }}
+                className="px-4 py-2 bg-red-700 text-white rounded-lg hover:bg-red-800 transition-colors flex items-center gap-2"
+              >
+                <FileText className="w-4 h-4" />
+                Export PDF Report
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -2052,6 +2954,248 @@ const ExpenditureManagement = () => {
                   Download
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EXPORT REPORT MODAL */}
+      {exportModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border border-gray-100">
+            {/* Modal Header */}
+            <div className={`px-6 py-4 flex justify-between items-center text-white ${exportFormat === "excel" ? "bg-[#262760]" : "bg-red-700"}`}>
+              <div className="flex items-center gap-2">
+                {exportFormat === "excel" ? (
+                  <FileSpreadsheet className="w-5 h-5" />
+                ) : (
+                  <FileText className="w-5 h-5" />
+                )}
+                <h3 className="text-lg font-bold">
+                  {exportFormat === "excel" ? "Export Excel Report" : "Export PDF Report"}
+                </h3>
+              </div>
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="p-1 rounded-lg hover:bg-black hover:bg-opacity-20 transition-colors text-white text-opacity-80 hover:text-white outline-none"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-6 space-y-6">
+              {/* Export Format Toggle */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Select Export Format</label>
+                <div className="grid grid-cols-2 gap-2 p-1 bg-gray-100 rounded-lg">
+                  <button
+                    type="button"
+                    className={`py-2 text-xs font-semibold rounded-md transition-all outline-none flex items-center justify-center gap-2 ${
+                      exportFormat === "excel"
+                        ? "bg-white text-[#262760] shadow-sm"
+                        : "text-gray-500 hover:text-gray-800"
+                    }`}
+                    onClick={() => setExportFormat("excel")}
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5" />
+                    Excel Document (.xlsx)
+                  </button>
+                  <button
+                    type="button"
+                    className={`py-2 text-xs font-semibold rounded-md transition-all outline-none flex items-center justify-center gap-2 ${
+                      exportFormat === "pdf"
+                        ? "bg-white text-red-700 shadow-sm"
+                        : "text-gray-500 hover:text-gray-800"
+                    }`}
+                    onClick={() => setExportFormat("pdf")}
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    PDF Document (.pdf)
+                  </button>
+                </div>
+              </div>
+
+              {/* Report Type Tabs */}
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Select Report Type</label>
+                <div className="grid grid-cols-3 gap-2 p-1 bg-gray-100 rounded-lg">
+                  <button
+                    type="button"
+                    className={`py-2 text-xs font-semibold rounded-md transition-all outline-none ${
+                      exportType === "monthly"
+                        ? "bg-white text-gray-850 shadow-sm"
+                        : "text-gray-500 hover:text-gray-800"
+                    }`}
+                    onClick={() => setExportType("monthly")}
+                  >
+                    Monthly Report
+                  </button>
+                  <button
+                    type="button"
+                    className={`py-2 text-xs font-semibold rounded-md transition-all outline-none ${
+                      exportType === "date_range"
+                        ? "bg-white text-gray-850 shadow-sm"
+                        : "text-gray-500 hover:text-gray-800"
+                    }`}
+                    onClick={() => setExportType("date_range")}
+                  >
+                    Date Filter
+                  </button>
+                  <button
+                    type="button"
+                    className={`py-2 text-xs font-semibold rounded-md transition-all outline-none ${
+                      exportType === "fy"
+                        ? "bg-white text-gray-850 shadow-sm"
+                        : "text-gray-500 hover:text-gray-800"
+                    }`}
+                    onClick={() => setExportType("fy")}
+                  >
+                    Financial Year
+                  </button>
+                </div>
+              </div>
+
+              {/* Location Select (Common for all) */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Location</label>
+                <select
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent outline-none"
+                  value={exportLocation}
+                  onChange={(e) => setExportLocation(e.target.value)}
+                >
+                  <option value="">Select All Locations</option>
+                  {locations.map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Record Sort Order Selector */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Record Sort Order</label>
+                <select
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent outline-none"
+                  value={exportSortOrder}
+                  onChange={(e) => setExportSortOrder(e.target.value)}
+                >
+                  <option value="asc">Oldest to Latest (Ascending)</option>
+                  <option value="desc">Latest to Oldest (Descending)</option>
+                </select>
+              </div>
+
+              {/* Dynamic Inputs based on selected tab */}
+              {exportType === "monthly" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Month</label>
+                    <select
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent outline-none"
+                      value={exportMonth}
+                      onChange={(e) => setExportMonth(e.target.value)}
+                    >
+                      <option value="">Select Month</option>
+                      {months.map(m => (
+                        <option key={m} value={m}>{monthNames[m]}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Year</label>
+                    <select
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent outline-none"
+                      value={exportYear}
+                      onChange={(e) => setExportYear(e.target.value)}
+                    >
+                      <option value="">Select Year</option>
+                      {years.map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              {exportType === "date_range" && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Start Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent outline-none"
+                      value={exportStartDate}
+                      onChange={(e) => setExportStartDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">End Date</label>
+                    <input
+                      type="date"
+                      className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent outline-none"
+                      value={exportEndDate}
+                      onChange={(e) => setExportEndDate(e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {exportType === "fy" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Financial Year</label>
+                  <select
+                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-[#262760] focus:border-transparent outline-none"
+                    value={exportFY}
+                    onChange={(e) => setExportFY(e.target.value)}
+                  >
+                    <option value="2025-26">2025-26</option>
+                    <option value="2024-25">2024-25</option>
+                    <option value="2026-27">2026-27</option>
+                  </select>
+                  <p className="text-xs text-gray-500 mt-2">
+                    {exportFormat === "excel" 
+                      ? "Generates a multi-sheet workbook containing all monthly sheets from April to March." 
+                      : "Generates a consolidated multi-page PDF report containing all monthly data from April to March."}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-gray-50 px-6 py-4 flex justify-end gap-3 border-t">
+              <button
+                onClick={() => setExportModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-100 transition-colors text-sm font-medium outline-none"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={exportFormat === "excel" ? handleExportExcel : handleExportPDF}
+                disabled={loading}
+                className={`px-5 py-2 text-white rounded-lg transition-colors text-sm font-medium flex items-center gap-2 disabled:opacity-50 outline-none ${
+                  exportFormat === "excel" ? "bg-[#262760] hover:bg-[#1f204d]" : "bg-red-700 hover:bg-red-800"
+                }`}
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    {exportFormat === "excel" ? (
+                      <>
+                        <Download className="w-4 h-4" />
+                        Download Excel
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4" />
+                        Download PDF
+                      </>
+                    )}
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>
