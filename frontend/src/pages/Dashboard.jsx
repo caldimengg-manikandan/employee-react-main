@@ -83,7 +83,8 @@ const categoryImages = {
     'Leave Management': 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=1000',
     'Finance & Payroll': 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=1000',
     'Company & Resources': 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000',
-    'Performance Management': 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1000'
+    'Performance Management': 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1000',
+    'Support Center': 'https://images.unsplash.com/photo-1521898284481-a5ec348cb555?auto=format&fit=crop&q=80&w=1000'
 };
 
 const CategoryCard = ({ category, modules, onViewDetails, images }) => {
@@ -241,6 +242,8 @@ const ProjectDashboard = () => {
         { name: 'Leave Summary', description: 'View leave summary', path: '/leave-management/summary', icon: ChartBarIcon, permission: 'leave_summary', showForRoles: ['admin', 'hr', 'manager'], category: 'Leave Management' },
         { name: 'Leave Balance', description: 'Check leave balance', path: '/leave-management/balance', icon: ClipboardDocumentListIcon, permission: 'leave_balance', category: 'Leave Management' },
         { name: 'Leave Applications', description: 'Apply & track leaves', path: '/leave-applications', icon: CalendarIcon, permission: 'leave_access', allowEmployeeRole: true, category: 'Leave Management' },
+        { name: 'Office Holidays', description: 'Manage office holidays', path: '/leave-management/office-holidays', icon: CalendarIcon, permission: 'leave_summary', showForRoles: ['admin', 'hr'], category: 'Leave Management' },
+        { name: 'Regional Holidays', description: 'Manage regional holidays', path: '/leave-management/regional-holidays', icon: CalendarIcon, permission: 'leave_summary', showForRoles: ['admin', 'hr'], category: 'Leave Management' },
 
         // Insurance & Policy
         { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'insurance_access', allowEmployeeRole: true, category: 'Company & Resources' },
@@ -288,6 +291,10 @@ const ProjectDashboard = () => {
         { name: 'Announcements', description: 'Manage company announcements', path: '/announcements', icon: BellIcon, permission: 'announcement_manage', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
 
         { name: 'Unified Hub Calendar', description: 'View holidays & celebrations', path: '/calendar-master', icon: CalendarIcon, permission: 'celebration_view', allowEmployeeRole: true, category: 'Work & Productivity' },
+
+        // Support Center
+        { name: 'Raise Tickets', description: 'Submit a support ticket', path: '/support/raise-ticket', icon: ClipboardDocumentCheckIcon, permission: 'raise_ticket_access', allowEmployeeRole: true, category: 'Support Center' },
+        { name: 'Support Dashboard', description: 'Overview of support requests', path: '/admin/support/dashboard', icon: DocumentChartBarIcon, permission: 'support_dashboard_access', showForRoles: ['admin', 'hr'], category: 'Support Center' },
     ];
 
     const visibleModules = useMemo(() => {
