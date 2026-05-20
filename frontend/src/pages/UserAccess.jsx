@@ -271,6 +271,88 @@ const UserAccess = () => {
     return null;
   };
 
+  const getPermissionLabel = (key) => {
+    const labels = {
+      'home': 'Home',
+      'my_profile': 'My Profile',
+      'timesheet_access': 'Timesheet',
+      'timesheet_history': 'Timesheet History',
+      'attendance_regularization': 'Attendance Regularization',
+      'attendance_access': 'Employee Attendance',
+      'attendance_approval': 'Attendance Approval',
+      'edit_attendance': 'Edit In and Out Time',
+      'admin_timesheet': 'Admin Timesheet',
+      'timesheet_summary': 'Timesheet Summary',
+      'special_permission': 'Special Permission',
+      'self_appraisal': 'Self Appraisal',
+      'team_appraisal': 'Team Appraisal',
+      'reviewer_approval': 'Reviewer Approval',
+      'director_approval': 'Director Approval',
+      'appraisal_workflow': 'Appraisal Workflow',
+      'appraisal_master': 'Appraisal Master',
+      'increment_summary': 'Increment Summary',
+      'attendance_summary': 'Attendance Summary',
+      'promotion_history': 'Promotion History',
+      'leave_access': 'Leave Applications',
+      'leave_summary': 'Leave Summary',
+      'regional_holidays': 'Regional Holidays',
+      'office_holidays': 'Office Holidays',
+      'leave_balance': 'Leave Balance',
+      'leave_manage': 'Leave Ledger (Admin)',
+      'payroll_details': 'Payroll Details',
+      'payroll_history': 'Payroll History',
+      'cost_to_company': 'Cost to the Company',
+      'compensation_master': 'Compensation Master',
+      'loan_summary': 'Loan Summary',
+      'gratuity_summary': 'Gratuity Summary',
+      'monthly_payroll': 'Monthly Payroll',
+      'marriage_allowance': 'Marriage Allowance',
+      'exit_form_access': 'Employee Exit Form',
+      'exit_approval_access': 'Exit Approval',
+      'employee_access': 'Employee Management',
+      'team_access': 'Team Management',
+      'user_access': 'User Access',
+      'reward_access': 'Employee Reward Tracker',
+      'raise_ticket_access': 'Raise Ticket',
+      'support_dashboard_access': 'Support Dashboard',
+      'project_access': 'Project Allocation',
+      'insurance_access': 'Insurance',
+      'policy_portal': 'Policy Portal',
+      'salary_slips': 'Salary Slips',
+      'holiday_allowance': 'Allowance Master',
+      'expenditure_access': 'Expenditure Management',
+      'announcement_manage': 'Announcements',
+      'intern_reference': 'Intern Reference',
+      'resume_access': 'Resume Repository',
+      'unified_calendar': 'Unified Hub Calendar'
+    };
+
+    return labels[key] || key.replace(/_/g, ' ');
+  };
+
+  const getDisplayPermissions = (permissions) => {
+    if (!permissions || !Array.isArray(permissions)) return [];
+
+    // Keys that are purely for grouping and shouldn't be displayed if they have children
+    const groupKeys = [
+      'admin_timesheet_access',
+      'performance_access',
+      'leave_group_access',
+      'payroll_access',
+      'exit_access',
+      'support_group_access'
+    ];
+
+    const displayLabels = new Set();
+    permissions.forEach(key => {
+      if (!groupKeys.includes(key)) {
+        displayLabels.add(getPermissionLabel(key));
+      }
+    });
+
+    return Array.from(displayLabels).sort();
+  };
+
   const filterUsers = () => {
     let filtered = users;
 
@@ -378,7 +460,7 @@ const UserAccess = () => {
         `"${(emp && emp.division) || ''}"`,
         `"${(emp && (emp.location || emp.branch)) || ''}"`,
         formatLastLogin(user.lastLogin),
-        `"${user.permissions.join(', ')}"`
+        `"${getDisplayPermissions(user.permissions).join(', ')}"`
       ];
     });
 
@@ -957,9 +1039,9 @@ const UserAccess = () => {
             <div>
               <h4 className="text-sm font-medium text-gray-700 mb-3">Permissions</h4>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {viewingUser.permissions.map((permission, index) => (
+                {getDisplayPermissions(viewingUser.permissions).map((label, index) => (
                   <div key={index} className="bg-blue-50 text-blue-700 px-3 py-2 rounded-md text-sm">
-                    {permission.replace(/_/g, ' ')}
+                    {label}
                   </div>
                 ))}
               </div>

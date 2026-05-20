@@ -153,7 +153,7 @@ function App() {
             <Route
               path="attendance/edit-time"
               element={
-                <ProtectedRoute requiredPermissions={["edit_attendance"]} roles={["admin", "hr", "manager"]}>
+                <ProtectedRoute requiredPermissions={["edit_attendance"]} roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
                   <EditInAndOutTime />
                 </ProtectedRoute>
               }
@@ -171,7 +171,7 @@ function App() {
             <Route
               path="admin/timesheet/approval"
               element={
-                <ProtectedRoute requiredPermissions={["admin_timesheet_access", "timesheet_summary"]} roles={["admin"]}>
+                <ProtectedRoute requiredPermissions={["admin_timesheet_access", "timesheet_summary"]} roles={["admin", "hr", "manager", "projectmanager", "project_manager"]}>
                   <TimesheetSummary />
                 </ProtectedRoute>
               }

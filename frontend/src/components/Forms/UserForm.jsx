@@ -161,6 +161,10 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
     projectmanager: [
       'timesheet_access',
+      'admin_timesheet_access',
+      'admin_timesheet',
+      'timesheet_summary',
+      'special_permission',
       'project_access',
       'leave_access',
       'leave_group_access',

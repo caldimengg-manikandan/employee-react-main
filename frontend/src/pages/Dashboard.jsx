@@ -226,9 +226,9 @@ const ProjectDashboard = () => {
         { name: 'Employee Attendance', description: 'Attendance tracking', path: '/timesheet/attendance', icon: ClockIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
 
         // Admin Timesheet
-        { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
-        { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentChartBarIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
-        { name: 'Edit In and Out Time', description: 'Modify attendance timings', path: '/attendance/edit-time', icon: ClockIcon, permission: 'edit_attendance', showForRoles: ['admin', 'hr', 'manager'], category: 'Work & Productivity' },
+        { name: 'Admin Timesheet', description: 'Review and approve timesheets', path: '/admin/timesheet', icon: DocumentTextIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Work & Productivity' },
+        { name: 'Timesheet Summary', description: 'Overview of submissions', path: '/admin/timesheet/approval', icon: DocumentChartBarIcon, permission: 'admin_timesheet_access', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Work & Productivity' },
+        { name: 'Edit In and Out Time', description: 'Modify attendance timings', path: '/attendance/edit-time', icon: ClockIcon, permission: 'edit_attendance', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Work & Productivity' },
         { name: 'Special Permission', description: 'Approve special attendance permissions', path: '/admin/special-permissions', icon: ClipboardDocumentCheckIcon, permission: 'special_permission', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Work & Productivity' },
         { name: 'Attendance Approval', description: 'Review and approve attendance', path: '/timesheet/attendance-approval', icon: ClipboardDocumentCheckIcon, permission: 'attendance_access', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], category: 'Work & Productivity' },
 

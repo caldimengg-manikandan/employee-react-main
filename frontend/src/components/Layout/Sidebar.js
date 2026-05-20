@@ -151,14 +151,14 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/timesheet/attendance-approval",
       icon: getIconForMenu("Attendance Approval"),
       permission: "attendance_approval",
-      showForRoles: ["admin", "hr",],
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
     },
     {
       name: "Admin Timesheet",
       hasDropdown: true,
       icon: getIconForMenu("Admin Timesheet"),
       permission: "admin_timesheet_access",
-      showForRoles: ["admin", "hr", "manager"],
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
       children: [
         { name: "Admin Timesheet", path: "/admin/timesheet", permission: "admin_timesheet" },
         { name: "Timesheet Summary", path: "/admin/timesheet/approval", permission: "timesheet_summary" },
@@ -353,7 +353,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/attendance/edit-time",
       icon: getIconForMenu("Edit In and Out Time"),
       permission: "edit_attendance",
-      showForRoles: ["admin", "hr", "manager"],
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"],
     },
     {
       name: "Unified Hub Calendar",
