@@ -40,6 +40,7 @@ export default function LoanSummary() {
     employeeName: "",
     amount: "",
     tenureMonths: "",
+    paidMonths: 0,
     startDate: new Date().toISOString().slice(0, 10),
     location: "Chennai",
     division: "SDS",
@@ -267,6 +268,7 @@ export default function LoanSummary() {
         employeeName: form.employeeName,
         amount: Number(form.amount),
         tenureMonths: Number(form.tenureMonths),
+        paidMonths: Number(form.paidMonths || 0),
         startDate: form.startDate,
         location: form.location,
         division: form.division,
@@ -314,6 +316,7 @@ export default function LoanSummary() {
       employeeName: loan.employeeName,
       amount: loan.amount,
       tenureMonths: loan.tenureMonths,
+      paidMonths: loan.paidMonths || 0,
       startDate: loan.startDate ? new Date(loan.startDate).toISOString().split('T')[0] : "",
       location: loan.location,
       division: loan.division,
@@ -331,6 +334,7 @@ export default function LoanSummary() {
       employeeName: form.employeeName,
       amount: Number(form.amount),
       tenureMonths: Number(form.tenureMonths),
+      paidMonths: Number(form.paidMonths || 0),
       startDate: form.startDate,
       location: form.location,
       division: form.division,
@@ -926,6 +930,17 @@ export default function LoanSummary() {
                 />
               </div>
               <div>
+                <label className="block text-sm font-medium mb-1 text-blue-600">Paid Months (Opening Balance)</label>
+                <input 
+                  name="paidMonths" 
+                  type="number" 
+                  value={form.paidMonths}
+                  onChange={handleChange}
+                  placeholder="0" 
+                  className="border-2 border-blue-200 p-2 w-full rounded-lg focus:border-blue-500 outline-none"
+                />
+              </div>
+              <div>
                 <label className="block text-sm font-medium mb-1">Location</label>
                 <select 
                   name="location" 
@@ -1048,6 +1063,17 @@ export default function LoanSummary() {
                   max="60"
                   className="border p-2 w-full rounded-lg"
                   required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-blue-600">Paid Months (Opening Balance)</label>
+                <input 
+                  name="paidMonths" 
+                  type="number" 
+                  value={form.paidMonths}
+                  onChange={handleChange}
+                  placeholder="0" 
+                  className="border-2 border-blue-200 p-2 w-full rounded-lg focus:border-blue-500 outline-none"
                 />
               </div>
               <div>
