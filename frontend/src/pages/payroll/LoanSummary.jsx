@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
-import { Eye, Download, Trash2, Plus, Edit2, Check, X, User, Calendar, Building, CreditCard, DollarSign, Clock, AlertCircle, Power } from "lucide-react";
-import { employeeAPI, loanAPI } from "../../services/api";
+import { Eye, Download, Trash2, Plus, Edit2, Check, X, User, Calendar, Building, CreditCard, DollarSign, Clock, AlertCircle, Power, RefreshCcw } from "lucide-react";
+import { employeeAPI, loanAPI, BASE_URL } from "../../services/api";
+import axios from "axios";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import useNotification from "../../hooks/useNotification";
@@ -172,6 +173,21 @@ export default function LoanSummary() {
       }
     } catch (error) {
       console.error("Error toggling payment:", error);
+    }
+  }
+
+  async function reconcileLoan(loanId) {
+    try {
+      const response = await axios.post(`${BASE_URL}/loans/${loanId}/reconcile`);
+      if (response.data && response.data.success) {
+        setLoans(prev => prev.map(loan => 
+          loan._id === loanId ? response.data.loan : loan
+        ));
+        showSuccess("Loan balance reconciled with payroll history successfully");
+      }
+    } catch (error) {
+      console.error("Error reconciling loan:", error);
+      showError("Failed to reconcile loan balance");
     }
   }
 
@@ -811,6 +827,13 @@ export default function LoanSummary() {
                         title="Download PDF"
                       >
                         <Download size={18} />
+                      </button>
+                      <button 
+                        onClick={() => reconcileLoan(loan._id)} 
+                        className="p-2 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg"
+                        title="Auto-Fix Balance (Sync with Payroll)"
+                      >
+                        <RefreshCcw size={18} />
                       </button>
                       <button 
                         onClick={() => deleteLoan(loan)} 

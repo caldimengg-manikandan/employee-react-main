@@ -12,12 +12,17 @@ router.post("/", async (req, res) => {
   try {
     const amount = Number(req.body.amount || 0);
     const tenureMonths = Number(req.body.tenureMonths || 1);
+    const paidMonths = Number(req.body.paidMonths || 0);
     
+    const monthlyEMI = Math.round(amount / tenureMonths);
+    const calculatedRemaining = amount - (monthlyEMI * paidMonths);
+    const remainingBalance = calculatedRemaining < 0 ? 0 : calculatedRemaining;
+
     const preparedBody = {
       ...req.body,
-      monthlyEMI: Math.round(amount / tenureMonths),
-      remainingBalance: amount,
-      paidMonths: 0,
+      monthlyEMI,
+      remainingBalance,
+      paidMonths,
       repaymentHistory: []
     };
 
@@ -120,6 +125,60 @@ router.get("/:id", async (req, res) => {
 });
 
 /**
+ * ✅ RECONCILE LOAN WITH PAYROLL
+ * POST /api/loans/:id/reconcile
+ */
+router.post("/:id/reconcile", async (req, res) => {
+  try {
+    const loan = await Loan.findById(req.params.id);
+    if (!loan) return res.status(404).json({ success: false, message: "Loan not found" });
+
+    // Find all payroll records for this employee with loan deductions
+    const payrolls = await MonthlyPayroll.find({
+      employeeId: loan.employeeId,
+      loanDeduction: { $gt: 0 }
+    }).sort({ salaryMonth: 1 });
+
+    const history = [];
+    let currentBalance = Number(loan.amount);
+    const monthlyEMI = Number(loan.monthlyEMI) || Math.round(loan.amount / loan.tenureMonths);
+
+    payrolls.forEach(p => {
+      // Only count payrolls that happened after the loan start date
+      const payrollDate = new Date(p.salaryMonth + "-01");
+      const loanStartDate = new Date(loan.startDate);
+      
+      if (payrollDate >= new Date(loanStartDate.getFullYear(), loanStartDate.getMonth(), 1)) {
+        const deduction = Number(p.loanDeduction);
+        currentBalance -= deduction;
+        
+        history.push({
+          emiMonth: p.salaryMonth,
+          emiAmount: deduction,
+          deductionDate: p.createdAt || new Date(),
+          remainingBalance: currentBalance < 0 ? 0 : currentBalance,
+          paymentStatus: "deducted"
+        });
+      }
+    });
+
+    loan.repaymentHistory = history;
+    loan.paidMonths = history.length;
+    loan.remainingBalance = currentBalance < 0 ? 0 : currentBalance;
+    
+    if (loan.remainingBalance <= 0) {
+      loan.status = "completed";
+      loan.paymentEnabled = false;
+    }
+
+    await loan.save();
+    res.json({ success: true, loan });
+  } catch (err) {
+    res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+/**
  * ✅ UPDATE LOAN
  * PUT /api/loans/:id
  */
@@ -134,16 +193,18 @@ router.put("/:id", async (req, res) => {
 
     const amount = req.body.amount !== undefined ? Number(req.body.amount) : currentLoan.amount;
     const tenureMonths = req.body.tenureMonths !== undefined ? Number(req.body.tenureMonths) : currentLoan.tenureMonths;
-    const paidMonths = req.body.paidMonths !== undefined ? Number(req.body.paidMonths) : currentLoan.paidMonths;
-
+    
+    // Auto-calculate EMI if amount or tenure changed
     const monthlyEMI = Math.round(amount / tenureMonths);
-    const calculatedRemaining = amount - (monthlyEMI * paidMonths);
-    const remainingBalance = calculatedRemaining < 0 ? 0 : calculatedRemaining;
+    
+    // Recalculate remaining balance based on actual history
+    const totalPaid = (currentLoan.repaymentHistory || []).reduce((sum, h) => sum + (Number(h.emiAmount) || 0), 0);
+    const remainingBalance = amount - totalPaid;
 
     const updateBody = {
       ...req.body,
       monthlyEMI,
-      remainingBalance
+      remainingBalance: remainingBalance < 0 ? 0 : remainingBalance
     };
 
     const loan = await Loan.findByIdAndUpdate(
