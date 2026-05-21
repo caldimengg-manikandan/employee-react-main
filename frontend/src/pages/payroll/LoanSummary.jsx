@@ -13,9 +13,6 @@ export default function LoanSummary() {
   const [loans, setLoans] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
-  // Loan counter not needed if we generate based on count or backend handles it, 
-  // but we'll keep it simple and generate on frontend for now.
-  const [loanCounter, setLoanCounter] = useState(1);
 
   /* -------- FILTERS -------- */
   const [filters, setFilters] = useState({
@@ -84,16 +81,6 @@ export default function LoanSummary() {
       const response = await loanAPI.list(filters);
       if (response.data && response.data.success) {
         setLoans(response.data.loans);
-        
-        // Update counter based on existing loans to avoid ID collision
-        if (response.data.loans.length > 0) {
-          // Extract numbers from loan IDs (e.g., "LN-005" -> 5)
-          const maxId = response.data.loans.reduce((max, loan) => {
-            const num = parseInt(loan.loanId?.split('-')[1] || 0);
-            return num > max ? num : max;
-          }, 0);
-          setLoanCounter(maxId + 1);
-        }
       }
     } catch (error) {
       console.error("Error fetching loans:", error);
@@ -150,10 +137,6 @@ export default function LoanSummary() {
 
     const balance = (Number(loan.amount) || 0) - totalPaid;
     return Math.max(balance, 0);
-  }
-
-  function formatLoanId(counter) {
-    return `LN-${counter.toString().padStart(3, '0')}`;
   }
 
   function isPaymentDue(loan) {
@@ -261,9 +244,7 @@ export default function LoanSummary() {
     }
 
     const proceedCreate = async () => {
-      const newLoanId = formatLoanId(loanCounter);
       const payload = {
-        loanId: newLoanId,
         employeeId: form.employeeId,
         employeeName: form.employeeName,
         amount: Number(form.amount),
@@ -279,7 +260,6 @@ export default function LoanSummary() {
         const response = await loanAPI.create(payload);
         if (response.data && response.data.success) {
           setLoans((prev) => [response.data.loan, ...prev]);
-          setLoanCounter(prev => prev + 1);
           setForm(initialForm);
           setShowAddModal(false);
         }
@@ -367,7 +347,6 @@ export default function LoanSummary() {
 
   function downloadPDF(loan) {
     const doc = new jsPDF();
-    const loanId = loan.loanId || loan.id || "N/A";
 
     // --- COLOR PALETTE ---
     const primaryColor = [38, 39, 96]; // #262760 Deep Navy
@@ -440,21 +419,14 @@ export default function LoanSummary() {
 
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text("Loan Account ID:", 115, 55);
+    doc.text("Start Date:", 115, 55);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(51, 51, 51);
-    doc.text(String(loanId), 150, 55);
+    doc.text(loan.startDate ? new Date(loan.startDate).toLocaleDateString("en-IN") : "N/A", 150, 55);
 
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text("Start Date:", 115, 61);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(51, 51, 51);
-    doc.text(loan.startDate ? new Date(loan.startDate).toLocaleDateString("en-IN") : "N/A", 150, 61);
-
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 100, 100);
-    doc.text("Account Status:", 115, 67);
+    doc.text("Account Status:", 115, 61);
     doc.setFont("helvetica", "bold");
     const statusStr = String(loan.status || "active").toUpperCase();
     if (statusStr === "ACTIVE") {
@@ -464,7 +436,7 @@ export default function LoanSummary() {
     } else {
       doc.setTextColor(224, 90, 0); // Orange/Accent
     }
-    doc.text(statusStr, 150, 67);
+    doc.text(statusStr, 150, 61);
 
     // --- FINANCIAL SUMMARY BOXES (KPIs) ---
     const drawKpiCard = (x, y, width, height, title, value, titleColor, valColor, bg) => {
@@ -589,20 +561,36 @@ export default function LoanSummary() {
     const pageHeight = doc.internal.pageSize.height;
     
     // Bottom Signature block
+    const signatureUrl = loan.location === "Hosur" ? "/signatures/bala-sign.png" : "/signatures/uvaraj-sign.png";
+    const signatoryName = loan.location === "Hosur" ? "Bala" : "Uvaraj";
+
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
     doc.setTextColor(80, 80, 80);
-    doc.text("Authorized Signature & Seal", 190, pageHeight - 35, { align: "right" });
+    doc.text("Authorized Signature & Seal", 190, pageHeight - 40, { align: "right" });
     
+    // Add Signature Image
+    try {
+      // Positioned above the signature line
+      doc.addImage(signatureUrl, 'PNG', 155, pageHeight - 38, 30, 12);
+    } catch (e) {
+      console.error("Error adding signature image:", e);
+    }
+
     doc.setDrawColor(200, 200, 200);
-    doc.line(140, pageHeight - 23, 190, pageHeight - 23); // Signature line
+    doc.line(140, pageHeight - 25, 190, pageHeight - 25); // Signature line
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(50, 50, 50);
+    doc.text(signatoryName, 165, pageHeight - 20, { align: "center" });
 
     doc.setFont("helvetica", "normal");
     doc.setFontSize(7.5);
     doc.setTextColor(140, 140, 140);
-    doc.text("This is an official computer-generated corporate ledger document. No physical signature is required.", 105, pageHeight - 12, { align: "center" });
+    doc.text("This is an official computer-generated corporate ledger document.", 105, pageHeight - 12, { align: "center" });
 
-    doc.save(`Loan_Statement_${loan.employeeId || "EMP"}_${loanId}.pdf`);
+    doc.save(`Loan_Statement_${loan.employeeId || "EMP"}.pdf`);
   }
 
   async function deleteLoan(loan) {
@@ -1014,7 +1002,7 @@ export default function LoanSummary() {
             onSubmit={updateLoan}
             className="bg-white p-6 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto shadow-xl"
           >
-            <h2 className="text-xl font-semibold mb-4 text-[#262760]">Edit Loan - {selectedLoan.loanId || selectedLoan.id}</h2>
+            <h2 className="text-xl font-semibold mb-4 text-[#262760]">Edit Loan</h2>
 
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
@@ -1230,10 +1218,6 @@ export default function LoanSummary() {
                       <span className="font-semibold bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm">
                         {selectedLoan.division}
                       </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-gray-600">Loan ID:</span>
-                      <span className="font-bold text-[#262760]">{selectedLoan.loanId || selectedLoan.id}</span>
                     </div>
                   </div>
                 </div>

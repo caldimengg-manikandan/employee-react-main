@@ -2,11 +2,6 @@ const mongoose = require("mongoose");
 
 const LoanSchema = new mongoose.Schema(
   {
-    loanId: {
-      type: String,
-      required: false,
-    },
-
     employeeId: {
       type: String,
       required: true,

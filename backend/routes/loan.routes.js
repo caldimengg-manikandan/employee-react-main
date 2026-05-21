@@ -57,21 +57,24 @@ router.get("/", async (req, res) => {
       const loanObj = loan.toObject();
       const totalAmount = Number(loanObj.amount || 0);
       const repaymentHistory = loanObj.repaymentHistory || [];
+      const monthlyEMI = Number(loanObj.monthlyEMI || Math.round(totalAmount / (loanObj.tenureMonths || 1)));
 
-      // Source of truth: Sum of all actual payments in history
-      const totalPaid = repaymentHistory.reduce((sum, entry) => {
-        return sum + (Number(entry.emiAmount) || 0);
-      }, 0);
+      // Source of truth: Sum of history OR manual paid months (whichever is greater)
+      const historyPaidAmount = repaymentHistory.reduce((sum, entry) => sum + (Number(entry.emiAmount) || 0), 0);
+      const manualPaidAmount = Number(loanObj.paidMonths || 0) * monthlyEMI;
+      
+      const totalPaid = Math.max(historyPaidAmount, manualPaidAmount);
+      const displayPaidMonths = Math.max(repaymentHistory.length, Number(loanObj.paidMonths || 0));
       
       let rBalance = totalAmount - totalPaid;
       
-      if (loanObj.status === "completed" || rBalance <= 0 || repaymentHistory.length >= (loanObj.tenureMonths || 1)) {
+      if (loanObj.status === "completed" || rBalance <= 0 || displayPaidMonths >= (loanObj.tenureMonths || 1)) {
         rBalance = 0;
       }
 
       return {
         ...loanObj,
-        paidMonths: repaymentHistory.length,
+        paidMonths: displayPaidMonths,
         remainingBalance: rBalance,
         repaymentHistory: repaymentHistory
       };
@@ -90,7 +93,7 @@ router.get("/", async (req, res) => {
 router.get("/:id", async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Invalid Loan ID" });
+      return res.status(400).json({ success: false, message: "Invalid Loan Reference" });
     }
 
     const loan = await Loan.findById(req.params.id);
@@ -99,21 +102,24 @@ router.get("/:id", async (req, res) => {
     const loanObj = loan.toObject();
     const totalAmount = Number(loanObj.amount || 0);
     const repaymentHistory = loanObj.repaymentHistory || [];
+    const monthlyEMI = Number(loanObj.monthlyEMI || Math.round(totalAmount / (loanObj.tenureMonths || 1)));
 
-    // Source of truth: Sum of all actual payments in history
-    const totalPaid = repaymentHistory.reduce((sum, entry) => {
-      return sum + (Number(entry.emiAmount) || 0);
-    }, 0);
+    // Source of truth: Sum of history OR manual paid months (whichever is greater)
+    const historyPaidAmount = repaymentHistory.reduce((sum, entry) => sum + (Number(entry.emiAmount) || 0), 0);
+    const manualPaidAmount = Number(loanObj.paidMonths || 0) * monthlyEMI;
+
+    const totalPaid = Math.max(historyPaidAmount, manualPaidAmount);
+    const displayPaidMonths = Math.max(repaymentHistory.length, Number(loanObj.paidMonths || 0));
 
     let rBalance = totalAmount - totalPaid;
 
-    if (loanObj.status === "completed" || rBalance <= 0 || repaymentHistory.length >= (loanObj.tenureMonths || 1)) {
+    if (loanObj.status === "completed" || rBalance <= 0 || displayPaidMonths >= (loanObj.tenureMonths || 1)) {
       rBalance = 0;
     }
 
     const updatedLoan = {
       ...loanObj,
-      paidMonths: repaymentHistory.length,
+      paidMonths: displayPaidMonths,
       remainingBalance: rBalance,
       repaymentHistory: repaymentHistory
     };
@@ -185,7 +191,7 @@ router.post("/:id/reconcile", async (req, res) => {
 router.put("/:id", async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-      return res.status(400).json({ success: false, message: "Invalid Loan ID" });
+      return res.status(400).json({ success: false, message: "Invalid Loan Reference" });
     }
 
     const currentLoan = await Loan.findById(req.params.id);
@@ -193,17 +199,22 @@ router.put("/:id", async (req, res) => {
 
     const amount = req.body.amount !== undefined ? Number(req.body.amount) : currentLoan.amount;
     const tenureMonths = req.body.tenureMonths !== undefined ? Number(req.body.tenureMonths) : currentLoan.tenureMonths;
+    const paidMonths = req.body.paidMonths !== undefined ? Number(req.body.paidMonths) : (currentLoan.paidMonths || 0);
     
     // Auto-calculate EMI if amount or tenure changed
     const monthlyEMI = Math.round(amount / tenureMonths);
     
-    // Recalculate remaining balance based on actual history
-    const totalPaid = (currentLoan.repaymentHistory || []).reduce((sum, h) => sum + (Number(h.emiAmount) || 0), 0);
+    // Recalculate remaining balance: history is primary, manual is fallback
+    const historyPaid = (currentLoan.repaymentHistory || []).reduce((sum, h) => sum + (Number(h.emiAmount) || 0), 0);
+    const manualPaid = paidMonths * monthlyEMI;
+    const totalPaid = Math.max(historyPaid, manualPaid);
+    
     const remainingBalance = amount - totalPaid;
 
     const updateBody = {
       ...req.body,
       monthlyEMI,
+      paidMonths,
       remainingBalance: remainingBalance < 0 ? 0 : remainingBalance
     };
 

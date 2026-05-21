@@ -58,11 +58,16 @@ router.post("/run", async (req, res) => {
             paymentStatus: "deducted"
           });
 
-          // Calculate overall stats based on the updated history
-          const totalPaid = loan.repaymentHistory.reduce((sum, h) => sum + (Number(h.emiAmount) || 0), 0);
-          const remaining = (Number(loan.amount) || 0) - totalPaid;
+          // Increment the paid months counter (Manual baseline + 1)
+          loan.paidMonths = (loan.paidMonths || 0) + 1;
+
+          // Calculate remaining balance
+          // We use the greater of (manual EMI total) or (actual history total) to be safe
+          const historyPaidAmount = loan.repaymentHistory.reduce((sum, h) => sum + (Number(h.emiAmount) || 0), 0);
+          const manualPaidAmount = Number(loan.paidMonths) * (Number(loan.monthlyEMI) || 0);
+          const totalPaid = Math.max(historyPaidAmount, manualPaidAmount);
           
-          loan.paidMonths = loan.repaymentHistory.length;
+          const remaining = (Number(loan.amount) || 0) - totalPaid;
           loan.remainingBalance = remaining < 0 ? 0 : remaining;
           loan.lastDeductionDate = new Date();
           
