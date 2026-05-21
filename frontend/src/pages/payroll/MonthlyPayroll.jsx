@@ -349,13 +349,13 @@ export default function MonthlyPayroll() {
         const payrollRec = payrolls.find(p => p.employeeId === emp.employeeId);
         
         // Calculate Loan Deduction from active loans
-        const empLoans = loans.filter(l => 
-          l.employeeId === emp.employeeId && 
+        const allEmpLoans = loans.filter(l => l.employeeId === emp.employeeId);
+        const activeEnabledLoans = allEmpLoans.filter(l => 
           l.status === 'active' && 
           l.paymentEnabled === true
         );
         
-        const calculatedLoanDeduction = empLoans.reduce((sum, loan) => {
+        const calculatedLoanDeduction = activeEnabledLoans.reduce((sum, loan) => {
           if (!loan.amount || !loan.tenureMonths) return sum;
           const monthly = Math.round(loan.amount / loan.tenureMonths);
           return sum + monthly;
@@ -386,8 +386,8 @@ export default function MonthlyPayroll() {
           professionalTax: payrollRec ? (payrollRec.professionalTax || 0) : (emp.professionalTax || 0),
           volunteerPF: payrollRec ? (payrollRec.volunteerPF || 0) : (emp.volunteerPF || 0),
           
-          // Use calculated loan deduction if available, otherwise fallback
-          loanDeduction: calculatedLoanDeduction > 0 ? calculatedLoanDeduction : (payrollRec ? (payrollRec.loanDeduction || 0) : (emp.loanDeduction || 0)),
+          // Use calculated loan deduction if the employee has loans in the system, otherwise fallback to static values
+          loanDeduction: allEmpLoans.length > 0 ? calculatedLoanDeduction : (payrollRec ? (payrollRec.loanDeduction || 0) : (emp.loanDeduction || 0)),
           
           lop: 0,
           status: 'Pending',

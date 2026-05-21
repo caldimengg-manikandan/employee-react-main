@@ -48,37 +48,27 @@ router.get("/", async (req, res) => {
 
     const loans = await Loan.find(filter).sort({ createdAt: -1 });
 
-    // Fetch all payroll records for the employees in the loans list to reconcile
-    const employeeIds = [...new Set(loans.map(l => l.employeeId))];
-    const allPayrolls = await MonthlyPayroll.find({
-      employeeId: { $in: employeeIds },
-      loanDeduction: { $gt: 0 }
-    }).select('employeeId salaryMonth loanDeduction');
-
     const updatedLoans = loans.map(loan => {
       const loanObj = loan.toObject();
-      const amount = Number(loanObj.amount || 0);
+      const totalAmount = Number(loanObj.amount || 0);
+      const repaymentHistory = loanObj.repaymentHistory || [];
 
-      // Count payrolls for this employee that have any loan deduction recorded
-      const relevantPayrolls = allPayrolls.filter(p => 
-        p.employeeId === loanObj.employeeId
-      );
-
-      const paidMonthsFromPayroll = relevantPayrolls.length;
-      const monthlyEMI = loanObj.monthlyEMI || Math.round(amount / (loanObj.tenureMonths || 1));
+      // Source of truth: Sum of all actual payments in history
+      const totalPaid = repaymentHistory.reduce((sum, entry) => {
+        return sum + (Number(entry.emiAmount) || 0);
+      }, 0);
       
-      // Calculate balance based on payroll count
-      let rBalance = amount - (monthlyEMI * paidMonthsFromPayroll);
+      let rBalance = totalAmount - totalPaid;
       
-      if (loanObj.status === "completed" || rBalance <= 0 || paidMonthsFromPayroll >= loanObj.tenureMonths) {
+      if (loanObj.status === "completed" || rBalance <= 0 || repaymentHistory.length >= (loanObj.tenureMonths || 1)) {
         rBalance = 0;
       }
 
       return {
         ...loanObj,
-        paidMonths: paidMonthsFromPayroll, // Update with actual payroll count
+        paidMonths: repaymentHistory.length,
         remainingBalance: rBalance,
-        repaymentHistory: loanObj.repaymentHistory || []
+        repaymentHistory: repaymentHistory
       };
     });
 
@@ -102,29 +92,25 @@ router.get("/:id", async (req, res) => {
     if (!loan) return res.status(404).json({ message: "Loan not found" });
 
     const loanObj = loan.toObject();
-    const amount = Number(loanObj.amount || 0);
+    const totalAmount = Number(loanObj.amount || 0);
+    const repaymentHistory = loanObj.repaymentHistory || [];
 
-    // Fetch payroll records for this specific employee to reconcile
-    const relevantPayrolls = await MonthlyPayroll.find({
-      employeeId: loanObj.employeeId,
-      loanDeduction: { $gt: 0 }
-    }).select('salaryMonth');
+    // Source of truth: Sum of all actual payments in history
+    const totalPaid = repaymentHistory.reduce((sum, entry) => {
+      return sum + (Number(entry.emiAmount) || 0);
+    }, 0);
 
-    const paidMonthsFromPayroll = relevantPayrolls.length;
-    const monthlyEMI = loanObj.monthlyEMI || Math.round(amount / (loanObj.tenureMonths || 1));
+    let rBalance = totalAmount - totalPaid;
 
-    // Calculate balance based on payroll count
-    let rBalance = amount - (monthlyEMI * paidMonthsFromPayroll);
-
-    if (loanObj.status === "completed" || rBalance <= 0 || paidMonthsFromPayroll >= loanObj.tenureMonths) {
+    if (loanObj.status === "completed" || rBalance <= 0 || repaymentHistory.length >= (loanObj.tenureMonths || 1)) {
       rBalance = 0;
     }
 
     const updatedLoan = {
       ...loanObj,
-      paidMonths: paidMonthsFromPayroll,
+      paidMonths: repaymentHistory.length,
       remainingBalance: rBalance,
-      repaymentHistory: loanObj.repaymentHistory || []
+      repaymentHistory: repaymentHistory
     };
 
     res.json({ success: true, loan: updatedLoan });

@@ -40,41 +40,45 @@ router.post("/run", async (req, res) => {
 
         for (const loan of activeLoans) {
           const monthStr = p.salaryMonth || new Date().toISOString().substring(0, 7);
-          const alreadyDeducted = loan.repaymentHistory && loan.repaymentHistory.some(h => h.emiMonth === monthStr);
-          if (alreadyDeducted) {
-            continue;
-          }
+          
+          // Source of Truth: Check history to prevent duplicate deductions for the same month
+          if (!loan.repaymentHistory) loan.repaymentHistory = [];
+          const alreadyDeducted = loan.repaymentHistory.some(h => h.emiMonth === monthStr);
+          if (alreadyDeducted) continue;
 
-          const monthlyEMI = Math.round(loan.amount / loan.tenureMonths);
+          // Determine EMI amount (use actual deduction from payroll if available, else standard)
+          const monthlyEMI = p.loanDeduction > 0 ? p.loanDeduction : (loan.monthlyEMI || Math.round(loan.amount / loan.tenureMonths));
           
-          loan.paidMonths = (loan.paidMonths || 0) + 1;
+          // Update History first
+          loan.repaymentHistory.push({
+            emiMonth: monthStr,
+            emiAmount: monthlyEMI,
+            deductionDate: new Date(),
+            remainingBalance: 0, // Placeholder, calculated below
+            paymentStatus: "deducted"
+          });
+
+          // Calculate overall stats based on the updated history
+          const totalPaid = loan.repaymentHistory.reduce((sum, h) => sum + (Number(h.emiAmount) || 0), 0);
+          const remaining = (Number(loan.amount) || 0) - totalPaid;
           
-          const remaining = loan.amount - (monthlyEMI * loan.paidMonths);
+          loan.paidMonths = loan.repaymentHistory.length;
           loan.remainingBalance = remaining < 0 ? 0 : remaining;
           loan.lastDeductionDate = new Date();
           
+          // Update the specific entry's balance for the statement
+          loan.repaymentHistory[loan.repaymentHistory.length - 1].remainingBalance = loan.remainingBalance;
+
           const nextDate = new Date();
           nextDate.setMonth(nextDate.getMonth() + 1);
           loan.nextDeductionDate = nextDate;
           
-          if (loan.paidMonths >= loan.tenureMonths) {
+          if (loan.remainingBalance <= 0 || loan.paidMonths >= loan.tenureMonths) {
             loan.status = "completed";
             loan.paymentEnabled = false;
             loan.remainingBalance = 0;
             loan.nextDeductionDate = null;
           }
-          
-          if (!loan.repaymentHistory) {
-            loan.repaymentHistory = [];
-          }
-
-          loan.repaymentHistory.push({
-            emiMonth: monthStr,
-            emiAmount: monthlyEMI,
-            deductionDate: new Date(),
-            remainingBalance: loan.remainingBalance,
-            paymentStatus: "deducted"
-          });
           
           await loan.save();
         }
