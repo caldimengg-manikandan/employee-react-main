@@ -205,7 +205,6 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const roleOptions = [
     { value: 'admin', label: 'Admin' },
     { value: 'employees', label: 'Employees' },
-    { value: 'hr', label: 'Hr' },
     { value: 'projectmanager', label: 'Reporting Manager' }
   ];
 

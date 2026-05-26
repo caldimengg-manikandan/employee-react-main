@@ -721,7 +721,6 @@ const UserAccess = () => {
                     <option value="">All Roles</option>
                     <option value="admin">Admin</option>
                     <option value="employees">Employees</option>
-                    <option value="hr">Hr</option>
                     <option value="projectmanager">Reporting Manager</option>
                   </select>
                 </div>
