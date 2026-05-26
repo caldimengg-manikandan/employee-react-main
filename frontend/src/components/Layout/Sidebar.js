@@ -43,7 +43,8 @@ import {
   UserIcon,
   CalendarDaysIcon,
   StarIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  SparklesIcon
 } from "@heroicons/react/24/outline";
 
 const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }) => {
@@ -340,7 +341,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/user-access",
       icon: getIconForMenu("User Access"),
       permission: "user_access",
-      showForRoles: ["admin"],
+      showForRoles: ["admin", "hr"],
     },
     {
       name: "Team Management",
@@ -361,7 +362,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/calendar-master",
       icon: getIconForMenu("Unified Hub Calendar"),
       allowEmployeeRole: true,
-      permission: "home"
+      permission: "home",
     },
   ];
 
@@ -385,10 +386,10 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
 
   const filteredMenuItems = menuItems.filter((item) => {
     // 1. Check for basic permissions (with special cases for home and admin)
-    const hasDirectPermission = !item.permission || 
-                               permissions.includes(item.permission) || 
-                               item.permission === 'home' ||
-                               (role === "admin" && (item.permission === "user_access" || item.permission === "support_group_access"));
+    const hasDirectPermission = !item.permission ||
+      permissions.includes(item.permission) ||
+      item.permission === 'home' ||
+      (role === "admin" && (item.permission === "user_access" || item.permission === "support_group_access"));
 
     // 2. For dropdowns, check if any children are visible
     let visibleChildren = [];

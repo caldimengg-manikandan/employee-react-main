@@ -48,7 +48,7 @@ const UserAccess = () => {
   } catch {
     sessionUser = {};
   }
-  const isAdminSession = String(sessionUser.role || '').toLowerCase() === 'admin';
+  const isAdminSession = String(sessionUser.role || '').toLowerCase() === 'admin' || String(sessionUser.role || '').toLowerCase() === 'hr';
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -499,7 +499,7 @@ const UserAccess = () => {
 
   const handleEdit = (user) => {
     if (!isAdminSession) {
-      showSuccess('Access denied: Only admin can edit user access.');
+      showSuccess('Access denied: Only Admin or HR can edit user access.');
       return;
     }
     setEditingUser(user);
@@ -512,7 +512,7 @@ const UserAccess = () => {
 
   const handleDelete = async (id) => {
     if (!isAdminSession) {
-      showSuccess('Access denied: Only admin can delete users.');
+      showSuccess('Access denied: Only Admin or HR can delete users.');
       return;
     }
     try {
@@ -527,7 +527,7 @@ const UserAccess = () => {
 
   const handleFormSubmit = (isEdit = false) => {
     if (!isAdminSession) {
-      showSuccess('Access denied: Only admin can update user access.');
+      showSuccess('Access denied: Only Admin or HR can update user access.');
       return;
     }
     setShowModal(false);
@@ -595,7 +595,7 @@ const UserAccess = () => {
             Access Denied
           </h1>
           <p className="text-gray-600 mb-4">
-            Only admin can access User Access.
+            Only Admin or HR can access User Access.
           </p>
           <button
             onClick={() => window.history.back()}
@@ -719,11 +719,9 @@ const UserAccess = () => {
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3"
                   >
                     <option value="">All Roles</option>
-                    <option value="director">Director</option>
-                    <option value="manager">General Manager</option>
-                    <option value="hr">HR Manager</option>
                     <option value="admin">Admin</option>
                     <option value="employees">Employees</option>
+                    <option value="hr">Hr</option>
                     <option value="projectmanager">Reporting Manager</option>
                   </select>
                 </div>
