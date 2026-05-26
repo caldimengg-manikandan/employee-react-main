@@ -458,4 +458,15 @@ export const celebrationAPI = {
   replyWish: (wishId, data) => api.post(`/celebrations/wish/${wishId}/reply`, data),
 };
 
+export const performancePayAPI = {
+  getAll: (params) => api.get('/performance-pay', { params }),
+  create: (data) => api.post('/performance-pay', data),
+  update: (id, data) => api.put(`/performance-pay/${id}`, data),
+  remove: (id) => api.delete(`/performance-pay/${id}`),
+  approve: (ids) => api.post('/performance-pay/approve', { ids }),
+  generateLetter: (ids) => api.post('/performance-pay/generate-letter', { ids }),
+  credit: (ids) => api.post('/performance-pay/credit', { ids }),
+  getPendingPayroll: () => api.get('/performance-pay/pending-payroll'),
+};
+
 export default api;

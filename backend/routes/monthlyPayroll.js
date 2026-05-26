@@ -91,6 +91,19 @@ router.post("/run", async (req, res) => {
         console.error("Error processing loan deduction for employee", p.employeeId, loanErr);
       }
 
+      // Process performance pay status updates
+      try {
+        if (p.performancePay > 0) {
+          const PerformancePay = require("../models/PerformancePay");
+          await PerformancePay.updateMany(
+            { employeeId: p.employeeId, status: "ACCEPTED", payrollCredited: false },
+            { $set: { status: "PAYROLL_CREDITED", payrollCredited: true } }
+          );
+        }
+      } catch (ppErr) {
+        console.error("Error processing performance pay credit for employee", p.employeeId, ppErr);
+      }
+
       saved.push(record);
     }
 

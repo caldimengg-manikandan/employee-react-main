@@ -60,6 +60,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         { key: 'team_appraisal', label: 'Team Appraisal' },
         { key: 'reviewer_approval', label: 'Reviewer Approval' },
         { key: 'director_approval', label: 'Director Approval' },
+        { key: 'performance_pay', label: 'Performance Pay' },
         { key: 'appraisal_workflow', label: 'Appraisal Workflow' },
         { key: 'appraisal_master', label: 'Appraisal Master' },
         { key: 'increment_summary', label: 'Increment Summary' },
@@ -173,6 +174,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'office_holidays',
       'performance_access',
       'self_appraisal',
+      'performance_pay',
       'salary_slips',
       'unified_calendar',
       'support_group_access',
@@ -188,6 +190,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'attendance_regularization',
       'leave_access',
       'leave_balance',
+      'performance_access',
+      'self_appraisal',
+      'performance_pay',
       'exit_form_access',
       'salary_slips',
       'policy_portal',
@@ -198,9 +203,12 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   };
 
   const roleOptions = [
+    { value: 'director', label: 'Director' },
+    { value: 'manager', label: 'General Manager' },
+    { value: 'hr', label: 'HR Manager' },
     { value: 'admin', label: 'Admin' },
-    { value: 'projectmanager', label: 'Reporting Manager' },
-    { value: 'employees', label: 'Employee' }
+    { value: 'employees', label: 'Employees' },
+    { value: 'projectmanager', label: 'Reporting Manager' }
   ];
 
   useEffect(() => {

@@ -184,6 +184,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         { name: "Team Appraisal", path: "/performance/team-appraisal", showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"], permission: "team_appraisal" },
         { name: "Reviewer Approval", path: "/performance/reviewer-approval", showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager"], permission: "reviewer_approval" },
         { name: "Director Approval", path: "/performance/director-approval", showForRoles: ["admin", "hr", "manager", "director"], permission: "director_approval" },
+        { name: "Performance Pay", path: "/performance/performance-pay", showForRoles: ["admin", "hr", "director"], permission: "performance_pay" },
         { name: "Appraisal Workflow", path: "/performance/appraisal-workflow", showForRoles: ["admin", "hr", "director"], permission: "appraisal_workflow" },
         { name: "Appraisal Master", path: "/performance/increment-master", showForRoles: ["admin", "hr"], permission: "appraisal_master" },
         { name: "Increment Summary", path: "/performance/increment-summary", showForRoles: ["admin", "hr", "manager"], permission: "increment_summary" },
@@ -367,6 +368,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
   const getFilteredChildren = (children) => {
     if (!children) return [];
     return children.filter((child) => {
+      if (role === "admin") return true;
       if (child.permission && !permissions.includes(child.permission)) {
         if (child.permission === 'home') return true; // Special case for home items
         return false;
@@ -439,6 +441,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Marriage Allowance": <CurrencyRupeeIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Employee Exit Form": <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Exit Approval": <ApprovalIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Performance Pay": <CurrencyRupeeIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "default": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />
   };
 

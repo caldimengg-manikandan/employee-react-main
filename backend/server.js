@@ -117,6 +117,7 @@ app.use("/api/performance/increment-master", require("./routes/incrementRoutes")
 app.use("/api/performance/increment-summary", require("./routes/incrementSummaryRoutes"));
 const appraisalAttributeRoutes = require("./routes/appraisalAttributeRoutes");
 app.use("/api/performance/attributes", appraisalAttributeRoutes);
+app.use("/api/performance-pay", require("./routes/performancePayRoutes"));
 
 // ⭐ Specific history route MUST come before generic :id routes if sharing base path
 app.use("/api/payroll", require("./routes/payrollHistoryRoutes"));

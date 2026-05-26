@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Download, Check, X, Mail, Filter, Edit } from 'lucide-react';
-import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI, mailAPI } from '../../services/api';
+import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI, mailAPI, performancePayAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
 
 const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
@@ -8,6 +8,7 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const basicDA = parseFloat(salaryData.basicDA) || 0;
   const hra = parseFloat(salaryData.hra) || 0;
   const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
+  const performancePay = parseFloat(salaryData.performancePay) || 0;
   
   // In this org, PF is the sum of Emp + Empr contributions.
   // Volunteer PF should be handled separately as a voluntary deduction.
@@ -24,7 +25,7 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   }
 
   const stdEsi = parseFloat(salaryData.esi) || 0;
-  const totalGross = basicDA + hra + specialAllowance + pf + stdEsi;
+  const totalGross = basicDA + hra + specialAllowance + pf + stdEsi + performancePay;
   
   const stdTax = parseFloat(salaryData.tax) || 0;
   const stdProfessionalTax = parseFloat(salaryData.professionalTax) || 0;
@@ -71,6 +72,7 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
     basicDA,
     hra,
     specialAllowance,
+    performancePay,
     totalEarnings,
     totalDeductions,
     netSalary,
@@ -333,20 +335,27 @@ export default function MonthlyPayroll() {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const [empResponse, payrollResponse, loanResponse] = await Promise.all([
+      const [empResponse, payrollResponse, loanResponse, ppResponse] = await Promise.all([
         employeeAPI.getAllEmployees(),
         payrollAPI.list(),
-        loanAPI.list()
+        loanAPI.list(),
+        performancePayAPI.getPendingPayroll().catch(() => ({ data: { data: [] } }))
       ]);
       
       const allEmployees = Array.isArray(empResponse.data) ? empResponse.data : [];
       const employees = allEmployees.filter(emp => emp.status === 'Active' || emp.status === 'ACTIVE');
       const payrolls = Array.isArray(payrollResponse.data) ? payrollResponse.data : [];
       const loans = loanResponse.data && loanResponse.data.loans ? loanResponse.data.loans : [];
+      const pendingPP = ppResponse.data && ppResponse.data.data ? ppResponse.data.data : [];
 
       const mapped = employees.map(emp => {
         // Find matching payroll record
         const payrollRec = payrolls.find(p => p.employeeId === emp.employeeId);
+        
+        // Sum up pending performance pay
+        const empPP = pendingPP
+          .filter(p => p.employeeId === emp.employeeId)
+          .reduce((sum, item) => sum + (item.performancePayAmount || 0), 0);
         
         // Calculate Loan Deduction from active loans
         const allEmpLoans = loans.filter(l => l.employeeId === emp.employeeId);
@@ -376,6 +385,7 @@ export default function MonthlyPayroll() {
           basicDA: payrollRec ? (payrollRec.basicDA || 0) : (emp.basicDA || emp.basic || 0),
           hra: payrollRec ? (payrollRec.hra || 0) : (emp.hra || 0),
           specialAllowance: payrollRec ? (payrollRec.specialAllowance || 0) : (emp.specialAllowance || 0),
+          performancePay: empPP,
           gratuity: payrollRec ? (payrollRec.gratuity || 0) : (emp.gratuity || 0),
           
           pf: payrollRec ? (payrollRec.pf || 0) : (emp.pf || 0),

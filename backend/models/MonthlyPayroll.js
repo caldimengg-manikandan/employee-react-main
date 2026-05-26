@@ -26,6 +26,10 @@ const MonthlyPayrollSchema = new mongoose.Schema(
     basicDA: Number,
     hra: Number,
     specialAllowance: Number,
+    performancePay: {
+      type: Number,
+      default: 0,
+    },
 
     // Deductions
     pf: Number,

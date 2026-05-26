@@ -29,11 +29,14 @@ const calculateSalaryFields = (salaryData) => {
   const gratuity = parseFloat(salaryData.gratuity) || 0;
   
   // Standard PF components
-  const employeePF = parseFloat(salaryData.employeePfContribution) || 0;
-  const employerPF = parseFloat(salaryData.employerPfContribution) || 0;
+  let employeePF = parseFloat(salaryData.employeePfContribution) || 0;
+  let employerPF = parseFloat(salaryData.employerPfContribution) || 0;
   
-  // totalPF display value (for UI fallback)
-  const pfDisplay = (employeePF + employerPF) || parseFloat(salaryData.pf) || 0;
+  const manualPf = parseFloat(salaryData.pf);
+  if (!isNaN(manualPf) && manualPf !== (employeePF + employerPF)) {
+    employeePF = manualPf / 2;
+    employerPF = manualPf / 2;
+  }
   
   const esi = parseFloat(salaryData.esi) || 0;
   const tax = parseFloat(salaryData.tax) || 0;
@@ -59,6 +62,7 @@ const calculateSalaryFields = (salaryData) => {
     hra,
     specialAllowance,
     gratuity,
+    pf: manualPf || (employeePF + employerPF),
     employeePfContribution: employeePF,
     employerPfContribution: employerPF,
     esi,
@@ -338,14 +342,17 @@ const PayrollDetails = () => {
       } else if (data && data.balances) {
         balances = data.balances;
       }
-      const totalEarnings = (base?.totalEarnings ?? (calculateSalaryFields(base).totalEarnings)) || 0;
+      const allFields = calculateSalaryFields(base);
+      const totalEarnings = allFields.totalEarnings || 0;
+      const netSalary = allFields.netSalary || 0;
+      const currentLop = parseFloat(allFields.lop) || 0;
       const perDay = totalEarnings / 30;
       const cl = Number(balances?.casual?.balance ?? 0);
       const sl = Number(balances?.sick?.balance ?? 0);
       const pl = Number(balances?.privilege?.balance ?? 0);
       const negDays = Math.max(0, -cl) + Math.max(0, -sl) + Math.max(0, -pl);
       const lopAmount = Math.round(perDay * negDays);
-      const adjustedNet = Math.round(totalEarnings - lopAmount);
+      const adjustedNet = Math.round(netSalary + currentLop - lopAmount);
       setLopPreview({
         days: negDays,
         perDay,
@@ -354,12 +361,15 @@ const PayrollDetails = () => {
         totalEarnings
       });
     } catch {
-      const totalEarnings = (base?.totalEarnings ?? (calculateSalaryFields(base).totalEarnings)) || 0;
+      const allFields = calculateSalaryFields(base);
+      const totalEarnings = allFields.totalEarnings || 0;
+      const netSalary = allFields.netSalary || 0;
+      const currentLop = parseFloat(allFields.lop) || 0;
       setLopPreview({
         days: 0,
         perDay: totalEarnings / 30,
         amount: 0,
-        adjustedNet: totalEarnings,
+        adjustedNet: Math.round(netSalary + currentLop),
         totalEarnings
       });
     }
@@ -427,8 +437,14 @@ const PayrollDetails = () => {
     const dojRaw = (emp && (emp.dateOfJoining || emp.dateofjoin || emp.hireDate)) || base.dateOfJoining || base.createdAt || '';
     const dojISO = dojRaw ? new Date(dojRaw).toISOString().split('T')[0] : '';
     const effectiveLocation = (emp && (emp.location || emp.address || emp.currentAddress)) || base.location || '';
+    
+    // Calculate standard PF (employee contribution + employer contribution)
+    const stdPF = Number(base.employeePfContribution || 0) + Number(base.employerPfContribution || 0);
+    const pfVal = stdPF > 0 ? stdPF : (Number(base.pf || 0) - Number(base.volunteerPF || 0));
+
     const data = {
       ...base,
+      pf: pfVal > 0 ? pfVal : (base.pf || 0),
       location: effectiveLocation,
       dateOfJoining: dojISO || base.dateOfJoining || '',
       bankName: (emp && emp.bankName) ? emp.bankName : base.bankName,
@@ -436,7 +452,8 @@ const PayrollDetails = () => {
       ifscCode: (emp && emp.ifsc) ? emp.ifsc : base.ifscCode
     };
 
-    setFormData(data);
+    const calculatedData = calculateSalaryFields(data);
+    setFormData(calculatedData);
     setEditingIndex(effectiveIndex);
     setOpenDialog(true);
   };

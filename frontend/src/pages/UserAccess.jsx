@@ -248,7 +248,10 @@ const UserAccess = () => {
     const role = normalizeRole(r);
     if (role === 'admin') return 'Admin';
     if (role === 'projectmanager') return 'Reporting Manager';
-    if (role === 'employees') return 'Employee';
+    if (role === 'employees') return 'Employees';
+    if (role === 'director') return 'Director';
+    if (role === 'manager') return 'General Manager';
+    if (role === 'hr') return 'HR Manager';
     return String(r || '—').replace(/_/g, ' ');
   };
 
@@ -716,13 +719,12 @@ const UserAccess = () => {
                     className="block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2 px-3"
                   >
                     <option value="">All Roles</option>
+                    <option value="director">Director</option>
+                    <option value="manager">General Manager</option>
+                    <option value="hr">HR Manager</option>
                     <option value="admin">Admin</option>
+                    <option value="employees">Employees</option>
                     <option value="projectmanager">Reporting Manager</option>
-                    <option value="employees">Employee</option>
-                    {/* <option value="principal">Principal</option>
-                    <option value="3d_model">3D Model</option>
-                    <option value="artist">Artist</option>
-                    <option value="content_manager">Content Manager</option> */}
                   </select>
                 </div>
                 <div>

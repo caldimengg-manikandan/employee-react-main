@@ -830,9 +830,12 @@ const Login = () => {
           </div>
 
           <div className="relative z-10 w-full h-full flex flex-col items-center justify-top p-4 lg:p-8">
-            <div className="mt-4 mb-2 flex justify-center items-center gap-3 z-20">
+            <div className="mt-4 mb-2 flex justify-center items-center gap-4 z-20">
               <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto object-contain" />
-              <span className="text-white font-extrabold text-5xl tracking-tight">CALDIM</span>
+              <div className="text-white font-bitsumishi text-left flex flex-col justify-center">
+                <span className="text-white font-bold text-6xl leading-none tracking-[0.05em]">CALDIM</span>
+                <span className="text-[15px] font-bold tracking-[0.18em] text-[#ff8c00] whitespace-nowrap mt-1.5 uppercase">ENGINEERING PRIVATE LIMITED</span>
+              </div>
             </div>
 
               <div className="w-full max-w-md mt-20">

@@ -396,7 +396,7 @@ const SelfAppraisal = () => {
     try {
       const response = await performanceAPI.getMySelfAppraisals();
       const raw = response.data || [];
-      
+
       // Fetch snapshot for current user
       let snapshot = null;
       try {
@@ -1029,7 +1029,7 @@ const SelfAppraisal = () => {
         console.error("Salary prep error:", err);
         salaryOld = calculateSalaryAnnexure(appraisal.currentGross || baseCtc);
       }
-      
+
       // ── Revised (Monthly): read directly from the payrolls table ──────────
       let salaryNew;
       try {
@@ -1037,18 +1037,18 @@ const SelfAppraisal = () => {
         const pr = payrollRes.data;
         if (pr && Number(pr.totalEarnings || 0) > 0) {
           // Use the live payrolls record — this is the ground truth
-          const newGross   = Number(pr.totalEarnings || 0);
-          const newBasic   = Number(pr.basicDA || 0);
-          const newHra     = Number(pr.hra || 0);
+          const newGross = Number(pr.totalEarnings || 0);
+          const newBasic = Number(pr.basicDA || 0);
+          const newHra = Number(pr.hra || 0);
           const newSpecial = Number(pr.specialAllowance || 0);
-          const newEmpPF   = Number(pr.employeePfContribution || 0);
-          const newEmrPF   = Number(pr.employerPfContribution || 0);
-          const newEsi     = Number(pr.esi || 0);
+          const newEmpPF = Number(pr.employeePfContribution || 0);
+          const newEmrPF = Number(pr.employerPfContribution || 0);
+          const newEsi = Number(pr.esi || 0);
           const newVolunteerPF = Number(pr.volunteerPF || 0);
           // Net Salary = (Basic + HRA + Special) - Volunteer PF
-          const newNet     = (newBasic + newHra + newSpecial) - newVolunteerPF;
+          const newNet = (newBasic + newHra + newSpecial) - newVolunteerPF;
           const newGratuity = Number(pr.gratuity || Math.round(newBasic * 0.0486));
-          const newCtc     = Number(pr.ctc || (newGross + newGratuity));
+          const newCtc = Number(pr.ctc || (newGross + newGratuity));
           salaryNew = {
             basic: newBasic,
             hra: newHra,
@@ -2168,11 +2168,11 @@ const SelfAppraisal = () => {
                         <div className="text-right relative">
                           <div className="mb-2 text-sm text-gray-700 font-bold font-bitsumishi">For CALDIM ENGINEERING PRIVATE LIMITED</div>
                           <div className="mt-8 flex flex-col items-end min-h-[80px]">
-                            <img 
-                              src={getAbsoluteSignatureUrl(letterData.location)} 
-                              alt="Authorized Signatory" 
-                              className="h-16 mb-2 object-contain" 
-                              crossOrigin="anonymous" 
+                            <img
+                              src={getAbsoluteSignatureUrl(letterData.location)}
+                              alt="Authorized Signatory"
+                              className="h-16 mb-2 object-contain"
+                              crossOrigin="anonymous"
                             />
 
                             <div className="font-bold">Authorized Signatory</div>

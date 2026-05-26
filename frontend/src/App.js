@@ -69,6 +69,7 @@ import TeamAppraisal from "./pages/performance/TeamAppraisal";
 import AppraisalWorkflow from "./pages/performance/AppraisalWorkflow";
 import ReviewerApproval from "./pages/performance/ReviewerApproval";
 import DirectorApproval from "./pages/performance/DirectorApproval";
+import PerformancePay from "./pages/performance/PerformancePay";
 import AppraisalMaster from "./pages/performance/AppraisalMaster";
 import IncrementSummary from "./pages/performance/IncrementSummary";
 import AttendanceSummary from "./pages/performance/AttendanceSummary";
@@ -551,6 +552,14 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["performance_access", "director_approval"]} roles={["admin", "hr", "manager", "director"]}>
                   <DirectorApproval />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="performance/performance-pay"
+              element={
+                <ProtectedRoute requiredPermissions={["performance_pay"]} allowEmployeeRole>
+                  <PerformancePay />
                 </ProtectedRoute>
               }
             />
