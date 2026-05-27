@@ -35,7 +35,8 @@ const seedData = async () => {
       // Update existing admin with full permissions
       existingAdmin.permissions = [
         'dashboard', 'user_access', 'employee_access', 'timesheet_access', 'project_access', 
-        'attendance_access', 'leave_access', 'leave_view', 'leave_approval', 'leave_manage'
+        'attendance_access', 'leave_access', 'leave_view', 'leave_approval', 'leave_manage',
+        'asset_management_access'
       ];
       existingAdmin.role = 'admin';
 

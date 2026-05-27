@@ -327,7 +327,8 @@ const UserAccess = () => {
       'announcement_manage': 'Announcements',
       'intern_reference': 'Intern Reference',
       'resume_access': 'Resume Repository',
-      'unified_calendar': 'Unified Hub Calendar'
+      'unified_calendar': 'Unified Hub Calendar',
+      'asset_management_access': 'Asset Management'
     };
 
     return labels[key] || key.replace(/_/g, ' ');

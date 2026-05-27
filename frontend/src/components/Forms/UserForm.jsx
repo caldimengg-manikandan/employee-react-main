@@ -130,7 +130,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         { key: 'expenditure_access', label: 'Expenditure Management' },
         { key: 'announcement_manage', label: 'Announcements' },
         { key: 'intern_reference', label: 'Intern Reference' },
-        { key: 'resume_access', label: 'Resume Repository' }
+        { key: 'resume_access', label: 'Resume Repository' },
+        { key: 'asset_management_access', label: 'Asset Management' },
+        { key: 'office_sync_access', label: 'Office Sync' }
       ]
     },
     {
@@ -180,6 +182,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'support_group_access',
       'raise_ticket_access',
       'support_dashboard_access',
+      'asset_management_access',
+      'office_sync_access',
     ],
 
     employees: [
@@ -199,6 +203,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'unified_calendar',
       'support_group_access',
       'raise_ticket_access',
+      'asset_management_access',
+      'office_sync_access',
     ]
   };
 

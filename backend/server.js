@@ -128,6 +128,7 @@ app.use("/api/special-permissions", require("./routes/specialPermissions"));
 app.use("/api/celebrations", require("./routes/celebrationRoutes"));
 app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/support", require("./routes/supportRoutes"));
+app.use("/api/conference-bookings", require("./routes/conferenceBookingRoutes"));
 
 
 // Base Route

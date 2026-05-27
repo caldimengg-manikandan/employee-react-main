@@ -3,13 +3,28 @@ import axios from 'axios';
 const origin = typeof window !== 'undefined' ? window.location.origin : '';
 const isVercelHost = typeof window !== 'undefined' && /vercel\.app$/i.test(window.location.host);
 const DEFAULT_REMOTE_API_BASE = 'https://employee-react-main.onrender.com/api';
-const API_BASE_URL =
-  process.env.REACT_APP_API_BASE ||
-  (origin && /localhost/i.test(origin)
-    ? 'http://127.0.0.1:5003/api'
-    : (process.env.NODE_ENV === 'development'
-      ? 'http://127.0.0.1:5003/api'
-      : (isVercelHost ? DEFAULT_REMOTE_API_BASE : DEFAULT_REMOTE_API_BASE)));
+
+const getAPI_BASE_URL = () => {
+  if (process.env.REACT_APP_API_BASE) {
+    return process.env.REACT_APP_API_BASE;
+  }
+  if (!origin) {
+    return 'http://127.0.0.1:5003/api';
+  }
+  const hostname = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
+  const protocol = typeof window !== 'undefined' ? window.location.protocol : 'http:';
+  const isLocal = hostname === 'localhost' || 
+                  hostname === '127.0.0.1' || 
+                  /^192\.168\./.test(hostname) || 
+                  /^10\./.test(hostname) || 
+                  /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+  if (isLocal) {
+    return `${protocol}//${hostname}:5003/api`;
+  }
+  return isVercelHost ? DEFAULT_REMOTE_API_BASE : DEFAULT_REMOTE_API_BASE;
+};
+
+const API_BASE_URL = getAPI_BASE_URL();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -467,6 +482,13 @@ export const performancePayAPI = {
   generateLetter: (ids) => api.post('/performance-pay/generate-letter', { ids }),
   credit: (ids) => api.post('/performance-pay/credit', { ids }),
   getPendingPayroll: () => api.get('/performance-pay/pending-payroll'),
+};
+
+export const conferenceBookingAPI = {
+  getAll: () => api.get('/conference-bookings'),
+  create: (data) => api.post('/conference-bookings', data),
+  updateStatus: (id, data) => api.put(`/conference-bookings/${id}/status`, data),
+  block: (data) => api.post('/conference-bookings/block', data),
 };
 
 export default api;

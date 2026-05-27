@@ -55,6 +55,8 @@ import MonthlyPayroll from "./pages/payroll/MonthlyPayroll";
 import MarriageAllowance from "./pages/payroll/MarriageAllowance";
 import AnnouncementManagement from "./pages/announcements/AnnouncementManagement";
 import InternReference from "./pages/internship/InternReference";
+import AssetManagement from "./pages/assets/AssetManagement";
+import OfficeSync from "./pages/officesync/OfficeSync";
 
 // Exit Management
 import ExitForm from "./pages/EmployeeExitForms";
@@ -602,6 +604,26 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["announcement_manage"]} roles={["admin", "hr", "manager"]}>
                   <AnnouncementManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ---------------- Asset Management ---------------- */}
+            <Route
+              path="asset-management"
+              element={
+                <ProtectedRoute allowEmployeeRole>
+                  <AssetManagement />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ---------------- Office Sync ---------------- */}
+            <Route
+              path="office-sync"
+              element={
+                <ProtectedRoute requiredPermissions={["office_sync_access"]} allowEmployeeRole>
+                  <OfficeSync />
                 </ProtectedRoute>
               }
             />

@@ -108,7 +108,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Attendance Summary": ChartBarIcon,
     "Edit In and Out Time": ClockIcon,
     "Unified Hub Calendar": CalendarDaysIcon,
-    "Support Center": ChatBubbleLeftRightIcon
+    "Support Center": ChatBubbleLeftRightIcon,
+    "Asset Management": BriefcaseIcon,
+    "Office Sync": CalendarDaysIcon
   };
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
@@ -284,6 +286,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       allowEmployeeRole: false,
     },
     {
+      name: "Asset Management",
+      path: "/asset-management",
+      icon: getIconForMenu("Asset Management"),
+      permission: "asset_management_access",
+      allowEmployeeRole: true,
+    },
+    {
       name: "Intern Reference",
       path: "/admin/interns",
       icon: getIconForMenu("Intern Reference"),
@@ -363,6 +372,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Unified Hub Calendar"),
       allowEmployeeRole: true,
       permission: "home",
+    },
+    {
+      name: "Office Sync",
+      path: "/office-sync",
+      icon: getIconForMenu("Office Sync"),
+      allowEmployeeRole: true,
+      permission: "office_sync_access",
     },
   ];
 

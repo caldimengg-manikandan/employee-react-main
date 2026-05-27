@@ -299,7 +299,7 @@ router.get('/dashboard-stats', auth, async (req, res) => {
       closed: await SupportTicket.countDocuments({ status: 'Closed' }),
       reopened: await SupportTicket.countDocuments({ status: 'Reopened' }),
       highPriority: await SupportTicket.countDocuments({ priority: { $in: ['High', 'Critical'] } }),
-      recent: await SupportTicket.find().sort({ createdAt: -1 }).limit(5).populate('employeeId', 'name')
+      recent: await SupportTicket.find().sort({ createdAt: -1 }).populate('employeeId', 'name')
     };
 
     res.json(stats);

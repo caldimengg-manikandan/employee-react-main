@@ -17,6 +17,14 @@ const AllTickets = () => {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const statusParam = params.get('status');
+    const priorityParam = params.get('priority');
+    if (statusParam) setStatusFilter(statusParam);
+    if (priorityParam) setPriorityFilter(priorityParam);
+  }, []);
+
+  useEffect(() => {
     fetchTickets();
   }, [statusFilter, priorityFilter]);
 
