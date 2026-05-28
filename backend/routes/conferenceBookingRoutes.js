@@ -38,8 +38,27 @@ const getAlternativeSlots = async (date, requestedDurationMin = 60) => {
     end: timeToMin(b.endTime)
   }));
 
+  // Determine if date is today in local timezone
+  const now = new Date();
+  const currentHour = now.getHours();
+  const currentMinute = now.getMinutes();
+  const currentMinOfDay = currentHour * 60 + currentMinute;
+  
+  const offset = now.getTimezoneOffset();
+  const localToday = new Date(now.getTime() - (offset * 60 * 1000)).toISOString().split("T")[0];
+  const isToday = date === localToday;
+
   const alternatives = [];
   let currentMin = startHour * 60;
+
+  // If the booking date is today, only suggest slots starting in the future (rounded to next 30 min)
+  if (isToday) {
+    const roundedMin = Math.ceil(currentMinOfDay / 30) * 30;
+    if (roundedMin > currentMin) {
+      currentMin = roundedMin;
+    }
+  }
+
   const limitMin = endHour * 60;
 
   while (currentMin + requestedDurationMin <= limitMin && alternatives.length < 3) {
@@ -95,6 +114,16 @@ router.post("/", auth, async (req, res) => {
     
     if (!title || !date || !startTime || !endTime) {
       return res.status(400).json({ message: "Title, date, start time, and end time are required." });
+    }
+
+    // Validation: Date/Time must not be in the past
+    const now = new Date();
+    const [year, month, day] = date.split("-").map(Number);
+    const [startH, startM] = startTime.split(":").map(Number);
+    const bookingStartDateTime = new Date(year, month - 1, day, startH, startM);
+
+    if (bookingStartDateTime < now) {
+      return res.status(400).json({ message: "Cannot book a conference room slot in the past." });
     }
 
     // Check employee location and division (Admins & HR bypass)

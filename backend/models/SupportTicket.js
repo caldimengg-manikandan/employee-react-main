@@ -53,6 +53,8 @@ const supportTicketSchema = new mongoose.Schema({
   attachments: [{
     name: String,
     url: String,
+    data: String,
+    contentType: String,
     uploadedAt: { type: Date, default: Date.now }
   }],
   assignedTo: {

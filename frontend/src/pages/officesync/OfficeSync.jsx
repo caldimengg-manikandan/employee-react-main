@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  User, 
-  Users, 
-  MapPin, 
-  Lock, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Calendar as CalendarIcon,
+  Clock,
+  User,
+  Users,
+  MapPin,
+  Lock,
+  CheckCircle,
+  XCircle,
   AlertTriangle,
-  Plus, 
-  Filter, 
-  ChevronLeft, 
+  Plus,
+  Filter,
+  ChevronLeft,
   ChevronRight,
   Info,
   CalendarDays,
@@ -114,13 +114,13 @@ export default function OfficeSync() {
   const employeeDesignation = myEmployee?.designation?.trim().toLowerCase() || "";
   const employeePosition = myEmployee?.position?.trim().toLowerCase() || "";
 
-  const isHRorAdmin = ["admin", "hr", "director"].includes(userRole) || 
-                      ["admin", "hr", "director"].includes(employeeDesignation);
+  const isHRorAdmin = ["admin", "hr", "director"].includes(userRole) ||
+    ["admin", "hr", "director"].includes(employeeDesignation);
 
   const isTLorManager = ["teamlead", "manager", "projectmanager", "project_manager"].includes(userRole) ||
-                        ["team lead", "reporting manager", "project manager", "manager", "tl"].some(d => 
-                          employeeDesignation.includes(d) || employeePosition.includes(d)
-                        );
+    ["team lead", "reporting manager", "project manager", "manager", "tl"].some(d =>
+      employeeDesignation.includes(d) || employeePosition.includes(d)
+    );
   const canBook = isHRorAdmin || isTLorManager;
 
   // Access Control check
@@ -129,13 +129,13 @@ export default function OfficeSync() {
     if (isHRorAdmin) return true;
 
     if (!myEmployee) return false;
-    
+
     const location = myEmployee.location?.trim().toLowerCase() || "";
     const division = myEmployee.division?.replace(/\s+/g, "").toLowerCase() || "";
-    
+
     const isHosur = location === "hosur";
     const isMatchingDivision = ["sds", "tekla", "das(software)", "das"].includes(division);
-    
+
     return isHosur && isMatchingDivision;
   }, [myEmployee, isHRorAdmin]);
 
@@ -153,7 +153,7 @@ export default function OfficeSync() {
     const day = startOfWeek.getDay();
     const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Adjust to Monday
     startOfWeek.setDate(diff);
-    
+
     const days = [];
     for (let i = 0; i < 7; i++) {
       const d = new Date(startOfWeek);
@@ -168,14 +168,14 @@ export default function OfficeSync() {
     const month = date.getMonth();
     const firstDay = new Date(year, month, 1);
     const lastDay = new Date(year, month + 1, 0);
-    
+
     const days = [];
     // Pad days from previous month to align with Sunday
     const startPadding = firstDay.getDay();
     for (let i = startPadding - 1; i >= 0; i--) {
       days.push(new Date(year, month, -i));
     }
-    
+
     for (let i = 1; i <= lastDay.getDate(); i++) {
       days.push(new Date(year, month, i));
     }
@@ -186,7 +186,7 @@ export default function OfficeSync() {
   const activeBookings = useMemo(() => {
     return bookings.filter(b => b.status !== "Rejected" && b.status !== "Cancelled");
   }, [bookings]);
- 
+
   // Current real-time room availability status with strict logic
   const currentRoomStatus = useMemo(() => {
     const todayStr = nowClock.toISOString().split("T")[0];
@@ -342,8 +342,8 @@ export default function OfficeSync() {
               </span>
             </div>
           </div>
-          
-          <button 
+
+          <button
             onClick={() => window.history.back()}
             className="w-full bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold py-3 px-6 rounded-xl transition duration-200"
           >
@@ -355,7 +355,7 @@ export default function OfficeSync() {
   }
   return (
     <div className="min-h-screen bg-white text-slate-800 p-6 space-y-6">
-      
+
       {/* Header section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-indigo-50/60 via-violet-50/40 to-pink-50/20 border-l-4 border-l-indigo-600 border border-slate-200/80 rounded-2xl p-6 shadow-sm">
         <div>
@@ -392,25 +392,23 @@ export default function OfficeSync() {
       {/* Real-time Availability & Info Strip */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Availability Banner */}
-        <div className={`border-2 rounded-2xl p-5 flex items-center justify-between gap-4 transition-all duration-300 shadow-sm ${
-          currentRoomStatus.status === "Available" 
+        <div className={`border-2 rounded-2xl p-5 flex items-center justify-between gap-4 transition-all duration-300 shadow-sm ${currentRoomStatus.status === "Available"
             ? "bg-gradient-to-r from-emerald-50/80 to-teal-50/50 border-emerald-450 text-emerald-900 border-l-4 border-l-emerald-500"
             : currentRoomStatus.status === "Blocked"
               ? "bg-gradient-to-r from-rose-50/80 to-red-50/50 border-rose-450 text-rose-900 border-l-4 border-l-rose-500"
               : currentRoomStatus.status === "Upcoming Meeting"
                 ? "bg-gradient-to-r from-amber-50/80 to-yellow-50/50 border-amber-450 text-amber-900 border-l-4 border-l-amber-500"
                 : "bg-gradient-to-r from-slate-50/80 to-slate-100/50 border-slate-450 text-slate-900 border-l-4 border-l-slate-500"
-        }`}>
+          }`}>
           <div className="flex items-center gap-4">
-            <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-              currentRoomStatus.status === "Available" 
+            <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${currentRoomStatus.status === "Available"
                 ? "bg-emerald-500/20 text-emerald-700 border border-emerald-550/20"
                 : currentRoomStatus.status === "Blocked"
                   ? "bg-rose-500/20 text-rose-700 border border-rose-550/20"
                   : currentRoomStatus.status === "Upcoming Meeting"
                     ? "bg-amber-500/20 text-amber-700 border border-amber-550/20"
                     : "bg-slate-200 text-slate-650 border border-slate-300"
-            }`}>
+              }`}>
               <Clock size={24} />
             </div>
             <div>
@@ -420,7 +418,7 @@ export default function OfficeSync() {
               </div>
               {currentRoomStatus.meeting ? (
                 <div className="text-xs mt-1 font-bold opacity-90">
-                  {currentRoomStatus.status === "Maintenance" 
+                  {currentRoomStatus.status === "Maintenance"
                     ? `Maintenance until ${formatTime(currentRoomStatus.meeting.endTime)}`
                     : `Blocked Slot until ${formatTime(currentRoomStatus.meeting.endTime)}`}
                 </div>
@@ -435,24 +433,22 @@ export default function OfficeSync() {
           {/* Animated Status Pulse Badge */}
           <div className="flex items-center gap-2 bg-white px-3 py-1.5 rounded-full border border-slate-200 shadow-sm shrink-0">
             <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
-                currentRoomStatus.status === "Available" 
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${currentRoomStatus.status === "Available"
                   ? "bg-emerald-550"
                   : currentRoomStatus.status === "Blocked"
                     ? "bg-rose-550"
                     : currentRoomStatus.status === "Upcoming Meeting"
                       ? "bg-amber-550"
                       : "bg-slate-550"
-              }`}></span>
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${
-                currentRoomStatus.status === "Available" 
+                }`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${currentRoomStatus.status === "Available"
                   ? "bg-emerald-550"
                   : currentRoomStatus.status === "Blocked"
                     ? "bg-rose-550"
                     : currentRoomStatus.status === "Upcoming Meeting"
                       ? "bg-amber-550"
                       : "bg-slate-550"
-              }`}></span>
+                }`}></span>
             </span>
             <span className="text-[10px] font-extrabold tracking-wider uppercase text-slate-500">Live</span>
           </div>
@@ -485,14 +481,14 @@ export default function OfficeSync() {
 
       {/* Main Grid: Calendar System & Approvals Column */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
+
         {/* Calendar Column */}
         <div className="lg:col-span-3 bg-white border border-slate-200 rounded-2xl p-6 flex flex-col space-y-6 shadow-sm">
-          
+
           {/* Calendar Navigation header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200 pb-4">
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={() => navigateDate(-1)}
                 className="p-2 hover:bg-slate-105 rounded-lg border border-slate-200 transition text-slate-700"
               >
@@ -503,7 +499,7 @@ export default function OfficeSync() {
                 {viewMode === "week" && `Week of ${getWeekDays(currentDate)[0].toLocaleDateString("en-US", { month: "short", day: "numeric" })}`}
                 {viewMode === "month" && currentDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
               </h2>
-              <button 
+              <button
                 onClick={() => navigateDate(1)}
                 className="p-2 hover:bg-slate-105 rounded-lg border border-slate-200 transition text-slate-700"
               >
@@ -523,11 +519,10 @@ export default function OfficeSync() {
                 <button
                   key={m}
                   onClick={() => setViewMode(m)}
-                  className={`text-xs font-black py-1.5 px-4 rounded-lg transition-all duration-200 capitalize ${
-                    viewMode === m 
-                      ? "bg-gradient-to-r from-indigo-600 to-violet-650 text-white shadow-md shadow-indigo-600/10" 
+                  className={`text-xs font-black py-1.5 px-4 rounded-lg transition-all duration-200 capitalize ${viewMode === m
+                      ? "bg-gradient-to-r from-indigo-600 to-violet-650 text-white shadow-md shadow-indigo-600/10"
                       : "text-slate-600 hover:text-indigo-600 hover:bg-slate-200/50"
-                  }`}
+                    }`}
                 >
                   {m}
                 </button>
@@ -541,16 +536,16 @@ export default function OfficeSync() {
               {Array.from({ length: 10 }).map((_, idx) => {
                 const hour = idx + 9; // 9:00 AM to 6:00 PM
                 const timeString = `${hour.toString().padStart(2, "0")}:00`;
-                
+
                 // Find bookings active during this hour
                 const hourBookings = activeBookings.filter(b => {
                   const dateStr = currentDate.toISOString().split("T")[0];
                   if (b.date !== dateStr) return false;
-                  
+
                   const startMin = timeToMin(b.startTime);
                   const endMin = timeToMin(b.endTime);
                   const currentHourMin = hour * 60;
-                  
+
                   return currentHourMin >= startMin && currentHourMin < endMin;
                 });
 
@@ -563,10 +558,9 @@ export default function OfficeSync() {
                       {hourBookings.length > 0 ? (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {hourBookings.map(b => (
-                            <div 
-                              key={b._id} 
-                              className={`p-3.5 rounded-xl border flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200 ${
-                                (() => {
+                            <div
+                              key={b._id}
+                              className={`p-3.5 rounded-xl border flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200 ${(() => {
                                   const todayStr = nowClock.toISOString().split("T")[0];
                                   const isFinished = b.date < todayStr || (b.date === todayStr && (nowClock.getHours() * 60 + nowClock.getMinutes()) >= timeToMin(b.endTime));
                                   if (isFinished) {
@@ -578,15 +572,15 @@ export default function OfficeSync() {
                                       ? "bg-gradient-to-r from-indigo-50/70 to-violet-50/30 border-indigo-200 border-l-4 border-l-indigo-550 text-indigo-950"
                                       : "bg-gradient-to-r from-amber-50/70 to-yellow-50/30 border-amber-200 border-l-4 border-l-amber-550 text-amber-950";
                                 })()
-                              }`}
+                                }`}
                             >
                               {(() => {
                                 const todayStr = nowClock.toISOString().split("T")[0];
                                 const isFinished = b.date < todayStr || (b.date === todayStr && (nowClock.getHours() * 60 + nowClock.getMinutes()) >= timeToMin(b.endTime));
-                                
+
                                 let displayStatus = b.status;
                                 let badgeColorClass = "";
-                                
+
                                 if (isFinished) {
                                   displayStatus = b.status === "Blocked" ? "Work Finished" : "Meeting Finished";
                                   badgeColorClass = "bg-slate-300 text-slate-600 border border-slate-400/20";
@@ -597,7 +591,7 @@ export default function OfficeSync() {
                                       ? "bg-slate-500 text-white"
                                       : "bg-amber-500 text-white shadow-sm";
                                 }
-                                
+
                                 return (
                                   <div className="flex items-center justify-between gap-2 w-full">
                                     <span className="font-extrabold text-sm tracking-tight text-slate-900">{b.title}</span>
@@ -649,11 +643,10 @@ export default function OfficeSync() {
                 const isToday = new Date().toISOString().split("T")[0] === dateStr;
 
                 return (
-                  <div key={dIdx} className={`border rounded-xl p-3 min-h-[300px] flex flex-col space-y-3 shadow-sm transition-all duration-200 ${
-                    isToday 
-                      ? "bg-gradient-to-b from-indigo-50/40 via-white to-white border-indigo-300 border-t-4 border-t-indigo-600" 
+                  <div key={dIdx} className={`border rounded-xl p-3 min-h-[300px] flex flex-col space-y-3 shadow-sm transition-all duration-200 ${isToday
+                      ? "bg-gradient-to-b from-indigo-50/40 via-white to-white border-indigo-300 border-t-4 border-t-indigo-600"
                       : "bg-slate-50/30 border-slate-200 hover:border-slate-300"
-                  }`}>
+                    }`}>
                     <div className="text-center border-b border-slate-200 pb-2">
                       <div className={`text-[10px] font-black uppercase ${isToday ? "text-indigo-650" : "text-slate-450"}`}>
                         {day.toLocaleDateString("en-US", { weekday: "short" })}
@@ -666,10 +659,9 @@ export default function OfficeSync() {
                     <div className="flex-1 space-y-2 overflow-y-auto max-h-[220px]">
                       {dayBookings.length > 0 ? (
                         dayBookings.map(b => (
-                          <div 
-                            key={b._id} 
-                            className={`p-2 rounded-lg border text-[10px] flex flex-col shadow-inner transition-all ${
-                              (() => {
+                          <div
+                            key={b._id}
+                            className={`p-2 rounded-lg border text-[10px] flex flex-col shadow-inner transition-all ${(() => {
                                 const todayStr = nowClock.toISOString().split("T")[0];
                                 const isFinished = b.date < todayStr || (b.date === todayStr && (nowClock.getHours() * 60 + nowClock.getMinutes()) >= timeToMin(b.endTime));
                                 if (isFinished) {
@@ -681,7 +673,7 @@ export default function OfficeSync() {
                                     ? "bg-indigo-50/90 border-indigo-205 border-l-2 border-l-indigo-600 text-indigo-900 font-bold"
                                     : "bg-amber-50/90 border-amber-205 border-l-2 border-l-amber-600 text-amber-900 font-bold";
                               })()
-                            }`}
+                              }`}
                           >
                             <span className="font-extrabold truncate">{b.title}</span>
                             <span className="mt-1 font-bold opacity-80">{b.startTime} - {b.endTime}</span>
@@ -724,19 +716,18 @@ export default function OfficeSync() {
                 const isCurrentMonth = day.getMonth() === currentDate.getMonth();
 
                 return (
-                  <div 
-                    key={dIdx} 
+                  <div
+                    key={dIdx}
                     onClick={() => {
                       setCurrentDate(day);
                       setViewMode("day");
                     }}
-                    className={`border rounded-xl p-2 min-h-[90px] flex flex-col justify-between cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] ${
-                      isToday 
-                        ? "bg-gradient-to-br from-indigo-50 to-white border-indigo-400 shadow-sm border-t-2 border-t-indigo-600" 
-                        : isCurrentMonth 
-                          ? "bg-white border-slate-200 hover:border-indigo-200" 
+                    className={`border rounded-xl p-2 min-h-[90px] flex flex-col justify-between cursor-pointer transition-all duration-200 hover:shadow-md hover:scale-[1.02] ${isToday
+                        ? "bg-gradient-to-br from-indigo-50 to-white border-indigo-400 shadow-sm border-t-2 border-t-indigo-600"
+                        : isCurrentMonth
+                          ? "bg-white border-slate-200 hover:border-indigo-200"
                           : "bg-slate-50/50 border-slate-150 text-slate-400"
-                    }`}
+                      }`}
                   >
                     <span className={`text-xs font-black self-end ${isToday ? "text-indigo-650 bg-indigo-50 px-1.5 py-0.5 rounded-full" : isCurrentMonth ? "text-slate-600" : "text-slate-400"}`}>
                       {day.getDate()}
@@ -744,13 +735,12 @@ export default function OfficeSync() {
                     <div className="mt-1">
                       {dayBookings.length > 0 && (
                         <div className="flex flex-wrap gap-1">
-                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm ${
-                            dayBookings.some(b => b.status === "Blocked")
+                          <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm ${dayBookings.some(b => b.status === "Blocked")
                               ? "bg-slate-500 text-white"
                               : dayBookings.every(b => b.status === "Approved")
                                 ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white"
                                 : "bg-gradient-to-r from-amber-500 to-yellow-500 text-white"
-                          }`}>
+                            }`}>
                             {dayBookings.length} {dayBookings.length === 1 ? "meet" : "meets"}
                           </span>
                         </div>
@@ -766,7 +756,7 @@ export default function OfficeSync() {
 
         {/* Info & Guidelines Column (1/4 Column) */}
         <div className="lg:col-span-1 space-y-6">
-          
+
           {/* Guidelines Strip */}
           <div className="bg-gradient-to-br from-indigo-50/40 via-slate-50/20 to-slate-50 border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm border-l-4 border-l-purple-500">
             <h3 className="text-sm uppercase tracking-wider font-black text-indigo-750 flex items-center gap-2 border-b border-slate-200/60 pb-3">
@@ -788,13 +778,13 @@ export default function OfficeSync() {
       {/* BOOKING MODAL */}
       {bookingModalOpen && (
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full overflow-hidden shadow-2xl relative">
-            <div className="p-6 border-b border-slate-200">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col shadow-2xl relative">
+            <div className="p-6 border-b border-slate-200 flex-shrink-0">
               <h3 className="text-lg font-bold text-slate-900">Book Swaminathan Room</h3>
               <p className="text-xs text-slate-500 mt-1">Schedule a new session in the conference room.</p>
             </div>
 
-            <form onSubmit={handleBookingSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleBookingSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
               {conflictError && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-650 space-y-2">
                   <div className="flex items-center gap-2 font-bold">
@@ -845,6 +835,7 @@ export default function OfficeSync() {
                 <input
                   type="date"
                   required
+                  min={new Date().toISOString().split("T")[0]}
                   value={newBooking.date}
                   onChange={e => setNewBooking({ ...newBooking, date: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
@@ -885,7 +876,7 @@ export default function OfficeSync() {
                 />
               </div>
 
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-4 flex-shrink-0">
                 <button
                   type="button"
                   onClick={() => {
@@ -898,7 +889,7 @@ export default function OfficeSync() {
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 bg-indigo-650 hover:bg-indigo-600 text-white font-semibold py-2.5 rounded-xl text-sm transition"
+                  className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-semibold py-2.5 rounded-xl text-sm transition"
                 >
                   Submit Request
                 </button>
@@ -923,6 +914,7 @@ export default function OfficeSync() {
                 <input
                   type="date"
                   required
+                  min={new Date().toISOString().split("T")[0]}
                   value={blockData.date}
                   onChange={e => setBlockData({ ...blockData, date: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"

@@ -11,24 +11,33 @@ const User = require('../models/User');
 const Employee = require('../models/Employee');
 
 // Multer Setup
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '..', 'uploads', 'support-tickets');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
+const storage = multer.memoryStorage();
+const upload = multer({ storage });
+
+// @route   GET api/support/attachments/:ticketId/:attachmentId
+// @desc    Get ticket attachment from database
+// @access  Public
+router.get('/attachments/:ticketId/:attachmentId', async (req, res) => {
+  try {
+    const ticket = await SupportTicket.findById(req.params.ticketId);
+    if (!ticket) {
+      return res.status(404).send('Ticket not found');
     }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const filename = 'TCK-ATTACH-' + uniqueSuffix + ext;
-    const uploadDir = path.join(__dirname, '..', 'uploads', 'support-tickets');
-    console.log(`[STORAGE DEBUG] Saving file to: ${path.join(uploadDir, filename)}`);
-    cb(null, filename);
+    
+    const attachment = ticket.attachments.id(req.params.attachmentId);
+    if (!attachment || !attachment.data) {
+      return res.status(404).send('Attachment not found');
+    }
+
+    const fileBuffer = Buffer.from(attachment.data, 'base64');
+    res.set('Content-Type', attachment.contentType || 'application/octet-stream');
+    res.set('Content-Disposition', `inline; filename="${attachment.name}"`);
+    res.send(fileBuffer);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Server Error');
   }
 });
-const upload = multer({ storage });
 
 // @route   POST api/support/tickets
 // @desc    Create a new support ticket with optional attachments
@@ -39,7 +48,9 @@ router.post('/tickets', auth, upload.array('attachments', 5), async (req, res) =
     
     const attachments = (req.files || []).map(file => ({
       name: file.originalname,
-      url: `/uploads/support-tickets/${file.filename}`
+      contentType: file.mimetype,
+      data: file.buffer.toString('base64'),
+      url: '' // Set placeholder first
     }));
 
     const newTicket = new SupportTicket({
@@ -49,6 +60,12 @@ router.post('/tickets', auth, upload.array('attachments', 5), async (req, res) =
       subject,
       description,
       attachments
+    });
+
+    // Generate url for each attachment dynamically using ticket and attachment IDs
+    newTicket.attachments = newTicket.attachments.map(att => {
+      att.url = `/api/support/attachments/${newTicket._id}/${att._id}`;
+      return att;
     });
 
     const ticket = await newTicket.save();
