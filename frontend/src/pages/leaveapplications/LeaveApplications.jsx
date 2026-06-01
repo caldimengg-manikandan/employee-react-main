@@ -147,143 +147,146 @@ import Notification from '../../components/Notifications/Notification';
     loadRegionalHolidays();
   }, []);
 
-  useEffect(() => {
-    const monthsBetween = (dateString) => {
-      if (!dateString) return 0;
-      const start = new Date(dateString);
-      if (isNaN(start.getTime())) return 0;
-      const now = new Date();
-      const years = now.getFullYear() - start.getFullYear();
-      const months = now.getMonth() - start.getMonth();
-      const total = years * 12 + months;
-      return Math.max(0, total);
+  const monthsBetween = (dateString) => {
+    if (!dateString) return 0;
+    const start = new Date(dateString);
+    if (isNaN(start.getTime())) return 0;
+    const now = new Date();
+    const years = now.getFullYear() - start.getFullYear();
+    const months = now.getMonth() - start.getMonth();
+    const total = years * 12 + months;
+    return Math.max(0, total);
+  };
+
+  const calculateLeaveBalances = (employee) => {
+    const { designation, monthsOfService } = employee;
+    let casual = 0, sick = 0, privilege = 0;
+    const isTrainee = String(designation || '').toLowerCase().includes('trainee');
+    const traineeMonths = Math.min(monthsOfService, 12);
+    if (isTrainee) {
+      privilege = traineeMonths * 1;
+      casual = 0;
+      sick = 0;
+    } else {
+      const firstSix = Math.min(monthsOfService, 6);
+      const afterSix = Math.max(monthsOfService - 6, 0);
+      const plNonCarry = (firstSix * 1);
+      const plCarry = afterSix * 1.25;
+      privilege = plNonCarry + plCarry;
+      casual = afterSix * 0.5;
+      sick = afterSix * 0.5;
+    }
+    return {
+      CL: casual,
+      SL: sick,
+      PL: privilege
     };
-    const calculateLeaveBalances = (employee) => {
-      const { designation, monthsOfService } = employee;
-      let casual = 0, sick = 0, privilege = 0;
+  };
+
+  const loadBalanceForMe = async () => {
+    const applyVisibilityRules = (designation, monthsOfService) => {
       const isTrainee = String(designation || '').toLowerCase().includes('trainee');
-      const traineeMonths = Math.min(monthsOfService, 12);
+      let showCLSL = false;
+      
       if (isTrainee) {
-        privilege = traineeMonths * 1;
-        casual = 0;
-        sick = 0;
+        if (monthsOfService >= 12) showCLSL = true;
       } else {
-        const firstSix = Math.min(monthsOfService, 6);
-        const afterSix = Math.max(monthsOfService - 6, 0);
-        const plNonCarry = (firstSix * 1);
-        const plCarry = afterSix * 1.25;
-        privilege = plNonCarry + plCarry;
-        casual = afterSix * 0.5;
-        sick = afterSix * 0.5;
+        if (monthsOfService >= 6) showCLSL = true;
       }
-      return {
-        CL: casual,
-        SL: sick,
-        PL: privilege
-      };
+      
+      const filtered = allLeaveTypes.filter(t => {
+        if (t.value === 'CL' || t.value === 'SL') return showCLSL;
+        return true;
+      });
+      setAllowedLeaveTypes(filtered);
+      
+      // If current selected leave type is now hidden, reset to something valid or PL if available
+      setLeaveData(prev => {
+         if (!filtered.find(t => t.value === prev.leaveType)) {
+           return { ...prev, leaveType: filtered[0]?.value || '' };
+         }
+         return prev;
+      });
     };
-    const loadBalanceForMe = async () => {
-      const applyVisibilityRules = (designation, monthsOfService) => {
-        const isTrainee = String(designation || '').toLowerCase().includes('trainee');
-        let showCLSL = false;
-        
-        if (isTrainee) {
-          if (monthsOfService >= 12) showCLSL = true;
-        } else {
-          if (monthsOfService >= 6) showCLSL = true;
-        }
-        
-        const filtered = allLeaveTypes.filter(t => {
-          if (t.value === 'CL' || t.value === 'SL') return showCLSL;
-          return true;
-        });
-        setAllowedLeaveTypes(filtered);
-        
-        // If current selected leave type is now hidden, reset to something valid or PL if available
-        setLeaveData(prev => {
-           if (!filtered.find(t => t.value === prev.leaveType)) {
-             return { ...prev, leaveType: filtered[0]?.value || '' };
-           }
-           return prev;
-        });
-      };
 
+    try {
+      // Try dedicated endpoint for current user's balance
+      const myRes = await leaveAPI.myBalance();
+      const data = myRes?.data || {};
+      if (data && data.balances) {
+        applyVisibilityRules(data.position || data.designation, data.monthsOfService || 0);
+        setLeaveBalance({
+          CL: data.balances.casual?.allocated || 0,
+          SL: data.balances.sick?.allocated || 0,
+          PL: data.balances.privilege?.allocated || 0,
+          BEREAVEMENT: 2
+        });
+        setApiUsedLeaves({
+          CL: data.balances.casual?.used || 0,
+          SL: data.balances.sick?.used || 0,
+          PL: data.balances.privilege?.used || 0
+        });
+        return;
+      }
+      // Fallback to generic balance list when accessible
+      const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+      const empId = user.employeeId || user.employeeCode || user.empId || '';
+      const res = await leaveAPI.getBalance(empId ? { employeeId: empId } : undefined);
+      const items = Array.isArray(res.data) ? res.data : [];
+      const mine = items.find(e => String(e.employeeId || '').toLowerCase() === String(empId || '').toLowerCase())
+        || items.find(e => String(e.email || '').toLowerCase() === String(user.email || '').toLowerCase())
+        || items.find(e => String(e.name || '').toLowerCase() === String(user.name || '').toLowerCase());
+      if (mine && mine.balances) {
+        applyVisibilityRules(mine.position || mine.designation, mine.monthsOfService || 0);
+        setLeaveBalance({
+          CL: mine.balances.casual?.allocated || 0,
+          SL: mine.balances.sick?.allocated || 0,
+          PL: mine.balances.privilege?.allocated || 0,
+          BEREAVEMENT: 2
+        });
+        setApiUsedLeaves({
+          CL: mine.balances.casual?.used || 0,
+          SL: mine.balances.sick?.used || 0,
+          PL: mine.balances.privilege?.used || 0
+        });
+        return;
+      }
+      throw new Error('No balance found');
+    } catch {
       try {
-        // Try dedicated endpoint for current user's balance
-        const myRes = await leaveAPI.myBalance();
-        const data = myRes?.data || {};
-        if (data && data.balances) {
-          applyVisibilityRules(data.position || data.designation, data.monthsOfService || 0);
-          setLeaveBalance({
-            CL: data.balances.casual?.allocated || 0,
-            SL: data.balances.sick?.allocated || 0,
-            PL: data.balances.privilege?.allocated || 0,
-            BEREAVEMENT: 2
-          });
-          setApiUsedLeaves({
-            CL: data.balances.casual?.used || 0,
-            SL: data.balances.sick?.used || 0,
-            PL: data.balances.privilege?.used || 0
-          });
-          return;
-        }
-        // Fallback to generic balance list when accessible
-        const user = JSON.parse(sessionStorage.getItem('user') || '{}');
-        const empId = user.employeeId || user.employeeCode || user.empId || '';
-        const res = await leaveAPI.getBalance(empId ? { employeeId: empId } : undefined);
-        const items = Array.isArray(res.data) ? res.data : [];
-        const mine = items.find(e => String(e.employeeId || '').toLowerCase() === String(empId || '').toLowerCase())
-          || items.find(e => String(e.email || '').toLowerCase() === String(user.email || '').toLowerCase())
-          || items.find(e => String(e.name || '').toLowerCase() === String(user.name || '').toLowerCase());
-        if (mine && mine.balances) {
-          applyVisibilityRules(mine.position || mine.designation, mine.monthsOfService || 0);
-          setLeaveBalance({
-            CL: mine.balances.casual?.allocated || 0,
-            SL: mine.balances.sick?.allocated || 0,
-            PL: mine.balances.privilege?.allocated || 0,
-            BEREAVEMENT: 2
-          });
-          setApiUsedLeaves({
-            CL: mine.balances.casual?.used || 0,
-            SL: mine.balances.sick?.used || 0,
-            PL: mine.balances.privilege?.used || 0
-          });
-          return;
-        }
-        throw new Error('No balance found');
-      } catch {
-        try {
-          const [empRes, myLeavesRes] = await Promise.all([
-            employeeAPI.getMyProfile().catch(() => null),
-            leaveAPI.myLeaves().catch(() => ({ data: [] }))
-          ]);
-          const emp = empRes?.data || {};
-          const doj = emp.dateOfJoining || emp.dateofjoin || emp.hireDate || emp.createdAt || '';
-          const m = monthsBetween(doj);
-          const d = emp.designation || emp.position || emp.role || '';
-          
-          applyVisibilityRules(d, m);
+        const [empRes, myLeavesRes] = await Promise.all([
+          employeeAPI.getMyProfile().catch(() => null),
+          leaveAPI.myLeaves().catch(() => ({ data: [] }))
+        ]);
+        const emp = empRes?.data || {};
+        const doj = emp.dateOfJoining || emp.dateofjoin || emp.hireDate || emp.createdAt || '';
+        const m = monthsBetween(doj);
+        const d = emp.designation || emp.position || emp.role || '';
+        
+        applyVisibilityRules(d, m);
 
-          const alloc = calculateLeaveBalances({ designation: d, monthsOfService: m });
-          const myApproved = Array.isArray(myLeavesRes?.data) ? myLeavesRes.data.filter(l => l.status === 'Approved') : [];
-          const used = myApproved.reduce((acc, l) => {
-            const t = l.leaveType;
-            const days = Number(l.totalDays || 0);
-            if (t === 'CL') acc.CL += days;
-            else if (t === 'SL') acc.SL += days;
-            else if (t === 'PL') acc.PL += days;
-            return acc;
-          }, { CL: 0, SL: 0, PL: 0 });
-          setLeaveBalance({
-            CL: Number(alloc.CL || 0),
-            SL: Number(alloc.SL || 0),
-            PL: Number(alloc.PL || 0),
-            BEREAVEMENT: 2
-          });
-          setApiUsedLeaves(used);
-        } catch { }
-      }
-    };
+        const alloc = calculateLeaveBalances({ designation: d, monthsOfService: m });
+        const myApproved = Array.isArray(myLeavesRes?.data) ? myLeavesRes.data.filter(l => l.status === 'Approved') : [];
+        const used = myApproved.reduce((acc, l) => {
+          const t = l.leaveType;
+          const days = Number(l.totalDays || 0);
+          if (t === 'CL') acc.CL += days;
+          else if (t === 'SL') acc.SL += days;
+          else if (t === 'PL') acc.PL += days;
+          return acc;
+        }, { CL: 0, SL: 0, PL: 0 });
+        setLeaveBalance({
+          CL: Number(alloc.CL || 0),
+          SL: Number(alloc.SL || 0),
+          PL: Number(alloc.PL || 0),
+          BEREAVEMENT: 2
+        });
+        setApiUsedLeaves(used);
+      } catch { }
+    }
+  };
+
+  useEffect(() => {
     loadBalanceForMe();
   }, []);
 
@@ -634,6 +637,7 @@ import Notification from '../../components/Notifications/Notification';
         setLeaveHistory(prev => [newLeave, ...prev]);
         setSubmitModal({ isOpen: true, leave: newLeave });
       }
+      loadBalanceForMe();
     } catch { }
 
     // Reset form
@@ -705,6 +709,7 @@ import Notification from '../../components/Notifications/Notification';
       await leaveAPI.remove(deleteModal.leaveId);
       setLeaveHistory(prev => prev.filter(x => x.id !== deleteModal.leaveId));
       showNotification('Leave application deleted.', 'success');
+      loadBalanceForMe();
     } catch (e) {
       showNotification('Failed to delete leave application.', 'error');
     }
@@ -1188,6 +1193,15 @@ import Notification from '../../components/Notifications/Notification';
                             <div>
                               <div className="font-medium text-gray-900">{leave.leaveTypeName}</div>
                               <div className="text-sm text-gray-500">{leave.dayType}</div>
+                              {(leave.clUsed > 0 || leave.slUsed > 0 || leave.plUsed > 0 || leave.negativePL > 0 || leave.lopDays > 0) && (
+                                <div className="text-[11px] text-gray-500 mt-1.5 flex flex-wrap gap-1">
+                                  {leave.clUsed > 0 && <span className="bg-green-50 text-green-700 px-1.5 py-0.5 rounded font-medium">CL: {leave.clUsed}</span>}
+                                  {leave.slUsed > 0 && <span className="bg-red-50 text-red-700 px-1.5 py-0.5 rounded font-medium">SL: {leave.slUsed}</span>}
+                                  {leave.plUsed > 0 && <span className="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded font-medium">PL: {leave.plUsed}</span>}
+                                  {leave.negativePL > 0 && <span className="bg-orange-50 text-orange-700 px-1.5 py-0.5 rounded font-medium">Neg PL: {leave.negativePL}</span>}
+                                  {leave.lopDays > 0 && <span className="bg-yellow-50 text-yellow-700 px-1.5 py-0.5 rounded font-medium">LOP: {leave.lopDays}</span>}
+                                </div>
+                              )}
                             </div>
                           </div>
                         </td>
