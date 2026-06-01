@@ -23,6 +23,15 @@ import {
 } from "lucide-react";
 import { employeeAPI, conferenceBookingAPI } from "../../services/api";
 
+// Helper to get local date string YYYY-MM-DD
+const getLocalDateString = (date) => {
+  if (!date) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
 export default function OfficeSync() {
   const [myEmployee, setMyEmployee] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -47,7 +56,7 @@ export default function OfficeSync() {
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [newBooking, setNewBooking] = useState({
     title: "",
-    date: new Date().toISOString().split("T")[0],
+    date: getLocalDateString(new Date()),
     startTime: "09:00",
     endTime: "10:00",
     reason: ""
@@ -58,7 +67,7 @@ export default function OfficeSync() {
   // Block Slot Form (HR/Admin)
   const [blockModalOpen, setBlockModalOpen] = useState(false);
   const [blockData, setBlockData] = useState({
-    date: new Date().toISOString().split("T")[0],
+    date: getLocalDateString(new Date()),
     startTime: "12:00",
     endTime: "13:00",
     reason: "Maintenance / Corporate Meeting"
@@ -184,12 +193,39 @@ export default function OfficeSync() {
 
   // Filter bookings for current views
   const activeBookings = useMemo(() => {
-    return bookings.filter(b => b.status !== "Rejected" && b.status !== "Cancelled");
-  }, [bookings]);
+    const list = bookings.filter(b => b.status !== "Rejected" && b.status !== "Cancelled");
+    const viewDates = new Set();
+    viewDates.add(getLocalDateString(currentDate));
+    try {
+      getWeekDays(currentDate).forEach(d => viewDates.add(getLocalDateString(d)));
+    } catch(e) {}
+    try {
+      getMonthDays(currentDate).forEach(d => viewDates.add(getLocalDateString(d)));
+    } catch(e) {}
+    viewDates.forEach(dateStr => {
+      list.push({
+        _id: `lunch-${dateStr}`,
+        title: "Lunch Break",
+        bookedBy: "SYSTEM",
+        bookedByName: "Company Rule",
+        bookedByEmail: "",
+        division: "All",
+        location: "Hosur",
+        date: dateStr,
+        startTime: "13:00",
+        endTime: "13:45",
+        status: "Blocked",
+        reason: "Lunch Break (1:00 PM - 1:45 PM)",
+        adminComments: "",
+        isLunchBreak: true
+      });
+    });
+    return list;
+  }, [bookings, currentDate]);
 
   // Current real-time room availability status with strict logic
   const currentRoomStatus = useMemo(() => {
-    const todayStr = nowClock.toISOString().split("T")[0];
+    const todayStr = getLocalDateString(nowClock);
     const currentMin = nowClock.getHours() * 60 + nowClock.getMinutes();
 
     // 1. Check if there is an active meeting/block now
@@ -203,16 +239,23 @@ export default function OfficeSync() {
     });
 
     if (activeMeeting) {
+      if (activeMeeting.isLunchBreak) {
+        return {
+          status: "Lunch Break",
+          label: "Lunch Break",
+          meeting: activeMeeting
+        };
+      }
       if (activeMeeting.status === "Blocked") {
         return {
           status: "Maintenance",
-          label: "Maintenance",
+          label: "Maintenance Mode",
           meeting: activeMeeting
         };
       }
       return {
-        status: "Blocked",
-        label: "Blocked (Internal)",
+        status: "Occupied",
+        label: `Occupied (${activeMeeting.division})`,
         meeting: activeMeeting
       };
     }
@@ -227,8 +270,8 @@ export default function OfficeSync() {
 
     if (upcomingMeeting) {
       return {
-        status: "Upcoming Meeting",
-        label: "Upcoming Meeting",
+        status: "Upcoming Slot",
+        label: `Upcoming Slot: ${upcomingMeeting.division} (${formatTime(upcomingMeeting.startTime)} - ${formatTime(upcomingMeeting.endTime)})`,
         meeting: upcomingMeeting
       };
     }
@@ -357,36 +400,25 @@ export default function OfficeSync() {
     <div className="min-h-screen bg-white text-slate-800 p-6 space-y-6">
 
       {/* Header section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-indigo-50/60 via-violet-50/40 to-pink-50/20 border-l-4 border-l-indigo-600 border border-slate-200/80 rounded-2xl p-6 shadow-sm">
-        <div>
-          <div className="flex items-center gap-2 text-indigo-700 text-xs font-black tracking-wider uppercase mb-1">
-            <Building size={14} className="animate-pulse" />
-            <span>Hosur Branch Module</span>
-          </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 bg-gradient-to-r from-indigo-950 via-purple-900 to-indigo-900 bg-clip-text text-transparent">Office Sync</h1>
-          <p className="text-slate-650 text-sm mt-1 font-medium">Swaminathan Conference Room Booking Manager</p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {canBook && (
-            <button
-              onClick={() => setBookingModalOpen(true)}
-              className="bg-slate-900 hover:bg-slate-850 text-white font-extrabold text-sm py-2.5 px-5 rounded-xl transition-all duration-300 shadow-md shadow-slate-900/10 hover:shadow-slate-900/20 flex items-center gap-2 transform hover:-translate-y-0.5"
-            >
-              <Plus size={16} />
-              <span>Book Conference Room</span>
-            </button>
-          )}
-          {isHRorAdmin && (
-            <button
-              onClick={() => setBlockModalOpen(true)}
-              className="bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm py-2.5 px-5 rounded-xl border border-slate-300 transition-all duration-300 flex items-center gap-2 shadow-sm hover:shadow transform hover:-translate-y-0.5"
-            >
-              <Lock size={15} className="text-rose-500" />
-              <span>Block Time Slot</span>
-            </button>
-          )}
-        </div>
+      <div className="flex justify-end items-center gap-3">
+        {canBook && (
+          <button
+            onClick={() => setBookingModalOpen(true)}
+            className="bg-slate-900 hover:bg-slate-850 text-white font-extrabold text-sm py-2.5 px-5 rounded-xl transition-all duration-300 shadow-md shadow-slate-900/10 hover:shadow-slate-900/20 flex items-center gap-2 transform hover:-translate-y-0.5"
+          >
+            <Plus size={16} />
+            <span>Book Conference Room</span>
+          </button>
+        )}
+        {isHRorAdmin && (
+          <button
+            onClick={() => setBlockModalOpen(true)}
+            className="bg-white hover:bg-slate-50 text-slate-700 font-bold text-sm py-2.5 px-5 rounded-xl border border-slate-300 transition-all duration-300 flex items-center gap-2 shadow-sm hover:shadow transform hover:-translate-y-0.5"
+          >
+            <Lock size={15} className="text-rose-500" />
+            <span>Block Time Slot</span>
+          </button>
+        )}
       </div>
 
       {/* Real-time Availability & Info Strip */}
@@ -394,18 +426,18 @@ export default function OfficeSync() {
         {/* Availability Banner */}
         <div className={`border-2 rounded-2xl p-5 flex items-center justify-between gap-4 transition-all duration-300 shadow-sm ${currentRoomStatus.status === "Available"
             ? "bg-gradient-to-r from-emerald-50/80 to-teal-50/50 border-emerald-450 text-emerald-900 border-l-4 border-l-emerald-500"
-            : currentRoomStatus.status === "Blocked"
+            : ["Blocked", "Occupied"].includes(currentRoomStatus.status)
               ? "bg-gradient-to-r from-rose-50/80 to-red-50/50 border-rose-450 text-rose-900 border-l-4 border-l-rose-500"
-              : currentRoomStatus.status === "Upcoming Meeting"
+              : ["Upcoming Slot", "Lunch Break"].includes(currentRoomStatus.status)
                 ? "bg-gradient-to-r from-amber-50/80 to-yellow-50/50 border-amber-450 text-amber-900 border-l-4 border-l-amber-500"
                 : "bg-gradient-to-r from-slate-50/80 to-slate-100/50 border-slate-450 text-slate-900 border-l-4 border-l-slate-500"
           }`}>
           <div className="flex items-center gap-4">
             <div className={`h-12 w-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${currentRoomStatus.status === "Available"
                 ? "bg-emerald-500/20 text-emerald-700 border border-emerald-550/20"
-                : currentRoomStatus.status === "Blocked"
+                : ["Blocked", "Occupied"].includes(currentRoomStatus.status)
                   ? "bg-rose-500/20 text-rose-700 border border-rose-550/20"
-                  : currentRoomStatus.status === "Upcoming Meeting"
+                  : ["Upcoming Slot", "Lunch Break"].includes(currentRoomStatus.status)
                     ? "bg-amber-500/20 text-amber-700 border border-amber-550/20"
                     : "bg-slate-200 text-slate-650 border border-slate-300"
               }`}>
@@ -418,9 +450,15 @@ export default function OfficeSync() {
               </div>
               {currentRoomStatus.meeting ? (
                 <div className="text-xs mt-1 font-bold opacity-90">
-                  {currentRoomStatus.status === "Maintenance"
-                    ? `Maintenance until ${formatTime(currentRoomStatus.meeting.endTime)}`
-                    : `Blocked Slot until ${formatTime(currentRoomStatus.meeting.endTime)}`}
+                  {currentRoomStatus.status === "Lunch Break"
+                    ? `Lunch hour until ${formatTime(currentRoomStatus.meeting.endTime)}`
+                    : currentRoomStatus.status === "Maintenance"
+                      ? `Maintenance until ${formatTime(currentRoomStatus.meeting.endTime)}`
+                      : currentRoomStatus.status === "Occupied"
+                        ? `In use by ${currentRoomStatus.meeting.bookedByName} until ${formatTime(currentRoomStatus.meeting.endTime)}`
+                        : currentRoomStatus.status === "Upcoming Slot"
+                          ? ""
+                          : `Blocked Slot until ${formatTime(currentRoomStatus.meeting.endTime)}`}
                 </div>
               ) : (
                 <div className="text-xs mt-1 font-bold opacity-90">
@@ -435,17 +473,17 @@ export default function OfficeSync() {
             <span className="relative flex h-2 w-2">
               <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${currentRoomStatus.status === "Available"
                   ? "bg-emerald-550"
-                  : currentRoomStatus.status === "Blocked"
+                  : ["Blocked", "Occupied"].includes(currentRoomStatus.status)
                     ? "bg-rose-550"
-                    : currentRoomStatus.status === "Upcoming Meeting"
+                    : ["Upcoming Slot", "Lunch Break"].includes(currentRoomStatus.status)
                       ? "bg-amber-550"
                       : "bg-slate-550"
                 }`}></span>
               <span className={`relative inline-flex rounded-full h-2 w-2 ${currentRoomStatus.status === "Available"
                   ? "bg-emerald-550"
-                  : currentRoomStatus.status === "Blocked"
+                  : ["Blocked", "Occupied"].includes(currentRoomStatus.status)
                     ? "bg-rose-550"
-                    : currentRoomStatus.status === "Upcoming Meeting"
+                    : ["Upcoming Slot", "Lunch Break"].includes(currentRoomStatus.status)
                       ? "bg-amber-550"
                       : "bg-slate-550"
                 }`}></span>
@@ -462,7 +500,7 @@ export default function OfficeSync() {
           <div>
             <div className="text-[10px] uppercase tracking-wider font-extrabold text-slate-450">Your Booking Profile</div>
             <div className="text-sm font-black text-slate-800">{myEmployee?.name || currentUser?.name}</div>
-            <div className="text-xs text-slate-600 font-bold">{myEmployee?.division} division • <span className="text-indigo-600">{userRole.toUpperCase()}</span></div>
+            <div className="text-xs text-slate-600 font-bold">{myEmployee?.division} • {myEmployee?.designation ? `${myEmployee.designation} • ` : ""}<span className="text-indigo-600">{userRole.toUpperCase()}</span></div>
           </div>
         </div>
 
@@ -530,7 +568,7 @@ export default function OfficeSync() {
             </div>
           </div>
 
-          {/* Render Calendar Day View */}
+{/* Render Calendar Day View */}
           {viewMode === "day" && (
             <div className="space-y-4">
               {Array.from({ length: 10 }).map((_, idx) => {
@@ -539,14 +577,15 @@ export default function OfficeSync() {
 
                 // Find bookings active during this hour
                 const hourBookings = activeBookings.filter(b => {
-                  const dateStr = currentDate.toISOString().split("T")[0];
+                  const dateStr = getLocalDateString(currentDate);
                   if (b.date !== dateStr) return false;
 
                   const startMin = timeToMin(b.startTime);
                   const endMin = timeToMin(b.endTime);
-                  const currentHourMin = hour * 60;
+                  const rowStartMin = hour * 60;
+                  const rowEndMin = (hour + 1) * 60;
 
-                  return currentHourMin >= startMin && currentHourMin < endMin;
+                  return startMin < rowEndMin && endMin > rowStartMin;
                 });
 
                 return (
@@ -561,57 +600,88 @@ export default function OfficeSync() {
                             <div
                               key={b._id}
                               className={`p-3.5 rounded-xl border flex flex-col justify-between shadow-sm hover:shadow-md transition-all duration-200 ${(() => {
-                                  const todayStr = nowClock.toISOString().split("T")[0];
+                                  const todayStr = getLocalDateString(nowClock);
                                   const isFinished = b.date < todayStr || (b.date === todayStr && (nowClock.getHours() * 60 + nowClock.getMinutes()) >= timeToMin(b.endTime));
-                                  if (isFinished) {
-                                    return "bg-slate-50 border-slate-200 text-slate-500 opacity-80 border-l-4 border-l-slate-400";
+                                   if (b.isLunchBreak) {
+                                     if (isFinished) {
+                                       return "bg-slate-50 border-slate-200 text-slate-500 opacity-80 border-l-4 border-l-slate-400 sm:col-span-2 text-center items-center justify-center";
+                                     }
+                                     return "bg-gradient-to-r from-amber-500/10 to-yellow-500/5 border-amber-200 border-l-4 border-l-amber-500 text-amber-955 sm:col-span-2 text-center items-center justify-center";
+                                   }
+                                   if (isFinished) {
+                                     return "bg-slate-50 border-slate-200 text-slate-500 opacity-80 border-l-4 border-l-slate-400 sm:col-start-2";
+                                   }
+                                  if (b.status === "Blocked") {
+                                    return "bg-gradient-to-r from-slate-50 to-slate-100/50 border-slate-300 border-l-4 border-l-slate-500 text-slate-800";
                                   }
-                                  return b.status === "Blocked"
-                                    ? "bg-gradient-to-r from-slate-50 to-slate-100/50 border-slate-300 border-l-4 border-l-slate-500 text-slate-800"
-                                    : b.status === "Approved"
-                                      ? "bg-gradient-to-r from-indigo-50/70 to-violet-50/30 border-indigo-200 border-l-4 border-l-indigo-550 text-indigo-950"
-                                      : "bg-gradient-to-r from-amber-50/70 to-yellow-50/30 border-amber-200 border-l-4 border-l-amber-550 text-amber-950";
+                                  const creatorRole = b.bookedByRole?.toLowerCase() || "";
+                                  const isAdminOrHr = ["admin", "hr", "director"].includes(creatorRole);
+                                  if (["Approved", "Reserved"].includes(b.status)) {
+                                    if (isAdminOrHr) {
+                                      return "bg-gradient-to-r from-indigo-50/70 to-violet-50/30 border-indigo-200 border-l-4 border-l-indigo-550 text-indigo-950";
+                                    } else {
+                                      return "bg-gradient-to-r from-emerald-50/70 to-teal-50/30 border-emerald-200 border-l-4 border-l-emerald-550 text-emerald-950";
+                                    }
+                                  }
+                                  return "bg-gradient-to-r from-amber-50/70 to-yellow-50/30 border-amber-200 border-l-4 border-l-amber-550 text-amber-950";
                                 })()
                                 }`}
                             >
                               {(() => {
-                                const todayStr = nowClock.toISOString().split("T")[0];
+                                const todayStr = getLocalDateString(nowClock);
                                 const isFinished = b.date < todayStr || (b.date === todayStr && (nowClock.getHours() * 60 + nowClock.getMinutes()) >= timeToMin(b.endTime));
+                                const creatorRole = b.bookedByRole?.toLowerCase() || "";
+                                const isAdminOrHr = ["admin", "hr", "director"].includes(creatorRole);
+                                const currentMin = nowClock.getHours() * 60 + nowClock.getMinutes();
+                                const isOngoing = b.date === todayStr && currentMin >= timeToMin(b.startTime) && currentMin < timeToMin(b.endTime);
 
                                 let displayStatus = b.status;
                                 let badgeColorClass = "";
 
                                 if (isFinished) {
-                                  displayStatus = b.status === "Blocked" ? "Work Finished" : "Meeting Finished";
+                                  displayStatus = b.isLunchBreak ? "Lunch Finished" : (b.status === "Blocked" ? "Work Finished" : "Meeting Finished");
                                   badgeColorClass = "bg-slate-300 text-slate-600 border border-slate-400/20";
+                                } else if (isOngoing) {
+                                  displayStatus = b.status === "Blocked" ? "Blocked" : "Meeting Ongoing";
+                                  badgeColorClass = ["Approved", "Reserved"].includes(b.status)
+                                    ? (isAdminOrHr ? "bg-indigo-600 text-white shadow-sm shadow-indigo-650/10" : "bg-emerald-600 text-white shadow-sm shadow-emerald-650/10")
+                                    : b.status === "Blocked"
+                                      ? "bg-slate-500 text-white"
+                                      : "bg-amber-500 text-white shadow-sm";
                                 } else {
-                                  badgeColorClass = b.status === "Approved"
-                                    ? "bg-indigo-600 text-white shadow-sm shadow-indigo-650/10"
+                                  badgeColorClass = ["Approved", "Reserved"].includes(b.status)
+                                    ? (isAdminOrHr ? "bg-indigo-600 text-white shadow-sm shadow-indigo-650/10" : "bg-emerald-600 text-white shadow-sm shadow-emerald-650/10")
                                     : b.status === "Blocked"
                                       ? "bg-slate-500 text-white"
                                       : "bg-amber-500 text-white shadow-sm";
                                 }
 
                                 return (
-                                  <div className="flex items-center justify-between gap-2 w-full">
+                                  <div className={`flex items-center gap-2 w-full ${b.isLunchBreak ? "justify-center" : "justify-between"}`}>
                                     <span className="font-extrabold text-sm tracking-tight text-slate-900">{b.title}</span>
-                                    <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0 ${badgeColorClass}`}>
-                                      {displayStatus}
-                                    </span>
+                                    {(!b.isLunchBreak || isFinished) && (
+                                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-black uppercase tracking-wider shrink-0 ${badgeColorClass}`}>
+                                        {displayStatus}
+                                      </span>
+                                    )}
                                   </div>
                                 );
                               })()}
-                              <div className="flex items-center gap-4 text-xs mt-3 text-slate-650 font-bold">
+                              <div className={`flex items-center gap-4 text-xs mt-3 text-slate-650 font-bold ${b.isLunchBreak ? "justify-center" : ""}`}>
                                 <div className="flex items-center gap-1 text-indigo-600">
                                   <Clock size={12} />
                                   <span>{b.startTime} - {b.endTime}</span>
                                 </div>
-                                <div className="flex items-center gap-1 text-purple-650">
-                                  <User size={12} />
-                                  <span className="truncate max-w-[120px]">{b.bookedByName} ({b.division})</span>
-                                </div>
+                                {!b.isLunchBreak && (
+                                  <div className="flex items-center gap-1 text-purple-650">
+                                    <User size={12} />
+                                    <span className="truncate max-w-[120px]">{b.bookedByName} ({b.division})</span>
+                                  </div>
+                                )}
                               </div>
-                              {b.bookedBy === myEmployee?.employeeId && b.status === "Pending" && (
+                              {b.bookedBy === myEmployee?.employeeId && 
+                               ["Pending", "Reserved"].includes(b.status) && 
+                               !(b.date < getLocalDateString(nowClock) || (b.date === getLocalDateString(nowClock) && (nowClock.getHours() * 60 + nowClock.getMinutes()) >= timeToMin(b.startTime))) && (
                                 <button
                                   onClick={() => handleStatusUpdate(b._id, "Cancelled")}
                                   className="text-[10px] font-extrabold text-rose-600 hover:text-rose-700 self-end mt-3 border-b border-dashed border-rose-450 hover:border-rose-600 transition"
@@ -638,15 +708,15 @@ export default function OfficeSync() {
           {viewMode === "week" && (
             <div className="grid grid-cols-7 gap-2">
               {getWeekDays(currentDate).map((day, dIdx) => {
-                const dateStr = day.toISOString().split("T")[0];
+                const dateStr = getLocalDateString(day);
                 const dayBookings = activeBookings.filter(b => b.date === dateStr);
-                const isToday = new Date().toISOString().split("T")[0] === dateStr;
+                const isToday = getLocalDateString(new Date()) === dateStr;
 
                 return (
                   <div key={dIdx} className={`border rounded-xl p-3 min-h-[300px] flex flex-col space-y-3 shadow-sm transition-all duration-200 ${isToday
                       ? "bg-gradient-to-b from-indigo-50/40 via-white to-white border-indigo-300 border-t-4 border-t-indigo-600"
                       : "bg-slate-50/30 border-slate-200 hover:border-slate-300"
-                    }`}>
+                     }`}>
                     <div className="text-center border-b border-slate-200 pb-2">
                       <div className={`text-[10px] font-black uppercase ${isToday ? "text-indigo-650" : "text-slate-450"}`}>
                         {day.toLocaleDateString("en-US", { weekday: "short" })}
@@ -662,28 +732,46 @@ export default function OfficeSync() {
                           <div
                             key={b._id}
                             className={`p-2 rounded-lg border text-[10px] flex flex-col shadow-inner transition-all ${(() => {
-                                const todayStr = nowClock.toISOString().split("T")[0];
-                                const isFinished = b.date < todayStr || (b.date === todayStr && (nowClock.getHours() * 60 + nowClock.getMinutes()) >= timeToMin(b.endTime));
-                                if (isFinished) {
-                                  return "bg-slate-50 border-slate-200 text-slate-400 opacity-60";
-                                }
-                                return b.status === "Blocked"
-                                  ? "bg-slate-100 border-slate-300 border-l-2 border-l-slate-500 text-slate-700"
-                                  : b.status === "Approved"
-                                    ? "bg-indigo-50/90 border-indigo-205 border-l-2 border-l-indigo-600 text-indigo-900 font-bold"
-                                    : "bg-amber-50/90 border-amber-205 border-l-2 border-l-amber-600 text-amber-900 font-bold";
-                              })()
+                                  const todayStr = getLocalDateString(nowClock);
+                                  const isFinished = b.date < todayStr || (b.date === todayStr && (nowClock.getHours() * 60 + nowClock.getMinutes()) >= timeToMin(b.endTime));
+                                  if (isFinished) {
+                                    return "bg-slate-50 border-slate-200 text-slate-400 opacity-60";
+                                  }
+                                  if (b.status === "Blocked") {
+                                    return "bg-slate-100 border-slate-300 border-l-2 border-l-slate-500 text-slate-700";
+                                  }
+                                  const creatorRole = b.bookedByRole?.toLowerCase() || "";
+                                  const isAdminOrHr = ["admin", "hr", "director"].includes(creatorRole);
+                                  if (["Approved", "Reserved"].includes(b.status)) {
+                                    if (isAdminOrHr) {
+                                      return "bg-indigo-50/90 border-indigo-205 border-l-2 border-l-indigo-600 text-indigo-900 font-bold";
+                                    } else {
+                                      return "bg-emerald-50/90 border-emerald-205 border-l-2 border-l-emerald-600 text-emerald-900 font-bold";
+                                    }
+                                  }
+                                  return "bg-amber-50/90 border-amber-205 border-l-2 border-l-amber-600 text-amber-900 font-bold";
+                                })()
                               }`}
                           >
                             <span className="font-extrabold truncate">{b.title}</span>
                             <span className="mt-1 font-bold opacity-80">{b.startTime} - {b.endTime}</span>
                             {(() => {
-                              const todayStr = nowClock.toISOString().split("T")[0];
+                              const todayStr = getLocalDateString(nowClock);
                               const isFinished = b.date < todayStr || (b.date === todayStr && (nowClock.getHours() * 60 + nowClock.getMinutes()) >= timeToMin(b.endTime));
+                              const currentMin = nowClock.getHours() * 60 + nowClock.getMinutes();
+                              const isOngoing = b.date === todayStr && currentMin >= timeToMin(b.startTime) && currentMin < timeToMin(b.endTime);
+
                               if (isFinished) {
                                 return (
                                   <span className="text-[8px] font-black text-slate-500 uppercase mt-1">
-                                    {b.status === "Blocked" ? "Work Finished" : "Meeting Finished"}
+                                     {b.isLunchBreak ? "Lunch Finished" : (b.status === "Blocked" ? "Work Finished" : "Meeting Finished")}
+                                  </span>
+                                );
+                              }
+                              if (isOngoing && !b.isLunchBreak) {
+                                return (
+                                  <span className="text-[8px] font-black text-indigo-650 uppercase mt-1 animate-pulse">
+                                    Meeting Ongoing
                                   </span>
                                 );
                               }
@@ -710,9 +798,9 @@ export default function OfficeSync() {
                 </div>
               ))}
               {getMonthDays(currentDate).map((day, dIdx) => {
-                const dateStr = day.toISOString().split("T")[0];
+                const dateStr = getLocalDateString(day);
                 const dayBookings = activeBookings.filter(b => b.date === dateStr);
-                const isToday = new Date().toISOString().split("T")[0] === dateStr;
+                const isToday = getLocalDateString(new Date()) === dateStr;
                 const isCurrentMonth = day.getMonth() === currentDate.getMonth();
 
                 return (
@@ -737,7 +825,7 @@ export default function OfficeSync() {
                         <div className="flex flex-wrap gap-1">
                           <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-full shadow-sm ${dayBookings.some(b => b.status === "Blocked")
                               ? "bg-slate-500 text-white"
-                              : dayBookings.every(b => b.status === "Approved")
+                              : dayBookings.every(b => ["Approved", "Reserved"].includes(b.status))
                                 ? "bg-gradient-to-r from-indigo-600 to-violet-600 text-white"
                                 : "bg-gradient-to-r from-amber-500 to-yellow-500 text-white"
                             }`}>
@@ -780,7 +868,7 @@ export default function OfficeSync() {
         <div className="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full max-h-[90vh] flex flex-col shadow-2xl relative">
             <div className="p-6 border-b border-slate-200 flex-shrink-0">
-              <h3 className="text-lg font-bold text-slate-900">Book Swaminathan Room</h3>
+              <h3 className="text-lg font-bold text-slate-900">Book Swaminathan Conference Room</h3>
               <p className="text-xs text-slate-500 mt-1">Schedule a new session in the conference room.</p>
             </div>
 
@@ -835,7 +923,7 @@ export default function OfficeSync() {
                 <input
                   type="date"
                   required
-                  min={new Date().toISOString().split("T")[0]}
+                  min={getLocalDateString(new Date())}
                   value={newBooking.date}
                   onChange={e => setNewBooking({ ...newBooking, date: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
@@ -914,7 +1002,7 @@ export default function OfficeSync() {
                 <input
                   type="date"
                   required
-                  min={new Date().toISOString().split("T")[0]}
+                  min={getLocalDateString(new Date())}
                   value={blockData.date}
                   onChange={e => setBlockData({ ...blockData, date: e.target.value })}
                   className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"

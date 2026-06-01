@@ -24,6 +24,8 @@ const Header = ({ onMenuClick }) => {
       '/dashboard': 'Home',
       '/home': 'Home',
       '/my-profile': 'My Profile',
+      '/office-sync': 'Office Sync',
+      '/asset-management': 'Asset Management',
       '/user-access': 'User Access',
       '/employee-management': 'Employee Management',
       '/announcements': 'Announcements',
@@ -66,6 +68,7 @@ const Header = ({ onMenuClick }) => {
       '/performance/increment-summary': 'Increment Summary',
       '/performance/attendance-summary': 'Attendance Summary',
       '/performance/promotion-history': 'Promotion History',
+      '/performance/performance-pay': 'Performance Pay',
 
       // Payroll Management
       '/salaryslips': 'Salary Slips',
@@ -211,43 +214,43 @@ const Header = ({ onMenuClick }) => {
 
   return (
     <>
-      <header className="bg-white shadow border-b border-gray-200 w-full">
+      <header className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow border-b border-indigo-900 w-full">
         <div className="flex items-center px-4 py-3">
 
           {/* Left Section */}
           <div className="flex-1">
             <button
               onClick={onMenuClick}
-              className="lg:hidden p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+              className="lg:hidden p-2 rounded-md text-white hover:text-gray-200 hover:bg-white/10"
             >
               <Bars3Icon className="h-5 w-5" />
             </button>
             <button
               onClick={() => navigate(-1)}
-              className="ml-2 p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 inline-flex items-center gap-1"
+              className="ml-2 p-2 rounded-md text-white hover:text-gray-200 hover:bg-white/10 inline-flex items-center gap-1"
               aria-label="Go Back"
             >
               <ArrowLeftIcon className="h-5 w-5" />
-              <span className="hidden sm:inline text-sm">Back</span>
+              <span className="hidden sm:inline text-sm text-white">Back</span>
             </button>
           </div>
 
           {/* Center Section */}
           <div className="flex-1 text-center">
-            <h1 className="text-lg font-medium text-gray-800">{getPageTitle()}</h1>
+            <h1 className="text-lg font-black uppercase tracking-wider text-white">{getPageTitle()}</h1>
           </div>
 
           {/* Right Section */}
           <div className="flex-1 flex justify-end items-center space-x-4">
             {/* Time Display */}
             <div className="hidden sm:flex flex-col items-end">
-              <span className="text-sm text-gray-600">{formattedTime}</span>
-              <span className="text-xs text-gray-500">{formattedDate}</span>
+              <span className="text-sm text-white font-bold">{formattedTime}</span>
+              <span className="text-xs text-indigo-200">{formattedDate}</span>
             </div>
 
             {/* Mobile Time Display */}
             <div className="sm:hidden flex flex-col items-end">
-              <span className="text-sm text-gray-600">{formattedTime}</span>
+              <span className="text-sm text-white font-bold">{formattedTime}</span>
             </div>
 
             {/* Notification Section */}
@@ -256,15 +259,15 @@ const Header = ({ onMenuClick }) => {
                 onClick={() => setIsNotificationOpen(!isNotificationOpen)}
                 className={`flex items-center p-2.5 rounded-xl transition-all duration-300 relative group
                   ${unreadCount > 0
-                    ? 'bg-indigo-50 text-indigo-600 hover:bg-indigo-100'
-                    : 'text-gray-500 hover:bg-gray-100'}`}
+                    ? 'bg-indigo-600/30 text-indigo-300 hover:bg-indigo-600/50'
+                    : 'text-white/75 hover:bg-white/10'}`}
                 aria-label="Notifications"
               >
                 <BellIcon className={`h-6 w-6 transition-transform duration-500 ${unreadCount > 0 ? 'animate-[swing_2s_ease-in-out_infinite] origin-top' : 'group-hover:rotate-12'}`} />
 
                 {unreadCount > 0 && (
                   <>
-                    <span className="absolute top-2 right-2 h-3 w-3 bg-rose-500 rounded-full border-2 border-white z-10"></span>
+                    <span className="absolute top-2 right-2 h-3 w-3 bg-rose-500 rounded-full border-2 border-slate-900 z-10"></span>
                     <span className="absolute top-2 right-2 h-3 w-3 bg-rose-400 rounded-full animate-ping opacity-75"></span>
                   </>
                 )}
@@ -279,16 +282,16 @@ const Header = ({ onMenuClick }) => {
             <div className="relative" ref={profileRef}>
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center p-1 rounded-lg hover:bg-gray-100 transition-colors"
+                className="flex items-center p-1 rounded-lg hover:bg-white/10 transition-colors"
               >
-                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-gray-200 text-gray-700 font-medium">
+                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-white/20 text-white font-black">
                   {userInitial}
                 </div>
               </button>
 
               {/* Profile Dropdown */}
               {isProfileOpen && (
-                <div className="absolute right-0 mt-2 w-72 bg-white rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
+                <div className="absolute right-0 mt-2 w-72 bg-white text-gray-800 rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
                   <div className="p-4 bg-gray-50">
                     <div className="flex items-center space-x-3">
                       <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-300 text-gray-700 font-medium">
@@ -322,6 +325,7 @@ const Header = ({ onMenuClick }) => {
             </div>
           </div>
         </div>
+
       </header>
     </>
   );

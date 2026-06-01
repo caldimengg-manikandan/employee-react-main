@@ -289,8 +289,10 @@ const ProjectDashboard = () => {
         { name: 'Team Management', description: 'Manage teams', path: '/admin/team-management', icon: UserGroupIcon, permission: 'team_access', showForRoles: ['admin', 'manager'], category: 'Company & Resources' },
         { name: 'Internships', description: 'Manage interns & references', path: '/admin/interns', icon: BriefcaseIcon, permission: 'intern_reference', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
         { name: 'Announcements', description: 'Manage company announcements', path: '/announcements', icon: BellIcon, permission: 'announcement_manage', showForRoles: ['admin', 'hr', 'manager'], category: 'Company & Resources' },
+        { name: 'Asset Management', description: 'Manage assigned assets', path: '/asset-management', icon: BriefcaseIcon, allowEmployeeRole: true, category: 'Company & Resources' },
 
         { name: 'Unified Hub Calendar', description: 'View holidays & celebrations', path: '/calendar-master', icon: CalendarIcon, permission: 'celebration_view', allowEmployeeRole: true, category: 'Work & Productivity' },
+        { name: 'Office Sync', description: 'Sync biometric/office logs', path: '/office-sync', icon: BuildingOfficeIcon, permission: 'office_sync_access', allowEmployeeRole: true, category: 'Work & Productivity' },
 
         // Support Center
         { name: 'Raise Tickets', description: 'Submit a support ticket', path: '/support/raise-ticket', icon: ClipboardDocumentCheckIcon, permission: 'raise_ticket_access', allowEmployeeRole: true, category: 'Support Center' },

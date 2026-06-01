@@ -467,8 +467,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
   return (
     <>
       {isOpen && <div className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden" onClick={onClose} />}
-      <div className={`fixed inset-y-0 left-0 z-50 bg-[#262760] shadow-lg flex flex-col transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 lg:z-auto lg:h-screen ${isOpen ? "translate-x-0" : "-translate-x-full"} ${isDesktopOpen ? "w-64" : "w-64 lg:w-20"}`}>
-        <div className="flex items-center justify-between p-4 border-b border-[#1e2050] relative min-h-[64px]">
+      <div className={`fixed inset-y-0 left-0 z-50 bg-gradient-to-b from-slate-900 via-indigo-950 to-slate-900 shadow-lg flex flex-col transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 lg:z-auto lg:h-screen ${isOpen ? "translate-x-0" : "-translate-x-full"} ${isDesktopOpen ? "w-64" : "w-64 lg:w-20"}`}>
+        <div className="flex items-center justify-between p-4 border-b border-indigo-900/50 relative min-h-[64px]">
           <div className={`text-center w-full px-2 transition-all duration-200 ${!isDesktopOpen ? 'lg:opacity-0 lg:hidden' : 'opacity-100'}`}>
             <img src="/images/steel-logo.png" alt="caldim" className="h-auto w-full max-w-[160px] object-contain mx-auto" />
           </div>

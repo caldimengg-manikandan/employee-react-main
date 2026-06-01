@@ -10,7 +10,7 @@ const ConferenceBookingSchema = new mongoose.Schema({
   date: { type: String, required: true }, // YYYY-MM-DD
   startTime: { type: String, required: true }, // HH:MM
   endTime: { type: String, required: true }, // HH:MM
-  status: { type: String, enum: ["Pending", "Approved", "Rejected", "Cancelled", "Blocked"], default: "Pending" },
+  status: { type: String, enum: ["Pending", "Approved", "Reserved", "Rejected", "Cancelled", "Blocked"], default: "Pending" },
   reason: { type: String },
   adminComments: { type: String }
 }, { timestamps: true });

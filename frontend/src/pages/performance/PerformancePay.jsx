@@ -34,8 +34,8 @@ const AwardLetterContent = ({ selectedRecord, id = "award-letter-p1" }) => {
   return (
     <div
       id={id}
-      className="bg-white relative min-h-[1050px] w-[794px] shadow-lg flex-shrink-0 flex flex-col text-left"
-      style={{ fontFamily: "Arial, sans-serif", color: "#333" }}
+      className="bg-white relative h-[1123px] min-h-[1123px] max-h-[1123px] w-[794px] shadow-lg flex-shrink-0 flex flex-col text-left overflow-hidden"
+      style={{ fontFamily: "Arial, sans-serif", color: "#333", height: "1123px", minHeight: "1123px", maxHeight: "1123px", boxSizing: "border-box" }}
     >
       {/* Letter Pad Header — identical to salary slip header */}
       <div className="w-full h-32 relative overflow-hidden flex bg-white" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
@@ -89,7 +89,7 @@ const AwardLetterContent = ({ selectedRecord, id = "award-letter-p1" }) => {
         </div>
 
         <div style={{ textAlign: "right", marginBottom: "25px", fontSize: "12pt", color: "#374151" }}>
-          Date: {selectedRecord.releaseDate ? new Date(selectedRecord.releaseDate).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}
+          Date: {selectedRecord.letterGeneratedDate ? new Date(selectedRecord.letterGeneratedDate).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}
         </div>
 
         <div style={{ marginBottom: "25px", fontSize: "12pt", lineHeight: "1.5", color: "#1f2937" }}>
@@ -105,13 +105,6 @@ const AwardLetterContent = ({ selectedRecord, id = "award-letter-p1" }) => {
           We are pleased to inform you that you have been awarded a one-time Performance Pay of <strong>₹{selectedRecord.performancePayAmount.toLocaleString("en-IN")}</strong> based on your contribution and performance during FY <strong>{selectedRecord.financialYear}</strong>.
           <br /><br />
           This award is in appreciation of your specific achievements under the category of <strong>{selectedRecord.reason}</strong>. We appreciate your dedication, hard work, and valuable contributions to Caldim Engineering Private Limited.
-          {selectedRecord.remarks && (
-            <>
-              <br /><br />
-              <strong>Additional Context:</strong><br />
-              <span style={{ fontStyle: "italic", color: "#555" }}>"{selectedRecord.remarks}"</span>
-            </>
-          )}
         </div>
 
         <div style={{ marginBottom: "35px", fontSize: "12pt", lineHeight: "1.6", color: "#374151" }}>
@@ -229,6 +222,7 @@ const PerformancePay = () => {
     performancePayAmount: "",
     reason: "Outstanding Performance",
     remarks: "",
+    letterGeneratedDate: "",
   });
 
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
@@ -305,7 +299,8 @@ const PerformancePay = () => {
       const matchYear = filters.financialYear === "All" || item.financialYear === filters.financialYear;
       const matchDept = filters.department === "All" || item.department === filters.department;
       const matchLoc = filters.location === "All" || item.location === filters.location;
-      const matchStatus = filters.status === "All" || item.status === filters.status;
+      const matchStatus = filters.status === "All" || 
+        (filters.status === "DRAFT" ? item.status === "DRAFT" : item.status !== "DRAFT");
       const name = (item.employeeName || "").toLowerCase();
       const empId = (item.employeeId || "").toLowerCase();
       const term = searchTerm.toLowerCase();
@@ -392,6 +387,7 @@ const PerformancePay = () => {
       performancePayAmount: "",
       reason: "Outstanding Performance",
       remarks: "",
+      letterGeneratedDate: "",
     });
     setEmployeeSearchTerm("");
     setSelectedRecord(null);
@@ -410,6 +406,7 @@ const PerformancePay = () => {
       performancePayAmount: record.performancePayAmount,
       reason: record.reason,
       remarks: record.remarks || "",
+      letterGeneratedDate: record.letterGeneratedDate ? new Date(record.letterGeneratedDate).toISOString().split('T')[0] : "",
     });
     setEmployeeSearchTerm(record.employeeName);
     setIsAddEditOpen(true);
@@ -501,8 +498,7 @@ const PerformancePay = () => {
       "Performance Pay Amount": r.performancePayAmount,
       "Reason": r.reason,
       "Remarks": r.remarks || "",
-      "Status": r.status,
-      "Payroll Status": r.payrollCredited ? "Credited" : "Pending",
+      "Status": r.status === "DRAFT" ? "Draft" : "Approved",
       "Letter Gen Date": r.letterGeneratedDate ? new Date(r.letterGeneratedDate).toLocaleDateString() : "",
     }));
 
@@ -520,6 +516,19 @@ const PerformancePay = () => {
     doc.setFontSize(10);
     doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 20);
 
+    // Total Performance Pay Card
+    doc.setFillColor(243, 244, 246); // gray-100 background
+    doc.setDrawColor(229, 231, 235); // gray-200 border
+    doc.roundedRect(14, 24, 75, 18, 2, 2, "FD");
+    
+    doc.setFontSize(7);
+    doc.setTextColor(107, 114, 128); // gray-500
+    doc.text("TOTAL PERFORMANCE PAY", 18, 29);
+    
+    doc.setFontSize(11);
+    doc.setTextColor(38, 39, 96); // primary color
+    doc.text(`INR ${totals.performancePayAmount.toLocaleString("en-IN")}`, 18, 36);
+
     const headers = [
       ["S.No", "Emp ID", "Name", "Dept", "Location", "FY", "Salary", "PP Amount", "Reason", "Status"]
     ];
@@ -534,15 +543,30 @@ const PerformancePay = () => {
       r.currentSalary.toLocaleString(),
       r.performancePayAmount.toLocaleString(),
       r.reason,
-      r.status
+      r.status === "DRAFT" ? "DRAFT" : "APPROVED"
     ]);
 
     autoTable(doc, {
       head: headers,
       body: data,
-      startY: 25,
+      foot: [
+        [
+          "Total",
+          "",
+          "",
+          "",
+          "",
+          "",
+          totals.currentSalary.toLocaleString("en-IN"),
+          totals.performancePayAmount.toLocaleString("en-IN"),
+          "",
+          ""
+        ]
+      ],
+      startY: 46,
       styles: { fontSize: 8 },
-      headStyles: { fillColor: [38, 39, 96] }
+      headStyles: { fillColor: [38, 39, 96] },
+      footStyles: { fillColor: [229, 231, 235], textColor: [17, 24, 39], fontStyle: "bold" }
     });
 
     doc.save("Performance_Pay_Report.pdf");
@@ -665,11 +689,7 @@ const PerformancePay = () => {
             <CheckCircle className="h-5 w-5" />
             <span>{successMsg}</span>
           </div>
-        )}
-
-
-
-        {/* Filters Panel */}
+        )}        {/* Filters Panel */}
         {isFilterOpen && (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 animate-in fade-in slide-in-from-top-2">
             <div className="flex justify-between items-center mb-4">
@@ -734,42 +754,8 @@ const PerformancePay = () => {
                   <option value="All">All Statuses</option>
                   <option value="DRAFT">Draft</option>
                   <option value="APPROVED">Approved</option>
-                  <option value="LETTER_GENERATED">Letter Generated</option>
-                  <option value="PAYROLL_CREDITED">Payroll Credited</option>
                 </select>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Bulk actions — admin only */}
-        {isAdmin && selectedIds.length > 0 && (
-          <div className="bg-indigo-50 border border-indigo-200 p-4 rounded-xl flex items-center justify-between animate-in fade-in">
-            <span className="text-sm font-medium text-[#262760]">
-              {selectedIds.length} employees selected
-            </span>
-            <div className="flex space-x-3">
-              <button
-                onClick={handleBulkApprove}
-                className="px-4 py-2 rounded-md bg-[#262760] text-white hover:bg-[#1e2050] text-sm font-medium flex items-center"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                Bulk Approve
-              </button>
-              <button
-                onClick={handleBulkGenerateLetter}
-                className="px-4 py-2 rounded-md bg-indigo-600 text-white hover:bg-indigo-700 text-sm font-medium flex items-center"
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Generate Letters
-              </button>
-              <button
-                onClick={handleBulkCredit}
-                className="px-4 py-2 rounded-md bg-green-600 text-white hover:bg-green-700 text-sm font-medium flex items-center"
-              >
-                <Coins className="h-4 w-4 mr-2" />
-                Bulk Credit
-              </button>
             </div>
           </div>
         )}
@@ -782,7 +768,7 @@ const PerformancePay = () => {
                 <thead className="bg-[#262760] text-white">
                   {/* Summary Row */}
                   <tr className="bg-indigo-50 text-gray-800 font-bold border-b border-indigo-150">
-                    <th colSpan={8} className="px-6 py-2.5 text-right text-indigo-900 uppercase tracking-wider text-[10px]">
+                    <th colSpan={7} className="px-6 py-2.5 text-right text-indigo-900 uppercase tracking-wider text-[10px]">
                       Total Current Salary:
                     </th>
                     <th className="px-6 py-2.5 text-right text-indigo-900 text-sm font-black tabular-nums border-r border-indigo-100">
@@ -791,17 +777,9 @@ const PerformancePay = () => {
                     <th className="px-6 py-2.5 text-right text-emerald-700 text-sm font-black tabular-nums bg-emerald-100/50 shadow-sm border-x border-emerald-200/30">
                       ₹{totals.performancePayAmount.toLocaleString("en-IN")}
                     </th>
-                    <th colSpan={6} className="bg-indigo-50"></th>
+                    <th colSpan={5} className="bg-indigo-50"></th>
                   </tr>
                   <tr>
-                    <th className="px-6 py-3 text-left">
-                      <input
-                        type="checkbox"
-                        className="rounded border-gray-300 text-[#262760] focus:ring-[#262760]"
-                        checked={selectedIds.length === filteredRecords.length && filteredRecords.length > 0}
-                        onChange={toggleSelectAll}
-                      />
-                    </th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">S.No</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Employee ID</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Employee Name</th>
@@ -813,7 +791,6 @@ const PerformancePay = () => {
                     <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">PP Amount</th>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Reason</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Payroll Status</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Letter Gen Date</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Actions</th>
                   </tr>
@@ -822,14 +799,6 @@ const PerformancePay = () => {
                   {filteredRecords.length > 0 ? (
                     filteredRecords.map((row, idx) => (
                       <tr key={row._id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4">
-                          <input
-                            type="checkbox"
-                            className="rounded border-gray-300 text-[#262760] focus:ring-[#262760]"
-                            checked={selectedIds.includes(row._id)}
-                            onChange={() => toggleSelect(row._id)}
-                          />
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-gray-500">{idx + 1}</td>
                         <td className="px-6 py-4 whitespace-nowrap font-semibold text-gray-900">{row.employeeId}</td>
                         <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-800">{row.employeeName}</td>
@@ -842,20 +811,9 @@ const PerformancePay = () => {
                         <td className="px-6 py-4 whitespace-nowrap"><span className="px-2.5 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700 font-medium">{row.reason}</span></td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className={`px-2.5 py-1 text-xs rounded-full font-bold ${
-                            row.status === "DRAFT" ? "bg-gray-100 text-gray-700" :
-                            row.status === "APPROVED" ? "bg-blue-100 text-blue-800" :
-                            row.status === "LETTER_GENERATED" ? "bg-purple-100 text-purple-800" :
-                            row.status === "PAYROLL_CREDITED" ? "bg-green-100 text-green-800" :
-                            "bg-[#262760] text-white"
+                            row.status === "DRAFT" ? "bg-gray-100 text-gray-700" : "bg-blue-100 text-blue-800"
                           }`}>
-                            {row.status}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center">
-                          <span className={`px-2.5 py-1 text-xs rounded-full font-bold ${
-                            row.payrollCredited ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800"
-                          }`}>
-                            {row.payrollCredited ? "Credited" : "Pending"}
+                            {row.status === "DRAFT" ? "DRAFT" : "APPROVED"}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center text-gray-500">
@@ -1069,6 +1027,16 @@ const PerformancePay = () => {
                       <option key={resOption} value={resOption}>{resOption}</option>
                     ))}
                   </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Letter Generate Date</label>
+                  <input
+                    type="date"
+                    value={formData.letterGeneratedDate}
+                    onChange={(e) => setFormData(p => ({ ...p, letterGeneratedDate: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
                 </div>
 
                 <div className="col-span-2">

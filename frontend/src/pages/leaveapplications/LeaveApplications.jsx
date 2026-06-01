@@ -22,7 +22,6 @@ import Notification from '../../components/Notifications/Notification';
     { value: 'CL', label: 'Casual Leave (CL)' },
     { value: 'SL', label: 'Sick Leave (SL)' },
     { value: 'PL', label: 'Privilege Leave (PL)' },
-    { value: 'BEREAVEMENT', label: 'Bereavement Leave' },
     { value: 'REGIONAL_HOLIDAY', label: 'Regional Holiday' },
   ];
 

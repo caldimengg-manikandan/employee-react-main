@@ -38,11 +38,20 @@ router.get("/", auth, async (req, res) => {
 // @access  Private (Admin/HR)
 router.post("/", auth, async (req, res) => {
   try {
-    const { employeeId, financialYear, performancePayAmount, reason, remarks } = req.body;
+    const { employeeId, financialYear, performancePayAmount, reason, remarks, letterGeneratedDate } = req.body;
 
     const employee = await Employee.findOne({ employeeId });
     if (!employee) {
       return res.status(404).json({ success: false, message: "Employee not found" });
+    }
+
+    // Check if a performance pay record already exists for this employee in the same financial year
+    const existingRecord = await PerformancePay.findOne({ employeeId: employee.employeeId, financialYear });
+    if (existingRecord) {
+      return res.status(400).json({
+        success: false,
+        message: `Performance Pay record already exists for employee ${employee.name} in Financial Year ${financialYear}.`
+      });
     }
 
     // Get current salary (gross/totalEarnings) from Payroll or Employee
@@ -60,6 +69,7 @@ router.post("/", auth, async (req, res) => {
       performancePayAmount: parseFloat(performancePayAmount) || 0,
       reason,
       remarks,
+      letterGeneratedDate: letterGeneratedDate ? new Date(letterGeneratedDate) : undefined,
       status: "DRAFT",
       createdBy: req.user.name,
     });
@@ -77,7 +87,7 @@ router.post("/", auth, async (req, res) => {
 // @access  Private (Admin/HR)
 router.put("/:id", auth, async (req, res) => {
   try {
-    const { financialYear, performancePayAmount, reason, remarks } = req.body;
+    const { financialYear, performancePayAmount, reason, remarks, letterGeneratedDate } = req.body;
 
     const record = await PerformancePay.findById(req.params.id);
     if (!record) {
@@ -95,6 +105,9 @@ router.put("/:id", auth, async (req, res) => {
     record.performancePayAmount = parseFloat(performancePayAmount) || record.performancePayAmount;
     record.reason = reason || record.reason;
     record.remarks = remarks || record.remarks;
+    if (letterGeneratedDate !== undefined) {
+      record.letterGeneratedDate = letterGeneratedDate ? new Date(letterGeneratedDate) : null;
+    }
 
     await record.save();
     res.json({ success: true, data: record });

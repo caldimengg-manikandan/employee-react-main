@@ -8,7 +8,7 @@ const Employee = require("../models/Employee");
 const checkOverlap = async (date, startTime, endTime, excludeId = null) => {
   const query = {
     date,
-    status: { $in: ["Pending", "Approved", "Blocked"] },
+    status: { $in: ["Pending", "Approved", "Reserved", "Blocked"] },
     $or: [
       {
         startTime: { $lt: endTime },
@@ -30,7 +30,7 @@ const getAlternativeSlots = async (date, requestedDurationMin = 60) => {
   // Fetch existing bookings for this day
   const bookings = await ConferenceBooking.find({
     date,
-    status: { $in: ["Pending", "Approved", "Blocked"] }
+    status: { $in: ["Pending", "Approved", "Reserved", "Blocked"] }
   }).sort({ startTime: 1 });
 
   const busySlots = bookings.map(b => ({
@@ -101,7 +101,18 @@ function minToTime(min) {
 router.get("/", auth, async (req, res) => {
   try {
     const bookings = await ConferenceBooking.find().sort({ date: 1, startTime: 1 }).lean();
-    res.json(bookings);
+    const User = require("../models/User");
+    const employeeIds = [...new Set(bookings.map(b => b.bookedBy))];
+    const users = await User.find({ employeeId: { $in: employeeIds } }).select("employeeId role").lean();
+    const roleMap = {};
+    users.forEach(u => {
+      roleMap[u.employeeId] = u.role;
+    });
+    const enrichedBookings = bookings.map(b => ({
+      ...b,
+      bookedByRole: roleMap[b.bookedBy] || "employee"
+    }));
+    res.json(enrichedBookings);
   } catch (err) {
     res.status(500).json({ message: "Server error", error: err.message });
   }
@@ -116,13 +127,48 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ message: "Title, date, start time, and end time are required." });
     }
 
-    // Validation: Date/Time must not be in the past
+    // Parse the current IST time using Intl.DateTimeFormat
     const now = new Date();
-    const [year, month, day] = date.split("-").map(Number);
-    const [startH, startM] = startTime.split(":").map(Number);
-    const bookingStartDateTime = new Date(year, month - 1, day, startH, startM);
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Kolkata",
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+      hour: "numeric",
+      minute: "numeric",
+      hour12: false
+    });
+    const parts = formatter.formatToParts(now);
+    const pv = {};
+    parts.forEach(p => { pv[p.type] = p.value; });
 
-    if (bookingStartDateTime < now) {
+    const currentYear = Number(pv.year);
+    const currentMonth = Number(pv.month);
+    const currentDay = Number(pv.day);
+    const currentHour = Number(pv.hour);
+    const currentMinute = Number(pv.minute);
+
+    // Parse requested times
+    const [year, month, day] = date.split("-").map(Number);
+    let [startH, startM] = startTime.split(":").map(Number);
+    let [endH, endM] = endTime.split(":").map(Number);
+
+    // Auto-convert 12-hour format (1 to 8) to 24-hour PM format (13 to 20)
+    if (startH >= 1 && startH < 9) {
+      startH += 12;
+    }
+    if (endH >= 1 && endH < 9) {
+      endH += 12;
+    }
+
+    const finalStartTime = `${startH.toString().padStart(2, "0")}:${startM.toString().padStart(2, "0")}`;
+    const finalEndTime = `${endH.toString().padStart(2, "0")}:${endM.toString().padStart(2, "0")}`;
+
+    // Compare with current IST time
+    const bookingStartDateTime = new Date(year, month - 1, day, startH, startM);
+    const currentISTDateTime = new Date(currentYear, currentMonth - 1, currentDay, currentHour, currentMinute);
+
+    if (bookingStartDateTime < currentISTDateTime) {
       return res.status(400).json({ message: "Cannot book a conference room slot in the past." });
     }
 
@@ -161,14 +207,23 @@ router.post("/", auth, async (req, res) => {
     }
 
     // Validation: Start time must be before end time
-    if (timeToMin(startTime) >= timeToMin(endTime)) {
+    if (timeToMin(finalStartTime) >= timeToMin(finalEndTime)) {
       return res.status(400).json({ message: "Start time must be before end time." });
     }
 
+    // Prevent bookings overlapping with Lunch Break (13:00 - 13:45)
+    const startMin = timeToMin(finalStartTime);
+    const endMin = timeToMin(finalEndTime);
+    const lunchStart = timeToMin("13:00");
+    const lunchEnd = timeToMin("13:45");
+    if (startMin < lunchEnd && endMin > lunchStart) {
+      return res.status(400).json({ message: "Cannot book conference room during Lunch Break (1:00 PM - 1:45 PM)." });
+    }
+
     // Check overlap
-    const conflict = await checkOverlap(date, startTime, endTime);
+    const conflict = await checkOverlap(date, finalStartTime, finalEndTime);
     if (conflict) {
-      const duration = timeToMin(endTime) - timeToMin(startTime);
+      const duration = timeToMin(finalEndTime) - timeToMin(finalStartTime);
       const alternatives = await getAlternativeSlots(date, duration);
       return res.status(400).json({ 
         message: "Conference Room Already Booked", 
@@ -177,9 +232,8 @@ router.post("/", auth, async (req, res) => {
       });
     }
 
-    // Create booking
-    // No approval required: bookings are approved automatically
-    const initialStatus = "Approved";
+    // Create booking: all successful bookings are instantly Reserved
+    const initialStatus = "Reserved";
 
     const booking = await ConferenceBooking.create({
       title,
@@ -189,8 +243,8 @@ router.post("/", auth, async (req, res) => {
       division: employee ? employee.division : "System",
       location: employee ? employee.location : "Hosur",
       date,
-      startTime,
-      endTime,
+      startTime: finalStartTime,
+      endTime: finalEndTime,
       status: initialStatus,
       reason
     });
@@ -214,12 +268,12 @@ router.put("/:id/status", auth, async (req, res) => {
     const userRole = req.user.role?.toLowerCase();
     const isAdminOrHr = ["admin", "hr", "director"].includes(userRole);
 
-    if (status === "Approved" || status === "Rejected") {
+    if (status === "Approved" || status === "Reserved" || status === "Rejected") {
       // Must be HR/Admin to approve or reject
       if (!isAdminOrHr) {
         return res.status(403).json({ message: "Only HR/Admin can approve or reject bookings." });
       }
-      booking.status = status;
+      booking.status = (status === "Approved") ? "Reserved" : status;
       if (adminComments) booking.adminComments = adminComments;
     } else if (status === "Cancelled") {
       // Creator or Admin can cancel
