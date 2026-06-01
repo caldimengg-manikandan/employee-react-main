@@ -2200,8 +2200,8 @@ confirmation of employment will be communicated in writing.
                 <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
                     <strong>8. Service Commitment (Bond)</strong>
                     <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
-                        <li>The Employee undertakes to serve the Company for a minimum period of 2 years from the date of joining.</li>
-                        <li>If the Employee voluntarily resigns or is terminated for cause before completion of 2 years, the Employee agrees to pay the Company a penalty of ₹1,00,000 (Rupees One Lakh only) as per Company policy.</li>
+                        <li>The Employee undertakes to serve the Company for a minimum period of 18 months from the date of joining.</li>
+                        <li>If the Employee voluntarily resigns or is terminated for cause before completion of 18 months, the Employee agrees to pay the Company a penalty of ₹50,000 (Rupees Fifty Thousand only) as per Company policy.</li>
                         <li>This penalty covers training, onboarding, and other investments made by the Company.</li>
                     </ul>
                 </div>
