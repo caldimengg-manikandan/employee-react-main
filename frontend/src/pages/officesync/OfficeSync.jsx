@@ -668,9 +668,9 @@ export default function OfficeSync() {
                                 );
                               })()}
                               <div className={`flex items-center gap-4 text-xs mt-3 text-slate-650 font-bold ${b.isLunchBreak ? "justify-center" : ""}`}>
-                                <div className="flex items-center gap-1 text-indigo-600">
+                                <div className="flex items-center gap-1 text-indigo-650">
                                   <Clock size={12} />
-                                  <span>{b.startTime} - {b.endTime}</span>
+                                  <span>{formatTime(b.startTime)} - {formatTime(b.endTime)}</span>
                                 </div>
                                 {!b.isLunchBreak && (
                                   <div className="flex items-center gap-1 text-purple-650">
@@ -754,7 +754,7 @@ export default function OfficeSync() {
                               }`}
                           >
                             <span className="font-extrabold truncate">{b.title}</span>
-                            <span className="mt-1 font-bold opacity-80">{b.startTime} - {b.endTime}</span>
+                            <span className="mt-1 font-bold opacity-80">{formatTime(b.startTime)} - {formatTime(b.endTime)}</span>
                             {(() => {
                               const todayStr = getLocalDateString(nowClock);
                               const isFinished = b.date < todayStr || (b.date === todayStr && (nowClock.getHours() * 60 + nowClock.getMinutes()) >= timeToMin(b.endTime));
@@ -856,6 +856,7 @@ export default function OfficeSync() {
               <li>Only TLs and Managers can schedule meeting slots.</li>
               <li>No manual approval required; slots are booked instantly.</li>
               <li>Overlap checking blocks scheduling conflicts automatically.</li>
+              <li>Time entries in 12-hour format (e.g., 02:30) are automatically converted to PM.</li>
             </ul>
           </div>
 
