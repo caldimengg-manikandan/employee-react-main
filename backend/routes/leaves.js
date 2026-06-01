@@ -526,7 +526,7 @@ router.get('/balance', auth, async (req, res) => {
         ['casual', 'sick', 'privilege'].forEach(type => {
           const systemType = type === 'casual' ? 'casual' : type === 'sick' ? 'sick' : 'privilege';
           balances[type].used = systemCalc.balances[systemType].used;
-          balances[type].balance = (balances[type].allocated || 0) - (balances[type].used || 0) - (balances[type].expired || 0);
+          balances[type].balance = (balances[type].allocated || 0) - (balances[type].used || 0);
         });
 
         const totalBalance = (balances.casual.balance || 0) + (balances.sick.balance || 0) + (balances.privilege.balance || 0);
@@ -900,10 +900,9 @@ router.get('/my-balance', auth, async (req, res) => {
             }
 
             const used = Number(systemCalc.balances[type]?.used) || 0;
-            const expired = Number(mergedBalances[type].expired || 0);
             mergedBalances[type].allocated = allocated;
             mergedBalances[type].used = used;
-            mergedBalances[type].balance = allocated - used - expired;
+            mergedBalances[type].balance = allocated - used;
           }
         });
 
