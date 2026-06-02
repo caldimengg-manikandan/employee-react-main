@@ -31,6 +31,8 @@ import { getAbsoluteSignatureUrl } from "../../utils/signatureUtils";
 const AwardLetterContent = ({ selectedRecord, id = "award-letter-p1" }) => {
   if (!selectedRecord) return null;
   const sigUrl = getAbsoluteSignatureUrl(selectedRecord.location || '');
+  const fy = selectedRecord.financialYear || "2025-26";
+  const payoutYear = fy.includes("-") ? `20${fy.split("-")[1]}` : "2026";
   return (
     <div
       id={id}
@@ -71,7 +73,7 @@ const AwardLetterContent = ({ selectedRecord, id = "award-letter-p1" }) => {
                 Arcot Road, Valasaravakkam,<br />
                 Chennai - 600 087.
               </span>
-              <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justify: 'center', marginLeft: '12px', marginTop: '4px', flexShrink: 0 }}>
+              <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '12px', marginTop: '4px', flexShrink: 0 }}>
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
@@ -83,16 +85,16 @@ const AwardLetterContent = ({ selectedRecord, id = "award-letter-p1" }) => {
       </div>
 
       {/* Content Container */}
-      <div style={{ padding: "48px", display: "flex", flexDirection: "column", flexGrow: 1 }}>
-        <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "24px", marginBottom: "30px", textDecoration: "underline", letterSpacing: "1px" }}>
+      <div style={{ padding: "30px 48px", display: "flex", flexDirection: "column", flexGrow: 1 }}>
+        <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "20px", marginBottom: "15px", textDecoration: "underline", letterSpacing: "1px" }}>
           PERFORMANCE PAY AWARD LETTER
         </div>
 
-        <div style={{ textAlign: "right", marginBottom: "25px", fontSize: "12pt", color: "#374151" }}>
+        <div style={{ textAlign: "right", marginBottom: "15px", fontSize: "11pt", color: "#374151" }}>
           Date: {selectedRecord.letterGeneratedDate ? new Date(selectedRecord.letterGeneratedDate).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}
         </div>
 
-        <div style={{ marginBottom: "25px", fontSize: "12pt", lineHeight: "1.5", color: "#1f2937" }}>
+        <div style={{ marginBottom: "15px", fontSize: "11pt", lineHeight: "1.4", color: "#1f2937" }}>
           <strong>To,</strong><br />
           <strong>{selectedRecord.employeeName}</strong><br />
           <span>Employee ID: {selectedRecord.employeeId}</span><br />
@@ -100,17 +102,36 @@ const AwardLetterContent = ({ selectedRecord, id = "award-letter-p1" }) => {
           <span>Department: {selectedRecord.department}</span>
         </div>
 
-        <div style={{ marginBottom: "25px", fontSize: "12pt", lineHeight: "1.6", color: "#374151", textAlign: "justify" }}>
+        <div style={{ marginBottom: "15px", fontSize: "10.5pt", lineHeight: "1.5", color: "#374151", textAlign: "justify" }}>
           Dear {selectedRecord.employeeName},<br /><br />
-          We are pleased to inform you that you have been awarded a one-time Performance Pay of <strong>₹{selectedRecord.performancePayAmount.toLocaleString("en-IN")}</strong> based on your contribution and performance during FY <strong>{selectedRecord.financialYear}</strong>.
-          <br /><br />
-          This award is in appreciation of your specific achievements under the category of <strong>{selectedRecord.reason}</strong>. We appreciate your dedication, hard work, and valuable contributions to Caldim Engineering Private Limited.
+          We are pleased to inform you that you have been awarded a one-time Performance Pay of <strong>₹{selectedRecord.performancePayAmount.toLocaleString("en-IN")}</strong> based on your contribution and performance during FY <strong>{fy}</strong>.<br /><br />
+          CALDIM Performance (Overall) for the FY <strong>{fy}</strong> is <strong>105%</strong> against the peak target of <strong>150%</strong>.<br /><br />
+          This amount will be credited in the month of August {payoutYear} provided you are in the company payroll.<br />
+          As this information is confidential, we expect you to refrain from sharing the same with your colleagues. If we found any disclosure of the Performance pay to others, it will lead to the revoking of the Performance pay from an individual who disclosed.<br /><br />
+          I take this opportunity to thank you for the contribution made by you during the last financial year and wish you a success for the year ahead.<br /><br />
+          We look forward to your continued dedication and commitment to the organization.
         </div>
 
-        <div style={{ marginBottom: "35px", fontSize: "12pt", lineHeight: "1.6", color: "#374151" }}>
-          We look forward to your continued commitment and excellence in the projects ahead.
-          <br /><br />
-          Best wishes,
+        <div style={{ marginBottom: "15px", fontSize: "8.5pt", lineHeight: "1.35", color: "#4b5563" }}>
+          <strong>Notes:</strong>
+          <div style={{ marginTop: "4px" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "4px" }}>
+              <span style={{ minWidth: "15px", fontWeight: "bold" }}>1.</span>
+              <span style={{ flex: 1, textAlign: "justify" }}>Your Performance Pay will be subject to applicable statutory deductions, including Tax Deducted at Source (TDS) under the Income Tax Act, 1961, as amended from time to time, and any other statutory obligations.</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "4px" }}>
+              <span style={{ minWidth: "15px", fontWeight: "bold" }}>2.</span>
+              <span style={{ flex: 1, textAlign: "justify" }}>Employees must be on the Company's active payroll on the date of payment to be eligible for receiving the Performance Pay.</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "4px" }}>
+              <span style={{ minWidth: "15px", fontWeight: "bold" }}>3.</span>
+              <span style={{ flex: 1, textAlign: "justify" }}>This Performance Pay is a one-time discretionary reward and does not guarantee similar payments in future years. Also, this shall not be considered as part of your fixed salary, future compensation, or any contractual entitlement.</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "4px" }}>
+              <span style={{ minWidth: "15px", fontWeight: "bold" }}>4.</span>
+              <span style={{ flex: 1, textAlign: "justify" }}>The Company reserves the right to revise, withhold, or recover the payment in case of any violations against Company Policies.</span>
+            </div>
+          </div>
         </div>
 
         {/* Signatures — location-based signature image only */}
@@ -158,10 +179,7 @@ const AwardLetterContent = ({ selectedRecord, id = "award-letter-p1" }) => {
 };
 
 const getCurrentFinancialYearShort = () => {
-  const now = new Date();
-  const yearStart = now.getMonth() >= 3 ? now.getFullYear() : now.getFullYear() - 1;
-  const yearEnd = String(yearStart + 1).slice(2);
-  return `${yearStart}-${yearEnd}`;
+  return "2025-26";
 };
 
 const getFinancialYearOptions = () => {
@@ -777,7 +795,7 @@ const PerformancePay = () => {
                     <th className="px-6 py-2.5 text-right text-emerald-700 text-sm font-black tabular-nums bg-emerald-100/50 shadow-sm border-x border-emerald-200/30">
                       ₹{totals.performancePayAmount.toLocaleString("en-IN")}
                     </th>
-                    <th colSpan={5} className="bg-indigo-50"></th>
+                    <th colSpan={4} className="bg-indigo-50"></th>
                   </tr>
                   <tr>
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">S.No</th>
@@ -789,7 +807,6 @@ const PerformancePay = () => {
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">FY</th>
                     <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">Current Salary</th>
                     <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">PP Amount</th>
-                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">Reason</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Status</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Letter Gen Date</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Actions</th>
@@ -808,7 +825,6 @@ const PerformancePay = () => {
                         <td className="px-6 py-4 whitespace-nowrap font-medium">{row.financialYear}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-gray-600">₹{row.currentSalary.toLocaleString("en-IN")}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-[#262760]">₹{row.performancePayAmount.toLocaleString("en-IN")}</td>
-                        <td className="px-6 py-4 whitespace-nowrap"><span className="px-2.5 py-0.5 rounded-full text-xs bg-indigo-50 text-indigo-700 font-medium">{row.reason}</span></td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className={`px-2.5 py-1 text-xs rounded-full font-bold ${
                             row.status === "DRAFT" ? "bg-gray-100 text-gray-700" : "bg-blue-100 text-blue-800"
@@ -1016,18 +1032,7 @@ const PerformancePay = () => {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Reason Dropdown *</label>
-                  <select
-                    value={formData.reason}
-                    onChange={(e) => setFormData(p => ({ ...p, reason: e.target.value }))}
-                    className="w-full border-gray-305 rounded-lg text-sm focus:ring-[#262760]"
-                  >
-                    {reasons.map(resOption => (
-                      <option key={resOption} value={resOption}>{resOption}</option>
-                    ))}
-                  </select>
-                </div>
+
 
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1">Letter Generate Date</label>
