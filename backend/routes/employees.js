@@ -8,6 +8,117 @@ const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Team = require('../models/Team');
 
+const syncCompensationToEmployeeAndPayroll = async (emp) => {
+  try {
+    const Compensation = require("../models/Compensation");
+    const Payroll = require("../models/Payroll");
+    
+    // Find latest compensation by employeeId or by name
+    let comp = await Compensation.findOne({ 
+      $or: [
+        { employeeId: emp.employeeId },
+        { name: { $regex: new RegExp(`^${emp.name}$`, "i") } }
+      ]
+    }).sort({ createdAt: -1 });
+
+    if (comp) {
+      // Update employeeId in compensation if empty
+      if (!comp.employeeId) {
+        comp.employeeId = emp.employeeId;
+        await comp.save();
+      }
+
+      // Build payroll data and save
+      const basicDA = Number(comp.basicDA) || 0;
+      const hra = Number(comp.hra) || 0;
+      const specialAllowance = Number(comp.specialAllowance) || 0;
+      let calculatedEmployeePF = 1800;
+      let calculatedEmployerPF = 1950;
+      if (basicDA > 0) {
+        if (basicDA < 15000) {
+          calculatedEmployeePF = Math.round(basicDA * 0.12);
+          calculatedEmployerPF = Math.round(basicDA * 0.13) + 150;
+        } else {
+          calculatedEmployeePF = 1800;
+          calculatedEmployerPF = 1950;
+        }
+      }
+      const employeePF = calculatedEmployeePF;
+      const employerPF = calculatedEmployerPF;
+      const esi = Number(comp.esi) || 0;
+      const tax = Number(comp.tax) || 0;
+      const professionalTax = Number(comp.professionalTax) || 0;
+      const gratuity = Number(comp.gratuity) || 0;
+      const volunteerPF = Number(comp.volunteerPF) || 0;
+
+      const reconstructedGross = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
+      const totalEarnings = Math.round(reconstructedGross);
+      const totalDeductions = employeePF + employerPF + esi + tax + professionalTax + volunteerPF;
+      const netSalary = (basicDA + hra + specialAllowance) - tax - professionalTax - volunteerPF;
+      const ctc = Math.round(reconstructedGross + gratuity);
+
+      const payrollData = {
+        employeeId: emp.employeeId,
+        employeeName: emp.name || emp.employeename,
+        designation: comp.designation,
+        department: comp.department,
+        location: comp.location || emp.location || 'Chennai',
+        dateOfJoining: comp.effectiveDate || emp.dateOfJoining,
+        employmentType: "Permanent",
+        basicDA,
+        hra,
+        specialAllowance,
+        employeePfContribution: employeePF,
+        employerPfContribution: employerPF,
+        esi,
+        tax,
+        professionalTax,
+        gratuity,
+        volunteerPF,
+        totalEarnings,
+        totalDeductions,
+        netSalary,
+        ctc,
+        status: "Pending"
+      };
+
+      // Upsert to Payroll
+      await Payroll.findOneAndUpdate(
+        { employeeId: { $regex: new RegExp(`^${emp.employeeId}$`, 'i') } },
+        { $set: payrollData },
+        { upsert: true, new: true }
+      );
+
+      // Update Employee with salary details
+      const Employee = require("../models/Employee");
+      await Employee.findByIdAndUpdate(
+        emp._id,
+        {
+          $set: {
+            dateOfJoining: payrollData.dateOfJoining,
+            basicDA: payrollData.basicDA,
+            hra: payrollData.hra,
+            specialAllowance: payrollData.specialAllowance,
+            employeePfContribution: payrollData.employeePfContribution,
+            employerPfContribution: payrollData.employerPfContribution,
+            esi: payrollData.esi,
+            tax: payrollData.tax,
+            professionalTax: payrollData.professionalTax,
+            gratuity: payrollData.gratuity,
+            volunteerPF: payrollData.volunteerPF,
+            totalEarnings: payrollData.totalEarnings,
+            totalDeductions: payrollData.totalDeductions,
+            netSalary: payrollData.netSalary,
+            ctc: payrollData.ctc
+          }
+        }
+      );
+    }
+  } catch (syncErr) {
+    console.error("Error auto-syncing compensation to employee:", syncErr);
+  }
+};
+
 // Helper to get team assignments (duplicated from admintimesheetRoutes to maintain consistency)
 async function getTeamManagementAssignmentSets(userEmployeeId) {
   const teams = await Team.find({ teamCode: { $regex: /^TEAM-/i } })
@@ -259,6 +370,10 @@ router.post('/', auth, async (req, res) => {
 
     const employee = new Employee(data);
     const savedEmployee = await employee.save();
+    
+    // Auto-sync compensation if name matches
+    await syncCompensationToEmployeeAndPayroll(savedEmployee);
+
     res.status(201).json(savedEmployee);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -427,6 +542,10 @@ router.put('/:id', auth, async (req, res) => {
       data,
       { new: true, runValidators: true }
     );
+
+    if (employee) {
+      await syncCompensationToEmployeeAndPayroll(employee);
+    }
 
     if (employee) {
       const oldDesignation = String(oldEmployee.designation || oldEmployee.position || oldEmployee.role || '').trim();

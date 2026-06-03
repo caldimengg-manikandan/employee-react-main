@@ -72,7 +72,7 @@ const buildPayrollData = (comp, employee) => {
 // Helper: Find employee by ID or name
 const findEmployee = async (employeeId, employeeName) => {
   if (employeeId) {
-    const emp = await Employee.findOne({ employeeId });
+    const emp = await Employee.findOne({ employeeId: { $regex: new RegExp(`^${employeeId}$`, "i") } });
     if (emp) return emp;
   }
   if (employeeName) {
@@ -110,11 +110,29 @@ router.post("/", async (req, res) => {
         { upsert: true, new: true }
       );
 
-      // Sync dateOfJoining back to Employee if effectiveDate is set
+      // Sync dateOfJoining and salary details back to Employee if effectiveDate is set
       if (compensation.effectiveDate) {
         await Employee.findOneAndUpdate(
           { employeeId: employee.employeeId },
-          { $set: { dateOfJoining: compensation.effectiveDate } }
+          {
+            $set: {
+              dateOfJoining: compensation.effectiveDate,
+              basicDA: payrollData.basicDA,
+              hra: payrollData.hra,
+              specialAllowance: payrollData.specialAllowance,
+              employeePfContribution: payrollData.employeePfContribution,
+              employerPfContribution: payrollData.employerPfContribution,
+              esi: payrollData.esi,
+              tax: payrollData.tax,
+              professionalTax: payrollData.professionalTax,
+              gratuity: payrollData.gratuity,
+              volunteerPF: payrollData.volunteerPF,
+              totalEarnings: payrollData.totalEarnings,
+              totalDeductions: payrollData.totalDeductions,
+              netSalary: payrollData.netSalary,
+              ctc: payrollData.ctc
+            }
+          }
         );
       }
     }
@@ -170,11 +188,29 @@ router.put("/:id", async (req, res) => {
         { upsert: true, new: true }
       );
 
-      // Sync dateOfJoining back to Employee if effectiveDate is set
+      // Sync dateOfJoining and salary details back to Employee if effectiveDate is set
       if (updated.effectiveDate) {
         await Employee.findOneAndUpdate(
           { employeeId: employee.employeeId },
-          { $set: { dateOfJoining: updated.effectiveDate } }
+          {
+            $set: {
+              dateOfJoining: updated.effectiveDate,
+              basicDA: payrollData.basicDA,
+              hra: payrollData.hra,
+              specialAllowance: payrollData.specialAllowance,
+              employeePfContribution: payrollData.employeePfContribution,
+              employerPfContribution: payrollData.employerPfContribution,
+              esi: payrollData.esi,
+              tax: payrollData.tax,
+              professionalTax: payrollData.professionalTax,
+              gratuity: payrollData.gratuity,
+              volunteerPF: payrollData.volunteerPF,
+              totalEarnings: payrollData.totalEarnings,
+              totalDeductions: payrollData.totalDeductions,
+              netSalary: payrollData.netSalary,
+              ctc: payrollData.ctc
+            }
+          }
         );
       }
     }
