@@ -313,18 +313,20 @@ const PerformancePay = () => {
 
   // Filters logic
   const filteredRecords = useMemo(() => {
-    return records.filter(item => {
-      const matchYear = filters.financialYear === "All" || item.financialYear === filters.financialYear;
-      const matchDept = filters.department === "All" || item.department === filters.department;
-      const matchLoc = filters.location === "All" || item.location === filters.location;
-      const matchStatus = filters.status === "All" || 
-        (filters.status === "DRAFT" ? item.status === "DRAFT" : item.status !== "DRAFT");
-      const name = (item.employeeName || "").toLowerCase();
-      const empId = (item.employeeId || "").toLowerCase();
-      const term = searchTerm.toLowerCase();
-      const matchSearch = name.includes(term) || empId.includes(term);
-      return matchYear && matchDept && matchLoc && matchStatus && matchSearch;
-    });
+    return records
+      .filter(item => {
+        const matchYear = filters.financialYear === "All" || item.financialYear === filters.financialYear;
+        const matchDept = filters.department === "All" || item.department === filters.department;
+        const matchLoc = filters.location === "All" || item.location === filters.location;
+        const matchStatus = filters.status === "All" || 
+          (filters.status === "DRAFT" ? item.status === "DRAFT" : item.status !== "DRAFT");
+        const name = (item.employeeName || "").toLowerCase();
+        const empId = (item.employeeId || "").toLowerCase();
+        const term = searchTerm.toLowerCase();
+        const matchSearch = name.includes(term) || empId.includes(term);
+        return matchYear && matchDept && matchLoc && matchStatus && matchSearch;
+      })
+      .sort((a, b) => (a.employeeName || "").localeCompare(b.employeeName || ""));
   }, [records, filters, searchTerm]);
 
   // Table Totals
@@ -548,7 +550,7 @@ const PerformancePay = () => {
     doc.text(`INR ${totals.performancePayAmount.toLocaleString("en-IN")}`, 18, 36);
 
     const headers = [
-      ["S.No", "Emp ID", "Name", "Dept", "Location", "FY", "Salary", "PP Amount", "Reason", "Status"]
+      ["S.No", "Emp ID", "Name", "Dept", "Location", "FY", "Salary", "PP Amount", "Status"]
     ];
 
     const data = filteredRecords.map((r, i) => [
@@ -560,7 +562,6 @@ const PerformancePay = () => {
       r.financialYear,
       r.currentSalary.toLocaleString(),
       r.performancePayAmount.toLocaleString(),
-      r.reason,
       r.status === "DRAFT" ? "DRAFT" : "APPROVED"
     ]);
 
@@ -577,7 +578,6 @@ const PerformancePay = () => {
           "",
           totals.currentSalary.toLocaleString("en-IN"),
           totals.performancePayAmount.toLocaleString("en-IN"),
-          "",
           ""
         ]
       ],
