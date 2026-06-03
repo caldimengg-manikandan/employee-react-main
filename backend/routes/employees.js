@@ -39,7 +39,7 @@ router.get('/', auth, async (req, res) => {
   try {
     const { status } = req.query;
     let query = {};
-    
+
     // Default to Active if no status provided and not requesting 'all'
     if (status && status !== 'all') {
       query.status = status;
@@ -135,15 +135,15 @@ router.get('/timesheet/employees', auth, async (req, res) => {
     if (isAdmin) {
       // Admin sees all Active employees
     } else if (isPM) {
-       if (myAssignedMemberIds.length === 0) {
-          return res.json([]); 
-       }
-       query.employeeId = { $in: myAssignedMemberIds };
+      if (myAssignedMemberIds.length === 0) {
+        return res.json([]);
+      }
+      query.employeeId = { $in: myAssignedMemberIds };
     } else {
-       // Reporting Manager (unassigned employees)
-       if (allAssignedMemberIds.length > 0) {
-         query.employeeId = { $nin: allAssignedMemberIds };
-       }
+      // Reporting Manager (unassigned employees)
+      if (allAssignedMemberIds.length > 0) {
+        query.employeeId = { $nin: allAssignedMemberIds };
+      }
     }
 
     // Return only basic employee info needed for timesheets
@@ -158,7 +158,7 @@ router.get('/timesheet/employees', auth, async (req, res) => {
       'location': 1,
       '_id': 1
     }).sort({ name: 1 });
-    
+
     res.json(employees);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -476,22 +476,22 @@ router.put('/:id', auth, async (req, res) => {
     const empIdChanged = data.employeeId && data.employeeId !== oldEmployee.employeeId;
 
     if (emailChanged || empIdChanged) {
-       // Try to find user by OLD employeeId first
-       let user = await User.findOne({ employeeId: oldEmployee.employeeId });
-       
-       // If not found by employeeId, try by OLD email
-       if (!user) {
-         user = await User.findOne({ email: oldEmployee.email });
-       }
+      // Try to find user by OLD employeeId first
+      let user = await User.findOne({ employeeId: oldEmployee.employeeId });
 
-       if (user) {
-         if (emailChanged) user.email = data.email;
-         if (empIdChanged) user.employeeId = data.employeeId;
-         // Ensure link
-         if (!user.employeeId) user.employeeId = data.employeeId || oldEmployee.employeeId;
-         
-         await user.save();
-       }
+      // If not found by employeeId, try by OLD email
+      if (!user) {
+        user = await User.findOne({ email: oldEmployee.email });
+      }
+
+      if (user) {
+        if (emailChanged) user.email = data.email;
+        if (empIdChanged) user.employeeId = data.employeeId;
+        // Ensure link
+        if (!user.employeeId) user.employeeId = data.employeeId || oldEmployee.employeeId;
+
+        await user.save();
+      }
     }
 
     res.json(employee);

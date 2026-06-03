@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Download, Check, X, Mail, Filter, Edit } from 'lucide-react';
-import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI, mailAPI, performancePayAPI } from '../../services/api';
+import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI, mailAPI, performancePayAPI, compensationAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
 
 const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
@@ -330,16 +330,17 @@ export default function MonthlyPayroll() {
 
   useEffect(() => {
     fetchEmployees();
-  }, []);
+  }, [selectedMonth]);
 
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const [empResponse, payrollResponse, loanResponse, ppResponse] = await Promise.all([
+      const [empResponse, payrollResponse, loanResponse, ppResponse, compResponse] = await Promise.all([
         employeeAPI.getAllEmployees(),
         payrollAPI.list(),
         loanAPI.list(),
-        performancePayAPI.getPendingPayroll().catch(() => ({ data: { data: [] } }))
+        performancePayAPI.getPendingPayroll().catch(() => ({ data: { data: [] } })),
+        compensationAPI.getAll().catch(() => ({ data: [] }))
       ]);
       
       const allEmployees = Array.isArray(empResponse.data) ? empResponse.data : [];
@@ -347,11 +348,30 @@ export default function MonthlyPayroll() {
       const payrolls = Array.isArray(payrollResponse.data) ? payrollResponse.data : [];
       const loans = loanResponse.data && loanResponse.data.loans ? loanResponse.data.loans : [];
       const pendingPP = ppResponse.data && ppResponse.data.data ? ppResponse.data.data : [];
+      const compensations = Array.isArray(compResponse.data) ? compResponse.data : [];
+
+      // Calculate end of selected month date to find active compensations
+      const [year, month] = selectedMonth.split('-');
+      const monthEndDate = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
 
       const mapped = employees.map(emp => {
         // Find matching payroll record
         const payrollRec = payrolls.find(p => p.employeeId === emp.employeeId);
         
+        // Find active compensation record based on the selected month's date
+        const empComps = compensations.filter(c => String(c.employeeId || '').toLowerCase() === String(emp.employeeId || '').toLowerCase());
+        let activeComp = null;
+        if (empComps.length > 0) {
+          const validComps = empComps.filter(c => {
+            const effDate = new Date(c.effectiveDate);
+            return !isNaN(effDate.getTime()) && effDate <= monthEndDate;
+          });
+          if (validComps.length > 0) {
+            validComps.sort((a, b) => new Date(b.effectiveDate) - new Date(a.effectiveDate));
+            activeComp = validComps[0];
+          }
+        }
+
         // Sum up pending performance pay
         const empPP = pendingPP
           .filter(p => p.employeeId === emp.employeeId)
@@ -374,27 +394,27 @@ export default function MonthlyPayroll() {
           id: emp._id,
           employeeId: emp.employeeId,
           employeeName: emp.name,
-          designation: emp.designation,
-          department: emp.department || emp.division,
+          designation: activeComp ? activeComp.designation : (emp.designation),
+          department: activeComp ? activeComp.department : (emp.department || emp.division),
           division: emp.division,
-          location: emp.location || emp.address || emp.currentAddress || 'Unknown',
+          location: activeComp ? activeComp.location : (emp.location || emp.address || emp.currentAddress || 'Unknown'),
           dateOfJoining: emp.dateOfJoining,
           
-          // Use payroll record if available, else fallback to employee record
-          totalEarnings: payrollRec ? (payrollRec.totalEarnings || 0) : (emp.totalEarnings || emp.gross || 0),
-          basicDA: payrollRec ? (payrollRec.basicDA || 0) : (emp.basicDA || emp.basic || 0),
-          hra: payrollRec ? (payrollRec.hra || 0) : (emp.hra || 0),
-          specialAllowance: payrollRec ? (payrollRec.specialAllowance || 0) : (emp.specialAllowance || 0),
+          // Use active compensation if available, else payroll record, else fallback to employee record
+          totalEarnings: activeComp ? (activeComp.gross || activeComp.totalEarnings || 0) : (payrollRec ? (payrollRec.totalEarnings || 0) : (emp.totalEarnings || emp.gross || 0)),
+          basicDA: activeComp ? (activeComp.basicDA || 0) : (payrollRec ? (payrollRec.basicDA || 0) : (emp.basicDA || emp.basic || 0)),
+          hra: activeComp ? (activeComp.hra || 0) : (payrollRec ? (payrollRec.hra || 0) : (emp.hra || 0)),
+          specialAllowance: activeComp ? (activeComp.specialAllowance || 0) : (payrollRec ? (payrollRec.specialAllowance || 0) : (emp.specialAllowance || 0)),
           performancePay: empPP,
-          gratuity: payrollRec ? (payrollRec.gratuity || 0) : (emp.gratuity || 0),
+          gratuity: activeComp ? (activeComp.gratuity || 0) : (payrollRec ? (payrollRec.gratuity || 0) : (emp.gratuity || 0)),
           
-          pf: payrollRec ? (payrollRec.pf || 0) : (emp.pf || 0),
-          employeePfContribution: payrollRec ? (payrollRec.employeePfContribution || 0) : (emp.employeePfContribution || 0),
-          employerPfContribution: payrollRec ? (payrollRec.employerPfContribution || 0) : (emp.employerPfContribution || 0),
-          esi: payrollRec ? (payrollRec.esi || 0) : (emp.esi || 0),
-          tax: payrollRec ? (payrollRec.tax || 0) : (emp.tax || 0),
-          professionalTax: payrollRec ? (payrollRec.professionalTax || 0) : (emp.professionalTax || 0),
-          volunteerPF: payrollRec ? (payrollRec.volunteerPF || 0) : (emp.volunteerPF || 0),
+          pf: activeComp ? (activeComp.pf || 0) : (payrollRec ? (payrollRec.pf || 0) : (emp.pf || 0)),
+          employeePfContribution: activeComp ? (activeComp.employeePfContribution || 0) : (payrollRec ? (payrollRec.employeePfContribution || 0) : (emp.employeePfContribution || 0)),
+          employerPfContribution: activeComp ? (activeComp.employerPfContribution || 0) : (payrollRec ? (payrollRec.employerPfContribution || 0) : (emp.employerPfContribution || 0)),
+          esi: activeComp ? (activeComp.esi || 0) : (payrollRec ? (payrollRec.esi || 0) : (emp.esi || 0)),
+          tax: activeComp ? (activeComp.tax || 0) : (payrollRec ? (payrollRec.tax || 0) : (emp.tax || 0)),
+          professionalTax: activeComp ? (activeComp.professionalTax || 0) : (payrollRec ? (payrollRec.professionalTax || 0) : (emp.professionalTax || 0)),
+          volunteerPF: activeComp ? (activeComp.volunteerPF || 0) : (payrollRec ? (payrollRec.volunteerPF || 0) : (emp.volunteerPF || 0)),
           
           // Use calculated loan deduction if the employee has loans in the system, otherwise fallback to static values
           loanDeduction: allEmpLoans.length > 0 ? calculatedLoanDeduction : (payrollRec ? (payrollRec.loanDeduction || 0) : (emp.loanDeduction || 0)),

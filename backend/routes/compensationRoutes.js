@@ -37,10 +37,10 @@ const buildPayrollData = (comp, employee) => {
   const reconstructedGross = basicDA + hra + specialAllowance + employeePF + employerPF + esi;
   const totalEarnings = Math.round(reconstructedGross);
   const totalDeductions = employeePF + employerPF + esi + tax + professionalTax + volunteerPF;
-  
+
   // Net Salary = (Basic + HRA + Special) - Tax - Professional Tax - Volunteer PF
   const netSalary = (basicDA + hra + specialAllowance) - tax - professionalTax - volunteerPF;
-  
+
   const ctc = Math.round(reconstructedGross + gratuity); // CTC = Gross + Gratuity
 
   return {
@@ -153,7 +153,7 @@ router.put("/:id", async (req, res) => {
     // Compensation Master is often used for F&F for exited employees
     const employee = await findEmployee(req.body.employeeId, req.body.name);
 
-    
+
     const updated = await Compensation.findByIdAndUpdate(
       req.params.id,
       req.body,
