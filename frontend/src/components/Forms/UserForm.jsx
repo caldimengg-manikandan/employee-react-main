@@ -196,14 +196,12 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'leave_balance',
       'performance_access',
       'self_appraisal',
-      'performance_pay',
       'exit_form_access',
       'salary_slips',
       'policy_portal',
       'unified_calendar',
       'support_group_access',
       'raise_ticket_access',
-      'asset_management_access',
       'office_sync_access',
     ]
   };
