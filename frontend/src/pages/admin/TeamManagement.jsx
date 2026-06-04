@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { teamAPI, employeeAPI, authAPI } from '../../services/api';
+import Modal from '../../components/Modals/Modal';
 
 
 
@@ -17,6 +18,11 @@ const TeamManagement = () => {
   const [filters, setFilters] = useState({ search: '', division: '' });
   const [empFilters, setEmpFilters] = useState({ location: '', division: '', managerEmpId: '' });
   const [selectedLeaderEmpId, setSelectedLeaderEmpId] = useState('');
+  const [showAddManagerModal, setShowAddManagerModal] = useState(false);
+  const [selectedEmpForManager, setSelectedEmpForManager] = useState('');
+  const [managerPassword, setManagerPassword] = useState('Cde@123456');
+  const [modalError, setModalError] = useState('');
+  const [modalSuccess, setModalSuccess] = useState('');
 
   const loadData = async () => {
     try {
@@ -87,14 +93,16 @@ const TeamManagement = () => {
   const adminPmOptions = Array.from(
     new Map(
       users
-        .filter(u => ['admin', 'projectmanager'].includes(u.role) && u.employeeId)
+        .filter(u => ['projectmanager', 'manager', 'director'].includes(u.role) && u.employeeId)
         .map(u => [u.employeeId, u])
     ).values()
   )
     .map(u => {
       const emp = employeesById[u.employeeId];
       const displayName = emp?.name || u.name || u.employeeId;
-      const roleLabel = u.role === 'admin' ? 'Admin' : 'Reporting Manager';
+      let roleLabel = 'Reporting Manager';
+      if (u.role === 'manager') roleLabel = 'General Manager';
+      if (u.role === 'director') roleLabel = 'Director';
       return { value: u.employeeId, label: `${u.employeeId} - ${displayName} (${roleLabel})` };
     })
     .sort((a, b) => a.label.localeCompare(b.label));
@@ -245,6 +253,103 @@ const TeamManagement = () => {
     }
   };
 
+  const nonManagerEmployees = employees.filter(emp => {
+    return !adminPmOptions.some(opt => opt.value === emp.employeeId);
+  }).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+
+  const handleAddReportingManager = async (e) => {
+    e.preventDefault();
+    if (!selectedEmpForManager) {
+      setModalError('Please select an employee');
+      return;
+    }
+    setLoading(true);
+    setModalError('');
+    setModalSuccess('');
+    try {
+      const emp = employees.find(emp => emp.employeeId === selectedEmpForManager);
+      if (!emp) {
+        setModalError('Employee not found');
+        setLoading(false);
+        return;
+      }
+
+      // Check if user already exists
+      const existingUser = users.find(u => String(u.employeeId || '').toLowerCase() === String(selectedEmpForManager).toLowerCase() || String(u.email || '').toLowerCase() === String(emp.email || '').toLowerCase());
+      
+      if (existingUser) {
+        // User exists, check if they are already admin/projectmanager
+        if (['admin', 'projectmanager', 'manager', 'director'].includes(existingUser.role)) {
+          setModalError(`${emp.name} is already a Reporting Manager, General Manager, Director, or Admin.`);
+          setLoading(false);
+          return;
+        }
+        // Promote user to projectmanager
+        await authAPI.updateUser(existingUser._id, {
+          ...existingUser,
+          role: 'projectmanager'
+        });
+        setModalSuccess(`Successfully updated ${emp.name}'s role to Reporting Manager.`);
+      } else {
+        // Create new user account with role projectmanager
+        if (!emp.email) {
+          setModalError('Selected employee does not have an email address. Cannot create user account.');
+          setLoading(false);
+          return;
+        }
+        await authAPI.createUser({
+          name: emp.name,
+          email: emp.email,
+          password: managerPassword,
+          role: 'projectmanager',
+          employeeId: emp.employeeId,
+          permissions: ['timesheet_access', 'attendance_approval', 'leave_access', 'team_access']
+        });
+        setModalSuccess(`Successfully created user account for ${emp.name} as Reporting Manager.`);
+      }
+      
+      // Reload lists
+      await loadData();
+      
+      // Keep modal open briefly then close
+      setTimeout(() => {
+        setShowAddManagerModal(false);
+        setModalSuccess('');
+        setSelectedEmpForManager('');
+      }, 1500);
+      
+    } catch (err) {
+      setModalError(err.response?.data?.message || 'Failed to add Reporting Manager');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRemoveReportingManagerRole = async (userId) => {
+    const userObj = users.find(u => u._id === userId);
+    if (!userObj) return;
+    
+    if (!window.confirm(`Are you sure you want to remove the Reporting Manager role from ${userObj.name}? They will be reverted to a normal Employee role.`)) {
+      return;
+    }
+    
+    setLoading(true);
+    setModalError('');
+    setModalSuccess('');
+    try {
+      await authAPI.updateUser(userId, {
+        ...userObj,
+        role: 'employees'
+      });
+      setModalSuccess(`Successfully removed Reporting Manager role from ${userObj.name}.`);
+      await loadData();
+    } catch (err) {
+      setModalError(err.response?.data?.message || 'Failed to remove Reporting Manager role');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-6 w-full">
 
@@ -352,8 +457,8 @@ const TeamManagement = () => {
                 className="w-full border rounded px-3 py-2"
               >
                 <option value="">All Reporting Managers</option>
-                {leaders.map(l => (
-                  <option key={l._id} value={l.employeeId}>{l.employeeId} - {l.name}</option>
+                {adminPmOptions.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
                 ))}
               </select>
             </div>
@@ -367,7 +472,24 @@ const TeamManagement = () => {
                         <th className="px-4 py-2 text-left text-m font-medium text-white uppercase bg-[#262760]">Employee Name</th>
                         <th className="px-4 py-2 text-left text-m font-medium text-white uppercase bg-[#262760]">Division</th>
                         <th className="px-4 py-2 text-left text-m font-medium text-white uppercase bg-[#262760]">Location</th>
-                        <th className="px-4 py-2 text-left text-m font-medium text-white uppercase bg-[#262760]">Reporting Manager</th>
+                        <th className="px-4 py-2 text-left text-m font-medium text-white uppercase bg-[#262760]">
+                          <div className="flex items-center gap-2 justify-between">
+                            <span>Reporting Manager</span>
+                            <button
+                              onClick={() => {
+                                setSelectedEmpForManager('');
+                                setManagerPassword('Cde@123456');
+                                setModalError('');
+                                setModalSuccess('');
+                                setShowAddManagerModal(true);
+                              }}
+                              title="Add/Promote Reporting Manager"
+                              className="bg-green-600 hover:bg-green-700 text-white rounded px-2 py-1 text-xs transition-colors flex items-center justify-center font-bold normal-case"
+                            >
+                              + Add
+                            </button>
+                          </div>
+                        </th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
@@ -383,20 +505,32 @@ const TeamManagement = () => {
                             <td className="px-4 py-2 text-sm text-gray-900">{e.division || '-'}</td>
                             <td className="px-4 py-2 text-sm text-gray-900">{e.location || '-'}</td>
                             <td className="px-4 py-2 text-sm text-gray-900">
-                              <select
-                                className="w-full border rounded px-2 py-1"
-                                value={assignedManagerEmpId}
-                                disabled={loading}
-                                onChange={(ev) => handleAssignManager(e.employeeId, ev.target.value)}
-                              >
-                                <option value="">Unassigned</option>
-                                {assignedManagerEmpId && !hasManagerInOptions && (
-                                  <option value={assignedManagerEmpId}>{getLeaderLabel(assignedManagerEmpId)}</option>
+                              <div className="flex items-center gap-1.5">
+                                <select
+                                  className="w-full border rounded px-2 py-1"
+                                  value={assignedManagerEmpId}
+                                  disabled={loading}
+                                  onChange={(ev) => handleAssignManager(e.employeeId, ev.target.value)}
+                                >
+                                  <option value="">Unassigned</option>
+                                  {assignedManagerEmpId && !hasManagerInOptions && (
+                                    <option value={assignedManagerEmpId}>{getLeaderLabel(assignedManagerEmpId)}</option>
+                                  )}
+                                  {adminPmOptions.map(opt => (
+                                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                  ))}
+                                </select>
+                                {assignedManagerEmpId && (
+                                  <button
+                                    onClick={() => handleAssignManager(e.employeeId, "")}
+                                    disabled={loading}
+                                    title="Unassign Reporting Manager"
+                                    className="text-red-500 hover:text-red-700 font-bold p-1 text-sm transition-colors"
+                                  >
+                                    ✕
+                                  </button>
                                 )}
-                                {adminPmOptions.map(opt => (
-                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                                ))}
-                              </select>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -486,6 +620,168 @@ const TeamManagement = () => {
           )}
         </div>
       )}
+      <Modal
+        isOpen={showAddManagerModal}
+        onClose={() => setShowAddManagerModal(false)}
+        title="Add/Promote Reporting Manager"
+      >
+        <form onSubmit={handleAddReportingManager} className="space-y-6 text-gray-700">
+          {modalError && (
+            <div className="flex items-center gap-2 p-3 bg-red-50 border-l-4 border-red-500 rounded text-red-700 text-sm font-medium animate-pulse">
+              <span>⚠️</span>
+              <span>{modalError}</span>
+            </div>
+          )}
+          {modalSuccess && (
+            <div className="flex items-center gap-2 p-3 bg-green-50 border-l-4 border-green-500 rounded text-green-700 text-sm font-medium">
+              <span>🚀</span>
+              <span>{modalSuccess}</span>
+            </div>
+          )}
+          
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Select Employee to Promote</label>
+            <div className="relative">
+              <select
+                value={selectedEmpForManager}
+                onChange={(e) => {
+                  setSelectedEmpForManager(e.target.value);
+                  setModalError('');
+                }}
+                className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-gray-50 text-gray-800 font-medium transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-transparent focus:bg-white shadow-sm"
+                required
+              >
+                <option value="">-- Choose from available employees --</option>
+                {nonManagerEmployees.map(emp => (
+                  <option key={emp._id} value={emp.employeeId}>
+                    {emp.employeeId} - {emp.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {selectedEmpForManager && (() => {
+            const emp = employees.find(e => e.employeeId === selectedEmpForManager);
+            if (!emp) return null;
+            const initials = emp.name ? emp.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2) : 'EM';
+            const userExists = users.some(u => String(u.employeeId || '').toLowerCase() === String(selectedEmpForManager).toLowerCase() || String(u.email || '').toLowerCase() === String(emp?.email || '').toLowerCase());
+            
+            return (
+              <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-xl p-5 shadow-sm space-y-4 transition-all duration-300 transform translate-y-0 scale-100">
+                {/* Employee Profile Header Card */}
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-[#262760] to-[#4c4eaf] text-white flex items-center justify-center font-bold text-lg shadow-md">
+                    {initials}
+                  </div>
+                  <div>
+                    <h4 className="text-base font-bold text-gray-800">{emp.name}</h4>
+                    <p className="text-xs font-semibold text-gray-500">ID: {emp.employeeId}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 text-xs">
+                  <div className="bg-white border rounded-lg p-2.5 shadow-sm">
+                    <span className="block text-gray-400 font-semibold uppercase tracking-wider mb-0.5" style={{ fontSize: '10px' }}>Division</span>
+                    <span className="font-semibold text-gray-700">{emp.division || 'Not Assigned'}</span>
+                  </div>
+                  <div className="bg-white border rounded-lg p-2.5 shadow-sm">
+                    <span className="block text-gray-400 font-semibold uppercase tracking-wider mb-0.5" style={{ fontSize: '10px' }}>Location</span>
+                    <span className="font-semibold text-gray-700">{emp.location || 'Not Assigned'}</span>
+                  </div>
+                </div>
+
+                {userExists ? (
+                  <div className="bg-green-50 border border-green-200 text-green-800 text-xs rounded-xl p-3 flex items-start gap-2.5">
+                    <span className="text-base mt-0.5">✓</span>
+                    <div>
+                      <p className="font-bold">Existing user account found</p>
+                      <p className="text-green-600 mt-0.5">This user's role will be automatically changed to "Reporting Manager" (projectmanager).</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <div className="bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs rounded-xl p-3 flex items-start gap-2.5">
+                      <span className="text-base mt-0.5">✦</span>
+                      <div>
+                        <p className="font-bold">New user account required</p>
+                        <p className="text-indigo-600 mt-0.5">A fresh system user account will be generated for this employee to log in as a Reporting Manager.</p>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Set Initial Password</label>
+                      <input
+                        type="text"
+                        value={managerPassword}
+                        onChange={(e) => setManagerPassword(e.target.value)}
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-white text-gray-800 font-medium transition duration-200 focus:outline-none focus:ring-2 focus:ring-[#262760] focus:border-transparent shadow-sm"
+                        required
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          <div className="pt-4 border-t border-gray-200">
+            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Current Reporting Managers</label>
+            <div className="max-h-40 overflow-y-auto space-y-2 border rounded-lg p-2 bg-gray-50">
+              {users.filter(u => ['projectmanager', 'manager', 'director'].includes(u.role) && u.employeeId).length === 0 ? (
+                <div className="text-gray-400 text-xs py-2 text-center">No reporting managers assigned yet.</div>
+              ) : (
+                users.filter(u => ['projectmanager', 'manager', 'director'].includes(u.role) && u.employeeId).map(m => {
+                  const emp = employeesById[m.employeeId];
+                  let roleLabel = 'Reporting Manager';
+                  if (m.role === 'manager') roleLabel = 'General Manager';
+                  if (m.role === 'director') roleLabel = 'Director';
+                  return (
+                    <div key={m._id} className="flex justify-between items-center bg-white p-2 rounded-md shadow-sm border border-gray-150 text-xs">
+                      <div>
+                        <span className="font-semibold text-gray-700">{m.employeeId}</span> - <span className="text-gray-800">{emp?.name || m.name}</span> <span className="text-gray-400 font-medium">({roleLabel})</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveReportingManagerRole(m._id)}
+                        disabled={loading}
+                        className="text-red-600 hover:text-red-800 hover:bg-red-50 font-semibold px-2 py-1 rounded transition-colors"
+                        title="Remove Reporting Manager Role"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+            <button
+              type="button"
+              onClick={() => setShowAddManagerModal(false)}
+              className="px-5 py-2.5 border border-gray-300 rounded-lg text-gray-700 bg-white font-semibold transition hover:bg-gray-50 shadow-sm"
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2.5 bg-gradient-to-r from-[#262760] to-[#404294] hover:from-[#1f204d] hover:to-[#333575] text-white rounded-lg font-semibold transition shadow-md flex items-center gap-2"
+              disabled={loading || !selectedEmpForManager}
+            >
+              {loading ? (
+                <>
+                  <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-1"></span>
+                  Saving...
+                </>
+              ) : (
+                'Designate as Manager'
+              )}
+            </button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 };
