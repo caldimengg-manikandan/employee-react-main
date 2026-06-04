@@ -43,6 +43,34 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     const da = String(date.getDate()).padStart(2, '0');
     return `${y}-${m}-${da}`;
   };
+
+  const toDisplayDate = (d) => {
+    if (!d) return '';
+    const date = new Date(d);
+    if (isNaN(date.getTime())) {
+      const s = String(d);
+      const p = s.split('T')[0];
+      const m = p.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+      const m2 = p.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+      if (m2) return p;
+      return '';
+    }
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const da = String(date.getDate()).padStart(2, '0');
+    return `${da}-${m}-${y}`;
+  };
+
+  const toDbDate = (d) => {
+    if (!d) return '';
+    const s = String(d).trim();
+    const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+    const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m2) return s;
+    return '';
+  };
   const parseAddress = (addr) => {
     if (!addr || typeof addr !== 'string') {
       return { line: '', city: '', state: '', pincode: '' };
@@ -281,7 +309,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     { value: 'O+', label: 'O+' },
     { value: 'O-', label: 'O-' },
     { value: 'AB+', label: 'AB+' },
-    { value: 'AB-', label: 'AB-' }
+    { value: 'AB-', label: 'AB-' },
+    { value: 'A1B+', label: 'A1B+' },
+    { value: 'A1B-', label: 'A1B-' }
   ];
 
   // Division options
@@ -374,8 +404,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         employeeId: employee.employeeId || employee.empId || '',
         name: employee.name || employee.employeename || '',
         employeename: employee.employeename || employee.name || '',
-        dateOfBirth: toInputDate(employee.dateOfBirth || employee.dob) || '',
-        originalDateOfBirth: toInputDate(employee.originalDateOfBirth) || '',
+        dateOfBirth: toDisplayDate(employee.dateOfBirth || employee.dob) || '',
+        originalDateOfBirth: toDisplayDate(employee.originalDateOfBirth) || '',
         qualification: employee.qualification || employee.highestQualification || '',
         highestQualification: employee.highestQualification || employee.qualification || '',
         bloodGroup: employee.bloodGroup || '',
@@ -621,6 +651,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     // Prepare final data
     const finalData = {
       ...formData,
+      dateOfBirth: toDbDate(formData.dateOfBirth),
+      originalDateOfBirth: toDbDate(formData.originalDateOfBirth),
       name: formData.name || formData.employeename,
       employeename: formData.employeename || formData.name,
       qualification: formData.qualification || formData.highestQualification,
@@ -796,37 +828,34 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                   {errors.gender && <p className="text-xs text-red-600 mt-1">{errors.gender}</p>}
                 </div>
 
-                <div>
+                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth <span className="text-red-600">*</span></label>
                   <input
-                    type="date"
+                    type="text"
+                    placeholder="DD-MM-YYYY"
                     value={formData.dateOfBirth}
                     onChange={(e) => {
                       const selectedDate = new Date(e.target.value);
-                      const today = new Date();
-                      const age = today.getFullYear() - selectedDate.getFullYear();
-                      const monthDiff = today.getMonth() - selectedDate.getMonth();
-                      const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < selectedDate.getDate()) ? age - 1 : age;
+                      if (!isNaN(selectedDate.getTime()) && e.target.value.length === 10) {
+                        const today = new Date();
+                        const age = today.getFullYear() - selectedDate.getFullYear();
+                        const monthDiff = today.getMonth() - selectedDate.getMonth();
+                        const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < selectedDate.getDate()) ? age - 1 : age;
 
-                      if (actualAge < 18) {
-                        setErrors(prev => ({ ...prev, dateOfBirth: 'Must be at least 18 years old' }));
+                        if (actualAge < 18) {
+                          setErrors(prev => ({ ...prev, dateOfBirth: 'Must be at least 18 years old' }));
+                        } else {
+                          setErrors(prev => ({ ...prev, dateOfBirth: '' }));
+                        }
                       } else {
-                        setErrors(prev => ({ ...prev, dateOfBirth: '' }));
+                        if (e.target.value.length >= 10) {
+                          setErrors(prev => ({ ...prev, dateOfBirth: 'Invalid Date (Format: DD-MM-YYYY)' }));
+                        } else {
+                          setErrors(prev => ({ ...prev, dateOfBirth: '' }));
+                        }
                       }
                       handleInputChange('dateOfBirth', e.target.value);
                     }}
-                    onKeyDown={(e) => {
-                      // Limit year input to 4 digits
-                      const input = e.target;
-                      const value = input.value;
-                      if (value) {
-                        const yearPart = value.split('-')[0];
-                        if (yearPart && yearPart.length >= 4 && e.key >= '0' && e.key <= '9') {
-                          e.preventDefault();
-                        }
-                      }
-                    }}
-                    max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
                     required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.dateOfBirth ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
                   />
@@ -836,7 +865,8 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Original Date Of Birth</label>
                   <input
-                    type="date"
+                    type="text"
+                    placeholder="DD-MM-YYYY"
                     value={formData.originalDateOfBirth}
                     onChange={(e) => handleInputChange('originalDateOfBirth', e.target.value)}
                     className="w-full px-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors text-sm bg-white"
