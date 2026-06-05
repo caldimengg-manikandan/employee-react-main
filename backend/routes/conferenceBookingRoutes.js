@@ -25,7 +25,7 @@ const checkOverlap = async (date, startTime, endTime, excludeId = null) => {
 // Helper to suggest alternative slots
 const getAlternativeSlots = async (date, requestedDurationMin = 60) => {
   const startHour = 9; // 9:00 AM
-  const endHour = 18;  // 6:00 PM
+  const endHour = 21.0;  // 9:00 PM
   
   // Fetch existing bookings for this day
   const bookings = await ConferenceBooking.find({
@@ -211,9 +211,17 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ message: "Start time must be before end time." });
     }
 
-    // Prevent bookings overlapping with Lunch Break (13:00 - 13:45)
     const startMin = timeToMin(finalStartTime);
     const endMin = timeToMin(finalEndTime);
+    const openingMin = timeToMin("09:00");
+    const closingMin = timeToMin("21:00");
+
+    // Validation: Booking must be within business hours (9:00 AM - 9:00 PM)
+    if (startMin < openingMin || endMin > closingMin) {
+      return res.status(400).json({ message: "Conference room can only be booked during business hours (9:00 AM - 9:00 PM)." });
+    }
+
+    // Prevent bookings overlapping with Lunch Break (13:00 - 13:45)
     const lunchStart = timeToMin("13:00");
     const lunchEnd = timeToMin("13:45");
     if (startMin < lunchEnd && endMin > lunchStart) {

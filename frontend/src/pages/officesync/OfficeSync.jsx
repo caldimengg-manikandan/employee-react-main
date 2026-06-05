@@ -32,6 +32,34 @@ const getLocalDateString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
+const timeSlots = [
+  { value: "09:00", label: "09:00 AM" },
+  { value: "09:30", label: "09:30 AM" },
+  { value: "10:00", label: "10:00 AM" },
+  { value: "10:30", label: "10:30 AM" },
+  { value: "11:00", label: "11:00 AM" },
+  { value: "11:30", label: "11:30 AM" },
+  { value: "12:00", label: "12:00 PM" },
+  { value: "12:30", label: "12:30 PM" },
+  { value: "13:00", label: "01:00 PM" },
+  { value: "13:30", label: "01:30 PM" },
+  { value: "14:00", label: "02:00 PM" },
+  { value: "14:30", label: "02:30 PM" },
+  { value: "15:00", label: "03:00 PM" },
+  { value: "15:30", label: "03:30 PM" },
+  { value: "16:00", label: "04:00 PM" },
+  { value: "16:30", label: "04:30 PM" },
+  { value: "17:00", label: "05:00 PM" },
+  { value: "17:30", label: "05:30 PM" },
+  { value: "18:00", label: "06:00 PM" },
+  { value: "18:30", label: "06:30 PM" },
+  { value: "19:00", label: "07:00 PM" },
+  { value: "19:30", label: "07:30 PM" },
+  { value: "20:00", label: "08:00 PM" },
+  { value: "20:30", label: "08:30 PM" },
+  { value: "21:00", label: "09:00 PM" }
+];
+
 export default function OfficeSync() {
   const [myEmployee, setMyEmployee] = useState(null);
   const [currentUser, setCurrentUser] = useState(null);
@@ -78,6 +106,124 @@ export default function OfficeSync() {
   const [adminComments, setAdminComments] = useState("");
   const [approvalModalOpen, setApprovalModalOpen] = useState(false);
   const [actionType, setActionType] = useState(""); // Approve or Reject
+
+  const getBookingStartTimeSlots = () => {
+    const todayStr = getLocalDateString(nowClock);
+    if (newBooking.date === todayStr) {
+      const currentMin = nowClock.getHours() * 60 + nowClock.getMinutes();
+      return timeSlots.slice(0, -1).filter(slot => {
+        const [h, m] = slot.value.split(":").map(Number);
+        return (h * 60 + m) >= currentMin;
+      });
+    }
+    return timeSlots.slice(0, -1);
+  };
+
+  const getBookingEndTimeSlots = () => {
+    const startMin = timeToMin(newBooking.startTime);
+    return timeSlots.slice(1).filter(slot => {
+      const [h, m] = slot.value.split(":").map(Number);
+      return (h * 60 + m) > startMin;
+    });
+  };
+
+  const getBlockStartTimeSlots = () => {
+    const todayStr = getLocalDateString(nowClock);
+    if (blockData.date === todayStr) {
+      const currentMin = nowClock.getHours() * 60 + nowClock.getMinutes();
+      return timeSlots.slice(0, -1).filter(slot => {
+        const [h, m] = slot.value.split(":").map(Number);
+        return (h * 60 + m) >= currentMin;
+      });
+    }
+    return timeSlots.slice(0, -1);
+  };
+
+  const getBlockEndTimeSlots = () => {
+    const startMin = timeToMin(blockData.startTime);
+    return timeSlots.slice(1).filter(slot => {
+      const [h, m] = slot.value.split(":").map(Number);
+      return (h * 60 + m) > startMin;
+    });
+  };
+
+  // Automatically adjust selected start time if date is today and start time has passed
+  useEffect(() => {
+    const todayStr = getLocalDateString(nowClock);
+    if (newBooking.date === todayStr) {
+      const currentMin = nowClock.getHours() * 60 + nowClock.getMinutes();
+      const validSlots = timeSlots.slice(0, -1).filter(slot => {
+        const [h, m] = slot.value.split(":").map(Number);
+        return (h * 60 + m) >= currentMin;
+      });
+      if (validSlots.length > 0) {
+        const isCurrentValValid = validSlots.some(s => s.value === newBooking.startTime);
+        if (!isCurrentValValid) {
+          const nextStart = validSlots[0].value;
+          const [sh, sm] = nextStart.split(":").map(Number);
+          const nextEndMin = sh * 60 + sm + 60;
+          const nextEnd = nextEndMin <= 1260 ? minToTime(nextEndMin) : "21:00";
+          setNewBooking(prev => ({
+            ...prev,
+            startTime: nextStart,
+            endTime: nextEnd
+          }));
+        }
+      }
+    }
+  }, [newBooking.date, nowClock]);
+
+  useEffect(() => {
+    const todayStr = getLocalDateString(nowClock);
+    if (blockData.date === todayStr) {
+      const currentMin = nowClock.getHours() * 60 + nowClock.getMinutes();
+      const validSlots = timeSlots.slice(0, -1).filter(slot => {
+        const [h, m] = slot.value.split(":").map(Number);
+        return (h * 60 + m) >= currentMin;
+      });
+      if (validSlots.length > 0) {
+        const isCurrentValValid = validSlots.some(s => s.value === blockData.startTime);
+        if (!isCurrentValValid) {
+          const nextStart = validSlots[0].value;
+          const [sh, sm] = nextStart.split(":").map(Number);
+          const nextEndMin = sh * 60 + sm + 60;
+          const nextEnd = nextEndMin <= 1260 ? minToTime(nextEndMin) : "21:00";
+          setBlockData(prev => ({
+            ...prev,
+            startTime: nextStart,
+            endTime: nextEnd
+          }));
+        }
+      }
+    }
+  }, [blockData.date, nowClock]);
+
+  // Automatically adjust end time if it becomes less than or equal to start time
+  useEffect(() => {
+    const startMin = timeToMin(newBooking.startTime);
+    const endMin = timeToMin(newBooking.endTime);
+    if (endMin <= startMin) {
+      const nextEndMin = startMin + 60;
+      const nextEnd = nextEndMin <= 1260 ? minToTime(nextEndMin) : "21:00";
+      setNewBooking(prev => ({
+        ...prev,
+        endTime: nextEnd
+      }));
+    }
+  }, [newBooking.startTime]);
+
+  useEffect(() => {
+    const startMin = timeToMin(blockData.startTime);
+    const endMin = timeToMin(blockData.endTime);
+    if (endMin <= startMin) {
+      const nextEndMin = startMin + 60;
+      const nextEnd = nextEndMin <= 1260 ? minToTime(nextEndMin) : "21:00";
+      setBlockData(prev => ({
+        ...prev,
+        endTime: nextEnd
+      }));
+    }
+  }, [blockData.startTime]);
 
   // Load user profile & verification
   useEffect(() => {
@@ -285,6 +431,22 @@ export default function OfficeSync() {
     e.preventDefault();
     setConflictError(null);
     setAlternativeSlots([]);
+
+    const startMin = timeToMin(newBooking.startTime);
+    const endMin = timeToMin(newBooking.endTime);
+    const openingMin = timeToMin("09:00");
+    const closingMin = timeToMin("21:00");
+
+    if (startMin < openingMin || endMin > closingMin) {
+      alert("Conference room can only be booked during business hours (9:00 AM - 9:00 PM).");
+      return;
+    }
+
+    if (startMin >= endMin) {
+      alert("Start time must be before end time.");
+      return;
+    }
+
     try {
       const res = await conferenceBookingAPI.create(newBooking);
       if (res && res.data) {
@@ -571,8 +733,8 @@ export default function OfficeSync() {
 {/* Render Calendar Day View */}
           {viewMode === "day" && (
             <div className="space-y-4">
-              {Array.from({ length: 10 }).map((_, idx) => {
-                const hour = idx + 9; // 9:00 AM to 6:00 PM
+              {Array.from({ length: 12 }).map((_, idx) => {
+                const hour = idx + 9; // 9:00 AM to 9:00 PM
                 const timeString = `${hour.toString().padStart(2, "0")}:00`;
 
                 // Find bookings active during this hour
@@ -852,7 +1014,7 @@ export default function OfficeSync() {
               <span>Booking Rules</span>
             </h3>
             <ul className="text-xs text-slate-650 space-y-3 list-disc list-inside font-bold leading-relaxed">
-              <li>Open daily from 9:00 AM to 6:00 PM.</li>
+              <li>Open daily from 9:00 AM to 9:00 PM.</li>
               <li>Only TLs and Managers can schedule meeting slots.</li>
               <li>No manual approval required; slots are booked instantly.</li>
               <li>Overlap checking blocks scheduling conflicts automatically.</li>
@@ -934,23 +1096,27 @@ export default function OfficeSync() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Start Time</label>
-                  <input
-                    type="time"
-                    required
+                  <select
                     value={newBooking.startTime}
                     onChange={e => setNewBooking({ ...newBooking, startTime: e.target.value })}
                     className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
-                  />
+                  >
+                    {getBookingStartTimeSlots().map(slot => (
+                      <option key={slot.value} value={slot.value}>{slot.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">End Time</label>
-                  <input
-                    type="time"
-                    required
+                  <select
                     value={newBooking.endTime}
                     onChange={e => setNewBooking({ ...newBooking, endTime: e.target.value })}
                     className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
-                  />
+                  >
+                    {getBookingEndTimeSlots().map(slot => (
+                      <option key={slot.value} value={slot.value}>{slot.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1013,23 +1179,27 @@ export default function OfficeSync() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">Start Time</label>
-                  <input
-                    type="time"
-                    required
+                  <select
                     value={blockData.startTime}
                     onChange={e => setBlockData({ ...blockData, startTime: e.target.value })}
                     className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
-                  />
+                  >
+                    {getBlockStartTimeSlots().map(slot => (
+                      <option key={slot.value} value={slot.value}>{slot.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-slate-500">End Time</label>
-                  <input
-                    type="time"
-                    required
+                  <select
                     value={blockData.endTime}
                     onChange={e => setBlockData({ ...blockData, endTime: e.target.value })}
                     className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
-                  />
+                  >
+                    {getBlockEndTimeSlots().map(slot => (
+                      <option key={slot.value} value={slot.value}>{slot.label}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
@@ -1074,4 +1244,11 @@ export default function OfficeSync() {
 function timeToMin(timeStr) {
   const [h, m] = timeStr.split(":").map(Number);
   return h * 60 + m;
+}
+
+// Helper to convert minutes to time string HH:MM
+function minToTime(minutes) {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
