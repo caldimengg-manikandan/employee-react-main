@@ -48,7 +48,7 @@ const UserAccess = () => {
   } catch {
     sessionUser = {};
   }
-  const isAdminSession = String(sessionUser.role || '').toLowerCase() === 'admin' || String(sessionUser.role || '').toLowerCase() === 'hr';
+  const isAdminSession = ['admin', 'hr', 'director', 'manager'].includes(String(sessionUser.role || '').toLowerCase());
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);

@@ -385,13 +385,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
   const getFilteredChildren = (children) => {
     if (!children) return [];
     return children.filter((child) => {
-      if (role === "admin") return true;
+      if (role === "admin" || role === "director" || role === "manager") return true;
       if (child.permission && !permissions.includes(child.permission)) {
         if (child.permission === 'home') return true; // Special case for home items
         return false;
       }
       if (child.showForRoles && !child.showForRoles.includes(role)) {
-        if (role !== "admin" && child.allowEmployeeRole !== true) return false;
+        if (role !== "admin" && role !== "director" && role !== "manager" && child.allowEmployeeRole !== true) return false;
       }
       if (role === "employees" && child.allowEmployeeRole === false) {
         return false;
@@ -405,7 +405,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     const hasDirectPermission = !item.permission ||
       permissions.includes(item.permission) ||
       item.permission === 'home' ||
-      (role === "admin" && (item.permission === "user_access" || item.permission === "support_group_access"));
+      ((role === "admin" || role === "director" || role === "manager") && (item.permission === "user_access" || item.permission === "support_group_access"));
 
     // 2. For dropdowns, check if any children are visible
     let visibleChildren = [];
@@ -420,7 +420,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
 
     // 4. Role-based visibility check (respect explicitly restricted roles)
     if (item.showForRoles && !item.showForRoles.includes(role)) {
-      if (role !== "admin" && item.allowEmployeeRole !== true) return false;
+      if (role !== "admin" && role !== "director" && role !== "manager" && item.allowEmployeeRole !== true) return false;
     }
 
     // 5. Employee specific exclusion

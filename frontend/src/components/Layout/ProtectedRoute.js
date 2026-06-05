@@ -19,8 +19,8 @@ const ProtectedRoute = ({
     return <Navigate to="/login" replace />;
   }
 
-  // Admins bypass for critical management only; otherwise respect permissions
-  if (user.role === "admin") {
+  // Admins, Directors, and General Managers bypass for critical management only; otherwise respect permissions
+  if (user.role === "admin" || user.role === "director" || user.role === "manager") {
     return children;
   }
 

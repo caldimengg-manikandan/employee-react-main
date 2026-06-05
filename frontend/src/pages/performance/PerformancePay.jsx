@@ -195,7 +195,7 @@ const getFinancialYearOptions = () => {
 const PerformancePay = () => {
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const userRole = (user.role || "").toLowerCase();
-  const hasAccess = ["admin", "hr", "director"].includes(userRole);
+  const hasAccess = ["admin", "hr", "director", "manager"].includes(userRole);
   const isAdmin = userRole === "admin";
 
   const [records, setRecords] = useState([]);

@@ -161,6 +161,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
   const rolePermissionDefaults = {
     admin: getAllPermissionKeys(),
+    director: getAllPermissionKeys(),
+    manager: getAllPermissionKeys(),
 
     projectmanager: [
       'timesheet_access',
@@ -221,7 +223,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   useEffect(() => {
     if (user) {
       const roleValue = user.role || '';
-      const isAdminRole = String(roleValue).toLowerCase() === 'admin' || String(roleValue).toLowerCase() === 'hr';
+      const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(String(roleValue).toLowerCase());
       const userPermissions = Array.isArray(user.permissions) ? user.permissions : [];
       setFormData({
         name: user.name || '',
@@ -229,7 +231,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         role: roleValue,
         password: '',
         confirmPassword: '',
-        permissions: isAdminRole ? userPermissions : userPermissions.filter(p => !restrictedPermissionsForNonAdmin.includes(p)),
+        permissions: isPrivilegedRole ? userPermissions : userPermissions.filter(p => !restrictedPermissionsForNonAdmin.includes(p)),
         employeeId: user.employeeId || ''
       });
     } else {
@@ -306,8 +308,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
   const handlePermissionChange = (permission, isGroup = false) => {
     setFormData(prev => {
-      const isAdminRole = String(prev.role || '').toLowerCase() === 'admin' || String(prev.role || '').toLowerCase() === 'hr';
-      if (!isAdminRole && restrictedPermissionsForNonAdmin.includes(permission)) {
+      const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(String(prev.role || '').toLowerCase());
+      if (!isPrivilegedRole && restrictedPermissionsForNonAdmin.includes(permission)) {
         return prev;
       }
       let nextPermissions = [...prev.permissions];
@@ -346,10 +348,10 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   };
 
   const selectAllPermissions = () => {
-    const isAdminRole = String(formData.role || '').toLowerCase() === 'admin' || String(formData.role || '').toLowerCase() === 'hr';
+    const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(String(formData.role || '').toLowerCase());
     setFormData(prev => ({
       ...prev,
-      permissions: isAdminRole ? getAllPermissionKeys() : getAllPermissionKeys().filter(p => !restrictedPermissionsForNonAdmin.includes(p))
+      permissions: isPrivilegedRole ? getAllPermissionKeys() : getAllPermissionKeys().filter(p => !restrictedPermissionsForNonAdmin.includes(p))
     }));
   };
 
@@ -406,7 +408,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     try {
       if (user) {
         let permissionsToUpdate = [...formData.permissions];
-        if (String(formData.role || '').toLowerCase() !== 'admin' && String(formData.role || '').toLowerCase() !== 'hr') {
+        const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(String(formData.role || '').toLowerCase());
+        if (!isPrivilegedRole) {
           permissionsToUpdate = permissionsToUpdate.filter(p => !restrictedPermissionsForNonAdmin.includes(p));
         }
         alwaysOnPermissionKeys.forEach(key => {
@@ -428,7 +431,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         }
         await authAPI.updateUser(user._id, updateData);
       } else {
-        const basePermissions = (String(formData.role || '').toLowerCase() === 'admin' || String(formData.role || '').toLowerCase() === 'hr')
+        const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(String(formData.role || '').toLowerCase());
+        const basePermissions = isPrivilegedRole
           ? [...formData.permissions]
           : formData.permissions.filter(p => !restrictedPermissionsForNonAdmin.includes(p));
         alwaysOnPermissionKeys.forEach(key => {

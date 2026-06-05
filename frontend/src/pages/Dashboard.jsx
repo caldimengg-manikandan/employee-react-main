@@ -301,8 +301,8 @@ const ProjectDashboard = () => {
 
     const visibleModules = useMemo(() => {
         let filtered = modules.filter((m) => {
-            // Admin sees everything
-            if (role === 'admin') return true;
+            // Admin, Director, and Manager see everything
+            if (role === 'admin' || role === 'director' || role === 'manager') return true;
 
             // 1. Permission Check (Primary)
             // If module has a specific permission, user must have it
@@ -312,7 +312,7 @@ const ProjectDashboard = () => {
 
             // 2. Role Check (Secondary Safeguard)
             if (m.showForRoles && !m.showForRoles.includes(role)) {
-                if (role !== 'admin' && m.allowEmployeeRole !== true) return false;
+                if (role !== 'admin' && role !== 'director' && role !== 'manager' && m.allowEmployeeRole !== true) return false;
             }
 
             // 3. Employee Specific Check
