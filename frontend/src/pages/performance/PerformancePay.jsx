@@ -131,6 +131,10 @@ const AwardLetterContent = ({ selectedRecord, id = "award-letter-p1" }) => {
               <span style={{ minWidth: "15px", fontWeight: "bold" }}>4.</span>
               <span style={{ flex: 1, textAlign: "justify" }}>The Company reserves the right to revise, withhold, or recover the payment in case of any violations against Company Policies.</span>
             </div>
+            <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "4px" }}>
+              <span style={{ minWidth: "15px", fontWeight: "bold" }}>5.</span>
+              <span style={{ flex: 1, textAlign: "justify" }}>In the event of your resignation within six (6) months from the date of receipt of the Performance Pay, the company shall be entitled to recover the entire Performance Pay amount disbursed to you.</span>
+            </div>
           </div>
         </div>
 
