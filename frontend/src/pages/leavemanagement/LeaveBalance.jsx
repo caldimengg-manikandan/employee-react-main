@@ -87,15 +87,17 @@ const LeaveBalance = () => {
         rows.forEach(r => {
           const id = String(r.employeeId || '').toLowerCase();
           if (!id) return;
-          if (!agg[id]) agg[id] = { CL: 0, SL: 0, PL: 0 };
-          if (r.clUsed !== undefined || r.slUsed !== undefined || r.plUsed !== undefined) {
+          if (!agg[id]) agg[id] = { CL: 0, SL: 0, PL: 0, BL: 0 };
+          if (r.clUsed !== undefined || r.slUsed !== undefined || r.plUsed !== undefined || r.blUsed !== undefined) {
             agg[id].CL += Number(r.clUsed || 0);
             agg[id].SL += Number(r.slUsed || 0);
             agg[id].PL += Number(r.plUsed || 0) + Number(r.negativePL || 0);
+            agg[id].BL += Number(r.blUsed || 0);
           } else {
             if (r.leaveType === 'CL') agg[id].CL += Number(r.totalDays || 0);
             else if (r.leaveType === 'SL') agg[id].SL += Number(r.totalDays || 0);
             else if (r.leaveType === 'PL') agg[id].PL += Number(r.totalDays || 0);
+            else if (r.leaveType === 'BL') agg[id].BL += Number(r.totalDays || 0);
           }
         });
         setPendingMap(agg);

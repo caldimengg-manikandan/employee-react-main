@@ -205,14 +205,23 @@ const ExitApproval = () => {
       return;
     }
 
-    // Calculate years of service
-    const joinDate = new Date(form.employeeDetails?.dateOfJoining || form.joinDate);
-    const lwd = new Date(form.proposedLastWorkingDay);
-    const years = Math.floor((lwd - joinDate) / (365 * 24 * 60 * 60 * 1000));
-    const months = Math.floor(((lwd - joinDate) % (365 * 24 * 60 * 60 * 1000)) / (30 * 24 * 60 * 60 * 1000));
-
     const empId = form.employeeId?.employeeId;
     const emp = employees.find(e => e.employeeId === empId);
+
+    const joinDateRaw =
+      emp?.dateOfJoining ||
+      form.employeeDetails?.dateOfJoining ||
+      form.joinDate;
+      
+    const lastWorkingRaw =
+      form.proposedLastWorkingDay ||
+      form.lastWorkingDay ||
+      form.relievingDate;
+
+    const joinDate = new Date(joinDateRaw);
+    const lwd = new Date(lastWorkingRaw);
+    const years = Math.floor((lwd - joinDate) / (365 * 24 * 60 * 60 * 1000));
+    const months = Math.floor(((lwd - joinDate) % (365 * 24 * 60 * 60 * 1000)) / (30 * 24 * 60 * 60 * 1000));
     const location = (form.location || emp?.location || '').toLowerCase().trim();
     
     let signatory = hrManager;

@@ -363,14 +363,14 @@ const InternReference = () => {
     setSelectedIntern(intern);
     const mailTemplate = `Dear {{Candidate_Name}},
 
-We are pleased to offer you an opportunity to join CALDIM as an Intern in the {{Department_Name}} department.
+We are pleased to offer you an opportunity to join CALDIM as an Intern in the {{Division_Name}} division.
 
 Your internship with CALDIM Engineering Private Limited will commence on {{Start_Date}} and will continue until {{End_Date}}, unless extended or terminated earlier in accordance with the company policies.`;
 
     const replace = (tpl, data) =>
       tpl
         .replace(/{{Candidate_Name}}/g, data.fullName || "")
-        .replace(/{{Department_Name}}/g, data.department || "")
+        .replace(/{{Division_Name}}/g, data.division || "")
         .replace(/{{Start_Date}}/g, formatDate(data.startDate))
         .replace(/{{End_Date}}/g, formatDate(data.endDate));
 
@@ -1557,7 +1557,7 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
                 <p>Dear <span className="font-bold text-gray-900">{selectedIntern?.fullName}</span>,</p>
                 
                 <p>
-                  We are pleased to offer you an opportunity to join <span className="font-bold text-[#1e2b58]">CALDIM Engineering Private Limited</span> as an Intern in the <span className="font-bold text-gray-900">{selectedIntern?.department}</span> department.
+                  We are pleased to offer you an opportunity to join <span className="font-bold text-[#1e2b58]">CALDIM Engineering Private Limited</span> as an Intern in the <span className="font-bold text-gray-900">{selectedIntern?.division}</span> division.
                 </p>
 
                 <p>
