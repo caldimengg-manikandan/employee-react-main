@@ -154,7 +154,18 @@ export const leaveAPI = {
     if (!raw) return Promise.reject(new Error('Invalid documentUrl'));
     const apiPath = raw.startsWith('/api/') ? raw.replace(/^\/api/, '') : raw;
     return api.get(apiPath, { responseType: 'blob' });
-  }
+  },
+  // ── Leave Policy (per-employee configuration) ──
+  getPolicy: (employeeId) => api.get(`/leaves/policy/${employeeId}`),
+  savePolicy: (employeeId, data) => api.put(`/leaves/policy/${employeeId}`, data),
+  // ── Monthly Ledger (source of truth) ──
+  getMonthlyLedger: (employeeId, params) => api.get(`/leaves/monthly-ledger/${employeeId}`, params ? { params } : undefined),
+  getLedgerSummary: (year, month) => api.get('/leaves/ledger-summary', { params: { year, month } }),
+  lockLedgerEntry: (id) => api.put(`/leaves/ledger/${id}/lock`),
+  lockLedgerMonth: (year, month) => api.put('/leaves/ledger-lock-month', { year, month }),
+  // ── Current Month Manual Edit ──
+  currentMonthEdit: (employeeId, data) => api.put(`/leaves/current-month-edit/${employeeId}`, data),
+  getAdjustmentLogs: (employeeId, params) => api.get(`/leaves/adjustment-logs/${employeeId}`, params ? { params } : undefined),
 };
 
 export const allocationAPI = {

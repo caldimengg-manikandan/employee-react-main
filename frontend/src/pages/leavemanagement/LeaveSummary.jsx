@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { leaveAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
+import { Eye } from 'lucide-react';
 
 const LeaveSummary = () => {
   // Get current year and month
@@ -58,6 +59,7 @@ const LeaveSummary = () => {
 
   const [leaveApplications, setLeaveApplications] = useState([]);
   const [actionLoading, setActionLoading] = useState({});
+  const [viewLeave, setViewLeave] = useState(null);
 
   const loadLeaves = async () => {
     try {
@@ -67,17 +69,24 @@ const LeaveSummary = () => {
         id: l._id,
         employeeName: l.employeeName || l.name || '',
         employeeId: l.employeeId || '',
-        leaveType: l.leaveType === 'CL'
-          ? 'Casual Leave'
-          : l.leaveType === 'SL'
-            ? 'Sick Leave'
-            : l.leaveType === 'PL'
-              ? 'Privilege Leave'
-              : l.leaveType === 'BEREAVEMENT'
-                ? 'Bereavement Leave'
-                : l.leaveType === 'REGIONAL_HOLIDAY'
-                  ? `Regional Holiday${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`
-                  : l.leaveType,
+        leaveType: (() => {
+          if (l.leaveType === 'REGIONAL_HOLIDAY') {
+            return `Regional Holiday${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`;
+          }
+          if (['CL', 'SL', 'PL'].includes(l.leaveType) && (l.clUsed > 0 || l.slUsed > 0 || l.plUsed > 0 || l.negativePL > 0 || l.lopDays > 0)) {
+            const parts = [];
+            if (l.clUsed > 0) parts.push('Casual Leave');
+            if (l.slUsed > 0) parts.push('Sick Leave');
+            if (l.plUsed > 0 || l.negativePL > 0) parts.push('Privilege Leave');
+            if (l.lopDays > 0) parts.push('Loss of Pay');
+            return parts.join(', ');
+          }
+          return l.leaveType === 'CL' ? 'Casual Leave'
+            : l.leaveType === 'SL' ? 'Sick Leave'
+            : l.leaveType === 'PL' ? 'Privilege Leave'
+            : l.leaveType === 'BEREAVEMENT' ? 'Bereavement Leave'
+            : l.leaveType;
+        })(),
         // Keep raw dates for accurate month-overlap filtering
         startDateRaw: l.startDate,
         endDateRaw: l.endDate,
@@ -87,9 +96,18 @@ const LeaveSummary = () => {
         fromYear: new Date(l.startDate).getFullYear(),
         days: l.totalDays || 0,
         totalLeaveDays: l.totalDays || 0,
+        dayType: l.dayType || 'Full Day',
         status: l.status || 'Pending',
         location: l.location || l.branch || '—',
-        documentUrl: l.documentUrl || ''
+        documentUrl: l.documentUrl || '',
+        clUsed: l.clUsed || 0,
+        slUsed: l.slUsed || 0,
+        plUsed: l.plUsed || 0,
+        negativePL: l.negativePL || 0,
+        lopDays: l.lopDays || 0,
+        bereavementRelation: l.bereavementRelation || '',
+        regionalHolidayName: l.regionalHolidayName || '',
+        reason: l.reason || ''
       }));
       setLeaveApplications(mapped);
     } catch {
@@ -153,17 +171,25 @@ const LeaveSummary = () => {
 
     const matchesEmployeeId = selectedEmployeeId === '' ||
       (app.employeeId || '').toLowerCase().includes(selectedEmployeeId.toLowerCase());
-    const matchesLeaveType = selectedLeaveType === 'all' || app.leaveType === selectedLeaveType;
+    const matchesLeaveType = selectedLeaveType === 'all' || (app.leaveType && app.leaveType.includes(selectedLeaveType));
     const matchesLocation = selectedLocation === 'all' || app.location === selectedLocation;
     const matchesStatus = selectedStatus === 'all' || app.status === selectedStatus;
     return matchesMonthWindow && matchesEmployeeId && matchesLeaveType && matchesLocation && matchesStatus;
   }).sort((a, b) => {
-    // Sort by Employee ID ascending
+    // Sort 'Pending' to the top
+    if (a.status === 'Pending' && b.status !== 'Pending') return -1;
+    if (a.status !== 'Pending' && b.status === 'Pending') return 1;
+
+    // Then sort by Employee ID ascending
     const idA = (a.employeeId || '').toString().toLowerCase();
     const idB = (b.employeeId || '').toString().toLowerCase();
     if (idA < idB) return -1;
     if (idA > idB) return 1;
-    return 0;
+
+    // Finally sort by start date descending (most recent first)
+    const dateA = new Date(a.startDateRaw).getTime();
+    const dateB = new Date(b.startDateRaw).getTime();
+    return dateB - dateA;
   });
 
   // Calculate total leave days for filtered applications
@@ -795,7 +821,26 @@ const LeaveSummary = () => {
                     </td>
                     <td style={tdStyle}>
                       {app.status === 'Pending' && (
-                        <div>
+                        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'nowrap' }}>
+                          <button
+                            onClick={() => setViewLeave(app)}
+                            style={{
+                              padding: '7px 10px',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              backgroundColor: '#f1f5f9',
+                              color: '#262760',
+                              marginRight: '4px',
+                              transition: 'all 0.2s',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
                           <button
                             style={{
                               ...approveButtonStyle,
@@ -831,7 +876,27 @@ const LeaveSummary = () => {
                         </div>
                       )}
                       {app.status !== 'Pending' && (
-                        <span style={{ color: '#95a5a6', fontSize: '13px' }}>Completed</span>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button
+                            onClick={() => setViewLeave(app)}
+                            style={{
+                              padding: '7px 10px',
+                              border: 'none',
+                              borderRadius: '6px',
+                              cursor: 'pointer',
+                              backgroundColor: '#f1f5f9',
+                              color: '#262760',
+                              transition: 'all 0.2s',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center'
+                            }}
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <span style={{ color: '#95a5a6', fontSize: '13px' }}>Completed</span>
+                        </div>
                       )}
                       {app.documentUrl && (
                         <div>
@@ -877,9 +942,65 @@ const LeaveSummary = () => {
           </div>
         )}
 
-        {/* Download Excel Button */}
-
       </div>
+
+      {viewLeave && (
+        <div style={{
+          position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.4)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '16px'
+        }}>
+          <div style={{
+            backgroundColor: 'white', borderRadius: '8px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)',
+            maxWidth: '500px', width: '100%', overflow: 'hidden'
+          }}>
+            <div style={{ padding: '24px', borderBottom: '1px solid #e9ecef' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600', color: '#2c3e50' }}>Leave Application Details</h3>
+            </div>
+            <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '12px', fontSize: '14px' }}>
+              <div><span style={{ fontWeight: '500', color: '#34495e', width: '100px', display: 'inline-block' }}>Employee:</span> {viewLeave.employeeName} ({viewLeave.employeeId})</div>
+              <div><span style={{ fontWeight: '500', color: '#34495e', width: '100px', display: 'inline-block' }}>Leave Type:</span> {viewLeave.leaveType}</div>
+              <div><span style={{ fontWeight: '500', color: '#34495e', width: '100px', display: 'inline-block' }}>Dates:</span> {viewLeave.fromDate} to {viewLeave.toDate}</div>
+              <div><span style={{ fontWeight: '500', color: '#34495e', width: '100px', display: 'inline-block' }}>Day Type:</span> {viewLeave.dayType}</div>
+              <div><span style={{ fontWeight: '500', color: '#34495e', width: '100px', display: 'inline-block' }}>Days:</span> {viewLeave.totalLeaveDays}</div>
+              <div><span style={{ fontWeight: '500', color: '#34495e', width: '100px', display: 'inline-block' }}>Status:</span> {viewLeave.status}</div>
+              
+              {viewLeave.bereavementRelation && (
+                <div><span style={{ fontWeight: '500', color: '#34495e', width: '100px', display: 'inline-block' }}>Relation:</span> {viewLeave.bereavementRelation}</div>
+              )}
+              {viewLeave.regionalHolidayName && (
+                <div><span style={{ fontWeight: '500', color: '#34495e', width: '100px', display: 'inline-block' }}>Holiday:</span> {viewLeave.regionalHolidayName}</div>
+              )}
+              {viewLeave.reason && (
+                <div><span style={{ fontWeight: '500', color: '#34495e', width: '100px', display: 'inline-block', verticalAlign: 'top' }}>Reason:</span> <span style={{ display: 'inline-block', maxWidth: '300px' }}>{viewLeave.reason}</span></div>
+              )}
+
+              {(viewLeave.clUsed > 0 || viewLeave.slUsed > 0 || viewLeave.plUsed > 0 || viewLeave.negativePL > 0 || viewLeave.lopDays > 0) && (
+                <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #f1f5f9' }}>
+                  <div style={{ fontWeight: '600', color: '#2c3e50', marginBottom: '8px' }}>Deduction Breakdown:</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
+                    {viewLeave.clUsed > 0 && <div>CL: {viewLeave.clUsed} days</div>}
+                    {viewLeave.slUsed > 0 && <div>SL: {viewLeave.slUsed} days</div>}
+                    {viewLeave.plUsed > 0 && <div>PL: {viewLeave.plUsed} days</div>}
+                    {viewLeave.negativePL > 0 && <div style={{ color: '#dc2626', fontWeight: '500' }}>Negative PL: {viewLeave.negativePL} days</div>}
+                    {viewLeave.lopDays > 0 && <div style={{ color: '#ea580c', fontWeight: '500' }}>LOP: {viewLeave.lopDays} days</div>}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div style={{ padding: '16px 24px', borderTop: '1px solid #e9ecef', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                onClick={() => setViewLeave(null)}
+                style={{
+                  padding: '8px 16px', border: '1px solid #dfe6e9', borderRadius: '6px',
+                  backgroundColor: 'white', color: '#34495e', fontWeight: '500', cursor: 'pointer'
+                }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

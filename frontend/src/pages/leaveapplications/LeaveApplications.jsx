@@ -22,6 +22,7 @@ import Notification from '../../components/Notifications/Notification';
     { value: 'CL', label: 'Casual Leave (CL)' },
     { value: 'SL', label: 'Sick Leave (SL)' },
     { value: 'PL', label: 'Privilege Leave (PL)' },
+    { value: 'BEREAVEMENT', label: 'Bereavement Leave' },
     { value: 'REGIONAL_HOLIDAY', label: 'Regional Holiday' },
   ];
 
@@ -46,7 +47,7 @@ import Notification from '../../components/Notifications/Notification';
     CL: 6,
     SL: 6,
     PL: 15,
-    BEREAVEMENT: 2
+    BEREAVEMENT: 0
   });
   const [apiUsedLeaves, setApiUsedLeaves] = useState(null);
 
@@ -79,9 +80,20 @@ import Notification from '../../components/Notifications/Notification';
       const mapped = items.map(l => ({
         id: l._id,
         leaveType: l.leaveType,
-        leaveTypeName: l.leaveType === 'REGIONAL_HOLIDAY'
-          ? `${allLeaveTypes.find(t => t.value === 'REGIONAL_HOLIDAY')?.label || 'Regional Holiday'}${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`
-          : (allLeaveTypes.find(t => t.value === l.leaveType)?.label || l.leaveType),
+        leaveTypeName: (() => {
+          if (l.leaveType === 'REGIONAL_HOLIDAY') {
+            return `${allLeaveTypes.find(t => t.value === 'REGIONAL_HOLIDAY')?.label || 'Regional Holiday'}${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`;
+          }
+          if (['CL', 'SL', 'PL'].includes(l.leaveType) && (l.clUsed > 0 || l.slUsed > 0 || l.plUsed > 0 || l.negativePL > 0 || l.lopDays > 0)) {
+            const parts = [];
+            if (l.clUsed > 0) parts.push('Casual Leave (CL)');
+            if (l.slUsed > 0) parts.push('Sick Leave (SL)');
+            if (l.plUsed > 0 || l.negativePL > 0) parts.push('Privilege Leave (PL)');
+            if (l.lopDays > 0) parts.push('Loss of Pay (LOP)');
+            return parts.join(', ');
+          }
+          return allLeaveTypes.find(t => t.value === l.leaveType)?.label || l.leaveType;
+        })(),
         startDate: l.startDate,
         endDate: l.endDate,
         dayType: l.dayType,
@@ -183,7 +195,7 @@ import Notification from '../../components/Notifications/Notification';
       };
     };
     const loadBalanceForMe = async () => {
-      const applyVisibilityRules = (designation, monthsOfService) => {
+      const applyVisibilityRules = (designation, monthsOfService, bereavementEnabled = false) => {
         const isTrainee = String(designation || '').toLowerCase().includes('trainee');
         let showCLSL = false;
         
@@ -195,6 +207,7 @@ import Notification from '../../components/Notifications/Notification';
         
         const filtered = allLeaveTypes.filter(t => {
           if (t.value === 'CL' || t.value === 'SL') return showCLSL;
+          if (t.value === 'BEREAVEMENT') return bereavementEnabled;
           return true;
         });
         setAllowedLeaveTypes(filtered);
@@ -213,12 +226,12 @@ import Notification from '../../components/Notifications/Notification';
         const myRes = await leaveAPI.myBalance();
         const data = myRes?.data || {};
         if (data && data.balances) {
-          applyVisibilityRules(data.position || data.designation, data.monthsOfService || 0);
+          applyVisibilityRules(data.position || data.designation, data.monthsOfService || 0, data.bereavement_leave_enabled);
           setLeaveBalance({
             CL: data.balances.casual?.allocated || 0,
             SL: data.balances.sick?.allocated || 0,
             PL: data.balances.privilege?.allocated || 0,
-            BEREAVEMENT: 2
+            BEREAVEMENT: data.bereavement_leave_allocation !== undefined ? data.bereavement_leave_allocation : (data.balances.bereavement?.allocated || 0)
           });
           setApiUsedLeaves({
             CL: data.balances.casual?.used || 0,
@@ -236,12 +249,12 @@ import Notification from '../../components/Notifications/Notification';
           || items.find(e => String(e.email || '').toLowerCase() === String(user.email || '').toLowerCase())
           || items.find(e => String(e.name || '').toLowerCase() === String(user.name || '').toLowerCase());
         if (mine && mine.balances) {
-          applyVisibilityRules(mine.position || mine.designation, mine.monthsOfService || 0);
+          applyVisibilityRules(mine.position || mine.designation, mine.monthsOfService || 0, mine.bereavement_leave_enabled);
           setLeaveBalance({
             CL: mine.balances.casual?.allocated || 0,
             SL: mine.balances.sick?.allocated || 0,
             PL: mine.balances.privilege?.allocated || 0,
-            BEREAVEMENT: 2
+            BEREAVEMENT: mine.bereavement_leave_allocation !== undefined ? mine.bereavement_leave_allocation : (mine.balances.bereavement?.allocated || 0)
           });
           setApiUsedLeaves({
             CL: mine.balances.casual?.used || 0,
@@ -262,7 +275,7 @@ import Notification from '../../components/Notifications/Notification';
           const m = monthsBetween(doj);
           const d = emp.designation || emp.position || emp.role || '';
           
-          applyVisibilityRules(d, m);
+          applyVisibilityRules(d, m, false);
 
           const alloc = calculateLeaveBalances({ designation: d, monthsOfService: m });
           const myApproved = Array.isArray(myLeavesRes?.data) ? myLeavesRes.data.filter(l => l.status === 'Approved') : [];
@@ -278,7 +291,7 @@ import Notification from '../../components/Notifications/Notification';
             CL: Number(alloc.CL || 0),
             SL: Number(alloc.SL || 0),
             PL: Number(alloc.PL || 0),
-            BEREAVEMENT: 2
+            BEREAVEMENT: Number(alloc.BEREAVEMENT || 0)
           });
           setApiUsedLeaves(used);
         } catch { }
@@ -564,11 +577,21 @@ import Notification from '../../components/Notifications/Notification';
       }
     }
 
-    // Create or update leave application
-    const leaveTypeName =
-      leaveData.leaveType === 'REGIONAL_HOLIDAY'
-        ? `${allLeaveTypes.find(type => type.value === 'REGIONAL_HOLIDAY')?.label || 'Regional Holiday'}${leaveData.regionalHolidayName ? ` - ${leaveData.regionalHolidayName}` : ''}`
-        : (allLeaveTypes.find(type => type.value === leaveData.leaveType)?.label || leaveData.leaveType);
+    // Helper to compute dynamic leave type name based on split
+    const getDynamicLeaveTypeName = (doc) => {
+      if (doc.leaveType === 'REGIONAL_HOLIDAY') {
+        return `${allLeaveTypes.find(type => type.value === 'REGIONAL_HOLIDAY')?.label || 'Regional Holiday'}${doc.regionalHolidayName ? ` - ${doc.regionalHolidayName}` : ''}`;
+      }
+      if (['CL', 'SL', 'PL'].includes(doc.leaveType) && (doc.clUsed > 0 || doc.slUsed > 0 || doc.plUsed > 0 || doc.negativePL > 0 || doc.lopDays > 0)) {
+        const parts = [];
+        if (doc.clUsed > 0) parts.push('Casual Leave (CL)');
+        if (doc.slUsed > 0) parts.push('Sick Leave (SL)');
+        if (doc.plUsed > 0 || doc.negativePL > 0) parts.push('Privilege Leave (PL)');
+        if (doc.lopDays > 0) parts.push('Loss of Pay (LOP)');
+        return parts.join(', ');
+      }
+      return allLeaveTypes.find(type => type.value === doc.leaveType)?.label || doc.leaveType;
+    };
 
     const formData = new FormData();
     formData.append('leaveType', leaveData.leaveType);
@@ -590,7 +613,7 @@ import Notification from '../../components/Notifications/Notification';
         setLeaveHistory(prev => prev.map(x => x.id === editingLeaveId ? {
           id: l._id,
           leaveType: l.leaveType,
-          leaveTypeName: leaveTypeName,
+          leaveTypeName: getDynamicLeaveTypeName(l),
           startDate: l.startDate,
           endDate: l.endDate,
           dayType: l.dayType,
@@ -614,7 +637,7 @@ import Notification from '../../components/Notifications/Notification';
         const newLeave = {
           id: l._id,
           leaveType: l.leaveType,
-          leaveTypeName: leaveTypeName,
+          leaveTypeName: getDynamicLeaveTypeName(l),
           startDate: l.startDate,
           endDate: l.endDate,
           dayType: l.dayType,
@@ -1353,15 +1376,17 @@ import Notification from '../../components/Notifications/Notification';
                 </div>
 
 
-                <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="font-medium text-gray-900">Bereavement Leave</h3>
-                    <Heart className="w-5 h-5 text-purple-600" />
+                {allowedLeaveTypes.some(t => t.value === 'BEREAVEMENT') && (
+                  <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
+                    <div className="flex justify-between items-center mb-2">
+                      <h3 className="font-medium text-gray-900">Bereavement Leave</h3>
+                      <Heart className="w-5 h-5 text-purple-600" />
+                    </div>
+                    <div className="text-3xl font-bold text-purple-600">{getAvailableBalance('BEREAVEMENT')} days</div>
+                    <div className="text-sm text-gray-600 mt-1">Paid leave for immediate family</div>
+                    <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.BEREAVEMENT} days</div>
                   </div>
-                  <div className="text-3xl font-bold text-purple-600">{getAvailableBalance('BEREAVEMENT')} days</div>
-                  <div className="text-sm text-gray-600 mt-1">Paid leave for immediate family</div>
-                  <div className="text-l text-gray-500 mt-2">Used: {usedLeaves.BEREAVEMENT} days</div>
-                </div>
+                )}
               </div>
             </div>
 

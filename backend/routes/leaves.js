@@ -11,7 +11,10 @@ const Team = require('../models/Team');
 const Notification = require('../models/Notification');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
-const { monthsBetween, calcBalanceForEmployee, mergeBalances, runMonthlyAllocation, recordTransaction, calculateLeaveSplit, getPendingDeductions, applyLeaveDeduction } = require('../services/leaveService');
+const { monthsBetween, calcBalanceForEmployee, mergeBalances, runMonthlyAllocation, recordTransaction, calculateLeaveSplit, getPendingDeductions, applyLeaveDeduction, applyLeaveToLedger, reverseLeaveFromLedger } = require('../services/leaveService');
+const EmployeeLeavePolicy = require('../models/EmployeeLeavePolicy');
+const EmployeeLeaveLedger = require('../models/EmployeeLeaveLedger');
+const LeaveAdjustmentLog = require('../models/LeaveAdjustmentLog');
 const LeaveLedger = require('../models/LeaveLedger');
 const LeaveAllocationLog = require('../models/LeaveAllocationLog');
 const multer = require('multer');
@@ -481,10 +484,11 @@ router.get('/balance', auth, async (req, res) => {
     const empIds = employees.map(e => e.employeeId).filter(Boolean);
     const usedMap = {};
     const storedBalancesMap = {};
+    const policyMap = {};
 
     try {
       if (empIds.length > 0) {
-        const [approvals, storedBalances] = await Promise.all([
+        const [approvals, storedBalances, policies] = await Promise.all([
           LeaveApplication.find({ 
             employeeId: { $in: empIds }, 
             status: 'Approved',
@@ -493,7 +497,8 @@ router.get('/balance', auth, async (req, res) => {
               $lte: new Date(calcDate.getFullYear(), 11, 31, 23, 59, 59)
             }
           }).lean(),
-          LeaveBalance.find({ employeeId: { $in: empIds } }).lean()
+          LeaveBalance.find({ employeeId: { $in: empIds } }).lean(),
+          EmployeeLeavePolicy.find({ employeeId: { $in: empIds } }).lean()
         ]);
 
         for (const rec of approvals) {
@@ -505,6 +510,10 @@ router.get('/balance', auth, async (req, res) => {
         for (const bal of storedBalances) {
           storedBalancesMap[bal.employeeId] = bal;
         }
+
+        for (const p of policies) {
+          policyMap[p.employeeId] = p;
+        }
       }
     } catch (_) {
       // If usage aggregation fails, continue
@@ -514,23 +523,19 @@ router.get('/balance', auth, async (req, res) => {
       const stored = storedBalancesMap[emp.employeeId];
       const currentYear = new Date().getFullYear();
       const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
+      
+      const policy = policyMap[emp.employeeId];
+      const blAlloc = policy && policy.bereavement_leave_enabled ? (Number(policy.monthly_bereavement_allocation) || 0) : 0;
 
       // System calculation fallback or reference
       const systemCalc = calcBalanceForEmployee(emp, usedMap[emp.employeeId] || [], calcDate);
 
       if (stored && stored.balances && storedYear === currentYear) {
-        // Use stored balances (which include manual edits and automated allocations)
-        const balances = JSON.parse(JSON.stringify(stored.balances));
-        
-        // Always sync 'used' with actual approved applications to ensure real-time accuracy
-        ['casual', 'sick', 'privilege'].forEach(type => {
-          const systemType = type === 'casual' ? 'casual' : type === 'sick' ? 'sick' : 'privilege';
-          balances[type].used = systemCalc.balances[systemType].used;
-          balances[type].balance = (balances[type].allocated || 0) - (balances[type].used || 0);
-        });
-
-        const totalBalance = (balances.casual.balance || 0) + (balances.sick.balance || 0) + (balances.privilege.balance || 0);
-        balances.totalBalance = totalBalance;
+        // Inject latest bereavement policy allocation
+        stored.balances.bereavement = stored.balances.bereavement || { used: 0, balance: 0, allocated: 0 };
+        stored.balances.bereavement.allocated = blAlloc;
+        stored.balances.bereavement.used = systemCalc.balances.bereavement?.used || 0;
+        stored.balances.bereavement.balance = Math.max(0, blAlloc - (Number(stored.balances.bereavement.used) || 0));
 
         return {
           employeeId: emp.employeeId || '',
@@ -539,11 +544,15 @@ router.get('/balance', auth, async (req, res) => {
           division: emp.division || '',
           location: emp.location || emp.branch || '',
           monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt, calcDate),
-          balances
+          balances: stored.balances
         };
       }
 
       // Fallback to system calculation if no stored balance for current year
+      systemCalc.balances.bereavement = systemCalc.balances.bereavement || { used: 0, balance: 0, allocated: 0 };
+      systemCalc.balances.bereavement.allocated = blAlloc;
+      systemCalc.balances.bereavement.balance = Math.max(0, blAlloc - (Number(systemCalc.balances.bereavement.used) || 0));
+
       return {
         employeeId: emp.employeeId || '',
         name: emp.name || emp.employeename || '',
@@ -603,7 +612,8 @@ router.put('/balance/save', auth, async (req, res) => {
           carryAllocated: systemCalc.balances.privilege.carryAllocated,
           carryForwardEligibleBalance: Number(manualBalances.privilege) || 0
         },
-        totalBalance: (Number(manualBalances.casual) || 0) + (Number(manualBalances.sick) || 0) + (Number(manualBalances.privilege) || 0)
+        bereavement: makeBalanceObj('bereavement', manualBalances.bereavement),
+        totalBalance: (Number(manualBalances.casual) || 0) + (Number(manualBalances.sick) || 0) + (Number(manualBalances.privilege) || 0) + (Number(manualBalances.bereavement) || 0)
       };
 
       // Record Reset in Ledger if values changed
@@ -872,6 +882,14 @@ router.get('/my-balance', auth, async (req, res) => {
 
     const systemCalc = calcBalanceForEmployee(emp, approvals);
 
+    let bereavementEnabled = false;
+    let bereavementAllocation = 0;
+    if (emp && emp.employeeId) {
+      const policy = await EmployeeLeavePolicy.findOne({ employeeId: emp.employeeId }).lean();
+      bereavementEnabled = policy ? !!policy.bereavement_leave_enabled : false;
+      bereavementAllocation = policy ? (policy.monthly_bereavement_allocation || 0) : 0;
+    }
+
     // Check for stored balance
     if (emp.employeeId) {
       const stored = await LeaveBalance.findOne({ employeeId: emp.employeeId }).lean();
@@ -879,37 +897,10 @@ router.get('/my-balance', auth, async (req, res) => {
       const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
 
       if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
-        // Calculate what the system WOULD have allocated at the time of last update
-        const lastUpdateDate = stored.lastUpdated ? new Date(stored.lastUpdated) : new Date(stored.createdAt);
-        const pastSystemCalc = calcBalanceForEmployee(emp, [], lastUpdateDate);
-
-        // Merge stored allocated with system used
-        const mergedBalances = JSON.parse(JSON.stringify(stored.balances));
-
-        ['casual', 'sick', 'privilege'].forEach(type => {
-          if (mergedBalances[type]) {
-            let allocated = Number(mergedBalances[type].allocated) || 0;
-
-            // Calculate incremental accrual
-            const currentAlloc = Number(systemCalc.balances[type]?.allocated) || 0;
-            const pastAlloc = Number(pastSystemCalc.balances[type]?.allocated) || 0;
-            const delta = currentAlloc - pastAlloc;
-
-            if (Math.abs(delta) > 0.001) {
-              allocated += delta;
-            }
-
-            const used = Number(systemCalc.balances[type]?.used) || 0;
-            mergedBalances[type].allocated = allocated;
-            mergedBalances[type].used = used;
-            mergedBalances[type].balance = allocated - used;
-          }
-        });
-
-        const clBal = Number(mergedBalances.casual?.balance) || 0;
-        const slBal = Number(mergedBalances.sick?.balance) || 0;
-        const plBal = Number(mergedBalances.privilege?.balance) || 0;
-        mergedBalances.totalBalance = clBal + slBal + plBal;
+        stored.balances.bereavement = stored.balances.bereavement || { used: 0, balance: 0, allocated: 0 };
+        stored.balances.bereavement.allocated = bereavementAllocation;
+        stored.balances.bereavement.used = systemCalc.balances.bereavement?.used || 0;
+        stored.balances.bereavement.balance = Math.max(0, bereavementAllocation - (Number(stored.balances.bereavement.used) || 0));
 
         return res.json({
           employeeId: emp.employeeId || '',
@@ -918,12 +909,14 @@ router.get('/my-balance', auth, async (req, res) => {
           division: emp.division || '',
           location: emp.location || emp.branch || '',
           monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt),
-          balances: mergedBalances
+          balances: stored.balances,
+          bereavement_leave_enabled: bereavementEnabled,
+          bereavement_leave_allocation: bereavementAllocation
         });
       }
     }
 
-    return res.json(systemCalc);
+    return res.json({ ...systemCalc, bereavement_leave_enabled: bereavementEnabled, bereavement_leave_allocation: bereavementAllocation });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1076,7 +1069,9 @@ router.put('/:id/status', auth, async (req, res) => {
       return res.status(400).json({ error: 'Invalid status' });
     }
 
-    const existing = await LeaveApplication.findById(req.params.id).select('employeeId userId').lean();
+    const existing = await LeaveApplication.findById(req.params.id)
+      .select('employeeId userId status clUsed slUsed plUsed negativePL lopDays startDate endDate')
+      .lean();
     if (!existing) return res.status(404).json({ error: 'Leave application not found' });
 
     // Check if the target employee is Active
@@ -1118,12 +1113,20 @@ router.put('/:id/status', auth, async (req, res) => {
       await syncTimesheetWithLeave(updated);
       // try { await sendLeaveStatusEmail(updated); } catch (_) {}
 
-      // NEW: Record Debit in LeaveLedger if Approved
+      // Update monthly ledger + real-time balance on status change
       if (status === 'Approved') {
         try {
-          await applyLeaveDeduction(updated);
+          await applyLeaveToLedger(updated);
         } catch (err) {
           console.error('Error updating ledger/balance on approval:', err);
+        }
+      } else if (status === 'Rejected') {
+        // Reverse any previously applied deduction if leave was approved before
+        try {
+          const wasApproved = existing && existing.status === 'Approved';
+          if (wasApproved) await reverseLeaveFromLedger(existing);
+        } catch (err) {
+          console.error('Error reversing ledger on rejection:', err);
         }
       }
 
@@ -1628,6 +1631,431 @@ router.delete('/:id', auth, async (req, res) => {
     res.json({ success: true });
   } catch (err) {
     res.status(400).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// EMPLOYEE LEAVE POLICY ROUTES
+// ============================================================
+
+// GET: Fetch leave policy for a specific employee
+router.get('/policy/:employeeId', auth, async (req, res) => {
+  try {
+    if (!hasPermission(req.user, 'leave_manage') && req.user.employeeId !== req.params.employeeId) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const policy = await EmployeeLeavePolicy.findOne({ employeeId: req.params.employeeId }).lean();
+    if (!policy) {
+      // Return defaults
+      return res.json({
+        employeeId: req.params.employeeId,
+        monthly_cl_allocation: 0.5,
+        cl_carry_forward: true,
+        monthly_sl_allocation: 0.5,
+        sl_carry_forward: true,
+        monthly_pl_allocation: 1.25,
+        pl_carry_forward: true,
+        bereavement_leave_enabled: false,
+        monthly_bereavement_allocation: 0,
+        isDefault: true
+      });
+    }
+    res.json(policy);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT: Save/update leave policy for an employee
+router.put('/policy/:employeeId', auth, async (req, res) => {
+  try {
+    if (!hasPermission(req.user, 'leave_manage')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+    const { employeeId } = req.params;
+    const emp = await Employee.findOne({ employeeId }).select('name').lean();
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
+
+    const {
+      monthly_cl_allocation,
+      cl_carry_forward,
+      monthly_sl_allocation,
+      sl_carry_forward,
+      monthly_pl_allocation,
+      pl_carry_forward,
+      bereavement_leave_enabled,
+      monthly_bereavement_allocation
+    } = req.body;
+
+    const blAlloc = Boolean(bereavement_leave_enabled) ? (Number(monthly_bereavement_allocation) >= 0 ? Number(monthly_bereavement_allocation) : 0) : 0;
+
+    const updated = await EmployeeLeavePolicy.findOneAndUpdate(
+      { employeeId },
+      {
+        $set: {
+          employeeId,
+          employeeName: emp.name,
+          monthly_cl_allocation: Number(monthly_cl_allocation) >= 0 ? Number(monthly_cl_allocation) : 0.5,
+          cl_carry_forward: Boolean(cl_carry_forward),
+          monthly_sl_allocation: Number(monthly_sl_allocation) >= 0 ? Number(monthly_sl_allocation) : 0.5,
+          sl_carry_forward: Boolean(sl_carry_forward),
+          monthly_pl_allocation: Number(monthly_pl_allocation) >= 0 ? Number(monthly_pl_allocation) : 1.25,
+          pl_carry_forward: Boolean(pl_carry_forward),
+          bereavement_leave_enabled: Boolean(bereavement_leave_enabled),
+          monthly_bereavement_allocation: Number(monthly_bereavement_allocation) >= 0 ? Number(monthly_bereavement_allocation) : 0
+        }
+      },
+      { new: true, upsert: true }
+    );
+
+    // Immediately update current year's LeaveBalance for bereavement so it shows on the UI front table
+    const currentYear = new Date().getFullYear();
+    const existingBalance = await LeaveBalance.findOne({ employeeId, year: currentYear });
+    if (existingBalance) {
+      await LeaveBalance.updateOne(
+        { _id: existingBalance._id },
+        {
+          $set: {
+            'balances.bereavement.allocated': blAlloc,
+            'balances.bereavement.balance': Math.max(0, blAlloc - (existingBalance.balances?.bereavement?.used || 0))
+          }
+        }
+      );
+    }
+
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// MONTHLY LEDGER ROUTES
+// ============================================================
+
+// GET: Fetch monthly ledger history for an employee
+router.get('/monthly-ledger/:employeeId', auth, async (req, res) => {
+  try {
+    const { employeeId } = req.params;
+    const { year, month } = req.query;
+
+    // Allow employee to view own ledger; admins/managers can view all
+    const isSelf = req.user.employeeId === employeeId;
+    const canView = isSelf || hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_manage');
+    if (!canView) return res.status(403).json({ message: 'Access denied' });
+
+    const filter = { employee_id: employeeId };
+    if (year) filter.year = Number(year);
+    if (month) filter.month = Number(month);
+
+    const ledger = await EmployeeLeaveLedger.find(filter)
+      .sort({ year: -1, month: -1, leave_type: 1 })
+      .lean();
+
+    res.json(ledger);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET: Summary of all employees for a given month (for payroll integration)
+router.get('/ledger-summary', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Access denied' });
+    const { year, month } = req.query;
+    if (!year || !month) return res.status(400).json({ error: 'year and month required' });
+
+    const records = await EmployeeLeaveLedger.find({
+      year: Number(year),
+      month: Number(month)
+    }).sort({ employee_id: 1, leave_type: 1 }).lean();
+
+    // Group by employee
+    const grouped = {};
+    records.forEach(r => {
+      if (!grouped[r.employee_id]) {
+        grouped[r.employee_id] = { employee_id: r.employee_id, employee_name: r.employee_name, year: r.year, month: r.month, CL: null, SL: null, PL: null, total_lop: 0 };
+      }
+      grouped[r.employee_id][r.leave_type] = r;
+      grouped[r.employee_id].total_lop += (r.lop_days || 0);
+    });
+
+    res.json(Object.values(grouped));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT: Lock a ledger month after payroll processing
+router.put('/ledger/:id/lock', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Only admin can lock ledger months' });
+    const entry = await EmployeeLeaveLedger.findByIdAndUpdate(
+      req.params.id,
+      { $set: { is_locked: true } },
+      { new: true }
+    );
+    if (!entry) return res.status(404).json({ error: 'Ledger entry not found' });
+    res.json(entry);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// PUT: Lock all ledger entries for a given month (batch lock for payroll)
+router.put('/ledger-lock-month', auth, async (req, res) => {
+  try {
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Only admin can lock ledger months' });
+    const { year, month } = req.body;
+    if (!year || !month) return res.status(400).json({ error: 'year and month required' });
+    const result = await EmployeeLeaveLedger.updateMany(
+      { year: Number(year), month: Number(month), is_locked: false },
+      { $set: { is_locked: true } }
+    );
+    res.json({ success: true, lockedCount: result.modifiedCount, year, month });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ============================================================
+// CURRENT MONTH LEAVE EDIT (Manual HR Correction)
+// ============================================================
+
+/**
+ * PUT /leaves/current-month-edit/:employeeId
+ *
+ * Allows HR/Admin to manually edit the current month's leave balances.
+ * Rules:
+ *  1. Only the current active month can be edited.
+ *  2. Month must NOT be payroll-locked.
+ *  3. Both LeaveBalance and EmployeeLeaveLedger are updated atomically.
+ *  4. Every change creates a LeaveAdjustmentLog audit record.
+ */
+router.put('/current-month-edit/:employeeId', auth, async (req, res) => {
+  try {
+    if (!hasPermission(req.user, 'leave_manage')) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    const { employeeId } = req.params;
+    const { cl_balance, sl_balance, pl_balance, reason } = req.body;
+
+    if (cl_balance === undefined && sl_balance === undefined && pl_balance === undefined) {
+      return res.status(400).json({ error: 'At least one balance field (cl_balance, sl_balance, pl_balance) is required' });
+    }
+
+    // Validate employee exists
+    const emp = await Employee.findOne({ employeeId }).lean();
+    if (!emp) return res.status(404).json({ error: 'Employee not found' });
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+
+    // Check if current month ledger entries exist and are not locked
+    const existingEntries = await EmployeeLeaveLedger.find({
+      employee_id: employeeId,
+      year: currentYear,
+      month: currentMonth
+    }).lean();
+
+    // Check lock status — if ANY entry for this month is locked, block the edit
+    const isLocked = existingEntries.some(e => e.is_locked);
+    if (isLocked) {
+      return res.status(423).json({
+        error: 'Payroll already locked for this month. Leave balances cannot be modified.',
+        locked: true
+      });
+    }
+
+    // Calculate current system used counts to keep LeaveBalance allocated field accurate
+    const approvals = await LeaveApplication.find({ 
+      employeeId, 
+      status: 'Approved',
+      startDate: { 
+        $gte: new Date(currentYear, 0, 1),
+        $lte: new Date(currentYear, 11, 31, 23, 59, 59)
+      }
+    }).lean();
+    const systemCalc = calcBalanceForEmployee(emp, approvals);
+
+    const editorId = req.user.employeeId || String(req.user._id);
+    const editorName = req.user.name || req.user.employeeId || 'Admin';
+    const editReason = (reason || '').trim() || 'Manual HR Adjustment';
+
+    // Validate: CL and SL cannot be negative — only PL can go negative (LOP)
+    if (cl_balance !== undefined && parseFloat(cl_balance) < 0) {
+      return res.status(400).json({ error: 'Casual Leave (CL) balance cannot be negative.' });
+    }
+    if (sl_balance !== undefined && parseFloat(sl_balance) < 0) {
+      return res.status(400).json({ error: 'Sick Leave (SL) balance cannot be negative.' });
+    }
+
+    const adjustments = [
+      { type: 'CL', balanceKey: 'casual',    newVal: cl_balance },
+      { type: 'SL', balanceKey: 'sick',      newVal: sl_balance },
+      { type: 'PL', balanceKey: 'privilege', newVal: pl_balance }
+    ].filter(a => a.newVal !== undefined && a.newVal !== null);
+
+    const auditRecords = [];
+    const ledgerUpdates = [];
+
+    // Fetch current stored balance for old_balance audit values
+    const storedBalance = await LeaveBalance.findOne({ employeeId }).lean();
+
+    for (const adj of adjustments) {
+      const newBalance = parseFloat(adj.newVal);
+      if (isNaN(newBalance)) continue;
+
+      // Old balance from stored LeaveBalance (fall back to 0)
+      const oldBalance = storedBalance?.balances?.[adj.balanceKey]?.balance ?? 0;
+
+      // Find existing ledger entry for this type/month
+      const existingLedger = existingEntries.find(e => e.leave_type === adj.type);
+
+      if (existingLedger) {
+        // Update existing ledger entry
+        // Recalculate: keep opening as-is, set closing to the new balance
+        // (closing_balance = new manually-set balance)
+        // Also adjust opening to match so that closing = opening + allocated - used still makes sense
+        // Strategy: set opening_balance = newBalance (absorb the correction into opening)
+        //           keep allocated_leave and used_leave unchanged
+        //           closing_balance = opening_balance + allocated_leave - used_leave
+        // But per spec, closing should just become the new balance directly.
+        // We'll set closing_balance = newBalance and opening_balance = newBalance
+        // (since this is a manual correction, the opening is being reset)
+        ledgerUpdates.push(
+          EmployeeLeaveLedger.findByIdAndUpdate(
+            existingLedger._id,
+            {
+              $set: {
+                opening_balance: newBalance,
+                closing_balance: newBalance,
+                allocated_leave: 0,
+                used_leave: 0,
+                // If PL is negative it means LOP days
+                lop_days: (adj.type === 'PL' && newBalance < 0) ? Math.abs(newBalance) : 0
+              }
+            },
+            { new: true }
+          )
+        );
+      } else {
+        // No ledger entry yet for this month — create one
+        ledgerUpdates.push(
+          EmployeeLeaveLedger.create({
+            employee_id: employeeId,
+            employee_name: emp.name,
+            year: currentYear,
+            month: currentMonth,
+            leave_type: adj.type,
+            opening_balance: newBalance,
+            allocated_leave: 0,
+            used_leave: 0,
+            closing_balance: newBalance,
+            carry_forward: true,
+            // If PL is negative it means LOP days
+            lop_days: (adj.type === 'PL' && newBalance < 0) ? Math.abs(newBalance) : 0,
+            is_locked: false
+          })
+        );
+      }
+
+      auditRecords.push({
+        employee_id: employeeId,
+        employee_name: emp.name,
+        year: currentYear,
+        month: currentMonth,
+        leave_type: adj.type,
+        old_balance: oldBalance,
+        new_balance: newBalance,
+        reason: editReason,
+        modified_by: editorId,
+        modified_by_name: editorName,
+        modified_at: now
+      });
+    }
+
+    // Execute all ledger updates in parallel
+    await Promise.all(ledgerUpdates);
+
+    // Build the LeaveBalance update set
+    const balanceSet = { 
+      lastUpdated: now,
+      year: currentYear
+    };
+    for (const adj of adjustments) {
+      const newBalance = parseFloat(adj.newVal);
+      if (isNaN(newBalance)) continue;
+      
+      const systemType = adj.balanceKey === 'casual' ? 'casual' : adj.balanceKey === 'sick' ? 'sick' : 'privilege';
+      const realUsed = systemCalc.balances[systemType]?.used || 0;
+      
+      balanceSet[`balances.${adj.balanceKey}.balance`] = newBalance;
+      balanceSet[`balances.${adj.balanceKey}.used`] = realUsed;
+      balanceSet[`balances.${adj.balanceKey}.allocated`] = realUsed + newBalance;
+    }
+
+    // Recalculate total
+    const clBal = adjustments.find(a => a.type === 'CL') !== undefined
+      ? parseFloat(adjustments.find(a => a.type === 'CL').newVal)
+      : (storedBalance?.balances?.casual?.balance ?? 0);
+    const slBal = adjustments.find(a => a.type === 'SL') !== undefined
+      ? parseFloat(adjustments.find(a => a.type === 'SL').newVal)
+      : (storedBalance?.balances?.sick?.balance ?? 0);
+    const plBal = adjustments.find(a => a.type === 'PL') !== undefined
+      ? parseFloat(adjustments.find(a => a.type === 'PL').newVal)
+      : (storedBalance?.balances?.privilege?.balance ?? 0);
+    balanceSet['balances.totalBalance'] = (isNaN(clBal) ? 0 : clBal) + (isNaN(slBal) ? 0 : slBal) + (isNaN(plBal) ? 0 : plBal);
+
+    // Update or create LeaveBalance document
+    const updatedBalance = await LeaveBalance.findOneAndUpdate(
+      { employeeId },
+      { $set: balanceSet },
+      { new: true, upsert: true }
+    );
+
+    // Persist audit records
+    if (auditRecords.length > 0) {
+      await LeaveAdjustmentLog.insertMany(auditRecords);
+    }
+
+    res.json({
+      success: true,
+      employeeId,
+      year: currentYear,
+      month: currentMonth,
+      updatedBalances: updatedBalance?.balances,
+      auditCount: auditRecords.length,
+      message: `Leave balances updated successfully for ${currentMonth}/${currentYear}`
+    });
+  } catch (err) {
+    console.error('[CurrentMonthEdit] Error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET: Fetch adjustment audit logs for an employee
+router.get('/adjustment-logs/:employeeId', auth, async (req, res) => {
+  try {
+    const canView = hasPermission(req.user, 'leave_manage') || hasPermission(req.user, 'leave_view');
+    if (!canView) return res.status(403).json({ message: 'Access denied' });
+
+    const { employeeId } = req.params;
+    const { year, month } = req.query;
+    const filter = { employee_id: employeeId };
+    if (year) filter.year = Number(year);
+    if (month) filter.month = Number(month);
+
+    const logs = await LeaveAdjustmentLog.find(filter)
+      .sort({ modified_at: -1 })
+      .limit(100)
+      .lean();
+
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

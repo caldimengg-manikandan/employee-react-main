@@ -34,6 +34,11 @@ const leaveBalanceSchema = new mongoose.Schema({
       expired: { type: Number, default: 0 },
       carryForwardBalance: { type: Number, default: 0 }
     },
+    bereavement: {
+      allocated: { type: Number, default: 0 },
+      used: { type: Number, default: 0 },
+      balance: { type: Number, default: 0 }
+    },
     totalBalance: { type: Number, default: 0 }
   },
   lastUpdated: {
