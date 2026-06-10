@@ -98,7 +98,7 @@ const TimesheetSummary = () => {
       fontSize: '14px',
       backgroundColor: 'white'
     },
-   loadSummaryBtn: {
+    loadSummaryBtn: {
       background: '#262760',
       color: 'white',
       border: 'none',
@@ -298,7 +298,7 @@ const TimesheetSummary = () => {
 
       const entryHours = (te) => Number(te?.total || 0);
 
-      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
       const monthlyMap = new Map(monthNames.map(m => [m, { month: m, hours: 0, employees: 0 }]));
       const employeesPerMonth = new Map(monthNames.map(m => [m, new Set()]));
 
@@ -502,8 +502,8 @@ const TimesheetSummary = () => {
 
   return (
     <div style={styles.timesheetSummary}>
-      
-      
+
+
       <div style={styles.summaryFilters}>
         <div style={styles.filterGroup}>
           <label style={styles.filterLabel}>Select Year</label>
@@ -544,7 +544,7 @@ const TimesheetSummary = () => {
           </select>
         </div>
         {isFiltersModified && (
-          <button 
+          <button
             style={styles.clearBtn}
             onClick={handleClearFilters}
             onMouseOver={(e) => { e.target.style.background = '#e2e8f0'; }}
@@ -554,7 +554,7 @@ const TimesheetSummary = () => {
           </button>
         )}
 
-        <button 
+        <button
           style={styles.loadSummaryBtn}
           onClick={handleLoadSummary}
           onMouseOver={(e) => e.target.style.background = '#1f204d'}
@@ -563,9 +563,9 @@ const TimesheetSummary = () => {
           Load Summary
         </button>
 
-        
 
-        <button 
+
+        <button
           style={styles.exportExcelBtn}
           onClick={handleExportToExcel}
           onMouseOver={(e) => e.target.style.background = '#1f204d'}
@@ -575,7 +575,7 @@ const TimesheetSummary = () => {
         </button>
       </div>
 
-      {summaryData ? (  
+      {summaryData ? (
         <div style={styles.summaryContent}>
           <div style={styles.summaryStats}>
             <div style={styles.summaryStat}>
@@ -602,14 +602,13 @@ const TimesheetSummary = () => {
               {summaryData.monthlyData.map((monthData, index) => (
                 <div key={monthData.month} style={styles.chartBarContainer}>
                   <div style={styles.chartBar}>
-                    <div 
+                    <div
                       style={{
                         ...styles.barFill,
-                        height: `${
-                          maxMonthlyHours > 0
+                        height: `${maxMonthlyHours > 0
                             ? Math.min((Number(monthData.hours || 0) / maxMonthlyHours) * 100, 100)
                             : 0
-                        }%`
+                          }%`
                       }}
                     ></div>
                   </div>
@@ -636,13 +635,13 @@ const TimesheetSummary = () => {
                   <tr key={index} style={styles.summaryTableRow}>
                     <td style={styles.summaryTableCell}>{item.project}</td>
                     <td style={styles.summaryTableCell}>
-                      <span style={{color: '#262760', fontWeight: '500'}}>
+                      <span style={{ color: '#262760', fontWeight: '500' }}>
                         {item.employeeId}
                       </span>
                     </td>
                     <td style={styles.summaryTableCell}>{item.employeeName}</td>
                     <td style={styles.summaryTableCell}>
-                      <span style={{fontWeight: '600'}}>{formatHours(item.totalHours)}</span>
+                      <span style={{ fontWeight: '600' }}>{formatHours(item.totalHours)}</span>
                     </td>
                   </tr>
                 ))}
