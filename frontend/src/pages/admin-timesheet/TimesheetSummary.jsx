@@ -10,6 +10,7 @@ const TimesheetSummary = () => {
   });
 
   const [summaryData, setSummaryData] = useState(null);
+  const [isLoading, setIsLoading] = useState(false);
   const [availableEmployees, setAvailableEmployees] = useState(['All Employees']);
   const [availableProjects, setAvailableProjects] = useState(['All Projects']);
 
@@ -99,16 +100,17 @@ const TimesheetSummary = () => {
       backgroundColor: 'white'
     },
     loadSummaryBtn: {
-      background: '#262760',
+      background: isLoading ? '#6b7280' : '#262760',
       color: 'white',
       border: 'none',
       padding: '10px 20px',
       borderRadius: '4px',
-      cursor: 'pointer',
+      cursor: isLoading ? 'not-allowed' : 'pointer',
       fontWeight: '500',
       alignSelf: 'end',
       fontSize: '14px',
-      transition: 'all 0.2s ease'
+      transition: 'all 0.2s ease',
+      opacity: isLoading ? 0.7 : 1
     },
     exportExcelBtn: {
       background: '#262760',
@@ -270,6 +272,7 @@ const TimesheetSummary = () => {
 
   const handleLoadSummary = async () => {
     try {
+      setIsLoading(true);
       const listRes = await adminTimesheetAPI.list({
         employeeId: '',
         division: 'All Division',
@@ -381,6 +384,8 @@ const TimesheetSummary = () => {
         monthlyData: [],
         projectEmployeeSummary: []
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -557,10 +562,11 @@ const TimesheetSummary = () => {
         <button
           style={styles.loadSummaryBtn}
           onClick={handleLoadSummary}
-          onMouseOver={(e) => e.target.style.background = '#1f204d'}
-          onMouseOut={(e) => e.target.style.background = '#262760'}
+          disabled={isLoading}
+          onMouseOver={(e) => { if (!isLoading) e.target.style.background = '#1f204d'; }}
+          onMouseOut={(e) => { if (!isLoading) e.target.style.background = '#262760'; }}
         >
-          Load Summary
+          {isLoading ? 'Loading...' : 'Load Summary'}
         </button>
 
 

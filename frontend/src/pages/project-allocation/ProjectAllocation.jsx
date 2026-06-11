@@ -1520,96 +1520,141 @@ const ProjectAllocation = () => {
                   </div>
                 </div>
 
-                {getFilteredAllocations().length === 0 ? (
-                  <div className="p-8 text-center">
-                    <div className="text-gray-400 text-6xl mb-4">👥</div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Allocations Found</h3>
-                    <p className="text-gray-500">
-                      {hasActiveAllocationFilters || selectedLocation !== 'All'
-                        ? "No allocations match your current filters."
-                        : "No allocations available."
-                      }
-                    </p>
-                    {(hasActiveAllocationFilters || selectedLocation !== 'All') && (
-                      <button onClick={() => { clearAllocationFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors text-sm">
-                        Clear All Filters
-                      </button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="overflow-x-auto h-[480px] overflow-y-auto">
-                    <table className="w-full">
-                      <thead className="sticky top-0">
-                        <tr className="bg-[#262760] text-white">
-                          <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
-                          <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
-                          <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
-                          <th className="p-3 text-left text-sm font-semibold border-b">Employee Name</th>
-                          <th className="p-3 text-left text-sm font-semibold border-b">Employee ID</th>
-                          <th className="p-3 text-left text-sm font-semibold border-b">Location</th>
-                          <th className="p-3 text-left text-sm font-semibold border-b">Status</th>
-                          <th className="p-3 text-left text-sm font-semibold border-b">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {getFilteredAllocations().map(allocation => (
-                          <tr key={allocation._id || allocation.id} className="hover:bg-gray-50 border-b">
-                            <td className="p-3">
-                              <div className="font-mono text-sm font-semibold text-blue-600">{allocation.projectCode}</div>
-                            </td>
-                            <td className="p-3">
-                              <div className="font-medium text-gray-900">{allocation.projectName}</div>
-                            </td>
-                            <td className="p-3">
-                              <div className="text-sm text-gray-600">{allocation.projectDivision || allocation.division}</div>
-                            </td>
-                            <td className="p-3">
-                              <div className="font-medium text-gray-900">{allocation.employeeName}</div>
-                            </td>
-                            <td className="p-3">
-                              <div className="text-sm font-mono text-gray-500">{allocation.employeeCode}</div>
-                            </td>
-                            <td className="p-3">
-                              <div className="text-sm text-gray-600">{allocation.branch}</div>
-                            </td>
-                            <td className="p-3">
-                              <span className={getStatusBadge(allocation.status)}>{allocation.status}</span>
-                            </td>
-                            <td className="p-3">
-                              <div className="flex space-x-2">
-                                <button
-                                  onClick={() => openViewModal(allocation, 'allocation')}
-                                  className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors"
-                                  title="View"
-                                >
-                                  <Eye size={14} />
-                                </button>
-                                {canEdit && (
-                                  <>
-                                    <button
-                                      onClick={() => openAllocationModal(allocation)}
-                                      className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors"
-                                      title="Edit"
-                                    >
-                                      <Edit size={14} />
-                                    </button>
-                                    <button
-                                      onClick={() => openDeleteAllocationModal(allocation)}
-                                      className="p-1 bg-red-100 text-red-600 rounded hover:bg-red-200 transition-colors"
-                                      title="Delete"
-                                    >
-                                      <Trash2 size={14} />
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            </td>
+                {(() => {
+                  const filteredAllocations = getFilteredAllocations();
+                  if (filteredAllocations.length === 0) {
+                    return (
+                      <div className="p-8 text-center">
+                        <div className="text-gray-400 text-6xl mb-4">👥</div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-2">No Allocations Found</h3>
+                        <p className="text-gray-500">
+                          {hasActiveAllocationFilters || selectedLocation !== 'All'
+                            ? "No allocations match your current filters."
+                            : "No allocations available."
+                          }
+                        </p>
+                        {(hasActiveAllocationFilters || selectedLocation !== 'All') && (
+                          <button onClick={() => { clearAllocationFilters(); setSelectedLocation('All'); }} className="mt-3 px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] transition-colors text-sm">
+                            Clear All Filters
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }
+
+                  const groupedAllocationsMap = new Map();
+                  filteredAllocations.forEach(alloc => {
+                    const key = alloc.projectId || alloc.projectCode;
+                    if (!groupedAllocationsMap.has(key)) {
+                      groupedAllocationsMap.set(key, {
+                        projectId: alloc.projectId,
+                        projectCode: alloc.projectCode,
+                        projectName: alloc.projectName,
+                        division: alloc.projectDivision || alloc.division,
+                        branch: alloc.branch,
+                        status: alloc.status,
+                        employees: [],
+                        rawAllocation: alloc
+                      });
+                    }
+                    groupedAllocationsMap.get(key).employees.push({
+                      allocation: alloc,
+                      name: alloc.employeeName,
+                      code: alloc.employeeCode
+                    });
+                  });
+                  const groupedAllocations = Array.from(groupedAllocationsMap.values());
+
+                  return (
+                    <div className="overflow-x-auto h-[480px] overflow-y-auto">
+                      <table className="w-full">
+                        <thead className="sticky top-0 bg-white z-10">
+                          <tr className="bg-[#262760] text-white">
+                            <th className="p-3 text-left text-sm font-semibold border-b w-[10%]">Project Code</th>
+                            <th className="p-3 text-left text-sm font-semibold border-b w-[15%]">Project Name</th>
+                            <th className="p-3 text-left text-sm font-semibold border-b w-[10%]">Division</th>
+                            <th className="p-3 text-left text-sm font-semibold border-b w-[35%]">Allocated Employees</th>
+                            <th className="p-3 text-left text-sm font-semibold border-b w-[10%]">Location</th>
+                            <th className="p-3 text-left text-sm font-semibold border-b w-[10%]">Status</th>
+                            <th className="p-3 text-left text-sm font-semibold border-b w-[10%]">Actions</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
+                        </thead>
+                        <tbody>
+                          {groupedAllocations.map(group => (
+                            <tr key={group.projectId || group.projectCode} className="hover:bg-gray-50 border-b">
+                              <td className="p-3 align-top">
+                                <div className="font-mono text-sm font-semibold text-blue-600">{group.projectCode}</div>
+                              </td>
+                              <td className="p-3 align-top">
+                                <div className="font-medium text-gray-900">{group.projectName}</div>
+                              </td>
+                              <td className="p-3 align-top">
+                                <div className="text-sm text-gray-600">{group.division}</div>
+                              </td>
+                              <td className="p-3 align-top">
+                                <div className="flex flex-wrap gap-2">
+                                  {group.employees.map(emp => (
+                                    <span key={emp.allocation._id || emp.allocation.id || emp.code} className="inline-flex items-center px-2 py-1 bg-blue-50 text-[#262760] rounded-md text-xs font-medium border border-blue-100 shadow-sm">
+                                      {emp.name} {emp.code ? `(${emp.code})` : ''}
+                                      {canEdit && (
+                                        <button
+                                          onClick={(e) => { e.stopPropagation(); openDeleteAllocationModal(emp.allocation); }}
+                                          className="ml-2 text-blue-400 hover:text-red-500 focus:outline-none transition-colors"
+                                          title="Remove Allocation"
+                                        >
+                                          <X size={14} />
+                                        </button>
+                                      )}
+                                    </span>
+                                  ))}
+                                  {group.employees.length === 0 && (
+                                    <span className="text-gray-400 text-sm italic">No active employees</span>
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-3 align-top">
+                                <div className="text-sm text-gray-600">{group.branch}</div>
+                              </td>
+                              <td className="p-3 align-top">
+                                <span className={getStatusBadge(group.status)}>{group.status}</span>
+                              </td>
+                              <td className="p-3 align-top">
+                                <div className="flex space-x-2">
+                                  <button
+                                    onClick={() => openViewModal(group.rawAllocation, 'allocation')}
+                                    className="p-1 bg-green-100 text-green-600 rounded hover:bg-green-200 transition-colors"
+                                    title="View Details"
+                                  >
+                                    <Eye size={14} />
+                                  </button>
+                                  {canEdit && (
+                                    <button
+                                      onClick={() => {
+                                        setEditingAllocation(null);
+                                        setAllocationForm({
+                                          projectId: group.projectId || '',
+                                          projectName: group.projectName,
+                                          employeeName: '',
+                                          employeeId: '',
+                                          employeeIds: []
+                                        });
+                                        setShowAllocationModal(true);
+                                      }}
+                                      className="p-1 bg-blue-100 text-blue-600 rounded hover:bg-blue-200 transition-colors flex items-center justify-center px-2"
+                                      title="Add Employees to Project"
+                                    >
+                                      <span className="text-xs font-medium">+ Add</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           )}

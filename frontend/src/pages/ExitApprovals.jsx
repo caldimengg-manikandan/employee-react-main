@@ -199,6 +199,28 @@ const ExitApproval = () => {
     setFilteredForms(result);
   };
 
+  const safeFormatRelievingDate = (dateVal, formatOptions = { day: '2-digit', month: 'long', year: 'numeric' }) => {
+    if (!dateVal) return '-';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) {
+      if (typeof dateVal === 'string') {
+        const parts = dateVal.split(/[-/]/);
+        if (parts.length === 3) {
+          const day = parseInt(parts[0], 10);
+          const month = parseInt(parts[1], 10) - 1;
+          let year = parseInt(parts[2], 10);
+          if (year < 100) year += 2000;
+          const parsedD = new Date(year, month, day);
+          if (!isNaN(parsedD.getTime())) {
+            return parsedD.toLocaleDateString('en-GB', formatOptions);
+          }
+        }
+      }
+      return dateVal; // If all fails, just return the raw string rather than Invalid Date
+    }
+    return d.toLocaleDateString('en-GB', formatOptions);
+  };
+
   const handleGenerateRelievingLetter = (form) => {
     if (form.status !== 'completed') {
       message.warning("Relieving letter can only be generated for completed exit requests.");
@@ -218,10 +240,25 @@ const ExitApproval = () => {
       form.lastWorkingDay ||
       form.relievingDate;
 
-    const joinDate = new Date(joinDateRaw);
-    const lwd = new Date(lastWorkingRaw);
-    const years = Math.floor((lwd - joinDate) / (365 * 24 * 60 * 60 * 1000));
-    const months = Math.floor(((lwd - joinDate) % (365 * 24 * 60 * 60 * 1000)) / (30 * 24 * 60 * 60 * 1000));
+    // To calculate years of service safely
+    const calculateService = (startRaw, endRaw) => {
+      if (!startRaw || !endRaw) return { years: 0, months: 0 };
+      const start = new Date(startRaw);
+      const end = new Date(endRaw);
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) return { years: 0, months: 0 };
+      let years = end.getFullYear() - start.getFullYear();
+      let months = end.getMonth() - start.getMonth();
+      let days = end.getDate() - start.getDate();
+      if (days < 0) months -= 1;
+      if (months < 0) {
+        years -= 1;
+        months += 12;
+      }
+      return { years: Math.max(0, years), months: Math.max(0, months) };
+    };
+
+    const { years, months } = calculateService(joinDateRaw, lastWorkingRaw);
+
     const location = (form.location || emp?.location || '').toLowerCase().trim();
     
     let signatory = hrManager;
@@ -233,8 +270,6 @@ const ExitApproval = () => {
       signatory = 'UVARAJ';
     }
 
-
-
     const letterData = {
       date: new Date().toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
       employeeName: form.employeeName,
@@ -243,15 +278,15 @@ const ExitApproval = () => {
       employeeId: form.employeeId?.employeeId || form.employeeDetails?.employeeId,
       designation: form.employeeDetails?.position || form.position,
       department: form.employeeDetails?.department || form.department,
-      joinDate: joinDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
-      lastWorkingDate: lwd.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
+      joinDate: safeFormatRelievingDate(joinDateRaw),
+      lastWorkingDate: safeFormatRelievingDate(lastWorkingRaw),
       yearsOfService: years,
       monthsOfService: months,
       companyName: companyName,
       companyAddress: companyAddress,
       hrManager: signatory,
       signatureImage: signatureImage,
-      resignationDate: new Date(form.createdAt || form.resignationDate || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+      resignationDate: safeFormatRelievingDate(form.createdAt || form.resignationDate || Date.now(), { day: '2-digit', month: '2-digit', year: 'numeric' }),
       finalSettlement: 'Full and final settlement has been processed.',
       assetsReturned: 'All company assets have been returned.',
       formalityCompleted: 'All exit formalities have been completed.'
