@@ -739,7 +739,9 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
                     {module.children.map(child => {
                       const permission = child.key;
                       const isAlwaysEnabled = !!child.alwaysOn;
-                      const isRestrictedForRole = (String(formData.role || '').toLowerCase() !== 'admin' && String(formData.role || '').toLowerCase() !== 'hr') && restrictedPermissionsForNonAdmin.includes(permission);
+                      const roleStr = String(formData.role || '').toLowerCase();
+                      const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(roleStr);
+                      const isRestrictedForRole = !isPrivilegedRole && restrictedPermissionsForNonAdmin.includes(permission);
                       const isActive = isAlwaysEnabled || formData.permissions.includes(permission);
                       const isDisabled = isAlwaysEnabled || isRestrictedForRole;
                       return (

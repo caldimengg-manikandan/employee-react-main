@@ -4,9 +4,9 @@ import { employeeAPI, projectAPI, allocationAPI } from '../../services/api';
 import Modal from '../../components/Modals/Modal';
 
 const ProjectAllocation = () => {
-  // Get user from sessionStorage
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
-  const isProjectManager = user.role === 'projectmanager' || user.role === 'project_manager' || user.role === 'admin';
+  const roleStr = String(user.role || '').toLowerCase();
+  const isProjectManager = ['projectmanager', 'project_manager', 'admin', 'hr', 'director', 'manager'].includes(roleStr);
   const canEdit = isProjectManager;
   const [deleteProjectModal, setDeleteProjectModal] = useState({ isOpen: false, projectId: null, projectName: '' });
   const [deleteAllocationModal, setDeleteAllocationModal] = useState({ isOpen: false, allocationId: null });

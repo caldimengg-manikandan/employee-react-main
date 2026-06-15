@@ -92,7 +92,7 @@ router.get("/list", auth, async (req, res) => {
   try {
     const { employeeId, division, location, status, week, project, fromDate, toDate } = req.query;
     const role = String(req.user?.role || "").toLowerCase();
-    const isAdmin = role === "admin";
+    const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
     const isPM = role === "projectmanager" || role === "project_manager";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
@@ -352,13 +352,13 @@ router.get("/list", auth, async (req, res) => {
 router.put("/approve/:id", auth, async (req, res) => {
   try {
     const role = String(req.user?.role || "").toLowerCase();
-    const allowedRoles = ["admin", "hr", "manager", "projectmanager", "project_manager"];
+    const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager"];
     const hasAccess = allowedRoles.includes(role) || (req.user?.permissions || []).includes("admin_timesheet_access");
     if (!hasAccess) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const isAdmin = role === "admin";
+    const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
     const isPM = role === "projectmanager" || role === "project_manager";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
@@ -508,13 +508,13 @@ router.put("/reject/:id", auth, async (req, res) => {
     const { reason } = req.body;
 
     const role = String(req.user?.role || "").toLowerCase();
-    const allowedRoles = ["admin", "hr", "manager", "projectmanager", "project_manager"];
+    const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager"];
     const hasAccess = allowedRoles.includes(role) || (req.user?.permissions || []).includes("admin_timesheet_access");
     if (!hasAccess) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const isAdmin = role === "admin";
+    const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
     const isPM = role === "projectmanager" || role === "project_manager";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
@@ -667,13 +667,13 @@ router.get("/summary", auth, async (req, res) => {
     const { year, employee, project } = req.query;
 
     const role = String(req.user?.role || "").toLowerCase();
-    const allowedRoles = ["admin", "hr", "manager", "projectmanager", "project_manager"];
+    const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager"];
     const hasAccess = allowedRoles.includes(role) || (req.user?.permissions || []).includes("admin_timesheet_access");
     if (!hasAccess) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const isAdmin = role === "admin";
+    const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
     const isPM = role === "projectmanager" || role === "project_manager";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
