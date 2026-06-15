@@ -118,7 +118,7 @@ const ExitApproval = () => {
 
   const fetchEmployees = async () => {
     try {
-      const res = await employeeAPI.getAllEmployees();
+      const res = await employeeAPI.getAllEmployees('all');
       setEmployees(res.data || []);
     } catch (error) {
       console.error('Error fetching employees:', error);

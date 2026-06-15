@@ -819,10 +819,8 @@ const AdminTimesheet = () => {
     });
   };
 
-  useEffect(() => {
-    fetchTimesheets();
-  }, []);
-
+  // fetchTimesheets is called by the useEffect below which depends on filters and allEmployees.
+  // The first execution will happen on mount since filters is initialized and allEmployees changes when loaded.
   useEffect(() => {
     fetchTimesheets();
   }, [filters, allEmployees]);

@@ -169,24 +169,53 @@ router.get("/list", auth, async (req, res) => {
 
       // Load submitted timesheets and transform to admin view
       const sheets = await Timesheet.find(tsQuery).lean();
+      
+      // PRELOAD DATA to avoid N+1 queries
+      const userIds = [...new Set(sheets.map(s => s.userId).filter(Boolean))];
+      const users = await User.find({ _id: { $in: userIds } }).lean();
+      const userMap = users.reduce((acc, u) => { acc[u._id.toString()] = u; return acc; }, {});
+      
+      const employeeIdsToFind = users.map(u => u.employeeId).filter(Boolean);
+      const emailsToFind = users.map(u => u.email).filter(Boolean);
+      const namesToFind = users.map(u => u.name).filter(Boolean);
+      
+      // Find employees using any of the matched attributes
+      const employees = await Employee.find({
+        $or: [
+          { employeeId: { $in: employeeIdsToFind } },
+          { email: { $in: emailsToFind } },
+          { name: { $in: namesToFind } }
+        ]
+      }).lean();
+      
+      const empByEmpId = {};
+      const empByEmail = {};
+      const empByName = {};
+      employees.forEach(e => {
+        if (e.employeeId) empByEmpId[e.employeeId] = e;
+        if (e.email) empByEmail[e.email] = e;
+        if (e.name) empByName[e.name] = e;
+      });
+      
+      const existingAdminTimesheets = await AdminTimesheet.find({
+        employeeId: { $in: employeeIdsToFind }
+      }).lean();
+      
+      const adminTsByEmpId = existingAdminTimesheets.reduce((acc, ts) => {
+        if (ts.employeeId) acc[ts.employeeId] = ts;
+        return acc;
+      }, {});
+
       for (const sheet of sheets) {
         try {
-          const user = await User.findById(sheet.userId).lean();
+          const user = userMap[sheet.userId?.toString()];
           let emp = null;
           
-          // Try multiple methods to find employee data
-          if (user?.employeeId) {
-            emp = await Employee.findOne({ employeeId: user.employeeId }).lean();
-          }
-          
-          // If not found by employeeId, try email
-          if (!emp && user?.email) {
-            emp = await Employee.findOne({ email: user.email }).lean();
-          }
-          
-          // If still not found, try name matching
-          if (!emp && user?.name) {
-            emp = await Employee.findOne({ name: user.name }).lean();
+          if (user) {
+            // Try multiple methods to find employee data
+            if (user.employeeId) emp = empByEmpId[user.employeeId];
+            if (!emp && user.email) emp = empByEmail[user.email];
+            if (!emp && user.name) emp = empByName[user.name];
           }
 
           const weekStr = toWeekString(new Date(sheet.weekStartDate));
@@ -224,14 +253,13 @@ router.get("/list", auth, async (req, res) => {
           let locationData = emp?.location || "";
           
           if (!divisionData || !locationData) {
-            const existingRecord = await AdminTimesheet.findOne({ 
-              employeeId: emp?.employeeId || user?.employeeId 
-            }).lean();
+            const empIdToCheck = emp?.employeeId || user?.employeeId;
+            const existingRecord = empIdToCheck ? adminTsByEmpId[empIdToCheck] : null;
             
             if (existingRecord) {
               divisionData = divisionData || existingRecord.division || "Not Assigned";
               locationData = locationData || existingRecord.location || "Not Assigned";
-              console.log(`📋 Found existing record with division: ${divisionData}, location: ${locationData}`);
+              // console.log(\`📋 Found existing record with division: \${divisionData}, location: \${locationData}\`);
             }
           }
           
