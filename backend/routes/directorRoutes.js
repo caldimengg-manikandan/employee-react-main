@@ -355,8 +355,8 @@ router.post('/release', auth, async (req, res) => {
           }
         }
 
-        const employeePfContribution = calculatedEmployeePF;
-        const employerPfContribution = calculatedEmployerPF;
+        const employeePfContribution = customPFs?.employeePfContribution !== undefined && customPFs.employeePfContribution !== null && customPFs.employeePfContribution !== "" ? Number(customPFs.employeePfContribution) : calculatedEmployeePF;
+        const employerPfContribution = customPFs?.employerPfContribution !== undefined && customPFs.employerPfContribution !== null && customPFs.employerPfContribution !== "" ? Number(customPFs.employerPfContribution) : calculatedEmployerPF;
         const esi = customPFs?.esi !== undefined ? Number(customPFs.esi) : 0;
         
         const volunteerPF = customPFs?.volunteerPF !== undefined ? Number(customPFs.volunteerPF) : 0;

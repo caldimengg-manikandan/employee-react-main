@@ -33,11 +33,9 @@ const calculateSalaryFields = (salaryData) => {
   let employerPF = parseFloat(salaryData.employerPfContribution) || 0;
   
   const manualPf = parseFloat(salaryData.pf);
-  if (!isNaN(manualPf) && manualPf !== (employeePF + employerPF)) {
-    employeePF = manualPf / 2;
-    employerPF = manualPf / 2;
-  }
   
+  // Do NOT split PF automatically. The user will enter Employee and Employer PF directly.
+
   const esi = parseFloat(salaryData.esi) || 0;
   const tax = parseFloat(salaryData.tax) || 0;
   const professionalTax = parseFloat(salaryData.professionalTax) || 0;
@@ -112,7 +110,8 @@ const initialSalaryData = {
   specialAllowance: '',
   
   // Deductions
-  pf: '',
+  employeePfContribution: '',
+  employerPfContribution: '',
   esi: '',
   tax: '',
   professionalTax: '',
@@ -240,7 +239,7 @@ const PayrollDetails = () => {
 
     // Fields that should only contain numbers
     const numericFields = [
-      'basicDA', 'hra', 'specialAllowance', 'pf', 'esi', 'tax', 
+      'basicDA', 'hra', 'specialAllowance', 'employeePfContribution', 'employerPfContribution', 'esi', 'tax', 
       'professionalTax', 'loanDeduction', 'lop', 'gratuity', 'volunteerPF'
     ];
 
@@ -266,7 +265,7 @@ const PayrollDetails = () => {
 
     const salaryFields = [
       'basicDA', 'hra', 'specialAllowance', 'gratuity',
-      'pf', 'esi', 'tax', 'professionalTax', 'loanDeduction', 'lop', 'volunteerPF'
+      'employeePfContribution', 'employerPfContribution', 'esi', 'tax', 'professionalTax', 'loanDeduction', 'lop', 'volunteerPF'
     ];
     
     if (salaryFields.includes(name)) {
@@ -295,27 +294,25 @@ const PayrollDetails = () => {
             const dojParsed = parseDate(doj);
             const dojISO = dojParsed ? dojParsed.toISOString().split('T')[0] : formData.dateOfJoining;
             
-            const empPF = Number(emp.pf || 0) || (Number(emp.employeePfContribution || 0) + Number(emp.employerPfContribution || 0));
-
             const filled = {
               employeeId: v,
               employeeName: emp.name || emp.employeename || '',
-              designation: emp.designation || emp.position || emp.role || '',
-              department: emp.department || emp.division || '',
+              designation: emp.designation || emp.position || '',
+              department: emp.division || emp.department || '',
               location: emp.location || emp.address || emp.currentAddress || '',
               dateOfJoining: dojISO,
-              basicDA: emp.basicDA ?? formData.basicDA,
-              hra: emp.hra ?? formData.hra,
-              specialAllowance: emp.specialAllowance ?? formData.specialAllowance,
-              gratuity: emp.gratuity ?? formData.gratuity,
-              pf: empPF || formData.pf,
-              employeePfContribution: emp.employeePfContribution || 0,
-              employerPfContribution: emp.employerPfContribution || 0,
+              employmentType: emp.employmentType || 'Permanent',
+              basicDA: emp.basicDA || formData.basicDA,
+              hra: emp.hra || formData.hra,
+              specialAllowance: emp.specialAllowance || formData.specialAllowance,
+              employeePfContribution: emp.employeePfContribution || formData.employeePfContribution,
+              employerPfContribution: emp.employerPfContribution || formData.employerPfContribution,
               esi: emp.esi ?? formData.esi,
               tax: emp.tax ?? formData.tax,
               professionalTax: emp.professionalTax ?? formData.professionalTax,
               loanDeduction: emp.loanDeduction ?? formData.loanDeduction,
               lop: emp.lop ?? formData.lop,
+              gratuity: emp.gratuity ?? formData.gratuity,
               volunteerPF: emp.volunteerPF || 0,
               bankName: emp.bankName || formData.bankName || '',
               accountNumber: emp.bankAccount || formData.accountNumber || '',
@@ -478,11 +475,6 @@ const PayrollDetails = () => {
     }
   };
 
-  const handleAddNew = () => {
-    setFormData(initialSalaryData);
-    setEditingIndex(null);
-    setOpenDialog(true);
-  };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
@@ -835,16 +827,6 @@ const PayrollDetails = () => {
             </select>
           </div>
 
-          {/* Add Salary Record Box */}
-          <div className="flex items-end">
-            <button
-              onClick={handleAddNew}
-              className="w-full flex items-center justify-center px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] transition-colors"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Salary Record
-            </button>
-          </div>
 
           {/* Download All PDF Button */}
           <div className="flex items-end">
@@ -1259,7 +1241,8 @@ const PayrollDetails = () => {
                   <h3 className="text-lg font-medium text-red-900 mb-4">Deductions</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {[
-                      { label: 'PF Contribution', name: 'pf' },
+                      { label: 'Employee PF', name: 'employeePfContribution' },
+                      { label: 'Employer PF', name: 'employerPfContribution' },
                       { label: 'ESI Contribution', name: 'esi' },
                       { label: 'Income Tax', name: 'tax' },
                       { label: 'Professional Tax', name: 'professionalTax' },
@@ -1417,183 +1400,200 @@ const PayrollDetails = () => {
       )}
 
       {/* View Record Modal */}
+      {/* View Record Modal */}
       {viewRecord && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto transform transition-all">
             {/* Header */}
-            <div className="px-6 py-4 border-b flex justify-between items-center">
-              <h2 className="text-xl font-semibold text-gray-800">
-                Salary Details - {viewRecord.employeeName}
-              </h2>
+            <div className="px-8 py-6 bg-gradient-to-r from-blue-600 to-indigo-700 flex justify-between items-center text-white rounded-t-2xl shadow-inner">
+              <div>
+                <h2 className="text-2xl font-bold tracking-wide">
+                  Salary Details
+                </h2>
+                <p className="text-blue-100 text-sm mt-1 opacity-90 font-medium">{viewRecord.employeeName} • {viewRecord.employeeId}</p>
+              </div>
               <button
                 onClick={handleCloseView}
-                className="text-gray-500 hover:text-gray-700"
+                className="text-white hover:text-gray-200 transition-colors p-2 rounded-full hover:bg-white/10"
               >
                 ✕
               </button>
             </div>
 
             {/* Content */}
-            <div className="p-6">
-              <div className="space-y-6">
-                {/* Employee Info */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Employee ID</label>
-                    <p className="font-medium">{viewRecord.employeeId}</p>
+            <div className="p-8 bg-gray-50/50">
+              <div className="space-y-8">
+                {/* Employee Info Cards */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Designation</label>
+                    <p className="font-medium text-gray-800 mt-1 truncate">{viewRecord.designation}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Name</label>
-                    <p className="font-medium">{viewRecord.employeeName}</p>
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Division</label>
+                    <p className="font-medium text-gray-800 mt-1 truncate">{viewRecord.department}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Designation</label>
-                    <p>{viewRecord.designation}</p>
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Location</label>
+                    <p className="font-medium text-gray-800 mt-1 truncate">{employeeList.find(e => e.employeeId === viewRecord.employeeId)?.location || viewRecord.location || 'N/A'}</p>
                   </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Division</label>
-                    <p>{viewRecord.department}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Location</label>
-                    <p>{employeeList.find(e => e.employeeId === viewRecord.employeeId)?.location || viewRecord.location || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="text-sm font-medium text-gray-500">Employment Type</label>
-                    <p>{viewRecord.employmentType}</p>
+                  <div className="bg-white p-4 rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Type</label>
+                    <p className="font-medium text-gray-800 mt-1 truncate">{viewRecord.employmentType}</p>
                   </div>
                 </div>
 
-                {/* Earnings */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Earnings</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Basic + DA</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.basicDA)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">HRA</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.hra)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Special Allowance</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.specialAllowance)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Total Earnings</label>
-                      <p className="font-bold text-green-600">{formatCurrency(viewRecord.totalEarnings)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Benefits */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Benefits</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Gratuity</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.gratuity)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Deductions */}
-                <div>
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Deductions</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Employee PF</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.employeePfContribution || (viewRecord.pf / 2))}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Employer PF</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.employerPfContribution || (viewRecord.pf / 2))}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">ESI Contribution</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.esi)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Gratuity</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.gratuity)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Income Tax</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.tax)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Professional Tax</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.professionalTax)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Loan Deduction</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.loanDeduction)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">LOP</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.lop)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Volunteer PF</label>
-                      <p className="font-medium">{formatCurrency(viewRecord.volunteerPF)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Total Deductions</label>
-                      <p className="font-bold text-red-600">{formatCurrency(viewRecord.totalDeductions)}</p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Summary */}
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="text-lg font-medium text-gray-900 mb-3">Summary</h3>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">Net Salary</label>
-                      <p className="text-xl font-bold text-blue-600">{formatCurrency(viewRecord.netSalary)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500">CTC</label>
-                      <p className="text-xl font-bold text-purple-600">{formatCurrency(viewRecord.ctc)}</p>
-                    </div>
-                  </div>
-                </div>
-               
-
-                {/* Bank Details */}
-                {viewRecord.bankName && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-3">Bank Details</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Bank Name</label>
-                        <p>{viewRecord.bankName}</p>
+                {/* Earnings & Benefits Row */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Earnings */}
+                  <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-2xl p-6 border border-emerald-100 shadow-sm">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center shadow-inner">
+                        <span className="text-emerald-600 font-bold text-lg">₹</span>
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">Account Number</label>
-                        <p>{viewRecord.accountNumber}</p>
+                      <h3 className="text-xl font-bold text-emerald-900 tracking-tight">Earnings</h3>
+                    </div>
+                    <div className="space-y-3">
+                      <div className="flex justify-between items-center bg-white/40 p-2 rounded-lg">
+                        <span className="text-emerald-800 text-sm font-medium">Basic + DA</span>
+                        <span className="font-semibold text-emerald-900">{formatCurrency(viewRecord.basicDA)}</span>
                       </div>
-                      <div>
-                        <label className="text-sm font-medium text-gray-500">IFSC Code</label>
-                        <p>{viewRecord.ifscCode}</p>
+                      <div className="flex justify-between items-center bg-white/40 p-2 rounded-lg">
+                        <span className="text-emerald-800 text-sm font-medium">HRA</span>
+                        <span className="font-semibold text-emerald-900">{formatCurrency(viewRecord.hra)}</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-white/40 p-2 rounded-lg">
+                        <span className="text-emerald-800 text-sm font-medium">Special Allowance</span>
+                        <span className="font-semibold text-emerald-900">{formatCurrency(viewRecord.specialAllowance)}</span>
+                      </div>
+                      <div className="pt-4 mt-2 border-t-2 border-emerald-200/60 flex justify-between items-center">
+                        <span className="text-emerald-800 font-bold uppercase tracking-wide text-sm">Total Earnings</span>
+                        <span className="font-black text-emerald-600 text-xl">{formatCurrency(viewRecord.totalEarnings)}</span>
                       </div>
                     </div>
                   </div>
-                )}
+
+                  {/* Deductions */}
+                  <div className="bg-gradient-to-br from-rose-50 to-red-50 rounded-2xl p-6 border border-rose-100 shadow-sm">
+                    <div className="flex items-center gap-3 mb-5">
+                      <div className="w-10 h-10 rounded-full bg-rose-100 flex items-center justify-center shadow-inner">
+                        <span className="text-rose-600 font-bold text-xl">-</span>
+                      </div>
+                      <h3 className="text-xl font-bold text-rose-900 tracking-tight">Deductions</h3>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                      <div className="flex flex-col bg-white/40 p-2 rounded-lg">
+                        <span className="text-rose-800 text-[11px] font-bold uppercase tracking-wider">Employee PF</span>
+                        <span className="font-semibold text-rose-900">{formatCurrency(viewRecord.employeePfContribution || (viewRecord.pf / 2))}</span>
+                      </div>
+                      <div className="flex flex-col bg-white/40 p-2 rounded-lg">
+                        <span className="text-rose-800 text-[11px] font-bold uppercase tracking-wider">Employer PF</span>
+                        <span className="font-semibold text-rose-900">{formatCurrency(viewRecord.employerPfContribution || (viewRecord.pf / 2))}</span>
+                      </div>
+                      <div className="flex flex-col bg-white/40 p-2 rounded-lg">
+                        <span className="text-rose-800 text-[11px] font-bold uppercase tracking-wider">ESI</span>
+                        <span className="font-semibold text-rose-900">{formatCurrency(viewRecord.esi)}</span>
+                      </div>
+                      <div className="flex flex-col bg-white/40 p-2 rounded-lg">
+                        <span className="text-rose-800 text-[11px] font-bold uppercase tracking-wider">Income Tax</span>
+                        <span className="font-semibold text-rose-900">{formatCurrency(viewRecord.tax)}</span>
+                      </div>
+                      <div className="flex flex-col bg-white/40 p-2 rounded-lg">
+                        <span className="text-rose-800 text-[11px] font-bold uppercase tracking-wider">Prof. Tax</span>
+                        <span className="font-semibold text-rose-900">{formatCurrency(viewRecord.professionalTax)}</span>
+                      </div>
+                      <div className="flex flex-col bg-white/40 p-2 rounded-lg">
+                        <span className="text-rose-800 text-[11px] font-bold uppercase tracking-wider">Loan / LOP</span>
+                        <span className="font-semibold text-rose-900">{formatCurrency((Number(viewRecord.loanDeduction) || 0) + (Number(viewRecord.lop) || 0))}</span>
+                      </div>
+                      <div className="flex flex-col col-span-2 bg-white/40 p-2 rounded-lg">
+                        <span className="text-rose-800 text-[11px] font-bold uppercase tracking-wider">Volunteer PF</span>
+                        <span className="font-semibold text-rose-900">{formatCurrency(viewRecord.volunteerPF)}</span>
+                      </div>
+                    </div>
+                    <div className="pt-4 mt-2 border-t-2 border-rose-200/60 flex justify-between items-center">
+                      <span className="text-rose-800 font-bold uppercase tracking-wide text-sm">Total Deductions</span>
+                      <span className="font-black text-rose-600 text-xl">{formatCurrency(viewRecord.totalDeductions)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Summary & Bank Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                   {/* Summary Highlight */}
+                   <div className="bg-gradient-to-br from-indigo-900 via-blue-900 to-indigo-800 rounded-2xl p-6 shadow-xl text-white relative overflow-hidden transform hover:-translate-y-1 transition-transform">
+                     <div className="absolute top-0 right-0 -mr-8 -mt-8 w-40 h-40 rounded-full bg-white opacity-10 blur-3xl"></div>
+                     <div className="absolute bottom-0 left-0 -ml-8 -mb-8 w-32 h-32 rounded-full bg-blue-400 opacity-20 blur-2xl"></div>
+                     
+                     <h3 className="text-indigo-200 text-sm font-bold tracking-widest uppercase mb-4 relative z-10 flex items-center gap-2">
+                       <span className="w-1.5 h-1.5 rounded-full bg-indigo-400"></span>
+                       Final Summary
+                     </h3>
+                     <div className="space-y-5 relative z-10">
+                       <div>
+                         <p className="text-indigo-200 text-sm mb-1 font-medium">Net Payable Salary</p>
+                         <p className="text-4xl font-black text-white tracking-tight drop-shadow-md">{formatCurrency(viewRecord.netSalary)}</p>
+                       </div>
+                       <div className="flex gap-8 pt-5 border-t border-indigo-700/60">
+                         <div>
+                           <p className="text-indigo-300 text-[11px] font-bold uppercase tracking-wider mb-1">Cost To Company</p>
+                           <p className="text-xl font-bold text-indigo-50">{formatCurrency(viewRecord.ctc)}</p>
+                         </div>
+                         <div>
+                           <p className="text-indigo-300 text-[11px] font-bold uppercase tracking-wider mb-1">Gratuity (Benefit)</p>
+                           <p className="text-xl font-bold text-indigo-50">{formatCurrency(viewRecord.gratuity)}</p>
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+
+                   {/* Bank Details */}
+                   {viewRecord.bankName ? (
+                     <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                       <h3 className="text-gray-800 font-bold mb-5 flex items-center gap-2 text-lg tracking-tight">
+                         <span className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center">
+                           <span className="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+                         </span>
+                         Bank Information
+                       </h3>
+                       <div className="space-y-4">
+                         <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-100">
+                           <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Bank Name</label>
+                           <p className="font-semibold text-slate-800 mt-0.5">{viewRecord.bankName}</p>
+                         </div>
+                         <div className="grid grid-cols-2 gap-3">
+                           <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-100">
+                             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Account No.</label>
+                             <p className="font-semibold text-slate-800 font-mono text-sm mt-0.5">{viewRecord.accountNumber}</p>
+                           </div>
+                           <div className="bg-slate-50 rounded-xl p-3.5 border border-slate-100">
+                             <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">IFSC Code</label>
+                             <p className="font-semibold text-slate-800 font-mono text-sm mt-0.5">{viewRecord.ifscCode}</p>
+                           </div>
+                         </div>
+                       </div>
+                     </div>
+                   ) : (
+                     <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200 border-dashed flex flex-col items-center justify-center text-center">
+                       <div className="w-14 h-14 bg-white shadow-sm rounded-full flex items-center justify-center mb-4">
+                         <span className="text-slate-300 text-2xl">🏦</span>
+                       </div>
+                       <p className="text-slate-600 font-semibold">No bank details provided</p>
+                       <p className="text-sm text-slate-400 mt-1 max-w-[200px]">Bank information is not available for this employee's record.</p>
+                     </div>
+                   )}
+                </div>
               </div>
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t bg-gray-50">
-              <div className="flex justify-end">
-                <button
-                  onClick={handleCloseView}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
-                >
-                  Close
-                </button>
-              </div>
+            <div className="px-8 py-5 border-t border-gray-100 bg-white rounded-b-2xl flex justify-end">
+              <button
+                onClick={handleCloseView}
+                className="px-8 py-2.5 bg-gray-900 text-white font-medium rounded-xl hover:bg-gray-800 transition-all focus:ring-4 focus:ring-gray-200 shadow-md hover:shadow-lg transform hover:-translate-y-0.5"
+              >
+                Close Window
+              </button>
             </div>
           </div>
         </div>

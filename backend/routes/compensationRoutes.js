@@ -24,8 +24,8 @@ const buildPayrollData = (comp, employee) => {
 
   // Ensure we use the specific contribution fields if available, otherwise fallback to dynamic calculated values
   // Do NOT fallback to 'pf' as it may contain the combined (Emp+Empr) value
-  const employeePF = calculatedEmployeePF;
-  const employerPF = calculatedEmployerPF;
+  const employeePF = comp.employeePfContribution !== undefined && comp.employeePfContribution !== null && comp.employeePfContribution !== "" ? Number(comp.employeePfContribution) : calculatedEmployeePF;
+  const employerPF = comp.employerPfContribution !== undefined && comp.employerPfContribution !== null && comp.employerPfContribution !== "" ? Number(comp.employerPfContribution) : calculatedEmployerPF;
   const esi = Number(comp.esi) || 0;
   const tax = Number(comp.tax) || 0;
   const professionalTax = Number(comp.professionalTax) || 0;

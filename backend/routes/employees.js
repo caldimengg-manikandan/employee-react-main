@@ -43,8 +43,8 @@ const syncCompensationToEmployeeAndPayroll = async (emp) => {
           calculatedEmployerPF = 1950;
         }
       }
-      const employeePF = calculatedEmployeePF;
-      const employerPF = calculatedEmployerPF;
+      const employeePF = comp.employeePfContribution !== undefined && comp.employeePfContribution !== null && comp.employeePfContribution !== "" ? Number(comp.employeePfContribution) : calculatedEmployeePF;
+      const employerPF = comp.employerPfContribution !== undefined && comp.employerPfContribution !== null && comp.employerPfContribution !== "" ? Number(comp.employerPfContribution) : calculatedEmployerPF;
       const esi = Number(comp.esi) || 0;
       const tax = Number(comp.tax) || 0;
       const professionalTax = Number(comp.professionalTax) || 0;
