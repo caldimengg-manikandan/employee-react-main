@@ -372,10 +372,10 @@ export default function MonthlyPayroll() {
           }
         }
 
-        // Sum up pending performance pay
-        const empPP = pendingPP
+        // Sum up pending performance pay (Only for August month as requested)
+        const empPP = month === '08' ? pendingPP
           .filter(p => p.employeeId === emp.employeeId)
-          .reduce((sum, item) => sum + (item.performancePayAmount || 0), 0);
+          .reduce((sum, item) => sum + (item.performancePayAmount || 0), 0) : 0;
         
         // Calculate Loan Deduction from active loans
         const allEmpLoans = loans.filter(l => l.employeeId === emp.employeeId);

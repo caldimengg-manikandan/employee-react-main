@@ -96,7 +96,7 @@ router.post("/run", async (req, res) => {
         if (p.performancePay > 0) {
           const PerformancePay = require("../models/PerformancePay");
           await PerformancePay.updateMany(
-            { employeeId: p.employeeId, status: "ACCEPTED", payrollCredited: false },
+            { employeeId: p.employeeId, status: { $in: ["APPROVED", "LETTER_GENERATED"] }, payrollCredited: false },
             { $set: { status: "PAYROLL_CREDITED", payrollCredited: true } }
           );
         }
