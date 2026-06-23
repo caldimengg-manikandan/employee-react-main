@@ -1079,7 +1079,7 @@ router.get('/', auth, async (req, res) => {
 // Admin: approve/reject leave
 router.put('/:id/status', auth, async (req, res) => {
   try {
-    const roleAllowed = ['admin', 'projectmanager', 'project_manager', 'hr'].includes(req.user.role);
+    const roleAllowed = ['admin', 'projectmanager', 'project_manager', 'hr', 'director', 'manager'].includes(req.user.role);
     const permAllowed = hasPermission(req.user, 'leave_manage');
     if (!roleAllowed && !permAllowed) {
       return res.status(403).json({ message: 'Access denied' });
@@ -1110,7 +1110,7 @@ router.put('/:id/status', auth, async (req, res) => {
     }
 
     const role = String(req.user.role || '').toLowerCase();
-    const isAdmin = role === 'admin';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     const isPM = role === 'projectmanager' || role === 'project_manager';
     if (!isAdmin && targetEmployeeId) {
       const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
