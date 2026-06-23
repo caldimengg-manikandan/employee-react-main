@@ -210,8 +210,13 @@ router.get('/verify', auth, async (req, res) => {
 // Get all users (for employees Access management)
 router.get('/users', auth, async (req, res) => {
   try {
-    // Check if user has admin permissions
-    if (!req.user.permissions?.includes('user_access')) {
+    // Check if user has admin or employee permissions
+    const hasAccess = req.user.permissions?.includes('user_access') || 
+                      req.user.permissions?.includes('employee_access') ||
+                      req.user.role === 'director' ||
+                      req.user.role === 'admin';
+                      
+    if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -232,7 +237,8 @@ router.get('/users', auth, async (req, res) => {
 router.post('/users', auth, async (req, res) => {
   try {
     // Check if user has admin permissions
-    if (!req.user.permissions?.includes('user_access')) {
+    const hasAccess = req.user.permissions?.includes('user_access') || req.user.role === 'admin';
+    if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -281,7 +287,8 @@ router.post('/users', auth, async (req, res) => {
 router.put('/users/:id', auth, async (req, res) => {
   try {
     // Check if user has admin permissions
-    if (!req.user.permissions?.includes('user_access')) {
+    const hasAccess = req.user.permissions?.includes('user_access') || req.user.role === 'admin';
+    if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -339,7 +346,8 @@ router.put('/users/:id', auth, async (req, res) => {
 router.delete('/users/:id', auth, async (req, res) => {
   try {
     // Check if user has admin permissions
-    if (!req.user.permissions?.includes('user_access')) {
+    const hasAccess = req.user.permissions?.includes('user_access') || req.user.role === 'admin';
+    if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
 

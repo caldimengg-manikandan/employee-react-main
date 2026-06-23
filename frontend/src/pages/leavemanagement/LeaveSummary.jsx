@@ -180,16 +180,20 @@ const LeaveSummary = () => {
     if (a.status === 'Pending' && b.status !== 'Pending') return -1;
     if (a.status !== 'Pending' && b.status === 'Pending') return 1;
 
-    // Then sort by Employee ID ascending
+    // Then sort by start date descending (most recent first)
+    const dateA = new Date(a.startDateRaw).getTime();
+    const dateB = new Date(b.startDateRaw).getTime();
+    if (dateA !== dateB) {
+      return dateB - dateA;
+    }
+
+    // Finally sort by Employee ID ascending
     const idA = (a.employeeId || '').toString().toLowerCase();
     const idB = (b.employeeId || '').toString().toLowerCase();
     if (idA < idB) return -1;
     if (idA > idB) return 1;
-
-    // Finally sort by start date descending (most recent first)
-    const dateA = new Date(a.startDateRaw).getTime();
-    const dateB = new Date(b.startDateRaw).getTime();
-    return dateB - dateA;
+    
+    return 0;
   });
 
   // Calculate total leave days for filtered applications

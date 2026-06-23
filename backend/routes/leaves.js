@@ -466,19 +466,40 @@ function countWorkingDays(startDate, endDate, dayType) {
 // Leave balance for all employees or by employeeId
 router.get('/balance', auth, async (req, res) => {
   try {
-    if (!hasPermission(req.user, 'leave_view')) {
+    const role = String(req.user.role || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
+    const isPM = role === 'projectmanager' || role === 'project_manager';
+
+    if (!hasPermission(req.user, 'leave_view') && !isPM && !isAdmin) {
       return res.status(403).json({ message: 'Access denied' });
     }
+
     let { employeeId, calculationDate } = req.query;
     const calcDate = calculationDate ? new Date(calculationDate) : new Date();
 
-    // Requirement 9: Employees should only view their own leave balance
-    if (req.user.role !== 'admin' && !hasPermission(req.user, 'leave_manage')) {
-      employeeId = req.user.employeeId;
+    const filter = { status: 'Active' };
+    if (employeeId) filter.employeeId = employeeId;
+
+    // Filter employees based on role and permissions
+    if (!isAdmin && !hasPermission(req.user, 'leave_manage')) {
+      if (isPM) {
+        const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+        if (employeeId) {
+          if (!myAssignedMemberIds.includes(employeeId)) {
+            return res.json([]);
+          }
+        } else {
+          if (myAssignedMemberIds.length === 0) {
+            return res.json([]);
+          }
+          filter.employeeId = { $in: myAssignedMemberIds };
+        }
+      } else {
+        filter.employeeId = req.user.employeeId;
+      }
     }
 
     // Fetch active employees by default
-    const filter = employeeId ? { employeeId } : { status: 'Active' };
     const employees = await Employee.find(filter).sort({ name: 1 }).lean();
     // Aggregate used leaves per employeeId
     const empIds = employees.map(e => e.employeeId).filter(Boolean);
@@ -939,7 +960,7 @@ router.get('/', auth, async (req, res) => {
     if (leaveType && leaveType !== 'all') filter.leaveType = leaveType;
 
     const role = String(req.user.role || '').toLowerCase();
-    const isAdmin = role === 'admin';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     const isPM = role === 'projectmanager' || role === 'project_manager';
     if (!isAdmin) {
       const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
