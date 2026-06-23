@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const HolidayAllowance = require("../models/HolidayAllowance");
 const Employee = require("../models/Employee");
+const Compensation = require("../models/Compensation");
 
 router.post("/bulk-save", auth, async (req, res) => {
   try {
@@ -135,12 +136,21 @@ router.get("/", auth, async (req, res) => {
       : [];
     const employeeMap = new Map(employees.map((e) => [e.employeeId, e]));
 
+    const compensations = employeeIds.length
+      ? await Compensation.find(
+          { employeeId: { $in: employeeIds } },
+          { employeeId: 1, gross: 1 }
+        ).lean()
+      : [];
+    const compMap = new Map(compensations.map((c) => [c.employeeId, c]));
+
     const mergedRecords = records.map((r) => {
       const emp = employeeMap.get(r.employeeId);
       const bankAccount =
         typeof emp?.bankAccount === "string" && emp.bankAccount.trim()
           ? emp.bankAccount.trim()
           : r.accountNumber || "";
+      const grossSalary = compMap.get(r.employeeId)?.gross ?? r.grossSalary ?? 0;
 
       return {
         ...r,
@@ -151,6 +161,7 @@ router.get("/", auth, async (req, res) => {
         branch: emp?.branch || r.location || "",
         division: r.division || emp?.division || "-",
         location: r.location || emp?.location || emp?.branch || "-",
+        grossSalary,
       };
     });
 

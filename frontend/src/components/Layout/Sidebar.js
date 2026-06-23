@@ -50,9 +50,14 @@ import {
 const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }) => {
   const location = useLocation();
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
-  const permissions = user.permissions || [];
+  const permissions = [...(user.permissions || [])];
   let role = user.role || "employees";
   if (role === 'project_manager') role = 'projectmanager';
+
+  if (role === 'employees') {
+    if (!permissions.includes('holiday_allowance')) permissions.push('holiday_allowance');
+    if (!permissions.includes('holiday_working_request')) permissions.push('holiday_working_request');
+  }
 
   const [openDropdown, setOpenDropdown] = useState(null);
 
@@ -333,10 +338,15 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     },
     {
       name: "Allowance Master",
-      path: "/holidays-allowance",
+      hasDropdown: true,
       icon: getIconForMenu("Allowance Master"),
       permission: "holiday_allowance",
-      showForRoles: ["admin", "hr",],
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "employees"],
+      allowEmployeeRole: true,
+      children: [
+        { name: "Holiday Allowance", path: "/holidays-allowance", permission: "holiday_allowance", showForRoles: ["admin", "hr"] },
+        { name: "Holiday Working Request", path: "/allowance/holiday-working-request", permission: "holiday_working_request", showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "employees"], allowEmployeeRole: true }
+      ],
     },
     {
       name: "Employee Management",

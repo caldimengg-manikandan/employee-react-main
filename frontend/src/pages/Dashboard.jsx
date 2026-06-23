@@ -165,8 +165,13 @@ const ProjectDashboard = () => {
     const [showAnnouncementsModal, setShowAnnouncementsModal] = useState(false);
 
     const user = JSON.parse(sessionStorage.getItem('user') || '{}');
-    const permissions = user.permissions || [];
+    const permissions = [...(user.permissions || [])];
     const role = user.role || 'employees';
+
+    if (role === 'employees') {
+        if (!permissions.includes('holiday_allowance')) permissions.push('holiday_allowance');
+        if (!permissions.includes('holiday_working_request')) permissions.push('holiday_working_request');
+    }
 
     // Set greeting based on time
     useEffect(() => {
@@ -261,7 +266,7 @@ const ProjectDashboard = () => {
         { name: 'Monthly Payroll', description: 'Process monthly payroll', path: '/payroll/monthly', icon: BanknotesIcon, permission: 'payroll_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         { name: 'Marriage Allowance', description: 'Manage marriage allowance claims', path: '/payroll/marriage-allowance', icon: BanknotesIcon, permission: 'marriage_allowance', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
         { name: 'Allowance Master', description: 'Manage holiday working allowances', path: '/holidays-allowance', icon: BanknotesIcon, permission: 'holiday_allowance', showForRoles: ['admin', 'hr', 'manager'], category: 'Finance & Payroll' },
-
+        { name: 'Holiday Working Requests', description: 'Manage and track holiday working approvals', path: '/allowance/holiday-working-request', icon: BanknotesIcon, permission: 'holiday_working_request', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], allowEmployeeRole: true, category: 'Finance & Payroll' },
 
 
         // Expenditure

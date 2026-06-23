@@ -51,7 +51,12 @@ const ProtectedRoute = ({
 
   // Check required permissions
   if (requiredPermissions && requiredPermissions.length > 0) {
-    const userPermissions = user.permissions || [];
+    const userPermissions = [...(user.permissions || [])];
+    
+    if (user.role === 'employees') {
+        if (!userPermissions.includes('holiday_allowance')) userPermissions.push('holiday_allowance');
+        if (!userPermissions.includes('holiday_working_request')) userPermissions.push('holiday_working_request');
+    }
 
     // Switch to .every() to ensure all hierarchical permissions are met
     const hasAllPermissions = requiredPermissions.every((perm) =>

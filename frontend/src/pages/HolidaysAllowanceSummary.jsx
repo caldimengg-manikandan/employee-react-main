@@ -129,7 +129,7 @@ const HolidaysAllowanceSummary = () => {
       [`Location: ${locationFilter || 'All Locations'}`, `Period: ${monthLabel} ${yearFilter}`, `Generated: ${new Date().toLocaleDateString()}`],
       [],
       ['OVERALL SUMMARY'],
-      ['Total Employees', summary?.totalEmployees ?? 0],
+      ['Total Employees', records.length],
       ['Total Holiday Amount', summary?.totalHolidayAmount ?? 0],
       ['Total Shift Amount', summary?.totalShiftAmount ?? 0],
       ['Total Food Amount', summary?.totalFoodAmount ?? 0],
@@ -284,7 +284,7 @@ const HolidaysAllowanceSummary = () => {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="p-4 bg-blue-50 rounded-lg border border-blue-100">
           <div className="text-2xl font-bold text-blue-700">
-            {summary?.totalEmployees ?? 0}
+            {records.length}
           </div>
           <div className="mt-1 text-xs font-medium text-gray-600 uppercase tracking-wide">
             Total Employees

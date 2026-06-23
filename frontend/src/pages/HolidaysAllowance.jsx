@@ -129,24 +129,28 @@ const HolidaysAllowance = () => {
 
       const merged = filteredEmps.map((emp, index) => {
         const payroll = payrollMap.get(emp.employeeId);
+        const saved = savedMap.get(emp.employeeId);
         const grossFromPayroll =
           payroll && (payroll.totalEarnings || payroll.netSalary || payroll.ctc || 0);
-        const gross = grossFromPayroll || emp.totalEarnings || emp.netSalary || emp.ctc || 0;
-        const saved = savedMap.get(emp.employeeId);
+        const gross = saved?.grossSalary || grossFromPayroll || emp.totalEarnings || emp.netSalary || emp.ctc || 0;
         const defaultPerDay = calculatePerDayAmount(gross, selectedYear, selectedMonth);
         
         // Force the 1500 limit even if data was saved previously with a higher value
-        let perDayAmount = saved?.perDayAmount ?? defaultPerDay;
+        let perDayAmount = saved?.perDayAmount || defaultPerDay;
         if (perDayAmount > 1500) perDayAmount = 1500;
 
         const holidayDays = saved?.holidayDays ?? 0;
         const holidayTotal = Math.round(holidayDays * perDayAmount);
 
-        const shiftAllottedAmount = saved?.shiftAllottedAmount ?? 50;
+        const shiftAllottedAmount = saved?.shiftAllottedAmount || 50;
         const shiftDays = saved?.shiftDays ?? 0;
         const shiftTotal = Math.round(shiftAllottedAmount * shiftDays);
 
-        const totalAmount = holidayTotal + shiftTotal;
+        const foodAllottedAmount = saved?.foodAllottedAmount || 75;
+        const foodDays = saved?.foodDays ?? 0;
+        const foodTotal = Math.round(foodDays * foodAllottedAmount);
+
+        const totalAmount = holidayTotal + shiftTotal + foodTotal;
 
         return {
           id: emp._id, // Employee DB ID
@@ -164,7 +168,7 @@ const HolidaysAllowance = () => {
             emp.bankAccount ||
             emp.bankDetails?.accountNumber ||
             '-',
-          grossSalary: saved?.grossSalary ?? gross,
+          grossSalary: saved?.grossSalary || gross,
           
           // Holiday Working Fields
           holidayDays: holidayDays,
@@ -177,12 +181,12 @@ const HolidaysAllowance = () => {
           shiftTotal: shiftTotal,
           
           // Food Allowance Fields
-          foodDays: saved?.foodDays ?? 0,
-          foodAllottedAmount: saved?.foodAllottedAmount ?? 75,
-          foodTotal: Math.round((saved?.foodDays ?? 0) * (saved?.foodAllottedAmount ?? 75)),
+          foodDays: foodDays,
+          foodAllottedAmount: foodAllottedAmount,
+          foodTotal: foodTotal,
 
           // Combined Total
-          totalAmount: holidayTotal + shiftTotal + Math.round((saved?.foodDays ?? 0) * (saved?.foodAllottedAmount ?? 75)),
+          totalAmount: totalAmount,
           
           status: saved ? 'Saved' : 'Draft'
         };
@@ -334,10 +338,7 @@ const HolidaysAllowance = () => {
         </div>
       )}
 
-      {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">Allowance Master</h1>
-      </div>
+     
 
       {/* Controls */}
       <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-center">

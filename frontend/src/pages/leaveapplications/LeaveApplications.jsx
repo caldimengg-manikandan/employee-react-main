@@ -423,6 +423,14 @@ import Notification from '../../components/Notifications/Notification';
     const errors = {};
     if (!leaveData.startDate) errors.startDate = true;
     if (leaveData.dayType !== 'Half Day' && !leaveData.endDate) errors.endDate = true;
+    
+    if (leaveData.startDate && leaveData.endDate && leaveData.dayType !== 'Half Day') {
+      if (new Date(leaveData.endDate) < new Date(leaveData.startDate)) {
+        errors.endDate = true;
+        errors.dateOrder = 'End date cannot be earlier than start date';
+      }
+    }
+
     if (!leaveData.leaveType) errors.leaveType = true;
     if (leaveData.leaveType === 'BEREAVEMENT' && !leaveData.bereavementRelation) {
       errors.bereavementRelation = true;
@@ -435,7 +443,7 @@ import Notification from '../../components/Notifications/Notification';
     }
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
-      showNotification('Please fill in all required fields', 'error');
+      showNotification(errors.dateOrder || 'Please fill in all required fields', 'error');
       setSubmitting(false);
       return;
     }

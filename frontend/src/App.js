@@ -63,6 +63,7 @@ import ExitForm from "./pages/EmployeeExitForms";
 import ExitApproval from "./pages/ExitApprovals";
 import HolidaysAllowance from "./pages/HolidaysAllowance";
 import HolidaysAllowanceSummary from "./pages/HolidaysAllowanceSummary";
+import HolidayWorkingRequest from "./pages/allowance/HolidayWorkingRequest";
 import EditInAndOutTime from "./pages/attendance/EditInAndOutTime";
 
 //performance Management
@@ -407,6 +408,18 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="allowance/holiday-working-request"
+              element={
+                <ProtectedRoute
+                  requiredPermissions={["holiday_working_request"]}
+                  roles={["admin", "hr", "manager", "projectmanager", "project_manager", "employees"]}
+                  allowEmployeeRole
+                >
+                  <HolidayWorkingRequest />
+                </ProtectedRoute>
+              }
+            />
 
             {/* PAYROLL */}
             <Route
@@ -651,7 +664,7 @@ function App() {
             <Route
               path="support/my-tickets"
               element={
-                <ProtectedRoute requiredPermissions={["my_tickets_access"]} allowEmployeeRole>
+                <ProtectedRoute requiredPermissions={["raise_ticket_access"]} allowEmployeeRole>
                   <MyTickets />
                 </ProtectedRoute>
               }
@@ -659,7 +672,7 @@ function App() {
             <Route
               path="support/tickets/:id"
               element={
-                <ProtectedRoute requiredPermissions={["my_tickets_access"]} allowEmployeeRole>
+                <ProtectedRoute requiredPermissions={["raise_ticket_access"]} allowEmployeeRole>
                   <TicketDetails />
                 </ProtectedRoute>
               }

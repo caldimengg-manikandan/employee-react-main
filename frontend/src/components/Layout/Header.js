@@ -37,6 +37,7 @@ const Header = ({ onMenuClick }) => {
       '/employee-reward-tracker': 'Employee Reward Tracker',
       '/holidays-allowance': 'Allowance Master',
       '/holidays-allowance/summary': 'Allowance Master Summary',
+      '/allowance/holiday-working-request': 'Holiday Working Requests',
 
       // Timesheet Management
       '/timesheet': 'Timesheet',

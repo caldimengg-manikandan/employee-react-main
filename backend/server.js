@@ -82,6 +82,7 @@ app.use("/api/compensation", require("./routes/compensationRoutes"));
 app.use("/api/monthly-payroll", monthlyPayrollRoutes);
 app.use("/api/loans", loanRoutes);
 app.use("/api/holiday-allowances", require("./routes/holidayAllowanceRoutes"));
+app.use("/api/holiday-working-requests", require("./routes/holidayWorkingRequestRoutes"));
 app.use("/api/regional-holidays", require("./routes/regionalHolidayRoutes"));
 app.use("/api/office-holidays", require("./routes/officeHolidayRoutes"));
 app.use("/api/insurance", require("./routes/insurance"));

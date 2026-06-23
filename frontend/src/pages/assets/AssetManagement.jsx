@@ -136,7 +136,8 @@ export default function AssetManagement() {
   const [newAsset, setNewAsset] = useState({
     name: "", category: "Laptop", type: "Hardware", brandModel: "",
     serialNumber: "", purchaseDate: "", warrantyExpiry: "",
-    vendor: "", cost: "", status: "Available", condition: "Excellent", location: "Chennai Office"
+    vendor: "", status: "Available", condition: "Excellent", location: "Chennai Office",
+    quantity: 1
   });
 
   const [allocationFormOpen, setAllocationFormOpen] = useState(false);
@@ -201,8 +202,8 @@ export default function AssetManagement() {
   }, []);
 
   const categories = [
-    "Laptop", "Desktop", "Mobile", "Monitor", "Keyboard & Mouse",
-    "Printer", "ID Card", "Headset", "SIM Card", "Office Accessories", "Other Assets"
+    "Laptop", "Desktop", "Monitor", "Keyboard & Mouse",
+    "Printer", "ID Card", "Headset", "Office Chairs", "Office Accessories", "Other Assets"
   ];
 
   // Dashboard Stats Calculations
@@ -246,20 +247,25 @@ export default function AssetManagement() {
   // Handlers
   const handleSaveAsset = (e) => {
     e.preventDefault();
+    const finalAsset = {
+      ...newAsset,
+      quantity: newAsset.category === "Office Chairs" ? newAsset.quantity : 1
+    };
     if (selectedAsset) {
       // Edit
-      setAssets(prev => prev.map(a => a.id === selectedAsset.id ? { ...a, ...newAsset } : a));
+      setAssets(prev => prev.map(a => a.id === selectedAsset.id ? { ...a, ...finalAsset } : a));
     } else {
       // Create
       const newId = `AST-${String(assets.length + 1).padStart(3, "0")}`;
-      setAssets(prev => [...prev, { ...newAsset, id: newId }]);
+      setAssets(prev => [...prev, { ...finalAsset, id: newId }]);
     }
     setAssetFormOpen(false);
     setSelectedAsset(null);
     setNewAsset({
       name: "", category: "Laptop", type: "Hardware", brandModel: "",
       serialNumber: "", purchaseDate: "", warrantyExpiry: "",
-      vendor: "", cost: "", status: "Available", condition: "Excellent", location: "Chennai Office"
+      vendor: "", status: "Available", condition: "Excellent", location: "Chennai Office",
+      quantity: 1
     });
   };
 
@@ -421,9 +427,9 @@ export default function AssetManagement() {
 
   // Export to CSV
   const exportCSV = () => {
-    const headers = ["Asset ID", "Asset Name", "Category", "Brand/Model", "Serial Number", "Cost", "Status", "Location", "Assigned To"];
+    const headers = ["Asset ID", "Asset Name", "Category", "Brand/Model", "Serial Number", "Quantity", "Status", "Location", "Assigned To"];
     const rows = assets.map(a => [
-      a.id, a.name, a.category, a.brandModel, a.serialNumber, a.cost, a.status, a.location, a.assignedToName || "N/A"
+      a.id, a.name, a.category, a.brandModel, a.serialNumber, a.quantity || 1, a.status, a.location, a.assignedToName || "N/A"
     ]);
     const csvContent = [headers.join(","), ...rows.map(e => e.map(val => `"${val}"`).join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
@@ -437,9 +443,9 @@ export default function AssetManagement() {
   };
 
   const exportExcel = () => {
-    const headers = ["Asset ID", "Asset Name", "Category", "Brand/Model", "Serial Number", "Cost", "Status", "Location", "Assigned To"];
+    const headers = ["Asset ID", "Asset Name", "Category", "Brand/Model", "Serial Number", "Quantity", "Status", "Location", "Assigned To"];
     const rows = assets.map(a => [
-      a.id, a.name, a.category, a.brandModel, a.serialNumber, a.cost, a.status, a.location, a.assignedToName || "N/A"
+      a.id, a.name, a.category, a.brandModel, a.serialNumber, a.quantity || 1, a.status, a.location, a.assignedToName || "N/A"
     ]);
     const wsData = [headers, ...rows];
     const worksheet = XLSX.utils.aoa_to_sheet(wsData);
@@ -451,9 +457,9 @@ export default function AssetManagement() {
   const exportPDF = () => {
     const doc = new jsPDF();
     doc.text("Caldim Engineering Private Limited - Asset Report", 14, 15);
-    const headers = [["Asset ID", "Asset Name", "Category", "Brand/Model", "Status", "Cost", "Location"]];
+    const headers = [["Asset ID", "Asset Name", "Category", "Brand/Model", "Status", "Quantity", "Location"]];
     const rows = assets.map(a => [
-      a.id, a.name, a.category, a.brandModel, a.status, `Rs. ${a.cost}`, a.location
+      a.id, a.name, a.category, a.brandModel, a.status, a.quantity || 1, a.location
     ]);
     doc.autoTable({
       head: headers,
@@ -467,19 +473,7 @@ export default function AssetManagement() {
 
   return (
     <div className="p-6 bg-slate-50 min-h-screen text-slate-800 font-sans">
-      {/* Top Banner and Role Switcher */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
-        <div>
-          <h1 className="text-3xl font-extrabold text-[#262760] tracking-tight flex items-center gap-3">
-            <Briefcase className="h-8 w-8 text-[#f37021]" />
-            Asset Management 
-          </h1>
-          <p className="text-slate-500 mt-1 text-sm">
-            Manage company inventories, employee assignments, AMC maintenance schedules, and technical support tickets.
-          </p>
-        </div>
 
-      </div>
 
       {/* Tabs navigation */}
       <div className="flex gap-2 mb-6 border-b border-slate-200 overflow-x-auto pb-1 scrollbar-thin">
@@ -811,9 +805,10 @@ export default function AssetManagement() {
                   <th className="p-4 font-bold text-slate-550">Asset Name</th>
                   <th className="p-4 font-bold text-slate-550">Category</th>
                   <th className="p-4 font-bold text-slate-550">Brand & Model</th>
+                  <th className="p-4 font-bold text-slate-550">Qty</th>
                   <th className="p-4 font-bold text-slate-550">Status</th>
                   <th className="p-4 font-bold text-slate-550">Condition</th>
-                  <th className="p-4 font-bold text-slate-550">Cost</th>
+
                   <th className="p-4 font-bold text-slate-550 text-center">Actions</th>
                 </tr>
               </thead>
@@ -848,7 +843,7 @@ export default function AssetManagement() {
                         {asset.condition}
                       </span>
                     </td>
-                    <td className="p-4 font-semibold">₹ {asset.cost.toLocaleString("en-IN")}</td>
+                    <td className="p-4 font-semibold text-slate-700">{asset.quantity || 1}</td>
                     <td className="p-4">
                       <div className="flex items-center gap-2 justify-center">
                         <button
@@ -1182,9 +1177,7 @@ export default function AssetManagement() {
       {activeTab === "exit" && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <h2 className="text-xl font-bold text-[#262760] mb-3">Asset Exit & Recovery Center</h2>
-          <p className="text-slate-500 mb-6 text-sm">
-            Verifying physical return checklist and structural damages for separating employees prior to releasing HR Exit Clearance.
-          </p>
+
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
@@ -1275,15 +1268,18 @@ export default function AssetManagement() {
                   className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Cost (INR) *</label>
-                <input
-                  type="number" required
-                  value={newAsset.cost}
-                  onChange={(e) => setNewAsset(prev => ({ ...prev, cost: parseFloat(e.target.value) || "" }))}
-                  className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                />
-              </div>
+              {newAsset.category === "Office Chairs" && (
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Quantity *</label>
+                  <input
+                    type="number" required min="1"
+                    value={newAsset.quantity}
+                    onChange={(e) => setNewAsset(prev => ({ ...prev, quantity: parseInt(e.target.value, 10) || 1 }))}
+                    className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  />
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-bold text-slate-500 mb-1">Purchase Date *</label>
                 <input
@@ -1333,7 +1329,6 @@ export default function AssetManagement() {
                 >
                   <option value="Chennai Office">Chennai Office</option>
                   <option value="Hosur Office">Hosur Office</option>
-                  <option value="Hosur Warehouse">Hosur Warehouse</option>
                 </select>
               </div>
             </div>

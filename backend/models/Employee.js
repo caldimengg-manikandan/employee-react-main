@@ -50,6 +50,7 @@ const employeeSchema = new mongoose.Schema({
   permanentAddress: String,
   currentAddress: String,
   email: String,
+  officialEmail: String,
   bankName: String,
   bankAccount: String,
   branch: String,

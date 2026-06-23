@@ -67,6 +67,39 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+router.get('/my-team', auth, async (req, res) => {
+  try {
+    const leaderEmployeeId = req.user.employeeId;
+    const teams = await Team.find({ leaderEmployeeId });
+    
+    if (!teams || teams.length === 0) {
+      return res.json([]);
+    }
+
+    const memberIds = [];
+    teams.forEach(team => {
+      if (team.members && team.members.length > 0) {
+        memberIds.push(...team.members);
+      }
+    });
+
+    const uniqueMemberIds = [...new Set(memberIds)];
+
+    if (uniqueMemberIds.length === 0) {
+      return res.json([]);
+    }
+
+    const members = await Employee.find({
+      employeeId: { $in: uniqueMemberIds },
+      status: 'Active'
+    });
+
+    res.json(members);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 router.get('/:teamCode', auth, async (req, res) => {
   try {
     if (!req.user.permissions?.includes('employee_access')) {

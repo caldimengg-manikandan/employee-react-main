@@ -124,6 +124,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     nationality: 'Indian',
     contactNumber: '',
     email: '',
+    officialEmail: '',
     guardianName: '',
 
     // Identification
@@ -169,6 +170,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     }
     if (field === 'email') {
       if (!v.includes('@')) return 'Email must include @';
+    }
+    if (field === 'officialEmail') {
+      if (v && !v.includes('@')) return 'Email must include @';
     }
     if (field === 'emergencyContact') {
       if (!/^\d{10}$/.test(v)) return 'Must be 10 digits';
@@ -426,6 +430,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         nationality: employee.nationality || 'Indian',
         contactNumber: employee.contactNumber || employee.mobileNo || '',
         email: employee.email || '',
+        officialEmail: employee.officialEmail || '',
         guardianName: employee.guardianName || '',
 
         // Identification
@@ -693,6 +698,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         nationality: 'Indian',
         contactNumber: '',
         email: '',
+        officialEmail: '',
         guardianName: '',
         pan: '',
         aadhaar: '',
@@ -1337,6 +1343,20 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
 
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Official Email ID
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.officialEmail}
+                    onChange={(e) => handleInputChange('officialEmail', e.target.value)}
+                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.officialEmail ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                    placeholder="official@caldim.com"
+                  />
+                  {errors.officialEmail && <p className="text-xs text-red-600 mt-1">{errors.officialEmail}</p>}
+                </div>
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
