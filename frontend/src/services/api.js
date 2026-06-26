@@ -28,7 +28,7 @@ const API_BASE_URL = getAPI_BASE_URL();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 20000
+  timeout: 60000
 });
 
 export const BASE_URL = API_BASE_URL.replace('/api', '');

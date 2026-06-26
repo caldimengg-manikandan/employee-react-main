@@ -15,13 +15,18 @@ router.post("/run", async (req, res) => {
     const saved = [];
     const Employee = require("../models/Employee");
 
+    const employeeIds = payrolls.map(p => p.employeeId).filter(Boolean);
+    const employeesList = await Employee.find({ employeeId: { $in: employeeIds } }).select('employeeId status');
+    const activeEmpSet = new Set(employeesList.filter(e => e.status === 'Active').map(e => String(e.employeeId).toLowerCase()));
+
+    const months = [...new Set(payrolls.map(p => p.salaryMonth).filter(Boolean))];
+    const existingList = await MonthlyPayroll.find({ salaryMonth: { $in: months } });
+    const existingMap = new Map(existingList.map(r => [`${String(r.employeeId).toLowerCase()}_${r.salaryMonth}`, r]));
+
     for (const p of payrolls) {
       // Check employee status
-      if (p.employeeId) {
-        const emp = await Employee.findOne({ employeeId: p.employeeId }).select('status');
-        if (emp && emp.status !== 'Active') {
-          continue; // Skip inactive employees
-        }
+      if (p.employeeId && !activeEmpSet.has(String(p.employeeId).toLowerCase())) {
+        continue; // Skip inactive employees
       }
 
       // Format paymentDate to DD-MM-YYYY or default today
@@ -36,8 +41,8 @@ router.post("/run", async (req, res) => {
         p.paymentDate = `${d}-${m}-${y}`;
       }
 
-      const empIdFilter = p.employeeId ? { $regex: new RegExp(`^${p.employeeId}$`, "i") } : p.employeeId;
-      const existingRecord = await MonthlyPayroll.findOne({ employeeId: empIdFilter, salaryMonth: p.salaryMonth });
+      const key = `${String(p.employeeId).toLowerCase()}_${p.salaryMonth}`;
+      const existingRecord = existingMap.get(key);
       let record;
       if (existingRecord) {
         record = await MonthlyPayroll.findByIdAndUpdate(existingRecord._id, p, { new: true });
