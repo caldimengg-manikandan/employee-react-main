@@ -41,13 +41,18 @@ router.post("/run", async (req, res) => {
         p.paymentDate = `${d}-${m}-${y}`;
       }
 
+      const pData = { ...p };
+      delete pData._id;
+      delete pData.__v;
+
       const key = `${String(p.employeeId).toLowerCase()}_${p.salaryMonth}`;
       const existingRecord = existingMap.get(key);
       let record;
       if (existingRecord) {
-        record = await MonthlyPayroll.findByIdAndUpdate(existingRecord._id, p, { new: true });
+        record = await MonthlyPayroll.findByIdAndUpdate(existingRecord._id, { $set: pData }, { new: true });
       } else {
-        record = await MonthlyPayroll.create(p);
+        record = await MonthlyPayroll.create(pData);
+        existingMap.set(key, record);
       }
 
       // Process loan updates if the employee has active loans
