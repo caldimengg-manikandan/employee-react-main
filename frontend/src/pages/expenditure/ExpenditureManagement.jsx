@@ -406,7 +406,6 @@ const ExpenditureManagement = () => {
     if (!month) newErrors.month = "Month is required";
     if (!year) newErrors.year = "Year is required";
     if (!location) newErrors.location = "Location is required";
-    if (!budgetAllocated) newErrors.budgetAllocated = "Budget Allocated is required";
 
     // Check Expenditure Fields
     if (!type) newErrors.type = true;
@@ -560,8 +559,8 @@ const ExpenditureManagement = () => {
   /* ---------------- SAVE FUNCTION WITH PROPER DB INTEGRATION ---------------- */
   const saveRecord = async () => {
     // Validate required fields
-    if (!month || !year || !location || !budgetAllocated) {
-      message.error("Month, Year, Location, and Budget Allocated are required");
+    if (!month || !year || !location) {
+      message.error("Month, Year, and Location are required");
       return;
     }
 
@@ -1777,8 +1776,8 @@ const ExpenditureManagement = () => {
 
   /* ---------------- EXPORT FUNCTIONS ---------------- */
   const exportToCSV = () => {
-    if (!month || !year || !location || !budgetAllocated) {
-      message.warning("Please fill all required fields: Month, Year, Location, and Budget Allocated");
+    if (!month || !year || !location) {
+      message.warning("Please fill all required fields: Month, Year, and Location");
       return;
     }
 
@@ -2074,7 +2073,7 @@ const ExpenditureManagement = () => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Budget Allocated (₹) *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Budget Allocated (₹)</label>
                   <input
                     type="text"
                     placeholder="Enter budget amount"
@@ -2088,7 +2087,6 @@ const ExpenditureManagement = () => {
                       }
                       if (errors.budgetAllocated) setErrors({ ...errors, budgetAllocated: null });
                     }}
-                    required
                   />
                   {errors.budgetAllocated && <p className="text-red-500 text-xs mt-1">{errors.budgetAllocated}</p>}
                 </div>

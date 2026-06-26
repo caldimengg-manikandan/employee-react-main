@@ -54,7 +54,6 @@ const monthlyExpenditureSchema = new mongoose.Schema({
   },
   budgetAllocated: {
     type: Number,
-    required: true,
     default: 0
   },
   expenditures: [expenditureSchema],
