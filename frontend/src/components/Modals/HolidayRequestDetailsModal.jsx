@@ -8,8 +8,9 @@ const HolidayRequestDetailsModal = ({ isOpen, onClose, request, onStatusChange }
   const [error, setError] = useState("");
 
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
-  const isHR = ["hr", "admin"].includes(user.role);
-  const isGM = ["manager", "director", "admin"].includes(user.role);
+  const userRole = user.role?.toLowerCase() || "";
+  const isHR = ["hr", "admin"].includes(userRole);
+  const isGM = ["manager", "director"].includes(userRole);
 
   if (!isOpen || !request) return null;
 
@@ -348,6 +349,40 @@ const HolidayRequestDetailsModal = ({ isOpen, onClose, request, onStatusChange }
                   <h3 className="text-sm font-bold text-amber-800 mb-2 uppercase tracking-wide">Creator Remarks</h3>
                   <div className="text-amber-900 italic font-medium">
                     "{request.remarks}"
+                  </div>
+                </div>
+              )}
+
+              {canApprove() && (
+                <div className="bg-white border border-gray-200 rounded-xl p-6 shadow-sm space-y-4">
+                  <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">Approval Action</h3>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
+                    <textarea
+                      value={remarks}
+                      onChange={(e) => setRemarks(e.target.value)}
+                      placeholder="Enter approval or rejection remarks..."
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                      rows="3"
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={() => handleStatusUpdate("Rejected")}
+                      disabled={loading}
+                      className="px-4 py-2 bg-rose-50 border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-100 transition-colors font-medium text-sm disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <XCircle className="w-4 h-4" />
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => handleStatusUpdate(nextApproveStatus)}
+                      disabled={loading}
+                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors font-medium text-sm shadow-sm disabled:opacity-50 flex items-center gap-1.5"
+                    >
+                      <CheckCircle className="w-4 h-4" />
+                      Approve
+                    </button>
                   </div>
                 </div>
               )}

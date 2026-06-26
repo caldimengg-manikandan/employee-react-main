@@ -183,7 +183,7 @@ router.put("/:id/status", auth, async (req, res) => {
 
     if (
       status === "Approved" &&
-      !["manager", "admin", "director"].includes(userRole)
+      !["manager", "director"].includes(userRole)
     ) {
       // GM is manager role in this system
       return res.status(403).json({ message: "Not authorized to final approve" });
@@ -513,7 +513,7 @@ router.post("/:id/finalize-attendance", auth, async (req, res) => {
 
     // Role verification
     const userRole = req.user.role?.toLowerCase();
-    if (!["admin", "hr", "manager", "director"].includes(userRole)) {
+    if (!["admin", "hr"].includes(userRole)) {
       return res.status(403).json({ success: false, message: "Not authorized to finalize attendance verification" });
     }
 

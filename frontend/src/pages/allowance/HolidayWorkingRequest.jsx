@@ -31,7 +31,7 @@ const HolidayWorkingRequest = () => {
   const isManagerOrTL = ["projectmanager", "project_manager", "teamlead", "admin"].includes(userRole);
   const canEditDelete = ["projectmanager", "project_manager", "teamlead", "admin"].includes(userRole);
   const isHR = ["hr", "admin"].includes(userRole);
-  const isGM = ["manager", "director", "admin"].includes(userRole);
+  const isGM = ["manager", "director"].includes(userRole);
 
   useEffect(() => {
     fetchRequests();
@@ -338,7 +338,7 @@ const HolidayWorkingRequest = () => {
                         >
                           <Eye className="w-5 h-5" />
                         </button>
-                        {(req.status === "Attendance Pending" || req.status === "Approved") && (isHR || isGM) && (
+                        {(req.status === "Attendance Pending" || req.status === "Approved") && isHR && (
                           <button
                             onClick={() => handleVerify(req)}
                             className="p-2 text-gray-400 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
