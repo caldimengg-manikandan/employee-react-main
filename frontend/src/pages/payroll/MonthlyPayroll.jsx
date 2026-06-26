@@ -304,6 +304,9 @@ export default function MonthlyPayroll() {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [paymentDate, setPaymentDate] = useState(() => {
+    return new Date().toISOString().slice(0, 10);
+  });
   const [selectedEmployees, setSelectedEmployees] = useState([]);
   const [employeeList, setEmployeeList] = useState([]);
   const [simulation, setSimulation] = useState(null);
@@ -765,8 +768,18 @@ export default function MonthlyPayroll() {
         const adjusted = { ...base };
         
         // Include gratuity by default (calculation already includes it)
+        // Format paymentDate to DD-MM-YYYY for storage as required
+        const formatStorageDate = (dStr) => {
+          if (!dStr) return '';
+          if (/^\d{2}-\d{2}-\d{4}$/.test(dStr)) return dStr;
+          if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) {
+            const [y, m, d] = dStr.split('-');
+            return `${d}-${m}-${y}`;
+          }
+          return dStr;
+        };
         adjusted.salaryMonth = selectedMonth;
-        adjusted.paymentDate = new Date().toISOString().slice(0,10);
+        adjusted.paymentDate = formatStorageDate(paymentDate);
         adjusted.accountNumber = rec.accountNumber || '';
         adjusted.ifscCode = rec.ifscCode || '';
         adjusted.bankName = rec.bankName || 'HDFC Bank';
@@ -800,9 +813,24 @@ export default function MonthlyPayroll() {
     
     setSaving(true);
     try {
+      const formatStorageDate = (dStr) => {
+        if (!dStr) return '';
+        if (/^\d{2}-\d{2}-\d{4}$/.test(dStr)) return dStr;
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dStr)) {
+          const [y, m, d] = dStr.split('-');
+          return `${d}-${m}-${y}`;
+        }
+        return dStr;
+      };
+      const formattedPaymentDate = formatStorageDate(paymentDate);
+      const payrollsToSave = simulation.results.map(r => ({
+        ...r,
+        paymentDate: formattedPaymentDate || r.paymentDate
+      }));
+
       // Format payload to match backend expectation
       const payload = {
-        payrolls: simulation.results
+        payrolls: payrollsToSave
       };
       
       const response = await monthlyPayrollAPI.save(payload);
@@ -1272,7 +1300,7 @@ Payroll Department
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
             <label className="text-sm font-medium text-gray-700 mb-1 block">Salary Month</label>
             <input 
@@ -1280,6 +1308,16 @@ Payroll Department
               value={selectedMonth} 
               max={new Date().toISOString().slice(0, 7)}
               onChange={(e) => setSelectedMonth(e.target.value)} 
+              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+            />
+          </div>
+
+          <div>
+            <label className="text-sm font-medium text-gray-700 mb-1 block">Payment Date</label>
+            <input 
+              type="date" 
+              value={paymentDate} 
+              onChange={(e) => setPaymentDate(e.target.value)} 
               className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
             />
           </div>

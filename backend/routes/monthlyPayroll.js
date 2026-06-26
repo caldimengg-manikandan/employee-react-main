@@ -23,11 +23,27 @@ router.post("/run", async (req, res) => {
           continue; // Skip inactive employees
         }
       }
-      const record = await MonthlyPayroll.findOneAndUpdate(
-        { employeeId: p.employeeId, salaryMonth: p.salaryMonth },
-        p,
-        { upsert: true, new: true }
-      );
+
+      // Format paymentDate to DD-MM-YYYY or default today
+      if (!p.paymentDate) {
+        const d = new Date();
+        const dd = String(d.getDate()).padStart(2, '0');
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const yyyy = d.getFullYear();
+        p.paymentDate = `${dd}-${mm}-${yyyy}`;
+      } else if (/^\d{4}-\d{2}-\d{2}$/.test(p.paymentDate)) {
+        const [y, m, d] = p.paymentDate.split('-');
+        p.paymentDate = `${d}-${m}-${y}`;
+      }
+
+      const empIdFilter = p.employeeId ? { $regex: new RegExp(`^${p.employeeId}$`, "i") } : p.employeeId;
+      const existingRecord = await MonthlyPayroll.findOne({ employeeId: empIdFilter, salaryMonth: p.salaryMonth });
+      let record;
+      if (existingRecord) {
+        record = await MonthlyPayroll.findByIdAndUpdate(existingRecord._id, p, { new: true });
+      } else {
+        record = await MonthlyPayroll.create(p);
+      }
 
       // Process loan updates if the employee has active loans
       try {

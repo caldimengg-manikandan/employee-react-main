@@ -5,6 +5,26 @@ import { monthlyPayrollAPI, employeeAPI, payrollAPI } from '../../services/api';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
+const formatPayslipDate = (val) => {
+  if (!val) return '';
+  if (typeof val === 'string') {
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(val)) return val;
+    if (/^\d{2}-\d{2}-\d{4}$/.test(val)) return val.replace(/-/g, '/');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(val)) {
+      const [y, m, d] = val.split('-');
+      return `${d}/${m}/${y}`;
+    }
+  }
+  const d = new Date(val);
+  if (!isNaN(d.getTime())) {
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  }
+  return String(val);
+};
+
 const SalarySlips = () => {
   const navigate = useNavigate();
   const [financialYear, setFinancialYear] = useState('');
@@ -166,7 +186,8 @@ const SalarySlips = () => {
 
       const lopDays = Number(rec.lopDays || 0);
       const paidDays = Math.max(0, workingDays - lopDays);
-      const paidDate = rec.paymentDate || `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-28`;
+      const rawPaidDate = rec.paymentDate || `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-28`;
+      const paidDate = formatPayslipDate(rawPaidDate);
       const mapped = {
         employeeId: rec.employeeId,
         employeeName: rec.employeeName,
@@ -241,7 +262,7 @@ const SalarySlips = () => {
       workingDays: 22,
       paidDays: 21,
       leaveDays: 1,
-      paidDate: `${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-28`,
+      paidDate: formatPayslipDate(`${selectedYear}-${String(selectedMonthNum).padStart(2, '0')}-28`),
       monthYear: formattedMonth
     };
 
