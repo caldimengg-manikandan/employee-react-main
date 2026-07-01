@@ -19,10 +19,6 @@ router.post("/run", async (req, res) => {
     const employeesList = await Employee.find({ employeeId: { $in: employeeIds } }).select('employeeId status');
     const activeEmpSet = new Set(employeesList.filter(e => e.status === 'Active').map(e => String(e.employeeId).toLowerCase()));
 
-    const months = [...new Set(payrolls.map(p => p.salaryMonth).filter(Boolean))];
-    const existingList = await MonthlyPayroll.find({ salaryMonth: { $in: months } });
-    const existingMap = new Map(existingList.map(r => [`${String(r.employeeId).toLowerCase()}_${r.salaryMonth}`, r]));
-
     for (const p of payrolls) {
       // Check employee status
       if (p.employeeId && !activeEmpSet.has(String(p.employeeId).toLowerCase())) {
@@ -44,16 +40,15 @@ router.post("/run", async (req, res) => {
       const pData = { ...p };
       delete pData._id;
       delete pData.__v;
+      delete pData.createdAt;
+      delete pData.updatedAt;
 
-      const key = `${String(p.employeeId).toLowerCase()}_${p.salaryMonth}`;
-      const existingRecord = existingMap.get(key);
-      let record;
-      if (existingRecord) {
-        record = await MonthlyPayroll.findByIdAndUpdate(existingRecord._id, { $set: pData }, { new: true });
-      } else {
-        record = await MonthlyPayroll.create(pData);
-        existingMap.set(key, record);
-      }
+      const empIdFilter = p.employeeId ? { $regex: new RegExp(`^${p.employeeId}$`, "i") } : p.employeeId;
+      const record = await MonthlyPayroll.findOneAndUpdate(
+        { employeeId: empIdFilter, salaryMonth: p.salaryMonth },
+        { $set: pData },
+        { upsert: true, new: true }
+      );
 
       // Process loan updates if the employee has active loans
       try {

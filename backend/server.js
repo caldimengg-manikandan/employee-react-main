@@ -94,6 +94,9 @@ app.use("/api", require("./routes/promotionRoutes"));
 // Announcements Routes
 app.use("/api/announcements", require("./routes/announcementRoutes"));
 
+// Induction Program Routes
+app.use("/api/induction", require("./routes/inductionRoutes"));
+
 // Expenditure Management Routes
 app.use("/api/expenditure", require("./routes/expenditureRoutes"));
 

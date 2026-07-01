@@ -7,7 +7,7 @@ import {
     DocumentChartBarIcon, ClipboardDocumentCheckIcon, ChartBarIcon,
     ClipboardDocumentListIcon, CurrencyRupeeIcon, BriefcaseIcon,
     UserGroupIcon, BellIcon, ChevronRightIcon, ArrowRightIcon,
-    MagnifyingGlassIcon, ArrowRightOnRectangleIcon, BuildingOfficeIcon, UserIcon, StarIcon
+    MagnifyingGlassIcon, ArrowRightOnRectangleIcon, BuildingOfficeIcon, UserIcon, StarIcon, SparklesIcon, AcademicCapIcon
 } from '@heroicons/react/24/outline';
 import {
     PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip,
@@ -251,6 +251,8 @@ const ProjectDashboard = () => {
         { name: 'Regional Holidays', description: 'Manage regional holidays', path: '/leave-management/regional-holidays', icon: CalendarIcon, permission: 'leave_summary', showForRoles: ['admin', 'hr'], category: 'Leave Management' },
 
         // Insurance & Policy
+        { name: 'Induction Program', description: 'Employee onboarding & refresher', path: '/induction', icon: SparklesIcon, permission: 'induction_program', allowEmployeeRole: true, category: 'Company & Resources' },
+        { name: 'Induction Admin', description: 'Manage induction modules & quiz', path: '/admin/induction', icon: AcademicCapIcon, permission: 'induction_admin', showForRoles: ['admin', 'hr', 'manager', 'director'], category: 'Company & Resources' },
         { name: 'Insurance', description: 'Manage health & life insurance', path: '/insurance', icon: ShieldCheckIcon, permission: 'insurance_access', allowEmployeeRole: true, category: 'Company & Resources' },
         { name: policyModuleName, description: 'Company rules & documents', path: '/policies', icon: DocumentTextIcon, allowEmployeeRole: true, category: 'Company & Resources' },
         { name: 'Resume Repository', description: 'Central resume repository', path: '/bank-of-resumes', icon: DocumentTextIcon, permission: 'resume_access', showForRoles: ['admin', 'hr'], category: 'Company & Resources' },

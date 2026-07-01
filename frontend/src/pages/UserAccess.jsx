@@ -321,6 +321,8 @@ const UserAccess = () => {
       'project_access': 'Project Allocation',
       'insurance_access': 'Insurance',
       'policy_portal': 'Policy Portal',
+      'induction_program': 'Induction Program',
+      'induction_admin': 'Induction Admin',
       'salary_slips': 'Salary Slips',
       'holiday_allowance': 'Holiday Allowance',
       'holiday_working_request': 'Holiday Working Request',

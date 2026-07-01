@@ -42,15 +42,17 @@ router.post('/login', async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Check Employee Status before proceeding
-    if (user.role !== 'admin' && user.employeeId) {
+    // Check Employee Status and fetch joining date before proceeding
+    let empDateOfJoining = user.dateOfJoining || null;
+    if (user.employeeId) {
       const employee = await Employee.findOne({ employeeId: user.employeeId });
-      if (employee && employee.status !== 'Active') {
-        return res.status(403).json({ message: 'This account belongs to an inactive or exited employee and cannot access the system.' });
+      if (employee) {
+        if (user.role !== 'admin' && employee.status !== 'Active') {
+          return res.status(403).json({ message: 'This account belongs to an inactive or exited employee and cannot access the system.' });
+        }
+        empDateOfJoining = employee.dateOfJoining;
       }
     }
-
-  
 
     const token = jwt.sign(
       { id: user._id },
@@ -67,7 +69,8 @@ router.post('/login', async (req, res) => {
         employeeId: user.employeeId,
         role: user.role,
         permissions: user.permissions,
-        lastLogin: user.lastLogin
+        lastLogin: user.lastLogin,
+        dateOfJoining: empDateOfJoining
       }
     });
   } catch (error) {

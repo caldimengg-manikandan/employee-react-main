@@ -57,6 +57,10 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
   if (role === 'employees') {
     if (!permissions.includes('holiday_allowance')) permissions.push('holiday_allowance');
     if (!permissions.includes('holiday_working_request')) permissions.push('holiday_working_request');
+    if (!permissions.includes('induction_program')) permissions.push('induction_program');
+  } else if (['admin', 'hr', 'manager', 'director'].includes(role)) {
+    if (!permissions.includes('induction_program')) permissions.push('induction_program');
+    if (!permissions.includes('induction_admin')) permissions.push('induction_admin');
   }
 
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -84,6 +88,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Leave Applications": DocumentDuplicateIcon,
     "Insurance": ShieldCheckIcon,
     "Policy Portal": DocumentIcon,
+    "Induction Program": SparklesIcon,
+    "Induction Admin": AcademicCapIcon,
     "Salary Slips": ReceiptPercentIcon,
     "Admin Timesheet": ClipboardIcon,
     "Edit Leave Eligibility": AdjustmentsHorizontalIcon,
@@ -134,6 +140,22 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("My Profile"),
       allowEmployeeRole: true,
       permission: "my_profile"
+    },
+    {
+      name: "Induction Program",
+      path: "/induction",
+      icon: getIconForMenu("Induction Program"),
+      allowEmployeeRole: true,
+      showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance", "employees"],
+      permission: "induction_program"
+    },
+    {
+      name: "Induction Admin",
+      path: "/admin/induction",
+      icon: getIconForMenu("Induction Admin"),
+      allowEmployeeRole: false,
+      showForRoles: ["admin", "hr", "manager", "director"],
+      permission: "induction_admin"
     },
     {
       name: "Timesheet",

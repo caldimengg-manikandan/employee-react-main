@@ -125,6 +125,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         { key: 'project_access', label: 'Project Allocation' },
         { key: 'insurance_access', label: 'Insurance' },
         { key: 'policy_portal', label: 'Policy Portal' },
+        { key: 'induction_program', label: 'Induction Program' },
+        { key: 'induction_admin', label: 'Induction Admin' },
         { key: 'salary_slips', label: 'Salary Slips' },
         { key: 'holiday_allowance', label: 'Holiday Allowance' },
         { key: 'holiday_working_request', label: 'Holiday Working Request' },
@@ -157,7 +159,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const alwaysOnPermissionKeys = ['home', 'my_profile', 'unified_calendar'];
   const restrictedPermissionsForNonAdmin = [
     'user_access',
-    'support_dashboard_access'
+    'support_dashboard_access',
+    'induction_admin'
   ];
 
   const rolePermissionDefaults = {
@@ -181,6 +184,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'self_appraisal',
       'performance_pay',
       'salary_slips',
+      'policy_portal',
+      'induction_program',
       'unified_calendar',
       'support_group_access',
       'raise_ticket_access',
@@ -202,6 +207,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'exit_form_access',
       'salary_slips',
       'policy_portal',
+      'induction_program',
       'unified_calendar',
       'support_group_access',
       'raise_ticket_access',

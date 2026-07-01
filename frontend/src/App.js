@@ -36,6 +36,8 @@ import AdminSpecialPermission from './pages/special-permission/AdminSpecialPermi
 // Insurance & Policy Pages
 import InsuranceManagement from './pages/insurance/InsuranceManagement';
 import PolicyPortal from './pages/PolicyPortal';
+import InductionPortal from './pages/induction/InductionPortal';
+import InductionAdmin from './pages/induction/InductionAdmin';
 import TeamManagement from './pages/admin/TeamManagement';
 
 import SalarySlips from "./pages/salaryslips/SalarySlips";
@@ -251,6 +253,24 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["policy_portal"]} allowEmployeeRole>
                   <PolicyPortal />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ---------------- Induction Program Module ---------------- */}
+            <Route
+              path="induction"
+              element={
+                <ProtectedRoute allowEmployeeRole>
+                  <InductionPortal />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="admin/induction"
+              element={
+                <ProtectedRoute roles={["admin", "hr", "manager", "director"]}>
+                  <InductionAdmin />
                 </ProtectedRoute>
               }
             />

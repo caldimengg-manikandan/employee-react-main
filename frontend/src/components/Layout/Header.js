@@ -98,10 +98,18 @@ const Header = ({ onMenuClick }) => {
       '/support/my-tickets': 'Caldim Support Center',
       '/admin/support/dashboard': 'Caldim Support Center',
       '/admin/support/all-tickets': 'Caldim Support Center',
+
+      // Induction Program
+      '/induction': 'Induction Program',
+      '/admin/induction': 'Induction Program',
     };
 
     if (location.pathname.startsWith('/support/tickets/') || location.pathname.startsWith('/admin/support/tickets/')) {
       return 'Caldim Support Center';
+    }
+
+    if (location.pathname.startsWith('/induction') || location.pathname.startsWith('/admin/induction')) {
+      return 'Induction Program';
     }
 
     return routeTitles[location.pathname] || 'Caldim Employee Portal';
