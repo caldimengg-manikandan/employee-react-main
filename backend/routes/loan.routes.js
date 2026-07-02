@@ -3,12 +3,17 @@ const router = express.Router();
 const mongoose = require("mongoose");
 const Loan = require("../models/Loan");
 const MonthlyPayroll = require("../models/MonthlyPayroll");
+const auth = require("../middleware/auth");
+const authorizeRoles = require("../middleware/roleAuth");
+
+// Apply JWT authentication to all loan routes
+router.use(auth);
 
 /**
- * ✅ CREATE LOAN
+ * ✅ CREATE LOAN (Admin, HR, Finance, Director only)
  * POST /api/loans
  */
-router.post("/", async (req, res) => {
+router.post("/", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
   try {
     const amount = Number(req.body.amount || 0);
     const tenureMonths = Number(req.body.tenureMonths || 1);
@@ -37,16 +42,26 @@ router.post("/", async (req, res) => {
 });
 
 /**
- * ✅ GET ALL LOANS (with filters)
+ * ✅ GET ALL LOANS (with filters & ownership validation)
  * GET /api/loans
  */
 router.get("/", async (req, res) => {
   try {
     const { employeeId, location, division, status } = req.query;
+    const privilegedRoles = ["admin", "hr", "finance", "director"];
+    const userRole = String(req.user?.role || "").toLowerCase();
 
     const filter = {};
 
-    if (employeeId) filter.employeeId = new RegExp(employeeId, "i");
+    if (!privilegedRoles.includes(userRole)) {
+      if (!req.user?.employeeId) {
+        return res.json({ success: true, loans: [] });
+      }
+      filter.employeeId = new RegExp(`^${req.user.employeeId}$`, "i");
+    } else if (employeeId) {
+      filter.employeeId = new RegExp(employeeId, "i");
+    }
+
     if (location && location !== "all") filter.location = location;
     if (division && division !== "all") filter.division = division;
     if (status && status !== "all") filter.status = status;
@@ -87,7 +102,7 @@ router.get("/", async (req, res) => {
 });
 
 /**
- * ✅ GET SINGLE LOAN
+ * ✅ GET SINGLE LOAN (Privileged roles or loan owner only)
  * GET /api/loans/:id
  */
 router.get("/:id", async (req, res) => {
@@ -98,6 +113,18 @@ router.get("/:id", async (req, res) => {
 
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ message: "Loan not found" });
+
+    const privilegedRoles = ["admin", "hr", "finance", "director"];
+    const userRole = String(req.user?.role || "").toLowerCase();
+
+    if (!privilegedRoles.includes(userRole)) {
+      if (!req.user?.employeeId || String(loan.employeeId || "").toLowerCase() !== String(req.user.employeeId).toLowerCase()) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: You are not authorized to view loan details of another employee."
+        });
+      }
+    }
 
     const loanObj = loan.toObject();
     const totalAmount = Number(loanObj.amount || 0);
@@ -131,10 +158,10 @@ router.get("/:id", async (req, res) => {
 });
 
 /**
- * ✅ RECONCILE LOAN WITH PAYROLL
+ * ✅ RECONCILE LOAN WITH PAYROLL (Admin, HR, Finance, Director only)
  * POST /api/loans/:id/reconcile
  */
-router.post("/:id/reconcile", async (req, res) => {
+router.post("/:id/reconcile", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
   try {
     const loan = await Loan.findById(req.params.id);
     if (!loan) return res.status(404).json({ success: false, message: "Loan not found" });
@@ -185,10 +212,10 @@ router.post("/:id/reconcile", async (req, res) => {
 });
 
 /**
- * ✅ UPDATE LOAN
+ * ✅ UPDATE LOAN (Admin, HR, Finance, Director only)
  * PUT /api/loans/:id
  */
-router.put("/:id", async (req, res) => {
+router.put("/:id", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ success: false, message: "Invalid Loan Reference" });
@@ -231,10 +258,10 @@ router.put("/:id", async (req, res) => {
 });
 
 /**
- * ✅ TOGGLE PAYMENT ENABLE / DISABLE
+ * ✅ TOGGLE PAYMENT ENABLE / DISABLE (Admin, HR, Finance, Director only)
  * PATCH /api/loans/:id/payment
  */
-router.patch("/:id/payment", async (req, res) => {
+router.patch("/:id/payment", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ success: false, message: "Invalid Loan ID" });
@@ -259,10 +286,10 @@ router.patch("/:id/payment", async (req, res) => {
 });
 
 /**
- * ✅ DELETE LOAN
+ * ✅ DELETE LOAN (Admin, HR, Finance, Director only)
  * DELETE /api/loans/:id
  */
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({ success: false, message: "Invalid Loan ID" });
@@ -281,3 +308,4 @@ router.delete("/:id", async (req, res) => {
 });
 
 module.exports = router;
+

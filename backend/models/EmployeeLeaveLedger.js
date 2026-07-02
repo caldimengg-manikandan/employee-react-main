@@ -33,7 +33,7 @@ const employeeLeaveLedgerSchema = new mongoose.Schema({
   },
   leave_type: {
     type: String,
-    enum: ['CL', 'SL', 'PL'],
+    enum: ['CL', 'SL', 'PL', 'BEREAVEMENT'],
     required: true
   },
   opening_balance: {

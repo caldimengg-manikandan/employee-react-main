@@ -7,9 +7,14 @@ const Notification = require("../models/Notification");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
 const checkActiveEmployee = require("../middleware/checkActiveEmployee");
+const authorizeRoles = require("../middleware/roleAuth");
+const Team = require("../models/Team");
 const nodemailer = require("nodemailer");
 
 const router = express.Router();
+
+// Apply JWT Authentication to all routes in this module
+router.use(auth);
 
 // Create mailer transport
 const mailer = nodemailer.createTransport({
@@ -1159,16 +1164,31 @@ router.get("/", auth, async (req, res) => {
 /**
  * ADMIN - Get all timesheets
  */
-router.get("/all", auth, async (req, res) => {
+router.get("/all", async (req, res) => {
   try {
-    if (req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied"
-      });
+    const privilegedRoles = ["admin", "hr", "director"];
+    const managerRoles = ["manager", "projectmanager", "teamlead"];
+    const userRole = String(req.user?.role || "").toLowerCase();
+
+    let filter = {};
+    if (!privilegedRoles.includes(userRole)) {
+      if (managerRoles.includes(userRole)) {
+        const teams = await Team.find({ leaderEmployeeId: req.user?.employeeId }).select("members").lean();
+        const memberIds = [];
+        teams.forEach(t => { if (Array.isArray(t.members)) memberIds.push(...t.members); });
+        const teamUsers = await User.find({ employeeId: { $in: memberIds } }).select("_id");
+        const teamUserIds = teamUsers.map(u => u._id);
+        teamUserIds.push(req.user?._id);
+        filter = { userId: { $in: teamUserIds } };
+      } else {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied: Regular employees cannot query all timesheets."
+        });
+      }
     }
 
-    const all = await Timesheet.find()
+    const all = await Timesheet.find(filter)
       .populate("userId", "name email role employeeId")
       .sort({ createdAt: -1 });
 
@@ -1188,13 +1208,26 @@ router.get("/all", auth, async (req, res) => {
 /**
  * DELETE Timesheet by ID
  */
-router.delete("/:id", auth, async (req, res) => {
+router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user._id;
+    const privilegedRoles = ["admin", "hr", "director"];
+    const managerRoles = ["manager", "projectmanager", "teamlead"];
+    const userRole = String(req.user?.role || "").toLowerCase();
 
-    // Find the timesheet and ensure it belongs to the user
-    const timesheet = await Timesheet.findOne({ _id: id, userId });
+    if (managerRoles.includes(userRole) && !privilegedRoles.includes(userRole)) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: Managers cannot modify or delete employee timesheets directly."
+      });
+    }
+
+    let timesheet;
+    if (privilegedRoles.includes(userRole)) {
+      timesheet = await Timesheet.findById(id);
+    } else {
+      timesheet = await Timesheet.findOne({ _id: id, userId: req.user?._id });
+    }
 
     if (!timesheet) {
       return res.status(404).json({

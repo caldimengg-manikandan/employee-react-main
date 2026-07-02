@@ -467,26 +467,30 @@ function countWorkingDays(startDate, endDate, dayType) {
 router.get('/balance', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
-    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
-    const isPM = role === 'projectmanager' || role === 'project_manager';
+    const isAdmin = role === 'admin' || role === 'director';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+    const isHR = hasPermission(req.user, 'leave_view') || role === 'hr';
 
-    if (!hasPermission(req.user, 'leave_view') && !isPM && !isAdmin) {
+    let { employeeId, calculationDate } = req.query;
+    const isSelf = employeeId && req.user.employeeId === employeeId;
+
+    if (!isSelf && !isPM && !isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    let { employeeId, calculationDate } = req.query;
     const calcDate = calculationDate ? new Date(calculationDate) : new Date();
 
     const filter = { status: 'Active' };
     if (employeeId) filter.employeeId = employeeId;
 
     // Filter employees based on role and permissions
-    if (!isAdmin && !hasPermission(req.user, 'leave_manage')) {
+    if (!isAdmin && !isHR) {
       if (isPM) {
         const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+        const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
         if (employeeId) {
-          if (!myAssignedMemberIds.includes(employeeId)) {
-            return res.json([]);
+          if (!allowedIds.includes(employeeId)) {
+            return res.status(403).json({ message: 'Access denied' });
           }
         } else {
           if (myAssignedMemberIds.length === 0) {
@@ -506,10 +510,17 @@ router.get('/balance', auth, async (req, res) => {
     const usedMap = {};
     const storedBalancesMap = {};
     const policyMap = {};
+    const ledgerMap = {};
+    const prevLedgerMap = {};
 
     try {
       if (empIds.length > 0) {
-        const [approvals, storedBalances, policies] = await Promise.all([
+        const calcYear = calcDate.getFullYear();
+        const calcMonth = calcDate.getMonth() + 1;
+        const prevMonth = calcMonth === 1 ? 12 : calcMonth - 1;
+        const prevYear = calcMonth === 1 ? calcYear - 1 : calcYear;
+
+        const [approvals, storedBalances, policies, ledgers, prevLedgers] = await Promise.all([
           LeaveApplication.find({ 
             employeeId: { $in: empIds }, 
             status: 'Approved',
@@ -519,7 +530,17 @@ router.get('/balance', auth, async (req, res) => {
             }
           }).lean(),
           LeaveBalance.find({ employeeId: { $in: empIds } }).lean(),
-          EmployeeLeavePolicy.find({ employeeId: { $in: empIds } }).lean()
+          EmployeeLeavePolicy.find({ employeeId: { $in: empIds } }).lean(),
+          EmployeeLeaveLedger.find({
+            employee_id: { $in: empIds },
+            year: calcYear,
+            month: calcMonth
+          }).lean(),
+          EmployeeLeaveLedger.find({
+            employee_id: { $in: empIds },
+            year: prevYear,
+            month: prevMonth
+          }).lean()
         ]);
 
         for (const rec of approvals) {
@@ -535,6 +556,18 @@ router.get('/balance', auth, async (req, res) => {
         for (const p of policies) {
           policyMap[p.employeeId] = p;
         }
+
+        for (const entry of ledgers) {
+          const id = entry.employee_id;
+          if (!ledgerMap[id]) ledgerMap[id] = {};
+          ledgerMap[id][entry.leave_type] = entry;
+        }
+
+        for (const entry of prevLedgers) {
+          const id = entry.employee_id;
+          if (!prevLedgerMap[id]) prevLedgerMap[id] = {};
+          prevLedgerMap[id][entry.leave_type] = entry;
+        }
       }
     } catch (_) {
       // If usage aggregation fails, continue
@@ -542,37 +575,52 @@ router.get('/balance', auth, async (req, res) => {
 
     const result = employees.map(emp => {
       const stored = storedBalancesMap[emp.employeeId];
-      const currentYear = new Date().getFullYear();
-      const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
-      
       const policy = policyMap[emp.employeeId];
       const blAlloc = policy && policy.bereavement_leave_enabled ? (Number(policy.monthly_bereavement_allocation) || 0) : 0;
 
       // System calculation fallback or reference
       const systemCalc = calcBalanceForEmployee(emp, usedMap[emp.employeeId] || [], calcDate);
 
-      if (stored && stored.balances && storedYear === currentYear) {
-        // Inject latest bereavement policy allocation
-        stored.balances.bereavement = stored.balances.bereavement || { used: 0, balance: 0, allocated: 0 };
-        stored.balances.bereavement.allocated = blAlloc;
-        stored.balances.bereavement.used = systemCalc.balances.bereavement?.used || 0;
-        stored.balances.bereavement.balance = Math.max(0, blAlloc - (Number(stored.balances.bereavement.used) || 0));
+      // Helper to get balance from current or previous ledger
+      const getLedgerData = (type) => {
+        if (ledgerMap[emp.employeeId] && ledgerMap[emp.employeeId][type]) {
+          return ledgerMap[emp.employeeId][type];
+        }
+        if (prevLedgerMap[emp.employeeId] && prevLedgerMap[emp.employeeId][type]) {
+          return prevLedgerMap[emp.employeeId][type];
+        }
+        return null;
+      };
 
-        return {
-          employeeId: emp.employeeId || '',
-          name: emp.name || emp.employeename || '',
-          position: emp.position || emp.role || '',
-          division: emp.division || '',
-          location: emp.location || emp.branch || '',
-          monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt, calcDate),
-          balances: stored.balances
-        };
-      }
+      const clLedger = getLedgerData('CL');
+      const slLedger = getLedgerData('SL');
+      const plLedger = getLedgerData('PL');
+      const blLedger = getLedgerData('BEREAVEMENT');
 
-      // Fallback to system calculation if no stored balance for current year
-      systemCalc.balances.bereavement = systemCalc.balances.bereavement || { used: 0, balance: 0, allocated: 0 };
-      systemCalc.balances.bereavement.allocated = blAlloc;
-      systemCalc.balances.bereavement.balance = Math.max(0, blAlloc - (Number(systemCalc.balances.bereavement.used) || 0));
+      const balances = {
+        casual: {
+          allocated: clLedger ? ((clLedger.opening_balance ?? 0) + (clLedger.allocated_leave ?? 0)) : (stored?.balances?.casual?.allocated ?? systemCalc.balances.casual.allocated ?? 0),
+          used: clLedger ? (clLedger.used_leave ?? 0) : (stored?.balances?.casual?.used ?? systemCalc.balances.casual.used ?? 0),
+          balance: clLedger ? (clLedger.closing_balance ?? 0) : (stored?.balances?.casual?.balance ?? systemCalc.balances.casual.balance ?? 0)
+        },
+        sick: {
+          allocated: slLedger ? ((slLedger.opening_balance ?? 0) + (slLedger.allocated_leave ?? 0)) : (stored?.balances?.sick?.allocated ?? systemCalc.balances.sick.allocated ?? 0),
+          used: slLedger ? (slLedger.used_leave ?? 0) : (stored?.balances?.sick?.used ?? systemCalc.balances.sick.used ?? 0),
+          balance: slLedger ? (slLedger.closing_balance ?? 0) : (stored?.balances?.sick?.balance ?? systemCalc.balances.sick.balance ?? 0)
+        },
+        privilege: {
+          allocated: plLedger ? ((plLedger.opening_balance ?? 0) + (plLedger.allocated_leave ?? 0)) : (stored?.balances?.privilege?.allocated ?? systemCalc.balances.privilege.allocated ?? 0),
+          used: plLedger ? (plLedger.used_leave ?? 0) : (stored?.balances?.privilege?.used ?? systemCalc.balances.privilege.used ?? 0),
+          balance: plLedger ? (plLedger.closing_balance ?? 0) : (stored?.balances?.privilege?.balance ?? systemCalc.balances.privilege.balance ?? 0)
+        },
+        bereavement: {
+          allocated: blAlloc,
+          used: blLedger ? (blLedger.used_leave ?? 0) : (systemCalc.balances.bereavement?.used ?? 0),
+          balance: blLedger ? (blLedger.closing_balance ?? 0) : Math.max(0, blAlloc - (Number(systemCalc.balances.bereavement?.used) || 0))
+        }
+      };
+
+      balances.totalBalance = (balances.casual.balance || 0) + (balances.sick.balance || 0) + (balances.privilege.balance || 0) + (balances.bereavement.balance || 0);
 
       return {
         employeeId: emp.employeeId || '',
@@ -580,8 +628,8 @@ router.get('/balance', auth, async (req, res) => {
         position: emp.position || emp.role || '',
         division: emp.division || '',
         location: emp.location || emp.branch || '',
-        monthsOfService: systemCalc.monthsOfService,
-        balances: systemCalc.balances
+        monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt, calcDate),
+        balances
       };
     });
     res.json(result);
@@ -590,10 +638,12 @@ router.get('/balance', auth, async (req, res) => {
   }
 });
 
-// Save leave balance snapshot to LeaveBalance collection
 router.put('/balance/save', auth, async (req, res) => {
   try {
-    if (!hasPermission(req.user, 'leave_manage')) {
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
+    const isAdmin = role === 'admin' || role === 'director';
+    if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const { employeeId, balances: manualBalances } = req.body || {};
@@ -639,16 +689,61 @@ router.put('/balance/save', auth, async (req, res) => {
 
       // Record Reset in Ledger if values changed
       const now = new Date();
-      for (const type of ['casual', 'sick', 'privilege']) {
-        const typeCode = type === 'casual' ? 'CL' : type === 'sick' ? 'SL' : 'PL';
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth() + 1;
+      const ledgerUpdates = [];
+
+      for (const type of ['casual', 'sick', 'privilege', 'bereavement']) {
+        const typeCode = type === 'casual' ? 'CL' : type === 'sick' ? 'SL' : type === 'privilege' ? 'PL' : 'BEREAVEMENT';
+        if (manualBalances[type] === undefined || manualBalances[type] === null) continue;
+
         const newVal = Number(manualBalances[type]) || 0;
-        const oldVal = existingDoc?.balances[type]?.balance || 0;
+        const oldVal = existingDoc?.balances?.[type]?.balance || 0;
         
         if (newVal !== oldVal) {
-        // Removed recordTransaction as per requirement to not use LeaveLedger
-        // The balance update below will handle the manual adjustment tracking implicitly in LeaveBalance
+          ledgerUpdates.push((async () => {
+            const existingLedger = await EmployeeLeaveLedger.findOne({
+              employee_id: employeeId,
+              year: currentYear,
+              month: currentMonth,
+              leave_type: typeCode
+            });
+
+            if (existingLedger) {
+              if (!existingLedger.is_locked) {
+                existingLedger.closing_balance = newVal;
+                existingLedger.opening_balance = newVal;
+                existingLedger.allocated_leave = 0;
+                existingLedger.used_leave = 0;
+                if (typeCode === 'PL' && newVal < 0) {
+                  existingLedger.lop_days = Math.abs(newVal);
+                } else {
+                  existingLedger.lop_days = 0;
+                }
+                await existingLedger.save();
+              }
+            } else {
+              await EmployeeLeaveLedger.create({
+                employee_id: employeeId,
+                employee_name: emp.name,
+                year: currentYear,
+                month: currentMonth,
+                leave_type: typeCode,
+                opening_balance: newVal,
+                allocated_leave: 0,
+                used_leave: 0,
+                closing_balance: newVal,
+                carry_forward: true,
+                lop_days: (typeCode === 'PL' && newVal < 0) ? Math.abs(newVal) : 0,
+                is_locked: false
+              });
+            }
+          })());
+        }
       }
-    }
+      if (ledgerUpdates.length > 0) {
+        await Promise.all(ledgerUpdates);
+      }
   } else {
       // Default: System calculation
       finalBalances = calcBalanceForEmployee(emp, approvals).balances;
@@ -671,10 +766,12 @@ router.put('/balance/save', auth, async (req, res) => {
   }
 });
 
-// Sync/Save all employee balances to DB
 router.post('/balance/sync-all', auth, async (req, res) => {
   try {
-    if (!hasPermission(req.user, 'leave_manage')) {
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
+    const isAdmin = role === 'admin' || role === 'director';
+    if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -765,8 +862,11 @@ router.post('/balance/sync-all', auth, async (req, res) => {
 // Manually trigger monthly allocation
 router.post('/run-allocation', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
-      return res.status(403).json({ message: 'Only admin can trigger allocation' });
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = role === 'hr';
+    const isAdmin = role === 'admin' || role === 'director';
+    if (!isAdmin && !isHR) {
+      return res.status(403).json({ message: 'Access denied' });
     }
     const { date } = req.body;
     const targetDate = date ? new Date(date) : new Date();
@@ -811,7 +911,10 @@ router.post('/run-allocation', auth, async (req, res) => {
 // Get allocation run history
 router.get('/allocation-history', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') {
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = role === 'hr';
+    const isAdmin = role === 'admin' || role === 'director';
+    if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const history = await LeaveAllocationLog.find().sort({ runDate: -1 }).limit(50);
@@ -831,6 +934,25 @@ router.get('/preview-split', auth, async (req, res) => {
 
     const targetId = employeeId || req.user.employeeId;
     if (!targetId) return res.status(400).json({ error: 'Employee ID required' });
+
+    const role = String(req.user.role || '').toLowerCase();
+    const isAdmin = role === 'admin' || role === 'director';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+    const isHR = hasPermission(req.user, 'leave_view') || role === 'hr';
+
+    const isSelf = targetId === req.user.employeeId;
+
+    if (!isSelf && !isPM && !isAdmin && !isHR) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    if (!isAdmin && !isHR && isPM) {
+      const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
+      if (!allowedIds.includes(targetId)) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+    }
 
     const emp = await Employee.findOne({ employeeId: targetId }).lean();
     if (!emp) return res.status(404).json({ error: 'Employee not found' });
@@ -913,28 +1035,81 @@ router.get('/my-balance', auth, async (req, res) => {
 
     // Check for stored balance
     if (emp.employeeId) {
-      const stored = await LeaveBalance.findOne({ employeeId: emp.employeeId }).lean();
-      const currentYear = new Date().getFullYear();
-      const storedYear = stored ? (stored.year || new Date(stored.updatedAt || stored.createdAt).getFullYear()) : 0;
+      const calcDate = new Date();
+      const currentYear = calcDate.getFullYear();
+      const currentMonth = calcDate.getMonth() + 1;
+      const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+      const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
-      if (stored && stored.balances && stored.balances.totalBalance !== undefined && storedYear === currentYear) {
-        stored.balances.bereavement = stored.balances.bereavement || { used: 0, balance: 0, allocated: 0 };
-        stored.balances.bereavement.allocated = bereavementAllocation;
-        stored.balances.bereavement.used = systemCalc.balances.bereavement?.used || 0;
-        stored.balances.bereavement.balance = Math.max(0, bereavementAllocation - (Number(stored.balances.bereavement.used) || 0));
+      const [ledgers, prevLedgers, stored] = await Promise.all([
+        EmployeeLeaveLedger.find({
+          employee_id: emp.employeeId,
+          year: currentYear,
+          month: currentMonth
+        }).lean(),
+        EmployeeLeaveLedger.find({
+          employee_id: emp.employeeId,
+          year: prevYear,
+          month: prevMonth
+        }).lean(),
+        LeaveBalance.findOne({ employeeId: emp.employeeId }).lean()
+      ]);
 
-        return res.json({
-          employeeId: emp.employeeId || '',
-          name: emp.name || emp.employeename || '',
-          position: emp.position || emp.role || '',
-          division: emp.division || '',
-          location: emp.location || emp.branch || '',
-          monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt),
-          balances: stored.balances,
-          bereavement_leave_enabled: bereavementEnabled,
-          bereavement_leave_allocation: bereavementAllocation
-        });
+      const ledgerMap = {};
+      for (const entry of ledgers) {
+        ledgerMap[entry.leave_type] = entry;
       }
+
+      const prevLedgerMap = {};
+      for (const entry of prevLedgers) {
+        prevLedgerMap[entry.leave_type] = entry;
+      }
+
+      const getLedgerData = (type) => {
+        return ledgerMap[type] || prevLedgerMap[type] || null;
+      };
+
+      const clLedger = getLedgerData('CL');
+      const slLedger = getLedgerData('SL');
+      const plLedger = getLedgerData('PL');
+      const blLedger = getLedgerData('BEREAVEMENT');
+
+      const balances = {
+        casual: {
+          allocated: clLedger ? ((clLedger.opening_balance ?? 0) + (clLedger.allocated_leave ?? 0)) : (stored?.balances?.casual?.allocated ?? systemCalc.balances.casual.allocated ?? 0),
+          used: clLedger ? (clLedger.used_leave ?? 0) : (stored?.balances?.casual?.used ?? systemCalc.balances.casual.used ?? 0),
+          balance: clLedger ? (clLedger.closing_balance ?? 0) : (stored?.balances?.casual?.balance ?? systemCalc.balances.casual.balance ?? 0)
+        },
+        sick: {
+          allocated: slLedger ? ((slLedger.opening_balance ?? 0) + (slLedger.allocated_leave ?? 0)) : (stored?.balances?.sick?.allocated ?? systemCalc.balances.sick.allocated ?? 0),
+          used: slLedger ? (slLedger.used_leave ?? 0) : (stored?.balances?.sick?.used ?? systemCalc.balances.sick.used ?? 0),
+          balance: slLedger ? (slLedger.closing_balance ?? 0) : (stored?.balances?.sick?.balance ?? systemCalc.balances.sick.balance ?? 0)
+        },
+        privilege: {
+          allocated: plLedger ? ((plLedger.opening_balance ?? 0) + (plLedger.allocated_leave ?? 0)) : (stored?.balances?.privilege?.allocated ?? systemCalc.balances.privilege.allocated ?? 0),
+          used: plLedger ? (plLedger.used_leave ?? 0) : (stored?.balances?.privilege?.used ?? systemCalc.balances.privilege.used ?? 0),
+          balance: plLedger ? (plLedger.closing_balance ?? 0) : (stored?.balances?.privilege?.balance ?? systemCalc.balances.privilege.balance ?? 0)
+        },
+        bereavement: {
+          allocated: bereavementAllocation,
+          used: blLedger ? (blLedger.used_leave ?? 0) : (systemCalc.balances.bereavement?.used ?? 0),
+          balance: blLedger ? (blLedger.closing_balance ?? 0) : Math.max(0, bereavementAllocation - (Number(systemCalc.balances.bereavement?.used) || 0))
+        }
+      };
+
+      balances.totalBalance = (balances.casual.balance || 0) + (balances.sick.balance || 0) + (balances.privilege.balance || 0) + (balances.bereavement.balance || 0);
+
+      return res.json({
+        employeeId: emp.employeeId || '',
+        name: emp.name || emp.employeename || '',
+        position: emp.position || emp.role || '',
+        division: emp.division || '',
+        location: emp.location || emp.branch || '',
+        monthsOfService: monthsBetween(emp.dateOfJoining || emp.hireDate || emp.createdAt),
+        balances,
+        bereavement_leave_enabled: bereavementEnabled,
+        bereavement_leave_allocation: bereavementAllocation
+      });
     }
 
     return res.json({ ...systemCalc, bereavement_leave_enabled: bereavementEnabled, bereavement_leave_allocation: bereavementAllocation });
@@ -946,13 +1121,6 @@ router.get('/my-balance', auth, async (req, res) => {
 // Admin: list leave applications with filters
 router.get('/', auth, async (req, res) => {
   try {
-    const canListLeaves =
-      hasPermission(req.user, 'leave_view') ||
-      hasPermission(req.user, 'leave_summary') ||
-      hasPermission(req.user, 'leave_manage');
-    if (!canListLeaves) {
-      return res.status(403).json({ message: 'Access denied' });
-    }
     const { startDate, endDate, employeeId, status, leaveType } = req.query;
     const filter = {};
     if (employeeId) filter.employeeId = employeeId;
@@ -960,29 +1128,36 @@ router.get('/', auth, async (req, res) => {
     if (leaveType && leaveType !== 'all') filter.leaveType = leaveType;
 
     const role = String(req.user.role || '').toLowerCase();
-    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
-    const isPM = role === 'projectmanager' || role === 'project_manager';
-    if (!isAdmin) {
-      const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+    const isAdmin = role === 'admin' || role === 'director';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+    const isHR = hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_summary') || hasPermission(req.user, 'leave_manage') || role === 'hr';
+
+    // Allow if HR/Admin, Manager/PM, or if employee is viewing own leaves
+    const isSelf = employeeId && req.user.employeeId === employeeId;
+    const isAllowed = isAdmin || isPM || isHR || isSelf;
+
+    if (!isAllowed) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
+    // Filter applications based on hierarchy
+    if (!isAdmin && !isHR) {
       if (isPM) {
-        if (filter.employeeId) {
-          if (!myAssignedMemberIds.includes(filter.employeeId)) {
-            return res.json([]);
+        const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+        const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
+        if (employeeId) {
+          if (!allowedIds.includes(employeeId)) {
+            return res.status(403).json({ message: 'Access denied' });
           }
         } else {
-          if (myAssignedMemberIds.length === 0) {
-            return res.json([]);
-          }
-          filter.employeeId = { $in: myAssignedMemberIds };
+          filter.employeeId = { $in: allowedIds };
         }
       } else {
-        if (filter.employeeId) {
-          if (allAssignedMemberIds.includes(filter.employeeId)) {
-            return res.json([]);
-          }
-        } else if (allAssignedMemberIds.length > 0) {
-          filter.employeeId = { $nin: allAssignedMemberIds };
+        // Standard employee: can only see own leaves
+        if (employeeId && employeeId !== req.user.employeeId) {
+          return res.status(403).json({ message: 'Access denied' });
         }
+        filter.employeeId = req.user.employeeId;
       }
     }
 
@@ -1110,18 +1285,23 @@ router.put('/:id/status', auth, async (req, res) => {
     }
 
     const role = String(req.user.role || '').toLowerCase();
-    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
-    const isPM = role === 'projectmanager' || role === 'project_manager';
-    if (!isAdmin && targetEmployeeId) {
-      const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
-      if (isPM) {
+    const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
+    const isSuperAdmin = role === 'admin' || role === 'director';
+
+    if (!isSuperAdmin && !isHR) {
+      // Must be a manager / PM
+      const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+      if (!isPM) {
+        return res.status(403).json({ message: 'Access denied' });
+      }
+
+      if (targetEmployeeId) {
+        const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
         if (!myAssignedMemberIds.includes(targetEmployeeId)) {
           return res.status(403).json({ message: 'Access denied' });
         }
       } else {
-        if (allAssignedMemberIds.includes(targetEmployeeId)) {
-          return res.status(403).json({ message: 'Access denied' });
-        }
+        return res.status(400).json({ error: 'Cannot validate reporting hierarchy' });
       }
     }
 
@@ -1213,12 +1393,24 @@ router.get('/:id/document', auth, async (req, res) => {
       .lean();
     if (!leave) return res.status(404).json({ error: 'Leave application not found' });
 
-    const canView =
-      String(leave.userId) === String(req.user._id) ||
-      hasPermission(req.user, 'leave_manage') ||
-      hasPermission(req.user, 'leave_view') ||
-      hasPermission(req.user, 'leave_summary');
-    if (!canView) return res.status(403).json({ error: 'Access denied' });
+    let isAuthorized = String(leave.userId) === String(req.user._id);
+
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = hasPermission(req.user, 'leave_manage') || hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_summary') || role === 'hr';
+    const isSuperAdmin = role === 'admin' || role === 'director';
+
+    if (isSuperAdmin || isHR) {
+      isAuthorized = true;
+    } else if (role === 'manager' || role === 'projectmanager' || role === 'project_manager') {
+      if (leave.employeeId) {
+        const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+        if (myAssignedMemberIds.includes(leave.employeeId)) {
+          isAuthorized = true;
+        }
+      }
+    }
+
+    if (!isAuthorized) return res.status(403).json({ error: 'Access denied' });
 
     const data = leave?.document?.data;
     if (!data || !Buffer.isBuffer(data) || data.length === 0) {
@@ -1662,7 +1854,22 @@ router.delete('/:id', auth, async (req, res) => {
 // GET: Fetch leave policy for a specific employee
 router.get('/policy/:employeeId', auth, async (req, res) => {
   try {
-    if (!hasPermission(req.user, 'leave_manage') && req.user.employeeId !== req.params.employeeId) {
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
+    const isAdmin = role === 'admin' || role === 'director';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+    const isSelf = req.user.employeeId === req.params.employeeId;
+
+    let isAuthorized = isAdmin || isHR || isSelf;
+
+    if (!isAuthorized && isPM) {
+      const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      if (myAssignedMemberIds.includes(req.params.employeeId)) {
+        isAuthorized = true;
+      }
+    }
+
+    if (!isAuthorized) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const policy = await EmployeeLeavePolicy.findOne({ employeeId: req.params.employeeId }).lean();
@@ -1690,7 +1897,10 @@ router.get('/policy/:employeeId', auth, async (req, res) => {
 // PUT: Save/update leave policy for an employee
 router.put('/policy/:employeeId', auth, async (req, res) => {
   try {
-    if (!hasPermission(req.user, 'leave_manage')) {
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
+    const isAdmin = role === 'admin' || role === 'director';
+    if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const { employeeId } = req.params;
@@ -1760,9 +1970,21 @@ router.get('/monthly-ledger/:employeeId', auth, async (req, res) => {
     const { employeeId } = req.params;
     const { year, month } = req.query;
 
-    // Allow employee to view own ledger; admins/managers can view all
+    const role = String(req.user.role || '').toLowerCase();
     const isSelf = req.user.employeeId === employeeId;
-    const canView = isSelf || hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_manage');
+    const isHR = hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_manage') || role === 'hr';
+    const isAdmin = role === 'admin' || role === 'director';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+
+    let canView = isSelf || isAdmin || isHR;
+
+    if (!canView && isPM) {
+      const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      if (myAssignedMemberIds.includes(employeeId)) {
+        canView = true;
+      }
+    }
+
     if (!canView) return res.status(403).json({ message: 'Access denied' });
 
     const filter = { employee_id: employeeId };
@@ -1782,7 +2004,12 @@ router.get('/monthly-ledger/:employeeId', auth, async (req, res) => {
 // GET: Summary of all employees for a given month (for payroll integration)
 router.get('/ledger-summary', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Access denied' });
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = role === 'hr' || hasPermission(req.user, 'leave_manage');
+    const isAdmin = role === 'admin' || role === 'director';
+    if (!isAdmin && !isHR) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
     const { year, month } = req.query;
     if (!year || !month) return res.status(400).json({ error: 'year and month required' });
 
@@ -1810,7 +2037,12 @@ router.get('/ledger-summary', auth, async (req, res) => {
 // PUT: Lock a ledger month after payroll processing
 router.put('/ledger/:id/lock', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Only admin can lock ledger months' });
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = role === 'hr' || hasPermission(req.user, 'leave_manage');
+    const isAdmin = role === 'admin' || role === 'director';
+    if (!isAdmin && !isHR) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
     const entry = await EmployeeLeaveLedger.findByIdAndUpdate(
       req.params.id,
       { $set: { is_locked: true } },
@@ -1826,7 +2058,12 @@ router.put('/ledger/:id/lock', auth, async (req, res) => {
 // PUT: Lock all ledger entries for a given month (batch lock for payroll)
 router.put('/ledger-lock-month', auth, async (req, res) => {
   try {
-    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Only admin can lock ledger months' });
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = role === 'hr' || hasPermission(req.user, 'leave_manage');
+    const isAdmin = role === 'admin' || role === 'director';
+    if (!isAdmin && !isHR) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
     const { year, month } = req.body;
     if (!year || !month) return res.status(400).json({ error: 'year and month required' });
     const result = await EmployeeLeaveLedger.updateMany(
@@ -1855,7 +2092,10 @@ router.put('/ledger-lock-month', auth, async (req, res) => {
  */
 router.put('/current-month-edit/:employeeId', auth, async (req, res) => {
   try {
-    if (!hasPermission(req.user, 'leave_manage')) {
+    const role = String(req.user.role || '').toLowerCase();
+    const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
+    const isAdmin = role === 'admin' || role === 'director';
+    if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -2060,10 +2300,23 @@ router.put('/current-month-edit/:employeeId', auth, async (req, res) => {
 // GET: Fetch adjustment audit logs for an employee
 router.get('/adjustment-logs/:employeeId', auth, async (req, res) => {
   try {
-    const canView = hasPermission(req.user, 'leave_manage') || hasPermission(req.user, 'leave_view');
-    if (!canView) return res.status(403).json({ message: 'Access denied' });
-
     const { employeeId } = req.params;
+    const role = String(req.user.role || '').toLowerCase();
+    const isSelf = req.user.employeeId === employeeId;
+    const isHR = hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_manage') || role === 'hr';
+    const isAdmin = role === 'admin' || role === 'director';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+
+    let canView = isSelf || isAdmin || isHR;
+
+    if (!canView && isPM) {
+      const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      if (myAssignedMemberIds.includes(employeeId)) {
+        canView = true;
+      }
+    }
+
+    if (!canView) return res.status(403).json({ message: 'Access denied' });
     const { year, month } = req.query;
     const filter = { employee_id: employeeId };
     if (year) filter.year = Number(year);

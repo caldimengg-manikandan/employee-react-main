@@ -4,8 +4,25 @@ const Employee = require("../models/Employee");
 const AttendanceYearSummary = require("../models/AttendanceYearSummary");
 const auth = require("../middleware/auth");
 const checkActiveEmployee = require("../middleware/checkActiveEmployee");
+const authorizeRoles = require("../middleware/roleAuth");
+const Team = require("../models/Team");
 
 const router = express.Router();
+
+// Apply JWT Authentication to all routes in this module
+router.use(auth);
+
+async function getAssignedMemberIds(leaderEmployeeId) {
+  if (!leaderEmployeeId) return [];
+  const teams = await Team.find({ leaderEmployeeId }).select("members").lean();
+  const memberSet = new Set();
+  teams.forEach(t => {
+    if (Array.isArray(t.members)) {
+      t.members.forEach(m => { if (m) memberSet.add(m); });
+    }
+  });
+  return Array.from(memberSet);
+}
 
 /**
  * 📋 GET ALL ATTENDANCE RECORDS
@@ -13,10 +30,39 @@ const router = express.Router();
 router.get("/", async (req, res) => {
   try {
     const { employeeId, startDate, endDate, source } = req.query;
+    const privilegedRoles = ["admin", "hr", "director"];
+    const managerRoles = ["manager", "projectmanager", "teamlead"];
+    const userRole = String(req.user?.role || "").toLowerCase();
 
     const query = {};
-    if (employeeId) query.employeeId = employeeId;
     if (source) query.source = source;
+
+    if (!privilegedRoles.includes(userRole)) {
+      if (managerRoles.includes(userRole)) {
+        const assignedIds = await getAssignedMemberIds(req.user?.employeeId);
+        const allowedIds = [req.user?.employeeId, ...assignedIds].filter(Boolean);
+        if (employeeId) {
+          if (!allowedIds.some(id => String(id).toLowerCase() === String(employeeId).toLowerCase())) {
+            return res.status(403).json({ success: false, message: "Access denied: Cannot view attendance records outside your assigned team." });
+          }
+          query.employeeId = employeeId;
+        } else {
+          query.employeeId = { $in: allowedIds };
+        }
+      } else {
+        let myEmpId = req.user?.employeeId;
+        if (!myEmpId) {
+          const emp = await Employee.findOne({ email: req.user?.email }).select("employeeId");
+          myEmpId = emp?.employeeId || String(req.user?._id || "");
+        }
+        if (employeeId && String(employeeId).toLowerCase() !== String(myEmpId).toLowerCase()) {
+          return res.status(403).json({ success: false, message: "Access denied: Cannot view attendance records of another employee. IDOR protection triggered." });
+        }
+        query.employeeId = myEmpId;
+      }
+    } else if (employeeId) {
+      query.employeeId = employeeId;
+    }
 
     if (startDate || endDate) {
       query.punchTime = {};
@@ -65,6 +111,19 @@ router.get("/", async (req, res) => {
 router.post("/", async (req, res) => {
   try {
     const { employeeId, direction, punchTime, deviceId, source, correspondingInTime, workDurationSeconds } = req.body;
+
+    const privilegedRoles = ["admin", "hr", "director"];
+    const userRole = String(req.user?.role || "").toLowerCase();
+    if (!privilegedRoles.includes(userRole)) {
+      let myEmpId = req.user?.employeeId;
+      if (!myEmpId) {
+        const emp = await Employee.findOne({ email: req.user?.email }).select("employeeId");
+        myEmpId = emp?.employeeId || String(req.user?._id || "");
+      }
+      if (String(employeeId).toLowerCase() !== String(myEmpId).toLowerCase()) {
+        return res.status(403).json({ success: false, message: "Access denied: Cannot submit manual attendance entry for another employee." });
+      }
+    }
 
     if (!employeeId || !direction) {
       return res.status(400).json({
@@ -118,7 +177,7 @@ router.post("/", async (req, res) => {
 /**
  * 📥 SAVE HIKVISION ATTENDANCE
  */
-router.post("/save-hikvision-attendance", async (req, res) => {
+router.post("/save-hikvision-attendance", authorizeRoles("admin", "hr", "director"), async (req, res) => {
   try {
     const { attendanceData } = req.body || {};
     let items = [];
@@ -177,6 +236,9 @@ router.post("/save-hikvision-attendance", async (req, res) => {
 router.get("/summary", async (req, res) => {
   try {
     const { startDate, endDate, financialYear } = req.query;
+    const privilegedRoles = ["admin", "hr", "director"];
+    const managerRoles = ["manager", "projectmanager", "teamlead"];
+    const userRole = String(req.user?.role || "").toLowerCase();
 
     const matchStage = {};
     if (startDate || endDate) {
@@ -186,10 +248,28 @@ router.get("/summary", async (req, res) => {
     }
 
     let summary = [];
+    const filterYear = { financialYear };
+
+    if (!privilegedRoles.includes(userRole)) {
+      if (managerRoles.includes(userRole)) {
+        const assignedIds = await getAssignedMemberIds(req.user?.employeeId);
+        const allowedIds = [req.user?.employeeId, ...assignedIds].filter(Boolean);
+        filterYear.employeeId = { $in: allowedIds };
+        matchStage.employeeId = { $in: allowedIds };
+      } else {
+        let myEmpId = req.user?.employeeId;
+        if (!myEmpId) {
+          const emp = await Employee.findOne({ email: req.user?.email }).select("employeeId");
+          myEmpId = emp?.employeeId || String(req.user?._id || "");
+        }
+        filterYear.employeeId = myEmpId;
+        matchStage.employeeId = myEmpId;
+      }
+    }
 
     if (financialYear === "2025-26") {
       // For FY 2025-26, use manual year summary only
-      summary = await AttendanceYearSummary.find({ financialYear }).lean();
+      summary = await AttendanceYearSummary.find(filterYear).lean();
     } else {
       // Default aggregated summary from raw attendance
       summary = await Attendance.aggregate([
@@ -275,7 +355,7 @@ router.get("/summary", async (req, res) => {
 /**
  * ✏️ SAVE / UPDATE YEAR SUMMARY (Manual)
  */
-router.put("/year-summary/:employeeId", async (req, res) => {
+router.put("/year-summary/:employeeId", authorizeRoles("admin", "hr", "director"), async (req, res) => {
   try {
     const { employeeId } = req.params;
     const { financialYear, yearlyPresent, yearlyAbsent, officeHoliday, regionalHoliday, yearlyPct, updatedBy } = req.body;
@@ -336,6 +416,28 @@ router.get("/year-summary/:employeeId", async (req, res) => {
     const { employeeId } = req.params;
     const { financialYear } = req.query;
     console.log(`Getting Year Summary for ${employeeId}, FY ${financialYear}`);
+
+    const privilegedRoles = ["admin", "hr", "director"];
+    const managerRoles = ["manager", "projectmanager", "teamlead"];
+    const userRole = String(req.user?.role || "").toLowerCase();
+
+    if (!privilegedRoles.includes(userRole)) {
+      let myEmpId = req.user?.employeeId;
+      if (!myEmpId) {
+        const emp = await Employee.findOne({ email: req.user?.email }).select("employeeId");
+        myEmpId = emp?.employeeId || String(req.user?._id || "");
+      }
+      if (String(myEmpId).toLowerCase() !== String(employeeId).toLowerCase()) {
+        if (managerRoles.includes(userRole)) {
+          const assignedIds = await getAssignedMemberIds(myEmpId);
+          if (!assignedIds.some(id => String(id).toLowerCase() === String(employeeId).toLowerCase())) {
+            return res.status(403).json({ success: false, message: "Access denied: Cannot view year summary outside your team." });
+          }
+        } else {
+          return res.status(403).json({ success: false, message: "Access denied: Cannot view year summary of another employee." });
+        }
+      }
+    }
 
     if (!financialYear) {
       return res.status(400).json({
@@ -555,13 +657,27 @@ router.post("/regularize", auth, checkActiveEmployee, async (req, res) => {
       });
     }
 
-    let employeeIdToUse = employeeId;
-    if (!employeeIdToUse) {
-      if (req.user.employeeId) {
-        employeeIdToUse = req.user.employeeId;
-      } else {
-        const employee = await Employee.findOne({ email: req.user.email }).select("employeeId");
-        employeeIdToUse = employee?.employeeId || String(req.user._id);
+    let myEmpId = req.user?.employeeId;
+    if (!myEmpId) {
+      const emp = await Employee.findOne({ email: req.user?.email }).select("employeeId");
+      myEmpId = emp?.employeeId || String(req.user?._id || "");
+    }
+
+    let employeeIdToUse = employeeId || myEmpId;
+    const privilegedRoles = ["admin", "hr", "director"];
+    const managerRoles = ["manager", "projectmanager", "teamlead"];
+    const userRole = String(req.user?.role || "").toLowerCase();
+
+    if (employeeId && String(employeeId).toLowerCase() !== String(myEmpId).toLowerCase()) {
+      if (!privilegedRoles.includes(userRole)) {
+        if (managerRoles.includes(userRole)) {
+          const assignedIds = await getAssignedMemberIds(myEmpId);
+          if (!assignedIds.some(id => String(id).toLowerCase() === String(employeeId).toLowerCase())) {
+            return res.status(403).json({ success: false, message: "Access denied: Cannot regularize attendance outside your assigned team." });
+          }
+        } else {
+          return res.status(403).json({ success: false, message: "Access denied: Cannot regularize attendance for another employee." });
+        }
       }
     }
 
@@ -661,7 +777,7 @@ router.post("/regularize", auth, checkActiveEmployee, async (req, res) => {
 /**
  * ✏️ UPDATE ATTENDANCE RECORD
  */
-router.put("/:id", async (req, res) => {
+router.put("/:id", authorizeRoles("admin", "hr", "director"), async (req, res) => {
   try {
     const { id } = req.params;
     const { punchTime, direction, workDurationSeconds, correspondingInTime } = req.body;
@@ -700,7 +816,7 @@ router.put("/:id", async (req, res) => {
 /**
  * 🗑️ DELETE ATTENDANCE RECORD
  */
-router.delete("/:id", async (req, res) => {
+router.delete("/:id", authorizeRoles("admin", "hr", "director"), async (req, res) => {
   try {
     const { id } = req.params;
     const existing = await Attendance.findById(id).select('employeeId').lean();

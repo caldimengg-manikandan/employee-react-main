@@ -2,13 +2,14 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const auth = require('../middleware/auth');
+const authorizeRoles = require('../middleware/roleAuth');
 
 /**
  * @desc    Get all payroll snapshots for a specific financial year
  * @route   GET /api/payroll/snapshot/:fy
- * @access  Private
+ * @access  Private (Admin, HR, Finance, Director, Project Manager)
  */
-router.get('/snapshot/:fy', auth, async (req, res) => {
+router.get('/snapshot/:fy', auth, authorizeRoles('admin', 'hr', 'finance', 'director', 'projectmanager'), async (req, res) => {
   try {
     const { fy } = req.params;
     const collectionName = `payroll_FY${fy}`;
@@ -29,11 +30,24 @@ router.get('/snapshot/:fy', auth, async (req, res) => {
 /**
  * @desc    Get payroll snapshot for a specific financial year and employee
  * @route   GET /api/payroll/snapshot/:fy/:employeeId
- * @access  Private
+ * @access  Private (Privileged roles or snapshot owner)
  */
 router.get('/snapshot/:fy/:employeeId', auth, async (req, res) => {
   try {
     const { fy, employeeId } = req.params;
+
+    const privilegedRoles = ['admin', 'hr', 'finance', 'director', 'projectmanager', 'manager'];
+    const userRole = String(req.user?.role || '').toLowerCase();
+
+    if (!privilegedRoles.includes(userRole)) {
+      if (!req.user?.employeeId || String(req.user.employeeId).toLowerCase() !== String(employeeId).toLowerCase()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: Cannot view financial year snapshot of another employee.'
+        });
+      }
+    }
+
     const collectionName = `payroll_FY${fy}`; // e.g., payroll_FY24-25
     
     const db = mongoose.connection.db;
@@ -59,3 +73,4 @@ router.get('/snapshot/:fy/:employeeId', auth, async (req, res) => {
 });
 
 module.exports = router;
+

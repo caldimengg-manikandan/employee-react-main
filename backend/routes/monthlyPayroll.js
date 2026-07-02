@@ -1,10 +1,15 @@
 const express = require("express");
 const router = express.Router();
 const MonthlyPayroll = require("../models/MonthlyPayroll");
+const auth = require("../middleware/auth");
+const authorizeRoles = require("../middleware/roleAuth");
+
+// Apply JWT Authentication to all routes in this module
+router.use(auth);
 
 
-// ✅ SAVE MONTHLY PAYROLL (Simulation Result)
-router.post("/run", async (req, res) => {
+// ✅ SAVE MONTHLY PAYROLL (Simulation Result) - Admin, HR, Finance, Director only
+router.post("/run", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
   try {
     const { payrolls } = req.body; // array from simulation
 
@@ -139,12 +144,21 @@ router.post("/run", async (req, res) => {
 });
 
 
-// 📥 GET PAYROLL BY MONTH
+// 📥 GET PAYROLL BY MONTH (Filtered by ownership for unprivileged employees)
 router.get("/", async (req, res) => {
   try {
     const { month } = req.query; // YYYY-MM
+    const privilegedRoles = ["admin", "hr", "finance", "director"];
+    const userRole = String(req.user?.role || "").toLowerCase();
 
     const filter = month ? { salaryMonth: month } : {};
+
+    if (!privilegedRoles.includes(userRole)) {
+      if (!req.user?.employeeId) {
+        return res.json([]);
+      }
+      filter.employeeId = { $regex: new RegExp(`^${req.user.employeeId}$`, "i") };
+    }
 
     const records = await MonthlyPayroll.find(filter).sort({
       employeeName: 1,
@@ -157,10 +171,21 @@ router.get("/", async (req, res) => {
 });
 
 
-// 📜 GET EMPLOYEE PAYROLL HISTORY
+// 📜 GET EMPLOYEE PAYROLL HISTORY (Privileged roles or record owner only)
 router.get("/history/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
+    const privilegedRoles = ["admin", "hr", "finance", "director"];
+    const userRole = String(req.user?.role || "").toLowerCase();
+
+    if (!privilegedRoles.includes(userRole)) {
+      if (!req.user?.employeeId || String(req.user.employeeId).toLowerCase() !== String(employeeId).toLowerCase()) {
+        return res.status(403).json({
+          message: "Access denied: Cannot view monthly payroll history of another employee."
+        });
+      }
+    }
+
     const records = await MonthlyPayroll.find({ 
       employeeId: { $regex: new RegExp(`^${employeeId}$`, "i") } 
     }).sort({ salaryMonth: -1 });
@@ -171,8 +196,8 @@ router.get("/history/:employeeId", async (req, res) => {
 });
 
 
-// 📤 MARK PAYMENT EMAIL SENT
-router.put("/mark-email-sent", async (req, res) => {
+// 📤 MARK PAYMENT EMAIL SENT (Admin, HR, Finance, Director only)
+router.put("/mark-email-sent", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
   try {
     const { month, employeeIds } = req.body;
 
@@ -191,8 +216,8 @@ router.put("/mark-email-sent", async (req, res) => {
 });
 
 
-// 💰 MARK AS PAID
-router.put("/mark-paid", async (req, res) => {
+// 💰 MARK AS PAID (Admin, HR, Finance, Director only)
+router.put("/mark-paid", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
   try {
     const { month, employeeIds } = req.body;
 
@@ -211,8 +236,8 @@ router.put("/mark-paid", async (req, res) => {
 });
 
 
-// ❌ DELETE MONTH PAYROLL (Admin only)
-router.delete("/:month", async (req, res) => {
+// ❌ DELETE MONTH PAYROLL (Admin, HR, Finance, Director only)
+router.delete("/:month", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
   try {
     await MonthlyPayroll.deleteMany({ salaryMonth: req.params.month });
     res.json({ message: "Monthly payroll deleted" });
@@ -221,4 +246,4 @@ router.delete("/:month", async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = router;
