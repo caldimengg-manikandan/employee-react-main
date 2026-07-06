@@ -100,6 +100,8 @@ const Login = () => {
       }
     };
     loadUpdates();
+    const interval = setInterval(loadUpdates, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   const formatHolidayCardDate = (dateISO) => {

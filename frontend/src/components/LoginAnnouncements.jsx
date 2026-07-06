@@ -7,7 +7,7 @@ const LoginAnnouncements = ({ title = '📢 Company Announcements', mode = 'list
 
   useEffect(() => {
     fetchAnnouncements();
-    const interval = setInterval(fetchAnnouncements, 60000);
+    const interval = setInterval(fetchAnnouncements, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -35,7 +35,7 @@ const LoginAnnouncements = ({ title = '📢 Company Announcements', mode = 'list
       <div>
         <div className="bg-blue-950/80 backdrop-blur-md text-white py-3 overflow-hidden border-t border-white/10">
           <div className="ticker overflow-hidden">
-            <div className="ticker-track flex items-center whitespace-nowrap">
+            <div className="ticker-track inline-flex items-center whitespace-nowrap w-max">
               <div className="flex items-center gap-8 pr-8">
                 {announcements.map((a) => (
                   <div key={`t1-${a._id}`} className="flex items-center">
@@ -49,6 +49,26 @@ const LoginAnnouncements = ({ title = '📢 Company Announcements', mode = 'list
               <div className="flex items-center gap-8 pr-8">
                 {announcements.map((a) => (
                   <div key={`t2-${a._id}`} className="flex items-center">
+                    <span className="text-blue-200 text-sm">
+                      <span className="text-white font-semibold">{a.title}</span>: {a.message}
+                    </span>
+                    <span className="ml-3 text-blue-300">•</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-8 pr-8">
+                {announcements.map((a) => (
+                  <div key={`t3-${a._id}`} className="flex items-center">
+                    <span className="text-blue-200 text-sm">
+                      <span className="text-white font-semibold">{a.title}</span>: {a.message}
+                    </span>
+                    <span className="ml-3 text-blue-300">•</span>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-8 pr-8">
+                {announcements.map((a) => (
+                  <div key={`t4-${a._id}`} className="flex items-center">
                     <span className="text-blue-200 text-sm">
                       <span className="text-white font-semibold">{a.title}</span>: {a.message}
                     </span>

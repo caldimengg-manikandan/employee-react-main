@@ -10,9 +10,10 @@ router.get('/active', async (req, res) => {
     const now = new Date();
     const items = await Announcement.find({
       isActive: true,
-      $and: [
-        { $or: [{ startDate: { $lte: now } }, { startDate: { $exists: false } }] },
-        { $or: [{ endDate: { $gte: now } }, { endDate: { $exists: false } }] }
+      $or: [
+        { endDate: { $gte: now } },
+        { endDate: null },
+        { endDate: { $exists: false } }
       ]
     })
       .sort({ createdAt: -1 })
@@ -52,8 +53,8 @@ router.post('/', auth, async (req, res) => {
       title,
       message,
       isActive,
-      startDate: req.body.startDate ? new Date(req.body.startDate) : undefined,
-      endDate: req.body.endDate ? new Date(req.body.endDate) : undefined,
+      startDate: req.body.startDate ? new Date(req.body.startDate) : null,
+      endDate: req.body.endDate ? new Date(req.body.endDate) : null,
       createdBy: { id: req.user._id, name: req.user.name }
     });
     res.status(201).json(item);
@@ -77,8 +78,12 @@ router.put('/:id', auth, async (req, res) => {
     ['title', 'message', 'isActive', 'startDate', 'endDate'].forEach((key) => {
       if (req.body[key] !== undefined) update[key] = req.body[key];
     });
-    if (update.startDate) update.startDate = new Date(update.startDate);
-    if (update.endDate) update.endDate = new Date(update.endDate);
+    if (update.startDate !== undefined) {
+      update.startDate = update.startDate ? new Date(update.startDate) : null;
+    }
+    if (update.endDate !== undefined) {
+      update.endDate = update.endDate ? new Date(update.endDate) : null;
+    }
 
     const item = await Announcement.findByIdAndUpdate(id, update, {
       new: true
