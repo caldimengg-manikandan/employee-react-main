@@ -8,6 +8,18 @@ const Payroll = require('../models/Payroll');
 const PayrollHistory = require('../models/PayrollHistory');
 const AuditLog = require('../models/AuditLog');
 
+// Apply JWT Authentication globally to this module
+router.use(auth);
+
+// Enforce role-based authorization: Admin, Director, and General Manager (manager) only
+router.use((req, res, next) => {
+  const role = String(req.user?.role || '').toLowerCase();
+  if (role !== 'admin' && role !== 'director' && role !== 'manager') {
+    return res.status(403).json({ success: false, message: 'Access denied' });
+  }
+  next();
+});
+
 // Helper to convert Map to Object
 const mapToObj = (map) => {
   if (!map) return {};
@@ -29,7 +41,7 @@ router.get('/', auth, async (req, res) => {
     let statusFilter = {};
     const role = (req.user.role || '').toLowerCase();
     const isAdmin = role === 'admin';
-    const isDirector = role === 'director';
+    const isDirector = role === 'director' || role === 'manager';
 
     if (tab === 'completed') {
       statusFilter = { $in: ['released', 'accepted', 'effective', 'COMPLETED'] };
@@ -329,10 +341,10 @@ router.post('/release', auth, async (req, res) => {
     let modifiedCount = 0;
     for (const appraisal of appraisals) {
       const empId = appraisal.employeeId?.employeeId || appraisal.empId;
-      
+
       // Fetch snapshot for this specific employee
-      const snapshot = await fySnapshotCollection.findOne({ 
-        employeeId: { $regex: new RegExp(`^${empId}$`, 'i') } 
+      const snapshot = await fySnapshotCollection.findOne({
+        employeeId: { $regex: new RegExp(`^${empId}$`, 'i') }
       });
 
       // Use Snapshot Gross as the base for Current Column
@@ -342,7 +354,7 @@ router.post('/release', auth, async (req, res) => {
         const grossVal = Math.round(targetGross || 0);
         const basic = Math.round(grossVal * 0.50);
         const hra = Math.round(grossVal * 0.25);
-        
+
         let calculatedEmployeePF = 1800;
         let calculatedEmployerPF = 1950;
         if (basic > 0) {
@@ -358,16 +370,16 @@ router.post('/release', auth, async (req, res) => {
         const employeePfContribution = customPFs?.employeePfContribution !== undefined && customPFs.employeePfContribution !== null && customPFs.employeePfContribution !== "" ? Number(customPFs.employeePfContribution) : calculatedEmployeePF;
         const employerPfContribution = customPFs?.employerPfContribution !== undefined && customPFs.employerPfContribution !== null && customPFs.employerPfContribution !== "" ? Number(customPFs.employerPfContribution) : calculatedEmployerPF;
         const esi = customPFs?.esi !== undefined ? Number(customPFs.esi) : 0;
-        
+
         const volunteerPF = customPFs?.volunteerPF !== undefined ? Number(customPFs.volunteerPF) : 0;
-        
+
         // Special Allowance is the remainder after subtracting employee, employer PF and ESI from targetGross
         const special = Math.max(0, grossVal - basic - hra - employeePfContribution - employerPfContribution - esi);
-        
+
         const totalDeductions = employeePfContribution + employerPfContribution + esi + volunteerPF;
         // Net Salary = (Basic + HRA + Special) - Volunteer PF
         const net = (basic + hra + special) - volunteerPF;
-        
+
         const gratuity = Math.round(basic * 0.0486);
         const ctc = grossVal + gratuity;
 
@@ -376,7 +388,7 @@ router.post('/release', auth, async (req, res) => {
           hra,
           special,
           net, // Net Salary (Take Home)
-          employeePfContribution, 
+          employeePfContribution,
           gross: grossVal,
           employerPfContribution,
           esi,
@@ -419,7 +431,7 @@ router.post('/release', auth, async (req, res) => {
       } else {
         salaryOld = calculateSalaryAnnexure(baseGross);
       }
-      
+
       const totalPct = Number(appraisal.incrementPercentage || 0) + Number(appraisal.incrementCorrectionPercentage || 0);
       const revisedGross = Math.round(baseGross * (1 + totalPct / 100));
 
@@ -437,7 +449,7 @@ router.post('/release', auth, async (req, res) => {
       appraisal.markModified('releaseRevisedSnapshot');
 
       appraisal.releaseDate = new Date();
-      appraisal.revisedSalary = Number(revisedGross); 
+      appraisal.revisedSalary = Number(revisedGross);
 
       if (appraisal.promotion?.recommended && appraisal.promotion?.newDesignation) {
         appraisal.promotion.approvedBy = 'director';
@@ -448,7 +460,7 @@ router.post('/release', auth, async (req, res) => {
       // Synchronize with production Payroll collection
       await Payroll.findOneAndUpdate(
         { employeeId: { $regex: new RegExp(`^${empId}$`, 'i') } },
-        { 
+        {
           $set: {
             basicDA: salaryNew.basic,
             hra: salaryNew.hra,

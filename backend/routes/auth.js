@@ -10,7 +10,7 @@ const { sendResendMail } = require('../resend.service');
 
 const router = express.Router();
 
- 
+
 
 // Login
 router.post('/login', async (req, res) => {
@@ -120,7 +120,7 @@ router.post('/forgot-password', async (req, res) => {
       specialChars: false,
       lowerCaseAlphabets: false
     });
-    
+
     user.resetOtp = otp;
     user.resetOtpExpiry = Date.now() + 10 * 60 * 1000;
     await user.save();
@@ -213,12 +213,11 @@ router.get('/verify', auth, async (req, res) => {
 // Get all users (for employees Access management)
 router.get('/users', auth, async (req, res) => {
   try {
-    // Check if user has admin or employee permissions
-    const hasAccess = req.user.permissions?.includes('user_access') || 
-                      req.user.permissions?.includes('employee_access') ||
-                      req.user.role === 'director' ||
-                      req.user.role === 'admin';
-                      
+    const roleLower = String(req.user.role || '').toLowerCase();
+    const hasAccess = req.user.permissions?.includes('user_access') ||
+      req.user.permissions?.includes('employee_access') ||
+      ['admin', 'director', 'manager'].includes(roleLower);
+
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -228,8 +227,8 @@ router.get('/users', auth, async (req, res) => {
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
-    res.status(500).json({ 
-      message: 'Server error', 
+    res.status(500).json({
+      message: 'Server error',
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -239,10 +238,9 @@ router.get('/users', auth, async (req, res) => {
 // Create new user (for employees Access management)
 router.post('/users', auth, async (req, res) => {
   try {
-    // Check if user has admin permissions
-    const hasAccess = req.user.permissions?.includes('user_access') || req.user.role === 'admin';
-    if (!hasAccess) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Only Admin can create users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Only Admin can create users.' });
     }
 
     const { name, email, password, role, permissions, employeeId } = req.body;
@@ -278,8 +276,8 @@ router.post('/users', auth, async (req, res) => {
     res.status(201).json(userResponse);
   } catch (error) {
     console.error('Error creating user:', error);
-    res.status(500).json({ 
-      message: 'Server error', 
+    res.status(500).json({
+      message: 'Server error',
       error: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
@@ -297,30 +295,58 @@ router.put('/users/:id', auth, async (req, res) => {
 
     const { name, email, role, permissions, employeeId } = req.body;
     console.log("DEBUG: Update User Request Body:", JSON.stringify(req.body, null, 2));
-    
+
     // Find user first to properly handle password and permissions
     const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    
+
+    const requesterRole = String(req.user.role || '').toLowerCase();
+    const isRequesterAdmin = requesterRole === 'admin';
+    const targetUserRole = String(user.role || '').toLowerCase();
+
+    // Prevent non-admin from modifying Admin, Director, or GM accounts
+    if (!isRequesterAdmin && ['admin', 'director', 'manager'].includes(targetUserRole)) {
+      return res.status(403).json({ message: 'Access denied. Cannot modify Admin, Director, or General Manager accounts.' });
+    }
+
+    // If role is being updated, check permission (Only Admin can assign roles)
+    if (role && role !== user.role) {
+      if (!isRequesterAdmin) {
+        return res.status(403).json({ message: 'Access denied. Only Admins can assign roles.' });
+      }
+    }
+
+    // If permissions array is being updated, check permission (Only Admin can modify permissions)
+    if (permissions) {
+      if (!isRequesterAdmin) {
+        const currentPerms = Array.isArray(user.permissions) ? user.permissions : [];
+        const newPerms = Array.isArray(permissions) ? permissions : [];
+        const isPermModified = currentPerms.length !== newPerms.length || !newPerms.every(p => currentPerms.includes(p));
+        if (isPermModified) {
+          return res.status(403).json({ message: 'Access denied. Only Admins can modify security permissions.' });
+        }
+      }
+    }
+
     // Update user fields
     if (name) user.name = name;
     if (email) user.email = email;
     if (role) user.role = role;
     if (employeeId) user.employeeId = employeeId;
-    
+
     // Properly handle permissions array
     if (permissions) {
       // Ensure permissions is treated as an array
       user.permissions = Array.isArray(permissions) ? permissions : [];
     }
-    
+
     // If password is provided, it will be hashed by the pre-save hook
     if (req.body.password) {
       user.password = req.body.password;
     }
-    
+
     // Save the user to trigger the password hashing middleware
     await user.save();
 
@@ -348,10 +374,9 @@ router.put('/users/:id', auth, async (req, res) => {
 // Delete user (for employees Access management)
 router.delete('/users/:id', auth, async (req, res) => {
   try {
-    // Check if user has admin permissions
-    const hasAccess = req.user.permissions?.includes('user_access') || req.user.role === 'admin';
-    if (!hasAccess) {
-      return res.status(403).json({ message: 'Access denied' });
+    // Only Admin can delete users
+    if (req.user.role !== 'admin') {
+      return res.status(403).json({ message: 'Access denied. Only Admin can delete users.' });
     }
 
     const user = await User.findByIdAndDelete(req.params.id);

@@ -177,7 +177,7 @@ router.post("/", async (req, res) => {
 /**
  * 📥 SAVE HIKVISION ATTENDANCE
  */
-router.post("/save-hikvision-attendance", authorizeRoles("admin", "hr", "director"), async (req, res) => {
+router.post("/save-hikvision-attendance", authorizeRoles("admin", "hr", "director", "manager"), async (req, res) => {
   try {
     const { attendanceData } = req.body || {};
     let items = [];
@@ -355,7 +355,7 @@ router.get("/summary", async (req, res) => {
 /**
  * ✏️ SAVE / UPDATE YEAR SUMMARY (Manual)
  */
-router.put("/year-summary/:employeeId", authorizeRoles("admin", "hr", "director"), async (req, res) => {
+router.put("/year-summary/:employeeId", authorizeRoles("admin", "hr", "director", "manager"), async (req, res) => {
   try {
     const { employeeId } = req.params;
     const { financialYear, yearlyPresent, yearlyAbsent, officeHoliday, regionalHoliday, yearlyPct, updatedBy } = req.body;
@@ -777,7 +777,7 @@ router.post("/regularize", auth, checkActiveEmployee, async (req, res) => {
 /**
  * ✏️ UPDATE ATTENDANCE RECORD
  */
-router.put("/:id", authorizeRoles("admin", "hr", "director"), async (req, res) => {
+router.put("/:id", authorizeRoles("admin", "hr", "director", "manager"), async (req, res) => {
   try {
     const { id } = req.params;
     const { punchTime, direction, workDurationSeconds, correspondingInTime } = req.body;
@@ -816,7 +816,7 @@ router.put("/:id", authorizeRoles("admin", "hr", "director"), async (req, res) =
 /**
  * 🗑️ DELETE ATTENDANCE RECORD
  */
-router.delete("/:id", authorizeRoles("admin", "hr", "director"), async (req, res) => {
+router.delete("/:id", authorizeRoles("admin", "hr", "director", "manager"), async (req, res) => {
   try {
     const { id } = req.params;
     const existing = await Attendance.findById(id).select('employeeId').lean();

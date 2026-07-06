@@ -259,20 +259,20 @@ const ProjectDashboard = () => {
 
         // Payroll
         { name: 'Salary Slips', description: 'View payslips', path: '/salaryslips', icon: BanknotesIcon, allowEmployeeRole: true, category: 'Finance & Payroll' },
-        { name: 'Payroll Details', description: 'Manage payroll details', path: '/payroll/details', icon: CurrencyRupeeIcon, permission: 'payroll_manage', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
-        { name: 'Compensation Master', description: 'Manage employee compensation', path: '/payroll/compensation-master', icon: CurrencyRupeeIcon, permission: 'compensation_master', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Payroll Details', description: 'Manage payroll details', path: '/payroll/details', icon: CurrencyRupeeIcon, permission: 'payroll_manage', showForRoles: ['admin', 'hr', 'finance', 'manager', 'director'], category: 'Finance & Payroll' },
+        { name: 'Compensation Master', description: 'Manage employee compensation', path: '/payroll/compensation-master', icon: CurrencyRupeeIcon, permission: 'compensation_master', showForRoles: ['admin', 'hr', 'finance', 'manager', 'director'], category: 'Finance & Payroll' },
 
-        { name: 'Cost to the Company', description: 'View CTC', path: '/payroll/cost-to-the-company', icon: CurrencyRupeeIcon, permission: 'payroll_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
-        { name: 'Loan Summary', description: 'View loans', path: '/payroll/loan-summary', icon: BanknotesIcon, permission: 'loan_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
-        { name: 'Gratuity Summary', description: 'View gratuity', path: '/payroll/gratuity-summary', icon: BanknotesIcon, permission: 'gratuity_view', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
-        { name: 'Monthly Payroll', description: 'Process monthly payroll', path: '/payroll/monthly', icon: BanknotesIcon, permission: 'payroll_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
-        { name: 'Marriage Allowance', description: 'Manage marriage allowance claims', path: '/payroll/marriage-allowance', icon: BanknotesIcon, permission: 'marriage_allowance', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Cost to the Company', description: 'View CTC', path: '/payroll/cost-to-the-company', icon: CurrencyRupeeIcon, permission: 'payroll_view', showForRoles: ['admin', 'hr', 'finance', 'manager', 'director'], category: 'Finance & Payroll' },
+        { name: 'Loan Summary', description: 'View loans', path: '/payroll/loan-summary', icon: BanknotesIcon, permission: 'loan_view', showForRoles: ['admin', 'hr', 'finance', 'manager', 'director'], category: 'Finance & Payroll' },
+        { name: 'Gratuity Summary', description: 'View gratuity', path: '/payroll/gratuity-summary', icon: BanknotesIcon, permission: 'gratuity_view', showForRoles: ['admin', 'hr', 'finance', 'manager', 'director'], category: 'Finance & Payroll' },
+        { name: 'Monthly Payroll', description: 'Process monthly payroll', path: '/payroll/monthly', icon: BanknotesIcon, permission: 'payroll_access', showForRoles: ['admin', 'hr', 'finance', 'manager', 'director'], category: 'Finance & Payroll' },
+        { name: 'Marriage Allowance', description: 'Manage marriage allowance claims', path: '/payroll/marriage-allowance', icon: BanknotesIcon, permission: 'marriage_allowance', showForRoles: ['admin', 'hr', 'finance', 'manager', 'director'], category: 'Finance & Payroll' },
         { name: 'Allowance Master', description: 'Manage holiday working allowances', path: '/holidays-allowance', icon: BanknotesIcon, permission: 'holiday_allowance', showForRoles: ['admin', 'hr', 'manager'], category: 'Finance & Payroll' },
         { name: 'Holiday Working Requests', description: 'Manage and track holiday working approvals', path: '/allowance/holiday-working-request', icon: BanknotesIcon, permission: 'holiday_working_request', showForRoles: ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'], allowEmployeeRole: true, category: 'Finance & Payroll' },
 
 
         // Expenditure
-        { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Expenditure Management', description: 'Track company expenses', path: '/expenditure-management', icon: CurrencyDollarIcon, permission: 'expenditure_access', showForRoles: ['admin', 'hr', 'finance', 'manager', 'director'], category: 'Finance & Payroll' },
 
        // Performance Management
         { name: 'Self Appraisal', description: 'Submit self appraisal', path: '/performance/self-appraisal', icon: StarIcon, permission: 'self_appraisal', allowEmployeeRole: true, category: 'Performance Management' },

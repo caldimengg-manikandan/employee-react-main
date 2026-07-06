@@ -8,8 +8,8 @@ const authorizeRoles = require("../middleware/roleAuth");
 router.use(auth);
 
 
-// ✅ SAVE MONTHLY PAYROLL (Simulation Result) - Admin, HR, Finance, Director only
-router.post("/run", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
+// ✅ SAVE MONTHLY PAYROLL (Simulation Result) - Admin, HR, Finance, Director, Manager only
+router.post("/run", authorizeRoles("admin", "hr", "finance", "director", "manager"), async (req, res) => {
   try {
     const { payrolls } = req.body; // array from simulation
 
@@ -148,7 +148,7 @@ router.post("/run", authorizeRoles("admin", "hr", "finance", "director"), async 
 router.get("/", async (req, res) => {
   try {
     const { month } = req.query; // YYYY-MM
-    const privilegedRoles = ["admin", "hr", "finance", "director"];
+    const privilegedRoles = ["admin", "hr", "finance", "director", "manager"];
     const userRole = String(req.user?.role || "").toLowerCase();
 
     const filter = month ? { salaryMonth: month } : {};
@@ -175,7 +175,7 @@ router.get("/", async (req, res) => {
 router.get("/history/:employeeId", async (req, res) => {
   try {
     const { employeeId } = req.params;
-    const privilegedRoles = ["admin", "hr", "finance", "director"];
+    const privilegedRoles = ["admin", "hr", "finance", "director", "manager"];
     const userRole = String(req.user?.role || "").toLowerCase();
 
     if (!privilegedRoles.includes(userRole)) {
@@ -197,7 +197,7 @@ router.get("/history/:employeeId", async (req, res) => {
 
 
 // 📤 MARK PAYMENT EMAIL SENT (Admin, HR, Finance, Director only)
-router.put("/mark-email-sent", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
+router.put("/mark-email-sent", authorizeRoles("admin", "hr", "finance", "director", "manager"), async (req, res) => {
   try {
     const { month, employeeIds } = req.body;
 
@@ -217,7 +217,7 @@ router.put("/mark-email-sent", authorizeRoles("admin", "hr", "finance", "directo
 
 
 // 💰 MARK AS PAID (Admin, HR, Finance, Director only)
-router.put("/mark-paid", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
+router.put("/mark-paid", authorizeRoles("admin", "hr", "finance", "director", "manager"), async (req, res) => {
   try {
     const { month, employeeIds } = req.body;
 
@@ -237,7 +237,7 @@ router.put("/mark-paid", authorizeRoles("admin", "hr", "finance", "director"), a
 
 
 // ❌ DELETE MONTH PAYROLL (Admin, HR, Finance, Director only)
-router.delete("/:month", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
+router.delete("/:month", authorizeRoles("admin", "hr", "finance", "director", "manager"), async (req, res) => {
   try {
     await MonthlyPayroll.deleteMany({ salaryMonth: req.params.month });
     res.json({ message: "Monthly payroll deleted" });

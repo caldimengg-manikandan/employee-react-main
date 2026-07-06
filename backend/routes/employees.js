@@ -121,7 +121,7 @@ const syncCompensationToEmployeeAndPayroll = async (emp) => {
 
 // Helper to get team assignments (duplicated from admintimesheetRoutes to maintain consistency)
 async function getTeamManagementAssignmentSets(userEmployeeId) {
-  const teams = await Team.find({ teamCode: { $regex: /^TEAM-/i } })
+  const teams = await Team.find({})
     .select("leaderEmployeeId members")
     .lean();
 
@@ -158,14 +158,23 @@ router.get('/', auth, async (req, res) => {
       query.status = 'Active';
     }
 
-    // Full access for users with employee_access
-    if (req.user.permissions?.includes('employee_access')) {
+    const roleLower = String(req.user.role || '').toLowerCase();
+    const hasFullAccess = req.user.permissions?.includes('employee_access') ||
+      ['admin', 'director', 'manager'].includes(roleLower);
+
+    // Full access for users with employee_access or admin/director/GM roles
+    if (hasFullAccess) {
       const employees = await Employee.find(query).sort({ createdAt: -1 });
       return res.json(employees);
     }
 
-    // Access for Project Managers (project_access)
-    if (req.user.permissions?.includes('project_access') || req.user.role === 'projectmanager' || req.user.role === 'project_manager') {
+    const isPM = ['projectmanager', 'project_manager', 'teamlead'].includes(roleLower);
+    if (isPM) {
+      const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      // Ensure they only see their assigned team members + themselves
+      const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
+      query.employeeId = { $in: allowedIds };
+
       const employees = await Employee.find(query, {
         'name': 1,
         'employeeId': 1,
@@ -236,8 +245,8 @@ router.get('/timesheet/employees', auth, async (req, res) => {
     }
 
     const role = String(req.user?.role || "").toLowerCase();
-    const isAdmin = role === "admin";
-    const isPM = role === "projectmanager" || role === "project_manager";
+    const isAdmin = role === "admin" || role === "director" || role === "manager";
+    const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
     // Timesheet selection MUST only show Active employees
@@ -284,8 +293,34 @@ router.get('/:id', auth, async (req, res) => {
       return res.status(404).json({ message: 'Employee not found' });
     }
 
-    if (req.user.permissions?.includes('employee_access')) {
+    const roleLower = String(req.user.role || '').toLowerCase();
+    const isHRAdmin = req.user.permissions?.includes('employee_access') ||
+                      ['admin', 'director', 'manager'].includes(roleLower);
+
+    if (isHRAdmin) {
       return res.json(employee);
+    }
+
+    const isSelf = employee.employeeId === req.user.employeeId;
+    if (isSelf) {
+      return res.json(employee);
+    }
+
+    const isPM = ['projectmanager', 'project_manager', 'teamlead'].includes(roleLower);
+    if (isPM) {
+      const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      if (myAssignedMemberIds.includes(employee.employeeId)) {
+        const limitedEmployee = {
+          _id: employee._id,
+          name: employee.name,
+          employeeId: employee.employeeId,
+          email: employee.email,
+          department: employee.department,
+          designation: employee.designation || employee.position || employee.role,
+          position: employee.position
+        };
+        return res.json(limitedEmployee);
+      }
     }
 
     if (req.user.permissions?.includes('timesheet_access')) {
@@ -310,8 +345,11 @@ router.get('/:id', auth, async (req, res) => {
 // Create new employee - requires admin permissions
 router.post('/', auth, async (req, res) => {
   try {
-    // Check if user has admin permissions
-    if (!req.user.permissions?.includes('user_access')) {
+    const roleLower = String(req.user.role || '').toLowerCase();
+    const hasAccess = req.user.permissions?.includes('user_access') ||
+                      req.user.permissions?.includes('employee_access') ||
+                      ['admin', 'hr', 'director', 'manager'].includes(roleLower);
+    if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const body = req.body || {};
@@ -387,7 +425,29 @@ router.put('/me', auth, async (req, res) => {
     if (!empId) return res.status(404).json({ message: 'Employee ID not linked' });
 
     const body = req.body || {};
-    const data = { ...body };
+    let data = { ...body };
+
+    const roleLower = String(req.user.role || '').toLowerCase();
+    const isHRAdmin = ['admin', 'hr', 'director', 'manager'].includes(roleLower) || req.user.permissions?.includes('employee_access');
+
+    if (!isHRAdmin) {
+      const allowedFields = [
+        'name', 'employeename', 'mobileNo', 'contactNumber', 'phone',
+        'dateOfBirth', 'dob', 'emergencyMobileNo', 'emergencyMobile',
+        'emergencyContact', 'highestQualification', 'qualification',
+        'permanentAddressLine', 'permanentCity', 'permanentState', 'permanentPincode',
+        'currentAddressLine', 'currentCity', 'currentState', 'currentPincode',
+        'permanentAddress', 'currentAddress', 'previousOrganizations', 'avatar',
+        'bankName', 'bankAccount', 'ifsc', 'branch', 'personalEmail'
+      ];
+      const filteredData = {};
+      for (const key of allowedFields) {
+        if (body[key] !== undefined) {
+          filteredData[key] = body[key];
+        }
+      }
+      data = filteredData;
+    }
     delete data.promotionEffectiveDate;
     delete data.promotionRemarks;
     if (!data.name && data.employeename) data.name = data.employeename;
@@ -470,8 +530,11 @@ router.put('/me', auth, async (req, res) => {
 // Update employee - requires admin permissions
 router.put('/:id', auth, async (req, res) => {
   try {
-    // Check if user has admin permissions
-    if (!req.user.permissions?.includes('user_access')) {
+    const roleLower = String(req.user.role || '').toLowerCase();
+    const hasAccess = req.user.permissions?.includes('user_access') ||
+                      req.user.permissions?.includes('employee_access') ||
+                      ['admin', 'hr', 'director', 'manager'].includes(roleLower);
+    if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -622,8 +685,11 @@ router.put('/:id', auth, async (req, res) => {
 // Delete employee - requires admin permissions
 router.delete('/:id', auth, async (req, res) => {
   try {
-    // Check if user has admin permissions
-    if (!req.user.permissions?.includes('user_access')) {
+    const roleLower = String(req.user.role || '').toLowerCase();
+    const hasAccess = req.user.permissions?.includes('user_access') ||
+                      req.user.permissions?.includes('employee_access') ||
+                      ['admin', 'hr', 'director', 'manager'].includes(roleLower);
+    if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
 

@@ -36,7 +36,7 @@ function toWeekString(d) {
   const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
   const weekStr = String(weekNo).padStart(2, "0");
   return `${date.getUTCFullYear()}-W${weekStr}`;
-} 
+}
 async function getProjectManagerRecipients(division, location) {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const roleRegex = /project\s*manager/i;
@@ -390,8 +390,8 @@ async function sendPermissionUsageEmail(user, sheet) {
   try {
     // Only proceed if the submitted sheet contains any Permission entries
     const entries = Array.isArray(sheet.entries) ? sheet.entries : [];
-    const hasPermission = entries.some((e) => 
-      ((e.type || 'project') === 'leave') && 
+    const hasPermission = entries.some((e) =>
+      ((e.type || 'project') === 'leave') &&
       (e.task || '').toLowerCase().includes('permission') && e.type !== 'special' && e.project !== 'Special Permission'
     );
     if (!hasPermission) {
@@ -408,8 +408,8 @@ async function sendPermissionUsageEmail(user, sheet) {
     const countPermissionsInEntries = (entriesList) => {
       let count = 0;
       (entriesList || []).forEach((e) => {
-        const isPermission = ((e.type || 'project') === 'leave') && 
-                             (e.task || '').toLowerCase().includes('permission') && e.type !== 'special' && e.project !== 'Special Permission';
+        const isPermission = ((e.type || 'project') === 'leave') &&
+          (e.task || '').toLowerCase().includes('permission') && e.type !== 'special' && e.project !== 'Special Permission';
         if (!isPermission) return;
         const hrs = Array.isArray(e.hours) ? e.hours : [];
         for (let i = 0; i < 7; i++) {
@@ -584,8 +584,8 @@ router.post("/", auth, checkActiveEmployee, async (req, res) => {
     const countPermissionsInEntriesForMonth = (entriesList, sheetWeekStart, targetMonth, targetYear) => {
       let count = 0;
       (entriesList || []).forEach((e) => {
-        const isPermission = ((e.type || "project") === "leave") && 
-                             (e.task || "").toLowerCase().includes("permission") && e.type !== 'special' && e.project !== 'Special Permission';
+        const isPermission = ((e.type || "project") === "leave") &&
+          (e.task || "").toLowerCase().includes("permission") && e.type !== 'special' && e.project !== 'Special Permission';
         if (!isPermission) return;
         const hrs = Array.isArray(e.hours) ? e.hours : [];
         for (let i = 0; i < 7; i++) {
@@ -628,7 +628,7 @@ router.post("/", auth, checkActiveEmployee, async (req, res) => {
         message: "Monthly permission limit (3 counts) exceeded",
       });
     }
-    
+
 
     const entriesArray = Array.isArray(entries) ? entries : [];
     const dayIndices = [0, 1, 2, 3, 4, 5, 6];
@@ -650,7 +650,7 @@ router.post("/", auth, checkActiveEmployee, async (req, res) => {
 
     if (sheet) {
       // Update existing timesheet
-      
+
       // Sync special permissions from DB to ensure they are up-to-date and not lost
       const specialPermissions = await SpecialPermission.find({
         userId,
@@ -663,9 +663,9 @@ router.post("/", auth, checkActiveEmployee, async (req, res) => {
         const dayIndex = (d.getUTCDay() + 6) % 7;
         const hours = Array(7).fill(0);
         hours[dayIndex] = sp.totalHours;
-        
-        const taskName = (sp.fromTime && sp.toTime) 
-          ? `Permission (${sp.fromTime} - ${sp.toTime})` 
+
+        const taskName = (sp.fromTime && sp.toTime)
+          ? `Permission (${sp.fromTime} - ${sp.toTime})`
           : 'Permission';
 
         return {
@@ -680,12 +680,12 @@ router.post("/", auth, checkActiveEmployee, async (req, res) => {
       });
 
       if (specialEntriesFromDB.length > 0) {
-         console.log(`[Timesheet] Synced ${specialEntriesFromDB.length} special permission entries from DB for user ${userId}`);
+        console.log(`[Timesheet] Synced ${specialEntriesFromDB.length} special permission entries from DB for user ${userId}`);
       }
-      
+
       const incomingEntries = Array.isArray(entries) ? entries : [];
       const incomingNonSpecialEntries = incomingEntries.filter(e => e.type !== 'special');
-      
+
       sheet.entries = [...incomingNonSpecialEntries, ...specialEntriesFromDB];
 
       if (!sheet.employeeId && employeeId) sheet.employeeId = employeeId;
@@ -716,7 +716,7 @@ router.post("/", auth, checkActiveEmployee, async (req, res) => {
         await upsertAdminTimesheetRecord(req.user, sheet);
         const emailResult = await sendTimesheetSubmittedEmail(req.user, sheet);
         await sendTimesheetApprovalRequestEmail(req.user, sheet);
-        sendPermissionUsageEmail(req.user, sheet).catch(() => {});
+        sendPermissionUsageEmail(req.user, sheet).catch(() => { });
         emailSent = !!(emailResult && emailResult.success);
         if (emailSent) {
           console.log("✅ Email sent successfully for submitted timesheet");
@@ -755,7 +755,7 @@ router.post("/", auth, checkActiveEmployee, async (req, res) => {
     }
 
     // Create brand new timesheet
-    
+
     // Sync special permissions from DB for new timesheet as well
     const specialPermissions = await SpecialPermission.find({
       userId,
@@ -768,9 +768,9 @@ router.post("/", auth, checkActiveEmployee, async (req, res) => {
       const dayIndex = (d.getUTCDay() + 6) % 7;
       const hours = Array(7).fill(0);
       hours[dayIndex] = sp.totalHours;
-      
-      const taskName = (sp.fromTime && sp.toTime) 
-        ? `Permission (${sp.fromTime} - ${sp.toTime})` 
+
+      const taskName = (sp.fromTime && sp.toTime)
+        ? `Permission (${sp.fromTime} - ${sp.toTime})`
         : 'Permission';
 
       return {
@@ -785,7 +785,7 @@ router.post("/", auth, checkActiveEmployee, async (req, res) => {
     });
 
     if (specialEntriesFromDB.length > 0) {
-       console.log(`[Timesheet] Synced ${specialEntriesFromDB.length} special permission entries from DB for new timesheet (user ${userId})`);
+      console.log(`[Timesheet] Synced ${specialEntriesFromDB.length} special permission entries from DB for new timesheet (user ${userId})`);
     }
 
     const initialEntries = Array.isArray(entries) ? entries : [];
@@ -818,7 +818,7 @@ router.post("/", auth, checkActiveEmployee, async (req, res) => {
       await upsertAdminTimesheetRecord(req.user, sheet);
       const emailResult = await sendTimesheetSubmittedEmail(req.user, sheet);
       await sendTimesheetApprovalRequestEmail(req.user, sheet);
-      sendPermissionUsageEmail(req.user, sheet).catch(() => {});
+      sendPermissionUsageEmail(req.user, sheet).catch(() => { });
       emailSent = !!(emailResult && emailResult.success);
       if (emailSent) {
         console.log("✅ Email sent successfully for new timesheet");
@@ -986,9 +986,9 @@ router.get("/permissions/usage", auth, async (req, res) => {
               // Check if this specific entry falls within the target month
               if (entryDate.getMonth() === targetMonth && entryDate.getFullYear() === targetYear) {
                 // Permission Count Calculation:
-              // 1 hour = 1 count, 2 hours = 2 counts
-              const val = Number(hours) || 0;
-              totalCount += (val >= 2 ? 2 : (val >= 1 ? 1 : 0));
+                // 1 hour = 1 count, 2 hours = 2 counts
+                const val = Number(hours) || 0;
+                totalCount += (val >= 2 ? 2 : (val >= 1 ? 1 : 0));
               }
             }
           });
@@ -1054,7 +1054,7 @@ router.get("/my-timesheets", auth, async (req, res) => {
               const update = { status: newStatus };
               if (newStatus === "Approved") update.approvedAt = new Date();
               await Timesheet.updateOne({ _id: sheet._id }, { $set: update });
-            } catch (_) {}
+            } catch (_) { }
           }
         }
       }
@@ -1087,10 +1087,10 @@ router.get("/my-timesheets", auth, async (req, res) => {
               const update = { status: newStatus };
               if (newStatus === "Approved") update.approvedAt = new Date();
               await Timesheet.updateOne({ _id: sheet._id }, { $set: update });
-            } catch (_) {}
+            } catch (_) { }
           }
           // Try to permanently link the admin record to this timesheet
-          try { await AdminTimesheet.updateOne({ _id: matched._id }, { $set: { timesheetId: sheet._id } }); } catch (_) {}
+          try { await AdminTimesheet.updateOne({ _id: matched._id }, { $set: { timesheetId: sheet._id } }); } catch (_) { }
         }
       }
       return sheet;

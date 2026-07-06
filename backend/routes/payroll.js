@@ -7,8 +7,8 @@ const authorizeRoles = require("../middleware/roleAuth");
 // Apply JWT authentication to all payroll routes
 router.use(auth);
 
-// ➕ CREATE payroll (Admin, HR, Finance, Director only)
-router.post("/", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
+// ➕ CREATE payroll (Admin, HR, Finance, Director, Manager only)
+router.post("/", authorizeRoles("admin", "hr", "finance", "director", "manager"), async (req, res) => {
   try {
     const { employeeId } = req.body;
     if (employeeId) {
@@ -30,7 +30,7 @@ router.post("/", authorizeRoles("admin", "hr", "finance", "director"), async (re
 // 📥 GET all payroll records (Filtered: privileged roles see all, employees see only their own)
 router.get("/", async (req, res) => {
   try {
-    const privilegedRoles = ["admin", "hr", "finance", "director", "projectmanager"];
+    const privilegedRoles = ["admin", "hr", "finance", "director", "manager", "projectmanager"];
     const userRole = String(req.user?.role || "").toLowerCase();
 
     let filter = {};
@@ -55,7 +55,7 @@ router.get("/:id", async (req, res) => {
     const payroll = await Payroll.findById(req.params.id);
     if (!payroll) return res.status(404).json({ message: "Not found" });
 
-    const privilegedRoles = ["admin", "hr", "finance", "director", "projectmanager"];
+    const privilegedRoles = ["admin", "hr", "finance", "director", "manager", "projectmanager"];
     const userRole = String(req.user?.role || "").toLowerCase();
 
     if (!privilegedRoles.includes(userRole)) {
@@ -71,8 +71,8 @@ router.get("/:id", async (req, res) => {
 });
 
 
-// ✏️ UPDATE payroll (Admin, HR, Finance, Director only)
-router.put("/:id", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
+// ✏️ UPDATE payroll (Admin, HR, Finance, Director, Manager only)
+router.put("/:id", authorizeRoles("admin", "hr", "finance", "director", "manager"), async (req, res) => {
   try {
     // Check employee status before update
     if (req.body.employeeId) {
@@ -105,8 +105,8 @@ router.put("/:id", authorizeRoles("admin", "hr", "finance", "director"), async (
 });
 
 
-// ❌ DELETE payroll (Admin, HR, Finance, Director only)
-router.delete("/:id", authorizeRoles("admin", "hr", "finance", "director"), async (req, res) => {
+// ❌ DELETE payroll (Admin, HR, Finance, Director, Manager only)
+router.delete("/:id", authorizeRoles("admin", "hr", "finance", "director", "manager"), async (req, res) => {
   try {
     await Payroll.findByIdAndDelete(req.params.id);
     res.json({ message: "Payroll deleted successfully" });

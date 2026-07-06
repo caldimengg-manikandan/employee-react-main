@@ -9,11 +9,11 @@ const authorizeRoles = require('../middleware/roleAuth');
  * @route   GET /api/payroll/snapshot/:fy
  * @access  Private (Admin, HR, Finance, Director, Project Manager)
  */
-router.get('/snapshot/:fy', auth, authorizeRoles('admin', 'hr', 'finance', 'director', 'projectmanager'), async (req, res) => {
+router.get('/snapshot/:fy', auth, authorizeRoles('admin', 'hr', 'finance', 'director', 'manager', 'projectmanager'), async (req, res) => {
   try {
     const { fy } = req.params;
     const collectionName = `payroll_FY${fy}`;
-    
+
     const db = mongoose.connection.db;
     const snapshots = await db.collection(collectionName).find({}).toArray();
 
@@ -49,16 +49,16 @@ router.get('/snapshot/:fy/:employeeId', auth, async (req, res) => {
     }
 
     const collectionName = `payroll_FY${fy}`; // e.g., payroll_FY24-25
-    
+
     const db = mongoose.connection.db;
-    const snapshot = await db.collection(collectionName).findOne({ 
-      employeeId: { $regex: new RegExp(`^${employeeId}$`, 'i') } 
+    const snapshot = await db.collection(collectionName).findOne({
+      employeeId: { $regex: new RegExp(`^${employeeId}$`, 'i') }
     });
 
     if (!snapshot) {
-      return res.status(404).json({ 
-        success: false, 
-        message: `Snapshot for ${employeeId} not found in ${collectionName}` 
+      return res.status(404).json({
+        success: false,
+        message: `Snapshot for ${employeeId} not found in ${collectionName}`
       });
     }
 

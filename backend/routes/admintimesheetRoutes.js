@@ -64,7 +64,7 @@ async function sendStatusEmail(updatedDoc, status) {
 const router = express.Router();
 
 async function getTeamManagementAssignmentSets(userEmployeeId) {
-  const teams = await Team.find({ teamCode: { $regex: /^TEAM-/i } })
+  const teams = await Team.find({})
     .select("leaderEmployeeId members")
     .lean();
 
@@ -93,7 +93,7 @@ router.get("/list", auth, async (req, res) => {
     const { employeeId, division, location, status, week, project, fromDate, toDate } = req.query;
     const role = String(req.user?.role || "").toLowerCase();
     const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
-    const isPM = role === "projectmanager" || role === "project_manager";
+    const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead" || role === "reporting_manager";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
     const divisionFilter = division && division !== "All Division" ? division : "";
@@ -359,7 +359,7 @@ router.put("/approve/:id", auth, async (req, res) => {
     }
 
     const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
-    const isPM = role === "projectmanager" || role === "project_manager";
+    const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead" || role === "reporting_manager";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
     const candidateAdminDoc = await AdminTimesheet.findById(req.params.id).select("employeeId").lean();
@@ -515,7 +515,7 @@ router.put("/reject/:id", auth, async (req, res) => {
     }
 
     const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
-    const isPM = role === "projectmanager" || role === "project_manager";
+    const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead" || role === "reporting_manager";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
     const candidateAdminDoc = await AdminTimesheet.findById(req.params.id).select("employeeId").lean();
@@ -674,7 +674,7 @@ router.get("/summary", auth, async (req, res) => {
     }
 
     const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
-    const isPM = role === "projectmanager" || role === "project_manager";
+    const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead" || role === "reporting_manager";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
     let match = {

@@ -11,18 +11,18 @@ router.get('/leaders', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     const type = String(req.query.type || 'team').toLowerCase();
-    
+
     let query = {};
-    
+
     if (type === 'project') {
-      const users = await User.find({ 
-        role: { $in: ['admin', 'projectmanager'] } 
+      const users = await User.find({
+        role: { $in: ['admin', 'projectmanager'] }
       }).select('employeeId');
-      
+
       const userEmployeeIds = users.map(u => u.employeeId).filter(Boolean);
-      
+
       const pattern = /sr\.?\s*project\s*manager/i;
-      
+
       query = {
         $or: [
           { designation: { $regex: pattern } },
@@ -48,7 +48,7 @@ router.get('/leaders', auth, async (req, res) => {
       position: 1,
       _id: 1
     }).sort({ name: 1 });
-    
+
     res.json(leaders);
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -71,7 +71,7 @@ router.get('/my-team', auth, async (req, res) => {
   try {
     const leaderEmployeeId = req.user.employeeId;
     const teams = await Team.find({ leaderEmployeeId });
-    
+
     if (!teams || teams.length === 0) {
       return res.json([]);
     }
@@ -115,10 +115,11 @@ router.get('/:teamCode', auth, async (req, res) => {
 
 router.post('/', auth, async (req, res) => {
   try {
-    const hasAccess = req.user.permissions?.includes('user_access') || 
-                      req.user.permissions?.includes('employee_access') ||
-                      req.user.role === 'admin' ||
-                      req.user.role === 'director';
+    const hasAccess = req.user.permissions?.includes('user_access') ||
+      req.user.permissions?.includes('employee_access') ||
+      req.user.role === 'admin' ||
+      req.user.role === 'director' ||
+      req.user.role === 'manager';
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -148,10 +149,11 @@ router.post('/', auth, async (req, res) => {
 
 router.post('/:teamCode/members', auth, async (req, res) => {
   try {
-    const hasAccess = req.user.permissions?.includes('user_access') || 
-                      req.user.permissions?.includes('employee_access') ||
-                      req.user.role === 'admin' ||
-                      req.user.role === 'director';
+    const hasAccess = req.user.permissions?.includes('user_access') ||
+      req.user.permissions?.includes('employee_access') ||
+      req.user.role === 'admin' ||
+      req.user.role === 'director' ||
+      req.user.role === 'manager';
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -175,10 +177,11 @@ router.post('/:teamCode/members', auth, async (req, res) => {
 
 router.delete('/:teamCode/members/:employeeId', auth, async (req, res) => {
   try {
-    const hasAccess = req.user.permissions?.includes('user_access') || 
-                      req.user.permissions?.includes('employee_access') ||
-                      req.user.role === 'admin' ||
-                      req.user.role === 'director';
+    const hasAccess = req.user.permissions?.includes('user_access') ||
+      req.user.permissions?.includes('employee_access') ||
+      req.user.role === 'admin' ||
+      req.user.role === 'director' ||
+      req.user.role === 'manager';
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }

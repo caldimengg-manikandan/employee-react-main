@@ -108,7 +108,7 @@ const TicketDetails = () => {
                   {ticket.attachments.map((file, idx) => (
                     <a 
                       key={idx}
-                      href={`${BASE_URL}${file.url}`}
+                      href={`${BASE_URL}${file.url}?token=${sessionStorage.getItem('token')}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-3 p-3 bg-gray-50 border border-gray-200 rounded-xl hover:bg-blue-50 hover:border-blue-200 transition-all group"

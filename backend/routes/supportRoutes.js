@@ -10,18 +10,137 @@ const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
 
-// Multer Setup
-const storage = multer.memoryStorage();
-const upload = multer({ storage });
+const Team = require('../models/Team');
 
-// @route   GET api/support/attachments/:ticketId/:attachmentId
-// @desc    Get ticket attachment from database
-// @access  Public
-router.get('/attachments/:ticketId/:attachmentId', async (req, res) => {
+// Multer and File Upload Security Setup
+const storage = multer.memoryStorage();
+
+const sanitizeFilename = (filename) => {
+  const ext = path.extname(filename);
+  const base = path.basename(filename, ext);
+  // Allow only alphanumeric, dash, and underscore in the name
+  const cleanBase = base.replace(/[^a-zA-Z0-9_-]/g, '_');
+  // Allow only alphanumeric and dots in the extension
+  const cleanExt = ext.replace(/[^a-zA-Z0-9.]/g, '');
+  return `${cleanBase}${cleanExt}`;
+};
+
+const allowedExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.pdf', '.doc', '.docx', '.txt', '.zip'];
+const allowedMimes = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'application/zip',
+  'application/x-zip-compressed'
+];
+
+const fileFilter = (req, file, cb) => {
+  // 1. Validate MIME Type
+  if (!allowedMimes.includes(file.mimetype)) {
+    return cb(new Error('Invalid file type (MIME type not allowed)'), false);
+  }
+
+  // 2. Validate Extension
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (!allowedExtensions.includes(ext)) {
+    return cb(new Error('Invalid file extension'), false);
+  }
+
+  // 3. Malware Scan Placeholder
+  /*
+  // Integrate real-time malware scanner (e.g. ClamAV, VirusTotal)
+  const isMalicious = scanForMalware(file.buffer);
+  if (isMalicious) {
+    return cb(new Error('Security threat detected'), false);
+  }
+  */
+
+  cb(null, true);
+};
+
+const upload = multer({
+  storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024, // 5MB limit
+    files: 5 // max 5 files
+  },
+  fileFilter
+});
+
+const handleUpload = (req, res, next) => {
+  upload.array('attachments', 5)(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ error: 'File size limit exceeded. Max size allowed is 5MB.' });
+      }
+      return res.status(400).json({ error: `File upload error: ${err.message}` });
+    } else if (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    // Sanitize filenames of uploaded files
+    if (req.files && Array.isArray(req.files)) {
+      req.files.forEach(file => {
+        file.originalname = sanitizeFilename(file.originalname);
+      });
+    }
+    next();
+  });
+};
+
+async function getTeamManagementAssignmentSets(userEmployeeId) {
+  const teams = await Team.find({})
+    .select('leaderEmployeeId members')
+    .lean();
+
+  const allAssigned = new Set();
+  const mine = new Set();
+
+  for (const t of teams) {
+    const members = Array.isArray(t.members) ? t.members : [];
+    for (const m of members) {
+      if (!m) continue;
+      allAssigned.add(m);
+      if (userEmployeeId && t.leaderEmployeeId === userEmployeeId) {
+        mine.add(m);
+      }
+    }
+  }
+
+  return {
+    allAssignedMemberIds: Array.from(allAssigned),
+    myAssignedMemberIds: Array.from(mine)
+  };
+}
+
+router.get('/attachments/:ticketId/:attachmentId', auth, async (req, res) => {
   try {
     const ticket = await SupportTicket.findById(req.params.ticketId);
     if (!ticket) {
       return res.status(404).send('Ticket not found');
+    }
+
+    const isOwner = String(ticket.employeeId) === String(req.user._id);
+    const role = String(req.user.role || '').toLowerCase();
+    const isHRAdmin = ['admin', 'hr', 'director', 'manager'].includes(role);
+
+    let canView = isOwner || isHRAdmin;
+
+    if (!canView && ['manager', 'projectmanager', 'project_manager'].includes(role)) {
+      const ownerUser = await User.findById(ticket.employeeId).select('employeeId').lean();
+      if (ownerUser && ownerUser.employeeId) {
+        const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+        if (myAssignedMemberIds.includes(ownerUser.employeeId)) {
+          canView = true;
+        }
+      }
+    }
+
+    if (!canView) {
+      return res.status(403).send('Access denied');
     }
     
     const attachment = ticket.attachments.id(req.params.attachmentId);
@@ -42,7 +161,7 @@ router.get('/attachments/:ticketId/:attachmentId', async (req, res) => {
 // @route   POST api/support/tickets
 // @desc    Create a new support ticket with optional attachments
 // @access  Private
-router.post('/tickets', auth, upload.array('attachments', 5), async (req, res) => {
+router.post('/tickets', auth, handleUpload, async (req, res) => {
   try {
     const { category, priority, subject, description } = req.body;
     
@@ -104,12 +223,13 @@ router.get('/tickets/my', auth, async (req, res) => {
   }
 });
 
-// @route   GET api/support/tickets/all
-// @desc    Get all tickets (Admin/HR only)
-// @access  Private
 router.get('/tickets/all', auth, async (req, res) => {
   try {
-    if (!['admin', 'hr'].includes(req.user.role)) {
+    const role = String(req.user.role || '').toLowerCase();
+    const isHRAdmin = ['admin', 'hr', 'director', 'manager'].includes(role);
+    const isPM = ['manager', 'projectmanager', 'project_manager'].includes(role);
+
+    if (!isHRAdmin && !isPM) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -118,6 +238,13 @@ router.get('/tickets/all', auth, async (req, res) => {
     if (status) query.status = status;
     if (category) query.category = category;
     if (priority) query.priority = priority;
+
+    if (!isHRAdmin && isPM) {
+      const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      const teamUsers = await User.find({ employeeId: { $in: myAssignedMemberIds } }).select('_id').lean();
+      const teamUserIds = teamUsers.map(u => u._id);
+      query.employeeId = { $in: [...teamUserIds, req.user._id] };
+    }
 
     const tickets = await SupportTicket.find(query)
       .populate('employeeId', 'name employeeId email')
@@ -178,9 +305,25 @@ router.get('/tickets/:id', auth, async (req, res) => {
       ticketObj.employeeId.location = 'N/A';
     }
 
-    // Check ownership
+    // Check ownership and hierarchy
     const isOwner = ticketObj.employeeId && ticketObj.employeeId._id.toString() === req.user._id.toString();
-    if (!isOwner && !['admin', 'hr'].includes(req.user.role)) {
+    const role = String(req.user.role || '').toLowerCase();
+    const isHRAdmin = ['admin', 'hr', 'director', 'manager'].includes(role);
+    const isPM = ['manager', 'projectmanager', 'project_manager'].includes(role);
+
+    let canView = isOwner || isHRAdmin;
+
+    if (!canView && isPM) {
+      const ownerUser = await User.findById(ticket.employeeId).select('employeeId').lean();
+      if (ownerUser && ownerUser.employeeId) {
+        const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+        if (myAssignedMemberIds.includes(ownerUser.employeeId)) {
+          canView = true;
+        }
+      }
+    }
+
+    if (!canView) {
       return res.status(403).json({ message: 'Access denied' });
     }
 
@@ -208,13 +351,32 @@ router.put('/tickets/:id/status', auth, async (req, res) => {
     }
 
     // Validation for status change
-    if (!['admin', 'hr'].includes(req.user.role)) {
-       if (ticket.employeeId.toString() !== req.user._id.toString()) {
-         return res.status(403).json({ message: 'Access denied' });
-       }
-       if (!['Closed', 'Reopened'].includes(status)) {
-         return res.status(400).json({ message: 'Invalid status update for employee' });
-       }
+    const role = String(req.user.role || '').toLowerCase();
+    const isHRAdmin = ['admin', 'hr', 'director', 'manager'].includes(role);
+    const isOwner = ticket.employeeId.toString() === req.user._id.toString();
+    const isPM = ['manager', 'projectmanager', 'project_manager'].includes(role);
+
+    let isAuthorized = isHRAdmin;
+
+    if (!isAuthorized) {
+      if (isOwner) {
+        if (!['Closed', 'Reopened'].includes(status)) {
+          return res.status(400).json({ message: 'Invalid status update for employee' });
+        }
+        isAuthorized = true;
+      } else if (isPM) {
+        const ownerUser = await User.findById(ticket.employeeId).select('employeeId').lean();
+        if (ownerUser && ownerUser.employeeId) {
+          const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+          if (myAssignedMemberIds.includes(ownerUser.employeeId)) {
+            isAuthorized = true;
+          }
+        }
+      }
+    }
+
+    if (!isAuthorized) {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
     ticket.status = status;
@@ -266,6 +428,28 @@ router.post('/tickets/:id/comments', auth, async (req, res) => {
     const ticket = await SupportTicket.findById(req.params.id);
     if (!ticket) return res.status(404).json({ message: 'Ticket not found' });
 
+    // Validate access
+    const isOwner = ticket.employeeId.toString() === req.user._id.toString();
+    const role = String(req.user.role || '').toLowerCase();
+    const isHRAdmin = ['admin', 'hr', 'director', 'manager'].includes(role);
+    const isPM = ['manager', 'projectmanager', 'project_manager'].includes(role);
+
+    let isAuthorized = isOwner || isHRAdmin;
+
+    if (!isAuthorized && isPM) {
+      const ownerUser = await User.findById(ticket.employeeId).select('employeeId').lean();
+      if (ownerUser && ownerUser.employeeId) {
+        const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+        if (myAssignedMemberIds.includes(ownerUser.employeeId)) {
+          isAuthorized = true;
+        }
+      }
+    }
+
+    if (!isAuthorized) {
+      return res.status(403).json({ message: 'Access denied' });
+    }
+
     const newComment = new SupportComment({
       ticketId: req.params.id,
       userId: req.user._id,
@@ -278,7 +462,6 @@ router.post('/tickets/:id/comments', auth, async (req, res) => {
     const populatedComment = await SupportComment.findById(comment._id).populate('userId', 'name role');
 
     // Notify other party
-    const isOwner = ticket.employeeId.toString() === req.user._id.toString();
     const recipient = isOwner ? ticket.assignedTo || null : ticket.employeeId;
 
     if (recipient && !isInternal) {

@@ -233,7 +233,7 @@ router.post('/expense-types', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Expense type already exists' });
     }
 
-    const isAdmin = ['admin', 'finance', 'director'].includes(req.user.role);
+    const isAdmin = ['admin', 'finance', 'director', 'manager'].includes(req.user.role);
     
     const newType = new ExpenseType({
       type_name: trimmedName,

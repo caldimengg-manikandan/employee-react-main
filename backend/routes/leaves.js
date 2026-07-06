@@ -38,7 +38,7 @@ function normalizeLeaveType(value) {
 }
 
 async function getTeamManagementAssignmentSets(userEmployeeId) {
-  const teams = await Team.find({ teamCode: { $regex: /^TEAM-/i } })
+  const teams = await Team.find({})
     .select('leaderEmployeeId members')
     .lean();
 
@@ -467,8 +467,8 @@ function countWorkingDays(startDate, endDate, dayType) {
 router.get('/balance', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
-    const isAdmin = role === 'admin' || role === 'director';
-    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'teamlead' || role === 'reporting_manager';
     const isHR = hasPermission(req.user, 'leave_view') || role === 'hr';
 
     let { employeeId, calculationDate } = req.query;
@@ -484,7 +484,7 @@ router.get('/balance', auth, async (req, res) => {
     if (employeeId) filter.employeeId = employeeId;
 
     // Filter employees based on role and permissions
-    if (!isAdmin && !isHR) {
+    if (!isAdmin && role !== 'hr') {
       if (isPM) {
         const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
         const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
@@ -642,7 +642,7 @@ router.put('/balance/save', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
-    const isAdmin = role === 'admin' || role === 'director';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -770,7 +770,7 @@ router.post('/balance/sync-all', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
-    const isAdmin = role === 'admin' || role === 'director';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -864,7 +864,7 @@ router.post('/run-allocation', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = role === 'hr';
-    const isAdmin = role === 'admin' || role === 'director';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -913,7 +913,7 @@ router.get('/allocation-history', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = role === 'hr';
-    const isAdmin = role === 'admin' || role === 'director';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -936,8 +936,8 @@ router.get('/preview-split', auth, async (req, res) => {
     if (!targetId) return res.status(400).json({ error: 'Employee ID required' });
 
     const role = String(req.user.role || '').toLowerCase();
-    const isAdmin = role === 'admin' || role === 'director';
-    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'teamlead' || role === 'reporting_manager';
     const isHR = hasPermission(req.user, 'leave_view') || role === 'hr';
 
     const isSelf = targetId === req.user.employeeId;
@@ -946,7 +946,7 @@ router.get('/preview-split', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    if (!isAdmin && !isHR && isPM) {
+    if (!isAdmin && role !== 'hr' && isPM) {
       const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
       const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
       if (!allowedIds.includes(targetId)) {
@@ -1128,8 +1128,8 @@ router.get('/', auth, async (req, res) => {
     if (leaveType && leaveType !== 'all') filter.leaveType = leaveType;
 
     const role = String(req.user.role || '').toLowerCase();
-    const isAdmin = role === 'admin' || role === 'director';
-    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'teamlead' || role === 'reporting_manager';
     const isHR = hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_summary') || hasPermission(req.user, 'leave_manage') || role === 'hr';
 
     // Allow if HR/Admin, Manager/PM, or if employee is viewing own leaves
@@ -1141,7 +1141,7 @@ router.get('/', auth, async (req, res) => {
     }
 
     // Filter applications based on hierarchy
-    if (!isAdmin && !isHR) {
+    if (!isAdmin && role !== 'hr') {
       if (isPM) {
         const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
         const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
@@ -1150,7 +1150,7 @@ router.get('/', auth, async (req, res) => {
             return res.status(403).json({ message: 'Access denied' });
           }
         } else {
-          filter.employeeId = { $in: allowedIds };
+          filter.employeeId = { $in: myAssignedMemberIds };
         }
       } else {
         // Standard employee: can only see own leaves
@@ -1286,11 +1286,11 @@ router.put('/:id/status', auth, async (req, res) => {
 
     const role = String(req.user.role || '').toLowerCase();
     const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
-    const isSuperAdmin = role === 'admin' || role === 'director';
+    const isSuperAdmin = role === 'admin' || role === 'director' || role === 'manager';
 
-    if (!isSuperAdmin && !isHR) {
+    if (!isSuperAdmin && role !== 'hr') {
       // Must be a manager / PM
-      const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+      const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'teamlead' || role === 'reporting_manager';
       if (!isPM) {
         return res.status(403).json({ message: 'Access denied' });
       }
@@ -1397,11 +1397,11 @@ router.get('/:id/document', auth, async (req, res) => {
 
     const role = String(req.user.role || '').toLowerCase();
     const isHR = hasPermission(req.user, 'leave_manage') || hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_summary') || role === 'hr';
-    const isSuperAdmin = role === 'admin' || role === 'director';
+    const isSuperAdmin = role === 'admin' || role === 'director' || role === 'manager';
 
-    if (isSuperAdmin || isHR) {
+    if (isSuperAdmin || role === 'hr') {
       isAuthorized = true;
-    } else if (role === 'manager' || role === 'projectmanager' || role === 'project_manager') {
+    } else if (role === 'projectmanager' || role === 'project_manager' || role === 'teamlead' || role === 'reporting_manager') {
       if (leave.employeeId) {
         const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
         if (myAssignedMemberIds.includes(leave.employeeId)) {
@@ -1856,11 +1856,11 @@ router.get('/policy/:employeeId', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
-    const isAdmin = role === 'admin' || role === 'director';
-    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'teamlead' || role === 'reporting_manager';
     const isSelf = req.user.employeeId === req.params.employeeId;
 
-    let isAuthorized = isAdmin || isHR || isSelf;
+    let isAuthorized = isAdmin || (role === 'hr') || isSelf;
 
     if (!isAuthorized && isPM) {
       const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
@@ -1899,7 +1899,7 @@ router.put('/policy/:employeeId', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
-    const isAdmin = role === 'admin' || role === 'director';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -1973,10 +1973,10 @@ router.get('/monthly-ledger/:employeeId', auth, async (req, res) => {
     const role = String(req.user.role || '').toLowerCase();
     const isSelf = req.user.employeeId === employeeId;
     const isHR = hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_manage') || role === 'hr';
-    const isAdmin = role === 'admin' || role === 'director';
-    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'teamlead' || role === 'reporting_manager';
 
-    let canView = isSelf || isAdmin || isHR;
+    let canView = isSelf || isAdmin || (role === 'hr');
 
     if (!canView && isPM) {
       const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
@@ -2006,7 +2006,7 @@ router.get('/ledger-summary', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = role === 'hr' || hasPermission(req.user, 'leave_manage');
-    const isAdmin = role === 'admin' || role === 'director';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -2039,7 +2039,7 @@ router.put('/ledger/:id/lock', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = role === 'hr' || hasPermission(req.user, 'leave_manage');
-    const isAdmin = role === 'admin' || role === 'director';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -2060,7 +2060,7 @@ router.put('/ledger-lock-month', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = role === 'hr' || hasPermission(req.user, 'leave_manage');
-    const isAdmin = role === 'admin' || role === 'director';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -2094,7 +2094,7 @@ router.put('/current-month-edit/:employeeId', auth, async (req, res) => {
   try {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
-    const isAdmin = role === 'admin' || role === 'director';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     if (!isAdmin && !isHR) {
       return res.status(403).json({ message: 'Access denied' });
     }
@@ -2304,10 +2304,10 @@ router.get('/adjustment-logs/:employeeId', auth, async (req, res) => {
     const role = String(req.user.role || '').toLowerCase();
     const isSelf = req.user.employeeId === employeeId;
     const isHR = hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_manage') || role === 'hr';
-    const isAdmin = role === 'admin' || role === 'director';
-    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'manager';
+    const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
+    const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'teamlead' || role === 'reporting_manager';
 
-    let canView = isSelf || isAdmin || isHR;
+    let canView = isSelf || isAdmin || (role === 'hr');
 
     if (!canView && isPM) {
       const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);

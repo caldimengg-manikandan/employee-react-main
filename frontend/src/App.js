@@ -445,7 +445,7 @@ function App() {
             <Route
               path="payroll/details"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access", "payroll_details"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "payroll_details"]} roles={["admin", "hr", "finance", "manager", "director"]}>
                   <PayrollDetails />
                 </ProtectedRoute>
               }
@@ -461,7 +461,7 @@ function App() {
             <Route
               path="payroll/compensation-master"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access", "compensation_master"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "compensation_master"]} roles={["admin", "hr", "finance", "manager", "director"]}>
                   <CompensationMaster />
                 </ProtectedRoute>
               }
@@ -469,7 +469,7 @@ function App() {
             <Route
               path="payroll/cost-to-the-company"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access", "cost_to_company"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "cost_to_company"]} roles={["admin", "hr", "finance", "manager", "director"]}>
                   <CostToTheCompany />
                 </ProtectedRoute>
               }
@@ -477,7 +477,7 @@ function App() {
             <Route
               path="payroll/loan-summary"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access", "loan_summary"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "loan_summary"]} roles={["admin", "hr", "finance", "manager", "director"]}>
                   <LoanSummary />
                 </ProtectedRoute>
               }
@@ -485,7 +485,7 @@ function App() {
             <Route
               path="payroll/gratuity-summary"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access", "gratuity_summary"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "gratuity_summary"]} roles={["admin", "hr", "finance", "manager", "director"]}>
                   <GratuitySummary />
                 </ProtectedRoute>
               }
@@ -493,7 +493,7 @@ function App() {
             <Route
               path="payroll/monthly"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access", "monthly_payroll"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "monthly_payroll"]} roles={["admin", "hr", "finance", "manager", "director"]}>
                   <MonthlyPayroll />
                 </ProtectedRoute>
               }
@@ -501,7 +501,7 @@ function App() {
             <Route
               path="payroll/marriage-allowance"
               element={
-                <ProtectedRoute requiredPermissions={["payroll_access", "marriage_allowance"]} roles={["admin", "hr", "finance"]}>
+                <ProtectedRoute requiredPermissions={["payroll_access", "marriage_allowance"]} roles={["admin", "hr", "finance", "manager", "director"]}>
                   <MarriageAllowance />
                 </ProtectedRoute>
               }

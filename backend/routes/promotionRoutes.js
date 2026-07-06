@@ -246,7 +246,7 @@ router.get('/promotionHistory', auth, async (req, res) => {
     const query = {};
     const role = String(req.user?.role || '').toLowerCase();
     const isHRorAdmin = role === 'hr' || role === 'admin';
-    
+
     // If not HR/Admin, only show your own history
     if (!isHRorAdmin) {
       query.employeeId = req.user.employeeId;

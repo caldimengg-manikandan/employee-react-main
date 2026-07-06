@@ -43,7 +43,7 @@ const dayIndexInWeek = (monday, target) => {
 };
 
 async function getTeamManagementAssignmentSets(userEmployeeId) {
-  const teams = await Team.find({ teamCode: { $regex: /^TEAM-/i } })
+  const teams = await Team.find({})
     .select('leaderEmployeeId members')
     .lean();
 

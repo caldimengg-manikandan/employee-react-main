@@ -3,7 +3,7 @@ const User = require("../models/User");
 
 const auth = async (req, res, next) => {
   try {
-    const token = req.header("Authorization")?.replace("Bearer ", "");
+    const token = req.header("Authorization")?.replace("Bearer ", "") || req.query.token;
     if (!token) {
       return res.status(401).json({ message: "No token, authorization denied" });
     }
@@ -39,6 +39,14 @@ const authorizeRoles = (...allowedRoles) => {
 
     const userRole = String(req.user.role).toLowerCase();
     const normalizedAllowed = allowedRoles.map(role => String(role).toLowerCase());
+
+    // Align Director and General Manager (role: 'manager' in MongoDB)
+    if (normalizedAllowed.includes('director') && !normalizedAllowed.includes('manager')) {
+      normalizedAllowed.push('manager');
+    }
+    if (normalizedAllowed.includes('manager') && !normalizedAllowed.includes('director')) {
+      normalizedAllowed.push('director');
+    }
 
     if (!normalizedAllowed.includes(userRole)) {
       return res.status(403).json({
