@@ -1,8 +1,9 @@
 const router = require("express").Router();
 const Project = require("../models/Project");
+const { validateProject } = require("../middleware/validation");
 
 // CREATE
-router.post("/", async (req, res) => {
+router.post("/", validateProject, async (req, res) => {
   try {
     // Prevent duplicate project by name + division
     const exists = await Project.findOne({

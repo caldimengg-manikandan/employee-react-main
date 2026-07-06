@@ -9,8 +9,8 @@ const SupportComment = require('../models/SupportComment');
 const Notification = require('../models/Notification');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
-
 const Team = require('../models/Team');
+const { validateSupportTicket } = require('../middleware/validation');
 
 // Multer and File Upload Security Setup
 const storage = multer.memoryStorage();
@@ -161,7 +161,7 @@ router.get('/attachments/:ticketId/:attachmentId', auth, async (req, res) => {
 // @route   POST api/support/tickets
 // @desc    Create a new support ticket with optional attachments
 // @access  Private
-router.post('/tickets', auth, handleUpload, async (req, res) => {
+router.post('/tickets', auth, handleUpload, validateSupportTicket, async (req, res) => {
   try {
     const { category, priority, subject, description } = req.body;
     

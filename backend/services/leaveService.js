@@ -565,12 +565,14 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
     }
     usedCL = filteredLeaves.reduce((sum, l) => {
       if (new Date(l.startDate).getFullYear() !== currentYear) return sum;
-      if (l.clUsed !== undefined) return sum + (Number(l.clUsed) || 0);
+      const hasSplit = (l.clUsed || 0) > 0 || (l.slUsed || 0) > 0 || (l.plUsed || 0) > 0 || (l.negativePL || 0) > 0 || (l.lopDays || 0) > 0;
+      if (hasSplit) return sum + (Number(l.clUsed) || 0);
       return sum + (l.leaveType === 'CL' ? (Number(l.totalDays) || 0) : 0);
     }, 0);
     usedSL = filteredLeaves.reduce((sum, l) => {
       if (new Date(l.startDate).getFullYear() !== currentYear) return sum;
-      if (l.slUsed !== undefined) return sum + (Number(l.slUsed) || 0);
+      const hasSplit = (l.clUsed || 0) > 0 || (l.slUsed || 0) > 0 || (l.plUsed || 0) > 0 || (l.negativePL || 0) > 0 || (l.lopDays || 0) > 0;
+      if (hasSplit) return sum + (Number(l.slUsed) || 0);
       return sum + (l.leaveType === 'SL' ? (Number(l.totalDays) || 0) : 0);
     }, 0);
     
@@ -583,7 +585,8 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
     casual += afterSix * 0.5;
     sick += afterSix * 0.5;
     filteredLeaves.forEach(l => {
-      if (l.clUsed !== undefined || l.slUsed !== undefined || l.plUsed !== undefined) {
+      const hasSplit = (l.clUsed || 0) > 0 || (l.slUsed || 0) > 0 || (l.plUsed || 0) > 0 || (l.negativePL || 0) > 0 || (l.lopDays || 0) > 0;
+      if (hasSplit) {
         usedCL += (Number(l.clUsed) || 0);
         usedSL += (Number(l.slUsed) || 0);
       } else {
@@ -613,7 +616,8 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
     plUsed = filteredLeaves
       .filter(l => { const d = new Date(l.startDate); return d >= currentMonthStart && d <= currentMonthEnd; })
       .reduce((sum, l) => {
-        if (l.plUsed !== undefined) return sum + (Number(l.plUsed) || 0) + (Number(l.negativePL) || 0);
+        const hasSplit = (l.clUsed || 0) > 0 || (l.slUsed || 0) > 0 || (l.plUsed || 0) > 0 || (l.negativePL || 0) > 0 || (l.lopDays || 0) > 0;
+        if (hasSplit) return sum + (Number(l.plUsed) || 0) + (Number(l.negativePL) || 0);
         return sum + (l.leaveType === 'PL' ? (Number(l.totalDays) || 0) : 0);
       }, 0);
     plBalance = plAllocated - plUsed;
@@ -625,7 +629,8 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
       plUsed = filteredLeaves
         .filter(l => { const d = new Date(l.startDate); return d >= currentMonthStart && d <= currentMonthEnd; })
         .reduce((sum, l) => {
-          if (l.plUsed !== undefined) return sum + (Number(l.plUsed) || 0) + (Number(l.negativePL) || 0);
+          const hasSplit = (l.clUsed || 0) > 0 || (l.slUsed || 0) > 0 || (l.plUsed || 0) > 0 || (l.negativePL || 0) > 0 || (l.lopDays || 0) > 0;
+          if (hasSplit) return sum + (Number(l.plUsed) || 0) + (Number(l.negativePL) || 0);
           return sum + (l.leaveType === 'PL' ? (Number(l.totalDays) || 0) : 0);
         }, 0);
       plBalance = plAllocated - plUsed;
@@ -635,7 +640,8 @@ const calcBalanceForEmployee = (emp, approvedLeaves = [], calculationDate = new 
       plUsed = filteredLeaves
         .filter(l => new Date(l.startDate) >= sixMonthThreshold)
         .reduce((sum, l) => {
-          if (l.plUsed !== undefined) return sum + (Number(l.plUsed) || 0) + (Number(l.negativePL) || 0);
+          const hasSplit = (l.clUsed || 0) > 0 || (l.slUsed || 0) > 0 || (l.plUsed || 0) > 0 || (l.negativePL || 0) > 0 || (l.lopDays || 0) > 0;
+          if (hasSplit) return sum + (Number(l.plUsed) || 0) + (Number(l.negativePL) || 0);
           return sum + (l.leaveType === 'PL' ? (Number(l.totalDays) || 0) : 0);
         }, 0);
       plBalance = plAllocated - plUsed;
@@ -718,7 +724,7 @@ const recordTransaction = async (data) => {
 // Leave Split Calculator (CL → SL → PL → LOP)
 // ---------------------------------------------------------------------------
 
-const calculateLeaveSplit = (requestedDays, balances) => {
+const calculateLeaveSplit = (requestedDays, balances, leaveType = null) => {
   let rem = requestedDays;
   const split = { clUsed: 0, slUsed: 0, plUsed: 0, negativePL: 0, lopDays: 0, remainingBalance: 0 };
 
@@ -726,17 +732,113 @@ const calculateLeaveSplit = (requestedDays, balances) => {
   const sl = Math.max(0, balances.sick?.balance || 0);
   const pl = Math.max(0, balances.privilege?.balance || 0);
 
-  // 1. Use CL
-  if (cl > 0) { split.clUsed = Math.min(rem, cl); rem -= split.clUsed; }
-  // 2. Use SL
-  if (rem > 0 && sl > 0) { split.slUsed = Math.min(rem, sl); rem -= split.slUsed; }
-  // 3. Use PL
-  if (rem > 0 && pl > 0) { split.plUsed = Math.min(rem, pl); rem -= split.plUsed; }
-  // 4. LOP for the remainder
-  if (rem > 0) { split.lopDays = rem; split.negativePL = rem; }
+  // 1. Prioritize requested leave type first if specified
+  if (leaveType === 'CL' && cl > 0) { split.clUsed = Math.min(rem, cl); rem -= split.clUsed; }
+  else if (leaveType === 'SL' && sl > 0) { split.slUsed = Math.min(rem, sl); rem -= split.slUsed; }
+  else if (leaveType === 'PL' && pl > 0) { split.plUsed = Math.min(rem, pl); rem -= split.plUsed; }
+
+  // 2. Fallback waterfall for any remaining days: CL -> SL -> PL
+  if (rem > 0 && cl - split.clUsed > 0) {
+    const avail = cl - split.clUsed;
+    const used = Math.min(rem, avail);
+    split.clUsed += used;
+    rem -= used;
+  }
+  if (rem > 0 && sl - split.slUsed > 0) {
+    const avail = sl - split.slUsed;
+    const used = Math.min(rem, avail);
+    split.slUsed += used;
+    rem -= used;
+  }
+  if (rem > 0 && pl - split.plUsed > 0) {
+    const avail = pl - split.plUsed;
+    const used = Math.min(rem, avail);
+    split.plUsed += used;
+    rem -= used;
+  }
+
+  // 3. LOP for the remainder (do NOT set both lopDays and negativePL)
+  if (rem > 0) {
+    split.lopDays = rem;
+    split.negativePL = 0;
+  }
 
   split.remainingBalance = (cl - split.clUsed) + (sl - split.slUsed) + (pl - split.plUsed - split.negativePL);
   return split;
+};
+
+const getEmployeeCurrentBalances = async (emp, targetId) => {
+  if (!targetId && emp) targetId = emp.employeeId;
+  let empRecord = emp;
+  if (!empRecord && targetId) {
+    empRecord = await Employee.findOne({ employeeId: targetId }).lean();
+  }
+  if (!empRecord) empRecord = { employeeId: targetId || '' };
+
+  const calcDate = new Date();
+  const currentYear = calcDate.getFullYear();
+  const currentMonth = calcDate.getMonth() + 1;
+  const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+  const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+
+  const [ledgers, prevLedgers, stored, approvals] = await Promise.all([
+    EmployeeLeaveLedger.find({
+      employee_id: targetId,
+      year: currentYear,
+      month: currentMonth
+    }).lean(),
+    EmployeeLeaveLedger.find({
+      employee_id: targetId,
+      year: prevYear,
+      month: prevMonth
+    }).lean(),
+    LeaveBalance.findOne({ employeeId: targetId }).lean(),
+    LeaveApplication.find({ employeeId: targetId, status: 'Approved' }).lean()
+  ]);
+
+  const systemCalc = calcBalanceForEmployee(empRecord, approvals);
+
+  const ledgerMap = {};
+  for (const entry of ledgers) {
+    ledgerMap[entry.leave_type] = entry;
+  }
+
+  const prevLedgerMap = {};
+  for (const entry of prevLedgers) {
+    prevLedgerMap[entry.leave_type] = entry;
+  }
+
+  const getLedgerData = (type) => {
+    return ledgerMap[type] || prevLedgerMap[type] || null;
+  };
+
+  const clLedger = getLedgerData('CL');
+  const slLedger = getLedgerData('SL');
+  const plLedger = getLedgerData('PL');
+  const blLedger = getLedgerData('BEREAVEMENT');
+
+  return {
+    casual: {
+      allocated: clLedger ? ((clLedger.opening_balance ?? 0) + (clLedger.allocated_leave ?? 0)) : (stored?.balances?.casual?.allocated ?? systemCalc.balances.casual.allocated ?? 0),
+      used: clLedger ? (clLedger.used_leave ?? 0) : (stored?.balances?.casual?.used ?? systemCalc.balances.casual.used ?? 0),
+      balance: clLedger ? (clLedger.closing_balance ?? 0) : (stored?.balances?.casual?.balance ?? systemCalc.balances.casual.balance ?? 0)
+    },
+    sick: {
+      allocated: slLedger ? ((slLedger.opening_balance ?? 0) + (slLedger.allocated_leave ?? 0)) : (stored?.balances?.sick?.allocated ?? systemCalc.balances.sick.allocated ?? 0),
+      used: slLedger ? (slLedger.used_leave ?? 0) : (stored?.balances?.sick?.used ?? systemCalc.balances.sick.used ?? 0),
+      balance: slLedger ? (slLedger.closing_balance ?? 0) : (stored?.balances?.sick?.balance ?? systemCalc.balances.sick.balance ?? 0)
+    },
+    privilege: {
+      allocated: plLedger ? ((plLedger.opening_balance ?? 0) + (plLedger.allocated_leave ?? 0)) : (stored?.balances?.privilege?.allocated ?? systemCalc.balances.privilege.allocated ?? 0),
+      used: plLedger ? (plLedger.used_leave ?? 0) : (stored?.balances?.privilege?.used ?? systemCalc.balances.privilege.used ?? 0),
+      balance: plLedger ? (plLedger.closing_balance ?? 0) : (stored?.balances?.privilege?.balance ?? systemCalc.balances.privilege.balance ?? 0)
+    },
+    bereavement: {
+      allocated: blLedger ? ((blLedger.opening_balance ?? 0) + (blLedger.allocated_leave ?? 0)) : (stored?.balances?.bereavement?.allocated ?? systemCalc.balances.bereavement?.allocated ?? 0),
+      used: blLedger ? (blLedger.used_leave ?? 0) : (stored?.balances?.bereavement?.used ?? systemCalc.balances.bereavement?.used ?? 0),
+      balance: blLedger ? (blLedger.closing_balance ?? 0) : (stored?.balances?.bereavement?.balance ?? systemCalc.balances.bereavement?.balance ?? 0)
+    }
+  };
 };
 
 const getPendingDeductions = async (employeeId, excludeLeaveId = null) => {
@@ -745,7 +847,8 @@ const getPendingDeductions = async (employeeId, excludeLeaveId = null) => {
   const pending = await LeaveApplication.find(query).lean();
   const agg = { CL: 0, SL: 0, PL: 0, BEREAVEMENT: 0 };
   pending.forEach(l => {
-    if (l.clUsed !== undefined || l.slUsed !== undefined || l.plUsed !== undefined) {
+    const hasSplit = (l.clUsed || 0) > 0 || (l.slUsed || 0) > 0 || (l.plUsed || 0) > 0 || (l.negativePL || 0) > 0 || (l.lopDays || 0) > 0;
+    if (hasSplit) {
       agg.CL += Number(l.clUsed || 0);
       agg.SL += Number(l.slUsed || 0);
       agg.PL += Number(l.plUsed || 0) + Number(l.negativePL || 0);
@@ -786,5 +889,6 @@ module.exports = {
   monthsBetween,
   // Leave split
   calculateLeaveSplit,
-  getPendingDeductions
+  getPendingDeductions,
+  getEmployeeCurrentBalances
 };

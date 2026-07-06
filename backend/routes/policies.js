@@ -1,6 +1,7 @@
 const express = require('express');
 const Policy = require('../models/Policy');
 const auth = require('../middleware/auth');
+const { validatePolicyCreate } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -15,7 +16,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Create a new policy
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, validatePolicyCreate, async (req, res) => {
   try {
     const { title, content } = req.body;
     const created = await Policy.create({ title: title || 'New Policy', content: content || '' });

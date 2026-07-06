@@ -88,7 +88,8 @@ const LeaveBalance = () => {
           const id = String(r.employeeId || '').toLowerCase();
           if (!id) return;
           if (!agg[id]) agg[id] = { CL: 0, SL: 0, PL: 0, BL: 0 };
-          if (r.clUsed !== undefined || r.slUsed !== undefined || r.plUsed !== undefined || r.blUsed !== undefined) {
+          const hasSplit = (r.clUsed || 0) > 0 || (r.slUsed || 0) > 0 || (r.plUsed || 0) > 0 || (r.negativePL || 0) > 0 || (r.lopDays || 0) > 0 || (r.blUsed || 0) > 0;
+          if (hasSplit) {
             agg[id].CL += Number(r.clUsed || 0);
             agg[id].SL += Number(r.slUsed || 0);
             agg[id].PL += Number(r.plUsed || 0) + Number(r.negativePL || 0);

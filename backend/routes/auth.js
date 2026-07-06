@@ -7,13 +7,14 @@ const auth = require('../middleware/auth');
 const otpGenerator = require('otp-generator');
 const { sendZohoMail } = require('../zohoMail.service');
 const { sendResendMail } = require('../resend.service');
+const { validateLogin, validateForgotPassword, validateUserManagement } = require('../middleware/validation');
 
 const router = express.Router();
 
 
 
 // Login
-router.post('/login', async (req, res) => {
+router.post('/login', validateLogin, async (req, res) => {
   const { email, employeeId, password } = req.body;
   try {
     let lookupEmail = email;
@@ -79,7 +80,7 @@ router.post('/login', async (req, res) => {
 });
 
 // Forgot Password - Send OTP
-router.post('/forgot-password', async (req, res) => {
+router.post('/forgot-password', validateForgotPassword, async (req, res) => {
   const { email, employeeId } = req.body;
   try {
     let user = null;
@@ -236,7 +237,7 @@ router.get('/users', auth, async (req, res) => {
 });
 
 // Create new user (for employees Access management)
-router.post('/users', auth, async (req, res) => {
+router.post('/users', auth, validateUserManagement, async (req, res) => {
   try {
     // Only Admin can create users
     if (req.user.role !== 'admin') {
@@ -285,7 +286,7 @@ router.post('/users', auth, async (req, res) => {
 });
 
 // Update user (for employees Access management)
-router.put('/users/:id', auth, async (req, res) => {
+router.put('/users/:id', auth, validateUserManagement, async (req, res) => {
   try {
     // Check if user has admin permissions
     const hasAccess = req.user.permissions?.includes('user_access') || req.user.role === 'admin';

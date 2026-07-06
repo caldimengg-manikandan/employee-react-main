@@ -3,13 +3,14 @@ const router = express.Router();
 const MonthlyPayroll = require("../models/MonthlyPayroll");
 const auth = require("../middleware/auth");
 const authorizeRoles = require("../middleware/roleAuth");
+const { validateMonthlyPayroll } = require("../middleware/validation");
 
 // Apply JWT Authentication to all routes in this module
 router.use(auth);
 
 
 // ✅ SAVE MONTHLY PAYROLL (Simulation Result) - Admin, HR, Finance, Director, Manager only
-router.post("/run", authorizeRoles("admin", "hr", "finance", "director", "manager"), async (req, res) => {
+router.post("/run", authorizeRoles("admin", "hr", "finance", "director", "manager"), validateMonthlyPayroll, async (req, res) => {
   try {
     const { payrolls } = req.body; // array from simulation
 

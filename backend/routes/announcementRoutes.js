@@ -1,6 +1,7 @@
 const express = require('express');
 const Announcement = require('../models/Announcement');
 const auth = require('../middleware/auth');
+const { validateAnnouncement } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -35,7 +36,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Auth + permission: create
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, validateAnnouncement, async (req, res) => {
   try {
     if (
       req.user.role !== 'admin' &&

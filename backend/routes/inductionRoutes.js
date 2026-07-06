@@ -10,6 +10,7 @@ const InductionConfig = require('../models/InductionConfig');
 const User = require('../models/User');
 const Employee = require('../models/Employee');
 const auth = require('../middleware/auth');
+const { validateInduction } = require('../middleware/validation');
 
 // Setup multer upload directory
 const uploadDir = path.join(__dirname, '..', 'uploads', 'induction');
@@ -395,7 +396,7 @@ router.get('/progress/me', auth, async (req, res) => {
 });
 
 // POST /api/induction/progress/action
-router.post('/progress/action', auth, async (req, res) => {
+router.post('/progress/action', auth, validateInduction, async (req, res) => {
   try {
     const { actionType, data } = req.body;
     let progress = await InductionProgress.findOne({ userId: req.user._id });

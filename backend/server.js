@@ -29,6 +29,9 @@ app.use(cors());
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
+const { globalSanitizationAndSecurity } = require("./middleware/sanitization");
+app.use(globalSanitizationAndSecurity);
+
 const defaultUploadRoot = path.join(__dirname, "uploads");
 const fs = require("fs");
 if (!fs.existsSync(defaultUploadRoot)) fs.mkdirSync(defaultUploadRoot, { recursive: true });
@@ -282,10 +285,60 @@ app.post("/api/hikvision/attendance", async (req, res) => {
   }
 });
 
+//--------zoho email-----//
+app.get("/zoho/callback", (req, res) => {
+  res.send("Zoho OAuth successful. You can close this tab.");
+});
+
+// --------------------- 404 NOT FOUND HANDLER --------------------- //
+app.use((req, res, next) => {
+  res.status(404).json({ success: false, message: "Not Found: The requested endpoint does not exist" });
+});
+
 // --------------------- ERROR HANDLER --------------------- //
 app.use((err, req, res, next) => {
   console.error("Server Error:", err.stack);
-  res.status(500).json({ success: false, message: "Internal Server Error" });
+
+  // Mongoose Duplicate Key Error (11000)
+  if (err.code === 11000) {
+    const field = Object.keys(err.keyValue || {})[0] || "field";
+    return res.status(400).json({
+      success: false,
+      message: `Duplicate request or value: ${field} already exists`
+    });
+  }
+
+  // Mongoose CastError (e.g. Invalid ObjectId)
+  if (err.name === "CastError") {
+    return res.status(400).json({
+      success: false,
+      message: `Invalid format for field: ${err.path || "id"}`
+    });
+  }
+
+  // Mongoose Validation Error
+  if (err.name === "ValidationError") {
+    const messages = Object.values(err.errors || {}).map(val => val.message);
+    return res.status(422).json({
+      success: false,
+      message: "Validation Failed",
+      errors: messages
+    });
+  }
+
+  // JWT or Auth Errors
+  if (err.name === "UnauthorizedError" || err.message === "Unauthorized" || err.message === "Invalid token") {
+    return res.status(401).json({ success: false, message: "Unauthorized: Access token is missing or invalid" });
+  }
+  if (err.name === "ForbiddenError" || err.message === "Forbidden") {
+    return res.status(403).json({ success: false, message: "Forbidden: You do not have permission to perform this action" });
+  }
+
+  const status = err.status || err.statusCode || 500;
+  res.status(status).json({
+    success: false,
+    message: err.message || "Internal Server Error"
+  });
 });
 
 // --------------------- CRON JOBS --------------------- //
@@ -301,9 +354,4 @@ setupAppraisalEffectSync();
 const PORT = process.env.PORT || 5003;
 app.listen(PORT, () => {
   console.log(`\u2705 Server running on port ${PORT}`);
-});
-
-//--------zoho email-----//
-app.get("/zoho/callback", (req, res) => {
-  res.send("Zoho OAuth successful. You can close this tab.");
 });

@@ -7,6 +7,7 @@ const PromotionHistory = require('../models/PromotionHistory');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Team = require('../models/Team');
+const { validateEmployeeCreate, validateEmployeeUpdate } = require('../middleware/validation');
 
 const syncCompensationToEmployeeAndPayroll = async (emp) => {
   try {
@@ -343,7 +344,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // Create new employee - requires admin permissions
-router.post('/', auth, async (req, res) => {
+router.post('/', auth, validateEmployeeCreate, async (req, res) => {
   try {
     const roleLower = String(req.user.role || '').toLowerCase();
     const hasAccess = req.user.permissions?.includes('user_access') ||
@@ -419,7 +420,7 @@ router.post('/', auth, async (req, res) => {
 });
 
 // Update current user's own employee profile (self-service)
-router.put('/me', auth, async (req, res) => {
+router.put('/me', auth, validateEmployeeUpdate, async (req, res) => {
   try {
     const empId = req.user.employeeId;
     if (!empId) return res.status(404).json({ message: 'Employee ID not linked' });
@@ -528,7 +529,7 @@ router.put('/me', auth, async (req, res) => {
 });
 
 // Update employee - requires admin permissions
-router.put('/:id', auth, async (req, res) => {
+router.put('/:id', auth, validateEmployeeUpdate, async (req, res) => {
   try {
     const roleLower = String(req.user.role || '').toLowerCase();
     const hasAccess = req.user.permissions?.includes('user_access') ||

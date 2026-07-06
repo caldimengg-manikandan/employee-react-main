@@ -6,6 +6,7 @@ const auth = require("../middleware/auth");
 const checkActiveEmployee = require("../middleware/checkActiveEmployee");
 const authorizeRoles = require("../middleware/roleAuth");
 const Team = require("../models/Team");
+const { validateAttendancePunch } = require("../middleware/validation");
 
 const router = express.Router();
 
@@ -108,7 +109,7 @@ router.get("/", async (req, res) => {
 /**
  * ➕ MANUAL ATTENDANCE ENTRY
  */
-router.post("/", async (req, res) => {
+router.post("/", validateAttendancePunch, async (req, res) => {
   try {
     const { employeeId, direction, punchTime, deviceId, source, correspondingInTime, workDurationSeconds } = req.body;
 

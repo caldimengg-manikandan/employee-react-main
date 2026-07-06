@@ -125,7 +125,7 @@ import Notification from '../../components/Notifications/Notification';
       if (totalLeaveDays > 0 && ['CL', 'SL', 'PL'].includes(leaveData.leaveType)) {
         setLoadingSplit(true);
         try {
-          const res = await leaveAPI.getPreviewSplit(totalLeaveDays);
+          const res = await leaveAPI.getPreviewSplit(totalLeaveDays, undefined, leaveData.leaveType, editingLeaveId || undefined);
           setLeaveSplit(res.data);
         } catch {
           setLeaveSplit(null);
@@ -137,7 +137,7 @@ import Notification from '../../components/Notifications/Notification';
       }
     };
     fetchSplit();
-  }, [totalLeaveDays, leaveData.leaveType]);
+  }, [totalLeaveDays, leaveData.leaveType, editingLeaveId]);
 
   useEffect(() => {
     const loadRegionalHolidays = async () => {
@@ -830,7 +830,8 @@ import Notification from '../../components/Notifications/Notification';
 
     leaveHistory.forEach(leave => {
       if (leave.status === 'Approved') {
-        if (leave.clUsed !== undefined || leave.slUsed !== undefined || leave.plUsed !== undefined) {
+        const hasSplit = (leave.clUsed || 0) > 0 || (leave.slUsed || 0) > 0 || (leave.plUsed || 0) > 0 || (leave.negativePL || 0) > 0 || (leave.lopDays || 0) > 0;
+        if (hasSplit) {
           used.CL += Number(leave.clUsed || 0);
           used.SL += Number(leave.slUsed || 0);
           used.PL += Number(leave.plUsed || 0) + Number(leave.negativePL || 0);
@@ -854,7 +855,8 @@ import Notification from '../../components/Notifications/Notification';
     };
     leaveHistory.forEach(leave => {
       if (leave.status === 'Pending') {
-        if (leave.clUsed !== undefined || leave.slUsed !== undefined || leave.plUsed !== undefined) {
+        const hasSplit = (leave.clUsed || 0) > 0 || (leave.slUsed || 0) > 0 || (leave.plUsed || 0) > 0 || (leave.negativePL || 0) > 0 || (leave.lopDays || 0) > 0;
+        if (hasSplit) {
           pending.CL += Number(leave.clUsed || 0);
           pending.SL += Number(leave.slUsed || 0);
           pending.PL += Number(leave.plUsed || 0) + Number(leave.negativePL || 0);

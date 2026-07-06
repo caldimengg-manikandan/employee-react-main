@@ -11,13 +11,14 @@ const Team = require('../models/Team');
 const Notification = require('../models/Notification');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
-const { monthsBetween, calcBalanceForEmployee, mergeBalances, runMonthlyAllocation, recordTransaction, calculateLeaveSplit, getPendingDeductions, applyLeaveDeduction, applyLeaveToLedger, reverseLeaveFromLedger } = require('../services/leaveService');
+const { monthsBetween, calcBalanceForEmployee, mergeBalances, runMonthlyAllocation, recordTransaction, calculateLeaveSplit, getPendingDeductions, applyLeaveDeduction, applyLeaveToLedger, reverseLeaveFromLedger, getEmployeeCurrentBalances } = require('../services/leaveService');
 const EmployeeLeavePolicy = require('../models/EmployeeLeavePolicy');
 const EmployeeLeaveLedger = require('../models/EmployeeLeaveLedger');
 const LeaveAdjustmentLog = require('../models/LeaveAdjustmentLog');
 const LeaveLedger = require('../models/LeaveLedger');
 const LeaveAllocationLog = require('../models/LeaveAllocationLog');
 const multer = require('multer');
+const { validateLeaveApply } = require('../middleware/validation');
 
 const router = express.Router();
 
@@ -926,7 +927,7 @@ router.get('/allocation-history', auth, async (req, res) => {
 // Get split preview for a leave application
 router.get('/preview-split', auth, async (req, res) => {
   try {
-    const { days, employeeId } = req.query;
+    const { days, employeeId, leaveType, excludeLeaveId } = req.query;
     const requestedDays = parseFloat(days);
     if (isNaN(requestedDays) || requestedDays <= 0) {
       return res.status(400).json({ error: 'Invalid days' });
@@ -957,26 +958,17 @@ router.get('/preview-split', auth, async (req, res) => {
     const emp = await Employee.findOne({ employeeId: targetId }).lean();
     if (!emp) return res.status(404).json({ error: 'Employee not found' });
 
-    // Get current balances
-    const stored = await LeaveBalance.findOne({ employeeId: targetId }).lean();
-    let balances;
+    // Get current balances from ledger source of truth
+    const balances = await getEmployeeCurrentBalances(emp, targetId);
 
-    if (stored) {
-      balances = stored.balances;
-    } else {
-      // Fallback to system calculation
-      const system = calcBalanceForEmployee(emp, []);
-      balances = system.balances;
-    }
-
-    const pending = await getPendingDeductions(targetId);
+    const pending = await getPendingDeductions(targetId, excludeLeaveId || null);
     const availableBalances = {
       casual: { balance: (balances.casual?.balance || 0) - (pending?.CL || 0) },
       sick: { balance: (balances.sick?.balance || 0) - (pending?.SL || 0) },
       privilege: { balance: (balances.privilege?.balance || 0) - (pending?.PL || 0) }
     };
 
-    const split = calculateLeaveSplit(requestedDays, availableBalances);
+    const split = calculateLeaveSplit(requestedDays, availableBalances, leaveType || null);
     res.json(split);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1430,7 +1422,7 @@ router.get('/:id/document', auth, async (req, res) => {
   }
 });
 
-router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments'), async (req, res) => {
+router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments'), validateLeaveApply, async (req, res) => {
   try {
     const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, regionalHolidayName, totalDays } = req.body;
     
@@ -1524,14 +1516,7 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
     let split = { clUsed: 0, slUsed: 0, plUsed: 0, negativePL: 0, lopDays: 0, remainingBalance: 0 };
     
     if (['CL', 'SL', 'PL'].includes(normalizedType)) {
-      const storedBal = await LeaveBalance.findOne({ employeeId: targetEmployeeId }).lean();
-      let currentBalances;
-      if (storedBal) {
-        currentBalances = storedBal.balances;
-      } else {
-        const system = calcBalanceForEmployee(emp || { employeeId: targetEmployeeId }, []);
-        currentBalances = system.balances;
-      }
+      const currentBalances = await getEmployeeCurrentBalances(emp || { employeeId: targetEmployeeId }, targetEmployeeId);
       const pending = await getPendingDeductions(targetEmployeeId);
       const availableBalances = {
         casual: { balance: (currentBalances.casual?.balance || 0) - (pending?.CL || 0) },
@@ -1539,7 +1524,7 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
         privilege: { balance: (currentBalances.privilege?.balance || 0) - (pending?.PL || 0) }
       };
 
-      split = calculateLeaveSplit(finalDays, availableBalances);
+      split = calculateLeaveSplit(finalDays, availableBalances, finalLeaveType);
     }
 
     const created = await LeaveApplication.create({
@@ -1779,15 +1764,7 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
     };
     
     if (['CL', 'SL', 'PL'].includes(normalizedType)) {
-      const storedBal = await LeaveBalance.findOne({ employeeId: targetEmployeeId }).lean();
-      let currentBalances;
-      if (storedBal) {
-        currentBalances = storedBal.balances;
-      } else {
-        const emp = await Employee.findOne({ employeeId: targetEmployeeId }).lean();
-        const system = calcBalanceForEmployee(emp || { employeeId: targetEmployeeId }, []);
-        currentBalances = system.balances;
-      }
+      const currentBalances = await getEmployeeCurrentBalances(null, targetEmployeeId);
       
       const pending = await getPendingDeductions(targetEmployeeId, req.params.id);
       const availableBalances = {
@@ -1796,7 +1773,7 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
         privilege: { balance: (currentBalances.privilege?.balance || 0) - pending.PL }
       };
 
-      split = calculateLeaveSplit(finalDays || existing.totalDays, availableBalances);
+      split = calculateLeaveSplit(finalDays || existing.totalDays, availableBalances, nextLeaveType);
     }
 
     const updated = await LeaveApplication.findByIdAndUpdate(

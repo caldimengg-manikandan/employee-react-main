@@ -5,6 +5,7 @@ const Loan = require("../models/Loan");
 const MonthlyPayroll = require("../models/MonthlyPayroll");
 const auth = require("../middleware/auth");
 const authorizeRoles = require("../middleware/roleAuth");
+const { validateLoanApply } = require("../middleware/validation");
 
 // Apply JWT authentication to all loan routes
 router.use(auth);
@@ -13,7 +14,7 @@ router.use(auth);
  * ✅ CREATE LOAN (Admin, HR, Finance, Director only)
  * POST /api/loans
  */
-router.post("/", authorizeRoles("admin", "hr", "finance", "director", "manager"), async (req, res) => {
+router.post("/", authorizeRoles("admin", "hr", "finance", "director", "manager"), validateLoanApply, async (req, res) => {
   try {
     const amount = Number(req.body.amount || 0);
     const tenureMonths = Number(req.body.tenureMonths || 1);

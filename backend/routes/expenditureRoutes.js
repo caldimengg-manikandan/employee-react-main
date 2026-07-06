@@ -5,6 +5,7 @@ const router = express.Router();
 const MonthlyExpenditure = require('../models/MonthlyExpenditure');
 const ExpenseType = require('../models/ExpenseType');
 const auth = require('../middleware/auth');
+const { validateExpenditure } = require('../middleware/validation');
 
 async function processExpenditures(expenditures) {
   if (!Array.isArray(expenditures)) {
@@ -68,7 +69,7 @@ router.get('/health-check', (req, res) => {
 });
 
 // Save Monthly Record (Create new)
-router.post('/save-monthly', auth, async (req, res) => {
+router.post('/save-monthly', auth, validateExpenditure, async (req, res) => {
   try {
     const { month, year, location, budgetAllocated, expenditures } = req.body;
     

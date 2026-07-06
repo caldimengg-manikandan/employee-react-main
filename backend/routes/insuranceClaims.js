@@ -3,6 +3,7 @@ const router = express.Router();
 const InsuranceClaim = require('../models/InsuranceClaim');
 const auth = require('../middleware/auth');
 const multer = require('multer');
+const { validateInsuranceClaim } = require('../middleware/validation');
 const path = require('path');
 const fs = require('fs');
 
@@ -54,7 +55,7 @@ router.get('/', auth, async (req, res) => {
 });
 
 // Create a new insurance claim
-router.post('/', auth, (req, res) => {
+router.post('/', auth, validateInsuranceClaim, (req, res) => {
   uploadFields(req, res, async (err) => {
     if (err instanceof multer.MulterError) {
       return res.status(400).json({ message: `Upload error: ${err.message}` });

@@ -3,12 +3,13 @@ const router = express.Router();
 const Payroll = require("../models/Payroll");
 const auth = require("../middleware/auth");
 const authorizeRoles = require("../middleware/roleAuth");
+const { validatePayrollCreate } = require("../middleware/validation");
 
 // Apply JWT authentication to all payroll routes
 router.use(auth);
 
 // ➕ CREATE payroll (Admin, HR, Finance, Director, Manager only)
-router.post("/", authorizeRoles("admin", "hr", "finance", "director", "manager"), async (req, res) => {
+router.post("/", authorizeRoles("admin", "hr", "finance", "director", "manager"), validatePayrollCreate, async (req, res) => {
   try {
     const { employeeId } = req.body;
     if (employeeId) {

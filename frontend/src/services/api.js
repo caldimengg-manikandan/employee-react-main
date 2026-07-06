@@ -148,7 +148,7 @@ export const leaveAPI = {
   updateStatus: (id, status, rejectionReason) => api.put(`/leaves/${id}/status`, { status, rejectionReason }),
   update: (id, data) => api.put(`/leaves/${id}`, data),
   remove: (id) => api.delete(`/leaves/${id}`),
-  getPreviewSplit: (days, employeeId) => api.get('/leaves/preview-split', { params: { days, employeeId } }),
+  getPreviewSplit: (days, employeeId, leaveType, excludeLeaveId) => api.get('/leaves/preview-split', { params: { days, employeeId, leaveType, excludeLeaveId } }),
   downloadDocument: (documentUrl) => {
     const raw = typeof documentUrl === 'string' ? documentUrl.trim() : '';
     if (!raw) return Promise.reject(new Error('Invalid documentUrl'));

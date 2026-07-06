@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const mongoose = require('mongoose');
 const auth = require('../middleware/auth');
+const { validatePerformance } = require('../middleware/validation');
 const SelfAppraisal = require('../models/SelfAppraisal');
 const Employee = require('../models/Employee');
 const Payroll = require('../models/Payroll');
@@ -125,7 +126,7 @@ router.get('/self-appraisals/:id', auth, async (req, res) => {
 // @desc    Create a self appraisal
 // @route   POST /api/performance/self-appraisals
 // @access  Private
-router.post('/self-appraisals', auth, async (req, res) => {
+router.post('/self-appraisals', auth, validatePerformance, async (req, res) => {
   try {
     const { 
       year, 
