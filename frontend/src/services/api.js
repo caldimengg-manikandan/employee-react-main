@@ -459,11 +459,11 @@ authAPI.announcement = {
     return res.data;
   },
   update: async (id, data) => {
-    const res = await api.put('/announcements/${id}', data);
+    const res = await api.put(`/announcements/${id}`, data);
     return res.data;
   },
   delete: async (id) => {
-    const res = await api.delete('/announcements/${id}');
+    const res = await api.delete(`/announcements/${id}`);
     return res.data;
   }
 };
