@@ -473,7 +473,9 @@ const AttendanceRegularization = () => {
     },
     input: {
       padding: "8px",
-      border: "1px solid #e2e8f0",
+      borderWidth: "1px",
+      borderStyle: "solid",
+      borderColor: "#e2e8f0",
       borderRadius: "6px",
       fontSize: "14px",
     },
