@@ -732,32 +732,21 @@ const calculateLeaveSplit = (requestedDays, balances, leaveType = null) => {
   const sl = Math.max(0, balances.sick?.balance || 0);
   const pl = Math.max(0, balances.privilege?.balance || 0);
 
-  // 1. Prioritize requested leave type first if specified
-  if (leaveType === 'CL' && cl > 0) { split.clUsed = Math.min(rem, cl); rem -= split.clUsed; }
-  else if (leaveType === 'SL' && sl > 0) { split.slUsed = Math.min(rem, sl); rem -= split.slUsed; }
-  else if (leaveType === 'PL' && pl > 0) { split.plUsed = Math.min(rem, pl); rem -= split.plUsed; }
-
-  // 2. Fallback waterfall for any remaining days: CL -> SL -> PL
-  if (rem > 0 && cl - split.clUsed > 0) {
-    const avail = cl - split.clUsed;
-    const used = Math.min(rem, avail);
-    split.clUsed += used;
-    rem -= used;
+  // Strictly follow the deduction waterfall order: CL -> SL -> PL -> LOP
+  if (rem > 0 && cl > 0) {
+    split.clUsed = Math.min(rem, cl);
+    rem -= split.clUsed;
   }
-  if (rem > 0 && sl - split.slUsed > 0) {
-    const avail = sl - split.slUsed;
-    const used = Math.min(rem, avail);
-    split.slUsed += used;
-    rem -= used;
+  if (rem > 0 && sl > 0) {
+    split.slUsed = Math.min(rem, sl);
+    rem -= split.slUsed;
   }
-  if (rem > 0 && pl - split.plUsed > 0) {
-    const avail = pl - split.plUsed;
-    const used = Math.min(rem, avail);
-    split.plUsed += used;
-    rem -= used;
+  if (rem > 0 && pl > 0) {
+    split.plUsed = Math.min(rem, pl);
+    rem -= split.plUsed;
   }
 
-  // 3. LOP for the remainder (do NOT set both lopDays and negativePL)
+  // LOP for the remainder
   if (rem > 0) {
     split.lopDays = rem;
     split.negativePL = 0;

@@ -18,7 +18,7 @@ import Modal from '../../components/Modals/Modal';
 import Notification from '../../components/Notifications/Notification';
 
   // Leave types as per policy
-  const allLeaveTypes = [
+  const DEFAULT_LEAVE_TYPES = [
     { value: 'CL', label: 'Casual Leave (CL)' },
     { value: 'SL', label: 'Sick Leave (SL)' },
     { value: 'PL', label: 'Privilege Leave (PL)' },
@@ -40,7 +40,8 @@ import Notification from '../../components/Notifications/Notification';
     });
     const [fieldErrors, setFieldErrors] = useState({});
 
-    const [allowedLeaveTypes, setAllowedLeaveTypes] = useState(allLeaveTypes);
+    const [allLeaveTypes, setAllLeaveTypes] = useState(DEFAULT_LEAVE_TYPES);
+    const [allowedLeaveTypes, setAllowedLeaveTypes] = useState(DEFAULT_LEAVE_TYPES);
 
   const [totalLeaveDays, setTotalLeaveDays] = useState(0);
   const [leaveBalance, setLeaveBalance] = useState({
@@ -194,30 +195,35 @@ import Notification from '../../components/Notifications/Notification';
         PL: privilege
       };
     };
-    const loadBalanceForMe = async () => {
-      const applyVisibilityRules = (designation, monthsOfService, bereavementEnabled = false) => {
-        const isTrainee = String(designation || '').toLowerCase().includes('trainee');
-        let showCLSL = false;
-        
-        if (isTrainee) {
-          if (monthsOfService >= 12) showCLSL = true;
-        } else {
-          if (monthsOfService >= 6) showCLSL = true;
+    const fetchAndApplyPolicy = async (empId) => {
+      if (!empId) return { all: DEFAULT_LEAVE_TYPES, allowed: DEFAULT_LEAVE_TYPES };
+      try {
+        const policyRes = await leaveAPI.getPolicy(empId);
+        if (policyRes?.data) {
+          const all = Array.isArray(policyRes.data.allLeaveTypes) ? policyRes.data.allLeaveTypes : DEFAULT_LEAVE_TYPES;
+          const allowed = Array.isArray(policyRes.data.allowedLeaveTypes) ? policyRes.data.allowedLeaveTypes : DEFAULT_LEAVE_TYPES;
+          setAllLeaveTypes(all);
+          setAllowedLeaveTypes(allowed);
+          return { all, allowed };
         }
-        
-        const filtered = allLeaveTypes.filter(t => {
-          if (t.value === 'CL' || t.value === 'SL') return showCLSL;
-          if (t.value === 'BEREAVEMENT') return bereavementEnabled;
-          return true;
-        });
-        setAllowedLeaveTypes(filtered);
-        
-        // If current selected leave type is now hidden, reset to something valid or PL if available
+      } catch (err) {
+        console.error('Failed to load leave policy', err);
+      }
+      return { all: DEFAULT_LEAVE_TYPES, allowed: DEFAULT_LEAVE_TYPES };
+    };
+
+    const loadBalanceForMe = async () => {
+      const user = JSON.parse(sessionStorage.getItem('user') || '{}');
+      const empId = user.employeeId || user.employeeCode || user.empId || '';
+
+      const { allowed: currentAllowed } = await fetchAndApplyPolicy(empId);
+
+      const updateSelectedLeaveType = (allowedList) => {
         setLeaveData(prev => {
-           if (!filtered.find(t => t.value === prev.leaveType)) {
-             return { ...prev, leaveType: filtered[0]?.value || '' };
-           }
-           return prev;
+          if (!allowedList.find(t => t.value === prev.leaveType)) {
+            return { ...prev, leaveType: allowedList[0]?.value || '' };
+          }
+          return prev;
         });
       };
 
@@ -226,7 +232,7 @@ import Notification from '../../components/Notifications/Notification';
         const myRes = await leaveAPI.myBalance();
         const data = myRes?.data || {};
         if (data && data.balances) {
-          applyVisibilityRules(data.position || data.designation, data.monthsOfService || 0, data.bereavement_leave_enabled);
+          updateSelectedLeaveType(currentAllowed);
           setLeaveBalance({
             CL: data.balances.casual?.allocated || 0,
             SL: data.balances.sick?.allocated || 0,
@@ -241,15 +247,13 @@ import Notification from '../../components/Notifications/Notification';
           return;
         }
         // Fallback to generic balance list when accessible
-        const user = JSON.parse(sessionStorage.getItem('user') || '{}');
-        const empId = user.employeeId || user.employeeCode || user.empId || '';
         const res = await leaveAPI.getBalance(empId ? { employeeId: empId } : undefined);
         const items = Array.isArray(res.data) ? res.data : [];
         const mine = items.find(e => String(e.employeeId || '').toLowerCase() === String(empId || '').toLowerCase())
           || items.find(e => String(e.email || '').toLowerCase() === String(user.email || '').toLowerCase())
           || items.find(e => String(e.name || '').toLowerCase() === String(user.name || '').toLowerCase());
         if (mine && mine.balances) {
-          applyVisibilityRules(mine.position || mine.designation, mine.monthsOfService || 0, mine.bereavement_leave_enabled);
+          updateSelectedLeaveType(currentAllowed);
           setLeaveBalance({
             CL: mine.balances.casual?.allocated || 0,
             SL: mine.balances.sick?.allocated || 0,
@@ -275,7 +279,7 @@ import Notification from '../../components/Notifications/Notification';
           const m = monthsBetween(doj);
           const d = emp.designation || emp.position || emp.role || '';
           
-          applyVisibilityRules(d, m, false);
+          updateSelectedLeaveType(currentAllowed);
 
           const alloc = calculateLeaveBalances({ designation: d, monthsOfService: m });
           const myApproved = Array.isArray(myLeavesRes?.data) ? myLeavesRes.data.filter(l => l.status === 'Approved') : [];
@@ -453,7 +457,8 @@ import Notification from '../../components/Notifications/Notification';
     // Check leave balance
     // Rule: CL, SL, BEREAVEMENT cannot go negative.
     // PL can go negative (or just isn't blocked).
-    if (['CL', 'SL', 'BEREAVEMENT'].includes(leaveData.leaveType)) {
+    // Note: CL and SL are split dynamically via the waterfall logic, so we only validate BEREAVEMENT balance here.
+    if (['BEREAVEMENT'].includes(leaveData.leaveType)) {
       const available = getAvailableBalance(leaveData.leaveType);
       if (totalLeaveDays > available) {
         setWarningModal({

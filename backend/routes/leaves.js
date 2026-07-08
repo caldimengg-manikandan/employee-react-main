@@ -1828,6 +1828,72 @@ router.delete('/:id', auth, async (req, res) => {
 // EMPLOYEE LEAVE POLICY ROUTES
 // ============================================================
 
+const LEAVE_TYPES_CONFIG = [
+  {
+    value: 'PL',
+    label: 'Privilege Leave (PL)',
+    alwaysDisplay: true
+  },
+  {
+    value: 'CL',
+    label: 'Casual Leave (CL)',
+    allocationField: 'monthly_cl_allocation',
+    defaultAllocation: 0.5
+  },
+  {
+    value: 'SL',
+    label: 'Sick Leave (SL)',
+    allocationField: 'monthly_sl_allocation',
+    defaultAllocation: 0.5
+  },
+  {
+    value: 'BEREAVEMENT',
+    label: 'Bereavement Leave',
+    enabledField: 'bereavement_leave_enabled',
+    defaultEnabled: false
+  },
+  {
+    value: 'REGIONAL_HOLIDAY',
+    label: 'Regional Holiday',
+    alwaysDisplay: true
+  }
+];
+
+function getLeaveTypesForPolicy(policy) {
+  const allLeaveTypes = LEAVE_TYPES_CONFIG.map(t => ({
+    value: t.value,
+    label: t.label
+  }));
+
+  const allowedLeaveTypes = [];
+
+  for (const config of LEAVE_TYPES_CONFIG) {
+    let allowed = false;
+    if (config.alwaysDisplay) {
+      allowed = true;
+    } else if (config.allocationField) {
+      const val = policy ? policy[config.allocationField] : config.defaultAllocation;
+      if (typeof val === 'number' && val > 0) {
+        allowed = true;
+      }
+    } else if (config.enabledField) {
+      const val = policy ? policy[config.enabledField] : config.defaultEnabled;
+      if (val === true) {
+        allowed = true;
+      }
+    }
+
+    if (allowed) {
+      allowedLeaveTypes.push({
+        value: config.value,
+        label: config.label
+      });
+    }
+  }
+
+  return { allLeaveTypes, allowedLeaveTypes };
+}
+
 // GET: Fetch leave policy for a specific employee
 router.get('/policy/:employeeId', auth, async (req, res) => {
   try {
@@ -1850,22 +1916,25 @@ router.get('/policy/:employeeId', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
     const policy = await EmployeeLeavePolicy.findOne({ employeeId: req.params.employeeId }).lean();
-    if (!policy) {
-      // Return defaults
-      return res.json({
-        employeeId: req.params.employeeId,
-        monthly_cl_allocation: 0.5,
-        cl_carry_forward: true,
-        monthly_sl_allocation: 0.5,
-        sl_carry_forward: true,
-        monthly_pl_allocation: 1.25,
-        pl_carry_forward: true,
-        bereavement_leave_enabled: false,
-        monthly_bereavement_allocation: 0,
-        isDefault: true
-      });
-    }
-    res.json(policy);
+    const policyObj = policy || {
+      employeeId: req.params.employeeId,
+      monthly_cl_allocation: 0.5,
+      cl_carry_forward: true,
+      monthly_sl_allocation: 0.5,
+      sl_carry_forward: true,
+      monthly_pl_allocation: 1.25,
+      pl_carry_forward: true,
+      bereavement_leave_enabled: false,
+      monthly_bereavement_allocation: 0,
+      isDefault: true
+    };
+
+    const { allLeaveTypes, allowedLeaveTypes } = getLeaveTypesForPolicy(policyObj);
+    res.json({
+      ...policyObj,
+      allLeaveTypes,
+      allowedLeaveTypes
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
