@@ -64,7 +64,7 @@ const syncCompensationToEmployeeAndPayroll = async (emp) => {
         designation: comp.designation,
         department: comp.department,
         location: comp.location || emp.location || 'Chennai',
-        dateOfJoining: comp.effectiveDate || emp.dateOfJoining,
+        dateOfJoining: emp.dateOfJoining || comp.effectiveDate,
         employmentType: "Permanent",
         basicDA,
         hra,
@@ -96,7 +96,7 @@ const syncCompensationToEmployeeAndPayroll = async (emp) => {
         emp._id,
         {
           $set: {
-            dateOfJoining: payrollData.dateOfJoining,
+            dateOfJoining: emp.dateOfJoining || payrollData.dateOfJoining,
             basicDA: payrollData.basicDA,
             hra: payrollData.hra,
             specialAllowance: payrollData.specialAllowance,

@@ -49,7 +49,7 @@ const buildPayrollData = (comp, employee) => {
     designation: comp.designation,
     department: comp.department,
     location: comp.location || employee.location || 'Chennai',
-    dateOfJoining: comp.effectiveDate || employee.dateOfJoining,
+    dateOfJoining: employee.dateOfJoining || comp.effectiveDate,
     employmentType: "Permanent",
     basicDA,
     hra,
@@ -116,7 +116,7 @@ router.post("/", async (req, res) => {
           { employeeId: employee.employeeId },
           {
             $set: {
-              dateOfJoining: compensation.effectiveDate,
+              dateOfJoining: employee.dateOfJoining || compensation.effectiveDate,
               basicDA: payrollData.basicDA,
               hra: payrollData.hra,
               specialAllowance: payrollData.specialAllowance,
@@ -194,7 +194,7 @@ router.put("/:id", async (req, res) => {
           { employeeId: employee.employeeId },
           {
             $set: {
-              dateOfJoining: updated.effectiveDate,
+              dateOfJoining: employee.dateOfJoining || updated.effectiveDate,
               basicDA: payrollData.basicDA,
               hra: payrollData.hra,
               specialAllowance: payrollData.specialAllowance,

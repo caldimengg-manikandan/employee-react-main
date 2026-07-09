@@ -584,7 +584,30 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       updatedData.highestQualification = newValue;
     }
 
-
+    // Calculate current experience when dateOfJoining changes
+    if (field === 'dateOfJoining' && newValue) {
+      const today = new Date();
+      const joiningDate = new Date(newValue);
+      const experienceInMilliseconds = today - joiningDate;
+      const experienceInYears = experienceInMilliseconds / (1000 * 60 * 60 * 24 * 365.25);
+      if (experienceInYears > 0) {
+        const years = Math.floor(experienceInYears);
+        const months = Math.floor((experienceInYears - years) * 12);
+        let experienceText = '';
+        if (years > 0) {
+          experienceText += `${years} year${years > 1 ? 's' : ''}`;
+        }
+        if (months > 0) {
+          experienceText += `${years > 0 ? ' ' : ''}${months} month${months > 1 ? 's' : ''}`;
+        }
+        if (!experienceText) {
+          experienceText = 'Less than 1 month';
+        }
+        updatedData.currentExperience = experienceText;
+      } else {
+        updatedData.currentExperience = '0 years';
+      }
+    }
 
     // Update marital status in state when formData changes
     if (field === 'maritalStatus') {

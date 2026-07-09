@@ -236,6 +236,11 @@ const EmployeeManagement = () => {
     months -= joinDate.getMonth();
     months += today.getMonth();
 
+    // Check if the current day of the month is less than the join day of the month
+    if (today.getDate() < joinDate.getDate()) {
+      months--;
+    }
+
     if (months < 0) months = 0;
 
     const years = Math.floor(months / 12);
