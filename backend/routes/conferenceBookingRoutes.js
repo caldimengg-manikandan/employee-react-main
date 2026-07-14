@@ -97,6 +97,110 @@ function minToTime(min) {
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
+async function sendBookingSubmittedEmail(booking, employee) {
+  try {
+    const { sendZohoMail } = require("../zohoMail.service");
+    
+    // Find active Team Leads, Project Managers, Admin Managers, and General Managers
+    const leadsAndManagers = await Employee.find({
+      status: "Active",
+      $or: [
+        { designation: { $regex: /team\s*lead|project\s*manager|admin\s*manager|general\s*manager/i } },
+        { position: { $regex: /team\s*lead|project\s*manager|admin\s*manager|general\s*manager/i } }
+      ]
+    }).select("name designation email officialEmail");
+
+    // Map to officialEmail or email, trim and filter empty ones
+    const recipientEmails = [...new Set(leadsAndManagers
+      .map(e => (e.officialEmail || e.email || "").trim())
+      .filter(Boolean)
+    )];
+
+    if (recipientEmails.length === 0) {
+      console.log("⚠️ No lead/manager emails found to notify.");
+      return;
+    }
+
+    console.log(`📧 Sending booking notification to leads/managers: ${recipientEmails.join(", ")}`);
+
+    const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    const formatTime12h = (timeStr) => {
+      const [h, m] = timeStr.split(":");
+      const hour = parseInt(h);
+      const ampm = hour >= 12 ? "PM" : "AM";
+      const displayHour = hour % 12 || 12;
+      return `${displayHour}:${m} ${ampm}`;
+    };
+
+    const timeRange = `${formatTime12h(booking.startTime)} - ${formatTime12h(booking.endTime)}`;
+
+    const subject = `New Office Sync Booking: ${booking.title} by ${booking.bookedByName}`;
+    const html = `
+      <div style="font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; max-width: 750px; margin: 0 auto; border: 1px solid #e0e0e0; border-radius: 8px; color: #333;">
+        <h2 style="color: #4F46E5; margin-top: 0; padding-bottom: 10px; border-bottom: 2px solid #4F46E5;">Office Sync - New Booking Request</h2>
+        <p style="font-size: 16px; margin-bottom: 20px;">A new booking request has been submitted for the conference room.</p>
+        
+        <div style="background: #f8f9fa; padding: 15px; border-radius: 6px; margin-bottom: 20px;">
+          <h3 style="color: #4F46E5; margin-top: 0; margin-bottom: 12px; font-size: 16px;">Booking Details</h3>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; color: #666; width: 150px;"><strong>Title:</strong></td>
+              <td style="padding: 8px 0; color: #333;">${booking.title}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #666;"><strong>Booked By:</strong></td>
+              <td style="padding: 8px 0; color: #333;">${booking.bookedByName} (${employee?.designation || 'TL/Manager'})</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #666;"><strong>Division:</strong></td>
+              <td style="padding: 8px 0; color: #333;">${booking.division}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #666;"><strong>Location:</strong></td>
+              <td style="padding: 8px 0; color: #333;">${booking.location}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #666;"><strong>Date:</strong></td>
+              <td style="padding: 8px 0; color: #333;">${formattedDate}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #666;"><strong>Time Slot:</strong></td>
+              <td style="padding: 8px 0; color: #333; font-weight: bold; color: #4F46E5;">${timeRange}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #666; vertical-align: top;"><strong>Reason:</strong></td>
+              <td style="padding: 8px 0; color: #333;">${booking.reason || "-"}</td>
+            </tr>
+          </table>
+        </div>
+        
+        <p style="font-size: 14px; color: #666;">This is an automated notification sent to all Team Leads, Project Managers, Admin Managers, and General Managers.</p>
+        
+        <div style="margin-top: 30px; padding-top: 15px; border-top: 1px solid #e0e0e0; color: #999; font-size: 12px; text-align: center;">
+          <p>© ${new Date().getFullYear()} Caldim Engineering. All rights reserved.</p>
+        </div>
+      </div>
+    `;
+
+    await sendZohoMail({
+      to: recipientEmails.join(", "),
+      subject,
+      content: `New Office Sync Booking: ${booking.title} by ${booking.bookedByName}\nDate: ${formattedDate}\nTime: ${timeRange}\nReason: ${booking.reason || '-'}`,
+      html
+    });
+
+    console.log("✅ Office Sync booking notification email sent successfully.");
+  } catch (err) {
+    console.error("❌ Failed to send Office Sync booking email:", err.message);
+  }
+}
+
 // 1. Get all bookings
 router.get("/", auth, async (req, res) => {
   try {
@@ -256,6 +360,9 @@ router.post("/", auth, async (req, res) => {
       status: initialStatus,
       reason
     });
+
+    // Send email notification asynchronously in the background
+    sendBookingSubmittedEmail(booking, employee);
 
     res.status(201).json(booking);
   } catch (err) {
