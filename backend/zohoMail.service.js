@@ -2,25 +2,32 @@ const nodemailer = require("nodemailer");
 
 async function sendZohoMail({ to, cc, subject, content, html, attachments }) {
   try {
+    const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.zoho.com";
+    const port = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) || 465;
+    const secure = port === 465;
+    const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const pass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
+    const from = process.env.SMTP_FROM || user;
+
     const transporter = nodemailer.createTransport({
-      host: process.env.EMAIL_HOST || "smtp.zoho.com",
-      port: process.env.EMAIL_PORT || 465,
-      secure: true, // true for 465, false for other ports
+      host,
+      port,
+      secure,
       auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user,
+        pass,
       },
     });
 
     console.log("Sending mail with options:", {
-      from: process.env.EMAIL_USER,
+      from,
       to,
       subject,
       attachmentCount: attachments ? attachments.length : 0
     });
 
     const mailOptions = {
-      from: process.env.EMAIL_USER, // sender address
+      from: from, // sender address
       to: to, // list of receivers
       cc: cc, // CC receivers
       subject: subject, // Subject line

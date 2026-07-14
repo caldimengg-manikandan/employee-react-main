@@ -10,12 +10,12 @@ const nodemailer = require("nodemailer");
 const auth = require("../middleware/auth");
 
 const mailer = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT) || 465,
-  secure: (Number(process.env.EMAIL_PORT) || 465) === 465,
+  host: process.env.SMTP_HOST || process.env.EMAIL_HOST,
+  port: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) || 465,
+  secure: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 465) === 465,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: process.env.SMTP_USER || process.env.EMAIL_USER,
+    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS
   }
 });
 
@@ -30,7 +30,7 @@ async function sendStatusEmail(updatedDoc, status) {
   try {
     const to = await getEmployeeEmail(updatedDoc.employeeId);
     if (!to) return { success: false, error: "No employee email" };
-    const from = "support@caldimengg.in";
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || "support@caldimengg.in";
     const subject = `Timesheet ${status} - ${updatedDoc.week}`;
     const html = `
       <div style="font-family:Arial,sans-serif;line-height:1.6;padding:20px;max-width:700px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;">

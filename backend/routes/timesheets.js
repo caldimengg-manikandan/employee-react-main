@@ -19,12 +19,12 @@ router.use(auth);
 
 // Create mailer transport
 const mailer = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT) || 465,
-  secure: (Number(process.env.EMAIL_PORT) || 465) === 465,
+  host: process.env.SMTP_HOST || process.env.EMAIL_HOST,
+  port: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) || 465,
+  secure: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 465) === 465,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: process.env.SMTP_USER || process.env.EMAIL_USER,
+    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS
   }
 });
 
@@ -125,7 +125,7 @@ async function sendTimesheetApprovalRequestEmail(user, sheet) {
         </div>
       </div>`;
 
-    const from = "support@caldimengg.in";
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || "support@caldimengg.in";
     const subject = `Timesheet Submitted - Awaiting Approval (${weekStr})`;
     const html = approvalBanner + baseHtml;
     const mailOptions = { from: `"Timesheet System" <${from}>`, to: recipients.join(""), subject, html };
@@ -245,7 +245,7 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
       }
     } catch (_) { }
 
-    const from = "support@caldimengg.in";
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || "support@caldimengg.in";
     const subject = `Timesheet Submitted - ${weekStr}`;
     const html = `
       <div style="font-family:Arial,sans-serif;line-height:1.6;padding:20px;max-width:900px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;">
@@ -448,7 +448,7 @@ async function sendPermissionUsageEmail(user, sheet) {
     }
 
     const monthName = start.toLocaleString('en-US', { month: 'long', year: 'numeric' });
-    const from = 'support@caldimengg.in';
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER || "support@caldimengg.in";
     const subject = `Permission Usage Update - ${monthName}`;
     const html = `
       <div style="font-family:Arial,sans-serif;line-height:1.6;padding:20px;max-width:600px;margin:0 auto;border:1px solid #e0e0e0;border-radius:8px;">
@@ -862,22 +862,28 @@ router.get("/test-email", auth, async (req, res) => {
     console.log("🧪 Testing email configuration...");
 
     // Verify environment variables
-    const requiredEnvVars = ['EMAIL_HOST', 'EMAIL_USER', 'EMAIL_PASS'];
-    const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+    const hasHost = process.env.SMTP_HOST || process.env.EMAIL_HOST;
+    const hasUser = process.env.SMTP_USER || process.env.EMAIL_USER;
+    const hasPass = process.env.SMTP_PASS || process.env.EMAIL_PASS;
 
-    if (missingEnvVars.length > 0) {
+    if (!hasHost || !hasUser || !hasPass) {
+      const missing = [];
+      if (!hasHost) missing.push('SMTP_HOST or EMAIL_HOST');
+      if (!hasUser) missing.push('SMTP_USER or EMAIL_USER');
+      if (!hasPass) missing.push('SMTP_PASS or EMAIL_PASS');
       return res.status(500).json({
         success: false,
         message: "Missing email configuration",
-        missing: missingEnvVars
+        missing
       });
     }
 
     console.log("📧 Environment variables check:", {
-      EMAIL_HOST: process.env.EMAIL_HOST ? "Set ✓" : "Not set",
-      EMAIL_PORT: process.env.EMAIL_PORT || "465 (default)",
-      EMAIL_USER: process.env.EMAIL_USER ? "Set ✓" : "Not set",
-      EMAIL_PASS: process.env.EMAIL_PASS ? "Set ✓" : "Not set"
+      host: hasHost ? "Set ✓" : "Not set",
+      port: process.env.SMTP_PORT || process.env.EMAIL_PORT || "465 (default)",
+      user: hasUser ? "Set ✓" : "Not set",
+      pass: hasPass ? "Set ✓" : "Not set",
+      from: process.env.SMTP_FROM || process.env.EMAIL_USER || "Not set"
     });
 
     // Create a dummy timesheet for testing

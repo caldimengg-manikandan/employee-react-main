@@ -64,12 +64,12 @@ async function getTeamManagementAssignmentSets(userEmployeeId) {
 }
 
 const mailer = nodemailer.createTransport({
-  host: process.env.EMAIL_HOST,
-  port: Number(process.env.EMAIL_PORT) || 465,
-  secure: (Number(process.env.EMAIL_PORT) || 465) === 465,
+  host: process.env.SMTP_HOST || process.env.EMAIL_HOST,
+  port: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) || 465,
+  secure: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 465) === 465,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS
+    user: process.env.SMTP_USER || process.env.EMAIL_USER,
+    pass: process.env.SMTP_PASS || process.env.EMAIL_PASS
   }
 });
 
@@ -156,7 +156,7 @@ async function sendLeaveSubmissionEmail(createdDoc, user, employeeProfile) {
     const hrRecipients = await getHrRecipients(employeeProfile || {});
     const recipients = Array.from(new Set([...(pmRecipients || []), ...(hrRecipients || [])]));
     if (!recipients.length) return { success: false, error: 'No recipients' };
-    const from = process.env.EMAIL_USER;
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER;
     const subject = `Leave Request Submitted: ${createdDoc.employeeName} (${employeeProfile?.division || '-'})`;
     const start = new Date(createdDoc.startDate).toISOString().split('T')[0];
     const end = new Date(createdDoc.endDate).toISOString().split('T')[0];
@@ -213,7 +213,7 @@ async function sendLeaveStatusEmail(updatedDoc) {
   try {
     const to = await getEmployeeEmailForLeave(updatedDoc);
     if (!to) return { success: false, error: 'No employee email' };
-    const from = process.env.EMAIL_USER;
+    const from = process.env.SMTP_FROM || process.env.SMTP_USER || process.env.EMAIL_USER;
     const status = updatedDoc.status;
     const subject = `Leave ${status}: ${updatedDoc.employeeName}`;
     const start = new Date(updatedDoc.startDate).toISOString().split('T')[0];
