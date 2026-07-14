@@ -33,13 +33,30 @@ router.post("/", auth, async (req, res) => {
 
     const requestId = await generateRequestId();
 
-    const userRole = req.user.role;
-    if (!["admin", "projectmanager", "project_manager", "teamlead"].includes(userRole)) {
-      return res.status(403).json({ message: "Not authorized to create requests" });
-    }
+    const userRole = String(req.user.role || '').toLowerCase();
+    const isAdmin = userRole === "admin";
 
-    // Get created by name
+    // Find creator employee record
     const creator = await Employee.findOne({ employeeId: req.user.employeeId });
+
+    if (!isAdmin) {
+      if (!creator) {
+        return res.status(403).json({ message: "Employee profile not found. Request creation denied." });
+      }
+
+      const creatorDesignation = (creator.designation || "").trim().toLowerCase();
+      const allowedDesignations = [
+        "team lead",
+        "sr. team lead",
+        "sr team lead",
+        "assistant project manager",
+        "asst project manager"
+      ];
+
+      if (!allowedDesignations.includes(creatorDesignation)) {
+        return res.status(403).json({ message: "Not authorized to create requests. Only Team Lead, Sr. Team Lead, and Assistant Project Manager can create requests." });
+      }
+    }
 
     const status = "Pending HR Approval";
 
@@ -55,12 +72,12 @@ router.post("/", auth, async (req, res) => {
       employees,
       remarks,
       status,
-      createdBy: req.user.employeeId,
-      createdByName: creator ? creator.name : req.user.employeeId,
+      createdBy: req.user.employeeId || "Admin",
+      createdByName: creator ? creator.name : (req.user.name || req.user.employeeId || "Admin"),
       timeline: [
         {
           status: "Created",
-          updatedBy: creator ? creator.name : req.user.employeeId,
+          updatedBy: creator ? creator.name : (req.user.name || req.user.employeeId || "Admin"),
           remarks: "Request created and submitted for HR approval",
         },
       ],
@@ -115,7 +132,7 @@ router.get("/", auth, async (req, res) => {
     }
 
     const { status, startDate, endDate } = req.query;
-    const userRole = req.user.role;
+    const userRole = String(req.user.role || '').toLowerCase();
     const employeeId = req.user.employeeId;
 
     let filter = {};
@@ -130,21 +147,31 @@ router.get("/", auth, async (req, res) => {
       filter.workingDate = { $lte: new Date(endDate) };
     }
 
-    // Role based access
-    if (userRole === "employees") {
-      // Employees see requests they created OR requests they are part of
-      filter.$or = [
-        { createdBy: req.user._id },
-        { "employees.employeeId": employeeId }
+    // Role & designation based access control
+    const isHR = ["hr", "admin"].includes(userRole);
+    const isGM = ["manager", "director"].includes(userRole);
+
+    if (!isHR && !isGM) {
+      // Find logged-in user's employee record to check designation
+      const emp = await Employee.findOne({ employeeId: req.user.employeeId });
+      const designation = emp ? (emp.designation || "").trim().toLowerCase() : "";
+
+      const allowedCreators = [
+        "team lead",
+        "sr. team lead",
+        "sr team lead",
+        "assistant project manager",
+        "asst project manager"
       ];
-    } else if (["projectmanager", "project_manager"].includes(userRole)) {
-      // TLs see their own requests or requests they are part of
-      filter.$or = [
-        { createdBy: employeeId },
-        { "employees.employeeId": employeeId },
-      ];
+
+      if (allowedCreators.includes(designation)) {
+        // PM/TL see requests created by themselves
+        filter.createdBy = req.user.employeeId;
+      } else {
+        // Regular employees view requests they are added to
+        filter["employees.employeeId"] = req.user.employeeId;
+      }
     }
-    // HR, Admin, Director see all
 
     const requests = await HolidayWorkingRequest.find(filter).sort({ createdAt: -1 });
     res.json({ success: true, data: requests });

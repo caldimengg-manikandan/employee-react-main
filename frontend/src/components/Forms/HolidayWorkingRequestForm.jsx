@@ -22,9 +22,31 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
 
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
 
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
+
   useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const response = await api.get("/employees/me");
+        setCurrentUserProfile(response.data);
+        
+        // Auto-fill division from user's employee profile if not editing
+        if (!initialData && response.data && response.data.division) {
+          setFormData(prev => ({
+            ...prev,
+            division: response.data.division
+          }));
+        }
+      } catch (err) {
+        console.error("Failed to fetch my profile:", err);
+      }
+    };
+    fetchProfile();
     fetchEmployees();
     fetchProjectsAndAllocations();
+  }, []);
+
+  useEffect(() => {
     if (initialData) {
       setFormData({
         workingDate: initialData.workingDate ? new Date(initialData.workingDate).toISOString().split('T')[0] : "",
@@ -36,25 +58,20 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
         remarks: initialData.remarks || "",
       });
       setSelectedEmployees(initialData.employees || []);
-    } else {
-      // Auto-fill division/dept from creator if possible
-      setFormData(prev => ({
-        ...prev,
-        division: user.division || "",
-      }));
     }
   }, [initialData]);
 
   const fetchEmployees = async () => {
     try {
       setLoadingEmployees(true);
-      // Fetching all employees or employees under this TL
-      const isPrivileged = ["hr", "admin", "manager", "director"].includes(user.role?.toLowerCase());
-      const endpoint = isPrivileged ? "/employees?status=Active" : "/teams/my-team";
+      const isAdmin = user.role?.toLowerCase() === "admin";
+      // Admin fetches all active employees, PM/TL fetches only their division's active employees
+      const endpoint = isAdmin ? "/employees?status=Active" : "/employees?status=Active&byDivision=true";
       const response = await api.get(endpoint);
-      if (response.data.success || Array.isArray(response.data)) {
-        const emps = response.data.data || response.data;
-        setAllEmployees(emps || []);
+      if (Array.isArray(response.data)) {
+        setAllEmployees(response.data);
+      } else if (response.data?.success && Array.isArray(response.data.data)) {
+        setAllEmployees(response.data.data);
       } else {
         setAllEmployees([]);
       }
@@ -181,19 +198,36 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
     }
   };
 
-  const uniqueDivisions = Array.from(new Set(allEmployees.map(e => e.division).filter(Boolean))).sort();
+  const isAdmin = user.role?.toLowerCase() === "admin";
+  const availableDivisions = isAdmin 
+    ? ["SDS", "TEKLA", "DAS (Software)", "HR/Admin"] 
+    : (currentUserProfile?.division ? [currentUserProfile.division] : []);
 
   const uniqueFilteredProjects = Array.from(
     new Set(
       allProjects
-        .filter(p => p.division === formData.division)
+        .filter(p => {
+          const projDiv = (p.division || "").replace(/\s+/g, "").toLowerCase();
+          const formDiv = (formData.division || "").replace(/\s+/g, "").toLowerCase();
+          if ((projDiv === 'das(software)' || projDiv === 'dassoftware') && (formDiv === 'das(software)' || formDiv === 'dassoftware')) {
+            return true;
+          }
+          return projDiv === formDiv;
+        })
         .map(p => p.name)
         .filter(Boolean)
     )
   ).sort();
 
   const displayedEmployees = formData.division
-    ? allEmployees.filter(emp => emp.division === formData.division)
+    ? allEmployees.filter(emp => {
+        const empDiv = (emp.division || "").replace(/\s+/g, "").toLowerCase();
+        const formDiv = (formData.division || "").replace(/\s+/g, "").toLowerCase();
+        if ((empDiv === 'das(software)' || empDiv === 'dassoftware') && (formDiv === 'das(software)' || formDiv === 'dassoftware')) {
+          return true;
+        }
+        return empDiv === formDiv;
+      })
     : [];
 
   if (!isOpen) return null;
@@ -250,10 +284,11 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
                   required
                   value={formData.division}
                   onChange={handleDivisionChange}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+                  disabled={!isAdmin}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white disabled:bg-gray-100 disabled:text-gray-400"
                 >
                   <option value="">Select Division</option>
-                  {uniqueDivisions.map(div => (
+                  {availableDivisions.map(div => (
                     <option key={div} value={div}>{div}</option>
                   ))}
                 </select>
@@ -313,26 +348,40 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Select Employees *</label>
-              <div className="border border-gray-300 rounded-lg p-4 max-h-48 overflow-y-auto bg-gray-50">
+              <div className="border border-gray-300 rounded-lg p-4 max-h-[300px] overflow-y-auto bg-gray-50">
                 {loadingEmployees ? (
                   <p className="text-sm text-gray-500 text-center">Loading employees...</p>
                 ) : allEmployees.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center">No employees found in your team.</p>
+                  <p className="text-sm text-gray-500 text-center">No active employees found.</p>
                 ) : !formData.division ? (
                   <p className="text-sm text-gray-500 text-center">Please select a division to view employees.</p>
                 ) : displayedEmployees.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center">No employees found in this division.</p>
+                  <p className="text-sm text-gray-500 text-center">No active employees found in this division.</p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     {displayedEmployees.map((emp) => (
-                      <label key={emp.employeeId} className="flex items-center space-x-2 bg-white p-2 rounded border border-gray-200 cursor-pointer hover:bg-indigo-50">
+                      <label key={emp.employeeId} className="flex items-start space-x-3 bg-white p-3 rounded-lg border border-gray-200 cursor-pointer hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm">
                         <input
                           type="checkbox"
                           checked={selectedEmployees.some(e => e.employeeId === emp.employeeId)}
                           onChange={() => handleEmployeeToggle(emp.employeeId)}
-                          className="rounded text-indigo-600 focus:ring-indigo-500"
+                          className="rounded text-indigo-600 focus:ring-indigo-500 mt-1"
                         />
-                        <span className="text-sm text-gray-700 truncate" title={emp.name}>{emp.name} ({emp.employeeId})</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-gray-900 truncate" title={emp.name}>{emp.name}</p>
+                          <p className="text-xs text-gray-500 font-medium">ID: {emp.employeeId}</p>
+                          <p className="text-[11px] text-indigo-600 font-semibold truncate" title={emp.designation || "No Designation"}>
+                            {emp.designation || "No Designation"}
+                          </p>
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 border border-gray-200">
+                              {emp.department || "N/A"}
+                            </span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-50 text-blue-800 border border-blue-100">
+                              {emp.division || "N/A"}
+                            </span>
+                          </div>
+                        </div>
                       </label>
                     ))}
                   </div>

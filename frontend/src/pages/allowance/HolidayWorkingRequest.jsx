@@ -26,12 +26,38 @@ const HolidayWorkingRequest = () => {
     setIsVerifyOpen(true);
   };
 
+  const [currentUserProfile, setCurrentUserProfile] = useState(null);
+
   const user = JSON.parse(sessionStorage.getItem("user") || "{}");
   const userRole = user.role?.toLowerCase() || "";
-  const isManagerOrTL = ["projectmanager", "project_manager", "teamlead", "admin"].includes(userRole);
-  const canEditDelete = ["projectmanager", "project_manager", "teamlead", "admin"].includes(userRole);
+  const isAdmin = userRole === "admin";
   const isHR = ["hr", "admin"].includes(userRole);
   const isGM = ["manager", "director"].includes(userRole);
+
+  const userDesignation = (currentUserProfile?.designation || "").trim().toLowerCase();
+  const allowedDesignations = [
+    "team lead",
+    "sr. team lead",
+    "sr team lead",
+    "assistant project manager",
+    "asst project manager"
+  ];
+  
+  const isAllowedToCreate = allowedDesignations.includes(userDesignation) || isAdmin;
+  const isManagerOrTL = isAllowedToCreate;
+  const canEditDelete = isAllowedToCreate || isAdmin;
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await api.get("/employees/me");
+        setCurrentUserProfile(res.data);
+      } catch (err) {
+        console.error("Failed to load user profile:", err);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   useEffect(() => {
     fetchRequests();

@@ -149,7 +149,7 @@ async function getTeamManagementAssignmentSets(userEmployeeId) {
 // Get all employees - restricted based on user permissions
 router.get('/', auth, async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, byDivision, division } = req.query;
     let query = {};
 
     // Default to Active if no status provided and not requesting 'all'
@@ -159,22 +159,62 @@ router.get('/', auth, async (req, res) => {
       query.status = 'Active';
     }
 
+    const getDivisionQueryValue = (div) => {
+      if (!div) return div;
+      const normalized = div.replace(/\s+/g, '').toLowerCase();
+      if (normalized === 'das(software)' || normalized === 'dassoftware') {
+        return { $in: ['DAS(Software)', 'DAS (Software)'] };
+      }
+      return div;
+    };
+
     const roleLower = String(req.user.role || '').toLowerCase();
+    
+    // Fetch logged-in user employee profile to determine division and designation
+    const loggedInEmp = await Employee.findOne({ employeeId: req.user.employeeId });
+    const empDesignation = loggedInEmp ? (loggedInEmp.designation || "").trim().toLowerCase() : "";
+    const allowedDesignations = [
+      "team lead",
+      "sr. team lead",
+      "sr team lead",
+      "assistant project manager",
+      "asst project manager"
+    ];
+
     const hasFullAccess = req.user.permissions?.includes('employee_access') ||
       ['admin', 'director', 'manager'].includes(roleLower);
 
     // Full access for users with employee_access or admin/director/GM roles
     if (hasFullAccess) {
+      if (byDivision === 'true') {
+        if (division) {
+          query.division = getDivisionQueryValue(division);
+        } else {
+          if (loggedInEmp && loggedInEmp.division) {
+            query.division = getDivisionQueryValue(loggedInEmp.division);
+          }
+        }
+      }
       const employees = await Employee.find(query).sort({ createdAt: -1 });
       return res.json(employees);
     }
 
-    const isPM = ['projectmanager', 'project_manager', 'teamlead'].includes(roleLower);
+    const isPM = ['projectmanager', 'project_manager', 'teamlead'].includes(roleLower) || allowedDesignations.includes(empDesignation);
     if (isPM) {
-      const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
-      // Ensure they only see their assigned team members + themselves
-      const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
-      query.employeeId = { $in: allowedIds };
+      if (byDivision === 'true') {
+        // PM/TL should only be able to query active employees in their own division
+        if (loggedInEmp && loggedInEmp.division) {
+          query.division = getDivisionQueryValue(loggedInEmp.division);
+        } else {
+          // If no division, return empty list to protect other divisions
+          return res.json([]);
+        }
+      } else {
+        const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+        // Ensure they only see their assigned team members + themselves
+        const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
+        query.employeeId = { $in: allowedIds };
+      }
 
       const employees = await Employee.find(query, {
         'name': 1,
