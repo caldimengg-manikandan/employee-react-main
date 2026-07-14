@@ -110,9 +110,9 @@ async function sendBookingSubmittedEmail(booking, employee) {
       ]
     }).select("name designation email officialEmail");
 
-    // Map to officialEmail or email, trim and filter empty ones
+    // Map ONLY to officialEmail, trim and filter empty ones
     const recipientEmails = [...new Set(leadsAndManagers
-      .map(e => (e.officialEmail || e.email || "").trim())
+      .map(e => (e.officialEmail || "").trim())
       .filter(Boolean)
     )];
 
