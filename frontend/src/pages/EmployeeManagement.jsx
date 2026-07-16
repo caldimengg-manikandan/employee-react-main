@@ -40,7 +40,8 @@ const DIVISION_DESIGNATION_MAP = {
     'Asst Project Manager',
     'Sr Project Manager',
     'System Engineer',
-    'Trainee'
+    'Trainee',
+    'Delivery Manager'
   ],
   'HR/Admin': [
     'Office Assistant',
@@ -50,13 +51,15 @@ const DIVISION_DESIGNATION_MAP = {
   'DAS(Software)': [
     'Software Developer',
     'System Engineer',
-    'Trainee'
+    'Trainee',
+    'Delivery Manager'
   ],
   Electrical: ['Sr.Engineer', 'Trainee'],
   Management: [
     'Managing Director (MD)',
     'General Manager (GM)',
-    'Branch Manager'
+    'Branch Manager',
+    'Delivery Manager'
   ]
 };
 

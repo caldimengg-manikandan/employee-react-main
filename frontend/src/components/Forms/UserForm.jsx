@@ -91,7 +91,8 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         { key: 'loan_summary', label: 'Loan Summary' },
         { key: 'gratuity_summary', label: 'Gratuity Summary' },
         { key: 'monthly_payroll', label: 'Monthly Payroll' },
-        { key: 'marriage_allowance', label: 'Marriage Allowance' }
+        { key: 'marriage_allowance', label: 'Marriage Allowance' },
+        { key: 'referral_bonus', label: 'Referral Bonus' }
       ]
     },
     {

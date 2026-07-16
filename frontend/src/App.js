@@ -55,6 +55,7 @@ import LoanSummary from "./pages/payroll/LoanSummary";
 import GratuitySummary from "./pages/payroll/GratuitySummary";
 import MonthlyPayroll from "./pages/payroll/MonthlyPayroll";
 import MarriageAllowance from "./pages/payroll/MarriageAllowance";
+import ReferralBonus from "./pages/payroll/ReferralBonus";
 import AnnouncementManagement from "./pages/announcements/AnnouncementManagement";
 import InternReference from "./pages/internship/InternReference";
 import AssetManagement from "./pages/assets/AssetManagement";
@@ -503,6 +504,14 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["payroll_access", "marriage_allowance"]} roles={["admin", "hr", "finance", "manager", "director"]}>
                   <MarriageAllowance />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="payroll/referral-bonus"
+              element={
+                <ProtectedRoute requiredPermissions={["payroll_access", "referral_bonus"]} roles={["admin", "hr", "finance", "manager", "director"]}>
+                  <ReferralBonus />
                 </ProtectedRoute>
               }
             />

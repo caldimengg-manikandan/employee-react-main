@@ -570,7 +570,7 @@ const ReviewerApproval = () => {
     const r = String(rating || '').split(' (')[0]; // Extract ES, ME, BE from "ES (4.5/5)"
 
     // Category 1: Admin, Sr/Asst PM, Branch Mgr
-    if (d.includes('admin manager') || d.includes('asst project manager') || d.includes('sr project manager') || d.includes('branch manager')) {
+    if (d.includes('admin manager') || d.includes('asst project manager') || d.includes('sr project manager') || d.includes('branch manager') || d.includes('delivery manager')) {
       if (r === 'ES') return 8;
       if (r === 'ME') return 4;
       if (r === 'BE') return 2;

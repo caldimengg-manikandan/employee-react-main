@@ -100,7 +100,7 @@ export const getWorkflowForUser = (department, role) => {
 export const COMPENSATION_MATRIX = {
   // Group 1: Senior Project Manager, Project Manager
   'Managerial': {
-    roles: ['Senior Project Manager', 'Project Manager'],
+    roles: ['Senior Project Manager', 'Project Manager', 'Delivery Manager'],
     'Below Target': { ES: 5, ME: 3, BE: 2 },
     'Met Target': { ES: 8, ME: 4, BE: 2 },
     '1.25 X Target': { ES: 10, ME: 6, BE: 3 },

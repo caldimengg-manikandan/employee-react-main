@@ -282,7 +282,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         { name: "Loan Summary", path: "/payroll/loan-summary", permission: "loan_summary", showForRoles: ["admin", "hr", "finance"] },
         { name: "Gratuity Summary", path: "/payroll/gratuity-summary", permission: "gratuity_summary", showForRoles: ["admin", "hr", "finance"] },
         { name: "Monthly Payroll", path: "/payroll/monthly", permission: "monthly_payroll", showForRoles: ["admin", "hr", "finance"], allowEmployeeRole: false },
-        { name: "Marriage Allowance", path: "/payroll/marriage-allowance", permission: "marriage_allowance", showForRoles: ["admin", "hr", "finance"] }
+        { name: "Marriage Allowance", path: "/payroll/marriage-allowance", permission: "marriage_allowance", showForRoles: ["admin", "hr", "finance"] },
+        { name: "Referral Bonus", path: "/payroll/referral-bonus", permission: "referral_bonus", showForRoles: ["admin", "hr", "finance"] }
       ],
     },
     {

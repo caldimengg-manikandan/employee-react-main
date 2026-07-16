@@ -495,6 +495,7 @@ const MyProfile = () => {
     { value: 'Project Manager', label: 'Project Manager' },
     { value: 'Sr Project Manager', label: 'Sr Project Manager' },
     { value: 'Asst Project Manager', label: 'Asst Project Manager' },
+    { value: 'Delivery Manager', label: 'Delivery Manager' },
     { value: 'Team Lead', label: 'Team Lead' },
     { value: 'Sr Team Lead', label: 'Sr Team Lead' },
     { value: 'Jr Team Lead', label: 'Jr Team Lead' },

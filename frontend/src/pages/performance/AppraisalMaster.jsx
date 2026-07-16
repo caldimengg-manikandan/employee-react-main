@@ -146,7 +146,7 @@ const AppraisalMaster = () => {
       console.error('Error fetching designations:', error);
       setDesignations([
         'Senior Project Manager', 'Project Manager', 'Assistant Project Manager',
-        'Team Lead', 'Senior Detailer', 'Checker', 'Modeler',
+        'Delivery Manager', 'Team Lead', 'Senior Detailer', 'Checker', 'Modeler',
         'Junior Detailer', 'Trainee'
       ]);
     }

@@ -425,6 +425,15 @@ export const marriageAllowanceAPI = {
   delete: (id) => api.delete(`/marriage-allowances/${id}`)
 };
 
+export const referralBonusAPI = {
+  list: (params) => api.get('/referral-bonuses', { params }),
+  stats: () => api.get('/referral-bonuses/stats'),
+  getById: (id) => api.get(`/referral-bonuses/${id}`),
+  create: (data) => api.post('/referral-bonuses', data),
+  update: (id, data) => api.put(`/referral-bonuses/${id}`, data),
+  delete: (id) => api.delete(`/referral-bonuses/${id}`)
+};
+
 export const promotionAPI = {
   promoteEmployee: (data) => api.post('/promoteEmployee', data),
   getPromotionHistory: (params) => api.get('/promotionHistory', params ? { params } : undefined),
