@@ -28,6 +28,7 @@ const auth = async (req, res, next) => {
       }
     }
 
+    user.id = user._id.toString();
     req.user = user;
     next();
   } catch (error) {

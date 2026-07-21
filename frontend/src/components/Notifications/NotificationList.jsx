@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   BellIcon, 
   CheckCircleIcon, 
   XCircleIcon, 
   InformationCircleIcon, 
   ClockIcon,
-  CalendarIcon
+  CalendarIcon,
+  ChatBubbleLeftRightIcon
 } from '@heroicons/react/24/outline';
 import { notificationAPI } from '../../services/api';
 
 const NotificationList = ({ onClose }) => {
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -20,7 +23,7 @@ const NotificationList = ({ onClose }) => {
   const fetchNotifications = async () => {
     try {
       const response = await notificationAPI.getAll();
-      setNotifications(response.data);
+      setNotifications(Array.isArray(response.data) ? response.data : []);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching notifications:', error);
@@ -47,6 +50,16 @@ const NotificationList = ({ onClose }) => {
       setNotifications(notifications.map(n => ({ ...n, isRead: true })));
     } catch (error) {
       console.error('Error marking all as read:', error);
+    }
+  };
+
+  const handleNotificationClick = async (notification) => {
+    if (!notification.isRead) {
+      await markAsRead(notification._id);
+    }
+    if (notification.link) {
+      navigate(notification.link);
+      if (onClose) onClose();
     }
   };
 
@@ -78,6 +91,12 @@ const NotificationList = ({ onClose }) => {
         return <CheckCircleIcon className="h-6 w-6 text-green-500" />;
       case 'SPECIAL_PERMISSION_REJECTED':
         return <XCircleIcon className="h-6 w-6 text-red-500" />;
+      case 'SUPPORT_TICKET':
+        return <BellIcon className="h-6 w-6 text-indigo-600" />;
+      case 'SUPPORT_STATUS':
+        return <CheckCircleIcon className="h-6 w-6 text-blue-600" />;
+      case 'SUPPORT_COMMENT':
+        return <ChatBubbleLeftRightIcon className="h-6 w-6 text-purple-600" />;
       default:
         return <BellIcon className="h-6 w-6 text-gray-500" />;
     }
@@ -117,7 +136,7 @@ const NotificationList = ({ onClose }) => {
               className={`p-3 rounded-lg transition-colors ${
                 notification.isRead ? 'bg-white' : 'bg-blue-50'
               } hover:bg-gray-50 border border-gray-100 cursor-pointer`}
-              onClick={() => !notification.isRead && markAsRead(notification._id)}
+              onClick={() => handleNotificationClick(notification)}
             >
               <div className="flex items-start gap-3">
                 <div className="flex-shrink-0 mt-1">

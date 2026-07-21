@@ -727,19 +727,23 @@ router.post("/", auth, checkActiveEmployee, validateTimesheetCreate, async (req,
 
         // Create notification
         try {
+          const weekDisplay = new Date(sheet.weekStartDate).toLocaleDateString();
           await Notification.create({
             recipient: req.user._id,
             title: 'Timesheet Submitted',
-            message: `Your timesheet for week starting ${new Date(sheet.weekStartDate).toLocaleDateString()} has been submitted.`,
-            type: 'TIMESHEET_SUBMIT'
+            message: `Your timesheet for week starting ${weekDisplay} has been submitted.`,
+            type: 'TIMESHEET_SUBMIT',
+            link: '/timesheet/history'
           });
-          const admins = await User.find({ role: 'admin' }).select('_id');
-          for (const admin of admins) {
+          const approvers = await User.find({ role: { $regex: /^(admin|hr|manager|director|projectmanager|project_manager)$/i } }).select('_id');
+          for (const appr of approvers) {
+            if (String(appr._id) === String(req.user._id)) continue;
             await Notification.create({
-              recipient: admin._id,
-              title: 'Timesheet Submitted',
-              message: `${req.user.name} submitted timesheet for week starting ${new Date(sheet.weekStartDate).toLocaleDateString()}.`,
-              type: 'TIMESHEET_SUBMIT'
+              recipient: appr._id,
+              title: 'Timesheet Submitted for Approval',
+              message: `${req.user.name} submitted timesheet for week starting ${weekDisplay}.`,
+              type: 'TIMESHEET_SUBMIT',
+              link: '/admin/timesheet/approval'
             });
           }
         } catch (err) {
@@ -829,12 +833,25 @@ router.post("/", auth, checkActiveEmployee, validateTimesheetCreate, async (req,
 
       // Create notification
       try {
+        const weekDisplay = new Date(sheet.weekStartDate).toLocaleDateString();
         await Notification.create({
           recipient: req.user._id,
           title: 'Timesheet Submitted',
-          message: `Your timesheet for week starting ${new Date(sheet.weekStartDate).toLocaleDateString()} has been submitted.`,
-          type: 'TIMESHEET_SUBMIT'
+          message: `Your timesheet for week starting ${weekDisplay} has been submitted.`,
+          type: 'TIMESHEET_SUBMIT',
+          link: '/timesheet/history'
         });
+        const approvers = await User.find({ role: { $regex: /^(admin|hr|manager|director|projectmanager|project_manager)$/i } }).select('_id');
+        for (const appr of approvers) {
+          if (String(appr._id) === String(req.user._id)) continue;
+          await Notification.create({
+            recipient: appr._id,
+            title: 'Timesheet Submitted for Approval',
+            message: `${req.user.name} submitted timesheet for week starting ${weekDisplay}.`,
+            type: 'TIMESHEET_SUBMIT',
+            link: '/admin/timesheet/approval'
+          });
+        }
       } catch (err) {
         console.error('Error creating timesheet submission notification:', err);
       }

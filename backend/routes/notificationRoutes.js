@@ -6,7 +6,8 @@ const auth = require('../middleware/auth');
 // Get all notifications for the current user
 router.get('/', auth, async (req, res) => {
   try {
-    const notifications = await Notification.find({ recipient: req.user.id })
+    const userId = req.user._id || req.user.id;
+    const notifications = await Notification.find({ recipient: userId })
       .sort({ createdAt: -1 })
       .limit(50); // Limit to last 50 notifications
     res.json(notifications);
@@ -19,9 +20,10 @@ router.get('/', auth, async (req, res) => {
 // Mark a notification as read
 router.put('/:id/read', auth, async (req, res) => {
   try {
+    const userId = req.user._id || req.user.id;
     const notification = await Notification.findOne({
       _id: req.params.id,
-      recipient: req.user.id
+      recipient: userId
     });
 
     if (!notification) {
@@ -40,8 +42,9 @@ router.put('/:id/read', auth, async (req, res) => {
 // Mark all notifications as read
 router.put('/read-all', auth, async (req, res) => {
   try {
+    const userId = req.user._id || req.user.id;
     await Notification.updateMany(
-      { recipient: req.user.id, isRead: false },
+      { recipient: userId, isRead: false },
       { $set: { isRead: true } }
     );
     res.json({ message: 'All notifications marked as read' });
@@ -54,9 +57,10 @@ router.put('/read-all', auth, async (req, res) => {
 // Delete a notification
 router.delete('/:id', auth, async (req, res) => {
   try {
+    const userId = req.user._id || req.user.id;
     const notification = await Notification.findOneAndDelete({
       _id: req.params.id,
-      recipient: req.user.id
+      recipient: userId
     });
 
     if (!notification) {

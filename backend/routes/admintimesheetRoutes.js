@@ -484,7 +484,8 @@ router.put("/approve/:id", auth, async (req, res) => {
           recipient: user._id,
           title: 'Timesheet Approved',
           message: `Your timesheet for week ${updated.week} has been approved.`,
-          type: 'TIMESHEET_APPROVED'
+          type: 'TIMESHEET_APPROVED',
+          link: '/timesheet/history'
         });
       }
     } catch (err) {
@@ -643,7 +644,8 @@ router.put("/reject/:id", auth, async (req, res) => {
           recipient: user._id,
           title: 'Timesheet Rejected',
           message: `Your timesheet for week ${updated.week} has been rejected. Reason: ${reason || 'No reason provided'}`,
-          type: 'TIMESHEET_REJECTED'
+          type: 'TIMESHEET_REJECTED',
+          link: '/timesheet/history'
         });
       }
     } catch (err) {
