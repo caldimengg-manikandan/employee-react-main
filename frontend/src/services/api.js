@@ -450,7 +450,7 @@ export const supportAPI = {
   getTicketById: (id) => api.get(`/support/tickets/${id}`),
   updateStatus: (id, data) => api.put(`/support/tickets/${id}/status`, data),
   addComment: (id, data) => api.post(`/support/tickets/${id}/comments`, data),
-  getDashboardStats: () => api.get('/support/dashboard-stats'),
+  getDashboardStats: (params) => api.get('/support/dashboard-stats', { params }),
 };
 
 // Announcements (management + public active list)
@@ -509,6 +509,40 @@ export const conferenceBookingAPI = {
   create: (data) => api.post('/conference-bookings', data),
   updateStatus: (id, data) => api.put(`/conference-bookings/${id}/status`, data),
   block: (data) => api.post('/conference-bookings/block', data),
+};
+
+export const assetAPI = {
+  getAll: () => api.get('/assets'),
+  create: (data) => api.post('/assets', data),
+  update: (id, data) => api.put(`/assets/${id}`, data),
+  delete: (id) => api.delete(`/assets/${id}`),
+
+  getAllAllocations: () => api.get('/assets/allocations'),
+  allocate: (data) => api.post('/assets/allocations', data),
+  returnAsset: (id, data) => api.put(`/assets/allocations/${id}/return`, data),
+
+  getAllRequests: (params) => api.get('/assets/requests', { params }),
+  getMyRequests: () => api.get('/assets/requests/my'),
+  createRequest: (formData) => api.post('/assets/requests', formData, {
+    headers: formData instanceof FormData ? { 'Content-Type': 'multipart/form-data' } : {}
+  }),
+  approveRequest: (id, remarks) => api.put(`/assets/requests/${id}/approve`, { remarks }),
+  rejectRequest: (id, remarks) => api.put(`/assets/requests/${id}/reject`, { remarks }),
+  allocateAssetForRequest: (id, data) => api.put(`/assets/requests/${id}/allocate`, data),
+  completeRequest: (id) => api.put(`/assets/requests/${id}/complete`),
+  cancelRequest: (id) => api.put(`/assets/requests/${id}/cancel`),
+  deleteRequest: (id) => api.delete(`/assets/requests/${id}`),
+
+
+
+  getAllMaintenance: () => api.get('/assets/maintenance'),
+  createMaintenance: (data) => api.post('/assets/maintenance', data),
+
+  getHandoverHistory: () => api.get('/assets/handovers/history'),
+  processHandover: (data) => api.post('/assets/handovers', data),
+
+  getExitClearances: () => api.get('/assets/exit-clearances'),
+  updateExitClearance: (id, data) => api.put(`/assets/exit-clearances/${id}`, data),
 };
 
 export default api;

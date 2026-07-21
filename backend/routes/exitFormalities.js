@@ -3,6 +3,9 @@ const router = express.Router();
 const ExitFormality = require('../models/ExitFormality');
 const Employee = require('../models/Employee');
 const Notification = require('../models/Notification');
+const AssetAllocation = require('../models/AssetAllocation');
+const AssetHandover = require('../models/AssetHandover');
+const ExitClearance = require('../models/ExitClearance');
 const auth = require('../middleware/auth');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
@@ -200,6 +203,64 @@ router.post('/:id/submit', auth, async (req, res) => {
     item.submittedDate = new Date();
     item.currentStage = 'hr_review';
     await item.save();
+
+    // Auto-create ExitClearance record for active asset allocations
+    try {
+      const emp = await Employee.findById(item.employeeId);
+      const empCode = emp ? emp.employeeId : (req.user ? req.user.employeeId : '');
+
+      const activeAllocations = await AssetAllocation.find({
+        $or: [
+          { employeeCode: empCode },
+          { assignedToId: empCode },
+          { employeeName: item.employeeName }
+        ],
+        status: 'Assigned'
+      }).populate('asset');
+
+      if (activeAllocations && activeAllocations.length > 0) {
+        let existingClearance = await ExitClearance.findOne({ exitRequestId: item._id });
+
+        if (!existingClearance) {
+          const clearanceCount = await ExitClearance.countDocuments();
+          const clearanceId = `CLR-${String(clearanceCount + 1).padStart(4, '0')}`;
+
+          const assignedAssets = activeAllocations.map(alloc => ({
+            assetId: alloc.assetId,
+            category: alloc.category || (alloc.asset && alloc.asset.category) || 'Asset',
+            brandName: alloc.brandName || (alloc.asset && alloc.asset.brandName) || '',
+            version: alloc.version || (alloc.asset && alloc.asset.version) || '',
+            serialNumber: (alloc.asset && alloc.asset.serialNumber) || alloc.serialNumber || 'N/A',
+            allocationDate: alloc.allocatedDate || '',
+            currentStatus: 'Assigned',
+            returned: false,
+            condition: (alloc.asset && alloc.asset.condition) || 'Good',
+            remarks: ''
+          }));
+
+          const newClearance = new ExitClearance({
+            clearanceId,
+            exitRequestId: item._id,
+            exitRequestNumber: item.applicationNo || `EXT-${item._id.toString().slice(-4).toUpperCase()}`,
+            employeeId: empCode || activeAllocations[0].employeeCode,
+            employeeCode: empCode || activeAllocations[0].employeeCode,
+            employeeName: item.employeeName || (emp ? emp.name : activeAllocations[0].employeeName),
+            department: item.division || (emp ? emp.department : '') || activeAllocations[0].department || 'SDS',
+            designation: (emp && emp.designation) || item.position || '',
+            email: (emp && (emp.officialEmail || emp.email)) || item.employeeEmail || '',
+            applicationDate: item.submittedDate ? new Date(item.submittedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+            proposedLastWorkingDay: item.proposedLastWorkingDay ? new Date(item.proposedLastWorkingDay).toISOString().split('T')[0] : '',
+            assignedAssets,
+            status: 'Pending'
+          });
+
+          await newClearance.save();
+        }
+      }
+    } catch (errClear) {
+      console.error('Error creating Exit Clearance for exit submission:', errClear);
+    }
+
     try {
       const admins = await require('../models/User').find({ role: 'admin' }).select('_id');
       for (const admin of admins) {

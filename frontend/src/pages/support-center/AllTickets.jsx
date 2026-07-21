@@ -20,8 +20,10 @@ const AllTickets = () => {
     const params = new URLSearchParams(window.location.search);
     const statusParam = params.get('status');
     const priorityParam = params.get('priority');
+    const mainCategoryParam = params.get('mainCategory');
     if (statusParam) setStatusFilter(statusParam);
     if (priorityParam) setPriorityFilter(priorityParam);
+    if (mainCategoryParam) setMainCatFilter(mainCategoryParam);
   }, []);
 
   useEffect(() => {
@@ -44,11 +46,15 @@ const AllTickets = () => {
     }
   };
 
+  const [mainCatFilter, setMainCatFilter] = useState('');
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'Open': return 'bg-blue-100 text-blue-700 border-blue-200';
       case 'In Review': return 'bg-purple-100 text-purple-700 border-purple-200';
       case 'Assigned': return 'bg-orange-100 text-orange-700 border-orange-200';
+      case 'In Progress': return 'bg-amber-100 text-amber-700 border-amber-200';
+      case 'Waiting for Employee': return 'bg-cyan-100 text-cyan-700 border-cyan-200';
       case 'Resolved': return 'bg-green-100 text-green-700 border-green-200';
       case 'Closed': return 'bg-gray-100 text-gray-700 border-gray-200';
       case 'Reopened': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
@@ -57,61 +63,52 @@ const AllTickets = () => {
     }
   };
 
-  const filteredTickets = tickets.filter(t => 
-    t.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.ticketId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.employeeId?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    t.employeeId?.employeeId?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredTickets = tickets.filter(t => {
+    const ticketNum = t.ticketNumber || t.ticketId || '';
+    const matchesQuery = t.subject.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticketNum.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.employeeId?.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.employeeId?.employeeId?.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesMainCat = !mainCatFilter || t.mainCategory === mainCatFilter;
+    return matchesQuery && matchesMainCat;
+  });
 
   const downloadPDF = () => {
     const doc = new jsPDF('landscape');
     doc.setFontSize(18);
-    doc.text('Employee Support Queue', 14, 22);
+    doc.text('CALDIM Support Center - Ticket Queue', 14, 22);
     doc.setFontSize(11);
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 30);
 
     const tableColumn = [
       "S.No", 
-      "Ticket ID", 
+      "Ticket ID",
+      "Main Category",
+      "Sub Category", 
       "Employee ID", 
       "Employee Name", 
       "Division", 
-      "Location", 
       "Subject", 
       "Priority", 
       "Status", 
-      "Created", 
-      "Resolved Date", 
-      "Closed Date"
+      "Created Date"
     ];
     const tableRows = [];
 
     filteredTickets.forEach((ticket, index) => {
-      const resolvedEntry = ticket.history?.find(h => h.status === 'Resolved');
-      const resolvedDate = resolvedEntry 
-        ? new Date(resolvedEntry.updatedAt).toLocaleDateString('en-GB') 
-        : (ticket.resolution?.resolvedAt ? new Date(ticket.resolution.resolvedAt).toLocaleDateString('en-GB') : '-');
-
-      const closedEntry = ticket.history?.find(h => h.status === 'Closed');
-      const closedDate = closedEntry 
-        ? new Date(closedEntry.updatedAt).toLocaleDateString('en-GB') 
-        : '-';
-
       const ticketData = [
         index + 1,
-        ticket.ticketId,
+        ticket.ticketNumber || ticket.ticketId,
+        ticket.mainCategory || 'N/A',
+        ticket.subCategory || ticket.category || 'N/A',
         ticket.employeeId?.employeeId || 'N/A',
         ticket.employeeId?.name || 'N/A',
         ticket.employeeId?.division || 'N/A',
-        ticket.employeeId?.location || 'N/A',
         ticket.subject,
         ticket.priority,
         ticket.status,
-        new Date(ticket.createdAt).toLocaleDateString('en-GB'),
-        resolvedDate,
-        closedDate
+        new Date(ticket.createdAt).toLocaleDateString('en-GB')
       ];
       tableRows.push(ticketData);
     });
@@ -132,11 +129,11 @@ const AllTickets = () => {
     <div className="max-w-full mx-auto px-6 py-8">
       {/* Back Button */}
       <button 
-        onClick={() => navigate('/admin/support/dashboard')} 
+        onClick={() => navigate(-1)} 
         className="flex items-center gap-2 text-[#262760] hover:text-indigo-700 transition-colors mb-6 group text-sm font-semibold"
       >
         <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-        Back to Dashboard
+        Back
       </button>
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
@@ -145,7 +142,7 @@ const AllTickets = () => {
           <p className="text-gray-600 mt-1">Manage and resolve all employee support tickets.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={downloadPDF} className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all text-gray-600 flex items-center gap-2">
+          <button onClick={downloadPDF} className="p-2.5 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 transition-all text-gray-600 flex items-center gap-2 shadow-sm">
             <Download className="w-5 h-5" />
             <span className="text-sm font-semibold">Download PDF</span>
           </button>
@@ -159,16 +156,25 @@ const AllTickets = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-5 h-5" />
               <input
                 type="text"
-                placeholder="Search..."
+                placeholder="Search by Ticket ID, Employee, Subject..."
                 className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            <select className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium" value={mainCatFilter} onChange={(e) => setMainCatFilter(e.target.value)}>
+              <option value="">All Main Categories</option>
+              <option value="IT Queries">IT Queries</option>
+              <option value="Non-IT Queries">Non-IT Queries</option>
+            </select>
             <select className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
               <option value="">All Statuses</option>
               <option value="Open">Open</option>
+              <option value="In Review">In Review</option>
+              <option value="In Progress">In Progress</option>
               <option value="Resolved">Resolved</option>
+              <option value="Closed">Closed</option>
+              <option value="Reopened">Reopened</option>
             </select>
           </div>
         </div>
@@ -179,43 +185,37 @@ const AllTickets = () => {
               <tr className="bg-[#262760] text-white whitespace-nowrap">
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">S.No</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Ticket ID</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Main Category</th>
+                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Sub Category</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Employee ID</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Employee Name</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Division</th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Location</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Subject</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Priority</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Status</th>
                 <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Created</th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Resolved Date</th>
-                <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-widest">Closed Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {isLoading ? (
-                <tr><td colSpan="12" className="p-20 text-center font-medium text-gray-500">Loading...</td></tr>
+                <tr><td colSpan="11" className="p-20 text-center font-medium text-gray-500">Loading tickets...</td></tr>
               ) : filteredTickets.length === 0 ? (
-                <tr><td colSpan="12" className="p-20 text-center font-medium text-gray-500">No tickets found.</td></tr>
+                <tr><td colSpan="11" className="p-20 text-center font-medium text-gray-500">No tickets found matching criteria.</td></tr>
               ) : (
                 filteredTickets.map((ticket, index) => {
-                  const resolvedEntry = ticket.history?.find(h => h.status === 'Resolved');
-                  const resolvedDate = resolvedEntry 
-                    ? new Date(resolvedEntry.updatedAt).toLocaleDateString('en-GB') 
-                    : (ticket.resolution?.resolvedAt ? new Date(ticket.resolution.resolvedAt).toLocaleDateString('en-GB') : '-');
-
-                  const closedEntry = ticket.history?.find(h => h.status === 'Closed');
-                  const closedDate = closedEntry 
-                    ? new Date(closedEntry.updatedAt).toLocaleDateString('en-GB') 
-                    : '-';
-
                   return (
-                    <tr key={ticket._id} className="hover:bg-gray-50 transition-all group whitespace-nowrap">
+                    <tr 
+                      key={ticket._id} 
+                      onClick={() => navigate(`/support/tickets/${ticket._id}`)}
+                      className="hover:bg-gray-50 transition-all group whitespace-nowrap cursor-pointer"
+                    >
                       <td className="px-6 py-4 text-sm font-medium text-gray-600">{index + 1}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-gray-800">{ticket.ticketId}</td>
+                      <td className="px-6 py-4 text-sm font-bold text-purple-700">{ticket.ticketNumber || ticket.ticketId}</td>
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-700">{ticket.mainCategory || 'N/A'}</td>
+                      <td className="px-6 py-4 text-sm font-medium text-gray-700">{ticket.subCategory || ticket.category || 'N/A'}</td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-700">{ticket.employeeId?.employeeId || 'N/A'}</td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-800">{ticket.employeeId?.name || 'Unknown'}</td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-700">{ticket.employeeId?.division || 'N/A'}</td>
-                      <td className="px-6 py-4 text-sm font-bold text-gray-700">{ticket.employeeId?.location || 'N/A'}</td>
                       <td className="px-6 py-4 text-sm font-bold text-gray-800 truncate max-w-xs">{ticket.subject}</td>
                       <td className="px-6 py-4">
                         <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase ${ticket.priority === 'Critical' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
@@ -228,8 +228,6 @@ const AllTickets = () => {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">{new Date(ticket.createdAt).toLocaleDateString('en-GB')}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{resolvedDate}</td>
-                      <td className="px-6 py-4 text-sm text-gray-500">{closedDate}</td>
                     </tr>
                   );
                 })

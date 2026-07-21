@@ -113,6 +113,9 @@ app.use("/api/resumes", require("./routes/resume"));
 // Exit Formalities Routes
 app.use("/api/exit-formalities", require("./routes/exitFormalities"));
 
+// Asset Management Routes
+app.use("/api/assets", require("./routes/assetRoutes"));
+
 // Rewards Routes
 app.use("/api/rewards", require("./routes/rewards"));
 

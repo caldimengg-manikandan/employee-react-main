@@ -145,6 +145,12 @@ const ExitFormalitySchema = new mongoose.Schema(
       completed: Boolean,
       details: String,
       handoverTo: String
+    },
+    itAssetClearanceInfo: {
+      status: { type: String, default: 'Pending' },
+      completedBy: String,
+      completedDate: String,
+      remarks: String
     }
   },
   { timestamps: true }

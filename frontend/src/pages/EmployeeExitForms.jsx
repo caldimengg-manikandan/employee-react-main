@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { exitFormalityAPI, employeeAPI } from '../services/api';
+import { exitFormalityAPI, employeeAPI, assetAPI } from '../services/api';
 import { message } from 'antd';
 import Modal from '../components/Modals/Modal';
 import {
@@ -21,6 +21,7 @@ const ExitForm = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewDetails, setViewDetails] = useState(false);
+  const [assignedAssets, setAssignedAssets] = useState([]);
   const [employeeInfo, setEmployeeInfo] = useState({
     employeeId: '',
     employeeName: '',
@@ -131,10 +132,28 @@ const ExitForm = () => {
           suggestions: existingForm.suggestions,
           assetsToReturn: formattedAssets.length > 0 ? formattedAssets : defaultAssets,
           status: existingForm.status,
-          currentStage: existingForm.currentStage
+          currentStage: existingForm.currentStage,
+          itAssetClearanceInfo: existingForm.itAssetClearanceInfo || null
         });
       } else {
         setFormData(prev => ({ ...prev, assetsToReturn: defaultAssets }));
+      }
+
+      // 3. Fetch Assigned Assets from AssetAllocation module
+      try {
+        const allocRes = await assetAPI.getAllAllocations();
+        const allAllocations = allocRes.data || [];
+        const empCode = (emp.employeeId || '').trim().toUpperCase();
+        const myAssigned = allAllocations.filter(al =>
+          al.status === 'Assigned' &&
+          (
+            (al.employeeCode && al.employeeCode.trim().toUpperCase() === empCode) ||
+            (al.employeeName && emp.name && al.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase())
+          )
+        );
+        setAssignedAssets(myAssigned);
+      } catch (errAlloc) {
+        console.error("Error fetching assigned assets:", errAlloc);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
@@ -487,127 +506,102 @@ const ExitForm = () => {
             </div>
           </div>
 
-          {/* Assets Handover */}
+          {/* Company Assets Expected for Return (Read-Only from Asset Allocation) */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-indigo-100">
             <div className="bg-[#1e2050] px-6 py-4 flex justify-between items-center border-b border-indigo-900/20">
               <h3 className="text-lg font-bold text-white flex items-center">
                 <CheckBadgeIcon className="h-6 w-6 mr-2 text-indigo-300" />
-                Assets Handover
+                Assigned Company Assets (To Be Returned)
               </h3>
-              {formData.status === 'draft' && (
-                <button
-                  type="button"
-                  onClick={handleAddAsset}
-                  className="px-4 py-1.5 bg-white/10 text-white hover:bg-white/20 rounded-lg text-sm font-bold backdrop-blur-sm transition-colors border border-white/20"
-                >
-                  + Add Asset
-                </button>
-              )}
+              <span className="text-xs bg-indigo-900/50 text-indigo-200 px-3 py-1 rounded-full font-medium border border-indigo-700/50">
+                Single Source of Truth: Asset Allocation
+              </span>
             </div>
             
             <div className="p-6">
               <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
-                <table className="min-w-full divide-y divide-gray-200">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Asset Item</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Serial No.</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                      <th className="px-6 py-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Remarks</th>
-                      {formData.status === 'draft' && (
-                        <th className="px-6 py-4 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Action</th>
-                      )}
+                      <th className="px-6 py-3.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-12">S.No</th>
+                      <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Asset ID</th>
+                      <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
+                      <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Brand & Model</th>
+                      <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Allocation Date</th>
+                      <th className="px-6 py-3.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-100">
-                    {formData.assetsToReturn.map((asset, index) => (
-                      <tr key={index} className="hover:bg-indigo-50/30 transition-colors">
-                        <td className="px-6 py-4">
-                          <select
-                            value={asset.item}
-                            onChange={(e) => handleAssetChange(index, 'item', e.target.value)}
-                            disabled={formData.status !== 'draft'}
-                            className="w-full rounded-lg border-gray-200 text-sm focus:ring-indigo-500 focus:border-indigo-500 py-2"
-                          >
-                            <option value="">Select Asset</option>
-                            {commonAssets.map((opt) => (
-                              <option key={opt} value={opt}>{opt}</option>
-                            ))}
-                          </select>
-                        </td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={asset.category || 'Hardware'}
-                            onChange={(e) => handleAssetChange(index, 'category', e.target.value)}
-                            disabled={formData.status !== 'draft'}
-                            className="w-full rounded-lg border-gray-200 text-sm focus:ring-indigo-500 focus:border-indigo-500 py-2"
-                          >
-                            <option value="Hardware">Hardware</option>
-                            <option value="Software">Software</option>
-                            <option value="Access">Access</option>
-                            <option value="Documents">Documents</option>
-                            <option value="Other">Other</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4">
-                          <input
-                            type="text"
-                            value={asset.serialNumber || ''}
-                            onChange={(e) => handleAssetChange(index, 'serialNumber', e.target.value)}
-                            disabled={formData.status !== 'draft'}
-                            placeholder="Serial / ID"
-                            className="w-full rounded-lg border-gray-200 text-sm focus:ring-indigo-500 focus:border-indigo-500 py-2"
-                          />
-                        </td>
-                        <td className="px-6 py-4">
-                          <select
-                            value={asset.status || 'Pending'}
-                            onChange={(e) => handleAssetChange(index, 'status', e.target.value)}
-                            disabled={formData.status !== 'draft'}
-                            className="w-full rounded-lg border-gray-200 text-sm focus:ring-indigo-500 focus:border-indigo-500 py-2"
-                          >
-                            <option value="Pending">Pending</option>
-                            <option value="Returned">Returned</option>
-                            <option value="Lost">Lost</option>
-                            <option value="Damaged">Damaged</option>
-                          </select>
-                        </td>
-                        <td className="px-6 py-4">
-                          <input
-                            type="text"
-                            value={asset.remarks || ''}
-                            onChange={(e) => handleAssetChange(index, 'remarks', e.target.value)}
-                            disabled={formData.status !== 'draft'}
-                            placeholder="Optional"
-                            className="w-full rounded-lg border-gray-200 text-sm focus:ring-indigo-500 focus:border-indigo-500 py-2"
-                          />
-                        </td>
-                        {formData.status === 'draft' && (
-                          <td className="px-6 py-4 text-center">
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveAsset(index)}
-                              className="text-red-400 hover:text-red-600 transition-colors p-2 hover:bg-red-50 rounded-full"
-                            >
-                              <TrashIcon className="h-5 w-5" />
-                            </button>
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                    {formData.assetsToReturn.length === 0 && (
+                    {assignedAssets.length === 0 ? (
                       <tr>
                         <td colSpan="6" className="px-6 py-8 text-center text-sm text-gray-500 italic">
-                          No assets listed. Click "Add Asset" to begin your checklist.
+                          No company assets currently assigned to you. You are clear for asset return!
                         </td>
                       </tr>
+                    ) : (
+                      assignedAssets.map((al, idx) => (
+                        <tr key={al._id || idx} className="hover:bg-indigo-50/30 transition-colors">
+                          <td className="px-6 py-4 text-center text-gray-500 font-medium">{idx + 1}</td>
+                          <td className="px-6 py-4 font-mono font-bold text-[#1e2050]">{al.assetId}</td>
+                          <td className="px-6 py-4 font-semibold text-gray-800">{al.category || 'Asset'}</td>
+                          <td className="px-6 py-4 text-gray-700">{al.brandName} {al.version || (al.asset && al.asset.version) || ''}</td>
+                          <td className="px-6 py-4 font-mono text-xs text-gray-600">{al.allocatedDate || 'N/A'}</td>
+                          <td className="px-6 py-4 text-center">
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                              al.status === "Returned" ? "bg-green-100 text-green-800 border border-green-200" : "bg-amber-100 text-amber-800 border border-amber-200"
+                            }`}>
+                              {al.status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
                     )}
                   </tbody>
                 </table>
               </div>
             </div>
           </div>
+
+          {/* IT Asset Clearance Status Card (Read-Only) */}
+          {formData.itAssetClearanceInfo && formData.itAssetClearanceInfo.status === 'Completed' && (
+            <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-emerald-200">
+              <div className="bg-emerald-700 px-6 py-4 flex justify-between items-center text-white">
+                <h3 className="text-lg font-bold flex items-center gap-2">
+                  <CheckBadgeIcon className="h-6 w-6 text-emerald-200" />
+                  IT Asset Clearance
+                </h3>
+                <span className="bg-emerald-800 text-emerald-100 text-xs px-3 py-1 rounded-full font-bold border border-emerald-600">
+                  🟢 Completed
+                </span>
+              </div>
+              <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6 bg-emerald-50/30 text-sm">
+                <div>
+                  <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Status</span>
+                  <span className="font-bold text-emerald-700 text-base flex items-center gap-1 mt-1">
+                    🟢 Completed
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Completed By</span>
+                  <span className="font-bold text-gray-800 mt-1 block">
+                    {formData.itAssetClearanceInfo.completedBy || "IT Admin"}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider">Completed Date</span>
+                  <span className="font-mono font-semibold text-gray-800 mt-1 block">
+                    {formData.itAssetClearanceInfo.completedDate || new Date().toLocaleDateString('en-GB')}
+                  </span>
+                </div>
+                <div className="md:col-span-3 bg-white p-4 rounded-xl border border-emerald-200">
+                  <span className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-1">Remarks</span>
+                  <p className="text-gray-700 font-medium">
+                    {formData.itAssetClearanceInfo.remarks || "All assigned company assets have been verified and returned successfully."}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Feedback & Suggestions */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

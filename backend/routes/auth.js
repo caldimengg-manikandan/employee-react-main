@@ -43,12 +43,39 @@ router.post('/login', validateLogin, async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Check Employee Status and fetch joining date before proceeding
+    // Check Employee Status and fetch joining date & employee info before proceeding
     let empDateOfJoining = user.dateOfJoining || null;
-    if (user.employeeId) {
-      const employee = await Employee.findOne({ employeeId: user.employeeId });
+    let empDesignation = "";
+    let empDivision = "";
+    let empLocation = "";
+    let empName = user.name;
+    let finalRole = user.role;
+
+    if (user.employeeId || user.email) {
+      const employee = await Employee.findOne({
+        $or: [
+          { employeeId: user.employeeId },
+          { officialEmail: user.email },
+          { email: user.email }
+        ]
+      });
       if (employee) {
-        if (user.role !== 'admin' && employee.status !== 'Active') {
+        empDivision = employee.division || employee.department || "";
+        const rawLoc = employee.location || employee.branch || employee.currentCity || "";
+        let finalLoc = rawLoc;
+        if (rawLoc) {
+          const u = rawLoc.toUpperCase();
+          if (u.includes("BAGALUR") || u.includes("HOSUR")) finalLoc = "Hosur Office";
+          else if (u.includes("CHENNAI")) finalLoc = "Chennai Office";
+        }
+        empLocation = finalLoc;
+        empName = employee.name || employee.employeename || user.name;
+
+        const normalizedDesignation = String(empDesignation).trim().toLowerCase();
+        if (normalizedDesignation === "it admin") {
+          finalRole = "admin";
+        }
+        if (finalRole !== 'admin' && employee.status !== 'Active') {
           return res.status(403).json({ message: 'This account belongs to an inactive or exited employee and cannot access the system.' });
         }
         empDateOfJoining = employee.dateOfJoining;
@@ -65,10 +92,13 @@ router.post('/login', validateLogin, async (req, res) => {
       token,
       user: {
         id: user._id,
-        name: user.name,
+        name: empName,
         email: user.email,
         employeeId: user.employeeId,
-        role: user.role,
+        role: finalRole,
+        designation: empDesignation,
+        division: empDivision,
+        location: empLocation,
         permissions: user.permissions,
         lastLogin: user.lastLogin,
         dateOfJoining: empDateOfJoining

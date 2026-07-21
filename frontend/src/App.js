@@ -711,8 +711,8 @@ function App() {
             <Route
               path="admin/support/dashboard"
               element={
-                <ProtectedRoute requiredPermissions={["support_dashboard_access"]} roles={["admin", "hr"]}>
-                  <SupportDashboard />
+                <ProtectedRoute requiredPermissions={["support_dashboard_access"]} roles={["admin", "hr", "it_admin"]}>
+                  <SupportDashboard defaultCategoryMode="it" />
                 </ProtectedRoute>
               }
             />

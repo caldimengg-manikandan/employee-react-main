@@ -9,10 +9,23 @@ const auth = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || "your_jwt_secret");
-    const user = await User.findById(decoded.id).select("-password");
+    let user = await User.findById(decoded.id).select("-password").lean();
 
     if (!user) {
       return res.status(401).json({ message: "Invalid token" });
+    }
+
+    // Lookup employee profile to check for IT Admin designation
+    if (user.employeeId) {
+      const Employee = require("../models/Employee");
+      const employee = await Employee.findOne({ employeeId: user.employeeId }).select("designation").lean();
+      if (employee) {
+        user.designation = employee.designation;
+        const normalizedDesignation = String(employee.designation || "").trim().toLowerCase();
+        if (normalizedDesignation === "it admin") {
+          user.role = "admin";
+        }
+      }
     }
 
     req.user = user;

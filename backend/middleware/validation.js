@@ -170,6 +170,10 @@ const validateLoanApply = [
 
 // 9. Support Center Module
 const validateSupportTicket = [
+  body('mainCategory').optional().isString().withMessage('mainCategory must be a string'),
+  body('subCategory').optional().isString().withMessage('subCategory must be a string'),
+  body('category').optional().isString().withMessage('category must be a string'),
+  body('subject').optional().isString().withMessage('subject must be a string'),
   body('title').optional().isString().withMessage('title must be a string'),
   body('description').optional().isString().withMessage('description must be a string'),
   handleValidationErrors
