@@ -719,7 +719,7 @@ function App() {
             <Route
               path="admin/support/all-tickets"
               element={
-                <ProtectedRoute requiredPermissions={["support_dashboard_access"]} roles={["admin", "hr"]}>
+                <ProtectedRoute requiredPermissions={["support_dashboard_access"]} roles={["admin", "hr", "it_admin"]}>
                   <AllTickets />
                 </ProtectedRoute>
               }
@@ -727,7 +727,7 @@ function App() {
             <Route
               path="admin/support/tickets/:id"
               element={
-                <ProtectedRoute requiredPermissions={["support_dashboard_access"]} roles={["admin", "hr"]}>
+                <ProtectedRoute requiredPermissions={["support_dashboard_access"]} roles={["admin", "hr", "it_admin"]}>
                   <TicketDetails />
                 </ProtectedRoute>
               }

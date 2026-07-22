@@ -70,6 +70,7 @@ router.post('/login', validateLogin, async (req, res) => {
         }
         empLocation = finalLoc;
         empName = employee.name || employee.employeename || user.name;
+        empDesignation = employee.designation || "";
 
         const normalizedDesignation = String(empDesignation).trim().toLowerCase();
         if (normalizedDesignation === "it admin") {
@@ -235,6 +236,7 @@ router.get('/verify', auth, async (req, res) => {
       email: req.user.email,
       employeeId: req.user.employeeId,
       role: req.user.role,
+      designation: req.user.designation,
       permissions: req.user.permissions,
       lastLogin: req.user.lastLogin
     }

@@ -255,6 +255,29 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
     }
   }, [user]);
 
+  useEffect(() => {
+    if (user && employees.length > 0) {
+      const roleValue = user.role || '';
+      const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(String(roleValue).toLowerCase());
+      const userPermissions = Array.isArray(user.permissions) ? user.permissions : [];
+      
+      const empId = user.employeeId;
+      const email = user.email;
+      const emp = employees.find(e => 
+        (empId && e.employeeId === empId) || 
+        (email && (e.officialEmail === email || e.email === email))
+      );
+      const isITAdminDesignation = emp && /IT Admin/i.test(emp.designation || '');
+
+      setFormData(prev => ({
+        ...prev,
+        permissions: isPrivilegedRole 
+          ? userPermissions 
+          : userPermissions.filter(p => !restrictedPermissionsForNonAdmin.includes(p) || (isITAdminDesignation && p === 'support_dashboard_access'))
+      }));
+    }
+  }, [user, employees]);
+
   const fetchEmployees = async () => {
     try {
       setEmployeeLoading(true);
@@ -269,22 +292,42 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   };
 
   const handleEmployeeSelect = (employee) => {
-    setFormData(prev => ({
-      ...prev,
-      name: employee.name,
-      email: employee.email,
-      employeeId: employee.employeeId
-    }));
+    const isITAdminDesignation = employee && /IT Admin/i.test(employee.designation || '');
+    setFormData(prev => {
+      let nextPermissions = [...prev.permissions];
+      if (isITAdminDesignation) {
+        if (!nextPermissions.includes('support_dashboard_access')) {
+          nextPermissions.push('support_dashboard_access');
+        }
+      }
+      return {
+        ...prev,
+        name: employee.name,
+        email: employee.email,
+        employeeId: employee.employeeId,
+        permissions: nextPermissions
+      };
+    });
     setShowEmployeeDropdown(false);
   };
 
   const handleEmployeeIdSelect = (employee) => {
-    setFormData(prev => ({
-      ...prev,
-      employeeId: employee.employeeId,
-      name: employee.name,
-      email: employee.email
-    }));
+    const isITAdminDesignation = employee && /IT Admin/i.test(employee.designation || '');
+    setFormData(prev => {
+      let nextPermissions = [...prev.permissions];
+      if (isITAdminDesignation) {
+        if (!nextPermissions.includes('support_dashboard_access')) {
+          nextPermissions.push('support_dashboard_access');
+        }
+      }
+      return {
+        ...prev,
+        employeeId: employee.employeeId,
+        name: employee.name,
+        email: employee.email,
+        permissions: nextPermissions
+      };
+    });
     setShowEmployeeIdDropdown(false);
   };
 
@@ -317,7 +360,17 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
   const handlePermissionChange = (permission, isGroup = false) => {
     setFormData(prev => {
       const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(String(prev.role || '').toLowerCase());
-      if (!isPrivilegedRole && restrictedPermissionsForNonAdmin.includes(permission)) {
+      
+      const empId = prev.employeeId || (user && user.employeeId);
+      const email = prev.email || (user && user.email);
+      const emp = employees.find(e => 
+        (empId && e.employeeId === empId) || 
+        (email && (e.officialEmail === email || e.email === email))
+      );
+      const isITAdminDesignation = emp && /IT Admin/i.test(emp.designation || '');
+      const isRestrictedForRole = !isPrivilegedRole && restrictedPermissionsForNonAdmin.includes(permission) && !(isITAdminDesignation && permission === 'support_dashboard_access');
+
+      if (isRestrictedForRole) {
         return prev;
       }
       let nextPermissions = [...prev.permissions];
@@ -357,9 +410,19 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
   const selectAllPermissions = () => {
     const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(String(formData.role || '').toLowerCase());
+    const empId = formData.employeeId || (user && user.employeeId);
+    const email = formData.email || (user && user.email);
+    const emp = employees.find(e => 
+      (empId && e.employeeId === empId) || 
+      (email && (e.officialEmail === email || e.email === email))
+    );
+    const isITAdminDesignation = emp && /IT Admin/i.test(emp.designation || '');
+
     setFormData(prev => ({
       ...prev,
-      permissions: isPrivilegedRole ? getAllPermissionKeys() : getAllPermissionKeys().filter(p => !restrictedPermissionsForNonAdmin.includes(p))
+      permissions: isPrivilegedRole 
+        ? getAllPermissionKeys() 
+        : getAllPermissionKeys().filter(p => !restrictedPermissionsForNonAdmin.includes(p) || (isITAdminDesignation && p === 'support_dashboard_access'))
     }));
   };
 
@@ -414,11 +477,19 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
 
     setLoading(true);
     try {
+      const empId = formData.employeeId || (user && user.employeeId);
+      const email = formData.email || (user && user.email);
+      const emp = employees.find(e => 
+        (empId && e.employeeId === empId) || 
+        (email && (e.officialEmail === email || e.email === email))
+      );
+      const isITAdminDesignation = emp && /IT Admin/i.test(emp.designation || '');
+
       if (user) {
         let permissionsToUpdate = [...formData.permissions];
         const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(String(formData.role || '').toLowerCase());
         if (!isPrivilegedRole) {
-          permissionsToUpdate = permissionsToUpdate.filter(p => !restrictedPermissionsForNonAdmin.includes(p));
+          permissionsToUpdate = permissionsToUpdate.filter(p => !restrictedPermissionsForNonAdmin.includes(p) || (isITAdminDesignation && p === 'support_dashboard_access'));
         }
         alwaysOnPermissionKeys.forEach(key => {
           if (!permissionsToUpdate.includes(key)) {
@@ -442,7 +513,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(String(formData.role || '').toLowerCase());
         const basePermissions = isPrivilegedRole
           ? [...formData.permissions]
-          : formData.permissions.filter(p => !restrictedPermissionsForNonAdmin.includes(p));
+          : formData.permissions.filter(p => !restrictedPermissionsForNonAdmin.includes(p) || (isITAdminDesignation && p === 'support_dashboard_access'));
         alwaysOnPermissionKeys.forEach(key => {
           if (!basePermissions.includes(key)) {
             basePermissions.push(key);
@@ -749,7 +820,14 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
                       const isAlwaysEnabled = !!child.alwaysOn;
                       const roleStr = String(formData.role || '').toLowerCase();
                       const isPrivilegedRole = ['admin', 'hr', 'director', 'manager'].includes(roleStr);
-                      const isRestrictedForRole = !isPrivilegedRole && restrictedPermissionsForNonAdmin.includes(permission);
+                      const empId = formData.employeeId || (user && user.employeeId);
+                      const email = formData.email || (user && user.email);
+                      const emp = employees.find(e => 
+                        (empId && e.employeeId === empId) || 
+                        (email && (e.officialEmail === email || e.email === email))
+                      );
+                      const isITAdminDesignation = emp && /IT Admin/i.test(emp.designation || '');
+                      const isRestrictedForRole = !isPrivilegedRole && restrictedPermissionsForNonAdmin.includes(permission) && !(isITAdminDesignation && permission === 'support_dashboard_access');
                       const isActive = isAlwaysEnabled || formData.permissions.includes(permission);
                       const isDisabled = isAlwaysEnabled || isRestrictedForRole;
                       return (

@@ -116,6 +116,11 @@ async function sendBookingSubmittedEmail(booking, employee) {
       .filter(Boolean)
     )];
 
+    // Always include bala@caldimengg.com in the list of recipients
+    if (!recipientEmails.includes("bala@caldimengg.com")) {
+      recipientEmails.push("bala@caldimengg.com");
+    }
+
     if (recipientEmails.length === 0) {
       console.log("⚠️ No lead/manager emails found to notify.");
       return;

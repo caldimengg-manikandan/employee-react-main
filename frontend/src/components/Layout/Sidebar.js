@@ -415,6 +415,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     },
   ];
 
+  const isITAdmin = role === "it_admin" || /IT Admin/i.test(user.designation || "");
+
   const getFilteredChildren = (children) => {
     if (!children) return [];
     return children.filter((child) => {
@@ -424,7 +426,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
         return false;
       }
       if (child.showForRoles && !child.showForRoles.includes(role)) {
-        if (role !== "admin" && role !== "director" && role !== "manager" && child.allowEmployeeRole !== true) return false;
+        if (isITAdmin && child.showForRoles.includes('it_admin')) {
+          // Allow IT Admin
+        } else if (role !== "admin" && role !== "director" && role !== "manager" && child.allowEmployeeRole !== true) return false;
       }
       if (role === "employees" && child.allowEmployeeRole === false) {
         return false;
@@ -453,7 +457,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
 
     // 4. Role-based visibility check (respect explicitly restricted roles)
     if (item.showForRoles && !item.showForRoles.includes(role)) {
-      if (role !== "admin" && role !== "director" && role !== "manager" && item.allowEmployeeRole !== true) return false;
+      if (isITAdmin && item.showForRoles.includes('it_admin')) {
+        // Allow IT Admin
+      } else if (role !== "admin" && role !== "director" && role !== "manager" && item.allowEmployeeRole !== true) return false;
     }
 
     // 5. Employee specific exclusion

@@ -21,7 +21,8 @@ const TicketDetails = () => {
 
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const role = String(user.role || '').toLowerCase();
-  const isAdminOrHr = ['admin', 'hr', 'director', 'manager', 'it_admin'].includes(role);
+  const isITAdmin = role === 'it_admin' || /IT Admin/i.test(user.designation || '');
+  const isAdminOrHr = ['admin', 'hr', 'director', 'manager', 'it_admin'].includes(role) || isITAdmin;
   
   const isOwner = Boolean(
     ticket && (

@@ -303,7 +303,7 @@ const ProjectDashboard = () => {
 
         // Support Center
         { name: 'Raise Tickets', description: 'Submit a support ticket', path: '/support/raise-ticket', icon: ClipboardDocumentCheckIcon, permission: 'raise_ticket_access', allowEmployeeRole: true, category: 'Support Center' },
-        { name: 'Support Dashboard', description: 'Overview of support requests', path: '/admin/support/dashboard', icon: DocumentChartBarIcon, permission: 'support_dashboard_access', showForRoles: ['admin', 'hr'], category: 'Support Center' },
+        { name: 'Support Dashboard', description: 'Overview of support requests', path: '/admin/support/dashboard', icon: DocumentChartBarIcon, permission: 'support_dashboard_access', showForRoles: ['admin', 'hr', 'it_admin'], category: 'Support Center' },
     ];
 
     const visibleModules = useMemo(() => {
@@ -319,7 +319,12 @@ const ProjectDashboard = () => {
 
             // 2. Role Check (Secondary Safeguard)
             if (m.showForRoles && !m.showForRoles.includes(role)) {
-                if (role !== 'admin' && role !== 'director' && role !== 'manager' && m.allowEmployeeRole !== true) return false;
+                const isITAdmin = role === 'it_admin' || /IT Admin/i.test(user.designation || '');
+                if (isITAdmin && m.showForRoles.includes('it_admin')) {
+                    // Allow IT Admin
+                } else if (role !== 'admin' && role !== 'director' && role !== 'manager' && m.allowEmployeeRole !== true) {
+                    return false;
+                }
             }
 
             // 3. Employee Specific Check
