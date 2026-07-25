@@ -8,6 +8,167 @@ const Employee = require("../models/Employee");
 const User = require("../models/User");
 const Compensation = require("../models/Compensation");
 const Attendance = require("../models/Attendance");
+const Team = require("../models/Team");
+const { sendZohoMail } = require("../zohoMail.service");
+
+// Helper function to resolve reporting manager email(s) from Team Management module & send automated notification
+async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeId) {
+  try {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    let targetEmails = [];
+
+    // 1. Check Team Management (Team model): Find teams where creator is listed as a member
+    const memberTeams = await Team.find({ members: { $in: [creatorEmployeeId] } });
+    for (const team of memberTeams) {
+      if (team.leaderEmployeeId && team.leaderEmployeeId !== creatorEmployeeId) {
+        const leaderEmp = await Employee.findOne({ employeeId: team.leaderEmployeeId });
+        const leaderUser = await User.findOne({ employeeId: team.leaderEmployeeId });
+        // Strictly fetch Official Email from Employee form
+        const officialMail = (leaderEmp?.officialEmail || leaderEmp?.email || leaderUser?.email || '').trim();
+        if (officialMail && emailRegex.test(officialMail)) {
+          targetEmails.push(officialMail);
+        }
+      }
+    }
+
+    // 2. If creator is team leader of their own team, check if that team's division has a Project Manager / Manager
+    if (targetEmails.length === 0) {
+      const leaderTeams = await Team.find({ leaderEmployeeId: creatorEmployeeId });
+      for (const team of leaderTeams) {
+        const pms = await Employee.find({
+          division: team.division || request.division,
+          $or: [
+            { designation: /project manager|manager/i },
+            { position: /project manager|manager/i },
+            { role: /projectmanager|manager/i }
+          ]
+        }).select('officialEmail email employeeId');
+        
+        for (const pm of pms) {
+          const officialMail = (pm.officialEmail || pm.email || '').trim();
+          if (officialMail && emailRegex.test(officialMail) && pm.employeeId !== creatorEmployeeId) {
+            targetEmails.push(officialMail);
+          }
+        }
+      }
+    }
+
+    // 3. Fallback: Search for Reporting Managers / PMs for the request's division / department
+    if (targetEmails.length === 0 && (request.division || request.department)) {
+      const query = {
+        $or: [
+          { designation: /project manager|manager/i },
+          { position: /project manager|manager/i },
+          { role: /projectmanager|manager/i }
+        ]
+      };
+      if (request.division) query.division = request.division;
+      if (request.department) query.department = request.department;
+
+      const pms = await Employee.find(query).select('officialEmail email employeeId');
+
+      for (const pm of pms) {
+        const officialMail = (pm.officialEmail || pm.email || '').trim();
+        if (officialMail && emailRegex.test(officialMail) && pm.employeeId !== creatorEmployeeId) {
+          targetEmails.push(officialMail);
+        }
+      }
+    }
+
+    // De-duplicate email addresses
+    targetEmails = Array.from(new Set(targetEmails));
+
+    if (targetEmails.length === 0) {
+      console.log(`[HolidayWorking Email] No reporting manager email found for creator ${creatorEmployeeId}`);
+      return;
+    }
+
+    const workingDateStr = new Date(request.workingDate).toLocaleDateString('en-IN', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+
+    const employeeListHtml = (request.employees || [])
+      .map(
+        (e, i) => `
+        <tr style="background-color: ${i % 2 === 0 ? '#f8fafc' : '#ffffff'}; border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 8px 12px; font-size: 13px; color: #1e293b;">${e.employeeId || '-'}</td>
+          <td style="padding: 8px 12px; font-size: 13px; font-weight: 600; color: #0f172a;">${e.employeeName || '-'}</td>
+          <td style="padding: 8px 12px; font-size: 13px; color: #475569;">${e.division || '-'}</td>
+        </tr>`
+      )
+      .join('');
+
+    const portalUrl = (process.env.FRONTEND_URL || 'http://localhost:3000') + '/allowance/holiday-working-request';
+
+    const htmlContent = `
+      <div style="font-family: Arial, sans-serif; max-width: 650px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; background-color: #ffffff; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+        <div style="background-color: #262760; color: #ffffff; padding: 24px; text-align: center;">
+          <h2 style="margin: 0; font-size: 20px; font-weight: bold; letter-spacing: 0.5px;">Caldim Engineering Pvt. Ltd.</h2>
+          <p style="margin: 4px 0 0 0; font-size: 13px; opacity: 0.9;">Holiday Working Request - Auto Notification</p>
+        </div>
+        <div style="padding: 24px;">
+          <p style="font-size: 15px; color: #1e293b; margin-top: 0;">Respected Reporting Manager,</p>
+          <p style="font-size: 14px; color: #334155; line-height: 1.6;">
+            A new Holiday Working Request (ID: <strong style="color: #262760;">${request.requestId}</strong>) has been submitted by Team Lead <strong>${request.createdByName}</strong> (${request.createdBy}) and requires your review.
+          </p>
+          
+          <div style="background-color: #f8fafc; border-left: 4px solid #262760; padding: 16px; margin: 20px 0; border-radius: 6px; border: 1px solid #e2e8f0; border-left-width: 4px;">
+            <h4 style="margin: 0 0 12px 0; color: #0f172a; font-size: 15px; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px;">Request Details:</h4>
+            <table style="width: 100%; border-collapse: collapse; font-size: 13px; color: #334155;">
+              <tr><td style="padding: 4px 0; width: 150px; font-weight: bold; color: #475569;">Request ID:</td><td style="color: #0f172a; font-weight: 600;">${request.requestId}</td></tr>
+              <tr><td style="padding: 4px 0; font-weight: bold; color: #475569;">Applied By (TL):</td><td style="color: #0f172a;">${request.createdByName} (${request.createdBy})</td></tr>
+              <tr><td style="padding: 4px 0; font-weight: bold; color: #475569;">Working Date:</td><td style="color: #0f172a; font-weight: 600;">${workingDateStr}</td></tr>
+              <tr><td style="padding: 4px 0; font-weight: bold; color: #475569;">Holiday Type:</td><td style="color: #0f172a;">${request.holidayType || '-'}</td></tr>
+              <tr><td style="padding: 4px 0; font-weight: bold; color: #475569;">Division / Dept:</td><td style="color: #0f172a;">${request.division || '-'} / ${request.department || '-'}</td></tr>
+              <tr><td style="padding: 4px 0; font-weight: bold; color: #475569;">Project Name:</td><td style="color: #0f172a;">${request.projectName || '-'}</td></tr>
+              <tr><td style="padding: 4px 0; font-weight: bold; color: #475569;">Shift Timing:</td><td style="color: #0f172a;">${request.shiftTiming || '-'}</td></tr>
+              <tr><td style="padding: 4px 0; font-weight: bold; color: #475569;">Reason:</td><td style="color: #0f172a;">${request.reason || '-'}</td></tr>
+            </table>
+          </div>
+
+          <h4 style="margin: 20px 0 10px 0; color: #0f172a; font-size: 14px;">Assigned Employees (${(request.employees || []).length}):</h4>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; border: 1px solid #cbd5e1; border-radius: 6px; overflow: hidden;">
+            <thead>
+              <tr style="background-color: #262760; color: #ffffff;">
+                <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Emp ID</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Name</th>
+                <th style="padding: 8px 12px; text-align: left; font-size: 12px;">Division</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${employeeListHtml}
+            </tbody>
+          </table>
+
+          <div style="text-align: center; margin: 28px 0 12px 0;">
+            <a href="${portalUrl}" style="background-color: #262760; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 14px; display: inline-block; box-shadow: 0 2px 6px rgba(38,39,96,0.3);">
+              View & Action Request in Portal
+            </a>
+          </div>
+        </div>
+        <div style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 16px; text-align: center; font-size: 12px; color: #64748b;">
+          This is an automated notification from Caldim Engineering Employee Portal.
+        </div>
+      </div>
+    `;
+
+    for (const email of targetEmails) {
+      await sendZohoMail({
+        to: email,
+        subject: `[Holiday Working Request] ${request.requestId} Submitted by TL ${request.createdByName}`,
+        content: `Holiday Working Request ${request.requestId} submitted by ${request.createdByName}`,
+        html: htmlContent,
+      }).catch(err => console.error(`[HolidayWorking Email] Failed to send email to ${email}:`, err.message));
+    }
+
+    console.log(`[HolidayWorking Email] Sent notification to reporting manager(s): ${targetEmails.join(', ')}`);
+  } catch (err) {
+    console.error("[HolidayWorking Email] Helper error:", err);
+  }
+}
 
 // Helper to generate Request ID
 const generateRequestId = async () => {
@@ -98,6 +259,9 @@ router.post("/", auth, async (req, res) => {
       if (notifications.length > 0) {
         await Notification.insertMany(notifications);
       }
+
+      // Auto Send Email to Creator's Reporting Manager from Team Management
+      sendHolidayWorkingReportingManagerEmail(newRequest, req.user.employeeId).catch(err => console.error("[HolidayWorking Email Error]:", err));
     }
 
     res.status(201).json({ success: true, data: newRequest });
@@ -361,6 +525,9 @@ router.put("/:id", auth, async (req, res) => {
     if (notifications.length > 0) {
       await Notification.insertMany(notifications);
     }
+
+    // Auto Send Email to Creator's Reporting Manager from Team Management
+    sendHolidayWorkingReportingManagerEmail(request, req.user.employeeId).catch(err => console.error("[HolidayWorking Email Error]:", err));
 
     res.json({ success: true, data: request });
   } catch (error) {

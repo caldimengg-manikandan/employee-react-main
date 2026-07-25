@@ -14,6 +14,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from 'recharts';
 import { employeeAPI, authAPI } from '../services/api';
+import LoginAnnouncements from '../components/LoginAnnouncements';
 
 // --- Custom hook to get window size ---
 const useWindowSize = () => {
@@ -79,12 +80,12 @@ const CustomizedYAxisTick = (props) => {
 
 // --- Constants ---
 const categoryImages = {
-    'Work & Productivity': 'https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&q=80&w=1000',
-    'Leave Management': 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&q=80&w=1000',
-    'Finance & Payroll': 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=1000',
-    'Company & Resources': 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000',
-    'Performance Management': 'https://images.unsplash.com/photo-1552664730-d307ca884978?auto=format&fit=crop&q=80&w=1000',
-    'Support Center': 'https://images.unsplash.com/photo-1521898284481-a5ec348cb555?auto=format&fit=crop&q=80&w=1000'
+    'Work & Productivity': '/images/modules/work-productivity.png',
+    'Leave Management': '/images/modules/leave-management.png',
+    'Finance & Payroll': '/images/modules/finance-payroll.png',
+    'Company & Resources': 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=1000',
+    'Performance Management': '/images/modules/performance-management.png',
+    'Support Center': '/images/modules/support-center.png'
 };
 
 const CategoryCard = ({ category, modules, onViewDetails, images }) => {
@@ -172,6 +173,53 @@ const ProjectDashboard = () => {
         if (!permissions.includes('holiday_allowance')) permissions.push('holiday_allowance');
         if (!permissions.includes('holiday_working_request')) permissions.push('holiday_working_request');
     }
+
+    const dailyQuotesList = useMemo(() => [
+        {
+            thought: "Daily Thought: Innovation begins when you question the status quo and strive for cleaner, smarter engineering solutions.",
+            quote: "Engineering is not merely knowing and being knowledgeable; it is also a willingness to create and innovate.",
+            author: "James Kip Finch"
+        },
+        {
+            thought: "Daily Thought: Dedication and persistence pave the way for extraordinary achievements in every project.",
+            quote: "Success is not final, failure is not fatal: it is the courage to continue that counts.",
+            author: "Winston Churchill"
+        },
+        {
+            thought: "Daily Thought: Pay attention to details; precision and craftsmanship reflect our commitment to excellence.",
+            quote: "Quality means doing it right when no one is looking.",
+            author: "Henry Ford"
+        },
+        {
+            thought: "Daily Thought: Strive for continuous learning and value creation. Empowering others elevates the whole team.",
+            quote: "Strive not to be a success, but rather to be of value to your team and society.",
+            author: "Albert Einstein"
+        },
+        {
+            thought: "Daily Thought: Collaboration brings out the best in us. Diverse perspectives drive breakthrough ideas.",
+            quote: "Teamwork makes the dream work. Together, every challenge becomes an opportunity.",
+            author: "John C. Maxwell"
+        },
+        {
+            thought: "Daily Thought: Take bold initiative today. Action is the bridge between vision and reality.",
+            quote: "The way to get started is to quit talking and begin doing.",
+            author: "Walt Disney"
+        },
+        {
+            thought: "Daily Thought: Consistent daily improvements yield massive, sustainable long-term success.",
+            quote: "Small daily improvements over time lead to stunning, long-term achievements.",
+            author: "Robin Sharma"
+        }
+    ], []);
+
+    const currentDailyQuote = useMemo(() => {
+        const now = new Date();
+        const startOfYear = new Date(now.getFullYear(), 0, 0);
+        const diff = now - startOfYear;
+        const oneDay = 1000 * 60 * 60 * 24;
+        const dayOfYear = Math.floor(diff / oneDay);
+        return dailyQuotesList[dayOfYear % dailyQuotesList.length];
+    }, [dailyQuotesList]);
 
     // Set greeting based on time
     useEffect(() => {
@@ -299,10 +347,14 @@ const ProjectDashboard = () => {
         { name: 'Asset Management', description: 'Manage assigned assets', path: '/asset-management', icon: BriefcaseIcon, allowEmployeeRole: true, category: 'Company & Resources' },
 
         { name: 'Unified Hub Calendar', description: 'View holidays & celebrations', path: '/calendar-master', icon: CalendarIcon, permission: 'celebration_view', allowEmployeeRole: true, category: 'Work & Productivity' },
-        { name: 'Office Sync', description: 'Sync biometric/office logs', path: '/office-sync', icon: BuildingOfficeIcon, permission: 'office_sync_access', allowEmployeeRole: true, category: 'Work & Productivity' },
+        { name: 'My Profile', description: 'View & update personal profile', path: '/my-profile', icon: UserIcon, allowEmployeeRole: true, category: 'Company & Resources' },
+        { name: 'Payroll History', description: 'Past payroll logs', path: '/payroll/history', icon: BanknotesIcon, permission: 'payroll_access', allowEmployeeRole: true, category: 'Finance & Payroll' },
+        { name: 'Referral Bonus', description: 'Referral bonus tracking', path: '/payroll/referral-bonus', icon: BanknotesIcon, permission: 'referral_bonus', showForRoles: ['admin', 'hr', 'finance'], category: 'Finance & Payroll' },
+        { name: 'Performance Pay', description: 'Performance pay details', path: '/performance/performance-pay', icon: StarIcon, permission: 'performance_pay', showForRoles: ['admin', 'hr', 'director'], category: 'Performance Management' },
+        { name: 'Promotion History', description: 'Track employee promotions', path: '/performance/promotion-history', icon: StarIcon, permission: 'promotion_history', showForRoles: ['admin', 'hr'], category: 'Performance Management' },
 
         // Support Center
-        { name: 'Raise Tickets', description: 'Submit a support ticket', path: '/support/raise-ticket', icon: ClipboardDocumentCheckIcon, permission: 'raise_ticket_access', allowEmployeeRole: true, category: 'Support Center' },
+        { name: 'Raise Ticket', description: 'Submit a support ticket', path: '/support/raise-ticket', icon: ClipboardDocumentCheckIcon, permission: 'raise_ticket_access', allowEmployeeRole: true, category: 'Support Center' },
         { name: 'Support Dashboard', description: 'Overview of support requests', path: '/admin/support/dashboard', icon: DocumentChartBarIcon, permission: 'support_dashboard_access', showForRoles: ['admin', 'hr', 'it_admin'], category: 'Support Center' },
     ];
 
@@ -715,40 +767,64 @@ const ProjectDashboard = () => {
     return (
         <div className="min-h-screen bg-gray-50 font-sans">
             {/* Hero Section */}
-            <div className="relative h-[400px] w-full overflow-hidden">
+            <div className="relative min-h-[440px] w-full overflow-hidden flex flex-col justify-between">
                 <div className="absolute inset-0">
                     <img
-                        src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&q=80&w=2000"
+                        src="/images/hero-bg.png"
                         alt="Hero Background"
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-fill opacity-90"
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=2000";
+                        }}
                     />
-                    <div className="absolute inset-0 bg-[#262760] opacity-65" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-[#0A0F2C]/85 via-[#1A237E]/70 to-[#4A148C]/55" />
                 </div>
 
-                <div className="relative z-10 container mx-auto px-6 h-full flex flex-col md:flex-row items-center justify-between py-10 md:py-0">
+                {/* Company Branding Overlay at Top Center */}
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 flex items-center gap-3 bg-white/10 backdrop-blur-md px-6 py-2 rounded-full border border-white/20 shadow-xl">
+                    <img src="/images/steel-logo.png" alt="CALDIM" className="h-7 w-auto object-contain" />
+                    <div className="text-left flex flex-col">
+                        <span className="text-white font-extrabold text-base leading-none tracking-wider">CALDIM</span>
+                        <span className="text-[10px] font-bold tracking-[0.18em] text-[#ff8c00] uppercase mt-0.5">ENGINEERING PVT. LTD.</span>
+                    </div>
+                </div>
+
+                <div className="relative z-10 container mx-auto px-6 pt-12 pb-6 flex flex-col md:flex-row items-center justify-between">
                     <div className="max-w-2xl animate-fade-in-up w-full md:w-7/12">
-                        <h1 className="text-3xl md:text-4xl font-stylish text-white mb-5 tracking-tight">
+                        <h1 className="text-3xl md:text-4xl font-stylish text-white mb-2 tracking-tight">
                             {greeting}, {user.name?.split(' ')[0] || 'Employee'}!
                         </h1>
-                        <p className="text-xl text-blue-100 mb-8">
-                            Welcome to the Employee Portal. Find everything you need to manage your work, benefits, and more.
+                        <p className="text-base text-blue-100 mb-5">
+                            Welcome! Find everything you need to manage your work, benefits, and more.
                         </p>
 
-                        {/* Search Bar */}
-                        <div className="relative max-w-xl mb-8">
-                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
+                        {/* Daily Thought & Quote - Larger Size Asymmetric Curved Ribbon */}
+                        <div className="mb-6 max-w-2xl p-6 rounded-tl-[2rem] rounded-br-[2rem] rounded-tr-2xl rounded-bl-2xl bg-gradient-to-r from-amber-500/20 via-indigo-900/40 to-blue-950/60 backdrop-blur-md border-l-4 border-amber-400 border-t border-b border-r border-amber-300/30 shadow-2xl text-white relative overflow-hidden group">
+                            {/* Decorative Corner Glow */}
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full blur-2xl pointer-events-none" />
+
+                            <div className="flex items-center gap-2 mb-3 pb-2.5 border-b border-white/15">
+                                <SparklesIcon className="h-5 w-5 text-amber-300 animate-pulse" />
+                                <span className="font-extrabold text-xs uppercase tracking-wider text-amber-300">
+                                    Thought & Quote of the Day
+                                </span>
                             </div>
-                            <input
-                                type="text"
-                                className="block w-full pl-11 pr-4 py-4 bg-white/95 backdrop-blur rounded-xl text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-400 shadow-xl transition-all"
-                                placeholder="Search for tools, forms, or policies..."
-                                value={searchTerm}
-                                maxLength={30}
-                                onChange={(e) => {
-                                    setSearchTerm(e.target.value);
-                                }}
-                            />
+
+                            <div className="space-y-3 relative z-10">
+                                <p className="text-sm font-semibold text-amber-100 leading-relaxed">
+                                    <span className="text-amber-300 font-bold uppercase tracking-wider text-xs bg-amber-500/25 px-2.5 py-0.5 rounded mr-1.5 border border-amber-400/30">
+                                        Insight
+                                    </span>
+                                    {currentDailyQuote.thought}
+                                </p>
+                                <blockquote className="italic text-sm text-white/95 leading-relaxed font-serif pt-1 pl-3 border-l-2 border-amber-300/70">
+                                    "{currentDailyQuote.quote}"
+                                    <span className="not-italic font-sans text-xs text-amber-300 font-bold ml-2.5">
+                                        — {currentDailyQuote.author}
+                                    </span>
+                                </blockquote>
+                            </div>
                         </div>
                     </div>
 
@@ -756,8 +832,20 @@ const ProjectDashboard = () => {
                     <div className="w-full md:w-4/12 mt-8 md:mt-0 animate-fade-in-up delay-200">
                         <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/10 shadow-xl text-white transform hover:scale-105 transition-all duration-300">
                             <div className="flex items-center mb-6 border-b border-white/10 pb-4">
-                                <div className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-400 to-purple-500 flex items-center justify-center text-xl font-bold border-2 border-white/30 mr-4 shadow-lg">
-                                    {user.name ? user.name.charAt(0).toUpperCase() : <UserIcon className="h-8 w-8 text-white" />}
+                                {/* Employee Passport Size Photo Frame (3.5 x 4.5 cm / 3:4 aspect ratio) */}
+                                <div className="w-[70px] h-[90px] rounded-lg border-2 border-white/40 shadow-md mr-4 bg-slate-900 flex-shrink-0 overflow-hidden relative group">
+                                    {profile?.photo || profile?.profilePicture || user?.photo || user?.profilePicture ? (
+                                        <img
+                                            src={profile?.photo || profile?.profilePicture || user?.photo || user?.profilePicture}
+                                            alt={user.name || 'Passport Photo'}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-600 to-indigo-800 text-white">
+                                            <span className="text-2xl font-bold">{user.name ? user.name.charAt(0).toUpperCase() : 'E'}</span>
+                                            <span className="text-[9px] uppercase tracking-wider opacity-80 mt-0.5">Photo</span>
+                                        </div>
+                                    )}
                                 </div>
                                 <div>
                                     <h3 className="font-serif font-bold text-xl text-white tracking-wide">{user.name || 'Employee'}</h3>
@@ -782,10 +870,15 @@ const ProjectDashboard = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* Live Scrolling Announcement Ticker */}
+                <div className="relative z-20 w-full">
+                    <LoginAnnouncements mode="ticker" />
+                </div>
             </div>
 
             {/* Main Content */}
-            <div className="container mx-auto px-6 py-8 -mt-10 relative z-20">
+            <div className="container mx-auto px-6 py-8 relative z-20">
                 {error && (
                     <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                         <p className="text-red-700">{error}</p>

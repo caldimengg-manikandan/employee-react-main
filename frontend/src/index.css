@@ -199,3 +199,30 @@ input[type="time"]::-webkit-calendar-picker-indicator {
   box-shadow: 0 0 20px rgba(38, 39, 96, 0.2);
   transition: all 0.3s ease;
 }
+
+/* Global Lite Background Image Overrides for all modules and submodules */
+main,
+main > div,
+main div.min-h-screen,
+main div.bg-gray-50,
+main div.bg-gray-100,
+main div.bg-slate-50,
+main div.bg-[#f8fafc],
+main div.bg-[#F8FAFC],
+main div.bg-[#f4f5f7],
+main div.bg-[#F4F5F7],
+main div.bg-[#f5f7fa],
+main div.bg-[#262760],
+main div.bg-[#1e2050] {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+main div.bg-white:not(.no-glass),
+main form.bg-white:not(.no-glass),
+main div.p-6.bg-white,
+main div.p-8.bg-white {
+  background-color: rgba(255, 255, 255, 0.92) !important;
+  backdrop-filter: blur(8px);
+}
+

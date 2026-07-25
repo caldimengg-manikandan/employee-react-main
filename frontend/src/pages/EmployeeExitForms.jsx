@@ -305,16 +305,16 @@ const ExitForm = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-[#262760]">
-      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-white"></div>
+    <div className="min-h-screen flex items-center justify-center bg-transparent">
+      <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-[#262760]"></div>
     </div>
   );
 
   // Show "Under Processing" state if submitted and not viewing details
   if (formData.status === 'submitted' && !viewDetails) {
     return (
-      <div className="min-h-screen bg-[#262760] p-6 flex items-center justify-center">
-        <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-lg w-full text-center space-y-6 animate-fade-in">
+      <div className="min-h-screen bg-transparent p-6 flex items-center justify-center">
+        <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-2xl p-8 max-w-lg w-full text-center space-y-6 animate-fade-in border border-indigo-100">
           <div className="w-24 h-24 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 ring-4 ring-indigo-100">
             <ClockIcon className="h-12 w-12 text-indigo-600" />
           </div>
@@ -334,7 +334,7 @@ const ExitForm = () => {
           <div className="pt-6 space-y-3">
             <button
               onClick={() => navigate('/dashboard')}
-              className="w-full py-3.5 bg-[#1e2050] text-white rounded-xl font-bold hover:bg-[#2a2c6a] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+              className="w-full py-3.5 bg-[#262760] text-white rounded-xl font-bold hover:bg-[#1f204d] transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
             >
               Return to Dashboard
             </button>
@@ -351,13 +351,13 @@ const ExitForm = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#262760] p-6 pb-20">
+    <div className="min-h-screen bg-transparent p-6 pb-20">
       <div className="max-w-6xl mx-auto">
         
         {viewDetails && (
           <button
             onClick={() => setViewDetails(false)}
-            className="mb-6 flex items-center text-white/80 hover:text-white transition-colors font-medium"
+            className="mb-6 flex items-center text-[#262760] hover:text-indigo-900 transition-colors font-medium bg-white/80 backdrop-blur-sm px-4 py-2 rounded-lg shadow-sm"
           >
             <ArrowLeftIcon className="h-5 w-5 mr-2" />
             Back to Status

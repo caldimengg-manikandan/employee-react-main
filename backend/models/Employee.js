@@ -51,6 +51,8 @@ const employeeSchema = new mongoose.Schema({
   currentAddress: String,
   email: String,
   officialEmail: String,
+  photo: String,
+  profilePicture: String,
   bankName: String,
   bankAccount: String,
   branch: String,

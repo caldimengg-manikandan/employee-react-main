@@ -40,6 +40,7 @@ const Login = () => {
   const slides = [
     { url: "/images/12.jpeg", title: "Hosur Office", desc: "" },
     { url: "/images/13.jpeg", title: "Chennai Office", desc: "" },
+    { url: "/images/IMG-20260704-WA0014.jpg", title: "Caldim 10th Year Anniversary", desc: "", fit: "contain" },
     {
       url: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80",
       title: "Engineering Excellence",
@@ -60,8 +61,6 @@ const Login = () => {
       title: "Project Success",
       desc: "Successful project delivery"
     },
-    
-   
   ];
 
   const [todaysUpdates, setTodaysUpdates] = useState([]);
@@ -1035,31 +1034,50 @@ const Login = () => {
           
           {/* Slideshow */}
           <div className="relative w-full h-screen">
-            {slides.map((slide, index) => (
-              <div
-                key={index}
-                className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
-                  index === currentSlide ? 'opacity-100' : 'opacity-0'
-                }`}
-              >
-                <div 
-                  className="absolute inset-0 bg-cover bg-center"
-                  style={{ backgroundImage: `url('${slide.url}')` }}
+            {slides.map((slide, index) => {
+              const isContain = slide.fit === 'contain';
+              return (
+                <div
+                  key={index}
+                  className={`absolute inset-0 transition-opacity duration-1000 ease-in-out ${
+                    index === currentSlide ? 'opacity-100' : 'opacity-0'
+                  }`}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                  {isContain ? (
+                    <div className="absolute inset-0 bg-[#0A0F2C] overflow-hidden flex items-center justify-center">
+                      <div 
+                        className="absolute inset-0 bg-cover bg-center blur-xl scale-110 opacity-50"
+                        style={{ backgroundImage: `url('${slide.url}')` }}
+                      />
+                      <div 
+                        className="absolute inset-0 bg-contain bg-no-repeat bg-center z-10"
+                        style={{ backgroundImage: `url('${slide.url}')` }}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent z-10"></div>
+                    </div>
+                  ) : (
+                    <div 
+                      className="absolute inset-0 bg-cover bg-center"
+                      style={{ backgroundImage: `url('${slide.url}')` }}
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
+                    </div>
+                  )}
+                  
+                  {/* Slide Content */}
+                  <div className="absolute bottom-20 left-10 right-10 text-white z-20">
+                    <h2 className="text-5xl font-bold mb-4 drop-shadow-lg">
+                      {slide.title}
+                    </h2>
+                    {slide.desc && (
+                      <p className="text-xl text-blue-200 drop-shadow">
+                        {slide.desc}
+                      </p>
+                    )}
+                  </div>
                 </div>
-                
-                {/* Slide Content */}
-                <div className="absolute bottom-20 left-10 right-10 text-white z-20">
-                  <h2 className="text-5xl font-bold mb-4">
-                    {slide.title}
-                  </h2>
-                  <p className="text-xl text-blue-200">
-                    {slide.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
+              );
+            })}
             
             {/* Slide Indicators */}
             <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 flex space-x-3 z-20">

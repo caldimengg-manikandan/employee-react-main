@@ -134,6 +134,7 @@ const MyProfile = () => {
         employeeId: user.employeeId || '',
         name: user.name || '',
         dateOfBirth: user.dateOfBirth || '',
+        originalDateOfBirth: user.originalDateOfBirth || '',
         qualification: user.qualification || '',
         bloodGroup: user.bloodGroup || '',
         location: user.location || '',
@@ -156,6 +157,7 @@ const MyProfile = () => {
         nationality: user.nationality || 'Indian',
         contactNumber: user.contactNumber || user.mobileNo || '',
         email: user.email || '',
+        officialEmail: user.officialEmail || '',
         guardianName: user.guardianName || '',
         pan: user.pan || '',
         aadhaar: user.aadhaar || '',
@@ -174,7 +176,9 @@ const MyProfile = () => {
         bankName: user.bankName || '',
         bankAccount: user.bankAccount || '',
         branch: user.branch || '',
-        ifsc: user.ifsc || ''
+        ifsc: user.ifsc || '',
+        photo: user.photo || user.profilePicture || '',
+        profilePicture: user.profilePicture || user.photo || ''
       };
       
       try {
@@ -189,6 +193,7 @@ const MyProfile = () => {
             employeeId: emp.employeeId || base.employeeId,
             name: emp.name || emp.employeename || base.name,
             dateOfBirth: toInputDate(emp.dateOfBirth || emp.dob) || toInputDate(base.dateOfBirth),
+            originalDateOfBirth: toInputDate(emp.originalDateOfBirth) || toInputDate(base.originalDateOfBirth),
             qualification: emp.qualification || emp.highestQualification || base.qualification,
             bloodGroup: emp.bloodGroup || base.bloodGroup,
             location: emp.location || base.location,
@@ -209,6 +214,7 @@ const MyProfile = () => {
             nationality: emp.nationality || base.nationality,
             contactNumber: emp.contactNumber || base.contactNumber,
             email: emp.email || base.email,
+            officialEmail: emp.officialEmail || base.officialEmail,
             guardianName: emp.guardianName || base.guardianName,
             pan: emp.pan || base.pan,
             aadhaar: emp.aadhaar || base.aadhaar,
@@ -227,7 +233,9 @@ const MyProfile = () => {
             bankName: emp.bankName || base.bankName,
             bankAccount: emp.bankAccount || base.bankAccount,
             branch: emp.branch || base.branch,
-            ifsc: emp.ifsc || base.ifsc
+            ifsc: emp.ifsc || base.ifsc,
+            photo: emp.photo || emp.profilePicture || base.photo,
+            profilePicture: emp.profilePicture || emp.photo || base.profilePicture
           };
           setMaritalStatus(mappedData.maritalStatus || 'single');
           if (mappedData.previousOrganizations && mappedData.previousOrganizations.length > 0) {
@@ -430,8 +438,13 @@ const MyProfile = () => {
       // Ensure compatibility with different backend field names by including aliases
       name: formData.name,
       employeename: formData.name,
+      originalDateOfBirth: formData.originalDateOfBirth,
       qualification: formData.qualification,
       highestQualification: formData.qualification,
+      officialEmail: formData.officialEmail,
+      currentExperience: formData.currentExperience,
+      photo: formData.photo,
+      profilePicture: formData.profilePicture,
       previousOrganizations: organizations
     };
     try {
@@ -737,7 +750,72 @@ const MyProfile = () => {
                     <UserIcon className={`h-5 w-5 ${sectionColors.personal.icon} mr-2`} />
                     <h3 className={`font-medium ${sectionColors.personal.title}`}>Personal Information</h3>
                   </div>
-                  
+
+                  {/* Passport Size Photo Upload */}
+                  <div className="mb-6 p-4 bg-white rounded-xl border border-blue-200 shadow-sm flex flex-col sm:flex-row items-center gap-6">
+                    <div className="flex flex-col items-center">
+                      <span className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-2">Passport Photo (3.5 × 4.5 cm)</span>
+                      <div className="w-[105px] h-[135px] border-2 border-dashed border-blue-400 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center relative group shadow-inner">
+                        {formData.photo || formData.profilePicture ? (
+                          <img
+                            src={formData.photo || formData.profilePicture}
+                            alt="Passport Size Photo"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="text-center p-2">
+                            <UserIcon className="h-10 w-10 text-gray-400 mx-auto mb-1" />
+                            <span className="text-[10px] text-gray-500 font-medium leading-tight block">No Photo Selected</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex-1 space-y-2 text-center sm:text-left">
+                      <h5 className="text-sm font-semibold text-gray-800">Upload Your Passport Photo</h5>
+                      <p className="text-xs text-gray-500 max-w-md">
+                        Please upload a clear, front-facing passport size photograph. This photo will be displayed on your Home Page profile card. (Max 2MB).
+                      </p>
+                      <div className="flex flex-wrap items-center gap-3 pt-1">
+                        <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-[#262760] text-white text-xs font-semibold rounded-lg hover:bg-[#1f204d] transition-colors shadow-sm">
+                          <span>Choose Passport Photo</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files[0];
+                              if (file) {
+                                if (file.size > 2 * 1024 * 1024) {
+                                  alert('Image file size should be less than 2MB');
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  handleInputChange('photo', reader.result);
+                                  handleInputChange('profilePicture', reader.result);
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
+                        </label>
+                        {(formData.photo || formData.profilePicture) && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleInputChange('photo', '');
+                              handleInputChange('profilePicture', '');
+                            }}
+                            className="text-xs text-red-600 hover:text-red-800 font-semibold px-3 py-2 border border-red-200 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
+                          >
+                            Remove Photo
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
@@ -805,6 +883,19 @@ const MyProfile = () => {
                         className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.dateOfBirth ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
                       />
                       {errors.dateOfBirth && <p className="text-xs text-red-600 mt-1">{errors.dateOfBirth}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">
+                        Original Date of Birth
+                      </label>
+                      <input
+                        type="date"
+                        value={formData.originalDateOfBirth || ''}
+                        onChange={(e) => handleInputChange('originalDateOfBirth', e.target.value)}
+                        max={new Date().toISOString().split('T')[0]}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                      />
                     </div>
 
                     <div>
@@ -934,6 +1025,20 @@ const MyProfile = () => {
                         placeholder="john.doe@example.com"
                       />
                       {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">
+                        Official Email
+                      </label>
+                      <input
+                        type="email"
+                        value={formData.officialEmail || ''}
+                        onChange={(e) => handleInputChange('officialEmail', e.target.value)}
+                        maxLength={50}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none text-sm focus:ring-1 focus:ring-green-500 focus:border-green-500"
+                        placeholder="official.email@caldim.com"
+                      />
                     </div>
 
                     <div>
@@ -1250,6 +1355,19 @@ const MyProfile = () => {
                         required
                         disabled
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm bg-gray-100 cursor-not-allowed"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm text-gray-700 mb-1">
+                        Current Experience
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.currentExperience || ''}
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm bg-gray-100 cursor-not-allowed font-medium text-gray-800"
+                        placeholder="Calculated automatically"
                       />
                     </div>
 

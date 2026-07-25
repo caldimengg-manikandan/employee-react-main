@@ -82,7 +82,14 @@ const Layout = () => {
   };
 
   return (
-    <div className="h-screen flex overflow-hidden bg-gray-50">
+    <div className="h-screen flex overflow-hidden bg-slate-100 relative">
+      {/* Background Image Watermark for all modules and submodules */}
+      <div 
+        className="fixed inset-0 pointer-events-none z-0 opacity-30 bg-cover bg-center bg-no-repeat bg-fixed"
+        style={{ backgroundImage: `url('/images/hero-bg.png')` }}
+      />
+      <div className="fixed inset-0 pointer-events-none z-0 bg-gradient-to-br from-blue-900/15 via-purple-900/10 to-slate-900/15" />
+
       {/* Full Height Sidebar */}
       <Sidebar 
         isOpen={sidebarOpen} 
@@ -92,12 +99,12 @@ const Layout = () => {
       />
       
       {/* Main Content Area - includes Header and Outlet */}
-      <div className="flex flex-col flex-1 w-full min-w-0">
+      <div className="flex flex-col flex-1 w-full min-w-0 z-10">
         {/* Header positioned after sidebar */}
         <Header onMenuClick={() => setSidebarOpen(!sidebarOpen)} />
         
         {/* Main content with Outlet */}
-        <main className="flex-1 overflow-auto bg-gray-50">
+        <main className="flex-1 overflow-auto bg-transparent">
           <div className="max-w-none w-full h-full">
             <Outlet />
           </div>
@@ -111,6 +118,18 @@ const Layout = () => {
           onClick={() => setSidebarOpen(false)}
         />
       )}
+
+      <style>{`
+        main div.min-h-screen.bg-gray-50,
+        main div.bg-gray-50,
+        main .bg-gray-50 {
+          background-color: transparent !important;
+        }
+        main div.bg-white:not(.bg-white\\/90) {
+          background-color: rgba(255, 255, 255, 0.92) !important;
+          backdrop-filter: blur(8px);
+        }
+      `}</style>
     </div>
   );
 };

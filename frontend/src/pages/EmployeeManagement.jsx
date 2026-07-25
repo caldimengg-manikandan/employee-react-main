@@ -370,347 +370,373 @@ const EmployeeManagement = () => {
     Array.from(new Set(employees.map(e => (e.location || e.branch)).filter(Boolean)))
   ), [employees]);
 
-  // View Employee Modal Component (integrated) - Showing only Add Employee fields
+  // View Employee Modal Component (integrated) - Vibrant, colorful popup with complete data
   const renderViewEmployeeModal = () => {
     if (!viewingEmployee) return null;
 
+    const photoUrl = viewingEmployee.photo || viewingEmployee.profilePicture;
+
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-        <div className="bg-white rounded-2xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
-          {/* Header */}
-          <div className="sticky top-0 bg-white border-b border-gray-200 p-6 flex justify-between items-center rounded-t-2xl">
-            <div className="flex items-center gap-4">
-              <div className="w-16 h-16 bg-[#262760] rounded-xl flex items-center justify-center">
-                <span className="text-2xl font-bold text-white">
-                  {viewingEmployee.name ? viewingEmployee.name.charAt(0).toUpperCase() : 'E'}
-                </span>
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+        <div className="bg-white rounded-3xl w-full max-w-5xl max-h-[92vh] overflow-y-auto shadow-2xl border border-white/20">
+          
+          {/* Vibrant Hero Header Banner */}
+          <div className="sticky top-0 z-20 bg-gradient-to-r from-[#262760] via-indigo-900 to-purple-900 text-white p-6 rounded-t-3xl shadow-lg border-b border-white/10 flex justify-between items-center">
+            <div className="flex items-center gap-5">
+              {/* Passport Size Photo Frame (3.5 x 4.5 cm / 3:4 ratio) */}
+              <div className="w-[75px] h-[95px] rounded-xl border-2 border-white/40 shadow-xl bg-slate-900 overflow-hidden flex-shrink-0 relative group">
+                {photoUrl ? (
+                  <img
+                    src={photoUrl}
+                    alt={viewingEmployee.name || 'Passport Photo'}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-700 text-white">
+                    <span className="text-3xl font-extrabold">{viewingEmployee.name ? viewingEmployee.name.charAt(0).toUpperCase() : 'E'}</span>
+                    <span className="text-[9px] uppercase tracking-wider opacity-80 mt-0.5">Photo</span>
+                  </div>
+                )}
               </div>
+
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">{viewingEmployee.name}</h2>
-                <div className="flex items-center gap-3 mt-1">
-                  <span className="text-lg font-medium text-gray-700">
-                    {viewingEmployee.designation || viewingEmployee.role || viewingEmployee.position}
+                <h2 className="text-2xl lg:text-3xl font-bold tracking-tight text-white drop-shadow-sm">
+                  {viewingEmployee.name}
+                </h2>
+                <p className="text-indigo-200 text-sm font-medium mt-0.5">
+                  {viewingEmployee.designation || viewingEmployee.role || viewingEmployee.position || 'Employee'}
+                </p>
+                <div className="flex flex-wrap items-center gap-2 mt-2">
+                  <span className="text-xs font-bold text-blue-900 bg-blue-100 px-3 py-1 rounded-full shadow-sm">
+                    🆔 {viewingEmployee.employeeId || viewingEmployee.displayId || 'EMP'}
                   </span>
-                  <span className="text-base font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg">
-                    {viewingEmployee.displayId}
+                  <span className="text-xs font-bold text-purple-900 bg-purple-100 px-3 py-1 rounded-full shadow-sm">
+                    🏢 {viewingEmployee.division || 'SDS'}
                   </span>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(viewingEmployee.status)}`}>
-                    {viewingEmployee.status}
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold shadow-sm ${
+                    viewingEmployee.status === 'Active' ? 'bg-green-100 text-green-800 border border-green-300' :
+                    viewingEmployee.status === 'Exited' ? 'bg-red-100 text-red-800 border border-red-300' : 'bg-gray-100 text-gray-800'
+                  }`}>
+                    ● {viewingEmployee.status || 'Active'}
                   </span>
                 </div>
               </div>
             </div>
+
             <button
               onClick={() => setViewingEmployee(null)}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-2 rounded-lg transition-colors"
+              className="text-white/80 hover:text-white hover:bg-white/10 p-2.5 rounded-full transition-colors"
             >
-              <XMarkIcon className="h-6 w-6" />
+              <XMarkIcon className="h-7 w-7" />
             </button>
           </div>
 
-          {/* Content - Showing only Add Employee fields */}
-          <div className="p-6">
-            {/* Personal Information Section */}
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
+          {/* Modal Content - Colorful Themed Cards */}
+          <div className="p-6 space-y-6 bg-slate-50/50">
+
+            {/* 1. Personal Information Card */}
+            <div className="bg-gradient-to-br from-blue-50/90 via-indigo-50/80 to-purple-50/70 border border-blue-200/80 rounded-2xl p-6 shadow-md">
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-blue-200/60">
                 <UserIcon className="h-6 w-6 text-blue-600" />
-                <h3 className="text-xl font-bold text-gray-900">Personal Information</h3>
+                <h3 className="text-lg font-bold text-blue-950">Personal Information</h3>
               </div>
 
-              <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Basic Information */}
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Employee ID</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.employeeId || '-'}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Employee Name</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.name || '-'}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Gender</div>
-                      <div className="text-lg font-bold text-gray-900 capitalize">{viewingEmployee.gender || '-'}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Date of Birth</div>
-                      <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.dateOfBirth || viewingEmployee.dob)}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Original Date of Birth</div>
-                      <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.originalDateOfBirth)}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Qualification</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.qualification || viewingEmployee.highestQualification || '-'}</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Blood Group</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.bloodGroup || '-'}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Marital Status</div>
-                      <div className="text-lg font-bold text-gray-900 capitalize">{viewingEmployee.maritalStatus || '-'}</div>
-                    </div>
-
-                    {viewingEmployee.maritalStatus === 'married' && (
-                      <>
-                        <div className="space-y-1">
-                          <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Spouse Name</div>
-                          <div className="text-lg font-bold text-gray-900">{viewingEmployee.spouseName || '-'}</div>
-                        </div>
-
-                        <div className="space-y-1">
-                          <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Spouse Contact</div>
-                          <div className="text-lg font-bold text-gray-900">{viewingEmployee.spouseContact || '-'}</div>
-                        </div>
-                      </>
-                    )}
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Nationality</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.nationality || '-'}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Guardian Name</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.guardianName || '-'}</div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Location</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.location || '-'}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">PAN Number</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.pan || '-'}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Aadhaar Number</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.aadhaar || '-'}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Passport Number</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.passportNumber || '-'}</div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">UAN Number</div>
-                      <div className="text-lg font-bold text-gray-900">{viewingEmployee.uan || '-'}</div>
-                    </div>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Employee ID</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.employeeId || '-'}</div>
                 </div>
 
-                {/* Address Information */}
-                <div className="mt-6 pt-6 border-t border-gray-200">
-                  <div className="flex items-center gap-2 mb-4">
-                    <HomeIcon className="h-5 w-5 text-blue-600" />
-                    <h4 className="text-lg font-semibold text-gray-900">Address Information</h4>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Permanent Address</div>
-                      <div className="text-base font-medium text-gray-900 whitespace-pre-line">
-                        {viewingEmployee.permanentAddress || '-'}
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Current Address</div>
-                      <div className="text-base font-medium text-gray-900 whitespace-pre-line">
-                        {viewingEmployee.currentAddress || '-'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Contact Information Section */}
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
-                <PhoneIcon className="h-6 w-6 text-green-600" />
-                <h3 className="text-xl font-bold text-gray-900">Contact Information</h3>
-              </div>
-
-              <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Mobile Number</div>
-                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.contactNumber || viewingEmployee.mobileNo || '-'}</div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Email Address</div>
-                    <div className="text-lg font-bold text-gray-900 break-words">{viewingEmployee.email || '-'}</div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Emergency Contact</div>
-                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.emergencyContact || viewingEmployee.emergencyMobile || '-'}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Professional Information Section */}
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
-                <BriefcaseIcon className="h-6 w-6 text-indigo-600" />
-                <h3 className="text-xl font-bold text-gray-900">Professional Information</h3>
-              </div>
-
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Designation</div>
-                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.designation || viewingEmployee.role || viewingEmployee.position || '-'}</div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Division</div>
-                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.division || '-'}</div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Date of Joining</div>
-                    <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin)}</div>
-                  </div>
-
-
-
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Previous Experience</div>
-                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.previousExperience || '-'}</div>
-                  </div>
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Full Name</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.name || '-'}</div>
                 </div>
 
-                {viewingEmployee.status === 'Exited' && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="flex items-center gap-2 mb-4">
-                      <XMarkIcon className="h-5 w-5 text-red-600" />
-                      <h4 className="text-lg font-semibold text-gray-900">Exit Information</h4>
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Gender</div>
+                  <div className="text-base font-bold text-gray-900 capitalize mt-1">{viewingEmployee.gender || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Date of Birth</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{formatDate(viewingEmployee.dateOfBirth || viewingEmployee.dob)}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Original Date of Birth</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{formatDate(viewingEmployee.originalDateOfBirth)}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Qualification</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.qualification || viewingEmployee.highestQualification || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Blood Group</div>
+                  <div className="text-base font-bold text-red-600 mt-1">{viewingEmployee.bloodGroup || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Marital Status</div>
+                  <div className="text-base font-bold text-gray-900 capitalize mt-1">{viewingEmployee.maritalStatus || '-'}</div>
+                </div>
+
+                {viewingEmployee.maritalStatus === 'married' && (
+                  <>
+                    <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                      <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Spouse Name</div>
+                      <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.spouseName || '-'}</div>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Exit Date</div>
-                        <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.exitDate)}</div>
-                      </div>
-                      <div className="space-y-1">
-                        <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Last Working Day</div>
-                        <div className="text-lg font-bold text-gray-900">{formatDate(viewingEmployee.lastWorkingDay)}</div>
-                      </div>
-                      <div className="lg:col-span-3 space-y-1">
-                        <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Exit Reason</div>
-                        <div className="text-base font-medium text-gray-900">{viewingEmployee.exitReason || '-'}</div>
-                      </div>
+
+                    <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                      <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Spouse Contact</div>
+                      <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.spouseContact || '-'}</div>
                     </div>
-                  </div>
+                  </>
                 )}
 
-                {/* Previous Organizations */}
-                {viewingEmployee.previousOrganizations && viewingEmployee.previousOrganizations.length > 0 && (
-                  <div className="mt-6 pt-6 border-t border-gray-200">
-                    <div className="flex items-center gap-2 mb-4">
-                      <AcademicCapIcon className="h-5 w-5 text-indigo-600" />
-                      <h4 className="text-lg font-semibold text-gray-900">Previous Organizations</h4>
-                    </div>
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Nationality</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.nationality || 'Indian'}</div>
+                </div>
 
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead>
-                          <tr className="bg-indigo-100">
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Organization</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Designation</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Start Date</th>
-                            <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">End Date</th>
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Guardian Name</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.guardianName || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Location</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.location || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">PAN Number</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.pan || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Aadhaar Number</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.aadhaar || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">Passport Number</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.passportNumber || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-blue-100 shadow-sm">
+                  <div className="text-xs font-bold text-blue-600 uppercase tracking-wider">UAN Number</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.uan || '-'}</div>
+                </div>
+              </div>
+
+              {/* Address Details */}
+              <div className="mt-6 pt-5 border-t border-blue-200/60 grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="bg-white/90 p-4 rounded-xl border border-purple-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <HomeIcon className="h-4 w-4 text-purple-600" />
+                    <span className="text-xs font-bold text-purple-900 uppercase tracking-wider">Permanent Address</span>
+                  </div>
+                  <p className="text-sm font-medium text-gray-800 leading-relaxed whitespace-pre-line">
+                    {viewingEmployee.permanentAddress || viewingEmployee.permanentAddressLine ? (
+                      `${viewingEmployee.permanentAddressLine || viewingEmployee.permanentAddress || ''}${viewingEmployee.permanentCity ? ', ' + viewingEmployee.permanentCity : ''}${viewingEmployee.permanentState ? ', ' + viewingEmployee.permanentState : ''}${viewingEmployee.permanentPincode ? ' - ' + viewingEmployee.permanentPincode : ''}`
+                    ) : '-'}
+                  </p>
+                </div>
+
+                <div className="bg-white/90 p-4 rounded-xl border border-purple-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-1.5">
+                    <HomeIcon className="h-4 w-4 text-purple-600" />
+                    <span className="text-xs font-bold text-purple-900 uppercase tracking-wider">Current Address</span>
+                  </div>
+                  <p className="text-sm font-medium text-gray-800 leading-relaxed whitespace-pre-line">
+                    {viewingEmployee.currentAddress || viewingEmployee.currentAddressLine ? (
+                      `${viewingEmployee.currentAddressLine || viewingEmployee.currentAddress || ''}${viewingEmployee.currentCity ? ', ' + viewingEmployee.currentCity : ''}${viewingEmployee.currentState ? ', ' + viewingEmployee.currentState : ''}${viewingEmployee.currentPincode ? ' - ' + viewingEmployee.currentPincode : ''}`
+                    ) : '-'}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* 2. Contact Information Card */}
+            <div className="bg-gradient-to-br from-emerald-50/90 via-teal-50/80 to-green-50/70 border border-emerald-200/80 rounded-2xl p-6 shadow-md">
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-emerald-200/60">
+                <PhoneIcon className="h-6 w-6 text-emerald-600" />
+                <h3 className="text-lg font-bold text-emerald-950">Contact Information</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-emerald-100 shadow-sm">
+                  <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Mobile Number</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.contactNumber || viewingEmployee.mobileNo || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-emerald-100 shadow-sm">
+                  <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Personal Email</div>
+                  <div className="text-base font-bold text-gray-900 break-words mt-1">{viewingEmployee.email || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-emerald-100 shadow-sm">
+                  <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Official Email</div>
+                  <div className="text-base font-bold text-gray-900 break-words mt-1">{viewingEmployee.officialEmail || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-emerald-100 shadow-sm">
+                  <div className="text-xs font-bold text-emerald-700 uppercase tracking-wider">Emergency Contact</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.emergencyContact || viewingEmployee.emergencyMobile || '-'}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Professional Information Card */}
+            <div className="bg-gradient-to-br from-cyan-50/90 via-sky-50/80 to-blue-50/70 border border-cyan-200/80 rounded-2xl p-6 shadow-md">
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-cyan-200/60">
+                <BriefcaseIcon className="h-6 w-6 text-cyan-600" />
+                <h3 className="text-lg font-bold text-cyan-950">Professional Information</h3>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-cyan-100 shadow-sm">
+                  <div className="text-xs font-bold text-cyan-700 uppercase tracking-wider">Designation</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.designation || viewingEmployee.role || viewingEmployee.position || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-cyan-100 shadow-sm">
+                  <div className="text-xs font-bold text-cyan-700 uppercase tracking-wider">Division</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.division || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-cyan-100 shadow-sm">
+                  <div className="text-xs font-bold text-cyan-700 uppercase tracking-wider">Date of Joining</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{formatDate(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin)}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-cyan-100 shadow-sm">
+                  <div className="text-xs font-bold text-cyan-700 uppercase tracking-wider">Current Experience</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.currentExperience || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-cyan-100 shadow-sm">
+                  <div className="text-xs font-bold text-cyan-700 uppercase tracking-wider">Previous Experience</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.previousExperience || '-'}</div>
+                </div>
+
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-cyan-100 shadow-sm">
+                  <div className="text-xs font-bold text-cyan-700 uppercase tracking-wider">Status</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.status || 'Active'}</div>
+                </div>
+              </div>
+
+              {/* Exit Details if Exited */}
+              {viewingEmployee.status === 'Exited' && (
+                <div className="mt-5 pt-5 border-t border-red-200/60 bg-red-50/70 p-4 rounded-xl border border-red-200 shadow-sm">
+                  <div className="flex items-center gap-2 mb-3">
+                    <XMarkIcon className="h-5 w-5 text-red-600" />
+                    <h4 className="text-sm font-bold text-red-900 uppercase tracking-wider">Exit Details</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <span className="text-xs font-bold text-red-700 block">Exit Date</span>
+                      <span className="text-sm font-bold text-gray-900">{formatDate(viewingEmployee.exitDate)}</span>
+                    </div>
+                    <div>
+                      <span className="text-xs font-bold text-red-700 block">Last Working Day</span>
+                      <span className="text-sm font-bold text-gray-900">{formatDate(viewingEmployee.lastWorkingDay)}</span>
+                    </div>
+                    <div className="md:col-span-3">
+                      <span className="text-xs font-bold text-red-700 block">Exit Reason</span>
+                      <span className="text-sm font-medium text-gray-800 italic">{viewingEmployee.exitReason || '-'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Previous Organizations */}
+              {viewingEmployee.previousOrganizations && viewingEmployee.previousOrganizations.length > 0 && (
+                <div className="mt-5 pt-5 border-t border-cyan-200/60">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AcademicCapIcon className="h-5 w-5 text-indigo-600" />
+                    <h4 className="text-sm font-bold text-indigo-900 uppercase tracking-wider">Previous Organizations</h4>
+                  </div>
+
+                  <div className="overflow-x-auto rounded-xl border border-indigo-200 shadow-sm">
+                    <table className="min-w-full divide-y divide-indigo-100">
+                      <thead>
+                        <tr className="bg-indigo-100/80">
+                          <th className="px-4 py-2.5 text-left text-xs font-bold text-indigo-900 uppercase">Organization</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-bold text-indigo-900 uppercase">Designation</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-bold text-indigo-900 uppercase">Start Date</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-bold text-indigo-900 uppercase">End Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white/90 divide-y divide-indigo-50">
+                        {viewingEmployee.previousOrganizations.map((org, index) => (
+                          <tr key={index} className="hover:bg-indigo-50/50">
+                            <td className="px-4 py-2.5 text-sm font-semibold text-gray-900">{org.organization || '-'}</td>
+                            <td className="px-4 py-2.5 text-sm text-gray-800">{org.designation || org.position || org.role || '-'}</td>
+                            <td className="px-4 py-2.5 text-sm text-gray-800">{formatDate(org.startDate)}</td>
+                            <td className="px-4 py-2.5 text-sm text-gray-800">{formatDate(org.endDate) || '-'}</td>
                           </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {viewingEmployee.previousOrganizations.map((org, index) => (
-                            <tr key={index}>
-                              <td className="px-4 py-3 text-sm text-gray-900">{org.organization || '-'}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{org.designation || org.position || org.role || '-'}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{formatDate(org.startDate)}</td>
-                              <td className="px-4 py-3 text-sm text-gray-900">{formatDate(org.endDate) || '-'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
-            {/* Bank Information Section */}
-            <div className="mb-8">
-              <div className="flex items-center gap-2 mb-4">
+            {/* 4. Bank Information Card */}
+            <div className="bg-gradient-to-br from-amber-50/90 via-rose-50/80 to-orange-50/70 border border-amber-200/80 rounded-2xl p-6 shadow-md">
+              <div className="flex items-center gap-2 mb-4 pb-3 border-b border-amber-200/60">
                 <BanknotesIcon className="h-6 w-6 text-amber-600" />
-                <h3 className="text-xl font-bold text-gray-900">Bank Information</h3>
+                <h3 className="text-lg font-bold text-amber-950">Bank Account Information</h3>
               </div>
 
-              <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Bank Name</div>
-                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.bankName || '-'}</div>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-amber-100 shadow-sm">
+                  <div className="text-xs font-bold text-amber-700 uppercase tracking-wider">Bank Name</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.bankName || '-'}</div>
+                </div>
 
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Account Number</div>
-                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.bankAccount || '-'}</div>
-                  </div>
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-amber-100 shadow-sm">
+                  <div className="text-xs font-bold text-amber-700 uppercase tracking-wider">Account Number</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.bankAccount || '-'}</div>
+                </div>
 
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Branch</div>
-                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.branch || '-'}</div>
-                  </div>
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-amber-100 shadow-sm">
+                  <div className="text-xs font-bold text-amber-700 uppercase tracking-wider">Branch</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.branch || '-'}</div>
+                </div>
 
-                  <div className="space-y-1">
-                    <div className="text-sm font-semibold text-gray-500 uppercase tracking-wider">IFSC Code</div>
-                    <div className="text-lg font-bold text-gray-900">{viewingEmployee.ifsc || '-'}</div>
-                  </div>
+                <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-amber-100 shadow-sm">
+                  <div className="text-xs font-bold text-amber-700 uppercase tracking-wider">IFSC Code</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.ifsc || '-'}</div>
                 </div>
               </div>
             </div>
+
           </div>
 
           {/* Footer Actions */}
-          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-6 rounded-b-2xl">
-            <div className="flex justify-end space-x-4">
-              <button
-                onClick={() => setViewingEmployee(null)}
-                className="px-6 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500 transition-colors duration-200 shadow-sm"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  setViewingEmployee(null);
-                  handleEdit(viewingEmployee);
-                }}
-                className="px-6 py-3 text-sm font-medium text-white bg-[#262760] rounded-xl hover:bg-[#202150] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 shadow-lg"
-              >
-                Edit Employee
-              </button>
-            </div>
+          <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4 px-6 rounded-b-3xl flex justify-end gap-3 shadow-md">
+            <button
+              onClick={() => setViewingEmployee(null)}
+              className="px-6 py-2.5 text-sm font-semibold text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors shadow-sm"
+            >
+              Close
+            </button>
+            <button
+              onClick={() => {
+                const emp = viewingEmployee;
+                setViewingEmployee(null);
+                handleEdit(emp);
+              }}
+              className="px-6 py-2.5 text-sm font-semibold text-white bg-[#262760] rounded-xl hover:bg-[#1f204d] transition-all shadow-md"
+            >
+              Edit Employee
+            </button>
           </div>
         </div>
       </div>
@@ -917,6 +943,9 @@ const EmployeeManagement = () => {
                       <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Employee Name
                       </th>
+                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
+                        Official Mail ID
+                      </th>
 
                       <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Division
@@ -954,7 +983,27 @@ const EmployeeManagement = () => {
                           <span className="font-semibold text-blue-600">{employee.employeeId}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
-                          <div className="text-sm font-semibold text-gray-900">{employee.name}</div>
+                          <div className="flex items-center space-x-3">
+                            <div className="w-[35px] h-[45px] rounded border border-blue-200 shadow-xs overflow-hidden bg-slate-100 flex-shrink-0">
+                              {employee.photo || employee.profilePicture ? (
+                                <img
+                                  src={employee.photo || employee.profilePicture}
+                                  alt={employee.name || 'Photo'}
+                                  className="w-full h-full object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-[#262760] to-indigo-800 text-white flex items-center justify-center font-bold text-xs">
+                                  {employee.name ? employee.name.charAt(0).toUpperCase() : 'E'}
+                                </div>
+                              )}
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold text-gray-900">{employee.name}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100 font-medium">
+                          <span className="text-gray-700 font-semibold">{employee.officialEmail || '-'}</span>
                         </td>
 
                         <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
@@ -1017,10 +1066,25 @@ const EmployeeManagement = () => {
             {filteredEmployees.map((employee, index) => (
               <div key={employee._id} className="border-b border-gray-200 p-4 hover:bg-gray-50 transition-colors duration-150">
                 <div className="flex justify-between items-start mb-3">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">{employee.name}</h3>
-                    <p className="text-sm text-blue-600 font-medium">{employee.employeeId}</p>
-                    <p className="text-xs text-gray-500 mt-1">{employee.email}</p>
+                  <div className="flex items-center space-x-3">
+                    <div className="w-[42px] h-[54px] rounded-lg border border-blue-200 shadow-sm overflow-hidden bg-slate-900 flex-shrink-0">
+                      {employee.photo || employee.profilePicture ? (
+                        <img
+                          src={employee.photo || employee.profilePicture}
+                          alt={employee.name || 'Photo'}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-[#262760] to-indigo-800 text-white flex items-center justify-center font-bold text-base">
+                          {employee.name ? employee.name.charAt(0).toUpperCase() : 'E'}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-gray-900">{employee.name}</h3>
+                      <p className="text-sm text-blue-600 font-medium">{employee.employeeId}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">{employee.officialEmail || '-'}</p>
+                    </div>
                   </div>
                   <div className="flex space-x-1">
                     <button
