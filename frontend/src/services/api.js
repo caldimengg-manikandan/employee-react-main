@@ -69,6 +69,7 @@ export const authAPI = {
 };
 
 export const employeeAPI = {
+  getAll: (status) => api.get('/employees', { params: { status } }),
   getAllEmployees: (status) => api.get('/employees', { params: { status } }),
   getEmployeeById: (id) => api.get(`/employees/${id}`),
   getMyProfile: () => api.get('/employees/me'),
@@ -543,6 +544,15 @@ export const assetAPI = {
 
   getExitClearances: () => api.get('/assets/exit-clearances'),
   updateExitClearance: (id, data) => api.put(`/assets/exit-clearances/${id}`, data),
+};
+
+export const extensionAPI = {
+  getPublic: () => api.get('/extensions/public'),
+  getAll: () => api.get('/extensions'),
+  create: (data) => api.post('/extensions', data),
+  update: (id, data) => api.put(`/extensions/${id}`, data),
+  updateStatus: (id, status) => api.patch(`/extensions/${id}/status`, { status }),
+  delete: (id) => api.delete(`/extensions/${id}`)
 };
 
 export default api;

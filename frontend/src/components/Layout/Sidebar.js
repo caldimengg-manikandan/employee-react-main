@@ -121,7 +121,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Unified Hub Calendar": CalendarDaysIcon,
     "Support Center": ChatBubbleLeftRightIcon,
     "Asset Management": BriefcaseIcon,
-    "Office Sync": CalendarDaysIcon
+    "Office Sync": CalendarDaysIcon,
+    "Administration": AdjustmentsHorizontalIcon,
+    "Extension Master": Cog6ToothIcon
   };
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
@@ -413,6 +415,16 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       allowEmployeeRole: true,
       permission: "office_sync_access",
     },
+    {
+      name: "Administration",
+      hasDropdown: true,
+      icon: getIconForMenu("Administration"),
+      showForRoles: ["admin", "it_admin"],
+      allowEmployeeRole: false,
+      children: [
+        { name: "Extension Master", path: "/administration/extension-master", showForRoles: ["admin", "it_admin"] }
+      ]
+    }
   ];
 
   const isITAdmin = role === "it_admin" || /IT Admin/i.test(user.designation || "");
@@ -498,6 +510,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Employee Exit Form": <ArrowRightOnRectangleIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Exit Approval": <ApprovalIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "Performance Pay": <CurrencyRupeeIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
+    "Extension Master": <Cog6ToothIcon className="mr-3 h-4 w-4 flex-shrink-0" />,
     "default": <ClockIcon className="mr-3 h-4 w-4 flex-shrink-0" />
   };
 

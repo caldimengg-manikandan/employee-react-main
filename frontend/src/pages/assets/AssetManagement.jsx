@@ -20,9 +20,11 @@ import {
   Check,
   X,
   Send,
-  Filter
+  Filter,
+  Phone
 } from "lucide-react";
 import { employeeAPI, assetAPI, BASE_URL } from "../../services/api";
+import ExtensionMaster from "../admin/ExtensionMaster";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -33,6 +35,13 @@ export default function AssetManagement() {
     const role = (loggedUser.role || "").trim().toLowerCase();
     const designation = (loggedUser.designation || "").trim().toLowerCase();
     return role === "admin" || role === "hr" || role === "director" || designation === "it admin";
+  }, []);
+
+  const isITOrSuperAdmin = useMemo(() => {
+    const loggedUser = JSON.parse(sessionStorage.getItem("user") || "{}");
+    const role = (loggedUser.role || "").trim().toLowerCase();
+    const designation = (loggedUser.designation || "").trim().toLowerCase();
+    return role === "admin" || role === "super_admin" || role === "it_admin" || designation.includes("it admin") || designation.includes("super admin");
   }, []);
 
   // Access Control / User Roles state
@@ -943,6 +952,20 @@ export default function AssetManagement() {
               Asset Master
             </button>
 
+            {isITOrSuperAdmin && (
+              <button
+                onClick={() => setActiveTab("extensionMaster")}
+                className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${
+                  activeTab === "extensionMaster"
+                    ? "border-[#f37021] text-[#262760]"
+                    : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+              >
+                <Phone className="h-4 w-4 text-[#f37021]" />
+                Extension Master
+              </button>
+            )}
+
             <button
               onClick={() => setActiveTab("allocation")}
               className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${
@@ -991,6 +1014,9 @@ export default function AssetManagement() {
       )}
 
       {/* ======================================================== TAB CONTENT ======================================================== */}
+
+      {/* EXTENSION MASTER TAB */}
+      {activeTab === "extensionMaster" && <ExtensionMaster />}
 
       {/* DASHBOARD TAB */}
       {activeTab === "dashboard" && (

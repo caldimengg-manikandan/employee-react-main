@@ -1,6 +1,6 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { authAPI, officeHolidayAPI } from '../services/api';
+import { authAPI, officeHolidayAPI, extensionAPI } from '../services/api';
 import LoginAnnouncements from '../components/LoginAnnouncements';
 
 const Login = () => {
@@ -29,6 +29,7 @@ const Login = () => {
   const [showAboutUs, setShowAboutUs] = useState(false);
   const [showHolidays, setShowHolidays] = useState(false);
   const [showUpdates, setShowUpdates] = useState(false);
+  const [showExtensionDirectory, setShowExtensionDirectory] = useState(false);
   
   // Slideshow state
   const [currentSlide, setCurrentSlide] = useState(0);
@@ -67,6 +68,43 @@ const Login = () => {
   const [officeHolidays, setOfficeHolidays] = useState([]);
   const [officeHolidayLoading, setOfficeHolidayLoading] = useState(false);
   const [officeHolidayYear, setOfficeHolidayYear] = useState(String(new Date().getFullYear()));
+
+  // Phone Extension Directory state
+  const [publicExtensions, setPublicExtensions] = useState([]);
+  const [extensionLoading, setExtensionLoading] = useState(false);
+  const [extensionSearch, setExtensionSearch] = useState('');
+  const [extensionLocationTab, setExtensionLocationTab] = useState('All');
+
+  useEffect(() => {
+    const loadExtensions = async () => {
+      setExtensionLoading(true);
+      try {
+        const res = await extensionAPI.getPublic();
+        setPublicExtensions(Array.isArray(res.data) ? res.data : []);
+      } catch (err) {
+        console.error("Error loading phone extensions:", err);
+        setPublicExtensions([]);
+      } finally {
+        setExtensionLoading(false);
+      }
+    };
+    loadExtensions();
+  }, []);
+
+  const filteredPublicExtensions = useMemo(() => {
+    const q = extensionSearch.toLowerCase().trim();
+    const list = publicExtensions.filter((ext) => {
+      const nameStr = (ext.employeeName || '').toLowerCase();
+      const deptStr = (ext.department || '').toLowerCase();
+      const desigStr = (ext.designation || '').toLowerCase();
+      const extNoStr = (ext.extensionNumber || '').toLowerCase();
+      const matchSearch = !q || nameStr.includes(q) || deptStr.includes(q) || desigStr.includes(q) || extNoStr.includes(q);
+
+      const matchLocation = extensionLocationTab === 'All' || ext.location === extensionLocationTab;
+      return matchSearch && matchLocation;
+    });
+    return list.sort((a, b) => (a.employeeName || '').localeCompare(b.employeeName || ''));
+  }, [publicExtensions, extensionSearch, extensionLocationTab]);
 
   const availableHolidayYears = useMemo(() => {
     const years = new Set();
@@ -644,6 +682,146 @@ const Login = () => {
     </div>
   );
 
+  // Phone Extension Directory Modal Component
+  const ExtensionDirectoryModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+      <div className="bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C] border border-white/20 rounded-3xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+        {/* Header */}
+        <div className="relative p-6 border-b border-white/20 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-xl shadow-lg text-white font-bold">
+              ☎
+            </div>
+            <div>
+              <h2 className="text-2xl font-extrabold text-white">
+                Phone Extension Directory
+              </h2>
+              <p className="text-xs text-blue-200 font-medium">Official internal contact extensions</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            <span className="bg-white/10 text-cyan-300 border border-white/20 text-xs font-extrabold px-3 py-1 rounded-full">
+              {filteredPublicExtensions.length} Active
+            </span>
+            <button
+              onClick={() => setShowExtensionDirectory(false)}
+              className="text-white hover:text-cyan-300 text-2xl font-bold transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+
+        {/* Content Body */}
+        <div className="p-6 flex flex-col flex-1 overflow-hidden">
+          {/* Location Filter Tabs */}
+          <div className="flex items-center gap-2 mb-4 p-1.5 bg-white/10 rounded-2xl border border-white/10">
+            <button
+              onClick={() => setExtensionLocationTab('All')}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                extensionLocationTab === 'All'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                  : 'text-blue-200 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              🌐 All Locations
+            </button>
+            <button
+              onClick={() => setExtensionLocationTab('Chennai')}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                extensionLocationTab === 'Chennai'
+                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md'
+                  : 'text-blue-200 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              🏢 Chennai Office
+            </button>
+            <button
+              onClick={() => setExtensionLocationTab('Hosur')}
+              className={`flex-1 py-2 text-xs font-bold rounded-xl transition-all ${
+                extensionLocationTab === 'Hosur'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white shadow-md'
+                  : 'text-blue-200 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              🏭 Hosur Office
+            </button>
+          </div>
+
+          {/* Search Box */}
+          <div className="relative mb-5">
+            <input
+              type="text"
+              value={extensionSearch}
+              onChange={(e) => setExtensionSearch(e.target.value)}
+              placeholder="Search by Employee Name, Department, or Extension Number"
+              className="w-full pl-11 pr-10 py-3.5 bg-white/10 border border-white/20 rounded-2xl text-sm text-white placeholder:text-blue-200/60 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all font-medium shadow-inner"
+            />
+            <svg className="w-5 h-5 text-blue-200/70 absolute left-3.5 top-1/2 transform -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            {extensionSearch && (
+              <button onClick={() => setExtensionSearch('')} className="absolute right-3.5 top-1/2 transform -translate-y-1/2 text-blue-200 hover:text-white text-xs font-bold">
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Directory List Container */}
+          <div className="flex-1 overflow-y-auto pr-1 space-y-3">
+            {extensionLoading ? (
+              <div className="flex flex-col items-center justify-center py-16 text-blue-100">
+                <svg className="animate-spin h-8 w-8 text-cyan-400 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                <span className="text-sm font-bold tracking-wide uppercase text-cyan-300">Loading Directory...</span>
+              </div>
+            ) : filteredPublicExtensions.length === 0 ? (
+              <div className="text-center py-16 text-blue-200 bg-white/5 rounded-2xl border border-dashed border-white/20 p-6">
+                <p className="text-base font-bold text-white">No extensions found</p>
+                <p className="text-xs text-blue-200/70 mt-1">Try selecting a different location tab or adjusting search criteria</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {filteredPublicExtensions.map((item) => (
+                  <div
+                    key={item._id}
+                    className="p-4 bg-white/10 hover:bg-white/20 border border-white/15 rounded-2xl transition-all duration-200 group flex items-center justify-between gap-3 shadow-md transform hover:-translate-y-0.5"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <h4 className="font-bold text-white text-base group-hover:text-cyan-300 transition-colors truncate">
+                          {item.employeeName}
+                        </h4>
+                        <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-md border ${
+                          item.location === 'Hosur' ? 'bg-amber-500/20 text-amber-300 border-amber-400/30' : 'bg-blue-500/20 text-cyan-300 border-blue-400/30'
+                        }`}>
+                          {item.location === 'Hosur' ? '🏭 Hosur' : '🏢 Chennai'}
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-blue-200 mt-1 font-medium">
+                        {item.department && <span className="font-bold text-cyan-300">{item.department}</span>}
+                        {item.department && item.designation && <span className="text-white/40">•</span>}
+                        {item.designation && <span className="truncate text-blue-100">{item.designation}</span>}
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0 text-right">
+                      <span className="inline-flex items-center gap-1.5 font-mono font-black text-yellow-300 bg-black/30 border border-yellow-400/40 px-3.5 py-1.5 rounded-xl text-sm shadow-md">
+                        <span className="text-xs">☎</span> {item.extensionNumber}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
   // Forgot Password Component
   if (showForgotPassword) {
     return (
@@ -780,6 +958,7 @@ const Login = () => {
       {showAboutUs && <AboutUsModal />}
       {showHolidays && <HolidaysModal />}
       {showUpdates && <UpdatesModal />}
+      {showExtensionDirectory && <ExtensionDirectoryModal />}
       
       <div className="min-h-screen flex bg-gradient-to-br from-[#0A0F2C] via-[#1A237E] to-[#4A148C] overflow-hidden">
         {/* Left Side - Animated Login Background */}
@@ -839,159 +1018,172 @@ const Login = () => {
               </div>
             </div>
 
-              <div className="w-full max-w-md mt-20">
-                {/* Header */}
-                
-
-                
-
+              <div className="w-full max-w-md mt-12">
                 {/* Login Box */}
                 <div className="bg-white/95 backdrop-blur-lg rounded-2xl shadow-2xl p-8 border border-white/30 hover:border-white/50 transition-all duration-300">
-                
                   <div className="text-center mb-6">
                     <h2 className="text-2xl font-bold text-gray-800">
                       EMPLOYEE PORTAL
-                  </h2>
-                  
-                </div>
-
-                <form className="space-y-5" onSubmit={handleSubmit}>
-                  {/* Employee ID Field */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Employee ID *
-                    </label>
-                    <input
-                      type="text"
-                      name="employeeId"
-                      value={formData.employeeId}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400"
-                      placeholder="Enter your employee ID"
-                    />
+                    </h2>
                   </div>
 
-                  {/* Password Field */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Password
-                    </label>
-                    <div className="relative">
+                  <form className="space-y-5" onSubmit={handleSubmit}>
+                    {/* Employee ID Field */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Employee ID *
+                      </label>
                       <input
-                        type={showPassword ? "text" : "password"}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleChange}
-                      required
-                      maxLength={16}
-                      className="w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400 pr-10"
-                      placeholder="Enter your password"
-                    />
-                      {formData.password.length > 0 && (
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors duration-200"
-                        >
-                          {showPassword ? (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                            </svg>
-                          ) : (
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                            </svg>
-                          )}
-                        </button>
-                      )}
+                        type="text"
+                        name="employeeId"
+                        value={formData.employeeId}
+                        onChange={handleChange}
+                        required
+                        className="w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400"
+                        placeholder="Enter your employee ID"
+                      />
                     </div>
-                  </div>
 
-                  {error && (
-                    <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
-                      <div className="flex items-center">
-                        <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                        {error}
+                    {/* Password Field */}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Password
+                      </label>
+                      <div className="relative">
+                        <input
+                          type={showPassword ? "text" : "password"}
+                          name="password"
+                          value={formData.password}
+                          onChange={handleChange}
+                          required
+                          maxLength={16}
+                          className="w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 hover:border-blue-400 pr-10"
+                          placeholder="Enter your password"
+                        />
+                        {formData.password.length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors duration-200"
+                          >
+                            {showPassword ? (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                              </svg>
+                            ) : (
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                              </svg>
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
-                  )}
 
-                  <div className="flex justify-between items-center text-sm">
-                    <label className="flex items-center">
-                      <input
-                        type="checkbox"
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
-                      />
-                      <span className="ml-2 text-gray-600">Remember me</span>
-                    </label>
+                    {error && (
+                      <div className="bg-red-50 text-red-700 p-3 rounded-lg text-sm">
+                        <div className="flex items-center">
+                          <svg className="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          </svg>
+                          {error}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center text-sm">
+                      <label className="flex items-center">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500 border-gray-300"
+                        />
+                        <span className="ml-2 text-gray-600">Remember me</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowForgotPassword(true)}
+                        className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-300"
+                      >
+                        Forgot Password?
+                      </button>
+                    </div>
+
+                    {/* Login Button */}
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-3.5 rounded-lg font-bold hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-[1.02] transform"
+                    >
+                      {isLoading ? (
+                        <>
+                          <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Signing in...
+                        </>
+                      ) : (
+                        'Sign In'
+                      )}
+                    </button>
+                  </form>
+                </div>
+
+                {/* Bottom Feature Buttons */}
+                <div className="mt-5 space-y-3">
+                  {/* Phone Extension Directory Popup Trigger Button */}
+                  <button
+                    type="button"
+                    onClick={() => setShowExtensionDirectory(true)}
+                    className="w-full bg-gradient-to-r from-indigo-600/30 via-purple-600/30 to-blue-600/30 text-white border border-white/30 px-5 py-3.5 rounded-xl hover:from-indigo-600/40 hover:to-purple-600/40 hover:border-white/50 transition-all duration-300 flex items-center justify-between hover:scale-[1.02] transform backdrop-blur-md shadow-lg group"
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-xl text-amber-300 group-hover:scale-110 transition-transform">☎</span>
+                      <div className="text-left">
+                        <div className="font-extrabold text-sm text-white tracking-wide">OFFICE EXTENSION DIRECTORY</div>
+                        <div className="text-xs text-blue-200">Click to view internal contact numbers</div>
+                      </div>
+                    </div>
+                    <span className="bg-white/20 text-cyan-300 text-xs font-extrabold px-3 py-1 rounded-full border border-white/20">
+                      {publicExtensions.length} Active
+                    </span>
+                  </button>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Holidays Calendar Button */}
                     <button
                       type="button"
-                      onClick={() => setShowForgotPassword(true)}
-                      className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-300"
+                      onClick={() => setShowHolidays(true)}
+                      className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border border-white/20 px-4 py-3 rounded-xl hover:from-blue-600/30 hover:to-purple-600/30 hover:border-white/40 transition-all duration-300 flex items-center justify-center hover:scale-[1.02] transform backdrop-blur-sm"
                     >
-                      Forgot Password?
+                      <svg className="w-5 h-5 mr-2 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
+                      </svg>
+                      <div className="text-left">
+                        <div className="font-medium text-xs md:text-sm">CALDIM HOLIDAY'S</div>
+                      </div>
+                    </button>
+
+                    {/* Today's Updates Button */}
+                    <button
+                      type="button"
+                      onClick={() => setShowUpdates(true)}
+                      className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border border-white/20 px-4 py-3 rounded-xl hover:from-blue-600/30 hover:to-purple-600/30 hover:border-white/40 transition-all duration-300 flex items-center justify-center hover:scale-[1.02] transform backdrop-blur-sm"
+                    >
+                      <div className="relative mr-2">
+                        <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
+                        </svg>
+                        <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                      </div>
+                      <div className="text-center">
+                        <div className="font-medium text-xs md:text-sm">UPCOMING EVENTS</div>
+                      </div>
                     </button>
                   </div>
-
-                  {/* Login Button */}
-                  <button
-                    type="submit"
-                    disabled={isLoading}
-                    className="w-full bg-gradient-to-r from-[#0A0F2C] to-[#4A148C] text-white py-3.5 rounded-lg font-bold hover:from-[#1A237E] hover:to-[#6A1B9A] transition-all duration-300 disabled:opacity-50 flex items-center justify-center shadow-lg hover:shadow-xl hover:scale-[1.02] transform"
-                  >
-                    {isLoading ? (
-                      <>
-                        <svg className="animate-spin h-5 w-5 mr-2 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                        Signing in...
-                      </>
-                    ) : (
-                      'Sign In'
-                    )}
-                  </button>
-                </form>
+                </div>
               </div>
-
-              {/* Bottom Buttons */}
-              <div className="mt-6 grid grid-cols-2 gap-3">
-                {/* Holidays Calendar Button */}
-                <button
-                  onClick={() => setShowHolidays(true)}
-                  className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border border-white/20 px-4 py-3 rounded-xl hover:from-blue-600/30 hover:to-purple-600/30 hover:border-white/40 transition-all duration-300 flex items-center justify-center hover:scale-[1.02] transform backdrop-blur-sm"
-                >
-                  <svg className="w-5 h-5 mr-2 text-yellow-300" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zm0 5a1 1 0 000 2h8a1 1 0 100-2H6z" clipRule="evenodd" />
-                  </svg>
-                  <div className="text-left">
-                   
-                    <div className="font-medium">CALDIM HOLIDAY'S</div>
-                  </div>
-                </button>
-
-                {/* Today's Updates Button */}
-                <button
-                  onClick={() => setShowUpdates(true)}
-                  className="bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-white border border-white/20 px-4 py-3 rounded-xl hover:from-blue-600/30 hover:to-purple-600/30 hover:border-white/40 transition-all duration-300 flex items-center justify-center hover:scale-[1.02] transform backdrop-blur-sm"
-                >
-                  <div className="relative mr-2">
-                    <svg className="w-5 h-5 text-green-400" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clipRule="evenodd" />
-                    </svg>
-                    <div className="absolute -top-1 -right-1 w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                  </div>
-                  <div className="text-centre">
-                    <div className="text-xs text-blue-100"></div>
-                    <div className="font-small">UPCOMING EVENTS</div>
-                  </div>
-                </button>
-              </div>
-            </div>
           </div>
 
           <div className="absolute bottom-0 left-0 right-0 z-50">
