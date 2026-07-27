@@ -414,16 +414,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Office Sync"),
       allowEmployeeRole: true,
       permission: "office_sync_access",
-    },
-    {
-      name: "Administration",
-      hasDropdown: true,
-      icon: getIconForMenu("Administration"),
-      showForRoles: ["admin", "it_admin"],
-      allowEmployeeRole: false,
-      children: [
-        { name: "Extension Master", path: "/administration/extension-master", showForRoles: ["admin", "it_admin"] }
-      ]
     }
   ];
 

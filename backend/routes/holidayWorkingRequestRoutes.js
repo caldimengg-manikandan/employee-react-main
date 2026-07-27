@@ -75,6 +75,34 @@ async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeI
       }
     }
 
+    // 4. Include Delivery Manager(s) from Employee Management for SDS and TEKLA (and request division)
+    const reqDiv = (request.division || '').trim();
+
+    const dmQuery = {
+      status: { $ne: "Inactive" },
+      $or: [
+        { designation: /delivery\s*manager/i },
+        { position: /delivery\s*manager/i },
+        { role: /delivery\s*manager/i }
+      ]
+    };
+
+    if (reqDiv) {
+      const divRegex = new RegExp(reqDiv, 'i');
+      dmQuery.$or.push(
+        { division: divRegex },
+        { department: divRegex }
+      );
+    }
+
+    const deliveryManagers = await Employee.find(dmQuery).select('officialEmail email employeeId division designation');
+    for (const dm of deliveryManagers) {
+      const officialMail = (dm.officialEmail || dm.email || '').trim();
+      if (officialMail && emailRegex.test(officialMail) && dm.employeeId !== creatorEmployeeId) {
+        targetEmails.push(officialMail);
+      }
+    }
+
     // De-duplicate email addresses
     targetEmails = Array.from(new Set(targetEmails));
 

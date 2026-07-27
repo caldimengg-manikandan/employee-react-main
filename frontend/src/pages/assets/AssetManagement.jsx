@@ -24,7 +24,7 @@ import {
   Phone
 } from "lucide-react";
 import { employeeAPI, assetAPI, BASE_URL } from "../../services/api";
-import ExtensionMaster from "../admin/ExtensionMaster";
+import ExtensionMaster from "./ExtensionMaster";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";

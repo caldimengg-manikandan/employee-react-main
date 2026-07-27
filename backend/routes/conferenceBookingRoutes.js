@@ -100,33 +100,49 @@ function minToTime(min) {
 async function sendBookingSubmittedEmail(booking, employee) {
   try {
     const { sendZohoMail } = require("../zohoMail.service");
+    const User = require("../models/User");
     
-    // Find active Team Leads, Project Managers, Admin Managers, and General Managers
-    const leadsAndManagers = await Employee.find({
-      status: "Active",
-      $or: [
-        { designation: { $regex: /team\s*lead|project\s*manager|admin\s*manager|general\s*manager/i } },
-        { position: { $regex: /team\s*lead|project\s*manager|admin\s*manager|general\s*manager/i } }
-      ]
-    }).select("name designation email officialEmail");
+    // 1. Fetch active employees strictly located in Hosur (matching location "Hosur" or "Hosur Office" or "Bagalur")
+    const hosurEmployees = await Employee.find({
+      status: { $ne: "Inactive" },
+      location: { $regex: /hosur|bagalur/i }
+    }).select("employeeId name designation position role email officialEmail location");
 
-    // Map ONLY to officialEmail, trim and filter empty ones
-    const recipientEmails = [...new Set(leadsAndManagers
-      .map(e => (e.officialEmail || "").trim())
-      .filter(Boolean)
+    const hosurEmpIds = hosurEmployees.map(e => e.employeeId).filter(Boolean);
+
+    // 2. Fetch User accounts with Team Lead, HR, GM, Director, Manager roles for Hosur employees
+    const targetUserRoles = ["teamlead", "manager", "projectmanager", "hr", "director", "admin"];
+    const hosurRoleUsers = await User.find({
+      employeeId: { $in: hosurEmpIds },
+      role: { $in: targetUserRoles }
+    }).select("employeeId email role");
+
+    const userEmpIdsWithTargetRole = new Set(hosurRoleUsers.map(u => String(u.employeeId)));
+
+    // 3. Target designations/positions: Team Leads, HR, GM (General Manager), Director, Managers
+    const targetDesignationRegex = /team\s*lead|\btl\b|project\s*manager|admin\s*manager|general\s*manager|\bgm\b|\bhr\b|director|manager/i;
+
+    const filteredRecipients = hosurEmployees.filter(emp => {
+      const isTargetDesignation = targetDesignationRegex.test(emp.designation || "") || 
+                                  targetDesignationRegex.test(emp.position || "") ||
+                                  targetDesignationRegex.test(emp.role || "");
+      const hasTargetUserRole = userEmpIdsWithTargetRole.has(String(emp.employeeId));
+      return isTargetDesignation || hasTargetUserRole;
+    });
+
+    // 4. Extract unique official emails for Hosur recipients ONLY (excluding Chennai location completely)
+    const recipientEmails = [...new Set(
+      filteredRecipients
+        .map(e => (e.officialEmail || e.email || "").trim())
+        .filter(Boolean)
     )];
 
-    // Always include bala@caldimengg.com in the list of recipients
-    if (!recipientEmails.includes("bala@caldimengg.com")) {
-      recipientEmails.push("bala@caldimengg.com");
-    }
-
     if (recipientEmails.length === 0) {
-      console.log("⚠️ No lead/manager emails found to notify.");
+      console.log("⚠️ No Hosur location Team Leads, HR, GM, or Directors found to notify.");
       return;
     }
 
-    console.log(`📧 Sending booking notification to leads/managers: ${recipientEmails.join(", ")}`);
+    console.log(`📧 Sending Office Sync booking notification ONLY to Hosur location recipients: ${recipientEmails.join(", ")}`);
 
     const formattedDate = new Date(booking.date).toLocaleDateString('en-US', {
       weekday: 'long',

@@ -39,7 +39,7 @@ import PolicyPortal from './pages/PolicyPortal';
 import InductionPortal from './pages/induction/InductionPortal';
 import InductionAdmin from './pages/induction/InductionAdmin';
 import TeamManagement from './pages/admin/TeamManagement';
-import ExtensionMaster from './pages/admin/ExtensionMaster';
+
 
 import SalarySlips from "./pages/salaryslips/SalarySlips";
 import PFGratuitySummary from "./pages/salaryslips/PFGratuitySummary";
@@ -734,15 +734,6 @@ function App() {
               }
             />
 
-            {/* Extension Master Route */}
-            <Route
-              path="administration/extension-master"
-              element={
-                <ProtectedRoute roles={["admin", "it_admin"]}>
-                  <ExtensionMaster />
-                </ProtectedRoute>
-              }
-            />
 
           </Route>
         </Routes>

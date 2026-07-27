@@ -32,33 +32,26 @@ const getLocalDateString = (date) => {
   return `${year}-${month}-${day}`;
 };
 
-const timeSlots = [
-  { value: "09:00", label: "09:00 AM" },
-  { value: "09:30", label: "09:30 AM" },
-  { value: "10:00", label: "10:00 AM" },
-  { value: "10:30", label: "10:30 AM" },
-  { value: "11:00", label: "11:00 AM" },
-  { value: "11:30", label: "11:30 AM" },
-  { value: "12:00", label: "12:00 PM" },
-  { value: "12:30", label: "12:30 PM" },
-  { value: "13:00", label: "01:00 PM" },
-  { value: "13:30", label: "01:30 PM" },
-  { value: "14:00", label: "02:00 PM" },
-  { value: "14:30", label: "02:30 PM" },
-  { value: "15:00", label: "03:00 PM" },
-  { value: "15:30", label: "03:30 PM" },
-  { value: "16:00", label: "04:00 PM" },
-  { value: "16:30", label: "04:30 PM" },
-  { value: "17:00", label: "05:00 PM" },
-  { value: "17:30", label: "05:30 PM" },
-  { value: "18:00", label: "06:00 PM" },
-  { value: "18:30", label: "06:30 PM" },
-  { value: "19:00", label: "07:00 PM" },
-  { value: "19:30", label: "07:30 PM" },
-  { value: "20:00", label: "08:00 PM" },
-  { value: "20:30", label: "08:30 PM" },
-  { value: "21:00", label: "09:00 PM" }
-];
+const generate15MinTimeSlots = () => {
+  const slots = [];
+  const startHour = 9;  // 9:00 AM
+  const endHour = 21;   // 9:00 PM
+
+  for (let min = startHour * 60; min <= endHour * 60; min += 15) {
+    const h = Math.floor(min / 60);
+    const m = min % 60;
+    const value = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
+    
+    const displayHour = h > 12 ? h - 12 : (h === 0 ? 12 : h);
+    const ampm = h >= 12 ? "PM" : "AM";
+    const label = `${displayHour.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")} ${ampm}`;
+    
+    slots.push({ value, label });
+  }
+  return slots;
+};
+
+const timeSlots = generate15MinTimeSlots();
 
 export default function OfficeSync() {
   const [myEmployee, setMyEmployee] = useState(null);
@@ -91,6 +84,9 @@ export default function OfficeSync() {
   });
   const [conflictError, setConflictError] = useState(null);
   const [alternativeSlots, setAlternativeSlots] = useState([]);
+
+  const [bookingTimeMode, setBookingTimeMode] = useState("select"); // "select" or "manual"
+  const [blockTimeMode, setBlockTimeMode] = useState("select"); // "select" or "manual"
 
   // Block Slot Form (HR/Admin)
   const [blockModalOpen, setBlockModalOpen] = useState(false);
@@ -1093,31 +1089,91 @@ export default function OfficeSync() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500">Start Time</label>
-                  <select
-                    value={newBooking.startTime}
-                    onChange={e => setNewBooking({ ...newBooking, startTime: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
-                  >
-                    {getBookingStartTimeSlots().map(slot => (
-                      <option key={slot.value} value={slot.value}>{slot.label}</option>
-                    ))}
-                  </select>
+              {/* Time Mode Toggle: Select vs Manual */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-500">Booking Time Slot</label>
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setBookingTimeMode("select")}
+                      className={`px-3 py-1 rounded-lg transition ${
+                        bookingTimeMode === "select"
+                          ? "bg-white text-indigo-700 shadow-sm"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      Dropdown List
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBookingTimeMode("manual")}
+                      className={`px-3 py-1 rounded-lg transition ${
+                        bookingTimeMode === "manual"
+                          ? "bg-white text-indigo-700 shadow-sm"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      Manual Entry
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500">End Time</label>
-                  <select
-                    value={newBooking.endTime}
-                    onChange={e => setNewBooking({ ...newBooking, endTime: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
-                  >
-                    {getBookingEndTimeSlots().map(slot => (
-                      <option key={slot.value} value={slot.value}>{slot.label}</option>
-                    ))}
-                  </select>
-                </div>
+
+                {bookingTimeMode === "select" ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">Start Time</label>
+                      <select
+                        value={newBooking.startTime}
+                        onChange={e => setNewBooking({ ...newBooking, startTime: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
+                      >
+                        {getBookingStartTimeSlots().map(slot => (
+                          <option key={slot.value} value={slot.value}>{slot.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">End Time</label>
+                      <select
+                        value={newBooking.endTime}
+                        onChange={e => setNewBooking({ ...newBooking, endTime: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
+                      >
+                        {getBookingEndTimeSlots().map(slot => (
+                          <option key={slot.value} value={slot.value}>{slot.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">Start Time (Manual)</label>
+                      <input
+                        type="time"
+                        required
+                        min="09:00"
+                        max="21:00"
+                        value={newBooking.startTime}
+                        onChange={e => setNewBooking({ ...newBooking, startTime: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600 transition"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">End Time (Manual)</label>
+                      <input
+                        type="time"
+                        required
+                        min="09:00"
+                        max="21:00"
+                        value={newBooking.endTime}
+                        onChange={e => setNewBooking({ ...newBooking, endTime: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600 transition"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">
@@ -1176,31 +1232,91 @@ export default function OfficeSync() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500">Start Time</label>
-                  <select
-                    value={blockData.startTime}
-                    onChange={e => setBlockData({ ...blockData, startTime: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
-                  >
-                    {getBlockStartTimeSlots().map(slot => (
-                      <option key={slot.value} value={slot.value}>{slot.label}</option>
-                    ))}
-                  </select>
+              {/* Time Mode Toggle for Block Modal */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-slate-500">Block Time Slot</label>
+                  <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl text-xs font-bold">
+                    <button
+                      type="button"
+                      onClick={() => setBlockTimeMode("select")}
+                      className={`px-3 py-1 rounded-lg transition ${
+                        blockTimeMode === "select"
+                          ? "bg-white text-indigo-700 shadow-sm"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      Dropdown List
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBlockTimeMode("manual")}
+                      className={`px-3 py-1 rounded-lg transition ${
+                        blockTimeMode === "manual"
+                          ? "bg-white text-indigo-700 shadow-sm"
+                          : "text-slate-500 hover:text-slate-800"
+                      }`}
+                    >
+                      Manual Entry
+                    </button>
+                  </div>
                 </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-slate-500">End Time</label>
-                  <select
-                    value={blockData.endTime}
-                    onChange={e => setBlockData({ ...blockData, endTime: e.target.value })}
-                    className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
-                  >
-                    {getBlockEndTimeSlots().map(slot => (
-                      <option key={slot.value} value={slot.value}>{slot.label}</option>
-                    ))}
-                  </select>
-                </div>
+
+                {blockTimeMode === "select" ? (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">Start Time</label>
+                      <select
+                        value={blockData.startTime}
+                        onChange={e => setBlockData({ ...blockData, startTime: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
+                      >
+                        {getBlockStartTimeSlots().map(slot => (
+                          <option key={slot.value} value={slot.value}>{slot.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">End Time</label>
+                      <select
+                        value={blockData.endTime}
+                        onChange={e => setBlockData({ ...blockData, endTime: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm text-slate-900 focus:outline-none focus:border-indigo-600 transition"
+                      >
+                        {getBlockEndTimeSlots().map(slot => (
+                          <option key={slot.value} value={slot.value}>{slot.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">Start Time (Manual)</label>
+                      <input
+                        type="time"
+                        required
+                        min="09:00"
+                        max="21:00"
+                        value={blockData.startTime}
+                        onChange={e => setBlockData({ ...blockData, startTime: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600 transition"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-semibold text-slate-500">End Time (Manual)</label>
+                      <input
+                        type="time"
+                        required
+                        min="09:00"
+                        max="21:00"
+                        value={blockData.endTime}
+                        onChange={e => setBlockData({ ...blockData, endTime: e.target.value })}
+                        className="w-full bg-white border border-slate-300 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-900 focus:outline-none focus:border-indigo-600 transition"
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-1.5">
