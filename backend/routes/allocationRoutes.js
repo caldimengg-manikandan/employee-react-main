@@ -3,6 +3,21 @@ const Allocation = require("../models/Allocation");
 const Project = require("../models/Project");
 const Employee = require("../models/Employee");
 
+// Helper for case-insensitive exact regex match
+const exactRegex = (str) => new RegExp(`^${String(str || '').trim()}$`, "i");
+
+// GET project code by project name
+router.get("/project-code/:projectName", async (req, res) => {
+  try {
+    const rawName = decodeURIComponent(req.params.projectName);
+    const project = await Project.findOne({ name: exactRegex(rawName) });
+    if (!project) return res.status(404).json({ error: "Project not found" });
+    res.json({ projectCode: project.code, division: project.division, branch: project.branch });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // CREATE ALLOCATION
 router.post("/", async (req, res) => {
   try {
@@ -13,18 +28,18 @@ router.post("/", async (req, res) => {
       project = await Project.findById(projectId);
     }
     if (!project && projectCode) {
-      project = await Project.findOne({ code: projectCode });
+      project = await Project.findOne({ code: exactRegex(projectCode) });
     }
     if (!project && projectName) {
-      project = await Project.findOne({ name: projectName });
+      project = await Project.findOne({ name: exactRegex(projectName) });
     }
-    // Prefer matching by employeeCode (unique) when provided; fallback to name
+
     let employee = null;
     if (employeeCode) {
-      employee = await Employee.findOne({ employeeId: employeeCode });
+      employee = await Employee.findOne({ employeeId: exactRegex(employeeCode) });
     }
     if (!employee && employeeName) {
-      employee = await Employee.findOne({ name: employeeName });
+      employee = await Employee.findOne({ name: exactRegex(employeeName) });
     }
 
     if (!project) return res.status(400).json({ error: "Project not found" });
@@ -33,7 +48,10 @@ router.post("/", async (req, res) => {
     // Prevent duplicate allocation (same project + employee)
     const existing = await Allocation.findOne({
       projectId: project._id,
-      employeeId: employee._id
+      $or: [
+        { employeeId: employee._id },
+        { employeeCode: exactRegex(employee.employeeId) }
+      ]
     }).lean();
     if (existing) {
       return res.status(400).json({ error: "Duplicate allocation detected for this project and employee" });
@@ -46,6 +64,7 @@ router.post("/", async (req, res) => {
 
     req.body.employeeId = employee._id;
     req.body.employeeCode = employee.employeeId;
+    req.body.employeeName = employee.name;
 
     const allocation = await Allocation.create(req.body);
 
@@ -85,21 +104,19 @@ router.put("/:id", async (req, res) => {
       project = await Project.findById(projectId);
     }
     if (!project && projectCode) {
-      project = await Project.findOne({ code: projectCode });
+      project = await Project.findOne({ code: exactRegex(projectCode) });
     }
     if (!project && projectName) {
-      project = await Project.findOne({ name: projectName });
+      project = await Project.findOne({ name: exactRegex(projectName) });
     }
     if (!project) return res.status(400).json({ error: "Project not found" });
 
-    // Find employee by name
-    // Prefer matching by employeeCode (unique) when provided; fallback to name
     let employee = null;
     if (employeeCode) {
-      employee = await Employee.findOne({ employeeId: employeeCode });
+      employee = await Employee.findOne({ employeeId: exactRegex(employeeCode) });
     }
     if (!employee && employeeName) {
-      employee = await Employee.findOne({ name: employeeName });
+      employee = await Employee.findOne({ name: exactRegex(employeeName) });
     }
     if (!employee) return res.status(400).json({ error: "Employee not found" });
 
@@ -112,7 +129,10 @@ router.put("/:id", async (req, res) => {
     // Prevent duplicate allocation on update (same project + employee, different record)
     const dup = await Allocation.findOne({
       projectId: project._id,
-      employeeId: employee._id,
+      $or: [
+        { employeeId: employee._id },
+        { employeeCode: exactRegex(employee.employeeId) }
+      ],
       _id: { $ne: existingAllocation._id }
     }).lean();
     if (dup) {
@@ -128,6 +148,7 @@ router.put("/:id", async (req, res) => {
       projectDivision: project.division,
       employeeId: employee._id,
       employeeCode: employee.employeeId,
+      employeeName: employee.name,
     };
 
     // Only update role if it's explicitly provided in the request
@@ -148,3 +169,4 @@ router.put("/:id", async (req, res) => {
 });
 
 module.exports = router;
+

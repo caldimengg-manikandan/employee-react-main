@@ -111,23 +111,33 @@ const ProjectAllocation = () => {
     employeeIds: []
   });
 
-  // Filter handlers
+  // Filter handlers with case-insensitive toggle logic
   const handleProjectFilterChange = (field, value) => {
-    setProjectFilters(prev => ({
-      ...prev,
-      [field]: prev[field].includes(value)
-        ? prev[field].filter(item => item !== value)
-        : [...prev[field], value]
-    }));
+    setProjectFilters(prev => {
+      const currentList = prev[field] || [];
+      const normValue = String(value).trim().toLowerCase();
+      const exists = currentList.some(v => String(v).trim().toLowerCase() === normValue);
+      return {
+        ...prev,
+        [field]: exists
+          ? currentList.filter(item => String(item).trim().toLowerCase() !== normValue)
+          : [...currentList, value]
+      };
+    });
   };
 
   const handleAllocationFilterChange = (field, value) => {
-    setAllocationFilters(prev => ({
-      ...prev,
-      [field]: prev[field].includes(value)
-        ? prev[field].filter(item => item !== value)
-        : [...prev[field], value]
-    }));
+    setAllocationFilters(prev => {
+      const currentList = prev[field] || [];
+      const normValue = String(value).trim().toLowerCase();
+      const exists = currentList.some(v => String(v).trim().toLowerCase() === normValue);
+      return {
+        ...prev,
+        [field]: exists
+          ? currentList.filter(item => String(item).trim().toLowerCase() !== normValue)
+          : [...currentList, value]
+      };
+    });
   };
 
   const selectAllProjectFilters = (field, options) => {
@@ -182,21 +192,37 @@ const ProjectAllocation = () => {
   const clearAllFilters = () => {
     clearProjectFilters();
     clearAllocationFilters();
+    setSelectedLocation('All');
   };
 
-  // Dropdown handlers
+  // Dropdown handlers (opening one automatically closes others)
   const toggleProjectDropdown = (field) => {
-    setProjectDropdowns(prev => ({
-      ...prev,
-      [field]: !prev[field]
-    }));
+    setProjectDropdowns(prev => {
+      const next = {
+        projectCode: false,
+        projectName: false,
+        division: false,
+        location: false,
+        status: false
+      };
+      next[field] = !prev[field];
+      return next;
+    });
   };
 
   const toggleAllocationDropdown = (field) => {
-    setAllocationDropdowns(prev => ({
-      ...prev,
-      [field]: !prev[field]
-    }));
+    setAllocationDropdowns(prev => {
+      const next = {
+        projectCode: false,
+        projectName: false,
+        employeeId: false,
+        division: false,
+        location: false,
+        status: false
+      };
+      next[field] = !prev[field];
+      return next;
+    });
   };
 
   // Close all dropdowns
@@ -218,71 +244,118 @@ const ProjectAllocation = () => {
     });
   };
 
-  // Get unique values for filter options
-  const getUniqueProjectCodes = (divisionFilters = []) => {
-    let filteredProjects = projects;
+  // Get unique values for filter options (Case-insensitive & trimmed)
+  const getUniqueProjectCodes = (divisionFilters = [], source = 'projects') => {
+    const list = source === 'allocations' ? allocations : projects;
+    let filtered = list;
 
     if (divisionFilters && divisionFilters.length > 0) {
-      filteredProjects = filteredProjects.filter(p => divisionFilters.includes(p.division));
+      const normDivs = divisionFilters.map(d => String(d).trim().toLowerCase());
+      filtered = filtered.filter(item => {
+        const div = String(item.division || item.projectDivision || '').trim().toLowerCase();
+        return normDivs.includes(div);
+      });
     }
-    return [...new Set(filteredProjects.map(p => p.code))].filter(Boolean);
+
+    const codes = filtered.map(item => String(item.code || item.projectCode || '').trim()).filter(Boolean);
+    return [...new Set(codes)].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' }));
   };
 
-  const getUniqueProjectNames = (divisionFilters = []) => {
-    let filteredProjects = projects;
+  const getUniqueProjectNames = (divisionFilters = [], source = 'projects') => {
+    const list = source === 'allocations' ? allocations : projects;
+    let filtered = list;
 
     if (divisionFilters && divisionFilters.length > 0) {
-      filteredProjects = filteredProjects.filter(p => divisionFilters.includes(p.division));
+      const normDivs = divisionFilters.map(d => String(d).trim().toLowerCase());
+      filtered = filtered.filter(item => {
+        const div = String(item.division || item.projectDivision || '').trim().toLowerCase();
+        return normDivs.includes(div);
+      });
     }
 
-    return [...new Set(filteredProjects.map(p => p.name))]
-      .filter(Boolean)
-      .sort((a, b) => String(a).localeCompare(String(b), undefined, { sensitivity: 'base' }));
+    const names = filtered.map(item => String(item.name || item.projectName || '').trim()).filter(Boolean);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   };
 
   const getUniqueEmployeeIds = (divisionFilters = []) => {
     let filteredAllocations = allocations;
 
     if (divisionFilters && divisionFilters.length > 0) {
-      filteredAllocations = filteredAllocations.filter(a => divisionFilters.includes(a.projectDivision || a.division));
+      const normDivs = divisionFilters.map(d => String(d).trim().toLowerCase());
+      filteredAllocations = filteredAllocations.filter(a => {
+        const div = String(a.projectDivision || a.division || '').trim().toLowerCase();
+        return normDivs.includes(div);
+      });
     }
-    return [...new Set(filteredAllocations.map(a => a.employeeCode))]
-      .filter(Boolean)
-      .sort((a, b) => String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: 'base' }));
+
+    const empMap = new Map(employees.map(e => [String(e._id || e.id), e.employeeId]));
+
+    const codes = filteredAllocations.map(a => {
+      let code = a.employeeCode;
+      if (!code && a.employeeId) {
+        code = empMap.get(String(a.employeeId));
+      }
+      return String(code || a.employeeName || '').trim();
+    }).filter(Boolean);
+
+    return [...new Set(codes)].sort((a, b) => compareEmployeeCodes(a, b));
   };
 
-  // Filter functions
-  const filterProjects = (projects) => {
-    return projects.filter(project => {
+  // Filter functions (Case-insensitive & trimmed)
+  const filterProjects = (projectsList) => {
+    return projectsList.filter(project => {
+      const pCode = String(project.code || '').trim().toLowerCase();
+      const pName = String(project.name || '').trim().toLowerCase();
+      const pDiv = String(project.division || '').trim().toLowerCase();
+      const pBranch = String(project.branch || '').trim().toLowerCase();
+      const pStatus = String(project.status || '').trim().toLowerCase();
+
       const matchesCode = projectFilters.projectCode.length === 0 ||
-        projectFilters.projectCode.includes(project.code);
+        projectFilters.projectCode.some(c => String(c).trim().toLowerCase() === pCode);
       const matchesName = projectFilters.projectName.length === 0 ||
-        projectFilters.projectName.includes(project.name);
+        projectFilters.projectName.some(n => String(n).trim().toLowerCase() === pName);
       const matchesDivision = projectFilters.division.length === 0 ||
-        projectFilters.division.includes(project.division);
+        projectFilters.division.some(d => String(d).trim().toLowerCase() === pDiv);
       const matchesLocation = projectFilters.location.length === 0 ||
-        projectFilters.location.includes(project.branch);
+        projectFilters.location.some(l => String(l).trim().toLowerCase() === pBranch);
       const matchesStatus = projectFilters.status.length === 0 ||
-        projectFilters.status.includes(project.status);
+        projectFilters.status.some(s => String(s).trim().toLowerCase() === pStatus);
 
       return matchesCode && matchesName && matchesDivision && matchesLocation && matchesStatus;
     });
   };
 
-  const filterAllocations = (allocations) => {
-    return allocations.filter(allocation => {
+  const filterAllocations = (allocationsList) => {
+    const empCodeMap = new Map(employees.map(e => [String(e._id || e.id), String(e.employeeId || '').trim().toLowerCase()]));
+
+    return allocationsList.filter(allocation => {
+      const aCode = String(allocation.projectCode || '').trim().toLowerCase();
+      const aName = String(allocation.projectName || '').trim().toLowerCase();
+
+      let aEmpCode = String(allocation.employeeCode || '').trim().toLowerCase();
+      if (!aEmpCode && allocation.employeeId) {
+        aEmpCode = empCodeMap.get(String(allocation.employeeId)) || '';
+      }
+      const aEmpName = String(allocation.employeeName || '').trim().toLowerCase();
+      const aDiv = String(allocation.projectDivision || allocation.division || '').trim().toLowerCase();
+      const aBranch = String(allocation.branch || '').trim().toLowerCase();
+      const aStatus = String(allocation.status || '').trim().toLowerCase();
+
       const matchesCode = allocationFilters.projectCode.length === 0 ||
-        allocationFilters.projectCode.includes(allocation.projectCode);
+        allocationFilters.projectCode.some(c => String(c).trim().toLowerCase() === aCode);
       const matchesName = allocationFilters.projectName.length === 0 ||
-        allocationFilters.projectName.includes(allocation.projectName);
+        allocationFilters.projectName.some(n => String(n).trim().toLowerCase() === aName);
       const matchesEmployeeId = allocationFilters.employeeId.length === 0 ||
-        allocationFilters.employeeId.includes(allocation.employeeCode);
+        allocationFilters.employeeId.some(e => {
+          const norm = String(e).trim().toLowerCase();
+          return norm === aEmpCode || norm === aEmpName || (allocation.employeeId && norm === String(allocation.employeeId).trim().toLowerCase());
+        });
       const matchesDivision = allocationFilters.division.length === 0 ||
-        allocationFilters.division.includes(allocation.projectDivision || allocation.division);
+        allocationFilters.division.some(d => String(d).trim().toLowerCase() === aDiv);
       const matchesLocation = allocationFilters.location.length === 0 ||
-        allocationFilters.location.includes(allocation.branch);
+        allocationFilters.location.some(l => String(l).trim().toLowerCase() === aBranch);
       const matchesStatus = allocationFilters.status.length === 0 ||
-        allocationFilters.status.includes(allocation.status);
+        allocationFilters.status.some(s => String(s).trim().toLowerCase() === aStatus);
 
       return matchesCode && matchesName && matchesEmployeeId && matchesDivision && matchesLocation && matchesStatus;
     });
@@ -447,30 +520,43 @@ const ProjectAllocation = () => {
     onClear,
     isOpen,
     onToggle,
+    onClose,
     type = 'text'
   }) => {
     const [searchQuery, setSearchQuery] = useState('');
-    const allSelected = selectedValues.length === options.length;
+    const containerRef = useRef(null);
 
-    // Reset search query when dropdown closes
     useEffect(() => {
       if (!isOpen) {
         setSearchQuery('');
+        return;
       }
-    }, [isOpen]);
+      const handleOutsideClick = (e) => {
+        if (containerRef.current && !containerRef.current.contains(e.target)) {
+          if (onClose) onClose();
+        }
+      };
+      document.addEventListener('mousedown', handleOutsideClick);
+      return () => document.removeEventListener('mousedown', handleOutsideClick);
+    }, [isOpen, onClose]);
 
     const q = searchQuery.toLowerCase().trim();
     const filteredOptions = q.length === 0
       ? options
       : options.filter(option => String(option || '').toLowerCase().includes(q));
 
+    const allSelected = options.length > 0 && selectedValues.length === options.length;
+
     return (
-      <div className="relative">
+      <div ref={containerRef} className={`relative ${isOpen ? 'z-50' : 'z-10'}`} onClick={(e) => e.stopPropagation()}>
         <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
         <div className="relative">
           <button
             type="button"
-            onClick={onToggle}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggle();
+            }}
             className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500 bg-white flex justify-between items-center"
           >
             <span className="truncate">
@@ -485,27 +571,30 @@ const ProjectAllocation = () => {
           </button>
 
           {isOpen && (
-            <div className="absolute z-20 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-72 overflow-hidden flex flex-col" style={{ minWidth: '220px' }}>
-              <div className="p-2 border-b border-gray-200 bg-gray-50 flex flex-col gap-2">
+            <div
+              className="absolute top-full left-0 z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-2xl max-h-80 flex flex-col"
+              style={{ minWidth: '220px' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="p-2 border-b border-gray-200 bg-gray-50 flex flex-col gap-2 flex-shrink-0">
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
                   placeholder="Search..."
-                  onClick={(e) => e.stopPropagation()} // Stop toggle when clicking input
+                  onClick={(e) => e.stopPropagation()}
                 />
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center px-1">
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (q.length > 0) {
                         const isAllFilteredSelected = filteredOptions.every(opt => selectedValues.includes(opt));
                         if (isAllFilteredSelected) {
-                          // deselect filtered
                           onSelectAll(selectedValues.filter(val => !filteredOptions.includes(val)));
                         } else {
-                          // select filtered
                           onSelectAll(Array.from(new Set([...selectedValues, ...filteredOptions])));
                         }
                       } else {
@@ -522,7 +611,10 @@ const ProjectAllocation = () => {
                   {selectedValues.length > 0 && (
                     <button
                       type="button"
-                      onClick={onClear}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onClear();
+                      }}
                       className="text-xs font-semibold text-red-600 hover:text-red-800"
                     >
                       Clear
@@ -530,19 +622,26 @@ const ProjectAllocation = () => {
                   )}
                 </div>
               </div>
-              <div className="overflow-y-auto max-h-48">
+              <div className="overflow-y-auto max-h-56 p-1">
                 {filteredOptions.length === 0 ? (
                   <div className="p-3 text-xs text-gray-500 text-center">No results</div>
                 ) : (
                   filteredOptions.map(option => (
-                    <label key={option} className="flex items-center p-2 hover:bg-gray-50 cursor-pointer">
+                    <label
+                      key={option}
+                      className="flex items-center p-2 hover:bg-gray-50 cursor-pointer rounded"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       <input
                         type="checkbox"
-                        checked={selectedValues.includes(option)}
-                        onChange={() => onChange(option)}
+                        checked={selectedValues.some(v => String(v).trim().toLowerCase() === String(option).trim().toLowerCase())}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          onChange(option);
+                        }}
                         className="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                       />
-                      <span className={`text-sm ${type === 'code' ? 'font-mono' : ''}`}>{option}</span>
+                      <span className={`text-sm ${type === 'code' ? 'font-mono text-blue-600 font-semibold' : 'text-gray-800'}`}>{option}</span>
                     </label>
                   ))
                 )}
@@ -1118,7 +1217,7 @@ const ProjectAllocation = () => {
 
 
           {/* Controls */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6 relative z-20">
             <div className="flex justify-between items-center">
               <div className="flex space-x-2">
                 <button
@@ -1190,7 +1289,7 @@ const ProjectAllocation = () => {
 
             {/* Filters Panel */}
             {showFilters && (
-              <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200" onClick={(e) => e.stopPropagation()}>
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 relative z-20" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-semibold text-gray-800">Filters</h3>
                   <div className="flex space-x-2">
@@ -1208,31 +1307,27 @@ const ProjectAllocation = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                     <MultiSelectDropdown
                       label="Project Code"
-                      options={getUniqueProjectCodes(projectFilters.division)}
+                      options={getUniqueProjectCodes(projectFilters.division, 'projects')}
                       selectedValues={projectFilters.projectCode}
                       onChange={(value) => handleProjectFilterChange('projectCode', value)}
                       onSelectAll={(options) => selectAllProjectFilters('projectCode', options)}
                       onClear={() => clearProjectFilter('projectCode')}
                       isOpen={projectDropdowns.projectCode}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleProjectDropdown('projectCode');
-                      }}
+                      onToggle={() => toggleProjectDropdown('projectCode')}
+                      onClose={() => setProjectDropdowns(prev => ({ ...prev, projectCode: false }))}
                       type="code"
                     />
 
                     <MultiSelectDropdown
                       label="Project Name"
-                      options={getUniqueProjectNames(projectFilters.division)}
+                      options={getUniqueProjectNames(projectFilters.division, 'projects')}
                       selectedValues={projectFilters.projectName}
                       onChange={(value) => handleProjectFilterChange('projectName', value)}
                       onSelectAll={(options) => selectAllProjectFilters('projectName', options)}
                       onClear={() => clearProjectFilter('projectName')}
                       isOpen={projectDropdowns.projectName}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleProjectDropdown('projectName');
-                      }}
+                      onToggle={() => toggleProjectDropdown('projectName')}
+                      onClose={() => setProjectDropdowns(prev => ({ ...prev, projectName: false }))}
                     />
 
                     <MultiSelectDropdown
@@ -1243,10 +1338,8 @@ const ProjectAllocation = () => {
                       onSelectAll={(options) => selectAllProjectFilters('division', options)}
                       onClear={() => clearProjectFilter('division')}
                       isOpen={projectDropdowns.division}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleProjectDropdown('division');
-                      }}
+                      onToggle={() => toggleProjectDropdown('division')}
+                      onClose={() => setProjectDropdowns(prev => ({ ...prev, division: false }))}
                     />
 
                     <MultiSelectDropdown
@@ -1257,10 +1350,8 @@ const ProjectAllocation = () => {
                       onSelectAll={(options) => selectAllProjectFilters('location', options)}
                       onClear={() => clearProjectFilter('location')}
                       isOpen={projectDropdowns.location}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleProjectDropdown('location');
-                      }}
+                      onToggle={() => toggleProjectDropdown('location')}
+                      onClose={() => setProjectDropdowns(prev => ({ ...prev, location: false }))}
                     />
 
                     <MultiSelectDropdown
@@ -1271,10 +1362,8 @@ const ProjectAllocation = () => {
                       onSelectAll={(options) => selectAllProjectFilters('status', options)}
                       onClear={() => clearProjectFilter('status')}
                       isOpen={projectDropdowns.status}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleProjectDropdown('status');
-                      }}
+                      onToggle={() => toggleProjectDropdown('status')}
+                      onClose={() => setProjectDropdowns(prev => ({ ...prev, status: false }))}
                     />
                   </div>
                 )}
@@ -1283,31 +1372,27 @@ const ProjectAllocation = () => {
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                     <MultiSelectDropdown
                       label="Project Code"
-                      options={getUniqueProjectCodes(allocationFilters.division)}
+                      options={getUniqueProjectCodes(allocationFilters.division, 'allocations')}
                       selectedValues={allocationFilters.projectCode}
                       onChange={(value) => handleAllocationFilterChange('projectCode', value)}
                       onSelectAll={(options) => selectAllAllocationFilters('projectCode', options)}
                       onClear={() => clearAllocationFilter('projectCode')}
                       isOpen={allocationDropdowns.projectCode}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleAllocationDropdown('projectCode');
-                      }}
+                      onToggle={() => toggleAllocationDropdown('projectCode')}
+                      onClose={() => setAllocationDropdowns(prev => ({ ...prev, projectCode: false }))}
                       type="code"
                     />
 
                     <MultiSelectDropdown
                       label="Project Name"
-                      options={getUniqueProjectNames(allocationFilters.division)}
+                      options={getUniqueProjectNames(allocationFilters.division, 'allocations')}
                       selectedValues={allocationFilters.projectName}
                       onChange={(value) => handleAllocationFilterChange('projectName', value)}
                       onSelectAll={(options) => selectAllAllocationFilters('projectName', options)}
                       onClear={() => clearAllocationFilter('projectName')}
                       isOpen={allocationDropdowns.projectName}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleAllocationDropdown('projectName');
-                      }}
+                      onToggle={() => toggleAllocationDropdown('projectName')}
+                      onClose={() => setAllocationDropdowns(prev => ({ ...prev, projectName: false }))}
                     />
 
                     <MultiSelectDropdown
@@ -1318,10 +1403,8 @@ const ProjectAllocation = () => {
                       onSelectAll={(options) => selectAllAllocationFilters('employeeId', options)}
                       onClear={() => clearAllocationFilter('employeeId')}
                       isOpen={allocationDropdowns.employeeId}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleAllocationDropdown('employeeId');
-                      }}
+                      onToggle={() => toggleAllocationDropdown('employeeId')}
+                      onClose={() => setAllocationDropdowns(prev => ({ ...prev, employeeId: false }))}
                       type="code"
                     />
 
@@ -1333,10 +1416,8 @@ const ProjectAllocation = () => {
                       onSelectAll={(options) => selectAllAllocationFilters('division', options)}
                       onClear={() => clearAllocationFilter('division')}
                       isOpen={allocationDropdowns.division}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleAllocationDropdown('division');
-                      }}
+                      onToggle={() => toggleAllocationDropdown('division')}
+                      onClose={() => setAllocationDropdowns(prev => ({ ...prev, division: false }))}
                     />
 
                     <MultiSelectDropdown
@@ -1347,10 +1428,8 @@ const ProjectAllocation = () => {
                       onSelectAll={(options) => selectAllAllocationFilters('location', options)}
                       onClear={() => clearAllocationFilter('location')}
                       isOpen={allocationDropdowns.location}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleAllocationDropdown('location');
-                      }}
+                      onToggle={() => toggleAllocationDropdown('location')}
+                      onClose={() => setAllocationDropdowns(prev => ({ ...prev, location: false }))}
                     />
 
                     <MultiSelectDropdown
@@ -1361,10 +1440,8 @@ const ProjectAllocation = () => {
                       onSelectAll={(options) => selectAllAllocationFilters('status', options)}
                       onClear={() => clearAllocationFilter('status')}
                       isOpen={allocationDropdowns.status}
-                      onToggle={(e) => {
-                        e.stopPropagation();
-                        toggleAllocationDropdown('status');
-                      }}
+                      onToggle={() => toggleAllocationDropdown('status')}
+                      onClose={() => setAllocationDropdowns(prev => ({ ...prev, status: false }))}
                     />
                   </div>
                 )}
