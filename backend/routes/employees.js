@@ -479,6 +479,7 @@ router.put('/me', auth, validateEmployeeUpdate, async (req, res) => {
         'permanentAddressLine', 'permanentCity', 'permanentState', 'permanentPincode',
         'currentAddressLine', 'currentCity', 'currentState', 'currentPincode',
         'permanentAddress', 'currentAddress', 'previousOrganizations', 'avatar',
+        'photo', 'profilePicture',
         'bankName', 'bankAccount', 'ifsc', 'branch', 'personalEmail'
       ];
       const filteredData = {};

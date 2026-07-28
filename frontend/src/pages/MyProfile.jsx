@@ -463,7 +463,9 @@ const MyProfile = () => {
         employeeId: finalData.employeeId || user.employeeId,
         designation: finalData.designation || user.designation,
         division: finalData.division || user.division,
-        status: finalData.status || user.status
+        status: finalData.status || user.status,
+        photo: finalData.photo !== undefined ? finalData.photo : user.photo,
+        profilePicture: finalData.profilePicture !== undefined ? finalData.profilePicture : user.profilePicture
       };
       sessionStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
@@ -473,7 +475,15 @@ const MyProfile = () => {
       // Refresh the employee data
       try {
         const res = await employeeAPI.getMyProfile();
-        setEmployeeDoc(res.data);
+        if (res.data) {
+          setEmployeeDoc(res.data);
+          const emp = res.data;
+          setFormData(prev => ({
+            ...prev,
+            photo: emp.photo || emp.profilePicture || prev.photo,
+            profilePicture: emp.profilePicture || emp.photo || prev.profilePicture
+          }));
+        }
       } catch (err) {
         console.error("Error refreshing profile:", err);
       }
