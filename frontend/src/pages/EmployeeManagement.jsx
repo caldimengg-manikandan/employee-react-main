@@ -96,8 +96,9 @@ const EmployeeManagement = () => {
   const fetchEmployees = async () => {
     try {
       const response = await employeeAPI.getAllEmployees('all');
+      const data = Array.isArray(response?.data) ? response.data : [];
       // Sort employees by employeeId
-      const sortedEmployees = response.data.sort((a, b) => {
+      const sortedEmployees = data.sort((a, b) => {
         const idA = a.employeeId || '';
         const idB = b.employeeId || '';
         return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
@@ -106,9 +107,9 @@ const EmployeeManagement = () => {
       setFilteredEmployees(sortedEmployees);
     } catch (error) {
       console.error('Error fetching employees:', error);
-
-      setEmployees(mockEmployees);
-      setFilteredEmployees(mockEmployees);
+      setEmployees([]);
+      setFilteredEmployees([]);
+      showError('Failed to load employees. Please try again.');
     } finally {
       setLoading(false);
     }

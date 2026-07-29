@@ -171,7 +171,7 @@ router.get('/', auth, async (req, res) => {
     const roleLower = String(req.user.role || '').toLowerCase();
     
     // Fetch logged-in user employee profile to determine division and designation
-    const loggedInEmp = await Employee.findOne({ employeeId: req.user.employeeId });
+    const loggedInEmp = req.user.employeeId ? await Employee.findOne({ employeeId: req.user.employeeId }) : null;
     const empDesignation = loggedInEmp ? (loggedInEmp.designation || "").trim().toLowerCase() : "";
     const allowedDesignations = [
       "team lead",
@@ -260,6 +260,7 @@ router.get('/', auth, async (req, res) => {
     // Otherwise deny
     return res.status(403).json({ message: 'Access denied' });
   } catch (error) {
+    console.error('Error fetching employees in GET /api/employees:', error);
     res.status(500).json({ message: error.message });
   }
 });
