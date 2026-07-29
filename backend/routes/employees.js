@@ -585,22 +585,23 @@ router.put('/me', auth, handleUpload('profilePictureFile'), validateEmployeeUpda
     if (!data.name && data.employeename) data.name = data.employeename;
     if (!data.employeename && data.name) data.employeename = data.name;
     if (!data.mobileNo && (data.contactNumber || data.phone)) data.mobileNo = data.contactNumber || data.phone;
-    if (!data.contactNumber && data.mobileNo) data.contactNumber = data.mobileNo;
-    if (!data.dateOfBirth && data.dob) data.dateOfBirth = data.dob;
-    if (!data.dateOfJoining && (data.hireDate || data.dateofjoin)) data.dateOfJoining = data.hireDate || data.dateofjoin;
-    if (!data.emergencyMobileNo && (data.emergencyMobile || data.emergencyContact)) data.emergencyMobileNo = data.emergencyMobile || data.emergencyContact;
-    if (!data.emergencyContact && (data.emergencyMobileNo || data.emergencyMobile)) data.emergencyContact = data.emergencyMobileNo || data.emergencyMobile;
-    if (!data.highestQualification && data.qualification) data.highestQualification = data.qualification;
-    if (!data.qualification && data.highestQualification) data.qualification = data.highestQualification;
-    if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
-    if (!data.position && data.role) data.position = data.role;
-    if (!data.position && data.designation) data.position = data.designation;
+    const dateFields = ['dateOfBirth', 'originalDateOfBirth', 'dateOfJoining', 'exitDate', 'lastWorkingDay', 'dob', 'dateofjoin', 'hireDate'];
+    for (const f of dateFields) {
+      if (data[f] === '' || data[f] === 'null' || data[f] === 'undefined' || data[f] === undefined) {
+        delete data[f];
+      }
+    }
 
     // Handle Cloudinary upload if file provided
     if (req.file) {
-      const uploadResult = await uploadEmployeeProfilePicture(req.file.buffer, empId);
-      data.profilePicture = uploadResult.profilePicture;
-      data.profilePicturePublicId = uploadResult.profilePicturePublicId;
+      try {
+        const uploadResult = await uploadEmployeeProfilePicture(req.file.buffer, empId);
+        data.profilePicture = uploadResult.profilePicture;
+        data.profilePicturePublicId = uploadResult.profilePicturePublicId;
+      } catch (uploadErr) {
+        console.error('Cloudinary profile upload error:', uploadErr.message);
+        return res.status(400).json({ message: `Profile image upload failed: ${uploadErr.message}` });
+      }
     } else if (data.removeProfilePicture === 'true' || data.profilePicture === '') {
       data.profilePicture = '';
       data.profilePicturePublicId = '';
@@ -708,25 +709,23 @@ router.put('/:id', auth, handleUpload('profilePictureFile'), validateEmployeeUpd
     const promotionRemarksRaw = data.promotionRemarks;
     delete data.promotionEffectiveDate;
     delete data.promotionRemarks;
-    if (!data.name && data.employeename) data.name = data.employeename;
-    if (!data.employeename && data.name) data.employeename = data.name;
-    if (!data.mobileNo && (data.contactNumber || data.phone)) data.mobileNo = data.contactNumber || data.phone;
-    if (!data.contactNumber && data.mobileNo) data.contactNumber = data.mobileNo;
-    if (!data.dateOfBirth && data.dob) data.dateOfBirth = data.dob;
-    if (!data.dateOfJoining && (data.hireDate || data.dateofjoin)) data.dateOfJoining = data.hireDate || data.dateofjoin;
-    if (!data.emergencyMobileNo && (data.emergencyMobile || data.emergencyContact)) data.emergencyMobileNo = data.emergencyMobile || data.emergencyContact;
-    if (!data.emergencyContact && (data.emergencyMobileNo || data.emergencyMobile)) data.emergencyContact = data.emergencyMobileNo || data.emergencyMobile;
-    if (!data.highestQualification && data.qualification) data.highestQualification = data.qualification;
-    if (!data.qualification && data.highestQualification) data.qualification = data.highestQualification;
-    if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
-    if (!data.position && data.role) data.position = data.role;
-    if (!data.position && data.designation) data.position = data.designation;
+    const dateFields = ['dateOfBirth', 'originalDateOfBirth', 'dateOfJoining', 'exitDate', 'lastWorkingDay', 'dob', 'dateofjoin', 'hireDate'];
+    for (const f of dateFields) {
+      if (data[f] === '' || data[f] === 'null' || data[f] === 'undefined' || data[f] === undefined) {
+        delete data[f];
+      }
+    }
 
     // Handle Cloudinary upload if file provided
     if (req.file) {
-      const uploadResult = await uploadEmployeeProfilePicture(req.file.buffer, data.employeeId || oldEmployee.employeeId);
-      data.profilePicture = uploadResult.profilePicture;
-      data.profilePicturePublicId = uploadResult.profilePicturePublicId;
+      try {
+        const uploadResult = await uploadEmployeeProfilePicture(req.file.buffer, data.employeeId || oldEmployee.employeeId);
+        data.profilePicture = uploadResult.profilePicture;
+        data.profilePicturePublicId = uploadResult.profilePicturePublicId;
+      } catch (uploadErr) {
+        console.error('Cloudinary profile upload error:', uploadErr.message);
+        return res.status(400).json({ message: `Profile image upload failed: ${uploadErr.message}` });
+      }
     } else if (data.removeProfilePicture === 'true' || data.profilePicture === '') {
       data.profilePicture = '';
       data.profilePicturePublicId = '';
