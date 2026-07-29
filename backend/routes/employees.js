@@ -8,6 +8,23 @@ const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Team = require('../models/Team');
 const { validateEmployeeCreate, validateEmployeeUpdate } = require('../middleware/validation');
+const upload = require('../middleware/upload');
+const { uploadEmployeeProfilePicture, deleteCloudinaryImage } = require('../config/cloudinary');
+
+const handleUpload = (fieldName) => (req, res, next) => {
+  upload.single(fieldName)(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'File size exceeds the 5 MB limit.' });
+      }
+      if (err.code === 'LIMIT_FILE_TYPES' || err.message) {
+        return res.status(400).json({ message: err.message });
+      }
+      return res.status(400).json({ message: err.message || 'File upload error' });
+    }
+    next();
+  });
+};
 
 const syncCompensationToEmployeeAndPayroll = async (emp) => {
   try {
@@ -423,7 +440,7 @@ router.get('/:id', auth, async (req, res) => {
 });
 
 // Create new employee - requires admin permissions
-router.post('/', auth, validateEmployeeCreate, async (req, res) => {
+router.post('/', auth, handleUpload('profilePictureFile'), validateEmployeeCreate, async (req, res) => {
   try {
     const roleLower = String(req.user.role || '').toLowerCase();
     const hasAccess = req.user.permissions?.includes('user_access') ||
@@ -434,6 +451,16 @@ router.post('/', auth, validateEmployeeCreate, async (req, res) => {
     }
     const body = req.body || {};
     const data = { ...body };
+    delete data.photo;
+
+    if (typeof data.previousOrganizations === 'string') {
+      try {
+        data.previousOrganizations = JSON.parse(data.previousOrganizations);
+      } catch (e) {
+        data.previousOrganizations = [];
+      }
+    }
+
     if (!data.name && data.employeename) data.name = data.employeename;
     if (!data.employeename && data.name) data.employeename = data.name;
     if (!data.mobileNo && (data.contactNumber || data.phone)) data.mobileNo = data.contactNumber || data.phone;
@@ -447,6 +474,13 @@ router.post('/', auth, validateEmployeeCreate, async (req, res) => {
     if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
     if (!data.position && data.role) data.position = data.role;
     if (!data.position && data.designation) data.position = data.designation;
+
+    // Handle single-request file upload to Cloudinary if file provided
+    if (req.file) {
+      const uploadResult = await uploadEmployeeProfilePicture(req.file.buffer, data.employeeId || 'general');
+      data.profilePicture = uploadResult.profilePicture;
+      data.profilePicturePublicId = uploadResult.profilePicturePublicId;
+    }
 
     // Check if email is already in use by another user
     if (data.email && data.email !== req.user.email) {
@@ -499,13 +533,25 @@ router.post('/', auth, validateEmployeeCreate, async (req, res) => {
 });
 
 // Update current user's own employee profile (self-service)
-router.put('/me', auth, validateEmployeeUpdate, async (req, res) => {
+router.put('/me', auth, handleUpload('profilePictureFile'), validateEmployeeUpdate, async (req, res) => {
   try {
     const empId = req.user.employeeId;
     if (!empId) return res.status(404).json({ message: 'Employee ID not linked' });
 
+    const oldEmployee = await Employee.findOne({ employeeId: empId });
+    if (!oldEmployee) return res.status(404).json({ message: 'Employee not found' });
+
     const body = req.body || {};
     let data = { ...body };
+    delete data.photo;
+
+    if (typeof data.previousOrganizations === 'string') {
+      try {
+        data.previousOrganizations = JSON.parse(data.previousOrganizations);
+      } catch (e) {
+        data.previousOrganizations = [];
+      }
+    }
 
     const roleLower = String(req.user.role || '').toLowerCase();
     const isHRAdmin = ['admin', 'hr', 'director', 'manager'].includes(roleLower) || req.user.permissions?.includes('employee_access');
@@ -518,7 +564,7 @@ router.put('/me', auth, validateEmployeeUpdate, async (req, res) => {
         'permanentAddressLine', 'permanentCity', 'permanentState', 'permanentPincode',
         'currentAddressLine', 'currentCity', 'currentState', 'currentPincode',
         'permanentAddress', 'currentAddress', 'previousOrganizations', 'avatar',
-        'photo', 'profilePicture',
+        'profilePicture', 'profilePicturePublicId', 'removeProfilePicture',
         'bankName', 'bankAccount', 'ifsc', 'branch', 'personalEmail'
       ];
       const filteredData = {};
@@ -529,6 +575,7 @@ router.put('/me', auth, validateEmployeeUpdate, async (req, res) => {
       }
       data = filteredData;
     }
+
     delete data.promotionEffectiveDate;
     delete data.promotionRemarks;
     if (!data.name && data.employeename) data.name = data.employeename;
@@ -544,6 +591,17 @@ router.put('/me', auth, validateEmployeeUpdate, async (req, res) => {
     if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
     if (!data.position && data.role) data.position = data.role;
     if (!data.position && data.designation) data.position = data.designation;
+
+    // Handle Cloudinary upload if file provided
+    if (req.file) {
+      const uploadResult = await uploadEmployeeProfilePicture(req.file.buffer, empId);
+      data.profilePicture = uploadResult.profilePicture;
+      data.profilePicturePublicId = uploadResult.profilePicturePublicId;
+    } else if (data.removeProfilePicture === 'true' || data.profilePicture === '') {
+      data.profilePicture = '';
+      data.profilePicturePublicId = '';
+    }
+    delete data.removeProfilePicture;
 
     // Check if email is already in use by another user
     if (data.email && data.email !== req.user.email) {
@@ -588,7 +646,13 @@ router.put('/me', auth, validateEmployeeUpdate, async (req, res) => {
       data,
       { new: true, runValidators: true }
     );
-    if (!employee) return res.status(404).json({ message: 'Employee not found' });
+
+    // Safe deletion of old image AFTER DB update succeeds
+    const oldPublicId = oldEmployee.profilePicturePublicId;
+    const newPublicId = employee ? employee.profilePicturePublicId : null;
+    if (employee && oldPublicId && oldPublicId !== newPublicId) {
+      await deleteCloudinaryImage(oldPublicId);
+    }
 
     if (typeof employee.bankAccount === "string" && employee.bankAccount.trim()) {
       await HolidayAllowance.updateMany(
@@ -609,7 +673,7 @@ router.put('/me', auth, validateEmployeeUpdate, async (req, res) => {
 });
 
 // Update employee - requires admin permissions
-router.put('/:id', auth, validateEmployeeUpdate, async (req, res) => {
+router.put('/:id', auth, handleUpload('profilePictureFile'), validateEmployeeUpdate, async (req, res) => {
   try {
     const roleLower = String(req.user.role || '').toLowerCase();
     const hasAccess = req.user.permissions?.includes('user_access') ||
@@ -619,8 +683,23 @@ router.put('/:id', auth, validateEmployeeUpdate, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
+    const oldEmployee = await Employee.findById(req.params.id);
+    if (!oldEmployee) {
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
     const body = req.body || {};
     const data = { ...body };
+    delete data.photo;
+
+    if (typeof data.previousOrganizations === 'string') {
+      try {
+        data.previousOrganizations = JSON.parse(data.previousOrganizations);
+      } catch (e) {
+        data.previousOrganizations = [];
+      }
+    }
+
     const promotionEffectiveDateRaw = data.promotionEffectiveDate;
     const promotionRemarksRaw = data.promotionRemarks;
     delete data.promotionEffectiveDate;
@@ -638,6 +717,18 @@ router.put('/:id', auth, validateEmployeeUpdate, async (req, res) => {
     if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
     if (!data.position && data.role) data.position = data.role;
     if (!data.position && data.designation) data.position = data.designation;
+
+    // Handle Cloudinary upload if file provided
+    if (req.file) {
+      const uploadResult = await uploadEmployeeProfilePicture(req.file.buffer, data.employeeId || oldEmployee.employeeId);
+      data.profilePicture = uploadResult.profilePicture;
+      data.profilePicturePublicId = uploadResult.profilePicturePublicId;
+    } else if (data.removeProfilePicture === 'true' || data.profilePicture === '') {
+      data.profilePicture = '';
+      data.profilePicturePublicId = '';
+    }
+    delete data.removeProfilePicture;
+
     const permAddrParts = [
       data.permanentAddressLine,
       data.permanentCity,
@@ -668,11 +759,6 @@ router.put('/:id', auth, validateEmployeeUpdate, async (req, res) => {
     }
     delete data.role;
 
-    const oldEmployee = await Employee.findById(req.params.id);
-    if (!oldEmployee) {
-      return res.status(404).json({ message: 'Employee not found' });
-    }
-
     // Check if email is already in use by another user
     if (data.email && data.email !== oldEmployee.email) {
       const existingUser = await User.findOne({ email: data.email });
@@ -686,6 +772,13 @@ router.put('/:id', auth, validateEmployeeUpdate, async (req, res) => {
       data,
       { new: true, runValidators: true }
     );
+
+    // Safe deletion of old image AFTER DB update succeeds
+    const oldPublicId = oldEmployee.profilePicturePublicId;
+    const newPublicId = employee ? employee.profilePicturePublicId : null;
+    if (employee && oldPublicId && oldPublicId !== newPublicId) {
+      await deleteCloudinaryImage(oldPublicId);
+    }
 
     if (employee) {
       await syncCompensationToEmployeeAndPayroll(employee);
@@ -763,7 +856,7 @@ router.put('/:id', auth, validateEmployeeUpdate, async (req, res) => {
   }
 });
 
-// Delete employee - requires admin permissions
+// Delete employee - requires admin permissions (permanently deletes record & Cloudinary image)
 router.delete('/:id', auth, async (req, res) => {
   try {
     const roleLower = String(req.user.role || '').toLowerCase();
@@ -774,10 +867,17 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const employee = await Employee.findByIdAndDelete(req.params.id);
+    const employee = await Employee.findById(req.params.id);
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
+
+    // Delete image from Cloudinary if it exists
+    if (employee.profilePicturePublicId) {
+      await deleteCloudinaryImage(employee.profilePicturePublicId);
+    }
+
+    await Employee.findByIdAndDelete(req.params.id);
     res.json({ message: 'Employee deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

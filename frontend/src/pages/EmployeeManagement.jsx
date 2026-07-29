@@ -375,7 +375,7 @@ const EmployeeManagement = () => {
   const renderViewEmployeeModal = () => {
     if (!viewingEmployee) return null;
 
-    const photoUrl = viewingEmployee.photo || viewingEmployee.profilePicture;
+    const photoUrl = viewingEmployee.profilePicture || viewingEmployee.photo;
 
     return (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
@@ -986,9 +986,9 @@ const EmployeeManagement = () => {
                         <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
                           <div className="flex items-center space-x-3">
                             <div className="w-[35px] h-[45px] rounded border border-blue-200 shadow-xs overflow-hidden bg-slate-100 flex-shrink-0">
-                              {employee.photo || employee.profilePicture ? (
+                              {employee.profilePicture || employee.photo ? (
                                 <img
-                                  src={employee.photo || employee.profilePicture}
+                                  src={employee.profilePicture || employee.photo}
                                   alt={employee.name || 'Photo'}
                                   className="w-full h-full object-cover"
                                 />
@@ -1069,9 +1069,9 @@ const EmployeeManagement = () => {
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center space-x-3">
                     <div className="w-[42px] h-[54px] rounded-lg border border-blue-200 shadow-sm overflow-hidden bg-slate-900 flex-shrink-0">
-                      {employee.photo || employee.profilePicture ? (
+                      {employee.profilePicture || employee.photo ? (
                         <img
-                          src={employee.photo || employee.profilePicture}
+                          src={employee.profilePicture || employee.photo}
                           alt={employee.name || 'Photo'}
                           className="w-full h-full object-cover"
                         />

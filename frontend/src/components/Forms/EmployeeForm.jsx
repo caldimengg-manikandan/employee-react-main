@@ -95,6 +95,10 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     return { line, city, state, pincode };
   };
 
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState('');
+  const [removeProfilePicture, setRemoveProfilePicture] = useState(false);
+
   const [formData, setFormData] = useState({
     // Personal Information
     employeeId: '',
@@ -404,6 +408,10 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
   useEffect(() => {
     if (employee) {
+      setSelectedFile(null);
+      setRemoveProfilePicture(false);
+      setPreviewUrl(employee.profilePicture || employee.photo || '');
+
       const perm = parseAddress(employee.permanentAddress);
       const curr = parseAddress(employee.currentAddress);
       const mappedData = {
@@ -699,10 +707,30 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       return;
     }
 
-    onSubmit(finalData);
+    const payload = new FormData();
+    Object.keys(finalData).forEach(key => {
+      if (key === 'photo') return;
+      if (key === 'previousOrganizations') {
+        payload.append(key, JSON.stringify(finalData[key] || []));
+      } else if (finalData[key] !== null && finalData[key] !== undefined) {
+        payload.append(key, finalData[key]);
+      }
+    });
+
+    if (selectedFile) {
+      payload.append('profilePictureFile', selectedFile);
+    } else if (removeProfilePicture) {
+      payload.append('removeProfilePicture', 'true');
+      payload.append('profilePicture', '');
+    }
+
+    onSubmit(payload);
 
     if (!isModal) {
       // Reset form if not in modal mode
+      setSelectedFile(null);
+      setPreviewUrl('');
+      setRemoveProfilePicture(false);
       setCurrentStep(1);
       setMaritalStatus('single');
       setOrganizations([{ organization: '', designation: '', startDate: '', endDate: '' }]);
@@ -766,9 +794,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
           >
             {step}
           </button>
-          {step < 3 && (
-            <div className={`w-16 h-1 mx-2 ${currentStep > step ? 'bg-blue-600' : 'bg-gray-300'}`} />
-          )}
+          {step < 3 && <div className="w-12 h-1 bg-gray-200 mx-2" />}
         </div>
       ))}
     </div>
@@ -796,18 +822,12 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   );
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      {!isModal && renderStepLabels()}
+    <div className="space-y-6">
+      {renderStepIndicator()}
 
-      <form onSubmit={handleSubmit} className="p-4 lg:p-6">
-        {/* Step 1: Personal Information */}
+      <form onSubmit={handleSubmit} className="space-y-6">
         {currentStep === 1 && (
-          <div className="space-y-6">
-            <h3 className="text-lg lg:text-xl font-semibold text-gray-800 mb-4 flex items-center gap-2">
-              <UserIcon className="h-6 w-6 text-blue-600" />
-              Personal Information
-            </h3>
-
+          <div className="space-y-6 animate-fade-in">
             {/* Basic Information */}
             <div className={`rounded-lg p-5 ${sectionColors.personal.bg} border ${sectionColors.personal.border}`}>
               <div className="flex items-center mb-4">
@@ -820,9 +840,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 <div className="flex flex-col items-center">
                   <span className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-2">Passport Photo (3.5 × 4.5 cm)</span>
                   <div className="w-[105px] h-[135px] border-2 border-dashed border-blue-400 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center relative group shadow-inner">
-                    {formData.photo || formData.profilePicture ? (
+                    {(previewUrl || formData.profilePicture) && !removeProfilePicture ? (
                       <img
-                        src={formData.photo || formData.profilePicture}
+                        src={previewUrl || formData.profilePicture}
                         alt="Passport Size Photo"
                         className="w-full h-full object-cover"
                       />
@@ -838,40 +858,42 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 <div className="flex-1 space-y-2 text-center sm:text-left">
                   <h5 className="text-sm font-semibold text-gray-800">Upload Employee Passport Photo</h5>
                   <p className="text-xs text-gray-500 max-w-md">
-                    Please upload a clear, front-facing passport size photograph. Supported formats: JPG, PNG, WEBP (Max 2MB).
+                    Please upload a clear, front-facing passport size photograph. Supported formats: JPG, JPEG, PNG, WEBP (Max 5MB).
                   </p>
                   <div className="flex flex-wrap items-center gap-3 pt-1">
                     <label className="cursor-pointer inline-flex items-center px-4 py-2 bg-[#262760] text-white text-xs font-semibold rounded-lg hover:bg-[#1f204d] transition-colors shadow-sm">
                       <span>Choose Passport Photo</span>
                       <input
                         type="file"
-                        accept="image/*"
+                        accept="image/jpeg,image/jpg,image/png,image/webp"
                         className="hidden"
                         onClick={(e) => { e.target.value = null; }}
                         onChange={(e) => {
                           const file = e.target.files[0];
                           if (file) {
-                            if (file.size > 2 * 1024 * 1024) {
-                              alert('Image file size should be less than 2MB');
+                            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                            if (!allowedTypes.includes(file.type.toLowerCase())) {
+                              alert('Please select a valid image format (JPG, JPEG, PNG, WEBP).');
                               return;
                             }
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                              setFormData(prev => ({
-                                ...prev,
-                                photo: reader.result,
-                                profilePicture: reader.result
-                              }));
-                            };
-                            reader.readAsDataURL(file);
+                            if (file.size > 5 * 1024 * 1024) {
+                              alert('Image file size should be less than 5MB');
+                              return;
+                            }
+                            setSelectedFile(file);
+                            setPreviewUrl(URL.createObjectURL(file));
+                            setRemoveProfilePicture(false);
                           }
                         }}
                       />
                     </label>
-                    {(formData.photo || formData.profilePicture) && (
+                    {((previewUrl || formData.profilePicture) && !removeProfilePicture) && (
                       <button
                         type="button"
                         onClick={() => {
+                          setSelectedFile(null);
+                          setPreviewUrl('');
+                          setRemoveProfilePicture(true);
                           setFormData(prev => ({
                             ...prev,
                             photo: '',

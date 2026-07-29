@@ -51,8 +51,15 @@ const employeeSchema = new mongoose.Schema({
   currentAddress: String,
   email: String,
   officialEmail: String,
-  photo: String,
-  profilePicture: String,
+  photo: String, // Legacy field retained temporarily for migration/backward compatibility
+  profilePicture: {
+    type: String,
+    default: ''
+  },
+  profilePicturePublicId: {
+    type: String,
+    default: ''
+  },
   bankName: String,
   bankAccount: String,
   branch: String,
@@ -125,6 +132,18 @@ const employeeSchema = new mongoose.Schema({
       ret.qualification = ret.qualification || ret.highestQualification || '';
       ret.designation = ret.designation || ret.position || ret.role || '';
       ret.position = ret.position || ret.designation || ret.role || '';
+
+      // Normalize profilePicture and strip base64 legacy photo data from API response
+      if (!ret.profilePicture && ret.photo && (ret.photo.startsWith('http://') || ret.photo.startsWith('https://'))) {
+        ret.profilePicture = ret.photo;
+      }
+      ret.profilePicture = ret.profilePicture || '';
+      
+      // Never send Base64 string data in API response
+      if (ret.photo && ret.photo.startsWith('data:image')) {
+        delete ret.photo;
+      }
+
       if (Array.isArray(ret.previousOrganizations)) {
         ret.previousOrganizations = ret.previousOrganizations
           .filter(Boolean)

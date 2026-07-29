@@ -73,9 +73,9 @@ export const employeeAPI = {
   getAllEmployees: (status) => api.get('/employees', { params: { status } }),
   getEmployeeById: (id) => api.get(`/employees/${id}`),
   getMyProfile: () => api.get('/employees/me'),
-  createEmployee: (data) => api.post('/employees', data),
-  updateEmployee: (id, data) => api.put(`/employees/${id}`, data),
-  updateMyProfile: (data) => api.put('/employees/me', data),
+  createEmployee: (data) => api.post('/employees', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
+  updateEmployee: (id, data) => api.put(`/employees/${id}`, data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
+  updateMyProfile: (data) => api.put('/employees/me', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
   deleteEmployee: (id) => api.delete(`/employees/${id}`),
   // Get employees for timesheet purposes only (limited data)
   getTimesheetEmployees: () => api.get('/employees/timesheet/employees'),

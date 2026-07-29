@@ -834,9 +834,9 @@ const ProjectDashboard = () => {
                             <div className="flex items-center mb-6 border-b border-white/10 pb-4">
                                 {/* Employee Passport Size Photo Frame (3.5 x 4.5 cm / 3:4 aspect ratio) */}
                                 <div className="w-[70px] h-[90px] rounded-lg border-2 border-white/40 shadow-md mr-4 bg-slate-900 flex-shrink-0 overflow-hidden relative group">
-                                    {profile?.photo || profile?.profilePicture || user?.photo || user?.profilePicture ? (
+                                    {profile?.profilePicture || profile?.photo || user?.profilePicture || user?.photo ? (
                                         <img
-                                            src={profile?.photo || profile?.profilePicture || user?.photo || user?.profilePicture}
+                                            src={profile?.profilePicture || profile?.photo || user?.profilePicture || user?.photo}
                                             alt={user.name || 'Passport Photo'}
                                             className="w-full h-full object-cover"
                                         />
