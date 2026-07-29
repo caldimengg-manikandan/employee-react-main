@@ -514,7 +514,11 @@ const MyProfile = () => {
       }
     } catch (error) {
       console.error('Error updating profile:', error);
-      showError('Failed to update profile. Please try again.');
+      const serverMsg = error.response?.data?.message ||
+                        (Array.isArray(error.response?.data?.errors) && error.response.data.errors.map(e => `${e.field || ''}: ${e.message}`).join(', ')) ||
+                        error.message ||
+                        'Failed to update profile. Please try again.';
+      showError(serverMsg);
     }
     setAllowSubmit(false);
   };

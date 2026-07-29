@@ -641,6 +641,8 @@ router.put('/me', auth, handleUpload('profilePictureFile'), validateEmployeeUpda
         if (!o.position && o.role) o.position = o.role;
         if (!o.position && o.designation) o.position = o.designation;
         delete o.role;
+        if (o.startDate === '' || o.startDate === 'null' || o.startDate === 'undefined') delete o.startDate;
+        if (o.endDate === '' || o.endDate === 'null' || o.endDate === 'undefined') delete o.endDate;
         return o;
       });
     }
@@ -757,6 +759,8 @@ router.put('/:id', auth, handleUpload('profilePictureFile'), validateEmployeeUpd
         if (!o.position && o.role) o.position = o.role;
         if (!o.position && o.designation) o.position = o.designation;
         delete o.role;
+        if (o.startDate === '' || o.startDate === 'null' || o.startDate === 'undefined') delete o.startDate;
+        if (o.endDate === '' || o.endDate === 'null' || o.endDate === 'undefined') delete o.endDate;
         return o;
       });
     }
