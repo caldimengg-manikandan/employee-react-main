@@ -77,6 +77,8 @@ export const employeeAPI = {
   updateEmployee: (id, data) => api.put(`/employees/${id}`, data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
   updateMyProfile: (data) => api.put('/employees/me', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
   deleteEmployee: (id) => api.delete(`/employees/${id}`),
+  // Admin trigger to migrate Base64 images to Cloudinary on server
+  migrateCloudinary: () => api.post('/employees/admin/migrate-cloudinary'),
   // Get employees for timesheet purposes only (limited data)
   getTimesheetEmployees: () => api.get('/employees/timesheet/employees'),
 };

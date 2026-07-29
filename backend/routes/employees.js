@@ -897,4 +897,81 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+// Admin endpoint to trigger Cloudinary image migration directly on server
+router.post('/admin/migrate-cloudinary', auth, async (req, res) => {
+  try {
+    const roleLower = String(req.user?.role || '').toLowerCase();
+    const isAdmin = ['admin', 'director', 'manager', 'hr', 'it_admin'].includes(roleLower) ||
+                    req.user?.permissions?.includes('employee_access') ||
+                    req.user?.permissions?.includes('user_access');
+    if (!isAdmin) {
+      return res.status(403).json({ message: 'Access denied. Admin permissions required.' });
+    }
+
+    const { uploadBase64EmployeePicture } = require('../config/cloudinary');
+    const employees = await Employee.find({}, { photo: 1, profilePicture: 1, employeeId: 1, name: 1, employeename: 1 });
+
+    let migratedCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
+    const details = [];
+
+    const getValidBase64Str = (str) => {
+      if (!str || typeof str !== 'string') return null;
+      if (str.startsWith('http://') || str.startsWith('https://')) return null;
+      if (str.startsWith('data:image')) return str;
+      if (str.length > 100) return `data:image/jpeg;base64,${str}`;
+      return null;
+    };
+
+    for (const emp of employees) {
+      const empIdStr = emp.employeeId || emp._id.toString();
+      const empName = emp.name || emp.employeename || 'Unknown';
+
+      if (emp.profilePicture && (emp.profilePicture.startsWith('http://') || emp.profilePicture.startsWith('https://'))) {
+        if (emp.photo) {
+          await Employee.findByIdAndUpdate(emp._id, { $unset: { photo: '' } });
+        }
+        skippedCount++;
+        continue;
+      }
+
+      const base64Candidate = getValidBase64Str(emp.photo) || getValidBase64Str(emp.profilePicture);
+
+      if (!base64Candidate) {
+        skippedCount++;
+        continue;
+      }
+
+      try {
+        const result = await uploadBase64EmployeePicture(base64Candidate, empIdStr);
+        await Employee.findByIdAndUpdate(emp._id, {
+          $set: {
+            profilePicture: result.profilePicture,
+            profilePicturePublicId: result.profilePicturePublicId
+          },
+          $unset: { photo: '' }
+        });
+        migratedCount++;
+        details.push(`Migrated ${empIdStr} (${empName})`);
+      } catch (err) {
+        failedCount++;
+        details.push(`Failed ${empIdStr} (${empName}): ${err.message}`);
+      }
+    }
+
+    res.json({
+      message: 'Migration process completed',
+      total: employees.length,
+      migratedCount,
+      skippedCount,
+      failedCount,
+      details
+    });
+  } catch (error) {
+    console.error('Error during migration API:', error);
+    res.status(500).json({ message: error.message });
+  }
+});
+
 module.exports = router;
