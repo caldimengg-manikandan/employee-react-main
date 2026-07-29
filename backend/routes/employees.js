@@ -188,7 +188,7 @@ router.get('/', auth, async (req, res) => {
     const roleLower = String(req.user.role || '').toLowerCase();
     
     // Fetch logged-in user employee profile to determine division and designation
-    const loggedInEmp = req.user.employeeId ? await Employee.findOne({ employeeId: req.user.employeeId }) : null;
+    const loggedInEmp = req.user.employeeId ? await Employee.findOne({ employeeId: req.user.employeeId }, { photo: 0 }) : null;
     const empDesignation = loggedInEmp ? (loggedInEmp.designation || "").trim().toLowerCase() : "";
     const allowedDesignations = [
       "team lead",
@@ -212,7 +212,7 @@ router.get('/', auth, async (req, res) => {
           }
         }
       }
-      const employees = await Employee.find(query).lean().sort({ createdAt: -1 });
+      const employees = await Employee.find(query, { photo: 0 }).lean().sort({ createdAt: -1 });
       const formattedEmployees = employees.map(emp => {
         if (!emp) return emp;
         const name = emp.name || emp.employeename || '';
@@ -338,7 +338,7 @@ router.get('/me', auth, async (req, res) => {
   try {
     const empId = req.user.employeeId;
     if (!empId) return res.status(404).json({ message: 'Employee ID not linked' });
-    const employee = await Employee.findOne({ employeeId: empId });
+    const employee = await Employee.findOne({ employeeId: empId }, { photo: 0 });
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
     res.json(employee);
   } catch (error) {
@@ -398,7 +398,7 @@ router.get('/timesheet/employees', auth, async (req, res) => {
 // Get employee by ID - restricted based on user permissions
 router.get('/:id', auth, async (req, res) => {
   try {
-    const employee = await Employee.findById(req.params.id);
+    const employee = await Employee.findById(req.params.id, { photo: 0 });
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }

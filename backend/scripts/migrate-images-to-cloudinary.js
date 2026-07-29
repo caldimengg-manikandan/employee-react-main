@@ -39,10 +39,19 @@ async function migrateEmployeeImages() {
         continue;
       }
 
-      // Check for Base64 image data in photo or profilePicture
-      const base64Candidate = (emp.photo && emp.photo.startsWith('data:image'))
-        ? emp.photo
-        : ((emp.profilePicture && emp.profilePicture.startsWith('data:image')) ? emp.profilePicture : null);
+      // Helper to detect and normalize Base64 image data
+      const getValidBase64Str = (str) => {
+        if (!str || typeof str !== 'string') return null;
+        if (str.startsWith('http://') || str.startsWith('https://')) return null;
+        if (str.startsWith('data:image')) return str;
+        // Raw Base64 string without header prefix
+        if (str.length > 100) {
+          return `data:image/jpeg;base64,${str}`;
+        }
+        return null;
+      };
+
+      const base64Candidate = getValidBase64Str(emp.photo) || getValidBase64Str(emp.profilePicture);
 
       if (!base64Candidate) {
         console.log(`[SKIPPED] Employee ${empIdStr} (${empName}): No Base64 profile photo found.`);
