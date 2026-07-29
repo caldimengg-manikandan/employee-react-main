@@ -231,8 +231,19 @@ router.get('/', auth, async (req, res) => {
             }))
           : [];
 
+        // Normalize profilePicture URL and ALWAYS strip legacy base64 data to keep payload size small
+        let profilePicture = '';
+        if (emp.profilePicture && (emp.profilePicture.startsWith('http://') || emp.profilePicture.startsWith('https://'))) {
+          profilePicture = emp.profilePicture;
+        } else if (emp.photo && (emp.photo.startsWith('http://') || emp.photo.startsWith('https://'))) {
+          profilePicture = emp.photo;
+        }
+
+        const cleanedEmp = { ...emp };
+        delete cleanedEmp.photo;
+
         return {
-          ...emp,
+          ...cleanedEmp,
           name,
           employeename: name,
           mobileNo,
@@ -248,7 +259,9 @@ router.get('/', auth, async (req, res) => {
           designation,
           position: designation,
           role: designation,
-          previousOrganizations
+          previousOrganizations,
+          profilePicture: profilePicture || '',
+          profilePicturePublicId: emp.profilePicturePublicId || ''
         };
       });
       return res.json(formattedEmployees);

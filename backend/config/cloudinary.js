@@ -1,9 +1,30 @@
+const fs = require('fs');
 const cloudinary = require('cloudinary').v2;
 
+const getEnvOrSecret = (key) => {
+  if (process.env[key] && process.env[key].trim()) {
+    return process.env[key].trim();
+  }
+  const secretPaths = [
+    `/etc/secrets/${key}`,
+    `./${key}`,
+    `../${key}`
+  ];
+  for (const p of secretPaths) {
+    try {
+      if (fs.existsSync(p)) {
+        const val = fs.readFileSync(p, 'utf8').trim();
+        if (val) return val;
+      }
+    } catch (e) {}
+  }
+  return '';
+};
+
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: getEnvOrSecret('CLOUDINARY_CLOUD_NAME'),
+  api_key: getEnvOrSecret('CLOUDINARY_API_KEY'),
+  api_secret: getEnvOrSecret('CLOUDINARY_API_SECRET'),
   secure: true
 });
 

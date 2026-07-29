@@ -139,8 +139,8 @@ const employeeSchema = new mongoose.Schema({
       }
       ret.profilePicture = ret.profilePicture || '';
       
-      // Never send Base64 string data in API response
-      if (ret.photo && ret.photo.startsWith('data:image')) {
+      // Always strip legacy photo field if it's base64 or non-HTTP URL string
+      if (ret.photo && (!ret.photo.startsWith('http://') && !ret.photo.startsWith('https://'))) {
         delete ret.photo;
       }
 
