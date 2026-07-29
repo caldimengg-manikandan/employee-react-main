@@ -186,20 +186,10 @@ router.get('/', auth, async (req, res) => {
     };
 
     const roleLower = String(req.user.role || '').toLowerCase();
-    
-    // Fetch logged-in user employee profile to determine division and designation
-    const loggedInEmp = req.user.employeeId ? await Employee.findOne({ employeeId: req.user.employeeId }, { photo: 0 }) : null;
-    const empDesignation = loggedInEmp ? (loggedInEmp.designation || "").trim().toLowerCase() : "";
-    const allowedDesignations = [
-      "team lead",
-      "sr. team lead",
-      "sr team lead",
-      "assistant project manager",
-      "asst project manager"
-    ];
-
     const hasFullAccess = (Array.isArray(req.user.permissions) && req.user.permissions.includes('employee_access')) ||
       ['admin', 'director', 'manager', 'hr', 'it_admin'].includes(roleLower);
+
+    let loggedInEmp = null;
 
     // Full access for users with employee_access or admin/director/GM/hr roles
     if (hasFullAccess) {
@@ -207,6 +197,7 @@ router.get('/', auth, async (req, res) => {
         if (division) {
           query.division = getDivisionQueryValue(division);
         } else {
+          loggedInEmp = req.user.employeeId ? await Employee.findOne({ employeeId: req.user.employeeId }, { division: 1 }).lean() : null;
           if (loggedInEmp && loggedInEmp.division) {
             query.division = getDivisionQueryValue(loggedInEmp.division);
           }

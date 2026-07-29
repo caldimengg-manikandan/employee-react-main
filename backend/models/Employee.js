@@ -158,4 +158,9 @@ const employeeSchema = new mongoose.Schema({
   }
 });
 
+// Add database indexes for super-fast sorting, filtering, and lookup
+employeeSchema.index({ status: 1, createdAt: -1 });
+employeeSchema.index({ division: 1, status: 1 });
+employeeSchema.index({ employeeId: 1 });
+
 module.exports = mongoose.model('Employee', employeeSchema);
