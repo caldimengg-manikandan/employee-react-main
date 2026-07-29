@@ -181,10 +181,10 @@ router.get('/', auth, async (req, res) => {
       "asst project manager"
     ];
 
-    const hasFullAccess = req.user.permissions?.includes('employee_access') ||
-      ['admin', 'director', 'manager'].includes(roleLower);
+    const hasFullAccess = (Array.isArray(req.user.permissions) && req.user.permissions.includes('employee_access')) ||
+      ['admin', 'director', 'manager', 'hr', 'it_admin'].includes(roleLower);
 
-    // Full access for users with employee_access or admin/director/GM roles
+    // Full access for users with employee_access or admin/director/GM/hr roles
     if (hasFullAccess) {
       if (byDivision === 'true') {
         if (division) {
@@ -195,8 +195,46 @@ router.get('/', auth, async (req, res) => {
           }
         }
       }
-      const employees = await Employee.find(query).sort({ createdAt: -1 });
-      return res.json(employees);
+      const employees = await Employee.find(query).lean().sort({ createdAt: -1 });
+      const formattedEmployees = employees.map(emp => {
+        if (!emp) return emp;
+        const name = emp.name || emp.employeename || '';
+        const mobileNo = emp.mobileNo || emp.contactNumber || '';
+        const emergencyMobile = emp.emergencyMobile || emp.emergencyMobileNo || emp.emergencyContact || '';
+        const address = emp.address || emp.permanentAddress || emp.currentAddress || '';
+        const dateofjoin = emp.dateofjoin || emp.dateOfJoining || null;
+        const dob = emp.dob || emp.dateOfBirth || null;
+        const qualification = emp.qualification || emp.highestQualification || '';
+        const designation = emp.designation || emp.position || emp.role || '';
+        const previousOrganizations = Array.isArray(emp.previousOrganizations)
+          ? emp.previousOrganizations.filter(Boolean).map(org => ({
+              ...(typeof org === 'object' ? org : {}),
+              designation: org?.designation || org?.position || org?.role || '',
+              position: org?.position || org?.designation || org?.role || ''
+            }))
+          : [];
+
+        return {
+          ...emp,
+          name,
+          employeename: name,
+          mobileNo,
+          contactNumber: mobileNo,
+          emergencyMobile,
+          address,
+          dateofjoin,
+          dateOfJoining: dateofjoin,
+          dob,
+          dateOfBirth: dob,
+          qualification,
+          highestQualification: qualification,
+          designation,
+          position: designation,
+          role: designation,
+          previousOrganizations
+        };
+      });
+      return res.json(formattedEmployees);
     }
 
     const isPM = ['projectmanager', 'project_manager', 'teamlead'].includes(roleLower) || allowedDesignations.includes(empDesignation);
@@ -212,7 +250,7 @@ router.get('/', auth, async (req, res) => {
       } else {
         const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
         // Ensure they only see their assigned team members + themselves
-        const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
+        const allowedIds = [...myAssignedMemberIds, req.user.employeeId].filter(Boolean);
         query.employeeId = { $in: allowedIds };
       }
 

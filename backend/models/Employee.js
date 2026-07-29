@@ -112,6 +112,7 @@ const employeeSchema = new mongoose.Schema({
   timestamps: true,
   toJSON: {
     transform: function(doc, ret) {
+      if (!ret) return ret;
       ret.name = ret.name || ret.employeename || '';
       ret.employeename = ret.employeename || ret.name || '';
       ret.mobileNo = ret.mobileNo || ret.contactNumber || '';
@@ -125,11 +126,13 @@ const employeeSchema = new mongoose.Schema({
       ret.designation = ret.designation || ret.position || ret.role || '';
       ret.position = ret.position || ret.designation || ret.role || '';
       if (Array.isArray(ret.previousOrganizations)) {
-        ret.previousOrganizations = ret.previousOrganizations.map(org => ({
-          ...org,
-          designation: org.designation || org.position || org.role || '',
-          position: org.position || org.designation || org.role || ''
-        }));
+        ret.previousOrganizations = ret.previousOrganizations
+          .filter(Boolean)
+          .map(org => ({
+            ...(typeof org === 'object' ? org : {}),
+            designation: org?.designation || org?.position || org?.role || '',
+            position: org?.position || org?.designation || org?.role || ''
+          }));
       }
       return ret;
     }
