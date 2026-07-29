@@ -847,6 +847,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                         type="file"
                         accept="image/*"
                         className="hidden"
+                        onClick={(e) => { e.target.value = null; }}
                         onChange={(e) => {
                           const file = e.target.files[0];
                           if (file) {
@@ -856,8 +857,11 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                             }
                             const reader = new FileReader();
                             reader.onloadend = () => {
-                              handleInputChange('photo', reader.result);
-                              handleInputChange('profilePicture', reader.result);
+                              setFormData(prev => ({
+                                ...prev,
+                                photo: reader.result,
+                                profilePicture: reader.result
+                              }));
                             };
                             reader.readAsDataURL(file);
                           }
@@ -868,8 +872,11 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                       <button
                         type="button"
                         onClick={() => {
-                          handleInputChange('photo', '');
-                          handleInputChange('profilePicture', '');
+                          setFormData(prev => ({
+                            ...prev,
+                            photo: '',
+                            profilePicture: ''
+                          }));
                         }}
                         className="text-xs text-red-600 hover:text-red-800 font-semibold px-3 py-2 border border-red-200 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
                       >

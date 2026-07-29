@@ -234,8 +234,8 @@ const MyProfile = () => {
             bankAccount: emp.bankAccount || base.bankAccount,
             branch: emp.branch || base.branch,
             ifsc: emp.ifsc || base.ifsc,
-            photo: emp.photo || emp.profilePicture || base.photo,
-            profilePicture: emp.profilePicture || emp.photo || base.profilePicture
+            photo: emp.photo !== undefined ? emp.photo : (emp.profilePicture !== undefined ? emp.profilePicture : base.photo),
+            profilePicture: emp.profilePicture !== undefined ? emp.profilePicture : (emp.photo !== undefined ? emp.photo : base.profilePicture)
           };
           setMaritalStatus(mappedData.maritalStatus || 'single');
           if (mappedData.previousOrganizations && mappedData.previousOrganizations.length > 0) {
@@ -464,8 +464,8 @@ const MyProfile = () => {
         designation: finalData.designation || user.designation,
         division: finalData.division || user.division,
         status: finalData.status || user.status,
-        photo: finalData.photo !== undefined ? finalData.photo : user.photo,
-        profilePicture: finalData.profilePicture !== undefined ? finalData.profilePicture : user.profilePicture
+        photo: finalData.photo !== undefined ? finalData.photo : '',
+        profilePicture: finalData.profilePicture !== undefined ? finalData.profilePicture : ''
       };
       sessionStorage.setItem('user', JSON.stringify(updatedUser));
       setUser(updatedUser);
@@ -480,8 +480,8 @@ const MyProfile = () => {
           const emp = res.data;
           setFormData(prev => ({
             ...prev,
-            photo: emp.photo || emp.profilePicture || prev.photo,
-            profilePicture: emp.profilePicture || emp.photo || prev.profilePicture
+            photo: emp.photo !== undefined ? emp.photo : (emp.profilePicture !== undefined ? emp.profilePicture : ''),
+            profilePicture: emp.profilePicture !== undefined ? emp.profilePicture : (emp.photo !== undefined ? emp.photo : '')
           }));
         }
       } catch (err) {
@@ -793,6 +793,7 @@ const MyProfile = () => {
                             type="file"
                             accept="image/*"
                             className="hidden"
+                            onClick={(e) => { e.target.value = null; }}
                             onChange={(e) => {
                               const file = e.target.files[0];
                               if (file) {
@@ -802,8 +803,11 @@ const MyProfile = () => {
                                 }
                                 const reader = new FileReader();
                                 reader.onloadend = () => {
-                                  handleInputChange('photo', reader.result);
-                                  handleInputChange('profilePicture', reader.result);
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    photo: reader.result,
+                                    profilePicture: reader.result
+                                  }));
                                 };
                                 reader.readAsDataURL(file);
                               }
@@ -814,8 +818,11 @@ const MyProfile = () => {
                           <button
                             type="button"
                             onClick={() => {
-                              handleInputChange('photo', '');
-                              handleInputChange('profilePicture', '');
+                              setFormData(prev => ({
+                                ...prev,
+                                photo: '',
+                                profilePicture: ''
+                              }));
                             }}
                             className="text-xs text-red-600 hover:text-red-800 font-semibold px-3 py-2 border border-red-200 rounded-lg bg-red-50 hover:bg-red-100 transition-colors"
                           >
