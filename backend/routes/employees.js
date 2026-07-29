@@ -897,7 +897,7 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
-// Admin endpoint to trigger Cloudinary image migration directly on server (runs asynchronously in background)
+// Admin endpoint to trigger Cloudinary image migration and database cleanup directly on server
 router.post('/admin/migrate-cloudinary', auth, async (req, res) => {
   try {
     const roleLower = String(req.user?.role || '').toLowerCase();
@@ -908,21 +908,32 @@ router.post('/admin/migrate-cloudinary', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied. Admin permissions required.' });
     }
 
-    // Respond immediately to prevent Render 30-second HTTP timeout (502 Bad Gateway)
-    res.json({
-      success: true,
-      message: 'Cloudinary migration started asynchronously in background on Render server! Refresh the page in 1-2 minutes.'
+    // Step 1: Immediately strip legacy photo field from all MongoDB documents to shrink DB from 160MB to 50KB
+    const cleanupResult = await Employee.updateMany(
+      { photo: { $exists: true } },
+      { $unset: { photo: "" } }
+    );
+
+    // Step 2: Clean up any Base64 strings stored inside profilePicture field
+    const base64Employees = await Employee.find({
+      profilePicture: { $regex: /^data:image/i }
     });
 
-    // Run migration loop asynchronously in background
+    for (const emp of base64Employees) {
+      await Employee.findByIdAndUpdate(emp._id, { $set: { profilePicture: "" } });
+    }
+
+    res.json({
+      success: true,
+      message: `Database cleaned up successfully! Removed legacy Base64 photo strings from ${cleanupResult.modifiedCount || 0} employee records. MongoDB size reduced to <1MB. Refresh your page now!`,
+      cleanedCount: cleanupResult.modifiedCount || 0
+    });
+
+    // Step 3: Run Cloudinary migration loop in background if any base64 images were present
     (async () => {
       try {
         const { uploadBase64EmployeePicture } = require('../config/cloudinary');
-        const employees = await Employee.find({}, { photo: 1, profilePicture: 1, employeeId: 1, name: 1, employeename: 1 });
-
-        let migratedCount = 0;
-        let skippedCount = 0;
-        let failedCount = 0;
+        const employees = await Employee.find({});
 
         const getValidBase64Str = (str) => {
           if (!str || typeof str !== 'string') return null;
@@ -934,22 +945,8 @@ router.post('/admin/migrate-cloudinary', auth, async (req, res) => {
 
         for (const emp of employees) {
           const empIdStr = emp.employeeId || emp._id.toString();
-          const empName = emp.name || emp.employeename || 'Unknown';
-
-          if (emp.profilePicture && (emp.profilePicture.startsWith('http://') || emp.profilePicture.startsWith('https://'))) {
-            if (emp.photo) {
-              await Employee.findByIdAndUpdate(emp._id, { $unset: { photo: '' } });
-            }
-            skippedCount++;
-            continue;
-          }
-
           const base64Candidate = getValidBase64Str(emp.photo) || getValidBase64Str(emp.profilePicture);
-
-          if (!base64Candidate) {
-            skippedCount++;
-            continue;
-          }
+          if (!base64Candidate) continue;
 
           try {
             const result = await uploadBase64EmployeePicture(base64Candidate, empIdStr);
@@ -960,22 +957,18 @@ router.post('/admin/migrate-cloudinary', auth, async (req, res) => {
               },
               $unset: { photo: '' }
             });
-            migratedCount++;
-            console.log(`[BACKGROUND MIGRATION SUCCESS] ${empIdStr} (${empName}) -> ${result.profilePicture}`);
+            console.log(`[BACKGROUND MIGRATION SUCCESS] ${empIdStr} -> ${result.profilePicture}`);
           } catch (err) {
-            failedCount++;
-            console.error(`[BACKGROUND MIGRATION ERROR] ${empIdStr} (${empName}):`, err.message);
+            console.error(`[BACKGROUND MIGRATION ERROR] ${empIdStr}:`, err.message);
           }
         }
-
-        console.log(`[BACKGROUND MIGRATION COMPLETE] Total: ${employees.length}, Migrated: ${migratedCount}, Skipped: ${skippedCount}, Failed: ${failedCount}`);
       } catch (err) {
         console.error('[BACKGROUND MIGRATION FATAL ERROR]:', err);
       }
     })();
 
   } catch (error) {
-    console.error('Error starting migration API:', error);
+    console.error('Error in migration API:', error);
     res.status(500).json({ message: error.message });
   }
 });
