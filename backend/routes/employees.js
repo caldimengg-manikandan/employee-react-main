@@ -575,7 +575,9 @@ router.put('/me', auth, handleUpload('profilePictureFile'), validateEmployeeUpda
     if (!empId) return res.status(404).json({ message: 'Employee ID not linked' });
 
     const oldEmployee = await Employee.findOne({ employeeId: empId });
-    if (!oldEmployee) return res.status(404).json({ message: 'Employee not found' });
+    const body = req.body || {};
+    let data = { ...body };
+    delete data.photo;
 
     const roleLower = String(req.user.role || '').toLowerCase();
     const isHRAdmin = ['admin', 'hr', 'director', 'manager'].includes(roleLower) || req.user.permissions?.includes('employee_access');
