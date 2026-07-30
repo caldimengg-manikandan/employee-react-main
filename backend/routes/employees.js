@@ -967,4 +967,30 @@ router.post('/admin/migrate-cloudinary', auth, async (req, res) => {
   }
 });
 
+// Admin debug endpoint to inspect active Cloudinary configuration values on server
+router.get('/admin/check-cloudinary-config', auth, (req, res) => {
+  const fs = require('fs');
+  const { getEnvOrSecret } = require('../config/cloudinary');
+  const cloudName = getEnvOrSecret('CLOUDINARY_CLOUD_NAME');
+  const apiKey = getEnvOrSecret('CLOUDINARY_API_KEY');
+  const apiSecret = getEnvOrSecret('CLOUDINARY_API_SECRET');
+
+  const secretFileExists = fs.existsSync('/etc/secrets/CLOUDINARY_API_KEY');
+  let secretFileContent = null;
+  if (secretFileExists) {
+    try {
+      secretFileContent = fs.readFileSync('/etc/secrets/CLOUDINARY_API_KEY', 'utf8').trim();
+    } catch (e) {}
+  }
+
+  res.json({
+    cloudName,
+    apiKey,
+    apiKeyLength: apiKey ? apiKey.length : 0,
+    apiSecretLength: apiSecret ? apiSecret.length : 0,
+    secretFileExists,
+    secretFileContent
+  });
+});
+
 module.exports = router;
