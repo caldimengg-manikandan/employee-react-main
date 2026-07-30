@@ -703,7 +703,12 @@ router.put('/me', auth, handleUpload('profilePictureFile'), validateEmployeeUpda
 
     res.json(employee);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    let msg = error.message;
+    if (error.name === 'ValidationError' && error.errors) {
+      msg = Object.values(error.errors).map(e => `${e.path || e.kind || 'Field'}: ${e.message}`).join('; ');
+    }
+    console.error('Error updating profile:', msg);
+    res.status(400).json({ message: msg });
   }
 });
 
@@ -887,7 +892,12 @@ router.put('/:id', auth, handleUpload('profilePictureFile'), validateEmployeeUpd
 
     res.json(employee);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    let msg = error.message;
+    if (error.name === 'ValidationError' && error.errors) {
+      msg = Object.values(error.errors).map(e => `${e.path || e.kind || 'Field'}: ${e.message}`).join('; ');
+    }
+    console.error('Error updating employee:', msg);
+    res.status(400).json({ message: msg });
   }
 });
 
