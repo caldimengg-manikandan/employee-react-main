@@ -65,9 +65,24 @@ const DIVISION_DESIGNATION_MAP = {
 
 
 const EmployeeManagement = () => {
-  const [employees, setEmployees] = useState([]);
-  const [filteredEmployees, setFilteredEmployees] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [employees, setEmployees] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('cached_employees');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) { return []; }
+  });
+  const [filteredEmployees, setFilteredEmployees] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('cached_employees');
+      return cached ? JSON.parse(cached) : [];
+    } catch (e) { return []; }
+  });
+  const [loading, setLoading] = useState(() => {
+    try {
+      const cached = sessionStorage.getItem('cached_employees');
+      return !cached || JSON.parse(cached).length === 0;
+    } catch (e) { return true; }
+  });
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [viewingEmployee, setViewingEmployee] = useState(null);
@@ -82,8 +97,6 @@ const EmployeeManagement = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [employeeToDelete, setEmployeeToDelete] = useState(null);
   const { notification, showSuccess, showError, hideNotification } = useNotification();
-
-
 
   useEffect(() => {
     fetchEmployees();
@@ -104,12 +117,14 @@ const EmployeeManagement = () => {
         return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
       });
       setEmployees(sortedEmployees);
-      setFilteredEmployees(sortedEmployees);
+      try {
+        sessionStorage.setItem('cached_employees', JSON.stringify(sortedEmployees));
+      } catch (e) {}
     } catch (error) {
       console.error('Error fetching employees:', error);
-      setEmployees([]);
-      setFilteredEmployees([]);
-      showError('Failed to load employees. Please try again.');
+      if (employees.length === 0) {
+        showError('Failed to load employees. Please try again.');
+      }
     } finally {
       setLoading(false);
     }

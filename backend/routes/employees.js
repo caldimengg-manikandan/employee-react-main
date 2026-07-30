@@ -203,7 +203,13 @@ router.get('/', auth, async (req, res) => {
           }
         }
       }
-      const employees = await Employee.find(query, { photo: 0 }).lean().sort({ createdAt: -1 });
+      const employees = await Employee.find(query, {
+        name: 1, employeename: 1, employeeId: 1, email: 1, officialEmail: 1,
+        division: 1, designation: 1, position: 1, role: 1, qualification: 1,
+        highestQualification: 1, dateOfJoining: 1, dateofjoin: 1, currentExperience: 1,
+        experience: 1, mobileNo: 1, contactNumber: 1, status: 1, profilePicture: 1,
+        profilePicturePublicId: 1, createdAt: 1, _id: 1
+      }).lean().sort({ createdAt: -1 });
       const formattedEmployees = employees.map(emp => {
         if (!emp) return emp;
         const name = emp.name || emp.employeename || '';
@@ -384,6 +390,32 @@ router.get('/timesheet/employees', auth, async (req, res) => {
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
+});
+
+// Admin debug endpoint to inspect active Cloudinary configuration values on server
+router.get('/admin/check-cloudinary-config', auth, (req, res) => {
+  const fs = require('fs');
+  const { getEnvOrSecret } = require('../config/cloudinary');
+  const cloudName = getEnvOrSecret('CLOUDINARY_CLOUD_NAME');
+  const apiKey = getEnvOrSecret('CLOUDINARY_API_KEY');
+  const apiSecret = getEnvOrSecret('CLOUDINARY_API_SECRET');
+
+  const secretFileExists = fs.existsSync('/etc/secrets/CLOUDINARY_API_KEY');
+  let secretFileContent = null;
+  if (secretFileExists) {
+    try {
+      secretFileContent = fs.readFileSync('/etc/secrets/CLOUDINARY_API_KEY', 'utf8').trim();
+    } catch (e) {}
+  }
+
+  res.json({
+    cloudName,
+    apiKey,
+    apiKeyLength: apiKey ? apiKey.length : 0,
+    apiSecretLength: apiSecret ? apiSecret.length : 0,
+    secretFileExists,
+    secretFileContent
+  });
 });
 
 // Get employee by ID - restricted based on user permissions
@@ -965,32 +997,6 @@ router.post('/admin/migrate-cloudinary', auth, async (req, res) => {
     console.error('Error in migration API:', error);
     res.status(500).json({ message: error.message });
   }
-});
-
-// Admin debug endpoint to inspect active Cloudinary configuration values on server
-router.get('/admin/check-cloudinary-config', auth, (req, res) => {
-  const fs = require('fs');
-  const { getEnvOrSecret } = require('../config/cloudinary');
-  const cloudName = getEnvOrSecret('CLOUDINARY_CLOUD_NAME');
-  const apiKey = getEnvOrSecret('CLOUDINARY_API_KEY');
-  const apiSecret = getEnvOrSecret('CLOUDINARY_API_SECRET');
-
-  const secretFileExists = fs.existsSync('/etc/secrets/CLOUDINARY_API_KEY');
-  let secretFileContent = null;
-  if (secretFileExists) {
-    try {
-      secretFileContent = fs.readFileSync('/etc/secrets/CLOUDINARY_API_KEY', 'utf8').trim();
-    } catch (e) {}
-  }
-
-  res.json({
-    cloudName,
-    apiKey,
-    apiKeyLength: apiKey ? apiKey.length : 0,
-    apiSecretLength: apiSecret ? apiSecret.length : 0,
-    secretFileExists,
-    secretFileContent
-  });
 });
 
 module.exports = router;
