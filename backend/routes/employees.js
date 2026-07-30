@@ -577,18 +577,6 @@ router.put('/me', auth, handleUpload('profilePictureFile'), validateEmployeeUpda
     const oldEmployee = await Employee.findOne({ employeeId: empId });
     if (!oldEmployee) return res.status(404).json({ message: 'Employee not found' });
 
-    const body = req.body || {};
-    let data = { ...body };
-    delete data.photo;
-
-    if (typeof data.previousOrganizations === 'string') {
-      try {
-        data.previousOrganizations = JSON.parse(data.previousOrganizations);
-      } catch (e) {
-        data.previousOrganizations = [];
-      }
-    }
-
     const roleLower = String(req.user.role || '').toLowerCase();
     const isHRAdmin = ['admin', 'hr', 'director', 'manager'].includes(roleLower) || req.user.permissions?.includes('employee_access');
 
@@ -610,6 +598,14 @@ router.put('/me', auth, handleUpload('profilePictureFile'), validateEmployeeUpda
         }
       }
       data = filteredData;
+    }
+
+    if (typeof data.previousOrganizations === 'string') {
+      try {
+        data.previousOrganizations = JSON.parse(data.previousOrganizations);
+      } catch (e) {
+        data.previousOrganizations = [];
+      }
     }
 
     delete data.promotionEffectiveDate;
