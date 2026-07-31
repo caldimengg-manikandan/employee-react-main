@@ -8,6 +8,7 @@ const ProjectSchema = new mongoose.Schema({
   startDate: { type: String, required: true },
   endDate: { type: String, required: true },
   status: { type: String, default: "Planning" },
+  projectCategory: { type: String, enum: ["Product", "Non-Product"], default: "Product" },
   description: { type: String, default: "" }
 }, { timestamps: true });
 

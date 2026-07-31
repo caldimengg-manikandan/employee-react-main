@@ -61,6 +61,7 @@ router.post("/", async (req, res) => {
     req.body.projectName = project.name;
     req.body.projectCode = project.code;
     req.body.projectDivision = project.division;
+    req.body.projectCategory = project.projectCategory || "Product";
 
     req.body.employeeId = employee._id;
     req.body.employeeCode = employee.employeeId;
@@ -77,8 +78,13 @@ router.post("/", async (req, res) => {
 // GET ALL
 router.get("/", async (req, res) => {
   try {
-    const list = await Allocation.find().sort({ createdAt: -1 });
-    res.json(list);
+    const list = await Allocation.find().sort({ createdAt: -1 }).lean();
+    // Ensure projectCategory defaults to Product if missing on old records
+    const normalized = list.map(item => ({
+      ...item,
+      projectCategory: item.projectCategory || "Product"
+    }));
+    res.json(normalized);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -146,6 +152,7 @@ router.put("/:id", async (req, res) => {
       projectName: project.name,
       projectCode: project.code,
       projectDivision: project.division,
+      projectCategory: project.projectCategory || "Product",
       employeeId: employee._id,
       employeeCode: employee.employeeId,
       employeeName: employee.name,

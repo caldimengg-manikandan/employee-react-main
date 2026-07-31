@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { adminTimesheetAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
+import { 
+  BarChart3, 
+  Clock, 
+  Users, 
+  FolderOpen, 
+  Calendar, 
+  Filter, 
+  Download, 
+  RefreshCw, 
+  X, 
+  Loader2,
+  TrendingUp
+} from 'lucide-react';
 
 const TimesheetSummary = () => {
   const [filters, setFilters] = useState({
@@ -58,205 +71,6 @@ const TimesheetSummary = () => {
     };
     loadOptions();
   }, [filters.year]);
-
-  const styles = {
-    timesheetSummary: {
-      background: 'white',
-      padding: '20px',
-      borderRadius: '8px',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-      fontFamily: 'Arial, sans-serif'
-    },
-    title: {
-      margin: '0 0 20px 0',
-      color: '#333',
-      fontSize: '24px',
-      fontWeight: 'bold'
-    },
-    summaryFilters: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '15px',
-      marginBottom: '30px',
-      padding: '20px',
-      background: '#f8f9fa',
-      borderRadius: '8px'
-    },
-    filterGroup: {
-      display: 'flex',
-      flexDirection: 'column'
-    },
-    filterLabel: {
-      marginBottom: '5px',
-      fontWeight: '500',
-      color: '#555',
-      fontSize: '14px'
-    },
-    filterSelect: {
-      padding: '8px 12px',
-      border: '1px solid #ddd',
-      borderRadius: '4px',
-      fontSize: '14px',
-      backgroundColor: 'white'
-    },
-    loadSummaryBtn: {
-      background: isLoading ? '#6b7280' : '#262760',
-      color: 'white',
-      border: 'none',
-      padding: '10px 20px',
-      borderRadius: '4px',
-      cursor: isLoading ? 'not-allowed' : 'pointer',
-      fontWeight: '500',
-      alignSelf: 'end',
-      fontSize: '14px',
-      transition: 'all 0.2s ease',
-      opacity: isLoading ? 0.7 : 1
-    },
-    exportExcelBtn: {
-      background: '#262760',
-      color: 'white',
-      border: 'none',
-      padding: '10px 20px',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      fontWeight: '500',
-      alignSelf: 'end',
-      fontSize: '14px',
-      transition: 'all 0.2s ease'
-    },
-    clearBtn: {
-      background: '#edf2f7',
-      color: '#1a202c',
-      border: '1px solid #cbd5e0',
-      padding: '10px 20px',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      fontWeight: '500',
-      alignSelf: 'end',
-      fontSize: '14px',
-      transition: 'all 0.2s ease'
-    },
-    noData: {
-      textAlign: 'center',
-      padding: '60px 20px',
-      color: '#666',
-      fontSize: '16px'
-    },
-    summaryContent: {
-      animation: 'fadeIn 0.5s ease-in'
-    },
-    summaryStats: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '20px',
-      marginBottom: '30px'
-    },
-    summaryStat: {
-      background: '#f8f9fa',
-      padding: '20px',
-      borderRadius: '8px',
-      textAlign: 'center',
-      borderLeft: '4px solid #262760'
-    },
-    summaryStatTitle: {
-      margin: '0 0 10px 0',
-      color: '#666',
-      fontSize: '14px',
-      fontWeight: '500'
-    },
-    summaryStatValue: {
-      fontSize: '24px',
-      fontWeight: 'bold',
-      color: '#333'
-    },
-    monthlyChart: {
-      background: '#f8f9fa',
-      padding: '20px',
-      borderRadius: '8px',
-      marginBottom: '30px'
-    },
-    chartTitle: {
-      margin: '0 0 20px 0',
-      color: '#333',
-      fontSize: '18px',
-      fontWeight: '600'
-    },
-    chartBars: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'flex-end',
-      height: '200px',
-      padding: '20px 0'
-    },
-    chartBarContainer: {
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      flex: 1,
-      margin: '0 5px'
-    },
-    chartBar: {
-      height: '150px',
-      width: '30px',
-      background: '#e9ecef',
-      borderRadius: '4px 4px 0 0',
-      position: 'relative',
-      display: 'flex',
-      alignItems: 'flex-end',
-      overflow: 'hidden'
-    },
-    barFill: {
-      background: '#262760',
-      width: '100%',
-      borderRadius: '4px 4px 0 0',
-      transition: 'height 0.3s ease'
-    },
-    barLabel: {
-      marginTop: '10px',
-      fontSize: '12px',
-      color: '#666'
-    },
-    barValue: {
-      marginTop: '5px',
-      fontSize: '11px',
-      color: '#999'
-    },
-    detailedTable: {
-      overflowX: 'auto',
-      overflowY: 'auto',
-      maxHeight: '420px'
-    },
-    summaryTable: {
-      width: '100%',
-      borderCollapse: 'collapse',
-      border: '1px solid #e2e8f0'
-    },
-    summaryTableHeader: {
-      padding: '12px',
-      textAlign: 'left',
-      borderBottom: '1px solid #e2e8f0',
-      backgroundColor: '#262760',
-      fontWeight: '600',
-      color: 'white',
-      fontSize: '14px',
-      borderRight: '1px solid #1f204d',
-      position: 'sticky',
-      top: 0,
-      zIndex: 2
-    },
-    summaryTableCell: {
-      padding: '12px',
-      textAlign: 'left',
-      borderBottom: '1px solid #e2e8f0',
-      fontSize: '14px'
-    },
-    summaryTableRow: {
-      transition: 'all 0.2s ease',
-      '&:hover': {
-        backgroundColor: '#f7fafc'
-      }
-    }
-  };
 
   const handleFilterChange = (filterName, value) => {
     setFilters(prev => ({
@@ -506,161 +320,284 @@ const TimesheetSummary = () => {
     filters.project !== defaultFilters.project;
 
   return (
-    <div style={styles.timesheetSummary}>
-
-
-      <div style={styles.summaryFilters}>
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Select Year</label>
-          <select
-            value={filters.year}
-            onChange={(e) => handleFilterChange('year', e.target.value)}
-            style={styles.filterSelect}
-          >
-            {years.map(year => (
-              <option key={year} value={year}>{year}</option>
-            ))}
-          </select>
+    <div className="p-4 md:p-6 bg-slate-50 min-h-screen space-y-6 font-sans text-slate-800">
+      
+      {/* Top Header Card */}
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 p-5 flex flex-wrap justify-between items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-gradient-to-r from-[#262760] to-[#3a3c8c] text-white rounded-2xl shadow-md shadow-indigo-900/20">
+            <BarChart3 size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-indigo-950 tracking-tight">Timesheet Summary & Analytics</h1>
+          </div>
         </div>
 
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Employees</label>
-          <select
-            value={filters.employee}
-            onChange={(e) => handleFilterChange('employee', e.target.value)}
-            style={styles.filterSelect}
-          >
-            {availableEmployees.map((name) => (
-              <option key={name} value={name}>{name}</option>
-            ))}
-          </select>
-        </div>
+        <div className="flex items-center gap-3">
+          {isFiltersModified && (
+            <button
+              onClick={handleClearFilters}
+              className="px-4 py-2.5 bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl text-xs font-bold transition-all border border-rose-200 flex items-center gap-1.5"
+            >
+              <X size={15} />
+              Clear Filters
+            </button>
+          )}
 
-        <div style={styles.filterGroup}>
-          <label style={styles.filterLabel}>Projects</label>
-          <select
-            value={filters.project}
-            onChange={(e) => handleFilterChange('project', e.target.value)}
-            style={styles.filterSelect}
-          >
-            {availableProjects.map((p) => (
-              <option key={p} value={p}>{p}</option>
-            ))}
-          </select>
-        </div>
-        {isFiltersModified && (
           <button
-            style={styles.clearBtn}
-            onClick={handleClearFilters}
-            onMouseOver={(e) => { e.target.style.background = '#e2e8f0'; }}
-            onMouseOut={(e) => { e.target.style.background = '#edf2f7'; }}
+            onClick={handleLoadSummary}
+            disabled={isLoading}
+            className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all shadow-md shadow-indigo-600/20 flex items-center gap-2 disabled:opacity-50"
           >
-            Clear Filters
+            {isLoading ? (
+              <>
+                <Loader2 size={15} className="animate-spin" />
+                Loading...
+              </>
+            ) : (
+              <>
+                <RefreshCw size={15} />
+                Load Summary
+              </>
+            )}
           </button>
-        )}
 
-        <button
-          style={styles.loadSummaryBtn}
-          onClick={handleLoadSummary}
-          disabled={isLoading}
-          onMouseOver={(e) => { if (!isLoading) e.target.style.background = '#1f204d'; }}
-          onMouseOut={(e) => { if (!isLoading) e.target.style.background = '#262760'; }}
-        >
-          {isLoading ? 'Loading...' : 'Load Summary'}
-        </button>
-
-
-
-        <button
-          style={styles.exportExcelBtn}
-          onClick={handleExportToExcel}
-          onMouseOver={(e) => e.target.style.background = '#1f204d'}
-          onMouseOut={(e) => e.target.style.background = '#262760'}
-        >
-          Export to Excel
-        </button>
+          {summaryData && (
+            <button
+              onClick={handleExportToExcel}
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2"
+            >
+              <Download size={15} />
+              Export to Excel
+            </button>
+          )}
+        </div>
       </div>
 
-      {summaryData ? (
-        <div style={styles.summaryContent}>
-          <div style={styles.summaryStats}>
-            <div style={styles.summaryStat}>
-              <h3 style={styles.summaryStatTitle}>Total Hours</h3>
-              <div style={styles.summaryStatValue}>{formatHours(summaryData.totalHours)}</div>
-            </div>
-            <div style={styles.summaryStat}>
-              <h3 style={styles.summaryStatTitle}>Total Employees</h3>
-              <div style={styles.summaryStatValue}>{summaryData.totalEmployees}</div>
-            </div>
-            <div style={styles.summaryStat}>
-              <h3 style={styles.summaryStatTitle}>Total Projects</h3>
-              <div style={styles.summaryStatValue}>{summaryData.totalProjects}</div>
-            </div>
-            <div style={styles.summaryStat}>
-              <h3 style={styles.summaryStatTitle}>Avg Hours/Employee</h3>
-              <div style={styles.summaryStatValue}>{formatHours(summaryData.averageHoursPerEmployee)}</div>
-            </div>
-          </div>
+      {/* Filter Control Bar */}
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 p-5 space-y-4">
+        <div className="flex items-center gap-2 text-indigo-950 font-bold text-sm pb-2 border-b border-slate-200">
+          <Filter size={16} className="text-indigo-600" />
+          Summary Filters
+        </div>
 
-          <div style={styles.monthlyChart}>
-            <h3 style={styles.chartTitle}>Monthly Hours Distribution</h3>
-            <div style={styles.chartBars}>
-              {summaryData.monthlyData.map((monthData, index) => (
-                <div key={monthData.month} style={styles.chartBarContainer}>
-                  <div style={styles.chartBar}>
-                    <div
-                      style={{
-                        ...styles.barFill,
-                        height: `${maxMonthlyHours > 0
-                            ? Math.min((Number(monthData.hours || 0) / maxMonthlyHours) * 100, 100)
-                            : 0
-                          }%`
-                      }}
-                    ></div>
-                  </div>
-                  <span style={styles.barLabel}>{monthData.month}</span>
-                  <span style={styles.barValue}>{formatHours(monthData.hours)}</span>
-                </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+              <Calendar size={13} className="text-slate-400" /> Select Year
+            </label>
+            <select
+              value={filters.year}
+              onChange={(e) => handleFilterChange('year', e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+            >
+              {years.map(year => (
+                <option key={year} value={year}>{year}</option>
               ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+              <Users size={13} className="text-slate-400" /> Employees
+            </label>
+            <select
+              value={filters.employee}
+              onChange={(e) => handleFilterChange('employee', e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+            >
+              {availableEmployees.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+              <FolderOpen size={13} className="text-slate-400" /> Projects
+            </label>
+            <select
+              value={filters.project}
+              onChange={(e) => handleFilterChange('project', e.target.value)}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+            >
+              {availableProjects.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Area */}
+      {summaryData ? (
+        <div className="space-y-6">
+          
+          {/* KPI Stat Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Total Hours */}
+            <div className="bg-gradient-to-br from-indigo-900 via-[#1e1b4b] to-[#262760] p-5 rounded-2xl text-white shadow-xl shadow-indigo-950/10 border border-indigo-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+              <div className="flex justify-between items-center relative z-10">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-indigo-200/80">Total Logged Hours</p>
+                  <h3 className="text-3xl font-extrabold mt-1 text-white">{formatHours(summaryData.totalHours)}</h3>
+                </div>
+                <div className="p-3 bg-indigo-500/20 rounded-xl border border-indigo-400/30 text-indigo-300">
+                  <Clock size={24} />
+                </div>
+              </div>
+            </div>
+
+            {/* Total Employees */}
+            <div className="bg-gradient-to-br from-purple-900 via-[#3b0764] to-[#581c87] p-5 rounded-2xl text-white shadow-xl shadow-purple-950/10 border border-purple-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+              <div className="flex justify-between items-center relative z-10">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-purple-200/80">Active Employees</p>
+                  <h3 className="text-3xl font-extrabold mt-1 text-white">{summaryData.totalEmployees}</h3>
+                </div>
+                <div className="p-3 bg-purple-500/20 rounded-xl border border-purple-400/30 text-purple-300">
+                  <Users size={24} />
+                </div>
+              </div>
+            </div>
+
+            {/* Total Projects */}
+            <div className="bg-gradient-to-br from-blue-900 via-[#172554] to-[#1e3a8a] p-5 rounded-2xl text-white shadow-xl shadow-blue-950/10 border border-blue-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+              <div className="flex justify-between items-center relative z-10">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-blue-200/80">Active Projects</p>
+                  <h3 className="text-3xl font-extrabold mt-1 text-white">{summaryData.totalProjects}</h3>
+                </div>
+                <div className="p-3 bg-blue-500/20 rounded-xl border border-blue-400/30 text-blue-300">
+                  <FolderOpen size={24} />
+                </div>
+              </div>
+            </div>
+
+            {/* Avg Hours / Employee */}
+            <div className="bg-gradient-to-br from-emerald-900 via-[#064e3b] to-[#047857] p-5 rounded-2xl text-white shadow-xl shadow-emerald-950/10 border border-emerald-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+              <div className="flex justify-between items-center relative z-10">
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wider text-emerald-200/80">Avg Hours / Employee</p>
+                  <h3 className="text-3xl font-extrabold mt-1 text-white">{formatHours(summaryData.averageHoursPerEmployee)}</h3>
+                </div>
+                <div className="p-3 bg-emerald-500/20 rounded-xl border border-emerald-400/30 text-emerald-300">
+                  <TrendingUp size={24} />
+                </div>
+              </div>
             </div>
           </div>
 
-          <div style={styles.detailedTable}>
-            <h3 style={styles.chartTitle}>Project-wise Employee Summary</h3>
-            <table style={styles.summaryTable}>
-              <thead>
-                <tr>
-                  <th style={styles.summaryTableHeader}>Project</th>
-                  <th style={styles.summaryTableHeader}>Employee ID</th>
-                  <th style={styles.summaryTableHeader}>Employee Name</th>
-                  <th style={styles.summaryTableHeader}>Total Hours</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summaryData.projectEmployeeSummary.map((item, index) => (
-                  <tr key={index} style={styles.summaryTableRow}>
-                    <td style={styles.summaryTableCell}>{item.project}</td>
-                    <td style={styles.summaryTableCell}>
-                      <span style={{ color: '#262760', fontWeight: '500' }}>
-                        {item.employeeId}
-                      </span>
-                    </td>
-                    <td style={styles.summaryTableCell}>{item.employeeName}</td>
-                    <td style={styles.summaryTableCell}>
-                      <span style={{ fontWeight: '600' }}>{formatHours(item.totalHours)}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          {/* Monthly Hours Distribution Chart Card */}
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-indigo-950 font-extrabold text-sm uppercase tracking-wider">
+                <BarChart3 size={18} className="text-indigo-600" />
+                Monthly Hours Distribution ({filters.year})
+              </div>
+              <span className="text-xs text-slate-500 font-semibold bg-slate-100 px-3 py-1 rounded-full border border-slate-200">
+                Max Monthly: {formatHours(maxMonthlyHours)}
+              </span>
+            </div>
+
+            {/* Bar Chart Representation */}
+            <div className="flex items-end justify-between gap-2 md:gap-4 h-56 pt-6 pb-2 px-2 bg-slate-50/70 rounded-xl border border-slate-200/60">
+              {summaryData.monthlyData.map((monthData) => {
+                const heightPercent = maxMonthlyHours > 0
+                  ? Math.min((Number(monthData.hours || 0) / maxMonthlyHours) * 100, 100)
+                  : 0;
+
+                return (
+                  <div key={monthData.month} className="flex-1 flex flex-col items-center h-full justify-end group">
+                    {/* Hour Tooltip pill */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-opacity mb-1 bg-slate-900 text-white text-[10px] font-bold px-2 py-0.5 rounded-full font-mono shadow-md">
+                      {formatHours(monthData.hours)}
+                    </div>
+                    
+                    {/* Bar Container */}
+                    <div className="w-full max-w-[36px] bg-slate-200/80 rounded-t-xl h-44 flex items-end overflow-hidden">
+                      <div
+                        className="w-full bg-gradient-to-t from-indigo-800 via-indigo-600 to-purple-600 rounded-t-xl transition-all duration-500 group-hover:brightness-110"
+                        style={{ height: `${heightPercent}%` }}
+                      ></div>
+                    </div>
+
+                    <span className="text-xs font-bold text-slate-700 mt-2">{monthData.month}</span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
+
+          {/* Project-wise Employee Summary Table Card */}
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 overflow-hidden">
+            <div className="p-4 bg-slate-50/50 border-b border-slate-200 flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <FolderOpen size={18} className="text-indigo-600" />
+                <h2 className="text-sm font-bold text-indigo-950 uppercase tracking-wider">Project-wise Employee Summary</h2>
+                <span className="bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs font-extrabold border border-indigo-200">
+                  {summaryData.projectEmployeeSummary.length} breakdown records
+                </span>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto max-h-[420px]">
+              <table className="w-full text-left border-collapse text-xs font-medium">
+                <thead className="sticky top-0 z-10">
+                  <tr className="bg-gradient-to-r from-[#1e1b4b] via-[#262760] to-[#2e3078] text-white font-bold uppercase tracking-wider">
+                    <th className="p-3.5 pl-5">Project</th>
+                    <th className="p-3.5">Employee ID</th>
+                    <th className="p-3.5">Employee Name</th>
+                    <th className="p-3.5 text-center pr-5">Total Hours (HH:MM)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {summaryData.projectEmployeeSummary.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="text-center py-8 text-slate-500 font-semibold">
+                        No project employee summary records found.
+                      </td>
+                    </tr>
+                  ) : (
+                    summaryData.projectEmployeeSummary.map((item, index) => (
+                      <tr key={index} className="hover:bg-indigo-50/40 transition-colors">
+                        <td className="p-3.5 pl-5 font-bold text-indigo-950">{item.project}</td>
+                        <td className="p-3.5 font-bold text-indigo-600">{item.employeeId}</td>
+                        <td className="p-3.5 text-slate-800 font-medium">{item.employeeName}</td>
+                        <td className="p-3.5 pr-5 text-center font-bold font-mono text-emerald-700 text-sm">
+                          {formatHours(item.totalHours)}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
       ) : (
-        <div style={styles.noData}>
-          <p>No data loaded yet</p>
-          <p>Use the filters above and click "Load Summary" to view data</p>
+        /* Empty State Card */
+        <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 p-12 text-center space-y-4">
+          <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100 flex items-center justify-center mx-auto shadow-inner">
+            <BarChart3 size={32} />
+          </div>
+          <div>
+            <h3 className="text-base font-extrabold text-indigo-950">No Analytics Loaded Yet</h3>
+            <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1">
+              Select your desired Year, Employee, or Project filters above and click <span className="font-bold text-indigo-700">"Load Summary"</span> to generate summary metrics and distribution charts.
+            </p>
+          </div>
+          <button
+            onClick={handleLoadSummary}
+            className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all shadow-md shadow-indigo-600/20 inline-flex items-center gap-2"
+          >
+            <RefreshCw size={15} />
+            Load Summary Now
+          </button>
         </div>
       )}
+
     </div>
   );
 };

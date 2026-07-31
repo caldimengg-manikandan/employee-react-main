@@ -5,6 +5,7 @@ const AllocationSchema = new mongoose.Schema({
   projectName: { type: String, required: true },
   projectCode: { type: String, required: true },
   projectDivision: { type: String, required: true },
+  projectCategory: { type: String, enum: ["Product", "Non-Product"], default: "Product" },
 
   employeeId: { type: mongoose.Schema.Types.ObjectId, ref: "Employee", required: true },
   employeeName: { type: String, required: true },

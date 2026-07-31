@@ -17,9 +17,26 @@ const ProjectAllocation = () => {
   const [activeTab, setActiveTab] = useState(isProjectManager ? 'projects' : 'myAllocations');
   const [selectedLocation, setSelectedLocation] = useState('All');
   const [branches] = useState(['Hosur', 'Chennai', 'Outside Det.']);
-  const [divisions] = useState(['SDS', 'TEKLA', 'DAS(Software)', 'DDS(Manufacturing)', 'Mechanical', 'Electrical', 'HR/Admin', 'Engineering Services']);
+  const [divisions] = useState(['SDS', 'TEKLA', 'DAS(Software)', 'Electrical', 'HR/Admin']);
   const [roles] = useState(['Modeler', 'Editor', 'Backdrafting', 'Checker', 'Estimator', 'Documentation', 'Project Lead']);
   const [statuses] = useState(['Active', 'Completed']);
+  const [projectCategories] = useState(['Product', 'Non-Product']);
+
+  const NON_PRODUCT_ACTIVITIES = [
+    'Website Development',
+    'Application Development',
+    'Knowledge Sharing',
+    'Employee Training',
+    'Internal Meeting',
+    'Research & Development (R&D)',
+    'Documentation',
+    'Process Improvement',
+    'Software Testing',
+    'Support Activities',
+    'Leave Reserve',
+    'Bench Work',
+    'Internal Support'
+  ];
 
   // Initialize data from MongoDB via API calls
   const [projects, setProjects] = useState([]);
@@ -32,6 +49,7 @@ const ProjectAllocation = () => {
   const [projectFilters, setProjectFilters] = useState({
     projectCode: [],
     projectName: [],
+    projectCategory: [],
     division: [],
     location: [],
     status: []
@@ -39,6 +57,7 @@ const ProjectAllocation = () => {
   const [allocationFilters, setAllocationFilters] = useState({
     projectCode: [],
     projectName: [],
+    projectCategory: [],
     employeeId: [],
     division: [],
     location: [],
@@ -49,6 +68,7 @@ const ProjectAllocation = () => {
   const [projectDropdowns, setProjectDropdowns] = useState({
     projectCode: false,
     projectName: false,
+    projectCategory: false,
     division: false,
     location: false,
     status: false
@@ -56,6 +76,7 @@ const ProjectAllocation = () => {
   const [allocationDropdowns, setAllocationDropdowns] = useState({
     projectCode: false,
     projectName: false,
+    projectCategory: false,
     employeeId: false,
     division: false,
     location: false,
@@ -96,6 +117,7 @@ const ProjectAllocation = () => {
 
   const [projectForm, setProjectForm] = useState({
     name: '',
+    projectCategory: 'Product',
     division: '',
     branch: '',
     startDate: '',
@@ -172,6 +194,7 @@ const ProjectAllocation = () => {
     setProjectFilters({
       projectCode: [],
       projectName: [],
+      projectCategory: [],
       division: [],
       location: [],
       status: []
@@ -182,6 +205,7 @@ const ProjectAllocation = () => {
     setAllocationFilters({
       projectCode: [],
       projectName: [],
+      projectCategory: [],
       employeeId: [],
       division: [],
       location: [],
@@ -201,6 +225,7 @@ const ProjectAllocation = () => {
       const next = {
         projectCode: false,
         projectName: false,
+        projectCategory: false,
         division: false,
         location: false,
         status: false
@@ -215,6 +240,7 @@ const ProjectAllocation = () => {
       const next = {
         projectCode: false,
         projectName: false,
+        projectCategory: false,
         employeeId: false,
         division: false,
         location: false,
@@ -230,6 +256,7 @@ const ProjectAllocation = () => {
     setProjectDropdowns({
       projectCode: false,
       projectName: false,
+      projectCategory: false,
       division: false,
       location: false,
       status: false
@@ -237,6 +264,7 @@ const ProjectAllocation = () => {
     setAllocationDropdowns({
       projectCode: false,
       projectName: false,
+      projectCategory: false,
       employeeId: false,
       division: false,
       location: false,
@@ -306,6 +334,7 @@ const ProjectAllocation = () => {
     return projectsList.filter(project => {
       const pCode = String(project.code || '').trim().toLowerCase();
       const pName = String(project.name || '').trim().toLowerCase();
+      const pCat = String(project.projectCategory || 'Product').trim().toLowerCase();
       const pDiv = String(project.division || '').trim().toLowerCase();
       const pBranch = String(project.branch || '').trim().toLowerCase();
       const pStatus = String(project.status || '').trim().toLowerCase();
@@ -314,6 +343,8 @@ const ProjectAllocation = () => {
         projectFilters.projectCode.some(c => String(c).trim().toLowerCase() === pCode);
       const matchesName = projectFilters.projectName.length === 0 ||
         projectFilters.projectName.some(n => String(n).trim().toLowerCase() === pName);
+      const matchesCategory = !projectFilters.projectCategory || projectFilters.projectCategory.length === 0 ||
+        projectFilters.projectCategory.some(cat => String(cat).trim().toLowerCase() === pCat);
       const matchesDivision = projectFilters.division.length === 0 ||
         projectFilters.division.some(d => String(d).trim().toLowerCase() === pDiv);
       const matchesLocation = projectFilters.location.length === 0 ||
@@ -321,7 +352,7 @@ const ProjectAllocation = () => {
       const matchesStatus = projectFilters.status.length === 0 ||
         projectFilters.status.some(s => String(s).trim().toLowerCase() === pStatus);
 
-      return matchesCode && matchesName && matchesDivision && matchesLocation && matchesStatus;
+      return matchesCode && matchesName && matchesCategory && matchesDivision && matchesLocation && matchesStatus;
     });
   };
 
@@ -331,6 +362,7 @@ const ProjectAllocation = () => {
     return allocationsList.filter(allocation => {
       const aCode = String(allocation.projectCode || '').trim().toLowerCase();
       const aName = String(allocation.projectName || '').trim().toLowerCase();
+      const aCat = String(allocation.projectCategory || 'Product').trim().toLowerCase();
 
       let aEmpCode = String(allocation.employeeCode || '').trim().toLowerCase();
       if (!aEmpCode && allocation.employeeId) {
@@ -345,6 +377,8 @@ const ProjectAllocation = () => {
         allocationFilters.projectCode.some(c => String(c).trim().toLowerCase() === aCode);
       const matchesName = allocationFilters.projectName.length === 0 ||
         allocationFilters.projectName.some(n => String(n).trim().toLowerCase() === aName);
+      const matchesCategory = !allocationFilters.projectCategory || allocationFilters.projectCategory.length === 0 ||
+        allocationFilters.projectCategory.some(cat => String(cat).trim().toLowerCase() === aCat);
       const matchesEmployeeId = allocationFilters.employeeId.length === 0 ||
         allocationFilters.employeeId.some(e => {
           const norm = String(e).trim().toLowerCase();
@@ -357,7 +391,7 @@ const ProjectAllocation = () => {
       const matchesStatus = allocationFilters.status.length === 0 ||
         allocationFilters.status.some(s => String(s).trim().toLowerCase() === aStatus);
 
-      return matchesCode && matchesName && matchesEmployeeId && matchesDivision && matchesLocation && matchesStatus;
+      return matchesCode && matchesName && matchesCategory && matchesEmployeeId && matchesDivision && matchesLocation && matchesStatus;
     });
   };
 
@@ -434,13 +468,30 @@ const ProjectAllocation = () => {
     return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
   };
 
-  const getStatusBadge = (status) => {
-    const baseClasses = "px-3 py-1 rounded-full text-xs font-semibold";
-    switch ((status || '').toLowerCase()) {
-      case 'active': return `${baseClasses} bg-green-100 text-green-800`;
-      case 'completed': return `${baseClasses} bg-gray-100 text-gray-800`;
-      default: return `${baseClasses} bg-gray-100 text-gray-800`;
+  const getCategoryBadge = (category) => {
+    const cat = String(category || 'Product').trim();
+    if (cat === 'Non-Product') {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-amber-50 to-orange-50 text-orange-700 border border-orange-200/80 shadow-xs">
+          <span className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-pulse"></span>
+          Non-Product
+        </span>
+      );
     }
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-gradient-to-r from-blue-50 to-indigo-50 text-indigo-700 border border-indigo-200/80 shadow-xs">
+        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+        Product
+      </span>
+    );
+  };
+
+  const getStatusBadge = (status) => {
+    const s = (status || '').toLowerCase();
+    if (s === 'active') {
+      return "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/80 shadow-xs";
+    }
+    return "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-slate-100 text-slate-600 border border-slate-200 shadow-xs";
   };
 
   // Generate project code based on division
@@ -466,6 +517,18 @@ const ProjectAllocation = () => {
 
     const nextNumber = existingCodes.length > 0 ? Math.max(...existingCodes) + 1 : 0;
     return `${prefix}-${nextNumber.toString().padStart(3, '0')}`;
+  };
+
+  const getDivisionWiseProjectCounts = () => {
+    const counts = {};
+    divisions.forEach(d => { counts[d] = 0; });
+    projects.forEach(p => {
+      const div = p.division || 'Unassigned';
+      if (Object.prototype.hasOwnProperty.call(counts, div)) {
+        counts[div] += 1;
+      }
+    });
+    return counts;
   };
 
   // Filter helpers with location filter
@@ -774,6 +837,7 @@ const ProjectAllocation = () => {
       setEditingProject(project);
       setProjectForm({
         name: project.name,
+        projectCategory: project.projectCategory || 'Product',
         division: project.division,
         branch: project.branch,
         startDate: project.startDate || '',
@@ -784,6 +848,7 @@ const ProjectAllocation = () => {
       setEditingProject(null);
       setProjectForm({
         name: '',
+        projectCategory: 'Product',
         division: '',
         branch: '',
         startDate: '',
@@ -800,7 +865,7 @@ const ProjectAllocation = () => {
   };
 
   const handleProjectSave = async () => {
-    if (!projectForm.name || !projectForm.division || !projectForm.branch || !projectForm.startDate || !projectForm.endDate) {
+    if (!projectForm.name || !projectForm.projectCategory || !projectForm.division || !projectForm.branch || !projectForm.startDate || !projectForm.endDate) {
       setMessageModal({ isOpen: true, title: 'Missing Fields', message: 'Please fill all required fields.' });
       return;
     }
@@ -827,6 +892,7 @@ const ProjectAllocation = () => {
 
     const payload = {
       name: projectForm.name,
+      projectCategory: projectForm.projectCategory || 'Product',
       code: projectCode,
       division: projectForm.division,
       branch: projectForm.branch,
@@ -837,7 +903,7 @@ const ProjectAllocation = () => {
     };
 
     if (editingProject) {
-      const keys = ['name', 'division', 'branch', 'startDate', 'endDate', 'status'];
+      const keys = ['name', 'projectCategory', 'division', 'branch', 'startDate', 'endDate', 'status'];
       const unchanged = keys.every(k => String(editingProject[k] || '') === String(payload[k] || ''));
       if (unchanged) {
         setMessageModal({ isOpen: true, title: 'No Changes', message: 'No changes detected.' });
@@ -904,6 +970,7 @@ const ProjectAllocation = () => {
       setAllocationForm({
         projectId: allocation.projectId || '',
         projectName: allocation.projectName,
+        projectCategory: allocation.projectCategory || 'All',
         employeeName: allocation.employeeName,
         employeeId: allocation.employeeCode || allocation.employeeId || '',
         employeeIds: [allocation.employeeCode || allocation.employeeId].filter(Boolean)
@@ -913,6 +980,7 @@ const ProjectAllocation = () => {
       setAllocationForm({
         projectId: '',
         projectName: '',
+        projectCategory: 'All',
         employeeName: '',
         employeeId: '',
         employeeIds: []
@@ -1216,28 +1284,112 @@ const ProjectAllocation = () => {
           </Modal>
 
 
-          {/* Controls */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6 relative z-20">
-            <div className="flex justify-between items-center">
-              <div className="flex space-x-2">
+          {/* KPI Summary Cards */}
+          <div className="space-y-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Total Projects */}
+              <div className="bg-gradient-to-br from-indigo-900 via-[#1e1b4b] to-[#262760] p-5 rounded-2xl text-white shadow-xl shadow-indigo-950/20 border border-indigo-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition-all"></div>
+                <div className="flex justify-between items-center relative z-10">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-indigo-200/80">Total Master Projects</p>
+                    <h3 className="text-3xl font-extrabold mt-1 text-white">{projects.length}</h3>
+                  </div>
+                  <div className="p-3 bg-indigo-500/20 rounded-xl border border-indigo-400/30 text-indigo-300">
+                    <Building2 size={24} />
+                  </div>
+                </div>
+              </div>
+
+              {/* Product Projects */}
+              <div className="bg-gradient-to-br from-blue-900 via-[#172554] to-[#1e3a8a] p-5 rounded-2xl text-white shadow-xl shadow-blue-950/20 border border-blue-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-500/10 rounded-full blur-xl group-hover:bg-blue-500/20 transition-all"></div>
+                <div className="flex justify-between items-center relative z-10">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-blue-200/80">Product Projects</p>
+                    <h3 className="text-3xl font-extrabold mt-1 text-white">
+                      {projects.filter(p => (p.projectCategory || 'Product') === 'Product').length}
+                    </h3>
+                  </div>
+                  <div className="p-3 bg-blue-500/20 rounded-xl border border-blue-400/30 text-blue-300 font-bold text-xs">
+                    PROD
+                  </div>
+                </div>
+              </div>
+
+              {/* Non-Product Activities */}
+              <div className="bg-gradient-to-br from-amber-900 via-[#451a03] to-[#78350f] p-5 rounded-2xl text-white shadow-xl shadow-amber-950/20 border border-amber-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+                <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all"></div>
+                <div className="flex justify-between items-center relative z-10">
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wider text-amber-200/80">Non-Product Activities</p>
+                    <h3 className="text-3xl font-extrabold mt-1 text-white">
+                      {projects.filter(p => p.projectCategory === 'Non-Product').length}
+                    </h3>
+                  </div>
+                  <div className="p-3 bg-amber-500/20 rounded-xl border border-amber-400/30 text-amber-300 font-bold text-xs">
+                    INTERNAL
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Division-Wise Project Statistics Card */}
+            <div className="bg-gradient-to-br from-purple-950 via-[#2e1065] to-[#3b0764] p-5 rounded-2xl text-white shadow-xl shadow-purple-950/20 border border-purple-500/20 relative overflow-hidden">
+              <div className="flex items-center gap-2 mb-3">
+                <Building2 size={18} className="text-purple-300" />
+                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-200">Division-Wise Project Statistics</h4>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+                {Object.entries(getDivisionWiseProjectCounts()).map(([divName, count]) => (
+                  <div
+                    key={divName}
+                    className="flex items-center justify-between px-3.5 py-2.5 rounded-xl text-xs font-semibold bg-white/10 border border-white/10 text-purple-100"
+                  >
+                    <span className="truncate mr-2 font-medium">{divName}</span>
+                    <span className="bg-purple-400/30 px-2.5 py-0.5 rounded-full text-white font-mono font-extrabold text-xs">
+                      {count}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Controls Header */}
+          <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 p-4 mb-6 relative z-20">
+            <div className="flex flex-wrap gap-4 justify-between items-center">
+              <div className="flex items-center bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/60 space-x-1">
                 <button
                   onClick={() => setActiveTab('projects')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'projects' ? 'bg-[#262760] text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                  className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center gap-2 ${
+                    activeTab === 'projects'
+                      ? 'bg-gradient-to-r from-[#262760] to-[#3a3c8c] text-white shadow-md shadow-indigo-900/20 scale-[1.02]'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
                 >
                   <Building2 size={16} />
-                  Projects
+                  Projects Master
                 </button>
                 <button
                   onClick={() => setActiveTab('allocations')}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'allocations' ? 'bg-[#262760] text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                  className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center gap-2 ${
+                    activeTab === 'allocations'
+                      ? 'bg-gradient-to-r from-[#262760] to-[#3a3c8c] text-white shadow-md shadow-indigo-900/20 scale-[1.02]'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
                 >
                   <Users size={16} />
-                  Allocations
+                  All Allocations
                 </button>
                 {!canEdit && (
                   <button
                     onClick={() => setActiveTab('myAllocations')}
-                    className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${activeTab === 'myAllocations' ? 'bg-[#262760] text-white' : 'text-gray-600 hover:text-gray-800 hover:bg-gray-100'}`}
+                    className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center gap-2 ${
+                      activeTab === 'myAllocations'
+                        ? 'bg-gradient-to-r from-[#262760] to-[#3a3c8c] text-white shadow-md shadow-indigo-900/20 scale-[1.02]'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                    }`}
                   >
                     <Target size={16} />
                     My Allocations
@@ -1245,41 +1397,43 @@ const ProjectAllocation = () => {
                 )}
               </div>
 
-              <div className="flex items-center space-x-4">
-
-
+              <div className="flex items-center space-x-3">
                 {/* Filter Button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
                     setShowFilters(!showFilters);
                   }}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${showFilters ? 'bg-[#262760] text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                    }`}
+                  className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 border ${
+                    showFilters
+                      ? 'bg-[#262760] text-white border-[#262760] shadow-md'
+                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                  }`}
                 >
                   <Filter size={16} />
                   Filters
                   {(hasActiveProjectFilters || hasActiveAllocationFilters) && (
-                    <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
                       !
                     </span>
                   )}
                 </button>
 
+                {/* Action Button */}
                 {canEdit && (
                   <button
                     onClick={() => activeTab === 'projects' ? openProjectModal() : openAllocationModal()}
-                    className="px-4 py-2 bg-[#262760] text-white rounded-lg font-medium hover:bg-[#1f204d] transition-colors flex items-center gap-2"
+                    className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
                   >
                     {activeTab === 'projects' ? (
                       <>
                         <Building2 size={16} />
-                        Add Project
+                        + Add Project
                       </>
                     ) : (
                       <>
                         <Users size={16} />
-                        Allocate
+                        + Allocate Resource
                       </>
                     )}
                   </button>
@@ -1304,7 +1458,7 @@ const ProjectAllocation = () => {
                 </div>
 
                 {activeTab === 'projects' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
                     <MultiSelectDropdown
                       label="Project Code"
                       options={getUniqueProjectCodes(projectFilters.division, 'projects')}
@@ -1328,6 +1482,18 @@ const ProjectAllocation = () => {
                       isOpen={projectDropdowns.projectName}
                       onToggle={() => toggleProjectDropdown('projectName')}
                       onClose={() => setProjectDropdowns(prev => ({ ...prev, projectName: false }))}
+                    />
+
+                    <MultiSelectDropdown
+                      label="Project Category"
+                      options={projectCategories}
+                      selectedValues={projectFilters.projectCategory}
+                      onChange={(value) => handleProjectFilterChange('projectCategory', value)}
+                      onSelectAll={(options) => selectAllProjectFilters('projectCategory', options)}
+                      onClear={() => clearProjectFilter('projectCategory')}
+                      isOpen={projectDropdowns.projectCategory}
+                      onToggle={() => toggleProjectDropdown('projectCategory')}
+                      onClose={() => setProjectDropdowns(prev => ({ ...prev, projectCategory: false }))}
                     />
 
                     <MultiSelectDropdown
@@ -1369,7 +1535,7 @@ const ProjectAllocation = () => {
                 )}
 
                 {(activeTab === 'allocations' || activeTab === 'myAllocations') && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
                     <MultiSelectDropdown
                       label="Project Code"
                       options={getUniqueProjectCodes(allocationFilters.division, 'allocations')}
@@ -1393,6 +1559,18 @@ const ProjectAllocation = () => {
                       isOpen={allocationDropdowns.projectName}
                       onToggle={() => toggleAllocationDropdown('projectName')}
                       onClose={() => setAllocationDropdowns(prev => ({ ...prev, projectName: false }))}
+                    />
+
+                    <MultiSelectDropdown
+                      label="Project Category"
+                      options={projectCategories}
+                      selectedValues={allocationFilters.projectCategory}
+                      onChange={(value) => handleAllocationFilterChange('projectCategory', value)}
+                      onSelectAll={(options) => selectAllAllocationFilters('projectCategory', options)}
+                      onClear={() => clearAllocationFilter('projectCategory')}
+                      isOpen={allocationDropdowns.projectCategory}
+                      onToggle={() => toggleAllocationDropdown('projectCategory')}
+                      onClose={() => setAllocationDropdowns(prev => ({ ...prev, projectCategory: false }))}
                     />
 
                     <MultiSelectDropdown
@@ -1506,6 +1684,7 @@ const ProjectAllocation = () => {
                         <tr className="bg-[#262760] text-white">
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Code</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Project Name</th>
+                          <th className="p-3 text-left text-sm font-semibold border-b">Project Category</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Division</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Location</th>
                           <th className="p-3 text-left text-sm font-semibold border-b">Start Date</th>
@@ -1522,6 +1701,9 @@ const ProjectAllocation = () => {
                             </td>
                             <td className="p-3">
                               <div className="font-medium text-gray-900">{project.name}</div>
+                            </td>
+                            <td className="p-3">
+                              {getCategoryBadge(project.projectCategory)}
                             </td>
                             <td className="p-3">
                               <div className="text-sm text-gray-600">{project.division}</div>
@@ -1627,6 +1809,7 @@ const ProjectAllocation = () => {
                         projectId: alloc.projectId,
                         projectCode: alloc.projectCode,
                         projectName: alloc.projectName,
+                        projectCategory: alloc.projectCategory || 'Product',
                         division: alloc.projectDivision || alloc.division,
                         branch: alloc.branch,
                         status: alloc.status,
@@ -1649,10 +1832,11 @@ const ProjectAllocation = () => {
                           <tr className="bg-[#262760] text-white">
                             <th className="p-3 text-left text-sm font-semibold border-b w-[10%]">Project Code</th>
                             <th className="p-3 text-left text-sm font-semibold border-b w-[15%]">Project Name</th>
+                            <th className="p-3 text-left text-sm font-semibold border-b w-[12%]">Project Category</th>
                             <th className="p-3 text-left text-sm font-semibold border-b w-[10%]">Division</th>
-                            <th className="p-3 text-left text-sm font-semibold border-b w-[35%]">Allocated Employees</th>
+                            <th className="p-3 text-left text-sm font-semibold border-b w-[30%]">Allocated Employees</th>
                             <th className="p-3 text-left text-sm font-semibold border-b w-[10%]">Location</th>
-                            <th className="p-3 text-left text-sm font-semibold border-b w-[10%]">Status</th>
+                            <th className="p-3 text-left text-sm font-semibold border-b w-[8%]">Status</th>
                             <th className="p-3 text-left text-sm font-semibold border-b w-[10%]">Actions</th>
                           </tr>
                         </thead>
@@ -1664,6 +1848,9 @@ const ProjectAllocation = () => {
                               </td>
                               <td className="p-3 align-top">
                                 <div className="font-medium text-gray-900">{group.projectName}</div>
+                              </td>
+                              <td className="p-3 align-top">
+                                {getCategoryBadge(group.projectCategory)}
                               </td>
                               <td className="p-3 align-top">
                                 <div className="text-sm text-gray-600">{group.division}</div>
@@ -1711,6 +1898,7 @@ const ProjectAllocation = () => {
                                         setAllocationForm({
                                           projectId: group.projectId || '',
                                           projectName: group.projectName,
+                                          projectCategory: group.projectCategory || 'All',
                                           employeeName: '',
                                           employeeId: '',
                                           employeeIds: []
@@ -1804,6 +1992,9 @@ const ProjectAllocation = () => {
                               <div className="font-medium text-gray-900">{allocation.projectName}</div>
                             </td>
                             <td className="p-3">
+                              {getCategoryBadge(allocation.projectCategory || 'Product')}
+                            </td>
+                            <td className="p-3">
                               <div className="text-sm text-gray-600">{allocation.projectDivision || allocation.division}</div>
                             </td>
                             <td className="p-3">
@@ -1860,6 +2051,10 @@ const ProjectAllocation = () => {
                         <p className="text-lg font-semibold text-gray-900">{viewingItem.name}</p>
                       </div>
                       <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Project Category</label>
+                        <div>{getCategoryBadge(viewingItem.projectCategory)}</div>
+                      </div>
+                      <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
                         <p className="text-gray-900">{viewingItem.division}</p>
                       </div>
@@ -1893,6 +2088,10 @@ const ProjectAllocation = () => {
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
                         <p className="text-lg font-semibold text-gray-900">{viewingItem.projectName}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Project Category</label>
+                        <div>{getCategoryBadge(viewingItem.projectCategory)}</div>
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Division</label>
@@ -1948,6 +2147,25 @@ const ProjectAllocation = () => {
 
                 <div className="p-6 space-y-4">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Project Category *</label>
+                    <select
+                      value={projectForm.projectCategory}
+                      onChange={(e) => {
+                        const cat = e.target.value;
+                        setProjectForm(prev => ({
+                          ...prev,
+                          projectCategory: cat,
+                          name: cat === 'Non-Product' && (!prev.name || !NON_PRODUCT_ACTIVITIES.includes(prev.name)) ? NON_PRODUCT_ACTIVITIES[0] : prev.name
+                        }));
+                      }}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-medium text-gray-800"
+                    >
+                      <option value="Product">Product</option>
+                      <option value="Non-Product">Non-Product</option>
+                    </select>
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Division *</label>
                     <select
                       value={projectForm.division}
@@ -1963,14 +2181,49 @@ const ProjectAllocation = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Project Name *</label>
-                    <input
-                      type="text"
-                      value={projectForm.name}
-                      onChange={(e) => setProjectForm(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Enter project name"
-                    />
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {projectForm.projectCategory === 'Non-Product' ? 'Internal Activity Name *' : 'Project Name *'}
+                    </label>
+                    {projectForm.projectCategory === 'Non-Product' ? (
+                      <div className="space-y-2">
+                        <select
+                          value={NON_PRODUCT_ACTIVITIES.includes(projectForm.name) ? projectForm.name : 'Others'}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === 'Others') {
+                              setProjectForm(prev => ({ ...prev, name: '' }));
+                            } else {
+                              setProjectForm(prev => ({ ...prev, name: val }));
+                            }
+                          }}
+                          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-medium text-gray-800"
+                        >
+                          {NON_PRODUCT_ACTIVITIES.map(act => (
+                            <option key={act} value={act}>{act}</option>
+                          ))}
+                          <option value="Others">Others (Manual Entry)</option>
+                        </select>
+                        {(!NON_PRODUCT_ACTIVITIES.includes(projectForm.name) || projectForm.name === '') && (
+                          <input
+                            type="text"
+                            value={projectForm.name}
+                            onChange={(e) => setProjectForm(prev => ({ ...prev, name: e.target.value }))}
+                            className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Enter manual internal activity name"
+                            required
+                          />
+                        )}
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={projectForm.name}
+                        onChange={(e) => setProjectForm(prev => ({ ...prev, name: e.target.value }))}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="Enter project name"
+                        required
+                      />
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
@@ -2027,21 +2280,49 @@ const ProjectAllocation = () => {
 
                 <div className="p-6 space-y-4">
                   <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Project Category</label>
+                    <select
+                      value={allocationForm.projectCategory || 'All'}
+                      onChange={(e) => {
+                        const cat = e.target.value;
+                        setAllocationForm(prev => ({
+                          ...prev,
+                          projectCategory: cat,
+                          projectId: '',
+                          projectName: ''
+                        }));
+                      }}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-medium text-gray-800"
+                    >
+                      <option value="All">All Categories (Product & Non-Product)</option>
+                      <option value="Product">Product Only</option>
+                      <option value="Non-Product">Non-Product Only</option>
+                    </select>
+                  </div>
+
+                  <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Project Name *</label>
                     <SearchableSelect
                       value={allocationForm.projectId}
                       placeholder="Select Project"
-                      options={getActiveProjectsSorted().map(project => ({
-                        value: project._id || project.id,
-                        label: `${project.name} (${project.code}) - ${project.division}`,
-                        searchText: `${project.name} ${project.code} ${project.division}`
-                      }))}
+                      options={getActiveProjectsSorted()
+                        .filter(project => {
+                          if (!allocationForm.projectCategory || allocationForm.projectCategory === 'All') return true;
+                          return String(project.projectCategory || 'Product').trim().toLowerCase() === String(allocationForm.projectCategory).trim().toLowerCase();
+                        })
+                        .map(project => ({
+                          value: project._id || project.id,
+                          label: `${project.name} (${project.code}) - [${project.projectCategory || 'Product'}] - ${project.division}`,
+                          searchText: `${project.name} ${project.code} ${project.projectCategory || 'Product'} ${project.division}`
+                        }))
+                      }
                       onChange={(projectId) => {
                         const selectedProject = projects.find(p => String(p._id || p.id) === String(projectId));
                         setAllocationForm(prev => ({
                           ...prev,
                           projectId,
                           projectName: selectedProject?.name || '',
+                          projectCategory: selectedProject?.projectCategory || prev.projectCategory || 'All'
                         }));
                       }}
                     />

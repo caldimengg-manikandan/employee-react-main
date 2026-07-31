@@ -742,7 +742,7 @@ const Timesheet = () => {
         const key = `${a.projectName}|${a.projectCode}`;
         if (!seen.has(key)) {
           seen.add(key);
-          unique.push({ name: a.projectName, code: a.projectCode });
+          unique.push({ name: a.projectName, code: a.projectCode, projectCategory: a.projectCategory || 'Product' });
         }
       }
       setProjects(unique);
@@ -1968,19 +1968,80 @@ const Timesheet = () => {
 
   return (
     <div className="p-4 md:p-6 bg-gray-50 min-h-screen">
+      {/* Timesheet KPI Summary Dashboard */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {/* Weekly Total Work Hours */}
+        <div className="bg-gradient-to-br from-indigo-900 via-[#1e1b4b] to-[#262760] p-5 rounded-2xl text-white shadow-xl shadow-indigo-950/20 border border-indigo-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-indigo-500/10 rounded-full blur-xl group-hover:bg-indigo-500/20 transition-all"></div>
+          <div className="flex justify-between items-center relative z-10">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-indigo-200/80">Weekly Work Hours</p>
+              <h3 className="text-3xl font-extrabold mt-1 text-white">{formatHoursHHMM(totals.weekly)}</h3>
+            </div>
+            <div className="p-3 bg-indigo-500/20 rounded-xl border border-indigo-400/30 text-indigo-300">
+              <Calendar size={24} />
+            </div>
+          </div>
+        </div>
+
+        {/* On-Premises Hours */}
+        <div className="bg-gradient-to-br from-emerald-900 via-[#064e3b] to-[#047857] p-5 rounded-2xl text-white shadow-xl shadow-emerald-950/20 border border-emerald-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl group-hover:bg-emerald-500/20 transition-all"></div>
+          <div className="flex justify-between items-center relative z-10">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-emerald-200/80">On-Premises Time</p>
+              <h3 className="text-3xl font-extrabold mt-1 text-white">{formatHoursHHMM(onPremisesTime.weekly)}</h3>
+            </div>
+            <div className="p-3 bg-emerald-500/20 rounded-xl border border-emerald-400/30 text-emerald-300 font-bold text-xs">
+              PUNCH
+            </div>
+          </div>
+        </div>
+
+        {/* Permissions Usage */}
+        <div className="bg-gradient-to-br from-amber-900 via-[#451a03] to-[#78350f] p-5 rounded-2xl text-white shadow-xl shadow-amber-950/20 border border-amber-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-amber-500/10 rounded-full blur-xl group-hover:bg-amber-500/20 transition-all"></div>
+          <div className="flex justify-between items-center relative z-10">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-amber-200/80">Permissions Used</p>
+              <h3 className="text-3xl font-extrabold mt-1 text-white">{monthlyPermissionCount}/3</h3>
+            </div>
+            <div className="p-3 bg-amber-500/20 rounded-xl border border-amber-400/30 text-amber-300 font-bold text-xs">
+              MONTHLY
+            </div>
+          </div>
+        </div>
+
+        {/* Timesheet Status */}
+        <div className="bg-gradient-to-br from-purple-900 via-[#3b0764] to-[#581c87] p-5 rounded-2xl text-white shadow-xl shadow-purple-950/20 border border-purple-500/20 relative overflow-hidden group hover:scale-[1.01] transition-all">
+          <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-purple-500/10 rounded-full blur-xl group-hover:bg-purple-500/20 transition-all"></div>
+          <div className="flex justify-between items-center relative z-10">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wider text-purple-200/80">Timesheet Status</p>
+              <h3 className="text-2xl font-extrabold mt-1 text-white uppercase tracking-wide">
+                {isSubmitted ? "Submitted" : hasUnsavedChanges ? "Draft (Unsaved)" : "Draft"}
+              </h3>
+            </div>
+            <div className="p-2.5 bg-purple-500/20 rounded-xl border border-purple-400/30 text-purple-300 font-bold text-xs">
+              {isSubmitted ? "LOCKED" : "EDITABLE"}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Week Navigation */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 p-4 mb-6">
         <div className="flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-6 w-full md:w-auto">
-            <div className="flex items-center gap-2 justify-center w-full sm:w-auto">
+            <div className="flex items-center gap-3 justify-center w-full sm:w-auto bg-slate-100/80 p-1.5 rounded-xl border border-slate-200/60">
               <button
                 onClick={previousWeek}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                className="p-1.5 hover:bg-white rounded-lg transition-colors shadow-xs"
               >
-                <ChevronLeft className="w-5 h-5 text-gray-600" />
+                <ChevronLeft className="w-5 h-5 text-indigo-950" />
               </button>
 
-              <div className="text-lg font-semibold text-gray-800">
+              <div className="text-base font-extrabold text-indigo-950 px-2">
                 {currentWeek.toLocaleDateString("en-US", {
                   month: "long",
                   year: "numeric"
@@ -1990,15 +2051,15 @@ const Timesheet = () => {
               <button
                 onClick={nextWeek}
                 disabled={!canNavigateNextWeek()}
-                className={`p-1 rounded transition-colors ${!canNavigateNextWeek() ? "opacity-50 cursor-not-allowed" : "hover:bg-gray-100"}`}
+                className={`p-1.5 rounded-lg transition-colors ${!canNavigateNextWeek() ? "opacity-40 cursor-not-allowed" : "hover:bg-white shadow-xs"}`}
               >
-                <ChevronRight className="w-5 h-5 text-gray-600" />
+                <ChevronRight className="w-5 h-5 text-indigo-950" />
               </button>
             </div>
 
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600 font-medium">Week:</span>
-              <span className="text-sm text-gray-800 font-semibold">
+            <div className="flex items-center gap-2 bg-indigo-50/70 px-3 py-1.5 rounded-xl border border-indigo-100">
+              <span className="text-xs text-indigo-700 font-medium">Week Range:</span>
+              <span className="text-xs text-indigo-950 font-bold">
                 {formatWeekRange()}
               </span>
             </div>
@@ -2006,9 +2067,8 @@ const Timesheet = () => {
 
           <button
             onClick={goToCurrentWeek}
-            className="px-4 py-2 bg-[#262760] text-white rounded text-sm font-medium hover:bg-[#1e2050] transition-colors flex items-center justify-center gap-2 w-full md:w-auto"
+            className="px-5 py-2.5 bg-gradient-to-r from-[#262760] to-[#3a3c8c] text-white rounded-xl text-xs font-bold hover:shadow-lg hover:shadow-indigo-900/20 transition-all flex items-center justify-center gap-2 w-full md:w-auto"
           >
-
             <Calendar className="w-4 h-4" />
             CURRENT WEEK
           </button>
@@ -2017,7 +2077,7 @@ const Timesheet = () => {
 
       {/* Rejection Alert */}
       {rejectionReason && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-lg">
+        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-r-2xl shadow-sm">
           <div className="flex">
             <div className="flex-shrink-0">
               <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
@@ -2038,19 +2098,20 @@ const Timesheet = () => {
         </div>
       )}
 
-      {/* Timesheet Table */}
-      <div className="bg-white rounded-lg border border-gray-200">
+      {/* Timesheet Table Container */}
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl border border-slate-200/80 shadow-xl shadow-indigo-950/5 overflow-hidden">
         {/* Header with action buttons */}
-        <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row justify-between items-center gap-4">
-          <h2 className="text-xl font-semibold text-gray-800">
+        <div className="p-4 bg-slate-50/50 border-b border-slate-200 flex flex-col md:flex-row justify-between items-center gap-4">
+          <h2 className="text-lg font-bold text-indigo-950 tracking-tight flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-indigo-600"></span>
             Week Entry
           </h2>
 
-          <div className="flex flex-wrap justify-center gap-3 w-full md:w-auto">
+          <div className="flex flex-wrap justify-center gap-2.5 w-full md:w-auto">
             <button
               onClick={addProjectRow}
               disabled={isLeaveAutoDraft || isSubmitted}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isLeaveAutoDraft || isSubmitted ? "bg-gray-400 cursor-not-allowed text-white" : "bg-[#262760] hover:bg-[#1e2050] text-white"}`}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${isLeaveAutoDraft || isSubmitted ? "bg-slate-300 text-slate-500 cursor-not-allowed" : "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-600/20 hover:scale-[1.02]"}`}
               title={isSubmitted ? "Timesheet already submitted" : "Add Project Row"}
             >
               <Plus className="w-4 h-4" />
@@ -2060,9 +2121,9 @@ const Timesheet = () => {
             <button
               onClick={addLeaveRow}
               disabled={isAddLeaveDisabled()}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isAddLeaveDisabled()
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-[#262760] hover:bg-[#1e2050] text-white"
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${isAddLeaveDisabled()
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/20 hover:scale-[1.02]"
                 }`}
               title={isAddLeaveDisabled() ? "Cannot add leave row (Limit reached or Permission active)" : "Add Leave Row"}
             >
@@ -2089,7 +2150,7 @@ const Timesheet = () => {
                 setShowSpecialModal(true);
               }}
               disabled={isSubmitted}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${isSubmitted ? "bg-gray-400 cursor-not-allowed text-white" : "bg-[#262760] hover:bg-[#1e2050] text-white"}`}
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${isSubmitted ? "bg-slate-300 text-slate-500 cursor-not-allowed" : "bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-md shadow-purple-600/20 hover:scale-[1.02]"}`}
               title={isSubmitted ? "Timesheet already submitted" : "Request Special Permission"}
             >
               <Plus className="w-4 h-4" />
@@ -2100,9 +2161,9 @@ const Timesheet = () => {
             <button
               onClick={saveAsDraft}
               disabled={loading || !hasSomeData() || isSubmitted || isLeaveAutoDraft}
-              className={`px-4 py-2 rounded text-sm font-medium transition-colors flex items-center gap-2 ${loading || !hasSomeData() || isSubmitted || isLeaveAutoDraft
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-[#262760] hover:bg-[#1e2050] text-white"
+              className={`px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${loading || !hasSomeData() || isSubmitted || isLeaveAutoDraft
+                ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                : "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-md shadow-emerald-600/20 hover:scale-[1.02]"
                 }`}
             >
               <Save className="w-4 h-4" />
@@ -2198,11 +2259,17 @@ const Timesheet = () => {
                         disabled={isSubmitted || isLeaveAutoDraft || row.locked}
                       >
                         <option value="">Select Project</option>
-                        {projects.map((p) => (
-                          <option key={p.code || p.name} value={p.name}>
-                            {p.code ? `${p.name} (${p.code})` : p.name}
-                          </option>
-                        ))}
+                        {projects.map((p) => {
+                          const isNonProd = String(p.projectCategory || "").trim().toLowerCase() === "non-product";
+                          const label = p.code 
+                            ? `${p.name} (${p.code})${isNonProd ? " (Non Product)" : ""}`
+                            : `${p.name}${isNonProd ? " (Non Product)" : ""}`;
+                          return (
+                            <option key={p.code || p.name} value={p.name}>
+                              {label}
+                            </option>
+                          );
+                        })}
                       </select>
                     )}
                   </td>
@@ -2544,10 +2611,10 @@ const Timesheet = () => {
           <button
             onClick={submitTimesheet}
             disabled={!allDaysSatisfied || loading || isSubmitted || isLeaveAutoDraft || mySpecials.some(s => s.status === 'PENDING')}
-            className={`px-6 py-3 rounded font-medium transition-colors flex items-center justify-center gap-2 w-full md:w-auto ${(!allDaysSatisfied || loading || isSubmitted || isLeaveAutoDraft)
+            className={`px-7 py-3 rounded-xl font-bold text-xs tracking-wider transition-all flex items-center justify-center gap-2 w-full md:w-auto ${(!allDaysSatisfied || loading || isSubmitted || isLeaveAutoDraft)
               || mySpecials.some(s => s.status === 'PENDING')
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-[#262760] hover:bg-[#1e2050] text-white"
+              ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+              : "bg-gradient-to-r from-indigo-700 via-indigo-800 to-purple-800 text-white shadow-lg shadow-indigo-900/30 hover:scale-[1.02]"
               }`}
           >
 

@@ -28,8 +28,12 @@ router.post("/", validateProject, async (req, res) => {
 // GET ALL
 router.get("/", async (req, res) => {
   try {
-    const list = await Project.find().sort({ createdAt: -1 });
-    res.json(list);
+    const list = await Project.find().sort({ createdAt: -1 }).lean();
+    const normalized = list.map(item => ({
+      ...item,
+      projectCategory: item.projectCategory || "Product"
+    }));
+    res.json(normalized);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

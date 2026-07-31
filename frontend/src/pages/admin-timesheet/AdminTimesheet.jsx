@@ -16,16 +16,15 @@ import {
   MapPin,
   FolderOpen,
   FileText,
-  MoreHorizontal,
   Eye,
   X,
-  ChevronLeft,
-  ChevronRight,
-  Loader2
+  Loader2,
+  Building2
 } from 'lucide-react';
 
 const AdminTimesheet = () => {
   const [timesheets, setTimesheets] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState({});
   const [filters, setFilters] = useState({
     employeeId: '',
@@ -39,16 +38,20 @@ const AdminTimesheet = () => {
     toDate: ''
   });
 
+  const [stats, setStats] = useState({
+    totalTimesheets: 0,
+    pending: 0,
+    approved: 0,
+    rejected: 0,
+    totalEmployees: 0,
+    projectHours: 0
+  });
+
   // Get user role
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const role = user.role || '';
   const isProjectManager = role === 'projectmanager' || role === 'project_manager';
 
-  const [hoverStates, setHoverStates] = useState({
-    statCards: {},
-    refreshButton: false,
-    tableRows: {}
-  });
   const [projectOptions, setProjectOptions] = useState(["All Projects"]);
   const [weekOptions, setWeekOptions] = useState(["All Weeks"]);
   const [yearOptions, setYearOptions] = useState(["All Years"]);
@@ -56,7 +59,6 @@ const AdminTimesheet = () => {
   const [selectedTimesheet, setSelectedTimesheet] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [allEmployees, setAllEmployees] = useState([]);
   const [rejectDialog, setRejectDialog] = useState({ isOpen: false, timesheetId: null, reason: '' });
   const [messageDialog, setMessageDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
@@ -77,548 +79,62 @@ const AdminTimesheet = () => {
     fetchEmployees();
   }, []);
 
-  useEffect(() => {
-    const handleResize = () => {
-      setIsMobile(window.innerWidth <= 768);
-    };
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  // Define styles as constants
-  const glassCard = {
-    backgroundColor: 'white',
-    borderRadius: '12px',
-    boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)',
-    border: '1px solid #e2e8f0'
-  };
-
-  const styles = {
-    adminTimesheet: {
-      padding: '16px',
-      backgroundColor: '#f8fafc',
-      height: isMobile ? 'auto' : '100vh',
-      minHeight: isMobile ? '100vh' : 0,
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: isMobile ? 'visible' : 'hidden',
-      fontFamily: 'system-ui, -apple-system, sans-serif'
-    },
-    timesheetHeader: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '12px',
-      padding: '12px',
-      ...glassCard,
-      flexShrink: 0
-    },
-    headerTitle: {
-      margin: 0,
-      color: '#1a202c',
-      fontSize: '20px',
-      fontWeight: '700'
-    },
-    adminInfo: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px'
-    },
-    adminBadge: {
-      backgroundColor: '#4299e1',
-      color: 'white',
-      padding: '8px 16px',
-      borderRadius: '6px',
-      fontSize: '14px',
-      fontWeight: '600'
-    },
-    statsGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '10px',
-      marginBottom: '12px',
-      flexShrink: 0
-    },
-    statCard: {
-      padding: '12px',
-      ...glassCard,
-      transition: 'all 0.2s ease'
-    },
-    statCardHover: {
-      transform: 'translateY(-2px)',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
-    },
-    statHeader: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: '8px'
-    },
-    statIconContainer: {
-      width: '32px',
-      height: '32px',
-      borderRadius: '8px',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center'
-    },
-    statTitle: {
-      margin: 0,
-      color: '#718096',
-      fontSize: '11px',
-      fontWeight: '500',
-      textTransform: 'uppercase',
-      letterSpacing: '0.5px'
-    },
-    statNumber: {
-      fontSize: '20px',
-      fontWeight: '700',
-      color: '#2d3748',
-      margin: 0
-    },
-    filtersSection: {
-      padding: '12px',
-      marginBottom: '12px',
-      ...glassCard,
-      flexShrink: 0
-    },
-    sectionHeader: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: '12px'
-    },
-    sectionTitle: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '8px',
-      margin: 0,
-      color: '#2d3748',
-      fontSize: '16px',
-      fontWeight: '600'
-    },
-    filtersGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-      gap: '12px',
-      marginBottom: '12px'
-    },
-    filterGroup: {
-      display: 'flex',
-      flexDirection: 'column'
-    },
-    filterLabel: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-      marginBottom: '4px',
-      fontWeight: '500',
-      color: '#4a5568',
-      fontSize: '13px'
-    },
-    filterInput: {
-      padding: '8px 10px',
-      border: '1px solid #cbd5e0',
-      borderRadius: '6px',
-      fontSize: '13px',
-      transition: 'all 0.2s ease',
-      backgroundColor: 'white'
-    },
-    filterInputFocus: {
-      borderColor: '#4299e1',
-      boxShadow: '0 0 0 3px rgba(66, 153, 225, 0.1)'
-    },
-    actionButtons: {
-      display: 'flex',
-      gap: '12px',
-      alignItems: 'center'
-    },
-    primaryButton: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-      backgroundColor: '#262760',
-      color: 'white',
-      border: 'none',
-      padding: '10px 20px',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontWeight: '500',
-      fontSize: '14px',
-      transition: 'all 0.2s ease'
-    },
-    primaryButtonHover: {
-      backgroundColor: '#1f204d',
-      transform: 'translateY(-1px)'
-    },
-    secondaryButton: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '6px',
-      backgroundColor: '#262760',
-      color: 'white',
-      border: 'none',
-      padding: '10px 20px',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontWeight: '500',
-      fontSize: '14px',
-      transition: 'all 0.2s ease'
-    },
-    secondaryButtonHover: {
-      backgroundColor: '#1f204d'
-    },
-    timesheetsTableSection: {
-      padding: '16px',
-      ...glassCard,
-      flex: isMobile ? 'none' : 1,
-      display: 'flex',
-      flexDirection: 'column',
-      overflow: isMobile ? 'visible' : 'hidden',
-      minHeight: 0
-    },
-    tableHeader: {
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-      marginBottom: '12px',
-      flexShrink: 0
-    },
-    tableContainer: {
-      overflowX: 'auto',
-      overflowY: isMobile ? 'visible' : 'auto',
-      borderRadius: '8px',
-      border: '1px solid #e2e8f0',
-      flex: isMobile ? 'none' : 1
-    },
-    timesheetsTable: {
-      width: '100%',
-      borderCollapse: 'collapse',
-      backgroundColor: 'white'
-    },
-    tableHeaderCell: {
-      padding: '12px',
-      textAlign: 'left',
-      backgroundColor: '#262760',
-      fontWeight: '600',
-      color: 'white',
-      fontSize: '14px',
-      borderBottom: '1px solid #e2e8f0',
-      borderRight: '1px solid #1f204d',
-      position: 'sticky',
-      top: 0,
-      zIndex: 10
-    },
-    tableCell: {
-      padding: '12px',
-      textAlign: 'left',
-      borderBottom: '1px solid #e2e8f0',
-      fontSize: '14px'
-    },
-    tableRow: {
-      transition: 'all 0.2s ease'
-    },
-    tableRowHover: {
-      backgroundColor: '#f7fafc'
-    },
-    actions: {
-      display: 'flex',
-      gap: '8px',
-      alignItems: 'center'
-    },
-    approveBtn: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '4px',
-      backgroundColor: '#48bb78',
-      color: 'white',
-      border: 'none',
-      padding: '6px 12px',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      fontSize: '12px',
-      fontWeight: '500',
-      transition: 'all 0.2s ease'
-    },
-    rejectBtn: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '4px',
-      backgroundColor: '#f56565',
-      color: 'white',
-      border: 'none',
-      padding: '6px 12px',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      fontSize: '12px',
-      fontWeight: '500',
-      transition: 'all 0.2s ease'
-    },
-    viewBtn: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '4px',
-      backgroundColor: '#262760',
-      color: 'white',
-      border: 'none',
-      padding: '6px 12px',
-      borderRadius: '4px',
-      cursor: 'pointer',
-      fontSize: '12px',
-      fontWeight: '500',
-      transition: 'all 0.2s ease'
-    },
-    statusBadge: {
-      padding: '4px 8px',
-      borderRadius: '12px',
-      fontSize: '12px',
-      fontWeight: '500',
-      textTransform: 'uppercase'
-    },
-    approvedBadge: {
-      backgroundColor: '#c6f6d5',
-      color: '#22543d'
-    },
-    rejectedBadge: {
-      backgroundColor: '#fed7d7',
-      color: '#742a2a'
-    },
-    pendingBadge: {
-      backgroundColor: '#feebc8',
-      color: '#744210'
-    },
-    notSubmittedBadge: {
-      backgroundColor: '#e2e8f0',
-      color: '#4a5568'
-    },
-    // Modal Styles
-    modalOverlay: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-      padding: '20px'
-    },
-    modalContent: {
-      backgroundColor: 'white',
-      borderRadius: '12px',
-      padding: '24px',
-      maxWidth: '1000px',
-      width: '100%',
-      maxHeight: '90vh',
-      overflowY: 'auto',
-      boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-    },
-    textarea: {
-      width: '100%',
-      minHeight: '110px',
-      border: '1px solid #e2e8f0',
-      borderRadius: '8px',
-      padding: '10px 12px',
-      fontSize: '14px',
-      outline: 'none',
-      resize: 'vertical'
-    },
-    messageOverlay: {
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1100,
-      padding: '20px'
-    },
-    messageTitle: {
-      margin: 0,
-      color: '#1a202c',
-      fontSize: '18px',
-      fontWeight: '700'
-    },
-    messageText: {
-      color: '#4a5568',
-      fontSize: '14px',
-      lineHeight: 1.5,
-      marginTop: '10px'
-    },
-    cancelButton: {
-      backgroundColor: '#edf2f7',
-      color: '#2d3748',
-      border: '1px solid #e2e8f0',
-      padding: '10px 20px',
-      borderRadius: '6px',
-      cursor: 'pointer',
-      fontWeight: '600',
-      fontSize: '14px'
-    },
-    modalHeader: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      marginBottom: '24px',
-      paddingBottom: '16px',
-      borderBottom: '1px solid #e2e8f0'
-    },
-    modalTitle: {
-      margin: 0,
-      color: '#1a202c',
-      fontSize: '20px',
-      fontWeight: '600'
-    },
-    closeButton: {
-      background: 'none',
-      border: 'none',
-      cursor: 'pointer',
-      padding: '8px',
-      borderRadius: '6px',
-      color: '#718096',
-      transition: 'all 0.2s ease'
-    },
-    detailGrid: {
-      display: 'grid',
-      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-      gap: '16px',
-      marginBottom: '24px'
-    },
-    detailCard: {
-      padding: '16px',
-      border: '1px solid #e2e8f0',
-      borderRadius: '8px',
-      backgroundColor: '#f7fafc'
-    },
-    detailLabel: {
-      fontSize: '12px',
-      fontWeight: '500',
-      color: '#718096',
-      textTransform: 'uppercase',
-      marginBottom: '4px'
-    },
-    detailValue: {
-      fontSize: '16px',
-      fontWeight: '600',
-      color: '#2d3748'
-    },
-    timeEntriesTableSection: {
-      marginBottom: '24px'
-    },
-    timeEntriesTitle: {
-      margin: '0 0 16px 0',
-      color: '#2d3748',
-      fontSize: '18px',
-      fontWeight: '600'
-    },
-    timeEntriesTable: {
-      width: '100%',
-      borderCollapse: 'collapse',
-      backgroundColor: 'white',
-      border: '1px solid #e2e8f0',
-      borderRadius: '8px',
-      overflow: 'hidden'
-    },
-    timeEntriesHeader: {
-      backgroundColor: '#262760',
-      fontWeight: '600',
-      color: 'white',
-      fontSize: '14px',
-      textAlign: 'center',
-      borderRight: '1px solid #1f204d'
-    },
-    timeEntriesHeaderCell: {
-      padding: '12px',
-      borderBottom: '1px solid #e2e8f0',
-      borderRight: '1px solid #1f204d'
-    },
-    timeEntriesCell: {
-      padding: '12px',
-      textAlign: 'center',
-      borderBottom: '1px solid #e2e8f0',
-      borderRight: '1px solid #e2e8f0',
-      fontSize: '14px'
-    },
-    totalHoursCell: {
-      padding: '12px',
-      textAlign: 'center',
-      borderBottom: '1px solid #e2e8f0',
-      fontSize: '14px',
-      fontWeight: '600',
-      backgroundColor: '#f7fafc'
-    },
-    modalActions: {
-      display: 'flex',
-      gap: '12px',
-      justifyContent: 'flex-end',
-      marginTop: '24px',
-      paddingTop: '16px',
-      borderTop: '1px solid #e2e8f0'
-    }
-  };
-
-  const [loading, setLoading] = useState(false);
-
-  const [stats, setStats] = useState({
-    totalTimesheets: 0,
-    pending: 0,
-    approved: 0,
-    rejected: 0,
-    totalEmployees: 0,
-    projectHours: 0
-  });
-
-  const formatDuration = (h) => {
-    const val = Number(h || 0);
-    const totalMinutes = Math.round(val * 60);
-    const sign = totalMinutes < 0 ? "-" : "";
-    const absMinutes = Math.abs(totalMinutes);
-    const hh = String(Math.floor(absMinutes / 60)).padStart(2, "0");
-    const mm = String(absMinutes % 60).padStart(2, "0");
-    return `${sign}${hh}:${mm}`;
+  const formatDuration = (totalHours) => {
+    if (!totalHours || Number.isNaN(totalHours)) return '00:00';
+    const num = Number(totalHours);
+    const hrs = Math.floor(num);
+    const mins = Math.round((num - hrs) * 60);
+    return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
   };
 
   const statConfigs = [
     { 
       title: 'Total Timesheets', 
       value: stats.totalTimesheets, 
-      icon: BarChart3, 
-      color: '#4299e1'
+      icon: FileText, 
+      gradient: 'from-indigo-900 via-[#1e1b4b] to-[#262760]',
+      border: 'border-indigo-500/20',
+      iconBg: 'bg-indigo-500/20 text-indigo-300'
     },
     { 
-      title: 'Pending Review', 
+      title: 'Pending Approval', 
       value: stats.pending, 
       icon: Clock, 
-      color: '#ed8936'
+      gradient: 'from-amber-900 via-[#451a03] to-[#78350f]',
+      border: 'border-amber-500/20',
+      iconBg: 'bg-amber-500/20 text-amber-300'
     },
     { 
       title: 'Approved', 
       value: stats.approved, 
       icon: CheckCircle, 
-      color: '#48bb78'
+      gradient: 'from-emerald-900 via-[#064e3b] to-[#047857]',
+      border: 'border-emerald-500/20',
+      iconBg: 'bg-emerald-500/20 text-emerald-300'
     },
     { 
       title: 'Rejected', 
       value: stats.rejected, 
       icon: XCircle, 
-      color: '#f56565'
+      gradient: 'from-rose-900 via-[#4c0519] to-[#881337]',
+      border: 'border-rose-500/20',
+      iconBg: 'bg-rose-500/20 text-rose-300'
     },
     { 
       title: 'Total Employees', 
       value: stats.totalEmployees, 
       icon: Users, 
-      color: '#9f7aea'
+      gradient: 'from-purple-900 via-[#3b0764] to-[#581c87]',
+      border: 'border-purple-500/20',
+      iconBg: 'bg-purple-500/20 text-purple-300'
     },
     { 
       title: 'Project Hours', 
       value: formatDuration(stats.projectHours), 
       icon: Calendar, 
-      color: '#ed64a6'
+      gradient: 'from-blue-900 via-[#172554] to-[#1e3a8a]',
+      border: 'border-blue-500/20',
+      iconBg: 'bg-blue-500/20 text-blue-300'
     }
   ];
 
@@ -627,7 +143,6 @@ const AdminTimesheet = () => {
       setLoading(true);
       const params = { ...filters };
       
-      // If filtering by Not Submitted, we need all timesheets first to compare
       if (filters.status === 'Not Submitted') {
         params.status = 'All Status';
       }
@@ -650,13 +165,10 @@ const AdminTimesheet = () => {
         });
       }
 
-      // Handle Not Submitted Logic
       if (filters.status === 'Not Submitted') {
         const submittedEmployeeIds = new Set(data.map(r => r.employeeId));
         
-        // Filter employees who haven't submitted
         const missingEmployees = allEmployees.filter(emp => {
-          // Apply other filters to the employee list
           if (filters.division !== 'All Division' && emp.division !== filters.division) return false;
           if (filters.location !== 'All Locations' && emp.location !== filters.location) return false;
           if (filters.employeeId !== '' && emp.employeeId !== filters.employeeId) return false;
@@ -664,7 +176,6 @@ const AdminTimesheet = () => {
           return !submittedEmployeeIds.has(emp.employeeId);
         });
 
-        // Transform into table-compatible format
         data = missingEmployees.map(emp => ({
           _id: `missing-${emp.employeeId}`,
           employeeId: emp.employeeId,
@@ -680,8 +191,6 @@ const AdminTimesheet = () => {
       }
 
       if (filters.employeeId === '') {
-        // If Not Submitted, we use data (which is missing employees)
-        // If normal, we use data (which is timesheets)
         const uniqueIds = Array.from(new Set(data.map(r => r.employeeId).filter(Boolean))).sort();
         setEmployeeIdOptions(['', ...uniqueIds]);
       }
@@ -706,8 +215,6 @@ const AdminTimesheet = () => {
       }
 
       if (filters.week === 'All Weeks') {
-        // For Not Submitted, we might not have week info in data if we generated it manually with '-'
-        // But usually we don't filter week for Not Submitted unless selected
         if (filters.status !== 'Not Submitted') {
           const uniqueWeeks = Array.from(new Set(data.map(r => r.week).filter(Boolean))).sort().reverse();
           setWeekOptions(["All Weeks", ...uniqueWeeks]);
@@ -726,7 +233,6 @@ const AdminTimesheet = () => {
       }, { approved: 0, rejected: 0, pending: 0, notSubmitted: 0 });
       
       const totalEmployees = (() => {
-        // Calculate filtered employees from the master list (allEmployees)
         if (allEmployees.length > 0) {
           return allEmployees.filter(emp => {
             if (filters.division !== 'All Division' && emp.division !== filters.division) return false;
@@ -735,7 +241,6 @@ const AdminTimesheet = () => {
             return true;
           }).length;
         }
-        // Fallback to data if master list not loaded yet
         return new Set(data.map(r => r.employeeId).filter(Boolean)).size;
       })();
 
@@ -775,9 +280,6 @@ const AdminTimesheet = () => {
         totalEmployees: 0,
         projectHours: 0
       });
-      try {
-        alert('Failed to load timesheets. Please ensure the server is running.');
-      } catch (_) {}
     } finally {
       setLoading(false);
     }
@@ -792,10 +294,11 @@ const AdminTimesheet = () => {
       else acc.pending++;
       return acc;
     }, { approved: 0, rejected: 0, pending: 0 });
-    const totalEmployees = stats.totalEmployees; // Keep existing headcount
+    const totalEmployees = stats.totalEmployees;
     const projectHours = list.reduce((sum, r) => {
       const s = (r.status || '').toLowerCase();
       const includeRow = s === 'approved' || s === 'submitted' || s === 'pending';
+      if (!includeRow) return sum;
       const entries = r.timeEntries || [];
       const projSum = entries.reduce((eSum, te) => {
         const typeVal = (te.type || '').toLowerCase();
@@ -809,6 +312,7 @@ const AdminTimesheet = () => {
       }, 0);
       return sum + projSum;
     }, 0);
+
     setStats({
       totalTimesheets,
       pending: statusCounts.pending,
@@ -819,42 +323,15 @@ const AdminTimesheet = () => {
     });
   };
 
-  // fetchTimesheets is called by the useEffect below which depends on filters and allEmployees.
-  // The first execution will happen on mount since filters is initialized and allEmployees changes when loaded.
   useEffect(() => {
     fetchTimesheets();
-  }, [filters, allEmployees]);
+  }, [filters]);
 
-  const handleFilterChange = (filterName, value) => {
-    // Validation for date range
-    if (filterName === 'fromDate' && filters.toDate && value > filters.toDate) {
-      alert('From Date cannot be greater than To Date');
-      return;
-    }
-    if (filterName === 'toDate' && filters.fromDate && value < filters.fromDate) {
-      alert('To Date cannot be less than From Date');
-      return;
-    }
-
+  const handleFilterChange = (key, value) => {
     setFilters(prev => ({
       ...prev,
-      [filterName]: value,
-      ...(['division', 'location', 'week', 'year', 'employeeId'].includes(filterName) ? { project: 'All Projects' } : {})
+      [key]: value
     }));
-  };
-
-  const isFilterApplied = () => {
-    return (
-      filters.employeeId !== '' ||
-      filters.division !== 'All Division' ||
-      filters.location !== 'All Locations' ||
-      filters.status !== 'All Status' ||
-      filters.week !== 'All Weeks' ||
-      filters.project !== 'All Projects' ||
-      filters.year !== 'All Years' ||
-      filters.fromDate !== '' ||
-      filters.toDate !== ''
-    );
   };
 
   const handleClearFilters = () => {
@@ -871,102 +348,89 @@ const AdminTimesheet = () => {
     });
   };
 
-  const handleRefresh = () => {
-    fetchTimesheets();
+  const isFilterApplied = () => {
+    return (
+      filters.employeeId !== '' ||
+      filters.division !== 'All Division' ||
+      filters.location !== 'All Locations' ||
+      filters.status !== 'All Status' ||
+      filters.week !== 'All Weeks' ||
+      filters.project !== 'All Projects' ||
+      filters.year !== 'All Years' ||
+      filters.fromDate !== '' ||
+      filters.toDate !== ''
+    );
   };
 
   const handleExport = () => {
-    if (!timesheets.length) {
-      alert('No data to export');
+    if (timesheets.length === 0) {
+      showMessage('Export Info', 'No timesheet data to export.', 'info');
       return;
     }
 
-    // Group data by employee
-    const groupedData = timesheets.reduce((acc, ts) => {
-      const empId = ts.employeeId || 'Unknown';
-      if (!acc[empId]) {
-        acc[empId] = {
-          id: empId,
-          name: ts.employeeName || 'Unknown',
-          division: ts.division || '',
-          location: ts.location || '',
-          status: ts.status || '',
-          projects: {},
-          totalHours: 0
-        };
-      }
-
-      // Aggregate project hours
-      (ts.timeEntries || []).forEach(entry => {
-        const projName = (entry.project || '').trim();
-        const taskName = (entry.task || '').toLowerCase();
-        
-        // Skip Leave entries
-        const isLeave = projName.toLowerCase() === 'leave' || 
-                        taskName.includes('leave') || 
-                        taskName.includes('holiday');
-        
-        if (isLeave) return;
-
-        const hours = Number(entry.total || 0);
-        acc[empId].projects[projName] = (acc[empId].projects[projName] || 0) + hours;
-        acc[empId].totalHours += hours;
-      });
-
-      return acc;
-    }, {});
-
-    // Define CSV headers
-    const headers = [
-      'Employee ID',
-      'Name',
-      'Division',
-      'Location',
-      'Project Name',
-      'Project Hours (HH:MM)',
-      'Total Employee Hours (HH:MM)',
-      'Status'
-    ];
-
-    // Format data rows
-    const rows = [];
-    Object.values(groupedData).forEach(emp => {
-      const projectNames = Object.keys(emp.projects);
-      
-      if (projectNames.length === 0) {
-        rows.push({
-          'Employee ID': emp.id,
-          'Name': emp.name,
-          'Division': emp.division,
-          'Location': emp.location,
-          'Project Name': 'No Projects',
-          'Project Hours': '00:00',
-          'Total Employee Hours': formatDuration(emp.totalHours),
-          'Status': emp.status
+    const flattened = [];
+    timesheets.forEach(ts => {
+      const entries = ts.timeEntries || [];
+      if (entries.length === 0) {
+        flattened.push({
+          'Employee ID': ts.employeeId || '',
+          'Employee Name': ts.employeeName || '',
+          'Division': ts.division || '',
+          'Location': ts.location || '',
+          'Week': ts.week || '',
+          'Submitted Date': ts.submittedDate ? new Date(ts.submittedDate).toLocaleDateString() : '',
+          'Status': ts.status === 'Submitted' ? 'Pending' : (ts.status || ''),
+          'Rejection Reason': ts.rejectionReason || '',
+          'Project': '',
+          'Task': '',
+          'Type': '',
+          'Mon (hrs)': '',
+          'Tue (hrs)': '',
+          'Wed (hrs)': '',
+          'Thu (hrs)': '',
+          'Fri (hrs)': '',
+          'Sat (hrs)': '',
+          'Sun (hrs)': '',
+          'Entry Total (hrs)': '',
+          'Weekly Total (hrs)': formatDuration(ts.weeklyTotal || 0)
         });
       } else {
-        projectNames.forEach((proj, index) => {
-          rows.push({
-            'Employee ID': emp.id,
-            'Name': emp.name,
-            'Division': emp.division,
-            'Location': emp.location,
-            'Project Name': proj,
-            'Project Hours': formatDuration(emp.projects[proj]),
-            'Total Employee Hours': index === 0 ? formatDuration(emp.totalHours) : '',
-            'Status': emp.status
+        entries.forEach(te => {
+          flattened.push({
+            'Employee ID': ts.employeeId || '',
+            'Employee Name': ts.employeeName || '',
+            'Division': ts.division || '',
+            'Location': ts.location || '',
+            'Week': ts.week || '',
+            'Submitted Date': ts.submittedDate ? new Date(ts.submittedDate).toLocaleDateString() : '',
+            'Status': ts.status === 'Submitted' ? 'Pending' : (ts.status || ''),
+            'Rejection Reason': ts.rejectionReason || '',
+            'Project': te.project || '',
+            'Task': te.task || '',
+            'Type': te.type || '',
+            'Mon (hrs)': te.monday ? formatDuration(te.monday) : '00:00',
+            'Tue (hrs)': te.tuesday ? formatDuration(te.tuesday) : '00:00',
+            'Wed (hrs)': te.wednesday ? formatDuration(te.wednesday) : '00:00',
+            'Thu (hrs)': te.thursday ? formatDuration(te.thursday) : '00:00',
+            'Fri (hrs)': te.friday ? formatDuration(te.friday) : '00:00',
+            'Sat (hrs)': te.saturday ? formatDuration(te.saturday) : '00:00',
+            'Sun (hrs)': te.sunday ? formatDuration(te.sunday) : '00:00',
+            'Entry Total (hrs)': te.total ? formatDuration(te.total) : '00:00',
+            'Weekly Total (hrs)': formatDuration(ts.weeklyTotal || 0)
           });
         });
       }
     });
 
-    // Create Excel workbook and worksheet
-    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const worksheet = XLSX.utils.json_to_sheet(flattened);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheets Summary');
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheets');
+    const timestamp = new Date().toISOString().slice(0, 10);
+    XLSX.writeFile(workbook, `Admin_Timesheets_${timestamp}.xlsx`);
+  };
 
-    // Generate and download Excel file
-    XLSX.writeFile(workbook, `timesheets_summary_export_${new Date().toISOString().split('T')[0]}.xlsx`);
+  const handleRefresh = () => {
+    fetchTimesheets();
   };
 
   const showMessage = (title, message, type = 'success') => {
@@ -1069,69 +533,85 @@ const AdminTimesheet = () => {
     }
   };
 
-  const handleMouseEnter = (type, id) => {
-    setHoverStates(prev => ({
-      ...prev,
-      [type]: { ...prev[type], [id]: true }
-    }));
-  };
-
-  const handleMouseLeave = (type, id) => {
-    setHoverStates(prev => ({
-      ...prev,
-      [type]: { ...prev[type], [id]: false }
-    }));
-  };
-
-  const getStatusBadge = (status) => {
-    const baseStyle = styles.statusBadge;
+  const getStatusBadgeClass = (status) => {
     const s = (status || '').toLowerCase();
     switch (s) {
       case 'approved':
-        return { ...baseStyle, ...styles.approvedBadge };
+        return 'bg-emerald-50 text-emerald-700 border border-emerald-200';
       case 'rejected':
-        return { ...baseStyle, ...styles.rejectedBadge };
+        return 'bg-rose-50 text-rose-700 border border-rose-200';
       case 'pending':
       case 'submitted':
-        return { ...baseStyle, ...styles.pendingBadge };
+        return 'bg-amber-50 text-amber-700 border border-amber-200';
       case 'not submitted':
-        return { ...baseStyle, ...styles.notSubmittedBadge };
+        return 'bg-slate-100 text-slate-600 border border-slate-200';
       default:
-        return baseStyle;
+        return 'bg-slate-100 text-slate-600 border border-slate-200';
     }
   };
 
-  const daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
   const shortDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   return (
-    <div style={styles.adminTimesheet}>
-      {/* Header */}
-      {/* <div style={styles.timesheetHeader}>
-        <h1 style={styles.headerTitle}>Timesheet Management</h1>
-      </div> */}
+    <div className="p-4 md:p-6 bg-slate-50 min-h-screen space-y-6 font-sans text-slate-800">
+      
+      {/* Top Header Card */}
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 p-5 flex flex-wrap justify-between items-center gap-4">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-gradient-to-r from-[#262760] to-[#3a3c8c] text-white rounded-2xl shadow-md shadow-indigo-900/20">
+            <Building2 size={24} />
+          </div>
+          <div>
+            <h1 className="text-xl font-extrabold text-indigo-950 tracking-tight">Admin Timesheet Management</h1>
+          </div>
+        </div>
 
-      {/* Statistics Cards */}
-      <div style={styles.statsGrid}>
-        {statConfigs.map((stat, index) => {
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="px-4 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border border-slate-200/80"
+          >
+            <Filter size={15} />
+            {showFilters ? 'Hide Filters' : 'Show Filters'}
+          </button>
+
+          <button 
+            onClick={handleRefresh}
+            disabled={loading}
+            className="px-4 py-2.5 bg-slate-100 text-indigo-950 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border border-slate-200/80 disabled:opacity-50"
+          >
+            <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
+            {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+
+          <button 
+            onClick={handleExport}
+            className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all shadow-md shadow-emerald-600/20 flex items-center gap-2"
+          >
+            <Download size={15} />
+            Export to Excel
+          </button>
+        </div>
+      </div>
+
+      {/* KPI Statistics Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
+        {statConfigs.map((stat) => {
           const IconComponent = stat.icon;
           return (
             <div 
               key={stat.title}
-              style={{
-                ...styles.statCard,
-                ...(hoverStates.statCards?.[stat.title] ? styles.statCardHover : {})
-              }}
-              onMouseEnter={() => handleMouseEnter('statCards', stat.title)}
-              onMouseLeave={() => handleMouseLeave('statCards', stat.title)}
+              className={`bg-gradient-to-br ${stat.gradient} p-5 rounded-2xl text-white shadow-xl shadow-indigo-950/10 border ${stat.border} relative overflow-hidden group hover:scale-[1.01] transition-all`}
             >
-              <div style={styles.statHeader}>
-                <div style={{...styles.statIconContainer, backgroundColor: `${stat.color}20`}}>
-                  <IconComponent size={20} color={stat.color} />
+              <div className="flex justify-between items-center relative z-10">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-wider text-slate-200/80">{stat.title}</p>
+                  <h3 className="text-2xl font-extrabold mt-1 text-white">{stat.value}</h3>
+                </div>
+                <div className={`p-2.5 rounded-xl border border-white/10 ${stat.iconBg}`}>
+                  <IconComponent size={20} />
                 </div>
               </div>
-              <h3 style={styles.statTitle}>{stat.title}</h3>
-              <p style={styles.statNumber}>{stat.value}</p>
             </div>
           );
         })}
@@ -1139,315 +619,266 @@ const AdminTimesheet = () => {
 
       {/* Filters Section */}
       {showFilters && (
-      <div style={styles.filtersSection}>
-        <div style={styles.sectionHeader}>
-          <h2 style={styles.sectionTitle}>
-            <Filter size={20} />
-            Timesheet Filters
-          </h2>
-          <div style={styles.actionButtons}>
+        <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 p-5 space-y-4">
+          <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+            <div className="flex items-center gap-2 text-indigo-950 font-bold text-sm">
+              <Filter size={16} className="text-indigo-600" />
+              Timesheet Filters
+            </div>
             {isFilterApplied() && (
               <button
-                style={styles.secondaryButton}
                 onClick={handleClearFilters}
+                className="text-xs font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200 transition-all flex items-center gap-1.5"
               >
-                <X size={16} />
+                <X size={14} />
                 Clear Filters
               </button>
             )}
           </div>
-        </div>
 
-        <div style={styles.filtersGrid}>
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>
-              <Search size={14} />
-              Employee ID
-            </label>
-            <select
-              style={styles.filterInput}
-              value={filters.employeeId}
-              onChange={(e) => handleFilterChange('employeeId', e.target.value)}
-            >
-              {employeeIdOptions.map(id => (
-                <option key={id} value={id}>
-                  {id === '' ? 'All Employees' : id}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {!isProjectManager && (
-            <div style={styles.filterGroup}>
-              <label style={styles.filterLabel}>
-                <Building size={14} />
-                Division
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Search size={13} className="text-slate-400" /> Employee ID
               </label>
               <select
-                value={filters.division}
-                onChange={(e) => handleFilterChange('division', e.target.value)}
-                style={styles.filterInput}
+                value={filters.employeeId}
+                onChange={(e) => handleFilterChange('employeeId', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
               >
-                <option>All Division</option>
-                <option>SDS</option>
-                <option>TEKLA</option>
-                <option>DAS(Software)</option>
-                <option>Mechanical</option>
+                {employeeIdOptions.map(id => (
+                  <option key={id} value={id}>
+                    {id === '' ? 'All Employees' : id}
+                  </option>
+                ))}
               </select>
             </div>
-          )}
 
-          {!isProjectManager && (
-            <div style={styles.filterGroup}>
-              <label style={styles.filterLabel}>
-                <MapPin size={14} />
-                Location
-              </label>
-              <select
-                value={filters.location}
-                onChange={(e) => handleFilterChange('location', e.target.value)}
-                style={styles.filterInput}
-              >
-                <option>All Locations</option>
-                <option>Chennai</option>
-                <option>Hosur</option>
-              </select>
-            </div>
-          )}
-
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>
-              <FileText size={14} />
-              Status
-            </label>
-            <select
-              value={filters.status}
-              onChange={(e) => handleFilterChange('status', e.target.value)}
-              style={styles.filterInput}
-            >
-              <option>All Status</option>
-              <option value="Submitted">Pending</option>
-              <option>Approved</option>
-              <option>Rejected</option>
-              <option>Not Submitted</option>
-            </select>
-          </div>
-
-          <div style={styles.filterGroup}>
-                <label style={styles.filterLabel}>
-                  <Calendar size={14} />
-                  Year
+            {!isProjectManager && (
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                  <Building size={13} className="text-slate-400" /> Division
                 </label>
                 <select
-                  style={styles.filterInput}
-                  value={filters.year}
-                  onChange={(e) => handleFilterChange('year', e.target.value)}
+                  value={filters.division}
+                  onChange={(e) => handleFilterChange('division', e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
                 >
-                  {yearOptions.map(year => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
+                  <option>All Division</option>
+                  <option>SDS</option>
+                  <option>TEKLA</option>
+                  <option>DAS(Software)</option>
+                  <option>Electrical</option>
+                  <option>HR/Admin</option>
                 </select>
               </div>
+            )}
 
-              <div style={styles.filterGroup}>
-                <label style={styles.filterLabel}>
-                  <Calendar size={14} />
-                  Week
+            {!isProjectManager && (
+              <div>
+                <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                  <MapPin size={13} className="text-slate-400" /> Location
                 </label>
-            <select
-              value={filters.week}
-              onChange={(e) => handleFilterChange('week', e.target.value)}
-              style={styles.filterInput}
-            >
-              {weekOptions.map(week => (
-                <option key={week} value={week}>{week}</option>
-              ))}
-            </select>
-          </div>
+                <select
+                  value={filters.location}
+                  onChange={(e) => handleFilterChange('location', e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+                >
+                  <option>All Locations</option>
+                  <option>Chennai</option>
+                  <option>Hosur</option>
+                </select>
+              </div>
+            )}
 
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>
-              <FolderOpen size={14} />
-              Project
-            </label>
-            <select
-              value={filters.project}
-              onChange={(e) => handleFilterChange('project', e.target.value)}
-              style={styles.filterInput}
-            >
-              {projectOptions.map(p => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-          </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <FileText size={13} className="text-slate-400" /> Status
+              </label>
+              <select
+                value={filters.status}
+                onChange={(e) => handleFilterChange('status', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              >
+                <option>All Status</option>
+                <option value="Submitted">Pending</option>
+                <option>Approved</option>
+                <option>Rejected</option>
+                <option>Not Submitted</option>
+              </select>
+            </div>
 
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>
-              <Calendar size={14} />
-              From Date
-            </label>
-            <input
-              type="date"
-              style={styles.filterInput}
-              value={filters.fromDate}
-              onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-            />
-          </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Calendar size={13} className="text-slate-400" /> Year
+              </label>
+              <select
+                value={filters.year}
+                onChange={(e) => handleFilterChange('year', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              >
+                {yearOptions.map(year => (
+                  <option key={year} value={year}>{year}</option>
+                ))}
+              </select>
+            </div>
 
-          <div style={styles.filterGroup}>
-            <label style={styles.filterLabel}>
-              <Calendar size={14} />
-              To Date
-            </label>
-            <input
-              type="date"
-              style={styles.filterInput}
-              value={filters.toDate}
-              onChange={(e) => handleFilterChange('toDate', e.target.value)}
-            />
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Calendar size={13} className="text-slate-400" /> Week
+              </label>
+              <select
+                value={filters.week}
+                onChange={(e) => handleFilterChange('week', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              >
+                {weekOptions.map(week => (
+                  <option key={week} value={week}>{week}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <FolderOpen size={13} className="text-slate-400" /> Project
+              </label>
+              <select
+                value={filters.project}
+                onChange={(e) => handleFilterChange('project', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              >
+                {projectOptions.map(p => (
+                  <option key={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Calendar size={13} className="text-slate-400" /> From Date
+              </label>
+              <input
+                type="date"
+                value={filters.fromDate}
+                onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Calendar size={13} className="text-slate-400" /> To Date
+              </label>
+              <input
+                type="date"
+                value={filters.toDate}
+                onChange={(e) => handleFilterChange('toDate', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              />
+            </div>
           </div>
         </div>
-      </div>
       )}
 
-      {/* Timesheets Table */}
-      <div style={styles.timesheetsTableSection}>
-        <div style={styles.tableHeader}>
-          <div>
-            <h2 style={styles.sectionTitle}>
-              <FileText size={20} />
-              Submitted Timesheets
-            </h2>
-            <span style={{color: '#718096', fontSize: '14px', marginLeft: '28px'}}>
+      {/* Submitted Timesheets Table */}
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 overflow-hidden">
+        <div className="p-4 bg-slate-50/50 border-b border-slate-200 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <FileText size={18} className="text-indigo-600" />
+            <h2 className="text-sm font-bold text-indigo-950 uppercase tracking-wider">Submitted Timesheets</h2>
+            <span className="bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs font-extrabold border border-indigo-200">
               {timesheets.length} records
             </span>
           </div>
-          <div style={styles.actionButtons}>
-            <button
-              style={styles.secondaryButton}
-              onClick={() => setShowFilters(!showFilters)}
-            >
-              <Filter size={16} />
-              {showFilters ? 'Hide Filters' : 'Show Filters'}
-            </button>
-            <button 
-              style={{
-                ...styles.secondaryButton,
-                ...(hoverStates.refreshButton?.refresh ? styles.secondaryButtonHover : {}),
-                opacity: loading ? 0.7 : 1,
-                cursor: loading ? 'not-allowed' : 'pointer'
-              }}
-              onMouseEnter={() => handleMouseEnter('refreshButton', 'refresh')}
-              onMouseLeave={() => handleMouseLeave('refreshButton', 'refresh')}
-              onClick={handleRefresh}
-              disabled={loading}
-            >
-              <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-              {loading ? 'Refreshing...' : 'Refresh'}
-            </button>
-            <button 
-              style={styles.primaryButton}
-              onClick={handleExport}
-            >
-              <Download size={16} />
-              Export
-            </button>
-          </div>
         </div>
 
-        <div style={styles.tableContainer}>
-          <table style={styles.timesheetsTable}>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse">
             <thead>
-              <tr>
-                <th style={styles.tableHeaderCell}>Employee ID</th>
-                <th style={styles.tableHeaderCell}>Name</th>
-                <th style={styles.tableHeaderCell}>Division</th>
-                <th style={styles.tableHeaderCell}>Location</th>
-                <th style={styles.tableHeaderCell}>Week</th>
-                <th style={styles.tableHeaderCell}>Projects</th>
-                <th style={styles.tableHeaderCell}>Total Hours (HH:MM)</th>
-                <th style={styles.tableHeaderCell}>Status</th>
-                <th style={styles.tableHeaderCell}>Actions</th>
+              <tr className="bg-gradient-to-r from-[#1e1b4b] via-[#262760] to-[#2e3078] text-white text-xs font-bold uppercase tracking-wider">
+                <th className="p-3.5 pl-5">Employee ID</th>
+                <th className="p-3.5">Name</th>
+                <th className="p-3.5">Division</th>
+                <th className="p-3.5">Location</th>
+                <th className="p-3.5">Week</th>
+                <th className="p-3.5">Projects</th>
+                <th className="p-3.5 text-center">Total Hours</th>
+                <th className="p-3.5 text-center">Status</th>
+                <th className="p-3.5 text-center pr-5">Actions</th>
               </tr>
             </thead>
-            <tbody>
-              {timesheets.length === 0 ? (
+            <tbody className="divide-y divide-slate-100 text-xs font-medium">
+              {loading ? (
                 <tr>
-                  <td colSpan="9" style={{...styles.tableCell, textAlign: 'center', padding: '40px'}}>
-                    <div style={{color: '#718096', fontSize: '16px'}}>
-                      No timesheets found
-                    </div>
+                  <td colSpan="9" className="text-center py-12 text-slate-500">
+                    <Loader2 className="animate-spin w-6 h-6 text-indigo-600 mx-auto mb-2" />
+                    Loading timesheets...
+                  </td>
+                </tr>
+              ) : timesheets.length === 0 ? (
+                <tr>
+                  <td colSpan="9" className="text-center py-12 text-slate-500 font-semibold">
+                    No timesheets found for the selected filters.
                   </td>
                 </tr>
               ) : (
                 timesheets.map(timesheet => (
-                      <tr 
+                  <tr 
                     key={getTimesheetId(timesheet) || `${timesheet.employeeId || 'UNKNOWN'}|${timesheet.week || 'UNKNOWN'}`}
-                    style={{
-                      ...styles.tableRow,
-                      ...(hoverStates.tableRows?.[timesheet._id] ? styles.tableRowHover : {})
-                    }}
-                    onMouseEnter={() => handleMouseEnter('tableRows', timesheet._id)}
-                    onMouseLeave={() => handleMouseLeave('tableRows', timesheet._id)}
+                    className="hover:bg-indigo-50/40 transition-colors"
                   >
-                    <td style={styles.tableCell}>
-                      <div style={{fontWeight: '500', color: '#4299e1'}}>
-                        {timesheet.employeeId || '—'}
-                      </div>
-                    </td>
-                    <td style={styles.tableCell}>
-                      <div style={{fontWeight: '500'}}>{timesheet.employeeName}</div>
-                    </td>
-                    <td style={styles.tableCell}>{timesheet.division}</td>
-                    <td style={styles.tableCell}>{timesheet.location}</td>
-                    <td style={styles.tableCell}>{timesheet.week || '—'}</td>
-                    <td style={styles.tableCell}>
+                    <td className="p-3.5 pl-5 font-bold text-indigo-700">{timesheet.employeeId || '—'}</td>
+                    <td className="p-3.5 font-bold text-slate-900">{timesheet.employeeName}</td>
+                    <td className="p-3.5 text-slate-600">{timesheet.division}</td>
+                    <td className="p-3.5 text-slate-600">{timesheet.location}</td>
+                    <td className="p-3.5 text-slate-600">{timesheet.week || '—'}</td>
+                    <td className="p-3.5 text-slate-600 max-w-xs truncate">
                       {(() => {
                         const projects = (timesheet.timeEntries || []).map(entry => entry.project).filter(Boolean);
                         return projects.length ? projects.join(', ') : '—';
                       })()}
                     </td>
-                    <td style={styles.tableCell}>
-                      <div style={{fontWeight: '600'}}>{formatDuration(timesheet.weeklyTotal || 0)}</div>
+                    <td className="p-3.5 text-center font-bold font-mono text-slate-800">
+                      {formatDuration(timesheet.weeklyTotal || 0)}
                     </td>
-                    <td style={styles.tableCell}>
-                      <span style={getStatusBadge(timesheet.status)}>
+                    <td className="p-3.5 text-center">
+                      <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold tracking-wide uppercase inline-block ${getStatusBadgeClass(timesheet.status)}`}>
                         {timesheet.status === 'Submitted' ? 'Pending' : (timesheet.status || '—')}
                       </span>
                     </td>
-                    <td style={styles.tableCell}>
-                      <div style={styles.actions}>
+                    <td className="p-3.5 pr-5">
+                      <div className="flex items-center justify-center gap-1.5">
                         <button 
-                          style={styles.viewBtn}
                           onClick={() => handleView(getTimesheetId(timesheet))}
+                          className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
                           title="View Details"
                         >
-                          <Eye size={12} />
+                          <Eye size={15} />
                         </button>
                         {(!['approved','rejected', 'not submitted'].includes((timesheet.status || '').toLowerCase())) && (
                           <>
                             <button 
-                              style={styles.rejectBtn}
                               onClick={() => handleReject(getTimesheetId(timesheet))}
                               disabled={!!actionLoading[getTimesheetId(timesheet)]}
+                              className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors disabled:opacity-50"
                               title="Reject"
                             >
                               {actionLoading[getTimesheetId(timesheet)] ? (
-                                <Loader2 className="animate-spin" size={12} />
+                                <Loader2 className="animate-spin" size={15} />
                               ) : (
-                                <XCircle size={12} />
+                                <XCircle size={15} />
                               )}
                             </button>
                             <button 
-                              style={styles.approveBtn}
                               onClick={() => handleApprove(getTimesheetId(timesheet))}
                               disabled={!!actionLoading[getTimesheetId(timesheet)]}
+                              className="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-100 transition-colors disabled:opacity-50"
                               title="Approve"
                             >
                               {actionLoading[getTimesheetId(timesheet)] ? (
-                                <Loader2 className="animate-spin" size={12} />
+                                <Loader2 className="animate-spin" size={15} />
                               ) : (
-                                <CheckCircle size={12} />
+                                <CheckCircle size={15} />
                               )}
                             </button>
                           </>
@@ -1464,106 +895,94 @@ const AdminTimesheet = () => {
 
       {/* View Timesheet Modal */}
       {showViewModal && selectedTimesheet && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-6">
+            
+            <div className="flex justify-between items-center pb-4 border-b border-slate-200">
+              <h2 className="text-lg font-extrabold text-indigo-950 flex items-center gap-2">
+                <FileText className="text-indigo-600" size={20} />
                 Timesheet Details - {selectedTimesheet.employeeName}
               </h2>
               <button 
-                style={styles.closeButton}
                 onClick={handleCloseModal}
-                title="Close"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
               >
                 <X size={20} />
               </button>
             </div>
 
-            {/* Basic Information Grid */}
-            <div style={styles.detailGrid}>
-              <div style={styles.detailCard}>
-                <div style={styles.detailLabel}>Employee ID</div>
-                <div style={styles.detailValue}>{selectedTimesheet.employeeId}</div>
+            {/* Basic Info Cards Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                <p className="text-[11px] font-medium text-slate-500 uppercase">Employee ID</p>
+                <p className="text-sm font-bold text-indigo-950 mt-0.5">{selectedTimesheet.employeeId}</p>
               </div>
-              <div style={styles.detailCard}>
-                <div style={styles.detailLabel}>Employee Name</div>
-                <div style={styles.detailValue}>{selectedTimesheet.employeeName}</div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                <p className="text-[11px] font-medium text-slate-500 uppercase">Employee Name</p>
+                <p className="text-sm font-bold text-indigo-950 mt-0.5">{selectedTimesheet.employeeName}</p>
               </div>
-              <div style={styles.detailCard}>
-                <div style={styles.detailLabel}>Division</div>
-                <div style={styles.detailValue}>{selectedTimesheet.division}</div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                <p className="text-[11px] font-medium text-slate-500 uppercase">Division</p>
+                <p className="text-sm font-bold text-indigo-950 mt-0.5">{selectedTimesheet.division}</p>
               </div>
-              <div style={styles.detailCard}>
-                <div style={styles.detailLabel}>Location</div>
-                <div style={styles.detailValue}>{selectedTimesheet.location}</div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                <p className="text-[11px] font-medium text-slate-500 uppercase">Location</p>
+                <p className="text-sm font-bold text-indigo-950 mt-0.5">{selectedTimesheet.location}</p>
               </div>
-              <div style={styles.detailCard}>
-                <div style={styles.detailLabel}>Week</div>
-                <div style={styles.detailValue}>{selectedTimesheet.week}</div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                <p className="text-[11px] font-medium text-slate-500 uppercase">Week Range</p>
+                <p className="text-sm font-bold text-indigo-950 mt-0.5">{selectedTimesheet.week}</p>
               </div>
-              <div style={styles.detailCard}>
-                <div style={styles.detailLabel}>Status</div>
-                <div>
-                  <span style={getStatusBadge(selectedTimesheet.status)}>
-                    {selectedTimesheet.status}
-                  </span>
-                </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                <p className="text-[11px] font-medium text-slate-500 uppercase">Status</p>
+                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold mt-1 inline-block ${getStatusBadgeClass(selectedTimesheet.status)}`}>
+                  {selectedTimesheet.status}
+                </span>
               </div>
-              <div style={styles.detailCard}>
-                <div style={styles.detailLabel}>Submitted Date</div>
-                <div style={styles.detailValue}>{selectedTimesheet.submittedDate}</div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70 sm:col-span-2">
+                <p className="text-[11px] font-medium text-slate-500 uppercase">Submitted Date</p>
+                <p className="text-sm font-bold text-indigo-950 mt-0.5">
+                  {selectedTimesheet.submittedDate ? new Date(selectedTimesheet.submittedDate).toLocaleString() : '—'}
+                </p>
               </div>
             </div>
 
             {/* Time Entries Table */}
-            <div style={styles.timeEntriesTableSection}>
-              <h3 style={styles.timeEntriesTitle}>Time Entries</h3>
-              <div style={styles.tableContainer}>
-                <table style={styles.timeEntriesTable}>
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold text-indigo-950 uppercase tracking-wider">Time Entries Breakdown</h3>
+              <div className="border border-slate-200 rounded-xl overflow-hidden">
+                <table className="w-full text-xs text-left border-collapse">
                   <thead>
-                    <tr>
-                      <th style={{...styles.timeEntriesHeaderCell, textAlign: 'left'}}>Projects</th>
-                      <th style={{...styles.timeEntriesHeaderCell, textAlign: 'left'}}>Task</th>
+                    <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                      <th className="p-3">Projects</th>
+                      <th className="p-3">Task</th>
                       {shortDays.map(day => (
-                        <th key={day} style={styles.timeEntriesHeaderCell}>{day}</th>
+                        <th key={day} className="p-3 text-center">{day}</th>
                       ))}
-                      <th style={styles.timeEntriesHeaderCell}>Total (HH:MM)</th>
+                      <th className="p-3 text-center font-bold">Total</th>
                     </tr>
                   </thead>
-                  <tbody>
+                  <tbody className="divide-y divide-slate-100">
                     {(selectedTimesheet?.timeEntries || []).map((entry, index) => (
-                      <tr key={index}>
-                        <td style={{...styles.timeEntriesCell, textAlign: 'left'}}>{entry.project}</td>
-                        <td style={{...styles.timeEntriesCell, textAlign: 'left'}}>{entry.task}</td>
-                        <td style={styles.timeEntriesCell}>{entry.monday > 0 ? formatDuration(entry.monday) : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.tuesday > 0 ? formatDuration(entry.tuesday) : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.wednesday > 0 ? formatDuration(entry.wednesday) : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.thursday > 0 ? formatDuration(entry.thursday) : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.friday > 0 ? formatDuration(entry.friday) : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.saturday > 0 ? formatDuration(entry.saturday) : '-'}</td>
-                        <td style={styles.timeEntriesCell}>{entry.sunday > 0 ? formatDuration(entry.sunday) : '-'}</td>
-                        <td style={styles.timeEntriesCell}>
-                          <div style={{fontWeight: '600'}}>{formatDuration(entry.total)}</div>
+                      <tr key={index} className="hover:bg-slate-50">
+                        <td className="p-3 font-semibold text-slate-800">{entry.project}</td>
+                        <td className="p-3 text-slate-600">{entry.task}</td>
+                        <td className="p-3 text-center font-mono">{entry.monday > 0 ? formatDuration(entry.monday) : '-'}</td>
+                        <td className="p-3 text-center font-mono">{entry.tuesday > 0 ? formatDuration(entry.tuesday) : '-'}</td>
+                        <td className="p-3 text-center font-mono">{entry.wednesday > 0 ? formatDuration(entry.wednesday) : '-'}</td>
+                        <td className="p-3 text-center font-mono">{entry.thursday > 0 ? formatDuration(entry.thursday) : '-'}</td>
+                        <td className="p-3 text-center font-mono">{entry.friday > 0 ? formatDuration(entry.friday) : '-'}</td>
+                        <td className="p-3 text-center font-mono">{entry.saturday > 0 ? formatDuration(entry.saturday) : '-'}</td>
+                        <td className="p-3 text-center font-mono">{entry.sunday > 0 ? formatDuration(entry.sunday) : '-'}</td>
+                        <td className="p-3 text-center font-bold font-mono text-emerald-700">
+                          {formatDuration(entry.total)}
                         </td>
                       </tr>
                     ))}
-                    {/* Weekly Total Row */}
-                    <tr>
-                      <td 
-                        colSpan="9" 
-                        style={{
-                          ...styles.totalHoursCell, 
-                          textAlign: 'right',
-                          fontWeight: '600',
-                          backgroundColor: '#f7fafc'
-                        }}
-                      >
-                        Weekly Total:
-                      </td>
-                      <td style={styles.totalHoursCell}>
-                        <div style={{fontWeight: '700', color: '#2d3748'}}>
-                          {formatDuration(selectedTimesheet.weeklyTotal)}
-                        </div>
+                    <tr className="bg-slate-100 font-bold">
+                      <td colSpan="9" className="p-3 text-right text-slate-800">Weekly Total:</td>
+                      <td className="p-3 text-center font-mono text-indigo-950 font-extrabold text-sm">
+                        {formatDuration(selectedTimesheet.weeklyTotal)}
                       </td>
                     </tr>
                   </tbody>
@@ -1573,28 +992,26 @@ const AdminTimesheet = () => {
 
             {/* Rejection Reason */}
             {selectedTimesheet.status === 'Rejected' && selectedTimesheet.rejectionReason && (
-              <div style={{...styles.detailCard, borderColor: '#f56565', backgroundColor: '#fed7d7'}}>
-                <div style={{...styles.detailLabel, color: '#742a2a'}}>Rejection Reason</div>
-                <div style={{color: '#742a2a', fontSize: '14px'}}>
-                  {selectedTimesheet.rejectionReason}
-                </div>
+              <div className="bg-rose-50 border border-rose-200 p-4 rounded-xl text-xs text-rose-800">
+                <p className="font-bold uppercase tracking-wider mb-1">Rejection Reason</p>
+                <p>{selectedTimesheet.rejectionReason}</p>
               </div>
             )}
 
-            {/* Action Buttons */}
-            <div style={styles.modalActions}>
+            {/* Actions */}
+            <div className="flex justify-end items-center gap-3 pt-3 border-t border-slate-200">
               <button 
-                style={styles.secondaryButton}
                 onClick={handleCloseModal}
+                className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
               >
                 Close
               </button>
               {(['submitted','pending'].includes((selectedTimesheet.status || '').toLowerCase())) && (
                 <>
                   <button 
-                    style={styles.rejectBtn}
                     onClick={handleRejectFromModal}
                     disabled={!!actionLoading[selectedTimesheet._id]}
+                    className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-600/20 transition-all flex items-center gap-2 disabled:opacity-50"
                   >
                     {actionLoading[selectedTimesheet._id] ? (
                       <>
@@ -1609,9 +1026,9 @@ const AdminTimesheet = () => {
                     )}
                   </button>
                   <button 
-                    style={styles.approveBtn}
-                    onClick={() => handleApprove(selectedTimesheet._id)}
+                    onClick={handleApproveFromModal}
                     disabled={!!actionLoading[selectedTimesheet._id]}
+                    className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 disabled:opacity-50"
                   >
                     {actionLoading[selectedTimesheet._id] ? (
                       <>
@@ -1632,46 +1049,42 @@ const AdminTimesheet = () => {
         </div>
       )}
 
+      {/* Reject Reason Dialog */}
       {rejectDialog.isOpen && (
-        <div style={styles.modalOverlay}>
-          <div style={{ ...styles.modalContent, maxWidth: '520px' }}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.modalTitle}>Reject Timesheet</h2>
-              <button
-                style={styles.closeButton}
-                onClick={closeRejectDialog}
-                title="Close"
-              >
-                <X size={20} />
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 space-y-4">
+            <div className="flex justify-between items-center pb-3 border-b border-slate-200">
+              <h2 className="text-base font-extrabold text-rose-950 flex items-center gap-2">
+                <XCircle className="text-rose-600" size={18} />
+                Reject Timesheet
+              </h2>
+              <button onClick={closeRejectDialog} className="p-1 text-slate-400 hover:text-slate-600">
+                <X size={18} />
               </button>
             </div>
 
-            <div style={{ marginBottom: '14px', color: '#4a5568', fontSize: '14px' }}>
-              Enter rejection reason
-            </div>
+            <p className="text-xs text-slate-600">Please specify the reason for rejecting this timesheet submission.</p>
 
             <textarea
               value={rejectDialog.reason}
               onChange={(e) => setRejectDialog(prev => ({ ...prev, reason: e.target.value }))}
-              style={styles.textarea}
-              placeholder="Type reason..."
+              rows={4}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs focus:ring-2 focus:ring-rose-500 focus:bg-white transition-all outline-none"
+              placeholder="Type rejection reason..."
             />
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '16px' }}>
+            <div className="flex justify-end items-center gap-2.5 pt-2">
               <button
-                style={styles.cancelButton}
                 onClick={closeRejectDialog}
                 disabled={!!actionLoading[rejectDialog.timesheetId]}
+                className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
               >
                 Cancel
               </button>
               <button
-                style={{
-                  ...styles.rejectBtn,
-                  ...((!!actionLoading[rejectDialog.timesheetId] || !(rejectDialog.reason || '').trim()) ? { opacity: 0.6, cursor: 'not-allowed' } : {})
-                }}
                 onClick={submitReject}
                 disabled={!!actionLoading[rejectDialog.timesheetId] || !(rejectDialog.reason || '').trim()}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold shadow-md shadow-rose-600/20 transition-all flex items-center gap-2 disabled:opacity-50"
               >
                 {actionLoading[rejectDialog.timesheetId] ? (
                   <>
@@ -1681,7 +1094,7 @@ const AdminTimesheet = () => {
                 ) : (
                   <>
                     <XCircle size={14} />
-                    Reject
+                    Confirm Reject
                   </>
                 )}
               </button>
@@ -1690,28 +1103,27 @@ const AdminTimesheet = () => {
         </div>
       )}
 
+      {/* Message Modal */}
       {messageDialog.isOpen && (
-        <div style={styles.messageOverlay}>
-          <div style={{ ...styles.modalContent, maxWidth: '460px' }}>
-            <div style={styles.modalHeader}>
-              <h2 style={styles.messageTitle}>{messageDialog.title}</h2>
-              <button
-                style={styles.closeButton}
-                onClick={closeMessage}
-                title="Close"
-              >
-                <X size={20} />
-              </button>
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 space-y-4 text-center">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600">
+              <CheckCircle size={24} />
             </div>
-            <div style={styles.messageText}>{messageDialog.message}</div>
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '18px' }}>
-              <button style={styles.secondaryButton} onClick={closeMessage}>
-                OK
-              </button>
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900">{messageDialog.title}</h2>
+              <p className="text-xs text-slate-600 mt-1">{messageDialog.message}</p>
             </div>
+            <button
+              onClick={closeMessage}
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-600/20 transition-all"
+            >
+              OK
+            </button>
           </div>
         </div>
       )}
+
     </div>
   );
 };
