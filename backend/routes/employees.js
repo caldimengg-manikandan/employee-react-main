@@ -26,6 +26,47 @@ const handleUpload = (fieldName) => (req, res, next) => {
   });
 };
 
+const calculateServiceYears = (dateOfJoining) => {
+  if (!dateOfJoining) return '';
+  let joinDate = new Date(dateOfJoining);
+  if (isNaN(joinDate.getTime())) {
+    const s = String(dateOfJoining).trim();
+    const parts = s.split(/[-/]/);
+    if (parts.length === 3) {
+      if (parts[0].length === 4) {
+        joinDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+      } else if (parts[2].length === 4) {
+        joinDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      }
+    }
+  }
+  if (isNaN(joinDate.getTime())) return '';
+
+  const today = new Date();
+  let months = (today.getFullYear() - joinDate.getFullYear()) * 12;
+  months -= joinDate.getMonth();
+  months += today.getMonth();
+
+  if (today.getDate() < joinDate.getDate()) {
+    months--;
+  }
+
+  if (months < 0) months = 0;
+
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+
+  let result = '';
+  if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
+  if (remainingMonths > 0) {
+    if (result) result += ' ';
+    result += `${remainingMonths} month${remainingMonths > 1 ? 's' : ''}`;
+  }
+  if (!result) result = 'Less than a month';
+
+  return result;
+};
+
 const syncCompensationToEmployeeAndPayroll = async (emp) => {
   try {
     const Compensation = require("../models/Compensation");
@@ -203,13 +244,7 @@ router.get('/', auth, async (req, res) => {
           }
         }
       }
-      const employees = await Employee.find(query, {
-        name: 1, employeename: 1, employeeId: 1, email: 1, officialEmail: 1,
-        division: 1, designation: 1, position: 1, role: 1, qualification: 1,
-        highestQualification: 1, dateOfJoining: 1, dateofjoin: 1, currentExperience: 1,
-        experience: 1, mobileNo: 1, contactNumber: 1, status: 1, profilePicture: 1,
-        profilePicturePublicId: 1, createdAt: 1, _id: 1
-      }).lean().sort({ createdAt: -1 });
+      const employees = await Employee.find(query, { photo: 0 }).lean().sort({ createdAt: -1 });
       const formattedEmployees = employees.map(emp => {
         if (!emp) return emp;
         const name = emp.name || emp.employeename || '';
@@ -239,6 +274,8 @@ router.get('/', auth, async (req, res) => {
         const cleanedEmp = { ...emp };
         delete cleanedEmp.photo;
 
+        const currentExp = calculateServiceYears(dateofjoin) || emp.currentExperience || emp.experience || '';
+
         return {
           ...cleanedEmp,
           name,
@@ -257,6 +294,7 @@ router.get('/', auth, async (req, res) => {
           position: designation,
           role: designation,
           previousOrganizations,
+          currentExperience: currentExp,
           profilePicture: profilePicture || '',
           profilePicturePublicId: emp.profilePicturePublicId || ''
         };
@@ -335,9 +373,10 @@ router.get('/me', auth, async (req, res) => {
   try {
     const empId = req.user.employeeId;
     if (!empId) return res.status(404).json({ message: 'Employee ID not linked' });
-    const employee = await Employee.findOne({ employeeId: empId }, { photo: 0 });
+    const employee = await Employee.findOne({ employeeId: empId }, { photo: 0 }).lean();
     if (!employee) return res.status(404).json({ message: 'Employee not found' });
-    res.json(employee);
+    const currentExp = calculateServiceYears(employee.dateOfJoining || employee.dateofjoin) || employee.currentExperience || employee.experience || '';
+    res.json({ ...employee, currentExperience: currentExp });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -421,22 +460,32 @@ router.get('/admin/check-cloudinary-config', auth, (req, res) => {
 // Get employee by ID - restricted based on user permissions
 router.get('/:id', auth, async (req, res) => {
   try {
-    const employee = await Employee.findById(req.params.id, { photo: 0 });
+    const mongoose = require('mongoose');
+    let employee = null;
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      employee = await Employee.findById(req.params.id, { photo: 0 });
+    }
+    if (!employee) {
+      employee = await Employee.findOne({ employeeId: req.params.id }, { photo: 0 });
+    }
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
+
+    const empObj = employee.toObject ? employee.toObject() : { ...employee };
+    empObj.currentExperience = calculateServiceYears(empObj.dateOfJoining || empObj.dateofjoin) || empObj.currentExperience || empObj.experience || '';
 
     const roleLower = String(req.user.role || '').toLowerCase();
     const isHRAdmin = req.user.permissions?.includes('employee_access') ||
                       ['admin', 'director', 'manager'].includes(roleLower);
 
     if (isHRAdmin) {
-      return res.json(employee);
+      return res.json(empObj);
     }
 
     const isSelf = employee.employeeId === req.user.employeeId;
     if (isSelf) {
-      return res.json(employee);
+      return res.json(empObj);
     }
 
     const isPM = ['projectmanager', 'project_manager', 'teamlead'].includes(roleLower);

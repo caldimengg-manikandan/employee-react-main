@@ -247,7 +247,18 @@ const EmployeeManagement = () => {
   // Calculate years of service
   const calculateServiceYears = (dateOfJoining) => {
     if (!dateOfJoining) return '';
-    const joinDate = new Date(dateOfJoining);
+    let joinDate = new Date(dateOfJoining);
+    if (isNaN(joinDate.getTime())) {
+      const s = String(dateOfJoining).trim();
+      const parts = s.split(/[-/]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          joinDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        } else if (parts[2].length === 4) {
+          joinDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+      }
+    }
     if (isNaN(joinDate.getTime())) return '';
 
     const today = new Date();
@@ -278,13 +289,35 @@ const EmployeeManagement = () => {
 
 
 
-  const handleEdit = (employee) => {
+  const handleEdit = async (employee) => {
     setEditingEmployee(employee);
     setShowModal(true);
+    if (employee && (employee._id || employee.employeeId)) {
+      try {
+        const id = employee._id || employee.employeeId;
+        const res = await employeeAPI.getEmployeeById(id);
+        if (res?.data) {
+          setEditingEmployee(res.data);
+        }
+      } catch (e) {
+        console.error('Error fetching full employee details for edit:', e);
+      }
+    }
   };
 
-  const handleView = (employee) => {
+  const handleView = async (employee) => {
     setViewingEmployee(employee);
+    if (employee && (employee._id || employee.employeeId)) {
+      try {
+        const id = employee._id || employee.employeeId;
+        const res = await employeeAPI.getEmployeeById(id);
+        if (res?.data) {
+          setViewingEmployee(res.data);
+        }
+      } catch (e) {
+        console.error('Error fetching full employee details for view:', e);
+      }
+    }
   };
 
   const handleDelete = (id) => {
@@ -631,7 +664,9 @@ const EmployeeManagement = () => {
 
                 <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-cyan-100 shadow-sm">
                   <div className="text-xs font-bold text-cyan-700 uppercase tracking-wider">Current Experience</div>
-                  <div className="text-base font-bold text-gray-900 mt-1">{viewingEmployee.currentExperience || '-'}</div>
+                  <div className="text-base font-bold text-gray-900 mt-1">
+                    {calculateServiceYears(viewingEmployee.dateOfJoining || viewingEmployee.dateofjoin) || viewingEmployee.currentExperience || '-'}
+                  </div>
                 </div>
 
                 <div className="bg-white/80 backdrop-blur-sm p-3.5 rounded-xl border border-cyan-100 shadow-sm">
@@ -959,9 +994,6 @@ const EmployeeManagement = () => {
                       <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Employee Name
                       </th>
-                      <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
-                        Official Mail ID
-                      </th>
 
                       <th scope="col" className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider border-r border-blue-500/30">
                         Division
@@ -1017,9 +1049,6 @@ const EmployeeManagement = () => {
                               <div className="text-sm font-semibold text-gray-900">{employee.name}</div>
                             </div>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 border-r border-gray-100 font-medium">
-                          <span className="text-gray-700 font-semibold">{employee.officialEmail || '-'}</span>
                         </td>
 
                         <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">

@@ -131,6 +131,47 @@ const MyProfile = () => {
     return `${y}-${m}-${da}`;
   };
 
+  const calculateServiceYears = (dateOfJoining) => {
+    if (!dateOfJoining) return '';
+    let joinDate = new Date(dateOfJoining);
+    if (isNaN(joinDate.getTime())) {
+      const s = String(dateOfJoining).trim();
+      const parts = s.split(/[-/]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          joinDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        } else if (parts[2].length === 4) {
+          joinDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+      }
+    }
+    if (isNaN(joinDate.getTime())) return '';
+
+    const today = new Date();
+    let months = (today.getFullYear() - joinDate.getFullYear()) * 12;
+    months -= joinDate.getMonth();
+    months += today.getMonth();
+
+    if (today.getDate() < joinDate.getDate()) {
+      months--;
+    }
+
+    if (months < 0) months = 0;
+
+    const years = Math.floor(months / 12);
+    const remainingMonths = months % 12;
+
+    let result = '';
+    if (years > 0) result += `${years} year${years > 1 ? 's' : ''}`;
+    if (remainingMonths > 0) {
+      if (result) result += ' ';
+      result += `${remainingMonths} month${remainingMonths > 1 ? 's' : ''}`;
+    }
+    if (!result) result = 'Less than a month';
+
+    return result;
+  };
+
   // Populate form data
   useEffect(() => {
     const load = async () => {
@@ -229,7 +270,7 @@ const MyProfile = () => {
             dateOfJoining: toInputDate(emp.dateOfJoining || emp.dateofjoin) || toInputDate(base.dateOfJoining),
             previousExperience: emp.previousExperience || base.previousExperience,
             previousOrganizations: emp.previousOrganizations || base.previousOrganizations,
-            currentExperience: emp.currentExperience || base.currentExperience,
+            currentExperience: calculateServiceYears(emp.dateOfJoining || emp.dateofjoin || base.dateOfJoining) || emp.currentExperience || base.currentExperience,
             status: emp.status || base.status,
             exitDate: toInputDate(emp.exitDate) || base.exitDate,
             exitReason: emp.exitReason || base.exitReason,
@@ -1412,7 +1453,7 @@ const MyProfile = () => {
                       </label>
                       <input
                         type="text"
-                        value={formData.currentExperience || ''}
+                        value={calculateServiceYears(formData.dateOfJoining) || formData.currentExperience || ''}
                         disabled
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-1 focus:ring-cyan-500 focus:border-cyan-500 focus:outline-none text-sm bg-gray-100 cursor-not-allowed font-medium text-gray-800"
                         placeholder="Calculated automatically"
