@@ -42,12 +42,13 @@ const LeaveApplications = () => {
 
   const [allLeaveTypes, setAllLeaveTypes] = useState(DEFAULT_LEAVE_TYPES);
   const [allowedLeaveTypes, setAllowedLeaveTypes] = useState(DEFAULT_LEAVE_TYPES);
+  const [bereavementEnabled, setBereavementEnabled] = useState(false);
 
   const [totalLeaveDays, setTotalLeaveDays] = useState(0);
   const [leaveBalance, setLeaveBalance] = useState({
-    CL: 6,
-    SL: 6,
-    PL: 15,
+    CL: 0,
+    SL: 0,
+    PL: 0,
     BEREAVEMENT: 0
   });
   const [apiUsedLeaves, setApiUsedLeaves] = useState(null);
@@ -121,24 +122,25 @@ const LeaveApplications = () => {
 
   const fetchLeaveBalance = async () => {
     try {
-      const res = await employeeAPI.getLeaveBalance();
-      if (res.data?.success) {
-        const bal = res.data.data;
-        if (bal) {
-          setLeaveBalance(prev => ({
-            ...prev,
-            CL: typeof bal.cl === 'number' ? bal.cl : (typeof bal.CL === 'number' ? bal.CL : prev.CL),
-            SL: typeof bal.sl === 'number' ? bal.sl : (typeof bal.SL === 'number' ? bal.SL : prev.SL),
-            PL: typeof bal.pl === 'number' ? bal.pl : (typeof bal.PL === 'number' ? bal.PL : prev.PL),
-          }));
+      const res = await leaveAPI.myBalance();
+      const data = res.data;
+      if (data) {
+        setBereavementEnabled(!!data.bereavement_leave_enabled);
+        const balances = data.balances || (data.data && data.data.balances) || {};
+        setLeaveBalance({
+          CL: typeof balances.casual?.balance === 'number' ? balances.casual.balance : (typeof data.cl === 'number' ? data.cl : 0),
+          SL: typeof balances.sick?.balance === 'number' ? balances.sick.balance : (typeof data.sl === 'number' ? data.sl : 0),
+          PL: typeof balances.privilege?.balance === 'number' ? balances.privilege.balance : (typeof data.pl === 'number' ? data.pl : 0),
+          BEREAVEMENT: typeof balances.bereavement?.balance === 'number' ? balances.bereavement.balance : 0,
+        });
 
-          if (bal.clUsed !== undefined || bal.slUsed !== undefined || bal.plUsed !== undefined) {
-            setApiUsedLeaves({
-              CL: bal.clUsed || 0,
-              SL: bal.slUsed || 0,
-              PL: bal.plUsed || 0
-            });
-          }
+        if (balances.casual?.used !== undefined || balances.sick?.used !== undefined || balances.privilege?.used !== undefined || balances.bereavement?.used !== undefined) {
+          setApiUsedLeaves({
+            CL: balances.casual?.used || 0,
+            SL: balances.sick?.used || 0,
+            PL: balances.privilege?.used || 0,
+            BEREAVEMENT: balances.bereavement?.used || 0
+          });
         }
       }
     } catch (error) {
@@ -164,13 +166,23 @@ const LeaveApplications = () => {
         }
 
         setAllLeaveTypes(types);
-        setAllowedLeaveTypes(types);
       } catch (error) {
         console.error("Failed to load profile for leave types:", error);
       }
     };
     fetchProfileAndLeaveTypes();
   }, []);
+
+  useEffect(() => {
+    let types = [...allLeaveTypes];
+    if (!bereavementEnabled) {
+      types = types.filter(t => t.value !== 'BEREAVEMENT');
+    }
+    setAllowedLeaveTypes(types);
+    if (!bereavementEnabled && leaveData.leaveType === 'BEREAVEMENT') {
+      setLeaveData(prev => ({ ...prev, leaveType: 'PL' }));
+    }
+  }, [allLeaveTypes, bereavementEnabled]);
 
   useEffect(() => {
     const fetchRegionalHolidays = async () => {
@@ -582,10 +594,9 @@ const LeaveApplications = () => {
   const getAvailableBalance = (type) => {
     const base = Number(leaveBalance[type] || 0);
     const pending = Number(pendingLeaves[type] || 0);
-    const used = Number(usedLeaves[type] || 0);
-    const val = base - pending - used;
-    if (type === 'CL' || type === 'SL') return Math.max(0, val);
-    return val;
+    const val = base - pending;
+    if (type === 'CL' || type === 'SL' || type === 'BEREAVEMENT') return Math.max(0, parseFloat(val.toFixed(2)));
+    return parseFloat(val.toFixed(2));
   };
 
   const isRegionalHoliday = leaveData.leaveType === 'REGIONAL_HOLIDAY';
