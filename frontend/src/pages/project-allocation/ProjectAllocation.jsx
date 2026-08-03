@@ -128,6 +128,8 @@ const ProjectAllocation = () => {
   const [allocationForm, setAllocationForm] = useState({
     projectId: '',
     projectName: '',
+    projectCategory: 'All',
+    division: 'All',
     employeeName: '',
     employeeId: '',
     employeeIds: []
@@ -423,6 +425,28 @@ const ProjectAllocation = () => {
 
   const getAllEmployeesSorted = () => {
     return [...employees].sort((a, b) => compareEmployeeCodes(a.employeeId, b.employeeId));
+  };
+
+  const getModalDivisionOptions = () => {
+    const divSet = new Set(divisions);
+    employees.forEach(emp => {
+      if (emp.division) divSet.add(emp.division);
+      if (emp.department) divSet.add(emp.department);
+    });
+    projects.forEach(p => {
+      if (p.division) divSet.add(p.division);
+    });
+    return ['All', ...Array.from(divSet).filter(Boolean).sort()];
+  };
+
+  const getEmployeesByDivision = (divisionName) => {
+    const sorted = getAllEmployeesSorted();
+    if (!divisionName || divisionName === 'All') return sorted;
+    const norm = String(divisionName).trim().toLowerCase();
+    return sorted.filter(emp => {
+      const empDiv = String(emp.division || emp.department || '').trim().toLowerCase();
+      return empDiv === norm || empDiv.includes(norm) || norm.includes(empDiv);
+    });
   };
 
   // Function to refresh data from MongoDB
@@ -810,6 +834,154 @@ const ProjectAllocation = () => {
     );
   };
 
+  const MultiSelectEmployeeChecklist = ({
+    employees,
+    selectedEmployeeIds,
+    onToggleEmployee,
+    onSetEmployeeIds,
+    placeholder = 'Select Employee(s)'
+  }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [query, setQuery] = useState('');
+    const containerRef = useRef(null);
+    const inputRef = useRef(null);
+
+    useEffect(() => {
+      if (!isOpen) return;
+      const onMouseDown = (e) => {
+        if (containerRef.current && !containerRef.current.contains(e.target)) {
+          setIsOpen(false);
+        }
+      };
+      document.addEventListener('mousedown', onMouseDown);
+      return () => document.removeEventListener('mousedown', onMouseDown);
+    }, [isOpen]);
+
+    useEffect(() => {
+      if (!isOpen) return;
+      setQuery('');
+      setTimeout(() => {
+        try { inputRef.current?.focus(); } catch (_) { }
+      }, 0);
+    }, [isOpen]);
+
+    const q = String(query || '').trim().toLowerCase();
+    const filteredEmployees = q.length === 0
+      ? employees
+      : employees.filter(e =>
+          String(e.name || '').toLowerCase().includes(q) ||
+          String(e.employeeId || '').toLowerCase().includes(q) ||
+          String(e.division || e.department || '').toLowerCase().includes(q)
+        );
+
+    const isAllFilteredSelected = filteredEmployees.length > 0 &&
+      filteredEmployees.every(e => selectedEmployeeIds.includes(e.employeeId));
+
+    let displayText = placeholder;
+    if (selectedEmployeeIds.length === 1) {
+      const emp = employees.find(e => e.employeeId === selectedEmployeeIds[0]);
+      displayText = emp ? `${emp.name} (${emp.employeeId})` : selectedEmployeeIds[0];
+    } else if (selectedEmployeeIds.length > 1) {
+      displayText = `${selectedEmployeeIds.length} employees selected`;
+    }
+
+    return (
+      <div ref={containerRef} className="relative">
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsOpen(v => !v);
+          }}
+          className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white flex justify-between items-center text-left cursor-pointer"
+        >
+          <span className={`truncate ${selectedEmployeeIds.length > 0 ? 'font-medium text-gray-900' : 'text-gray-500'}`}>
+            {displayText}
+          </span>
+          <ChevronDown size={18} className={`ml-2 flex-shrink-0 transform transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+
+        {isOpen && (
+          <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl overflow-hidden flex flex-col max-h-72">
+            <div className="p-2 border-b border-gray-200 bg-gray-50 space-y-2">
+              <input
+                ref={inputRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setIsOpen(false);
+                }}
+                className="w-full p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-blue-500"
+                placeholder="Search employee by name, ID, division..."
+              />
+              <div className="flex justify-between items-center text-xs px-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const filteredCodes = filteredEmployees.map(e => e.employeeId).filter(Boolean);
+                    if (isAllFilteredSelected) {
+                      onSetEmployeeIds(selectedEmployeeIds.filter(code => !filteredCodes.includes(code)));
+                    } else {
+                      onSetEmployeeIds(Array.from(new Set([...selectedEmployeeIds, ...filteredCodes])));
+                    }
+                  }}
+                  className="font-semibold text-blue-600 hover:text-blue-800"
+                >
+                  {isAllFilteredSelected ? 'Deselect Filtered' : 'Select All Filtered'}
+                </button>
+                {selectedEmployeeIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => onSetEmployeeIds([])}
+                    className="font-semibold text-red-600 hover:text-red-800"
+                  >
+                    Clear All
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="overflow-y-auto max-h-52 p-1 divide-y divide-gray-100">
+              {filteredEmployees.length === 0 ? (
+                <div className="p-3 text-sm text-gray-500 text-center">No employees found</div>
+              ) : (
+                filteredEmployees.map((emp) => {
+                  const isChecked = selectedEmployeeIds.includes(emp.employeeId);
+                  return (
+                    <label
+                      key={emp.employeeId || emp._id}
+                      className="flex items-center px-3 py-2 hover:bg-blue-50 cursor-pointer rounded transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => onToggleEmployee(emp.employeeId)}
+                        className="mr-3 h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                      />
+                      <div className="flex-1 text-sm">
+                        <span className="font-medium text-gray-800">{emp.name}</span>
+                        {emp.employeeId && (
+                          <span className="ml-2 text-xs font-mono text-gray-500">({emp.employeeId})</span>
+                        )}
+                      </div>
+                      {(emp.division || emp.department) && (
+                        <span className="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-600 font-medium ml-2">
+                          {emp.division || emp.department}
+                        </span>
+                      )}
+                    </label>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // View modal handlers
   const openViewModal = (item, type) => {
     setViewingItem({ ...item, type });
@@ -971,6 +1143,7 @@ const ProjectAllocation = () => {
         projectId: allocation.projectId || '',
         projectName: allocation.projectName,
         projectCategory: allocation.projectCategory || 'All',
+        division: allocation.projectDivision || allocation.division || 'All',
         employeeName: allocation.employeeName,
         employeeId: allocation.employeeCode || allocation.employeeId || '',
         employeeIds: [allocation.employeeCode || allocation.employeeId].filter(Boolean)
@@ -981,6 +1154,7 @@ const ProjectAllocation = () => {
         projectId: '',
         projectName: '',
         projectCategory: 'All',
+        division: 'All',
         employeeName: '',
         employeeId: '',
         employeeIds: []
@@ -1899,6 +2073,7 @@ const ProjectAllocation = () => {
                                           projectId: group.projectId || '',
                                           projectName: group.projectName,
                                           projectCategory: group.projectCategory || 'All',
+                                          division: group.division || group.projectDivision || 'All',
                                           employeeName: '',
                                           employeeId: '',
                                           employeeIds: []
@@ -2322,58 +2497,98 @@ const ProjectAllocation = () => {
                           ...prev,
                           projectId,
                           projectName: selectedProject?.name || '',
-                          projectCategory: selectedProject?.projectCategory || prev.projectCategory || 'All'
+                          projectCategory: selectedProject?.projectCategory || prev.projectCategory || 'All',
+                          division: selectedProject?.division || prev.division || 'All'
                         }));
                       }}
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Employee Name *</label>
-                    <div className="flex gap-2">
-                      <div className="flex-1">
-                        <SearchableSelect
-                          value={allocationForm.employeeId}
-                          placeholder="Select Employee"
-                          options={getAllEmployeesSorted().map(employee => ({
-                            value: employee.employeeId,
-                            label: `${employee.name}${employee.employeeId ? ` (${employee.employeeId})` : ''}`,
-                            searchText: `${employee.name} ${employee.employeeId || ''}`
-                          }))}
-                          onChange={(employeeId) => handleEmployeeSelect(employeeId)}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={addEmployeeToList}
-                        className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1f204d] text-sm"
-                        disabled={!allocationForm.employeeId}
-                      >
-                        Add
-                      </button>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Division</label>
+                    <select
+                      value={allocationForm.division || 'All'}
+                      onChange={(e) => {
+                        const div = e.target.value;
+                        setAllocationForm(prev => ({
+                          ...prev,
+                          division: div
+                        }));
+                      }}
+                      className="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white font-medium text-gray-800"
+                    >
+                      {getModalDivisionOptions().map(div => (
+                        <option key={div} value={div}>{div === 'All' ? 'All Divisions' : div}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between items-center mb-2">
+                      <label className="block text-sm font-medium text-gray-700">Employee Name *</label>
+                      {allocationForm.division && allocationForm.division !== 'All' && (
+                        <span className="text-xs text-blue-600 font-medium">
+                          Filtered by {allocationForm.division} ({getEmployeesByDivision(allocationForm.division).length} available)
+                        </span>
+                      )}
                     </div>
+                    <MultiSelectEmployeeChecklist
+                      employees={getEmployeesByDivision(allocationForm.division)}
+                      selectedEmployeeIds={allocationForm.employeeIds}
+                      onToggleEmployee={(code) => {
+                        setAllocationForm(prev => {
+                          const current = prev.employeeIds || [];
+                          const exists = current.includes(code);
+                          const nextIds = exists ? current.filter(c => c !== code) : [...current, code];
+                          const firstEmp = employees.find(e => e.employeeId === (nextIds[0] || ''));
+                          return {
+                            ...prev,
+                            employeeIds: nextIds,
+                            employeeId: firstEmp ? firstEmp.employeeId : '',
+                            employeeName: firstEmp ? firstEmp.name : ''
+                          };
+                        });
+                      }}
+                      onSetEmployeeIds={(nextIds) => {
+                        setAllocationForm(prev => {
+                          const firstEmp = employees.find(e => e.employeeId === (nextIds[0] || ''));
+                          return {
+                            ...prev,
+                            employeeIds: nextIds,
+                            employeeId: firstEmp ? firstEmp.employeeId : '',
+                            employeeName: firstEmp ? firstEmp.name : ''
+                          };
+                        });
+                      }}
+                      placeholder="Select Employee(s)"
+                    />
+
                     {allocationForm.employeeIds.length > 0 && (
-                      <div className="mt-3 space-y-2">
-                        {allocationForm.employeeIds.map(code => {
-                          const emp = employees.find(e => e.employeeId === code);
-                          return (
-                            <div
-                              key={code}
-                              className="flex items-center justify-between px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg"
-                            >
-                              <span className="text-sm text-gray-700">
-                                {(emp && emp.name) || 'Employee'} {code ? `(${code})` : ''}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={() => removeEmployeeFromList(code)}
-                                className="text-xs text-red-600 hover:text-red-800"
+                      <div className="mt-3 max-h-36 overflow-y-auto space-y-1.5 p-2 bg-gray-50 border border-gray-200 rounded-lg">
+                        <div className="text-xs font-semibold text-gray-500 mb-1">
+                          Selected Employees ({allocationForm.employeeIds.length}):
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {allocationForm.employeeIds.map(code => {
+                            const emp = employees.find(e => e.employeeId === code);
+                            return (
+                              <span
+                                key={code}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-800 border border-blue-200 shadow-xs"
                               >
-                                Remove
-                              </button>
-                            </div>
-                          );
-                        })}
+                                <span>{(emp && emp.name) || 'Employee'} {code ? `(${code})` : ''}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => removeEmployeeFromList(code)}
+                                  className="text-blue-600 hover:text-red-600 font-bold ml-1 text-sm focus:outline-none"
+                                  title="Remove"
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
