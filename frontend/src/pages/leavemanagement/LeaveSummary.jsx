@@ -193,7 +193,9 @@ const LeaveSummary = () => {
     try {
       await leaveAPI.approve(id);
       await loadLeaves();
-    } catch {
+    } catch (err) {
+      console.error('Error approving leave:', err);
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to approve leave application');
     } finally {
       setActionLoading(prev => ({ ...prev, [id]: false }));
     }
@@ -204,7 +206,9 @@ const LeaveSummary = () => {
     try {
       await leaveAPI.reject(id);
       await loadLeaves();
-    } catch {
+    } catch (err) {
+      console.error('Error rejecting leave:', err);
+      alert(err.response?.data?.message || err.response?.data?.error || 'Failed to reject leave application');
     } finally {
       setActionLoading(prev => ({ ...prev, [id]: false }));
     }
