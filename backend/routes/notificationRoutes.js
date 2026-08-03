@@ -7,6 +7,30 @@ const User = require('../models/User');
 const Allocation = require('../models/Allocation');
 const auth = require('../middleware/auth');
 
+// Helper to deduplicate notifications with identical title & message created around the same time
+function deduplicateNotifications(notifications) {
+  const seen = new Set();
+  const result = [];
+
+  for (const notif of notifications) {
+    const title = String(notif.title || '').trim();
+    const message = String(notif.message || '').trim();
+    
+    // Group by 10-minute time bucket to catch duplicate batch creations across approvers
+    const d = notif.createdAt ? new Date(notif.createdAt) : new Date();
+    const timeBucket = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}-${Math.floor(d.getMinutes() / 10)}`;
+
+    const key = `${title}|${message}|${timeBucket}`;
+
+    if (!seen.has(key)) {
+      seen.add(key);
+      result.push(notif);
+    }
+  }
+
+  return result;
+}
+
 // Helper function to resolve all team member User ObjectIds for a logged-in user
 async function getTeamMemberUserIds(user) {
   const userEmpId = user?.employeeId;
@@ -75,6 +99,7 @@ const checkIsTopLevelAdmin = (user) => {
 // - Regular Employees see ONLY their own notifications (recipient: userId)
 // - Reporting Managers see their own notifications + all notifications of their team members
 // - Top-level Admins/HR/Directors see system-wide notifications
+// - Deduplicates identical notifications created in batch for multiple approvers
 router.get('/', auth, async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
@@ -107,11 +132,13 @@ router.get('/', auth, async (req, res) => {
       }
     }
 
-    const notifications = await Notification.find(query)
+    const rawNotifications = await Notification.find(query)
       .populate('sender', 'name email employeeId')
       .populate('recipient', 'name email employeeId')
       .sort({ createdAt: -1 })
-      .limit(100);
+      .limit(200);
+
+    const notifications = deduplicateNotifications(rawNotifications).slice(0, 100);
 
     res.json(notifications);
   } catch (error) {
@@ -146,8 +173,17 @@ router.put('/:id/read', auth, async (req, res) => {
       return res.status(404).json({ message: 'Notification not found' });
     }
 
+    const d = notification.createdAt ? new Date(notification.createdAt) : new Date();
+    const startTime = new Date(d.getTime() - 10 * 60 * 1000);
+    const endTime = new Date(d.getTime() + 10 * 60 * 1000);
+
+    await Notification.updateMany({
+      title: notification.title,
+      message: notification.message,
+      createdAt: { $gte: startTime, $lte: endTime }
+    }, { $set: { isRead: true } });
+
     notification.isRead = true;
-    await notification.save();
     res.json(notification);
   } catch (error) {
     console.error('Error marking notification as read:', error);
@@ -203,11 +239,21 @@ router.delete('/:id', auth, async (req, res) => {
       }
     }
 
-    const notification = await Notification.findOneAndDelete(query);
+    const notification = await Notification.findOne(query);
 
     if (!notification) {
       return res.status(404).json({ message: 'Notification not found' });
     }
+
+    const d = notification.createdAt ? new Date(notification.createdAt) : new Date();
+    const startTime = new Date(d.getTime() - 10 * 60 * 1000);
+    const endTime = new Date(d.getTime() + 10 * 60 * 1000);
+
+    await Notification.deleteMany({
+      title: notification.title,
+      message: notification.message,
+      createdAt: { $gte: startTime, $lte: endTime }
+    });
 
     res.json({ message: 'Notification deleted' });
   } catch (error) {
