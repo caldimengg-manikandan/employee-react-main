@@ -220,8 +220,8 @@ router.get('/', auth, async (req, res) => {
     const getDivisionQueryValue = (div) => {
       if (!div) return div;
       const normalized = div.replace(/\s+/g, '').toLowerCase();
-      if (normalized === 'das(software)' || normalized === 'dassoftware') {
-        return { $in: ['DAS(Software)', 'DAS (Software)'] };
+      if (normalized === 'das(software)' || normalized === 'dassoftware' || normalized.includes('das')) {
+        return { $in: ['DAS(Software)', 'DAS (Software)', 'DAS(software)', 'DAS Software', 'DAS software', 'DAS', 'das', 'DAS(SOFTWARE)', 'DAS (SOFTWARE)'] };
       }
       return div;
     };
@@ -231,17 +231,16 @@ router.get('/', auth, async (req, res) => {
       ['admin', 'director', 'manager', 'hr', 'it_admin'].includes(roleLower);
 
     let loggedInEmp = null;
+    if (req.user.employeeId) {
+      loggedInEmp = await Employee.findOne({ employeeId: req.user.employeeId }, { division: 1, designation: 1, position: 1, role: 1 }).lean();
+    }
 
     // Full access for users with employee_access or admin/director/GM/hr roles
     if (hasFullAccess) {
       if (byDivision === 'true') {
-        if (division) {
-          query.division = getDivisionQueryValue(division);
-        } else {
-          loggedInEmp = req.user.employeeId ? await Employee.findOne({ employeeId: req.user.employeeId }, { division: 1 }).lean() : null;
-          if (loggedInEmp && loggedInEmp.division) {
-            query.division = getDivisionQueryValue(loggedInEmp.division);
-          }
+        const targetDiv = division || loggedInEmp?.division;
+        if (targetDiv) {
+          query.division = getDivisionQueryValue(targetDiv);
         }
       }
       const employees = await Employee.find(query, { photo: 0 }).lean().sort({ createdAt: -1 });
@@ -302,12 +301,21 @@ router.get('/', auth, async (req, res) => {
       return res.json(formattedEmployees);
     }
 
-    const isPM = ['projectmanager', 'project_manager', 'teamlead'].includes(roleLower) || allowedDesignations.includes(empDesignation);
-    if (isPM) {
+    const empDesignation = String(loggedInEmp?.designation || loggedInEmp?.position || loggedInEmp?.role || req.user?.designation || '').toLowerCase();
+    const allowedDesignations = [
+      'project manager', 'project_manager', 'projectmanager',
+      'team lead', 'team_lead', 'teamlead', 'sr. team lead', 'sr team lead',
+      'technical lead', 'assistant manager', 'deputy manager', 'assistant project manager', 'asst project manager', 'pm', 'tl'
+    ];
+    const isPM = ['projectmanager', 'project_manager', 'teamlead', 'team_lead', 'pm', 'tl'].includes(roleLower) ||
+      allowedDesignations.some(d => d && empDesignation.includes(d));
+
+    if (isPM || byDivision === 'true' || req.user.permissions?.includes('holiday_working_request')) {
       if (byDivision === 'true') {
-        // PM/TL should only be able to query active employees in their own division
-        if (loggedInEmp && loggedInEmp.division) {
-          query.division = getDivisionQueryValue(loggedInEmp.division);
+        // PM/TL/Division request should query active employees in target division
+        const targetDiv = division || loggedInEmp?.division;
+        if (targetDiv) {
+          query.division = getDivisionQueryValue(targetDiv);
         } else {
           // If no division, return empty list to protect other divisions
           return res.json([]);

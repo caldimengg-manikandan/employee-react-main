@@ -112,9 +112,8 @@ const Timesheet = () => {
 
   // ✅ Check if add leave button should be disabled
   const isAddLeaveDisabled = () => {
-    const hasPermission = timesheetRows.some(row => row.task === "Permission" && row.type !== "special");
-    // Allow up to 4 leave rows, but only 1 Permission row
-    return getLeaveRowCount() >= 4 || isSubmitted || isLeaveAutoDraft || hasPermission;
+    // Allow up to 4 leave rows, but disable if monthly permission limit (3) reached or sheet submitted
+    return getLeaveRowCount() >= 4 || isSubmitted || isLeaveAutoDraft || monthlyPermissionCount >= 3;
   };
 
   // ✅ Load existing week data from backend AND attendance data
@@ -2125,7 +2124,7 @@ const Timesheet = () => {
                 ? "bg-slate-300 text-slate-500 cursor-not-allowed"
                 : "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-600/20 hover:scale-[1.02]"
                 }`}
-              title={isAddLeaveDisabled() ? "Cannot add leave row (Limit reached or Permission active)" : "Add Leave Row"}
+              title={isAddLeaveDisabled() ? "Cannot add leave row (Limit reached or Timesheet submitted)" : "Add Leave Row"}
             >
               <Plus className="w-4 h-4" />
               ADD PERMISSION
@@ -2409,7 +2408,7 @@ const Timesheet = () => {
                             (row.lockedDays && row.lockedDays[dayIndex]) ||
                             (row.type === "project" ? (!row.project || !row.task) : (!row.task)) ||
                             (hasFullDayLeave(dayIndex) && row.task !== "Full Day Leave" && row.task !== "Office Holiday") ||
-                            (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 6 && Number(hours) === 0))) ||
+                            (row.task === "Permission" && (!isPermissionAllowed(dayIndex, row.id) || (monthlyPermissionCount >= 3 && Number(hours) === 0))) ||
                             (!isShiftSelectedForDay(dayIndex))
                           }
                           title={

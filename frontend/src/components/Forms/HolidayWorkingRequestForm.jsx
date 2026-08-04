@@ -199,9 +199,12 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
   };
 
   const isAdmin = user.role?.toLowerCase() === "admin";
+  const userDiv = currentUserProfile?.division || user?.division || "";
   const availableDivisions = isAdmin 
-    ? ["SDS", "TEKLA", "DAS (Software)", "HR/Admin"] 
-    : (currentUserProfile?.division ? [currentUserProfile.division] : []);
+    ? ["SDS", "TEKLA", "DAS (Software)", "DAS(Software)", "HR/Admin"] 
+    : (userDiv 
+        ? Array.from(new Set([userDiv, "DAS (Software)", "DAS(Software)", "SDS", "TEKLA"]))
+        : ["DAS (Software)", "DAS(Software)", "SDS", "TEKLA"]);
 
   const uniqueFilteredProjects = Array.from(
     new Set(
@@ -209,10 +212,10 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
         .filter(p => {
           const projDiv = (p.division || "").replace(/\s+/g, "").toLowerCase();
           const formDiv = (formData.division || "").replace(/\s+/g, "").toLowerCase();
-          if ((projDiv === 'das(software)' || projDiv === 'dassoftware') && (formDiv === 'das(software)' || formDiv === 'dassoftware')) {
+          if ((projDiv.includes('das') && formDiv.includes('das')) || projDiv === formDiv) {
             return true;
           }
-          return projDiv === formDiv;
+          return false;
         })
         .map(p => p.name)
         .filter(Boolean)
@@ -223,12 +226,12 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
     ? allEmployees.filter(emp => {
         const empDiv = (emp.division || "").replace(/\s+/g, "").toLowerCase();
         const formDiv = (formData.division || "").replace(/\s+/g, "").toLowerCase();
-        if ((empDiv === 'das(software)' || empDiv === 'dassoftware') && (formDiv === 'das(software)' || formDiv === 'dassoftware')) {
+        if ((empDiv.includes('das') && formDiv.includes('das')) || empDiv === formDiv) {
           return true;
         }
-        return empDiv === formDiv;
+        return false;
       })
-    : [];
+    : allEmployees;
 
   if (!isOpen) return null;
 
