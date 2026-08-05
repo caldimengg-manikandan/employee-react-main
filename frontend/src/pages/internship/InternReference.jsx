@@ -55,6 +55,8 @@ const InternReference = () => {
     status: "Completed",
     contactEmail: "",
     contactPhone: "",
+    emergencyContactPerson: "",
+    emergencyContactPhone: "",
     bankName: "",
     accountNumber: "",
     ifscCode: "",
@@ -331,6 +333,8 @@ const InternReference = () => {
       status: intern.status || "Completed",
       contactEmail: intern.contactEmail || "",
       contactPhone: intern.contactPhone || "",
+      emergencyContactPerson: intern.emergencyContactPerson || "",
+      emergencyContactPhone: intern.emergencyContactPhone || "",
       bankName: intern.bankName || "",
       accountNumber: intern.accountNumber || "",
       ifscCode: intern.ifscCode || "",
@@ -493,6 +497,8 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
       status: "Completed",
       contactEmail: "",
       contactPhone: "",
+      emergencyContactPerson: "",
+      emergencyContactPhone: "",
       bankName: "",
       accountNumber: "",
       ifscCode: "",
@@ -781,6 +787,43 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
                           </div>
                           <p className="text-xs text-gray-500">{form.contactPhone.length}/10 digits</p>
                           {errors.contactPhone && <p className="text-red-500 text-sm mt-1">{errors.contactPhone}</p>}
+                        </div>
+
+                        <div className="space-y-2 pt-2 border-t border-purple-200/60">
+                          <label className="block text-sm font-semibold text-purple-900">
+                            Emergency Contact Person
+                          </label>
+                          <div className="relative">
+                            <UserIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Parent / Spouse / Guardian name"
+                              className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all bg-white"
+                              value={form.emergencyContactPerson}
+                              onChange={e => setForm({ ...form, emergencyContactPerson: e.target.value })}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="block text-sm font-semibold text-purple-900">
+                            Emergency Contact Phone <span className="text-gray-500 text-xs">(Max 10 digits)</span>
+                          </label>
+                          <div className="relative">
+                            <PhoneIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                            <input
+                              type="tel"
+                              placeholder="10-digit emergency phone number"
+                              maxLength={10}
+                              className="w-full border border-gray-300 rounded-lg pl-10 pr-4 py-3 focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all bg-white"
+                              value={form.emergencyContactPhone}
+                              onChange={e => {
+                                const value = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                                setForm({ ...form, emergencyContactPhone: value });
+                              }}
+                            />
+                          </div>
+                          <p className="text-xs text-gray-500">{form.emergencyContactPhone.length}/10 digits</p>
                         </div>
                       </div>
                     </div>
@@ -1167,6 +1210,14 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
                       <div>
                         <p className="text-xs text-purple-500">Phone</p>
                         <p className="font-semibold text-gray-900">{viewIntern.contactPhone || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-purple-500">Emergency Contact Person</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.emergencyContactPerson || '-'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-purple-500">Emergency Contact Phone</p>
+                        <p className="font-semibold text-gray-900">{viewIntern.emergencyContactPhone || '-'}</p>
                       </div>
                     </div>
                   </div>

@@ -79,6 +79,16 @@ const internshipSchema = new mongoose.Schema({
     trim: true,
     match: [/^[0-9]{10}$/, 'Phone number must be 10 digits']
   },
+  emergencyContactPerson: {
+    type: String,
+    trim: true,
+    default: ''
+  },
+  emergencyContactPhone: {
+    type: String,
+    trim: true,
+    default: ''
+  },
   // Bank Details
   bankName: {
     type: String,
