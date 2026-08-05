@@ -749,37 +749,45 @@ const PayrollDetails = () => {
 
   return (
     <div className="p-6">
-      {/* Header with Search Box */}
+      {/* Top Control Bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-        {/* Search Box in Header */}
-        <div className="relative w-full md:w-64">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400 w-4 h-4" />
           <input
             type="text"
-            placeholder="Search by Employee Name, ID"
+            placeholder="Search by Employee Name, ID..."
             value={searchTerm}
             maxLength={20}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full pl-10 pr-4 py-2 text-sm bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all shadow-sm"
           />
         </div>
+        <button
+          onClick={() => {
+            setFormData(initialSalaryData);
+            setEditingIndex(null);
+            setOpenDialog(true);
+          }}
+          className="flex items-center justify-center px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-semibold rounded-xl transition-all shadow-sm hover:shadow-md whitespace-nowrap"
+        >
+          <Plus className="w-4 h-4 mr-1.5" />
+          Add Record
+        </button>
       </div>
 
-      {/* Success Message - Replaced by Notification */}
-
       {/* Filters Section */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+      <div className="bg-white/90 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-slate-200/80 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
           {/* Filter by Location */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              <MapPin className="w-4 h-4 inline mr-1" />
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
+              <MapPin className="w-3.5 h-3.5 inline mr-1 text-slate-400" />
               Location
             </label>
             <select
               value={filterLocation}
               onChange={(e) => setFilterLocation(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50/50 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all"
             >
               {locations.map(location => (
                 <option key={location.value} value={location.value}>
@@ -791,13 +799,13 @@ const PayrollDetails = () => {
 
           {/* Filter by Department */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
               Division
             </label>
             <select
               value={filterDepartment}
               onChange={(e) => setFilterDepartment(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50/50 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all"
             >
               <option value="all">All Division</option>
               {departments.filter(d => d !== 'all').map(dept => (
@@ -810,13 +818,13 @@ const PayrollDetails = () => {
 
           {/* Filter by Designation */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">
               Designation
             </label>
             <select
               value={filterDesignation}
               onChange={(e) => setFilterDesignation(e.target.value)}
-              className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 text-sm border border-slate-200 rounded-xl bg-slate-50/50 text-slate-800 font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all"
             >
               <option value="all">All Designations</option>
               {designations.filter(d => d !== 'all').map(desig => (
@@ -827,15 +835,14 @@ const PayrollDetails = () => {
             </select>
           </div>
 
-
           {/* Download All PDF Button */}
           <div className="flex items-end">
             <button
               onClick={handleDownloadAllPDF}
-              className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              className="w-full flex items-center justify-center px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 text-white text-sm font-semibold rounded-xl hover:from-emerald-700 hover:to-teal-700 transition-all shadow-sm hover:shadow-md"
             >
               <Download className="w-4 h-4 mr-2" />
-              PDF
+              Export PDF
             </button>
           </div>
 
@@ -843,110 +850,118 @@ const PayrollDetails = () => {
           <div className="flex items-end">
             <button
               onClick={handleDownloadExcel}
-              className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full flex items-center justify-center px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 text-white text-sm font-semibold rounded-xl hover:from-indigo-700 hover:to-blue-700 transition-all shadow-sm hover:shadow-md"
             >
               <Download className="w-4 h-4 mr-2" />
-              Excel
+              Export Excel
             </button>
           </div>
         </div>
-        
-        <div className="mt-4 text-sm text-gray-500">
-          Showing {filteredRecords.length} of {payrollRecords.length} records
+
+        <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center text-xs text-slate-500 font-medium">
+          <span>Showing <strong className="text-slate-900">{filteredRecords.length}</strong> of <strong className="text-slate-900">{payrollRecords.length}</strong> records</span>
+          <span className="inline-flex items-center text-indigo-600 bg-indigo-50 px-2.5 py-0.5 rounded-md font-semibold">Payroll Master View</span>
         </div>
       </div>
 
       {/* Payroll Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-auto h-[calc(100vh-320px)]">
-          <table className="min-w-full divide-y divide-gray-200 relative">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+        <div className="overflow-auto h-[calc(100vh-340px)]">
+          <table className="min-w-full divide-y divide-slate-100 relative">
             <thead className="bg-[#262760] sticky top-0 z-10">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Employee ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Employee Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Designation
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Basic+DA
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Net Salary
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Account No
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Location
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-center text-xs font-semibold text-white uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-100">
               {filteredRecords.map((record, index) => {
                 const emp = employeeList.find(
                   e => (e.employeeId || '').toString() === (record.employeeId || '').toString()
                 );
 
                 return (
-                <tr key={record.id} className="hover:bg-gray-50">
+                <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{record.employeeId}</div>
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono">
+                      {record.employeeId}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-900">{record.employeeName}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-gray-900">{emp?.designation || record.designation}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-gray-900">{formatCurrency(record.basicDA)}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-bold text-green-600">
-                      {formatCurrency(record.netSalary)}
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                        {(record.employeeName || 'E').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="font-semibold text-slate-900 text-sm">{record.employeeName}</div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-gray-900">
+                    <div className="text-sm font-medium text-slate-700">{emp?.designation || record.designation}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-medium text-slate-800">{formatCurrency(record.basicDA)}</div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {formatCurrency(record.netSalary)}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-mono text-slate-600">
                       {emp?.bankAccount ||
                         record.accountNumber ||
                         "-"}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-gray-900">
+                    <div className="text-sm font-medium text-slate-600">
                       {emp?.location ||
                         record.location ||
                         emp?.address ||
                         "Unknown"}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-center">
+                    <div className="flex items-center justify-center space-x-2">
                       <button
                         onClick={() => handleEdit(record)}
-                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                        className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
                         title="Edit"
                       >
                         <Edit2 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleViewRecord(record)}
-                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                        className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                         title="View Details"
                       >
                         <Eye className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(record)}
-                        className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                        className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all shadow-sm"
                         title="Delete"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -963,20 +978,23 @@ const PayrollDetails = () => {
 
       {/* Add/Edit Modal */}
       {openDialog && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto transform transition-all border border-slate-100">
             {/* Header */}
-            <div className="px-6 py-4 border-b flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {editingIndex !== null ? 'Edit Salary Record' : 'Add New Salary Record'}
-              </h2>
+            <div className="px-8 py-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-between text-white rounded-t-2xl">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight">
+                  {editingIndex !== null ? 'Edit Salary Record' : 'Add New Salary Record'}
+                </h2>
+                <p className="text-xs text-indigo-200/70 mt-0.5">Configure base salary, allowances, deductions and bank details</p>
+              </div>
               <button
                 onClick={handleCloseDialog}
-                className="p-2 text-gray-400 hover:text-gray-600"
+                className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-full transition-colors"
                 title="Close"
                 aria-label="Close"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 

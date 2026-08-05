@@ -1333,22 +1333,22 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
       )}
 
       {/* Search and Filter */}
-      <div className="bg-white rounded-xl shadow-md p-2 mb-2 border border-gray-200">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1 relative">
-            <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-sm p-5 mb-6 border border-slate-200/80">
+        <div className="flex flex-col md:flex-row gap-4 items-center">
+          <div className="flex-1 relative w-full">
+            <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <input
               type="text"
               placeholder="Search by name, college, department, or mentor..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="w-full pl-10 pr-4 py-2 text-sm border border-slate-200 bg-slate-50/50 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
             />
           </div>
 
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3 w-full md:w-auto">
             <select
-              className="border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50/50 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
               value={filterType}
               onChange={e => setFilterType(e.target.value)}
             >
@@ -1359,7 +1359,7 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
             </select>
 
             <select
-              className="border border-gray-300 rounded-lg px-4 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+              className="border border-slate-200 rounded-xl px-3 py-2 text-sm bg-slate-50/50 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
               value={filterStatus}
               onChange={e => setFilterStatus(e.target.value)}
             >
@@ -1376,26 +1376,27 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
                   setFilterType("all");
                   setFilterStatus("all");
                 }}
-                className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2.5 rounded-lg font-medium transition-colors duration-200"
+                className="flex items-center gap-1.5 border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 px-3.5 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm"
               >
                 <XMarkIcon className="h-4 w-4" />
                 Clear
               </button>
             )}
           </div>
-          <div className="flex gap-3 mt-4 md:mt-0">
+
+          <div className="flex gap-2.5 w-full md:w-auto justify-end">
             <button
               onClick={handleDownloadPDF}
-              className="flex items-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-3 rounded-lg font-medium transition-all duration-200"
+              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm hover:shadow-md"
             >
-              <ArrowDownTrayIcon className="h-5 w-5" />
+              <ArrowDownTrayIcon className="h-4 w-4" />
               Download PDF
             </button>
             <button
               onClick={openAddModal}
-              className="flex items-center gap-2 bg-[#262760] hover:bg-[#1e2050] text-white px-6 py-3 rounded-lg font-medium shadow-lg hover:shadow-xl transition-all duration-200 transform hover:-translate-y-0.5"
+              className="flex items-center gap-2 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 hover:from-slate-800 hover:to-indigo-900 text-white px-5 py-2 rounded-xl text-sm font-semibold shadow-sm hover:shadow-md transition-all whitespace-nowrap"
             >
-              <PlusIcon className="h-5 w-5" />
+              <PlusIcon className="h-4 w-4" />
               Add New Intern
             </button>
           </div>
@@ -1403,105 +1404,110 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
       </div>
 
       {/* Interns Table */}
-      <div className="bg-white rounded-xl shadow-md overflow-hidden border border-gray-200">
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-800">
-              Internship List ({filteredInterns.length})
-            </h3>
-            {loading && (
-              <div className="flex items-center gap-2 text-blue-600">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                <span className="text-sm">Loading...</span>
-              </div>
-            )}
-          </div>
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-200/80">
+        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+          <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wider">
+            Internship List ({filteredInterns.length})
+          </h3>
+          {loading && (
+            <div className="flex items-center gap-2 text-indigo-600 font-medium text-xs">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-indigo-600"></div>
+              <span>Loading records...</span>
+            </div>
+          )}
         </div>
 
         {loading ? (
-          <div className="p-8 text-center">
-            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            <p className="mt-2 text-gray-600">Loading intern data...</p>
+          <div className="p-10 text-center text-slate-500 font-medium">
+            <div className="inline-block animate-spin rounded-full h-7 w-7 border-b-2 border-indigo-600 mb-2"></div>
+            <p className="text-sm">Loading intern data...</p>
           </div>
         ) : filteredInterns.length === 0 ? (
-          <div className="p-8 text-center">
-            <AcademicCapIcon className="h-12 w-12 text-gray-400 mx-auto mb-3" />
-            <p className="text-gray-600">No interns found. Add your first intern using the button above!</p>
+          <div className="p-10 text-center text-slate-500">
+            <AcademicCapIcon className="h-12 w-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-sm font-medium">No intern records found matching the criteria.</p>
           </div>
         ) : (
-          <div className="overflow-auto max-h-[600px] border rounded-b-xl custom-scrollbar">
-            <table className="w-full">
-              <thead className="bg-[#262760] text-white sticky top-0 z-10 shadow-sm">
+          <div className="overflow-auto max-h-[600px]">
+            <table className="w-full text-left divide-y divide-slate-100">
+              <thead className="bg-[#262760] text-white sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">S.No</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Full Name</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Intern ID</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Degree</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Division</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Location</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Company Mentor</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Stipend (₹)</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Status</th>
-                  <th className="px-6 py-4 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap bg-[#262760]">Actions</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">S.No</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Full Name</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Intern ID</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Degree</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Division</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Location</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Company Mentor</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Stipend (₹)</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">Status</th>
+                  <th className="px-6 py-3.5 text-xs font-semibold uppercase tracking-wider whitespace-nowrap text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-slate-100">
                 {filteredInterns.map((intern, index) => (
-                  <tr key={intern._id || intern.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 text-sm text-gray-900">
+                  <tr key={intern._id || intern.id} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-500 whitespace-nowrap">
                       {index + 1}
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="font-medium text-gray-900">{intern.fullName || 'N/A'}</div>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                          {(intern.fullName || 'I').charAt(0).toUpperCase()}
+                        </div>
+                        <div className="font-semibold text-slate-900 text-sm">{intern.fullName || 'N/A'}</div>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      {intern.internId || 'N/A'}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono">
+                        {intern.internId || 'N/A'}
+                      </span>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-700 whitespace-nowrap">
                       {intern.degree || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-700 whitespace-nowrap">
                       {intern.division || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-600 whitespace-nowrap">
                       {intern.workLocation || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm font-medium text-slate-700 whitespace-nowrap">
                       {intern.mentor || 'N/A'}
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
+                    <td className="px-6 py-4 text-sm font-semibold text-slate-800 whitespace-nowrap">
                       {intern.stipendAmount ? `₹${intern.stipendAmount}` : 'N/A'}
                     </td>
-                    <td className="px-6 py-4">
-                      <span className={`text-xs px-2 py-1 rounded-full inline-block font-medium ${intern.status === 'Completed' ? 'bg-green-100 text-green-800' :
-                        intern.status === 'Ongoing' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${intern.status === 'Completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                        intern.status === 'Ongoing' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                          'bg-rose-50 text-rose-700 border-rose-200'
                         }`}>
                         {intern.status || 'N/A'}
                       </span>
                     </td>
-                    <td className="px-6 py-4">
-                      <div className="flex gap-2">
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center gap-1.5 justify-center">
                         <button
                           onClick={() => handleOpenEmailModal(intern)}
-                          className="text-indigo-600 hover:text-indigo-800 transition-colors"
+                          className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                           title="Send Letter"
                         >
-                          <PaperAirplaneIcon className="h-5 w-5" />
+                          <PaperAirplaneIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleView(intern)}
-                          className="text-teal-600 hover:text-teal-800 transition-colors"
+                          className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
                           title="View Details"
                         >
-                          <EyeIcon className="h-5 w-5" />
+                          <EyeIcon className="h-4 w-4" />
                         </button>
                         <button
                           onClick={() => handleEdit(intern)}
-                          className="text-blue-600 hover:text-blue-800 transition-colors"
+                          className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
                           title="Edit"
                         >
-                          <PencilIcon className="h-5 w-5" />
+                          <PencilIcon className="h-4 w-4" />
                         </button>
                         <Popconfirm
                           title="Delete Intern"
@@ -1511,10 +1517,10 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
                           cancelText="No"
                         >
                           <button
-                            className="text-red-600 hover:text-red-800 transition-colors"
+                            className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all shadow-sm"
                             title="Delete"
                           >
-                            <TrashIcon className="h-5 w-5" />
+                            <TrashIcon className="h-4 w-4" />
                           </button>
                         </Popconfirm>
                       </div>

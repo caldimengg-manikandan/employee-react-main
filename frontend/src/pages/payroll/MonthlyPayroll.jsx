@@ -1213,16 +1213,16 @@ Payroll Department
       )}
 
       {/* Controls */}
-      <div className="bg-white p-5 rounded-lg shadow mb-3 border border-gray-200 flex-none z-20 md:sticky md:top-0">
+      <div className="bg-white/90 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-slate-200/80 mb-6">
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end mb-4 border-b pb-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 items-end mb-4 border-b border-slate-100 pb-4">
           {/* Search */}
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Search</label>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5 block">Search</label>
             <div className="relative">
               <input
                 type="text"
-                placeholder="Name or ID"
+                placeholder="Name or ID..."
                 value={searchTerm}
                 maxLength={25}
                 onChange={(e) => {
@@ -1230,21 +1230,21 @@ Payroll Department
                   const sanitizedValue = value.replace(/[^a-zA-Z0-9 ]/g, '');
                   setSearchTerm(sanitizedValue);
                 }}
-                className="w-full px-3 py-2 pl-8 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 pl-9 border border-slate-200 rounded-xl bg-slate-50/50 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
               />
-              <Filter className="w-4 h-4 text-gray-400 absolute left-2.5 top-2.5" />
+              <Filter className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
             </div>
           </div>
 
           {/* Department */}
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Department</label>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5 block">Division</label>
             <select
               value={filterDepartment}
               onChange={(e) => setFilterDepartment(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
             >
-              <option value="all">All Departments</option>
+              <option value="all">All Divisions</option>
               {departments.filter(d => d !== 'all').map(dept => (
                 <option key={dept} value={dept}>{dept}</option>
               ))}
@@ -1253,11 +1253,11 @@ Payroll Department
 
           {/* Designation */}
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Designation</label>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5 block">Designation</label>
             <select
               value={filterDesignation}
               onChange={(e) => setFilterDesignation(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
             >
               <option value="all">All Designations</option>
               {designations.filter(d => d !== 'all').map(desig => (
@@ -1268,11 +1268,11 @@ Payroll Department
 
           {/* Location */}
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Location</label>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5 block">Location</label>
             <select
               value={filterLocation}
               onChange={(e) => setFilterLocation(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
             >
               <option value="all">All Locations</option>
               {uniqueLocations.filter(l => l !== 'all').map(loc => (
@@ -1283,11 +1283,11 @@ Payroll Department
 
           {/* Bank Filter */}
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Bank</label>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5 block">Bank</label>
             <select
               value={filterBank}
               onChange={(e) => setFilterBank(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
             >
               <option value="all">All Banks</option>
               <option value="hdfc">HDFC Bank</option>
@@ -1302,117 +1302,116 @@ Payroll Department
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Salary Month</label>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5 block">Salary Month</label>
             <input 
               type="month" 
               value={selectedMonth} 
               max={new Date().toISOString().slice(0, 7)}
               onChange={(e) => setSelectedMonth(e.target.value)} 
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Payment Date</label>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5 block">Payment Date</label>
             <input 
               type="date" 
               value={paymentDate} 
               onChange={(e) => setPaymentDate(e.target.value)} 
-              className="w-full px-3 py-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+              className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all" 
             />
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Selected Employees</label>
-            <div className="px-3 py-2 border border-gray-300 rounded bg-gray-50 text-center">
-              <span className="font-medium text-blue-600">{selectedEmployees.length}</span>
-              <span className="text-gray-600"> / {filteredRecords.length} filtered</span>
+            <label className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5 block">Selected Employees</label>
+            <div className="px-3 py-2 border border-slate-200 rounded-xl bg-slate-50/50 text-center text-sm font-medium">
+              <span className="font-bold text-indigo-600">{selectedEmployees.length}</span>
+              <span className="text-slate-500"> / {filteredRecords.length} filtered</span>
             </div>
-            
           </div>
+
           <div className="flex items-center gap-2">
-          <button 
-            onClick={selectAll} 
-            className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-          >
-            Select All
-          </button>
-          <button 
-            onClick={clearSelection} 
-            className="px-3 py-2 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
-          >
-            Clear
-          </button>
-          <button 
-            onClick={runSimulation} 
-            className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] transition-colors flex items-center gap-2"
-            disabled={processing}
-          >
-            {processing ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Processing...
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4" />
-                Simulate
-              </>
-            )}
-          </button>
-        </div>
+            <button 
+              onClick={selectAll} 
+              className="px-3 py-2 text-xs font-semibold border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors shadow-sm"
+            >
+              Select All
+            </button>
+            <button 
+              onClick={clearSelection} 
+              className="px-3 py-2 text-xs font-semibold border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-700 transition-colors shadow-sm"
+            >
+              Clear
+            </button>
+            <button 
+              onClick={runSimulation} 
+              className="px-4 py-2 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white text-xs font-semibold rounded-xl hover:from-slate-800 hover:to-indigo-900 transition-all shadow-sm hover:shadow-md flex items-center gap-2"
+              disabled={processing}
+            >
+              {processing ? (
+                <>
+                  <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-white"></div>
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5" />
+                  Simulate
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Employee/Salary Records Table */}
-      <div className="bg-white rounded-lg shadow overflow-hidden mb-6">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden mb-6">
         <div className="overflow-auto md:max-h-[calc(100vh-250px)]">
-          <table className="min-w-full divide-y divide-gray-200 relative">
+          <table className="min-w-full divide-y divide-slate-100 relative">
             <thead className="bg-[#262760] sticky top-0 z-10">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Select
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Employee ID
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Employee Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Designation
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Basic+DA
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Net Salary
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Account No.
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   IFSC Code
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Bank Name
                 </th>
-               
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan="10" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="10" className="px-6 py-6 text-center text-slate-500 font-medium">
                     <div className="flex items-center justify-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600"></div>
                       Loading employees...
                     </div>
                   </td>
                 </tr>
               ) : filteredRecords.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="px-6 py-4 text-center text-gray-500">
+                  <td colSpan="10" className="px-6 py-6 text-center text-slate-500 font-medium">
                     No employees found matching the criteria.
                   </td>
                 </tr>
@@ -1420,44 +1419,51 @@ Payroll Department
                 filteredRecords.map(record => {
                   const salary = calculateSalaryFields(record);
                   return (
-                    <tr key={record.id} className="hover:bg-gray-50">
+                    <tr key={record.id} className="hover:bg-slate-50/80 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                      <input 
-                        type="checkbox" 
-                        checked={selectedEmployees.includes(record.id)} 
-                        onChange={() => toggleSelectEmployee(record.id)} 
-                        className="w-4 h-4 text-blue-600"
-                      />
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900 font-mono">{record.employeeId}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{record.employeeName}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-gray-900">{record.designation}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-medium text-gray-900">{formatCurrency(record.basicDA)}</div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="font-bold text-green-600">
-                        {formatCurrency(salary.netSalary)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                      {record.accountNumber || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap font-mono text-sm">
-                      {record.ifscCode || 'N/A'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        record.bankName?.includes('HDFC') 
-                          ? 'bg-green-100 text-green-800' 
-                          : record.bankName?.includes('SBI')
-                          ? 'bg-blue-100 text-blue-800'
+                        <input 
+                          type="checkbox" 
+                          checked={selectedEmployees.includes(record.id)} 
+                          onChange={() => toggleSelectEmployee(record.id)} 
+                          className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
+                        />
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono">
+                          {record.employeeId}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                            {(record.employeeName || 'E').charAt(0).toUpperCase()}
+                          </div>
+                          <div className="font-semibold text-slate-900 text-sm">{record.employeeName}</div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">
+                        {record.designation}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-800">
+                        {formatCurrency(record.basicDA)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                          {formatCurrency(salary.netSalary)}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-slate-600">
+                        {record.accountNumber || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap font-mono text-sm text-slate-600">
+                        {record.ifscCode || 'N/A'}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                          record.bankName?.includes('HDFC') 
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
+                            : record.bankName?.includes('SBI')
+                            ? 'bg-blue-50 text-blue-800 border-blue-200'
                           : record.bankName?.includes('Axis')
                           ? 'bg-purple-100 text-purple-800'
                           : record.bankName?.includes('Indian')

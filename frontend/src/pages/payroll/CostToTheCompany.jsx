@@ -324,174 +324,171 @@ const CostToTheCompany = () => {
   };
 
   return (
-    <div className="p-2">
-      
+    <div className="p-4 space-y-6">
+      {/* Filters Section */}
+      <div className="bg-white/90 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-slate-200/80">
+        <div className="flex flex-wrap gap-4 items-end">
+          {/* Year Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Year</label>
+            <select
+              className="border border-slate-200 rounded-xl px-3 py-2 w-32 text-sm bg-slate-50/50 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all"
+              value={year}
+              onChange={(e) => setYear(e.target.value)}
+            >
+              <option value="">All Years</option>
+              {[2023, 2024, 2025, 2026].map((y) => (
+                <option key={y} value={y}>
+                  {y}
+                </option>
+              ))}
+            </select>
+          </div>
 
-      {/* Filters */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-end">
-        {/* Year Selector */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Year</label>
-          <select
-            className="border rounded px-3 py-2 w-32 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={year}
-            onChange={(e) => setYear(e.target.value)}
-          >
-            <option value="">All Years</option>
-            {[2023, 2024, 2025, 2026].map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </select>
-        </div>
-        {/* Month Selector */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Month</label>
-          <select
-            className="border rounded px-3 py-2 w-40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-          >
-            <option value="">All Months</option>
-            {[
-              "January", "February", "March", "April", "May", "June",
-              "July", "August", "September", "October", "November", "December"
-            ].map((m, index) => (
-              <option key={index} value={index + 1}>
-                {m}
-              </option>
-            ))}
-          </select>
-        </div>
+          {/* Month Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Month</label>
+            <select
+              className="border border-slate-200 rounded-xl px-3 py-2 w-40 text-sm bg-slate-50/50 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+            >
+              <option value="">All Months</option>
+              {[
+                "January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"
+              ].map((m, index) => (
+                <option key={index} value={index + 1}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
 
-        
+          {/* Location Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Location</label>
+            <select
+              className="border border-slate-200 rounded-xl px-3 py-2 w-40 text-sm bg-slate-50/50 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+            >
+              <option value="">All Locations</option>
+              <option value="Hosur">Hosur</option>
+              <option value="Chennai">Chennai</option>
+            </select>
+          </div>
 
-        {/* Location Selector - NEW */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Location</label>
-          <select
-            className="border rounded px-3 py-2 w-40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={location}
-            onChange={(e) => setLocation(e.target.value)}
-          >
-            <option value="">All Locations</option>
-            <option value="Hosur">Hosur</option>
-            <option value="Chennai">Chennai</option>
+          {/* Department Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Division</label>
+            <select
+              className="border border-slate-200 rounded-xl px-3 py-2 w-44 text-sm bg-slate-50/50 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all"
+              value={filterDepartment}
+              onChange={(e) => setFilterDepartment(e.target.value)}
+            >
+              <option value="">All Divisions</option>
+              {departments.map((dept, index) => (
+                <option key={index} value={dept}>
+                  {dept}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Designation Selector */}
+          <div>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Designation</label>
+            <select
+              className="border border-slate-200 rounded-xl px-3 py-2 w-44 text-sm bg-slate-50/50 text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 focus:bg-white transition-all"
+              value={filterDesignation}
+              onChange={(e) => setFilterDesignation(e.target.value)}
+            >
+              <option value="">All Designations</option>
+              {designations.map((desig, index) => (
+                <option key={index} value={desig}>
+                  {desig}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2.5 ml-auto">
+            <button
+              onClick={fetchCTCSummary}
+              className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-5 py-2 text-sm font-semibold rounded-xl flex items-center gap-2 hover:from-slate-800 hover:to-indigo-900 transition-all shadow-sm hover:shadow-md"
+            >
+              <Filter size={16} />
+              Apply
+            </button>
             
-          </select>
-        </div>
+            <button
+              onClick={handleClearFilters}
+              className="border border-slate-200 text-slate-700 bg-white px-4 py-2 text-sm font-medium rounded-xl hover:bg-slate-50 transition-colors shadow-sm"
+            >
+              Clear
+            </button>
 
-        {/* Department Selector */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Department</label>
-          <select
-            className="border rounded px-3 py-2 w-40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={filterDepartment}
-            onChange={(e) => setFilterDepartment(e.target.value)}
-          >
-            <option value="">All Departments</option>
-            {departments.map((dept, index) => (
-              <option key={index} value={dept}>
-                {dept}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Designation Selector */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Designation</label>
-          <select
-            className="border rounded px-3 py-2 w-40 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            value={filterDesignation}
-            onChange={(e) => setFilterDesignation(e.target.value)}
-          >
-            <option value="">All Designations</option>
-            {designations.map((desig, index) => (
-              <option key={index} value={desig}>
-                {desig}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-2">
-          <button
-            onClick={fetchCTCSummary}
-            className="bg-[#262760] text-white px-5 py-2 rounded flex items-center gap-2 hover:bg-[#1e2050] transition-colors"
-          >
-            <Filter size={18} />
-            Apply
-          </button>
-          
-          <button
-            onClick={handleClearFilters}
-            className="bg-gray-300 text-gray-700 px-4 py-2 rounded hover:bg-gray-400 transition-colors"
-          >
-            Clear
-          </button>
-
-          <button
-            onClick={handleDownloadExcel}
-            className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={summary.length === 0 && employees.length === 0}
-          >
-            <Download size={18} />
-            Download Excel
-          </button>
+            <button
+              onClick={handleDownloadExcel}
+              className="bg-gradient-to-r from-emerald-600 to-teal-600 text-white px-4 py-2 text-sm font-semibold rounded-xl flex items-center gap-2 hover:from-emerald-700 hover:to-teal-700 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={summary.length === 0 && employees.length === 0}
+            >
+              <Download size={16} />
+              Export Excel
+            </button>
+          </div>
         </div>
       </div>
 
-     
-
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Summary Location Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
         <div className="overflow-auto max-h-96">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
+          <table className="min-w-full divide-y divide-slate-100 table-fixed">
             <thead className="bg-[#262760] sticky top-0 z-10">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">
                   Location
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">
                   Total PF Deduction (₹)
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">
                   Total Tax Deduction (₹)
                 </th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">
+                <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">
                   Total CTC (₹)
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-100">
               {loading ? (
                 <tr>
-                  <td colSpan="4" className="text-center py-6">
-                    <div className="flex justify-center items-center">
-                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600 mr-2"></div>
-                      Loading...
+                  <td colSpan="4" className="text-center py-8">
+                    <div className="flex justify-center items-center font-medium text-slate-600 text-sm">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600 mr-2.5"></div>
+                      Loading CTC Summary...
                     </div>
                   </td>
                 </tr>
               ) : summary.length === 0 ? (
                 <tr>
-                  <td colSpan="4" className="text-center py-8 text-gray-500">
-                    No data available. Please select filters and click "Apply".
+                  <td colSpan="4" className="text-center py-8 text-slate-500 text-sm font-medium">
+                    No CTC summary data available. Select filters and click "Apply".
                   </td>
                 </tr>
               ) : (
                 summary.map((row, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap font-medium">{row.location}</td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                  <tr key={index} className="hover:bg-slate-50/80 transition-colors">
+                    <td className="px-6 py-4 whitespace-nowrap font-semibold text-slate-900 text-sm">{row.location}</td>
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-700">
                       ₹{row.totalPF.toLocaleString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-700">
                       ₹{row.totalTax.toLocaleString()}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right font-semibold text-blue-700">
+                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-bold text-indigo-700">
                       ₹{row.totalCTC.toLocaleString()}
                     </td>
                   </tr>
@@ -499,16 +496,16 @@ const CostToTheCompany = () => {
               )}
             </tbody>
             {summary.length > 0 && (
-              <tfoot className="bg-gray-50">
+              <tfoot className="bg-slate-900 text-white">
                 <tr>
-                  <td className="px-6 py-4 whitespace-nowrap font-bold">Total</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold">
+                  <td className="px-6 py-4 whitespace-nowrap font-bold text-sm">Total</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-sm">
                     ₹{summary.reduce((sum, row) => sum + row.totalPF, 0).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold">
+                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-sm">
                     ₹{summary.reduce((sum, row) => sum + row.totalTax, 0).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-700">
+                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-sm text-emerald-400">
                     ₹{summary.reduce((sum, row) => sum + row.totalCTC, 0).toLocaleString()}
                   </td>
                 </tr>
@@ -518,69 +515,86 @@ const CostToTheCompany = () => {
         </div>
       </div>
 
+      {/* Employee Breakdown Table */}
       {employees.length > 0 && (
-        <div className="bg-white rounded-lg shadow overflow-hidden mt-6">
-          
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
           <div className="overflow-auto max-h-[600px]">
-            <table className="min-w-full divide-y divide-gray-200">
+            <table className="min-w-full divide-y divide-slate-100">
               <thead className="bg-[#262760] sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-3 w-10"></th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee ID</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Employee</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Designation</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Location</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Total Earnings</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">PF</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Tax</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Gratuity</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Net Salary</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">CTC</th>
+                  <th className="px-6 py-3.5 w-10"></th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Employee ID</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Employee Name</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Designation</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Location</th>
+                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">Total Earnings</th>
+                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">PF</th>
+                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">Tax</th>
+                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">Gratuity</th>
+                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">Net Salary</th>
+                  <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">CTC</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-slate-100">
                 {employees.map((e) => {
                   return (
                     <React.Fragment key={e.employeeId}>
                       <tr 
-                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${expandedRows.has(e.employeeId) ? 'bg-blue-50/30' : ''}`}
+                        className={`hover:bg-slate-50/80 cursor-pointer transition-colors ${expandedRows.has(e.employeeId) ? 'bg-indigo-50/40' : ''}`}
                         onClick={() => toggleRow(e.employeeId)}
                       >
-                        <td className="px-6 py-4 text-gray-400">
-                          {expandedRows.has(e.employeeId) ? (
-                            <ChevronDown className="w-4 h-4" />
-                          ) : (
-                            <ChevronRight className="w-4 h-4" />
-                          )}
+                        <td className="px-6 py-4 text-slate-400">
+                          <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                            {expandedRows.has(e.employeeId) ? (
+                              <ChevronDown className="w-4 h-4" />
+                            ) : (
+                              <ChevronRight className="w-4 h-4" />
+                            )}
+                          </div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap font-medium text-gray-900">{e.employeeId}</td>
-                        <td className="px-6 py-4 whitespace-nowrap font-medium">{e.employeeName}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">{e.designation || "-"}</td>
-                        <td className="px-6 py-4 whitespace-nowrap">{e.location || "-"}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">₹{e.totalEarnings.toLocaleString()}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">₹{e.pf.toLocaleString()}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">₹{e.tax.toLocaleString()}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">₹{e.gratuity.toLocaleString()}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right">₹{e.netSalary.toLocaleString()}</td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right font-semibold text-blue-700">₹{e.ctc.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono">
+                            {e.employeeId}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap font-semibold text-slate-900 text-sm">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                              {(e.employeeName || 'E').charAt(0).toUpperCase()}
+                            </div>
+                            {e.employeeName}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">{e.designation || "-"}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-600">{e.location || "-"}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-800">₹{e.totalEarnings.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-700">₹{e.pf.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-700">₹{e.tax.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-700">₹{e.gratuity.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-semibold text-slate-800">₹{e.netSalary.toLocaleString()}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                            ₹{e.ctc.toLocaleString()}
+                          </span>
+                        </td>
                       </tr>
                       {expandedRows.has(e.employeeId) && (
-                        <tr className="bg-gray-50/50">
+                        <tr className="bg-slate-50/60">
                           <td colSpan="11" className="px-6 py-4">
-                            <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+                            <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-inner p-3">
                               <table className="w-full text-sm">
-                                <thead className="bg-gray-50">
+                                <thead className="bg-slate-100/70">
                                   <tr>
-                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase">Month</th>
-                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">Earnings</th>
-                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">PF</th>
-                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">Tax</th>
-                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">Gratuity</th>
-                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">Net Salary</th>
-                                    <th className="px-4 py-2 text-xs font-semibold text-gray-500 uppercase text-right">CTC</th>
+                                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-600 uppercase tracking-wider text-left">Month</th>
+                                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Earnings</th>
+                                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">PF</th>
+                                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Tax</th>
+                                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Gratuity</th>
+                                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">Net Salary</th>
+                                    <th className="px-4 py-2.5 text-xs font-semibold text-slate-600 uppercase tracking-wider text-right">CTC</th>
                                   </tr>
                                 </thead>
-                                <tbody className="divide-y divide-gray-100">
+                                <tbody className="divide-y divide-slate-100">
                                   {e.history.map((record, idx) => {
                                       const rTotalEarnings = Number(record.totalEarnings || 0);
                                       const rPf = Number(record.pf || 0);
@@ -590,14 +604,14 @@ const CostToTheCompany = () => {
                                       const rCtc = record.ctc != null ? Number(record.ctc || 0) : rTotalEarnings + rGratuity;
                                       
                                       return (
-                                        <tr key={idx}>
-                                          <td className="px-4 py-2 text-gray-700">{record.salaryMonth}</td>
-                                          <td className="px-4 py-2 text-right text-gray-700">₹{rTotalEarnings.toLocaleString()}</td>
-                                          <td className="px-4 py-2 text-right text-gray-700">₹{rPf.toLocaleString()}</td>
-                                          <td className="px-4 py-2 text-right text-gray-700">₹{rTax.toLocaleString()}</td>
-                                          <td className="px-4 py-2 text-right text-gray-700">₹{rGratuity.toLocaleString()}</td>
-                                          <td className="px-4 py-2 text-right text-gray-700">₹{rNetSalary.toLocaleString()}</td>
-                                          <td className="px-4 py-2 text-right font-medium text-blue-600">₹{rCtc.toLocaleString()}</td>
+                                        <tr key={idx} className="hover:bg-slate-50/60">
+                                          <td className="px-4 py-2 text-slate-700 font-medium">{record.salaryMonth}</td>
+                                          <td className="px-4 py-2 text-right text-slate-700">₹{rTotalEarnings.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-slate-700">₹{rPf.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-slate-700">₹{rTax.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-slate-700">₹{rGratuity.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right text-slate-700">₹{rNetSalary.toLocaleString()}</td>
+                                          <td className="px-4 py-2 text-right font-semibold text-indigo-600">₹{rCtc.toLocaleString()}</td>
                                         </tr>
                                       );
                                   })}
@@ -611,25 +625,25 @@ const CostToTheCompany = () => {
                   );
                 })}
               </tbody>
-              <tfoot className="bg-gray-50">
+              <tfoot className="bg-slate-900 text-white font-bold">
                 <tr>
-                  <td className="px-6 py-4 whitespace-nowrap font-bold" colSpan={5}>Totals</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm" colSpan={5}>Totals</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                     ₹{employees.reduce((sum, e) => sum + Number(e.totalEarnings || 0), 0).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                     ₹{employees.reduce((sum, e) => sum + Number(e.pf || 0), 0).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                     ₹{employees.reduce((sum, e) => sum + Number(e.tax || 0), 0).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                     ₹{employees.reduce((sum, e) => sum + Number(e.gratuity || 0), 0).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                     ₹{employees.reduce((sum, e) => sum + Number(e.netSalary || 0), 0).toLocaleString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-green-700">
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm text-emerald-400">
                     ₹{employees.reduce((sum, e) => sum + Number(e.ctc || 0), 0).toLocaleString()}
                   </td>
                 </tr>

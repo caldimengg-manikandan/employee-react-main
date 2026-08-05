@@ -923,25 +923,26 @@ We’re excited to have you join our team and look forward to your growth and su
 
   return (
     <div className="p-6">
-      <div className="bg-white p-4 rounded-lg shadow mb-4 flex flex-wrap gap-4 items-center">
-        <div className="flex items-center gap-2 flex-1 min-w-[260px]">
-          <Search size={18} />
+      {/* Top Search & Filter Bar */}
+      <div className="bg-white/90 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-slate-200/80 mb-6 flex flex-wrap gap-4 items-center">
+        <div className="flex items-center gap-2 flex-1 min-w-[260px] relative">
+          <Search size={18} className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-slate-400" />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, department, designation"
-            className="border rounded px-3 py-2 w-80 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            placeholder="Search by candidate name, division, designation..."
+            className="w-full pl-10 pr-4 py-2 text-sm bg-slate-50/50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all shadow-inner"
           />
         </div>
 
         <button
           onClick={() => setFiltersOpen((v) => !v)}
-          className="flex items-center gap-2 px-4 py-2 rounded-full border border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 shadow-sm transition"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-indigo-200 bg-indigo-50/80 text-indigo-700 hover:bg-indigo-100 hover:border-indigo-300 shadow-sm transition-all"
         >
           <Filter size={16} />
-          <span className="text-sm font-medium">Filters</span>
+          <span className="text-sm font-semibold">Filters</span>
           {activeFilterCount > 0 && (
-            <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-indigo-600 text-white">
+            <span className="ml-1 text-xs px-2 py-0.5 rounded-full bg-indigo-600 text-white font-bold">
               {activeFilterCount}
             </span>
           )}
@@ -953,36 +954,36 @@ We’re excited to have you join our team and look forward to your growth and su
           />
         </button>
 
-        <div className="ml-auto flex gap-2 mt-2 sm:mt-0">
+        <div className="ml-auto flex gap-2.5 mt-2 sm:mt-0">
           <button
             onClick={handleOpenAdd}
-            className="bg-[#262760] text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-[#1e2050]"
+            className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-4 py-2 text-sm font-semibold rounded-xl flex items-center gap-2 hover:from-slate-800 hover:to-indigo-900 transition-all shadow-sm hover:shadow-md"
           >
             <Plus size={18} />
             Add Compensation
           </button>
           <button
             onClick={exportCSV}
-            className="bg-gray-200 text-gray-700 px-4 py-2 rounded flex items-center gap-2 hover:bg-gray-300"
+            className="bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-4 py-2 text-sm font-semibold rounded-xl flex items-center gap-2 hover:from-indigo-700 hover:to-blue-700 transition-all shadow-sm hover:shadow-md"
           >
             <Download size={18} />
-            Export
+            Export CSV
           </button>
         </div>
       </div>
 
       {filtersOpen && (
-        <div className="bg-indigo-50/80 border border-indigo-100 rounded-xl px-4 py-3 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-indigo-50/70 border border-indigo-100/80 rounded-2xl p-5 mb-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 shadow-inner">
           <div>
-            <label className="block text-xs font-semibold text-indigo-900 mb-1 tracking-wide">
-              Department
+            <label className="block text-xs font-semibold text-indigo-900 mb-1.5 uppercase tracking-wider">
+              Division
             </label>
             <select
-              className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full border border-indigo-200 rounded-xl px-3 py-2 text-sm bg-white text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               value={filterDepartment}
               onChange={(e) => setFilterDepartment(e.target.value)}
             >
-              <option value="">All</option>
+              <option value="">All Divisions</option>
               {departments.map((d) => (
                 <option key={d} value={d}>
                   {d}
@@ -992,15 +993,15 @@ We’re excited to have you join our team and look forward to your growth and su
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-indigo-900 mb-1 tracking-wide">
+            <label className="block text-xs font-semibold text-indigo-900 mb-1.5 uppercase tracking-wider">
               Designation
             </label>
             <select
-              className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full border border-indigo-200 rounded-xl px-3 py-2 text-sm bg-white text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               value={filterDesignation}
               onChange={(e) => setFilterDesignation(e.target.value)}
             >
-              <option value="">All</option>
+              <option value="">All Designations</option>
               {designations.map((d) => (
                 <option key={d} value={d}>
                   {d}
@@ -1010,15 +1011,15 @@ We’re excited to have you join our team and look forward to your growth and su
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-indigo-900 mb-1 tracking-wide">
+            <label className="block text-xs font-semibold text-indigo-900 mb-1.5 uppercase tracking-wider">
               Location
             </label>
             <select
-              className="w-full border border-indigo-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+              className="w-full border border-indigo-200 rounded-xl px-3 py-2 text-sm bg-white text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
               value={filterLocation}
               onChange={(e) => setFilterLocation(e.target.value)}
             >
-              <option value="">All</option>
+              <option value="">All Locations</option>
               {locations.map((l) => (
                 <option key={l} value={l}>
                   {l}
@@ -1034,7 +1035,7 @@ We’re excited to have you join our team and look forward to your growth and su
                 setFilterDesignation("");
                 setFilterLocation("");
               }}
-              className="px-4 py-2 text-sm rounded-lg border border-indigo-300 text-indigo-700 bg-white hover:bg-indigo-50 transition"
+              className="px-4 py-2 text-sm font-semibold rounded-xl border border-indigo-300 text-indigo-700 bg-white hover:bg-indigo-50 transition-all shadow-sm"
             >
               Clear filters
             </button>
@@ -1042,72 +1043,82 @@ We’re excited to have you join our team and look forward to your growth and su
         </div>
       )}
 
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      {/* Compensation Table */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-[#262760]">
+          <table className="min-w-full divide-y divide-slate-100">
+            <thead className="bg-[#262760]">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Candidate Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Department</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Designation</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-white uppercase tracking-wider">Location</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Basic/DA</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">HRA</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Special Allow</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">PF</th>
-                <th className="px-6 py-3 text-right text-xs font-medium text-white uppercase tracking-wider">Gratuity</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-white uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Candidate Name</th>
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Division</th>
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Designation</th>
+                <th className="px-6 py-3.5 text-left text-xs font-semibold text-white uppercase tracking-wider">Location</th>
+                <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">Basic/DA</th>
+                <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">HRA</th>
+                <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">Special Allow</th>
+                <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">PF</th>
+                <th className="px-6 py-3.5 text-right text-xs font-semibold text-white uppercase tracking-wider">Gratuity</th>
+                <th className="px-6 py-3.5 text-center text-xs font-semibold text-white uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3.5 text-center text-xs font-semibold text-white uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-slate-100">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-6 py-8 text-center text-gray-500">No compensation found</td>
+                  <td colSpan={11} className="px-6 py-8 text-center text-slate-500 font-medium">No compensation records found</td>
                 </tr>
               ) : filtered.map((t, idx) => (
-                <tr key={idx} className="hover:bg-indigo-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="font-semibold">{t.name}</div>
+                <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                        {(t.name || 'C').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="font-semibold text-slate-900 text-sm">{t.name}</div>
+                    </div>
                   </td>
-                  <td className="px-6 py-4">{t.department || "-"}</td>
-                  <td className="px-6 py-4">{t.designation || "-"}</td>
-                  <td className="px-6 py-4">{t.location || "-"}</td>
-                  <td className="px-6 py-4 text-right">{t.basicDA || "-"}</td>
-                  <td className="px-6 py-4 text-right">{t.hra || "-"}</td>
-                  <td className="px-6 py-4 text-right">{t.specialAllowance || "-"}</td>
-                  <td className="px-6 py-4 text-right">{t.pf || "-"}</td>
-                  <td className="px-6 py-4 text-right">{t.gratuity || "-"}</td>
-                  <td className="px-6 py-4 text-center">Joined</td>
-                  <td className="px-6 py-4">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">{t.department || "-"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-700">{t.designation || "-"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-slate-600">{t.location || "-"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-800">{t.basicDA || "-"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-800">{t.hra || "-"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-800">{t.specialAllowance || "-"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-800">{t.pf || "-"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-slate-800">{t.gratuity || "-"}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      Joined
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-center">
                     <div className="flex items-center gap-2 justify-center">
                       <button
                         onClick={() => setViewItem(t)}
-                        className="text-indigo-600 hover:text-indigo-900 p-1 rounded-full hover:bg-indigo-50"
+                        className="p-2 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                         title="View"
                       >
-                        <Eye className="h-5 w-5" />
+                        <Eye className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleEdit(compensation.indexOf(t))}
-                        className="text-blue-600 hover:text-blue-900 p-1 rounded-full hover:bg-blue-50"
+                        className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
                         title="Edit"
                       >
-                        <Edit2 className="h-5 w-5" />
+                        <Edit2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleDelete(compensation.indexOf(t))}
-                        className="text-red-600 hover:text-red-900 p-1 rounded-full hover:bg-red-50"
+                        className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all shadow-sm"
                         title="Delete"
                       >
-                        <Trash2 className="h-5 w-5" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleOpenEmail(t)}
-                        className="text-green-600 hover:text-green-900 p-1 rounded-full hover:bg-green-50"
+                        className="p-2 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
                         title="Send Email"
                       >
-                        <Mail className="h-5 w-5" />
+                        <Mail className="h-4 w-4" />
                       </button>
                     </div>
                   </td>
@@ -1119,19 +1130,22 @@ We’re excited to have you join our team and look forward to your growth and su
       </div>
 
       {openDialog && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 transition-opacity">
+          <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl border border-slate-100">
             {/* Header */}
-            <div className="px-6 py-4 border-b flex items-center justify-between sticky top-0 bg-white z-10">
-              <h2 className="text-xl font-semibold text-gray-800">
-                {editingIndex !== null ? 'Edit Compensation' : 'Add Compensation'}
-              </h2>
+            <div className="px-8 py-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-between text-white rounded-t-2xl sticky top-0 z-10">
+              <div>
+                <h2 className="text-xl font-bold tracking-tight">
+                  {editingIndex !== null ? 'Edit Compensation' : 'Add Compensation'}
+                </h2>
+                <p className="text-xs text-indigo-200/70 mt-0.5">Configure candidate earnings, benefits and deductions</p>
+              </div>
               <button
                 onClick={() => { setOpenDialog(false); setEditingIndex(null); }}
-                className="p-2 text-gray-400 hover:text-gray-600"
+                className="p-2 text-indigo-200 hover:text-white hover:bg-white/10 rounded-full transition-colors"
                 title="Close"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
@@ -1522,18 +1536,18 @@ We’re excited to have you join our team and look forward to your growth and su
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t bg-gray-50 flex justify-end gap-2 sticky bottom-0 z-10">
+            <div className="px-8 py-4 border-t border-slate-100 bg-slate-50/70 flex justify-end gap-3 sticky bottom-0 z-10">
               <button
                 onClick={() => { setOpenDialog(false); setEditingIndex(null); }}
-                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
+                className="px-4 py-2 border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 text-sm font-semibold rounded-xl transition-all shadow-sm"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSubmit}
-                className="px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] flex items-center gap-2"
+                className="px-5 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-sm font-semibold rounded-xl flex items-center gap-2 shadow-sm hover:shadow-md transition-all"
               >
-                <Save size={18} />
+                <Save size={16} />
                 {editingIndex !== null ? 'Update' : 'Save'}
               </button>
             </div>

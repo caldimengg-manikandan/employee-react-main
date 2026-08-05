@@ -626,24 +626,22 @@ export default function LoanSummary() {
 
   /* -------- UI -------- */
   return (
-    <div className="p-6">
-      <div className="flex justify-between mb-6">
-        <div>
-          
-        </div>
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center mb-6">
+        <div></div>
         <button
           onClick={() => setShowAddModal(true)}
-          className="bg-[#262760] text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-[#1e1f4d] transition-colors shadow-md"
+          className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-5 py-2.5 rounded-xl flex items-center gap-2 hover:from-slate-800 hover:to-indigo-900 transition-all shadow-md font-semibold text-sm"
         >
-          <Plus size={16} /> Add Loan
+          <Plus size={18} /> Add Loan
         </button>
       </div>
 
       {/* FILTERS */}
-      <div className="bg-white p-4 rounded-lg shadow border mb-6">
+      <div className="bg-white/90 backdrop-blur-md p-5 rounded-2xl shadow-sm border border-slate-200/80 mb-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Employee ID</label>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Employee ID</label>
             <input
               type="text"
               name="employeeId"
@@ -651,16 +649,16 @@ export default function LoanSummary() {
               onChange={handleFilterChange}
               placeholder="Search by ID..."
               maxLength={10}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#262760]"
+              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Location</label>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Location</label>
             <select
               name="location"
               value={filters.location}
               onChange={handleFilterChange}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#262760]"
+              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
             >
               {locations.map(loc => (
                 <option key={loc} value={loc}>
@@ -670,12 +668,12 @@ export default function LoanSummary() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Division</label>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Division</label>
             <select
               name="division"
               value={filters.division}
               onChange={handleFilterChange}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#262760]"
+              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
             >
               {divisions.map(div => (
                 <option key={div} value={div}>
@@ -685,12 +683,12 @@ export default function LoanSummary() {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Status</label>
+            <label className="block text-xs font-semibold text-slate-600 uppercase tracking-wider mb-1.5">Status</label>
             <select
               name="status"
               value={filters.status}
               onChange={handleFilterChange}
-              className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#262760]"
+              className="w-full border border-slate-200 bg-slate-50/50 rounded-xl px-3 py-2 text-sm text-slate-800 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
             >
               {statusOptions.map(status => (
                 <option key={status} value={status}>
@@ -702,31 +700,32 @@ export default function LoanSummary() {
         </div>
       </div>
 
-      {/* LOANS TABLE - REMOVED LOAN ID COLUMN */}
-      <div className="bg-white shadow rounded-lg overflow-x-auto border">
-        <table className="w-full min-w-[1200px]">
-          <thead className="bg-gradient-to-r from-[#262760] to-[#3a3b8c] text-white">
+      {/* LOANS TABLE */}
+      <div className="bg-white shadow-sm rounded-2xl overflow-x-auto border border-slate-200/80">
+        <table className="w-full min-w-[1200px] divide-y divide-slate-100">
+          <thead className="bg-[#262760] text-white">
             <tr>
-              <th className="px-6 py-4 text-center">S.No</th>
-              <th className="px-6 py-4">Employee ID</th>
-              <th className="px-6 py-4">Employee Name</th>
-              <th className="px-6 py-4">Division</th>
-              <th className="px-6 py-4">Location</th>
-              <th className="px-6 py-4 text-right">Loan Amount</th>
-              <th className="px-6 py-4 text-right">Tenure</th>
-              <th className="px-6 py-4 text-right">Monthly EMI</th>
-              <th className="px-6 py-4 text-right">Remaining Balance</th>
-              <th className="px-6 py-4 text-center">Status</th>
-              <th className="px-6 py-4 text-center">Payment</th>
-              <th className="px-6 py-4 text-center">Actions</th>
+              <th className="px-6 py-3.5 text-center text-xs font-semibold uppercase tracking-wider">S.No</th>
+              <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Employee ID</th>
+              <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Employee Name</th>
+              <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Division</th>
+              <th className="px-6 py-3.5 text-left text-xs font-semibold uppercase tracking-wider">Location</th>
+              <th className="px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Loan Amount</th>
+              <th className="px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Tenure</th>
+              <th className="px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Monthly EMI</th>
+              <th className="px-6 py-3.5 text-right text-xs font-semibold uppercase tracking-wider">Remaining Balance</th>
+              <th className="px-6 py-3.5 text-center text-xs font-semibold uppercase tracking-wider">Status</th>
+              <th className="px-6 py-3.5 text-center text-xs font-semibold uppercase tracking-wider">Payment</th>
+              <th className="px-6 py-3.5 text-center text-xs font-semibold uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
-          <tbody>
+          <tbody className="bg-white divide-y divide-slate-100">
             {loading ? (
               <tr>
-                <td colSpan="12" className="py-10 text-center text-gray-500">
-                  <div className="flex justify-center">
-                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#262760]"></div>
+                <td colSpan="12" className="py-10 text-center text-slate-500 font-medium">
+                  <div className="flex justify-center items-center gap-2">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-indigo-600"></div>
+                    Loading Loan Records...
                   </div>
                 </td>
               </tr>
@@ -734,105 +733,101 @@ export default function LoanSummary() {
               const isPaymentAllowed = loan.paymentEnabled && loan.status !== 'completed';
               
               return (
-                <tr key={loan._id || loan.id} className="border-t hover:bg-gray-50">
+                <tr key={loan._id || loan.id} className="hover:bg-slate-50/80 transition-colors">
                   <td className="px-6 py-4 text-center whitespace-nowrap">
-                    <div className="font-semibold text-gray-600">{idx + 1}</div>
+                    <div className="font-semibold text-slate-500 text-sm">{idx + 1}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium">{loan.employeeId}</div>
+                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-indigo-50 text-indigo-700 border border-indigo-100 font-mono">
+                      {loan.employeeId}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-semibold text-gray-900">{loan.employeeName}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-700">{loan.division || "N/A"}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="font-medium text-gray-700">{loan.location || "N/A"}</div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="font-semibold">₹{Number(loan.amount || 0).toLocaleString("en-IN")}</div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <span>{loan.tenureMonths}</span>
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-indigo-600 to-violet-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                        {(loan.employeeName || 'E').charAt(0).toUpperCase()}
+                      </div>
+                      <div className="font-semibold text-slate-900 text-sm">{loan.employeeName}</div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="font-medium">₹{Number(calcMonthlyDeduction(loan) || 0).toLocaleString("en-IN")}</div>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium text-slate-700 text-sm">{loan.division || "N/A"}</div>
                   </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className={`font-bold ${remainingBalance(loan) === 0 ? 'text-green-600' : 'text-[#262760]'}`}>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="font-medium text-slate-600 text-sm">{loan.location || "N/A"}</div>
+                  </td>
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <div className="font-semibold text-slate-800 text-sm">₹{Number(loan.amount || 0).toLocaleString("en-IN")}</div>
+                  </td>
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <div className="text-sm font-medium text-slate-700">{loan.tenureMonths} Months</div>
+                  </td>
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <div className="font-medium text-slate-800 text-sm">₹{Number(calcMonthlyDeduction(loan) || 0).toLocaleString("en-IN")}</div>
+                  </td>
+                  <td className="px-6 py-4 text-right whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold ${remainingBalance(loan) === 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-indigo-50 text-indigo-700 border border-indigo-200'}`}>
                       ₹{Number(remainingBalance(loan) || 0).toLocaleString("en-IN")}
-                    </div>
+                    </span>
                   </td>
-                  <td className="px-6 py-4 text-center">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusColor(loan.status)}`}>
+                  <td className="px-6 py-4 text-center whitespace-nowrap">
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider border ${getStatusColor(loan.status)}`}>
                       {loan.status.charAt(0).toUpperCase() + loan.status.slice(1).replace('-', ' ')}
                     </span>
                   </td>
-                  <td className="px-6 py-4 text-center">
+                  <td className="px-6 py-4 text-center whitespace-nowrap">
                     <div className="flex flex-col items-center">
-                      {/* Toggle Button */}
                       <button
                         onClick={() => togglePayment(loan._id)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${loan.paymentEnabled ? 'bg-green-500' : 'bg-gray-300'}`}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${loan.paymentEnabled ? 'bg-emerald-500' : 'bg-slate-300'}`}
                         title={loan.paymentEnabled ? "Click to disable payments" : "Click to enable payments"}
                       >
                         <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${loan.paymentEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${loan.paymentEnabled ? 'translate-x-6' : 'translate-x-1'}`}
                         />
                       </button>
                       
-                      {/* Status Text */}
-                      <span className={`text-xs mt-1 font-medium ${loan.paymentEnabled ? 'text-green-600' : 'text-red-600'}`}>
+                      <span className={`text-[11px] mt-1 font-bold ${loan.paymentEnabled ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {loan.paymentEnabled ? 'Enabled' : 'Disabled'}
                       </span>
-                      
-                      {/* Payment Status Info */}
-                      {!isPaymentAllowed && loan.status !== 'completed' && (
-                        <span className="text-xs text-gray-500 mt-1">
-                          {loan.status === 'on-hold' ? 'Loan on hold' : 'Payments disabled'}
-                        </span>
-                      )}
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="flex justify-center gap-2">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex justify-center gap-1.5">
                       <button 
                         onClick={() => viewLoan(loan)} 
-                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-lg"
+                        className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white rounded-lg transition-all shadow-sm"
                         title="View Details"
                       >
-                        <Eye size={18} />
+                        <Eye size={16} />
                       </button>
                       <button 
                         onClick={() => editLoan(loan)} 
-                        className="p-2 bg-yellow-50 text-yellow-600 hover:bg-yellow-100 rounded-lg"
+                        className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg transition-all shadow-sm"
                         title="Edit"
                       >
-                        <Edit2 size={18} />
+                        <Edit2 size={16} />
                       </button>
                       <button 
                         onClick={() => downloadPDF(loan)} 
-                        className="p-2 bg-green-50 text-green-600 hover:bg-green-100 rounded-lg"
+                        className="p-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-lg transition-all shadow-sm"
                         title="Download PDF"
                       >
-                        <Download size={18} />
+                        <Download size={16} />
                       </button>
                       <button 
                         onClick={() => reconcileLoan(loan._id)} 
-                        className="p-2 bg-purple-50 text-purple-600 hover:bg-purple-100 rounded-lg"
+                        className="p-2 bg-purple-50 text-purple-600 hover:bg-purple-600 hover:text-white rounded-lg transition-all shadow-sm"
                         title="Auto-Fix Balance (Sync with Payroll)"
                       >
-                        <RefreshCcw size={18} />
+                        <RefreshCcw size={16} />
                       </button>
                       <button 
                         onClick={() => deleteLoan(loan)} 
-                        className="p-2 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg"
+                        className="p-2 bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white rounded-lg transition-all shadow-sm"
                         title="Delete"
                       >
-                        <Trash2 size={18} />
+                        <Trash2 size={16} />
                       </button>
                     </div>
                   </td>
