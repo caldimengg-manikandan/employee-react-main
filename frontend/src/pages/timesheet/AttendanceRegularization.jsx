@@ -62,6 +62,20 @@ const AttendanceRegularization = () => {
     return `${hours}:${mm} hrs`;
   };
 
+  const getRecordHours = (rec) => {
+    if (typeof rec.hours === "number" && rec.hours > 0) {
+      return rec.hours;
+    }
+    if (rec.punchIn && rec.punchOut) {
+      const inDt = new Date(rec.punchIn);
+      const outDt = new Date(rec.punchOut);
+      if (outDt > inDt) {
+        return (outDt - inDt) / (1000 * 60 * 60);
+      }
+    }
+    return 0;
+  };
+
   const prevMonth = () => {
     const d = new Date(month);
     d.setMonth(d.getMonth() - 1);
@@ -195,11 +209,17 @@ const AttendanceRegularization = () => {
 
   const openEdit = (rec) => {
     setEditingRecord(rec);
-    const baseDateKey = new Date(rec.punchIn || rec.date).toISOString().split("T")[0];
-    setInDate(baseDateKey);
-    setOutDate(baseDateKey);
-    setInTime(rec.punchIn ? new Date(rec.punchIn).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
-    setOutTime(rec.punchOut ? new Date(rec.punchOut).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
+    const req = myRequestsByDate[rec.date];
+    const punchInVal = req?.inTime || rec.punchIn || rec.date;
+    const punchOutVal = req?.outTime || rec.punchOut || rec.date;
+
+    const inDateKey = new Date(punchInVal).toISOString().split("T")[0];
+    const outDateKey = new Date(punchOutVal).toISOString().split("T")[0];
+
+    setInDate(inDateKey);
+    setOutDate(outDateKey);
+    setInTime(punchInVal ? new Date(punchInVal).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
+    setOutTime(punchOutVal ? new Date(punchOutVal).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false }) : "");
     setModalError("");
     setShowEditModal(true);
   };
@@ -558,7 +578,7 @@ const AttendanceRegularization = () => {
                   <td style={styles.td}>{formatDate(rec.date)}</td>
                   <td style={styles.td}>{formatTime(rec.punchIn)}</td>
                   <td style={styles.td}>{formatTime(rec.punchOut)}</td>
-                  <td style={styles.td}>{formatHours(rec.hours || 0)}</td>
+                  <td style={styles.td}>{formatHours(getRecordHours(rec))}</td>
                   <td style={styles.td}>
                     {myRequestsByDate[rec.date] ? (
                       <span style={styles.statusBadge(myRequestsByDate[rec.date].status)}>

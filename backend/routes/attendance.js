@@ -578,32 +578,12 @@ router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
         const firstIn = dayPairs[0].start;
         const lastOut = dayPairs[dayPairs.length - 1].end;
 
-        // Find if we have workDurationSeconds stored in any event for this day
-        const dayEvents = events.filter(e => {
-          const d = new Date(e.punchTime);
-          return d.getDate() === dayCursor.getDate() &&
-            d.getMonth() === dayCursor.getMonth() &&
-            d.getFullYear() === dayCursor.getFullYear();
-        });
-
-        // Get the record with the maximum workDurationSeconds (likely the latest punch out)
-        const workDurationRec = dayEvents.reduce((max, e) => {
-          const currentDuration = Number(e.workDurationSeconds) || 0;
-          const maxDuration = max ? (Number(max.workDurationSeconds) || 0) : 0;
-          return currentDuration > maxDuration ? e : max;
-        }, null);
-
-        let sumHours;
-        if (workDurationRec) {
-          sumHours = Number((workDurationRec.workDurationSeconds / 3600).toFixed(2));
-        } else {
-          sumHours = Number(
-            dayPairs
-              .map(p => (p.end - p.start) / (1000 * 60 * 60))
-              .reduce((a, b) => a + b, 0)
-              .toFixed(2)
-          );
-        }
+        const sumHours = Number(
+          dayPairs
+            .map(p => (p.end - p.start) / (1000 * 60 * 60))
+            .reduce((a, b) => a + b, 0)
+            .toFixed(2)
+        );
 
         result.push({
           date: dateKey,
@@ -611,7 +591,7 @@ router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
           punchOut: lastOut,
           punchTime: firstIn,
           hours: sumHours,
-          workDurationSeconds: workDurationRec ? workDurationRec.workDurationSeconds : undefined
+          workDurationSeconds: Math.round(sumHours * 3600)
         });
       }
 
