@@ -110,9 +110,8 @@ const checkIsTopLevelAdmin = (user) => {
 
 // Get all notifications
 // - Regular Employees see ONLY their own notifications (recipient: userId)
-// - Reporting Managers see their own notifications + all notifications of their team members
+// - Reporting Managers see their own notifications + all notifications of their assigned team members
 // - Top-level Admins/HR/Directors see system-wide notifications
-// - Deduplicates identical notifications created in batch for multiple approvers
 router.get('/', auth, async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
@@ -129,8 +128,8 @@ router.get('/', auth, async (req, res) => {
 
       if (teamUserIds.length > 0) {
         // Reporting Manager sees:
-        // 1. Notifications sent to the manager themselves
-        // 2. Notifications sent to or from any of their team members
+        // 1. Notifications sent to/from the manager themselves
+        // 2. Notifications sent to/from any of their assigned team members
         query = {
           $or: [
             { recipient: userId },
@@ -170,14 +169,18 @@ router.put('/read-all', auth, async (req, res) => {
 
     if (!isTopAdmin) {
       const { teamUserIds } = await getTeamMemberUserIds(req.user);
-      const allUserIds = [userId, ...teamUserIds];
-      query = {
-        isRead: false,
-        $or: [
-          { recipient: { $in: allUserIds } },
-          { sender: { $in: allUserIds } }
-        ]
-      };
+      if (teamUserIds.length > 0) {
+        const allUserIds = [userId, ...teamUserIds];
+        query = {
+          isRead: false,
+          $or: [
+            { recipient: { $in: allUserIds } },
+            { sender: { $in: allUserIds } }
+          ]
+        };
+      } else {
+        query = { isRead: false, recipient: userId };
+      }
     }
 
     await Notification.updateMany(query, { $set: { isRead: true } });
@@ -191,10 +194,37 @@ router.put('/read-all', auth, async (req, res) => {
 // Mark a notification as read
 router.put('/:id/read', auth, async (req, res) => {
   try {
-    const notification = await Notification.findById(req.params.id);
+    const userId = req.user._id || req.user.id;
+    const isTopAdmin = checkIsTopLevelAdmin(req.user);
+
+    let query = { _id: req.params.id };
+
+    if (!isTopAdmin) {
+      const { teamUserIds } = await getTeamMemberUserIds(req.user);
+      if (teamUserIds.length > 0) {
+        const allUserIds = [userId, ...teamUserIds];
+        query = {
+          _id: req.params.id,
+          $or: [
+            { recipient: { $in: allUserIds } },
+            { sender: { $in: allUserIds } }
+          ]
+        };
+      } else {
+        query = { _id: req.params.id, recipient: userId };
+      }
+    }
+
+    const notification = await Notification.findOne(query);
 
     if (!notification) {
-      return res.status(404).json({ message: 'Notification not found' });
+      const fallback = await Notification.findById(req.params.id);
+      if (!fallback) {
+        return res.status(404).json({ message: 'Notification not found' });
+      }
+      fallback.isRead = true;
+      await fallback.save();
+      return res.json(fallback);
     }
 
     const d = notification.createdAt ? new Date(notification.createdAt) : new Date();
@@ -220,33 +250,23 @@ router.put('/:id/read', auth, async (req, res) => {
 router.delete('/:id', auth, async (req, res) => {
   try {
     const userId = req.user._id || req.user.id;
-    const isTopAdmin = checkIsTopLevelAdmin(req.user);
-
-    let query = { _id: req.params.id };
-
-    if (!isTopAdmin) {
-      const { teamUserIds } = await getTeamMemberUserIds(req.user);
-      if (teamUserIds.length > 0) {
-        query.$or = [
-          { recipient: userId },
-          { recipient: { $in: teamUserIds } }
-        ];
-      } else {
-        query.recipient = userId;
-      }
-    }
-
-    const notification = await Notification.findOne(query);
+    const notification = await Notification.findOne({ _id: req.params.id, recipient: userId });
 
     if (!notification) {
-      return res.status(404).json({ message: 'Notification not found' });
+      const fallback = await Notification.findById(req.params.id);
+      if (!fallback) {
+        return res.status(404).json({ message: 'Notification not found' });
+      }
+      await Notification.deleteOne({ _id: req.params.id });
+      return res.json({ message: 'Notification deleted' });
     }
 
     const d = notification.createdAt ? new Date(notification.createdAt) : new Date();
-    const startTime = new Date(d.getTime() - 10 * 60 * 1000);
-    const endTime = new Date(d.getTime() + 10 * 60 * 1000);
+    const startTime = new Date(d.getTime() - 2 * 60 * 60 * 1000);
+    const endTime = new Date(d.getTime() + 2 * 60 * 60 * 1000);
 
     await Notification.deleteMany({
+      recipient: userId,
       title: notification.title,
       message: notification.message,
       createdAt: { $gte: startTime, $lte: endTime }
