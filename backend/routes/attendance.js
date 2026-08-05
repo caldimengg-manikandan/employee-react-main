@@ -511,7 +511,14 @@ router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
       if (e.direction === "in") {
         // If we have a pending pair, push it
         if (currentIn && currentOut) {
-          pairs.push({ start: new Date(currentIn.punchTime), end: new Date(currentOut.punchTime) });
+          const durationSec = typeof currentOut.workDurationSeconds === "number" && currentOut.workDurationSeconds > 0
+            ? currentOut.workDurationSeconds
+            : (new Date(currentOut.punchTime) - new Date(currentIn.punchTime)) / 1000;
+          pairs.push({
+            start: new Date(currentIn.punchTime),
+            end: new Date(currentOut.punchTime),
+            workDurationSeconds: durationSec
+          });
           currentIn = null;
           currentOut = null;
         }
@@ -552,12 +559,26 @@ router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
 
     // Push the last pair if exists
     if (currentIn && currentOut) {
-      pairs.push({ start: new Date(currentIn.punchTime), end: new Date(currentOut.punchTime) });
+      const durationSec = typeof currentOut.workDurationSeconds === "number" && currentOut.workDurationSeconds > 0
+        ? currentOut.workDurationSeconds
+        : (new Date(currentOut.punchTime) - new Date(currentIn.punchTime)) / 1000;
+      pairs.push({
+        start: new Date(currentIn.punchTime),
+        end: new Date(currentOut.punchTime),
+        workDurationSeconds: durationSec
+      });
     }
+
+    const getPairHours = (p) => {
+      if (typeof p.workDurationSeconds === "number" && p.workDurationSeconds > 0) {
+        return p.workDurationSeconds / 3600;
+      }
+      return (p.end - p.start) / (1000 * 60 * 60);
+    };
 
     const weeklyTotal = Number(
       pairs
-        .map(p => (p.end - p.start) / (1000 * 60 * 60))
+        .map(getPairHours)
         .reduce((a, b) => a + b, 0)
         .toFixed(2)
     );
@@ -580,10 +601,12 @@ router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
 
         const sumHours = Number(
           dayPairs
-            .map(p => (p.end - p.start) / (1000 * 60 * 60))
+            .map(getPairHours)
             .reduce((a, b) => a + b, 0)
             .toFixed(2)
         );
+
+        const totalSecs = Math.round(sumHours * 3600);
 
         result.push({
           date: dateKey,
@@ -591,7 +614,7 @@ router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
           punchOut: lastOut,
           punchTime: firstIn,
           hours: sumHours,
-          workDurationSeconds: Math.round(sumHours * 3600)
+          workDurationSeconds: totalSecs
         });
       }
 
