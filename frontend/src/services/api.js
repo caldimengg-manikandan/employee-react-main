@@ -517,6 +517,22 @@ export const performancePayAPI = {
   getPendingPayroll: () => api.get('/performance-pay/pending-payroll'),
 };
 
+export const documentTemplateAPI = {
+  getTemplates: () => api.get('/document-templates/templates'),
+  createTemplate: (data) => api.post('/document-templates/templates', data),
+  getDirectorProfile: () => api.get('/document-templates/director-profile'),
+  updateDirectorProfile: (data) => api.post('/document-templates/director-profile', data),
+  createDocument: (data) => api.post('/document-templates/documents', data),
+  updateDocument: (id, data) => api.put(`/document-templates/documents/${id}`, data),
+  submitDocument: (id) => api.post(`/document-templates/documents/${id}/submit`),
+  approveDocument: (id) => api.post(`/document-templates/documents/${id}/approve`),
+  rejectDocument: (id, data) => api.post(`/document-templates/documents/${id}/reject`, data),
+  logAction: (id, data) => api.post(`/document-templates/documents/${id}/log-action`, data),
+  getDocuments: (params) => api.get('/document-templates/documents', { params }),
+  getDocumentById: (id) => api.get(`/document-templates/documents/${id}`),
+  archiveDocument: (id) => api.delete(`/document-templates/documents/${id}`)
+};
+
 export const conferenceBookingAPI = {
   getAll: () => api.get('/conference-bookings'),
   create: (data) => api.post('/conference-bookings', data),

@@ -36,6 +36,8 @@ import AdminSpecialPermission from './pages/special-permission/AdminSpecialPermi
 // Insurance & Policy Pages
 import InsuranceManagement from './pages/insurance/InsuranceManagement';
 import PolicyPortal from './pages/PolicyPortal';
+import DocumentTemplates from "./pages/documents/DocumentTemplates";
+import DirectorDocumentApprovals from "./pages/documents/DirectorDocumentApprovals";
 import InductionPortal from './pages/induction/InductionPortal';
 import InductionAdmin from './pages/induction/InductionAdmin';
 import TeamManagement from './pages/admin/TeamManagement';
@@ -255,6 +257,24 @@ function App() {
               element={
                 <ProtectedRoute requiredPermissions={["policy_portal"]} allowEmployeeRole>
                   <PolicyPortal />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ---------------- Document Templates Module ---------------- */}
+            <Route
+              path="document-templates"
+              element={
+                <ProtectedRoute roles={["admin", "hr", "director"]}>
+                  <DocumentTemplates />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="director-document-approvals"
+              element={
+                <ProtectedRoute roles={["admin", "director", "hr"]}>
+                  <DirectorDocumentApprovals />
                 </ProtectedRoute>
               }
             />

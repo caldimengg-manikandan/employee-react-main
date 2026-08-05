@@ -141,6 +141,7 @@ app.use("/api/notifications", require("./routes/notificationRoutes"));
 app.use("/api/support", require("./routes/supportRoutes"));
 app.use("/api/conference-bookings", require("./routes/conferenceBookingRoutes"));
 app.use("/api/extensions", require("./routes/extensionRoutes"));
+app.use("/api/document-templates", require("./routes/documentTemplateRoutes"));
 
 
 // Base Route

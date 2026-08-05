@@ -58,9 +58,11 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     if (!permissions.includes('holiday_allowance')) permissions.push('holiday_allowance');
     if (!permissions.includes('holiday_working_request')) permissions.push('holiday_working_request');
     if (!permissions.includes('induction_program')) permissions.push('induction_program');
-  } else if (['admin', 'hr', 'manager', 'director'].includes(role)) {
+  } else if (['admin', 'hr', 'manager', 'director', 'projectmanager'].includes(role)) {
     if (!permissions.includes('induction_program')) permissions.push('induction_program');
     if (!permissions.includes('induction_admin')) permissions.push('induction_admin');
+    if (!permissions.includes('document_templates')) permissions.push('document_templates');
+    if (!permissions.includes('director_approvals')) permissions.push('director_approvals');
   }
 
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -123,7 +125,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Asset Management": BriefcaseIcon,
     "Office Sync": CalendarDaysIcon,
     "Administration": AdjustmentsHorizontalIcon,
-    "Extension Master": Cog6ToothIcon
+    "Extension Master": Cog6ToothIcon,
+    "Document Templates": DocumentTextIcon,
+    "Director Approvals": ClipboardDocumentCheckIcon
   };
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
@@ -260,6 +264,14 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       allowEmployeeRole: true,
       showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance", "employees"],
       permission: "policy_portal"
+    },
+    {
+      name: "Document Templates",
+      path: "/document-templates",
+      icon: getIconForMenu("Document Templates"),
+      allowEmployeeRole: false,
+      showForRoles: ["admin", "hr", "director", "manager", "projectmanager", "project_manager"],
+      permission: "document_templates"
     },
     {
       name: "Salary Slips",
@@ -444,7 +456,8 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     const hasDirectPermission = !item.permission ||
       permissions.includes(item.permission) ||
       item.permission === 'home' ||
-      ((role === "admin" || role === "director" || role === "manager") && (item.permission === "user_access" || item.permission === "support_group_access"));
+      ((role === "admin" || role === "hr" || role === "director" || role === "manager" || role === "projectmanager") && 
+        (item.permission === "user_access" || item.permission === "support_group_access" || item.permission === "document_templates" || item.permission === "director_approvals"));
 
     // 2. For dropdowns, check if any children are visible
     let visibleChildren = [];
