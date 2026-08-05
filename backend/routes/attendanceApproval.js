@@ -2,6 +2,8 @@ const express = require("express");
 const Attendance = require("../models/Attendance");
 const Employee = require("../models/Employee");
 const AttendanceRegularizationRequest = require("../models/AttendanceRegularizationRequest");
+const Notification = require("../models/Notification");
+const User = require("../models/User");
 const auth = require("../middleware/auth");
 
 const router = express.Router();
@@ -42,6 +44,8 @@ router.post("/request", auth, async (req, res) => {
       status: "Pending",
       inTime: { $gte: startWindow, $lte: endWindow }
     }).sort({ updatedAt: -1 });
+
+    let savedReq = null;
     if (existing) {
       existing.inTime = inDt;
       existing.outTime = outDt;
@@ -50,7 +54,7 @@ router.post("/request", auth, async (req, res) => {
       existing.submittedBy = req.user._id;
       existing.submittedAt = new Date();
       await existing.save();
-      res.json({ success: true, request: existing });
+      savedReq = existing;
     } else {
       const created = await AttendanceRegularizationRequest.create({
         employeeId: employee.employeeId,
@@ -60,8 +64,25 @@ router.post("/request", auth, async (req, res) => {
         workDurationSeconds: durationSecs,
         submittedBy: req.user._id
       });
-      res.json({ success: true, request: created });
+      savedReq = created;
     }
+
+    // Create notification for employee
+    try {
+      const dateStr = inDt.toISOString().split("T")[0];
+      await Notification.create({
+        recipient: req.user._id,
+        sender: req.user._id,
+        title: "Attendance Regularization Submitted",
+        message: `Your attendance regularization request for ${dateStr} has been submitted.`,
+        type: "TIMESHEET_SUBMIT",
+        link: "/timesheet/regularization"
+      });
+    } catch (notifErr) {
+      console.error("Error creating attendance regularization notification:", notifErr);
+    }
+
+    res.json({ success: true, request: savedReq });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to create request", error: error.message });
   }
@@ -212,6 +233,30 @@ router.put("/approve/:id", auth, async (req, res) => {
     item.reviewedAt = new Date();
     item.rejectionReason = "";
     await item.save();
+
+    // Create success notification for employee
+    try {
+      const empUser = await User.findOne({
+        $or: [
+          { employeeId: item.employeeId },
+          { _id: item.submittedBy }
+        ]
+      }).select("_id");
+
+      if (empUser) {
+        const dateStr = inDt.toISOString().split("T")[0];
+        await Notification.create({
+          recipient: empUser._id,
+          title: "Attendance Regularization Approved",
+          message: `Your attendance regularization request for ${dateStr} has been approved.`,
+          type: "TIMESHEET_APPROVED",
+          link: "/timesheet/regularization"
+        });
+      }
+    } catch (notifErr) {
+      console.error("Error creating attendance approval notification:", notifErr);
+    }
+
     res.json({ success: true, approved: item });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to approve request", error: error.message });
@@ -231,6 +276,30 @@ router.put("/reject/:id", auth, async (req, res) => {
     item.reviewedAt = new Date();
     item.rejectionReason = reason || "";
     await item.save();
+
+    // Create rejection notification for employee
+    try {
+      const empUser = await User.findOne({
+        $or: [
+          { employeeId: item.employeeId },
+          { _id: item.submittedBy }
+        ]
+      }).select("_id");
+
+      if (empUser) {
+        const dateStr = new Date(item.inTime).toISOString().split("T")[0];
+        await Notification.create({
+          recipient: empUser._id,
+          title: "Attendance Regularization Rejected",
+          message: `Your attendance regularization request for ${dateStr} was rejected.${reason ? ` Reason: ${reason}` : ""}`,
+          type: "TIMESHEET_REJECTED",
+          link: "/timesheet/regularization"
+        });
+      }
+    } catch (notifErr) {
+      console.error("Error creating attendance rejection notification:", notifErr);
+    }
+
     res.json({ success: true, rejected: item });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to reject request", error: error.message });

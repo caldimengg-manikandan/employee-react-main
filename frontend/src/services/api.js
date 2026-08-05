@@ -493,7 +493,7 @@ authAPI.announcement = {
 export const notificationAPI = {
   getAll: () => api.get('/notifications'),
   markAsRead: (id) => api.put(`/notifications/${id}/read`),
-  markAllAsRead: () => api.put('/notifications/read-all'),
+  markAllAsRead: () => api.put('/notifications/read-all', { markAll: true }),
   delete: (id) => api.delete(`/notifications/${id}`)
 };
 

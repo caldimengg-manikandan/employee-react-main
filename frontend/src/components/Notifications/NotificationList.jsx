@@ -11,7 +11,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { notificationAPI } from '../../services/api';
 
-const NotificationList = ({ onClose }) => {
+const NotificationList = ({ onClose, onUnreadCountChange }) => {
   const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -23,8 +23,12 @@ const NotificationList = ({ onClose }) => {
   const fetchNotifications = async () => {
     try {
       const response = await notificationAPI.getAll();
-      setNotifications(Array.isArray(response.data) ? response.data : []);
+      const list = Array.isArray(response.data) ? response.data : [];
+      setNotifications(list);
       setLoading(false);
+      if (onUnreadCountChange) {
+        onUnreadCountChange(list.filter(n => !n.isRead).length);
+      }
     } catch (error) {
       console.error('Error fetching notifications:', error);
       setLoading(false);
@@ -35,9 +39,13 @@ const NotificationList = ({ onClose }) => {
     try {
       await notificationAPI.markAsRead(id);
       
-      setNotifications(notifications.map(n => 
+      const updated = notifications.map(n => 
         n._id === id ? { ...n, isRead: true } : n
-      ));
+      );
+      setNotifications(updated);
+      if (onUnreadCountChange) {
+        onUnreadCountChange(updated.filter(n => !n.isRead).length);
+      }
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -47,7 +55,11 @@ const NotificationList = ({ onClose }) => {
     try {
       await notificationAPI.markAllAsRead();
       
-      setNotifications(notifications.map(n => ({ ...n, isRead: true })));
+      const updated = notifications.map(n => ({ ...n, isRead: true }));
+      setNotifications(updated);
+      if (onUnreadCountChange) {
+        onUnreadCountChange(0);
+      }
     } catch (error) {
       console.error('Error marking all as read:', error);
     }
@@ -112,8 +124,11 @@ const NotificationList = ({ onClose }) => {
       <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50 rounded-t-lg">
         <h3 className="text-lg font-semibold text-gray-900">Notifications</h3>
         <button 
-          onClick={markAllAsRead}
-          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium"
+          onClick={(e) => {
+            e.stopPropagation();
+            markAllAsRead();
+          }}
+          className="text-xs text-indigo-600 hover:text-indigo-800 font-medium cursor-pointer"
         >
           Mark all as read
         </button>

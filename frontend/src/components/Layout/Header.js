@@ -283,7 +283,10 @@ const Header = ({ onMenuClick }) => {
               </button>
 
               {isNotificationOpen && (
-                <NotificationList onClose={() => setIsNotificationOpen(false)} />
+                <NotificationList 
+                  onClose={() => setIsNotificationOpen(false)} 
+                  onUnreadCountChange={(count) => setUnreadCount(count)}
+                />
               )}
             </div>
 

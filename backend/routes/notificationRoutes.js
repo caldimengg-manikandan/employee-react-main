@@ -7,23 +7,36 @@ const User = require('../models/User');
 const Allocation = require('../models/Allocation');
 const auth = require('../middleware/auth');
 
-// Helper to deduplicate notifications with identical title & message created around the same time
-function deduplicateNotifications(notifications) {
-  const seen = new Set();
+// Helper to deduplicate notifications with identical title & message created around the same time (rolling 2-hour window)
+function deduplicateNotifications(notifications, currentUserId) {
   const result = [];
 
   for (const notif of notifications) {
-    const title = String(notif.title || '').trim();
-    const message = String(notif.message || '').trim();
+    // Filter out approval request notifications generated for the current user's OWN submissions
+    const senderId = notif.sender?._id || notif.sender;
+    const isOwnSubmission = senderId && String(senderId) === String(currentUserId);
+    const titleLower = String(notif.title || '').toLowerCase();
     
-    // Group by 10-minute time bucket to catch duplicate batch creations across approvers
-    const d = notif.createdAt ? new Date(notif.createdAt) : new Date();
-    const timeBucket = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}-${Math.floor(d.getMinutes() / 10)}`;
+    if (isOwnSubmission && (titleLower.includes('new leave request') || titleLower.includes('submitted for approval') || titleLower.includes('regularization request'))) {
+      continue;
+    }
 
-    const key = `${title}|${message}|${timeBucket}`;
+    const title = String(notif.title || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const message = String(notif.message || '').trim().toLowerCase().replace(/\s+/g, ' ');
+    const time = notif.createdAt ? new Date(notif.createdAt).getTime() : Date.now();
 
-    if (!seen.has(key)) {
-      seen.add(key);
+    // Check if we already kept a notification with the same title & message within 2 hours
+    const isDuplicate = result.some(existing => {
+      const existingTitle = String(existing.title || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const existingMessage = String(existing.message || '').trim().toLowerCase().replace(/\s+/g, ' ');
+      const existingTime = existing.createdAt ? new Date(existing.createdAt).getTime() : Date.now();
+
+      return existingTitle === title && 
+             existingMessage === message && 
+             Math.abs(existingTime - time) <= 2 * 60 * 60 * 1000;
+    });
+
+    if (!isDuplicate) {
       result.push(notif);
     }
   }
@@ -138,55 +151,11 @@ router.get('/', auth, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(200);
 
-    const notifications = deduplicateNotifications(rawNotifications).slice(0, 100);
+    const notifications = deduplicateNotifications(rawNotifications, userId).slice(0, 100);
 
     res.json(notifications);
   } catch (error) {
     console.error('Error fetching notifications:', error);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Mark a notification as read
-router.put('/:id/read', auth, async (req, res) => {
-  try {
-    const userId = req.user._id || req.user.id;
-    const isTopAdmin = checkIsTopLevelAdmin(req.user);
-
-    let query = { _id: req.params.id };
-
-    if (!isTopAdmin) {
-      const { teamUserIds } = await getTeamMemberUserIds(req.user);
-      if (teamUserIds.length > 0) {
-        query.$or = [
-          { recipient: userId },
-          { recipient: { $in: teamUserIds } }
-        ];
-      } else {
-        query.recipient = userId;
-      }
-    }
-
-    const notification = await Notification.findOne(query);
-
-    if (!notification) {
-      return res.status(404).json({ message: 'Notification not found' });
-    }
-
-    const d = notification.createdAt ? new Date(notification.createdAt) : new Date();
-    const startTime = new Date(d.getTime() - 10 * 60 * 1000);
-    const endTime = new Date(d.getTime() + 10 * 60 * 1000);
-
-    await Notification.updateMany({
-      title: notification.title,
-      message: notification.message,
-      createdAt: { $gte: startTime, $lte: endTime }
-    }, { $set: { isRead: true } });
-
-    notification.isRead = true;
-    res.json(notification);
-  } catch (error) {
-    console.error('Error marking notification as read:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -201,20 +170,48 @@ router.put('/read-all', auth, async (req, res) => {
 
     if (!isTopAdmin) {
       const { teamUserIds } = await getTeamMemberUserIds(req.user);
-      if (teamUserIds.length > 0) {
-        query.$or = [
-          { recipient: userId },
-          { recipient: { $in: teamUserIds } }
-        ];
-      } else {
-        query.recipient = userId;
-      }
+      const allUserIds = [userId, ...teamUserIds];
+      query = {
+        isRead: false,
+        $or: [
+          { recipient: { $in: allUserIds } },
+          { sender: { $in: allUserIds } }
+        ]
+      };
     }
 
     await Notification.updateMany(query, { $set: { isRead: true } });
     res.json({ message: 'All notifications marked as read' });
   } catch (error) {
     console.error('Error marking all as read:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Mark a notification as read
+router.put('/:id/read', auth, async (req, res) => {
+  try {
+    const notification = await Notification.findById(req.params.id);
+
+    if (!notification) {
+      return res.status(404).json({ message: 'Notification not found' });
+    }
+
+    const d = notification.createdAt ? new Date(notification.createdAt) : new Date();
+    const startTime = new Date(d.getTime() - 2 * 60 * 60 * 1000);
+    const endTime = new Date(d.getTime() + 2 * 60 * 60 * 1000);
+
+    // Mark all matching duplicate notifications within 2 hours as read
+    await Notification.updateMany({
+      title: notification.title,
+      message: notification.message,
+      createdAt: { $gte: startTime, $lte: endTime }
+    }, { $set: { isRead: true } });
+
+    notification.isRead = true;
+    res.json(notification);
+  } catch (error) {
+    console.error('Error marking notification as read:', error);
     res.status(500).json({ message: 'Server error' });
   }
 });

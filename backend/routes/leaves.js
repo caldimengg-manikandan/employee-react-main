@@ -1567,6 +1567,7 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
       // 1. Notify Applicant (Employee)
       await Notification.create({
         recipient: req.user._id,
+        sender: req.user._id,
         title: 'Leave Applied',
         message: `Your leave application for ${leaveType} from ${new Date(finalStartDate).toLocaleDateString()} to ${new Date(finalEndDate).toLocaleDateString()} has been submitted.`,
         type: 'LEAVE_APPLY',
@@ -1581,6 +1582,7 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
 
         await Notification.create({
           recipient: recipientId,
+          sender: req.user._id,
           title: 'New Leave Request',
           message: `${employeeName} applied for ${leaveType} (${new Date(finalStartDate).toLocaleDateString()} - ${new Date(finalEndDate).toLocaleDateString()}).`,
           type: 'LEAVE_APPLY',

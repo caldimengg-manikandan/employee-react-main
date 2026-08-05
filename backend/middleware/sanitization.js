@@ -183,8 +183,8 @@ function globalSanitizationAndSecurity(req, res, next) {
     if (['POST', 'PUT', 'PATCH'].includes(method)) {
       const isMultipart = contentType.toLowerCase().includes('multipart/form-data');
       const isUploadRoute = path.includes('/uploads') || path.includes('/upload') || path.includes('/callback');
-      // Action paths and detail paths are allowed to have empty bodies (e.g. /approve, /reject, /lock, /sync, /payment, or paths with ID parameters)
-      const isActionOrDetail = /\/(approve|reject|lock|sync|submit|cancel|payment|release|open|credit|generate|run)\b/i.test(path) ||
+      // Action paths and detail paths are allowed to have empty bodies (e.g. /approve, /reject, /lock, /sync, /payment, /read, /read-all, or paths with ID parameters)
+      const isActionOrDetail = /\/(approve|reject|lock|sync|submit|cancel|payment|release|open|credit|generate|run|read|read-all|read-all-notifications)\b/i.test(path) ||
                                /\/[a-fA-F0-9]{24}\b/.test(path);
       if (!isMultipart && !isUploadRoute && !isActionOrDetail) {
         if (req.body && typeof req.body === 'object' && Object.keys(req.body).length === 0) {
