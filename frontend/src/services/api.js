@@ -73,6 +73,7 @@ export const employeeAPI = {
   getAllEmployees: (status) => api.get('/employees', { params: { status } }),
   getEmployeeById: (id) => api.get(`/employees/${id}`),
   getMyProfile: () => api.get('/employees/me'),
+  getProfile: () => api.get('/employees/me'),
   createEmployee: (data) => api.post('/employees', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
   updateEmployee: (id, data) => api.put(`/employees/${id}`, data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
   updateMyProfile: (data) => api.put('/employees/me', data, data instanceof FormData ? { headers: { 'Content-Type': 'multipart/form-data' } } : {}),
@@ -153,7 +154,14 @@ export const leaveAPI = {
   reject: (id, rejectionReason) => api.put(`/leaves/${id}/status`, { status: 'Rejected', rejectionReason }),
   update: (id, data) => api.put(`/leaves/${id}`, data),
   remove: (id) => api.delete(`/leaves/${id}`),
+  cancel: (id) => api.delete(`/leaves/${id}`),
+  delete: (id) => api.delete(`/leaves/${id}`),
   getPreviewSplit: (days, employeeId, leaveType, excludeLeaveId) => api.get('/leaves/preview-split', { params: { days, employeeId, leaveType, excludeLeaveId } }),
+  calculateSplit: (params) => {
+    const { days, totalDays, requestedType, leaveType, excludeLeaveId, employeeId, startDate, endDate, dayType } = params || {};
+    const d = days || totalDays;
+    return api.get('/leaves/preview-split', { params: { days: d, employeeId, leaveType: leaveType || requestedType, excludeLeaveId, startDate, endDate, dayType } });
+  },
   downloadDocument: (documentUrl) => {
     const raw = typeof documentUrl === 'string' ? documentUrl.trim() : '';
     if (!raw) return Promise.reject(new Error('Invalid documentUrl'));

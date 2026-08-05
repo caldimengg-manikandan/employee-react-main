@@ -927,8 +927,13 @@ router.get('/allocation-history', auth, async (req, res) => {
 // Get split preview for a leave application
 router.get('/preview-split', auth, async (req, res) => {
   try {
-    const { days, employeeId, leaveType, excludeLeaveId } = req.query;
-    const requestedDays = parseFloat(days);
+    const { days, employeeId, leaveType, excludeLeaveId, startDate, endDate, dayType } = req.query;
+    let requestedDays = parseFloat(days);
+    if (isNaN(requestedDays) || requestedDays <= 0) {
+      if (startDate && endDate) {
+        requestedDays = countWorkingDays(startDate, endDate, dayType || 'Full Day');
+      }
+    }
     if (isNaN(requestedDays) || requestedDays <= 0) {
       return res.status(400).json({ error: 'Invalid days' });
     }
@@ -969,7 +974,7 @@ router.get('/preview-split', auth, async (req, res) => {
     };
 
     const split = calculateLeaveSplit(requestedDays, availableBalances, leaveType || null);
-    res.json(split);
+    res.json({ success: true, data: split, ...split });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1587,7 +1592,7 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
     }
 
     const createdSafe = await LeaveApplication.findById(created._id).lean();
-    res.status(201).json(createdSafe);
+    res.status(201).json({ success: true, data: createdSafe, ...createdSafe });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1800,25 +1805,31 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
       },
       { new: true }
     );
-    res.json(updated);
+    res.json({ success: true, data: updated, ...updated.toObject() });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
 });
 
-// Delete own leave application (only when Pending)
+// Delete leave application (only when Pending)
 router.delete('/:id', auth, async (req, res) => {
   try {
     const existing = await LeaveApplication.findById(req.params.id).lean();
     if (!existing) return res.status(404).json({ error: 'Leave application not found' });
-    if (String(existing.userId) !== String(req.user._id)) {
+    
+    const isUserOwner = existing.userId && String(existing.userId) === String(req.user._id);
+    const isEmpOwner = existing.employeeId && req.user.employeeId && String(existing.employeeId) === String(req.user.employeeId);
+    const role = String(req.user.role || '').toLowerCase();
+    const isAdminOrHr = ['admin', 'hr', 'director', 'manager'].includes(role) || hasPermission(req.user, 'leave_manage');
+
+    if (!isUserOwner && !isEmpOwner && !isAdminOrHr) {
       return res.status(403).json({ error: 'Not allowed to delete this application' });
     }
     if (existing.status !== 'Pending') {
       return res.status(400).json({ error: 'Only Pending applications can be deleted' });
     }
     await LeaveApplication.findByIdAndDelete(req.params.id);
-    res.json({ success: true });
+    res.json({ success: true, message: 'Leave application deleted successfully' });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }

@@ -9,6 +9,7 @@ import {
   Home,
   Heart,
   XCircle,
+  X,
   Eye,
   Pencil,
   Trash,
@@ -155,7 +156,7 @@ const LeaveApplications = () => {
   useEffect(() => {
     const fetchProfileAndLeaveTypes = async () => {
       try {
-        const profileRes = await employeeAPI.getProfile();
+        const profileRes = await (employeeAPI.getMyProfile ? employeeAPI.getMyProfile() : employeeAPI.getProfile());
         const gender = (profileRes.data?.gender || '').toLowerCase();
         let types = [...DEFAULT_LEAVE_TYPES];
 
@@ -276,10 +277,12 @@ const LeaveApplications = () => {
           endDate: leaveData.endDate,
           dayType: leaveData.dayType,
           requestedType: leaveData.leaveType,
+          days: totalLeaveDays,
           excludeLeaveId: editingLeaveId || undefined
         });
-        if (res.data?.success && res.data?.data) {
-          setLeaveSplit(res.data.data);
+        const splitData = res.data?.data || res.data;
+        if (splitData && (splitData.clUsed !== undefined || splitData.slUsed !== undefined || splitData.plUsed !== undefined || splitData.lopDays !== undefined)) {
+          setLeaveSplit(splitData);
         } else {
           setLeaveSplit(null);
         }
@@ -425,11 +428,12 @@ const LeaveApplications = () => {
         res = await leaveAPI.apply(formData);
       }
 
-      if (res.data?.success) {
+      if (res.data?.success || res.data?._id || res.status === 200 || res.status === 201) {
+        const leaveDataDoc = res.data?.data || res.data;
         showNotification(editingLeaveId ? 'Leave application updated successfully!' : 'Leave application submitted successfully!', 'success');
         setSubmitModal({
           isOpen: true,
-          leave: res.data.data
+          leave: leaveDataDoc
         });
         resetForm();
         fetchMyLeaves();
@@ -495,12 +499,13 @@ const LeaveApplications = () => {
   const confirmDelete = async () => {
     if (!deleteModal.leaveId) return;
     try {
-      await leaveAPI.cancel(deleteModal.leaveId);
+      const deleteFn = leaveAPI.cancel || leaveAPI.remove || leaveAPI.delete;
+      await deleteFn(deleteModal.leaveId);
       showNotification('Leave application deleted successfully.', 'success');
       fetchMyLeaves();
       fetchLeaveBalance();
     } catch (error) {
-      showNotification(error.response?.data?.message || 'Failed to delete leave application.', 'error');
+      showNotification(error.response?.data?.message || error.response?.data?.error || 'Failed to delete leave application.', 'error');
     } finally {
       setDeleteModal({ isOpen: false, leaveId: null });
     }
