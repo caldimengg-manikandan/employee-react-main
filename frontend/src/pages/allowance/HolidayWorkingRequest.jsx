@@ -13,6 +13,7 @@ const HolidayWorkingRequest = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [divisionFilter, setDivisionFilter] = useState("All");
 
   // Modals
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -166,12 +167,21 @@ const HolidayWorkingRequest = () => {
     }
   };
 
+  const uniqueDivisions = Array.from(
+    new Set(requests.map(r => r.division).filter(Boolean))
+  ).sort();
+
   const filteredRequests = requests.filter(req => {
     const matchesSearch =
       req.requestId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.projectName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      req.reason.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesSearch;
+      (req.projectName || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (req.reason || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (req.createdByName || "").toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesDivision =
+      divisionFilter === "All" || req.division === divisionFilter;
+
+    return matchesSearch && matchesDivision;
   });
 
   const exportToExcel = () => {
@@ -237,19 +247,6 @@ const HolidayWorkingRequest = () => {
 
   return (
     <div className="p-6 w-full">
-      <div className="flex justify-between items-center mb-6">
-        
-        {isManagerOrTL && (
-          <button
-            onClick={handleCreate}
-            className="flex items-center px-4 py-2 bg-[#1e2050] text-white rounded-lg hover:bg-[#2c2f6d] transition-colors shadow-sm"
-          >
-            <Plus className="w-5 h-5 mr-2" />
-            Create Request
-          </button>
-        )}
-      </div>
-
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-4 border-b border-gray-200 bg-gray-50 flex flex-col sm:flex-row gap-4 justify-between items-center">
           <div className="relative flex-1 max-w-md">
@@ -262,11 +259,30 @@ const HolidayWorkingRequest = () => {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
             />
           </div>
-          <div className="flex gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            {isManagerOrTL && (
+              <button
+                onClick={handleCreate}
+                className="flex items-center px-4 py-2 bg-[#1e2050] text-white rounded-lg hover:bg-[#2c2f6d] transition-colors shadow-sm text-sm font-semibold whitespace-nowrap cursor-pointer"
+              >
+                <Plus className="w-4 h-4 mr-1.5" />
+                Create Request
+              </button>
+            )}
+            <select
+              value={divisionFilter}
+              onChange={(e) => setDivisionFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-sm font-medium"
+            >
+              <option value="All">All Divisions</option>
+              {uniqueDivisions.map(div => (
+                <option key={div} value={div}>{div}</option>
+              ))}
+            </select>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white text-sm"
             >
               <option value="All">All Status</option>
               <option value="Pending HR Approval">Pending HR Approval</option>

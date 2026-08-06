@@ -121,6 +121,12 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       ]
     },
     {
+      name: "Document Templates",
+      children: [
+        { key: 'document_templates', label: 'Document Templates' }
+      ]
+    },
+    {
       name: "Other Modules",
       children: [
         { key: 'project_access', label: 'Project Allocation' },
@@ -186,6 +192,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       'performance_pay',
       'salary_slips',
       'policy_portal',
+      'document_templates',
       'induction_program',
       'unified_calendar',
       'support_group_access',
@@ -758,28 +765,91 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
         />
 
         <div>
-          <div className="flex items-center justify-between mb-3">
-            <label className="block text-sm font-medium text-gray-700">Permissions</label>
-            <div className="flex items-center gap-2">
+          <div className="bg-gradient-to-r from-slate-900 via-[#262760] to-indigo-900 p-4 rounded-xl text-white shadow-md mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-bold flex items-center gap-2">
+                <span>🔐</span> Access & Permission Matrix
+              </h3>
+              <p className="text-xs text-blue-200/80 mt-0.5">
+                Configure module privileges and role permissions for this user account.
+              </p>
+            </div>
+            <div className="flex items-center gap-2 self-end sm:self-auto">
               <button
                 type="button"
                 onClick={selectAllPermissions}
-                className="px-3 py-1 rounded-md text-sm bg-[#262760] text-white hover:bg-[#1e2050] transition-colors duration-150"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white border border-white/20 transition-all duration-150 active:scale-95"
               >
                 Select All
               </button>
               <button
                 type="button"
                 onClick={clearAllPermissions}
-                className="px-3 py-1 rounded-md text-sm bg-gray-200 text-gray-800 hover:bg-gray-300 transition-colors duration-150"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-500/20 hover:bg-red-500/30 backdrop-blur-sm text-red-200 border border-red-400/30 transition-all duration-150 active:scale-95"
               >
-                Clear
+                Clear All
               </button>
             </div>
           </div>
-          <div className="space-y-6">
+
+          {/* Permission Progress Bar */}
+          {(() => {
+            const allKeys = getAllPermissionKeys();
+            const grantedCount = allKeys.filter(k => formData.permissions.includes(k) || alwaysOnPermissionKeys.includes(k)).length;
+            const percent = Math.round((grantedCount / Math.max(allKeys.length, 1)) * 100);
+            return (
+              <div className="mb-5 bg-white p-3 rounded-xl border border-gray-200 shadow-sm">
+                <div className="flex items-center justify-between text-xs mb-1.5">
+                  <span className="font-semibold text-gray-700 flex items-center gap-1.5">
+                    <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    Granted Access Level
+                  </span>
+                  <span className="font-bold text-[#262760]">{grantedCount} of {allKeys.length} Permissions ({percent}%)</span>
+                </div>
+                <div className="w-full bg-gray-100 rounded-full h-2 overflow-hidden">
+                  <div
+                    className="bg-gradient-to-r from-blue-600 to-[#262760] h-2 rounded-full transition-all duration-500 ease-out"
+                    style={{ width: `${percent}%` }}
+                  ></div>
+                </div>
+              </div>
+            );
+          })()}
+
+          <div className="space-y-4">
             {moduleHierarchy.map(module => {
               const hasGroupKey = !!module.key;
+
+              const getModuleCategoryStyle = (name) => {
+                switch (name) {
+                  case 'Dashboard & Profile':
+                    return { icon: '🏠', gradient: 'from-blue-500/10 to-indigo-500/5', border: 'border-blue-200', text: 'text-blue-900' };
+                  case 'Timesheet Management':
+                    return { icon: '⏱️', gradient: 'from-cyan-500/10 to-blue-500/5', border: 'border-cyan-200', text: 'text-cyan-900' };
+                  case 'Admin Timesheet':
+                    return { icon: '📊', gradient: 'from-teal-500/10 to-emerald-500/5', border: 'border-teal-200', text: 'text-teal-900' };
+                  case 'Performance Management (Appraisal)':
+                    return { icon: '⭐', gradient: 'from-amber-500/10 to-yellow-500/5', border: 'border-amber-200', text: 'text-amber-900' };
+                  case 'Leave Management':
+                    return { icon: '📅', gradient: 'from-purple-500/10 to-violet-500/5', border: 'border-purple-200', text: 'text-purple-900' };
+                  case 'Payroll Management':
+                    return { icon: '💳', gradient: 'from-emerald-500/10 to-green-500/5', border: 'border-emerald-200', text: 'text-emerald-900' };
+                  case 'Exit Management':
+                    return { icon: '🚪', gradient: 'from-rose-500/10 to-red-500/5', border: 'border-rose-200', text: 'text-rose-900' };
+                  case 'User & Team Management':
+                    return { icon: '👥', gradient: 'from-indigo-500/10 to-purple-500/5', border: 'border-indigo-200', text: 'text-indigo-900' };
+                  case 'Support Center':
+                    return { icon: '🎧', gradient: 'from-sky-500/10 to-blue-500/5', border: 'border-sky-200', text: 'text-sky-900' };
+                  case 'Document Templates':
+                    return { icon: '📄', gradient: 'from-violet-600/15 to-indigo-600/10', border: 'border-violet-300 ring-2 ring-violet-400/30', text: 'text-violet-900' };
+                  case 'Unified Hub Calendar':
+                    return { icon: '🗓️', gradient: 'from-orange-500/10 to-amber-500/5', border: 'border-orange-200', text: 'text-orange-900' };
+                  default:
+                    return { icon: '🧩', gradient: 'from-gray-500/10 to-slate-500/5', border: 'border-gray-200', text: 'text-gray-900' };
+                }
+              };
+
+              const catStyle = getModuleCategoryStyle(module.name);
 
               // Calculate if all children are selected for the "Full Access" state
               const childKeys = module.children
@@ -787,22 +857,23 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
                 .map(c => c.key);
 
               const allChildrenSelected = childKeys.length > 0 && childKeys.every(k => formData.permissions.includes(k));
-
-              // The group toggle should be active only if all children are selected
               const isGroupActive = hasGroupKey && allChildrenSelected;
 
               return (
-                <div key={module.name} className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
-                  <div className="bg-white px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-[#262760]">{module.name}</h3>
+                <div key={module.name} className={`bg-white rounded-xl border ${catStyle.border} shadow-sm overflow-hidden transition-all duration-200 hover:shadow-md`}>
+                  <div className={`bg-gradient-to-r ${catStyle.gradient} px-4 py-3 border-b border-gray-100 flex items-center justify-between`}>
+                    <div className="flex items-center gap-2.5">
+                      <span className="text-lg">{catStyle.icon}</span>
+                      <h3 className={`text-sm font-bold ${catStyle.text}`}>{module.name}</h3>
+                    </div>
                     {hasGroupKey && (
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs text-gray-500 font-medium">Full Access</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-gray-500 font-medium hidden sm:inline">Full Module Access</span>
                         <button
                           type="button"
                           onClick={() => handlePermissionChange(module.key, true)}
-                          className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out 
-                            ${isGroupActive ? 'bg-[#262760]' : 'bg-gray-300'}`}
+                          className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none 
+                            ${isGroupActive ? 'bg-[#262760] ring-2 ring-[#262760]/30' : 'bg-gray-300'}`}
                         >
                           <span
                             aria-hidden="true"
@@ -814,7 +885,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
                     )}
                   </div>
 
-                  <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="p-3.5 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                     {module.children.map(child => {
                       const permission = child.key;
                       const isAlwaysEnabled = !!child.alwaysOn;
@@ -833,18 +904,26 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
                       return (
                         <div
                           key={`${permission}-${child.label}`}
-                          className={`flex items-center justify-between p-2.5 bg-white rounded-lg border border-gray-100 hover:border-[#262760] transition-all duration-200 ${isDisabled ? 'opacity-75' : ''}`}
+                          className={`flex items-center justify-between p-3 rounded-lg border transition-all duration-200 
+                            ${isActive ? 'bg-blue-50/60 border-blue-200 shadow-2xs' : 'bg-gray-50/50 border-gray-200/70 hover:border-gray-300'} 
+                            ${isDisabled ? 'opacity-70' : ''}`}
                         >
-                          <span className="text-sm text-gray-700">
-                            {child.label} {isAlwaysEnabled && '(Always On)'}
-                          </span>
+                          <div className="flex items-center gap-2 min-w-0 pr-2">
+                            <span className={`h-2 w-2 rounded-full flex-shrink-0 ${isActive ? 'bg-emerald-500 shadow-xs' : 'bg-gray-300'}`}></span>
+                            <span className="text-xs font-semibold text-gray-800 truncate">
+                              {child.label}
+                            </span>
+                            {isAlwaysEnabled && (
+                              <span className="text-[10px] bg-blue-100 text-blue-800 px-1.5 py-0.5 rounded font-medium">Always On</span>
+                            )}
+                          </div>
 
                           <button
                             type="button"
                             disabled={isDisabled}
                             onClick={() => !isDisabled && handlePermissionChange(permission)}
-                            className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out 
-                          ${isActive ? 'bg-[#262760]' : 'bg-gray-300'} ${isDisabled ? 'cursor-not-allowed' : ''}`}
+                            className={`relative inline-flex h-5 w-10 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none 
+                          ${isActive ? 'bg-[#262760] ring-1 ring-[#262760]/40' : 'bg-gray-300'} ${isDisabled ? 'cursor-not-allowed' : ''}`}
                           >
                             <span
                               aria-hidden="true"
@@ -861,25 +940,25 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
             })}
           </div>
           {errors.permissions && (
-            <p className="mt-2 text-sm text-red-600">{errors.permissions}</p>
+            <p className="mt-2 text-sm font-medium text-red-600">{errors.permissions}</p>
           )}
         </div>
 
       </div>
-      <div className="flex justify-end gap-3 pt-6 border-t border-gray-100 mt-4">
+      <div className="flex justify-end gap-3 pt-5 border-t border-gray-200 mt-6">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760]"
+          className="px-5 py-2 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760] transition-colors"
         >
           Cancel
         </button>
         <button
           type="submit"
           disabled={loading}
-          className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-[#262760] hover:bg-[#1e2050] focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760] disabled:opacity-50 disabled:cursor-not-allowed"
+          className="px-6 py-2 border border-transparent rounded-lg shadow-md text-sm font-semibold text-white bg-gradient-to-r from-[#262760] to-indigo-800 hover:from-[#1d1e49] hover:to-indigo-900 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#262760] disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-150 active:scale-95"
         >
-          {loading ? 'Saving...' : user ? 'Update User' : 'Create User'}
+          {loading ? 'Saving...' : user ? 'Update Access Privileges' : 'Create User Access'}
         </button>
       </div>
     </form>

@@ -8,7 +8,8 @@ import {
   DevicePhoneMobileIcon,
   CalendarDaysIcon,
   MapPinIcon,
-  UserGroupIcon
+  UserGroupIcon,
+  BuildingOfficeIcon
 } from '@heroicons/react/24/outline';
 
 const HolidaysAllowance = () => {
@@ -16,6 +17,7 @@ const HolidaysAllowance = () => {
 
   // Filters
   const [selectedLocation, setSelectedLocation] = useState('');
+  const [selectedDivision, setSelectedDivision] = useState('');
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-12
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   
@@ -24,6 +26,7 @@ const HolidaysAllowance = () => {
   const [tableData, setTableData] = useState([]); // Merged data for table
   const [loading, setLoading] = useState(false);
   const [locations, setLocations] = useState([]);
+  const [divisions, setDivisions] = useState([]);
   
   // Popup state
   const [popupConfig, setPopupConfig] = useState({ isOpen: false, message: '', isError: false });
@@ -50,18 +53,20 @@ const HolidaysAllowance = () => {
   }, []);
 
   useEffect(() => {
-    if (selectedLocation && selectedMonth && selectedYear) {
+    if (selectedMonth && selectedYear) {
       loadData();
     }
-  }, [selectedLocation, selectedMonth, selectedYear]);
+  }, [selectedLocation, selectedDivision, selectedMonth, selectedYear]);
 
   const fetchInitialData = async () => {
     try {
       const response = await employeeAPI.getAllEmployees();
       const emps = response.data || [];
-      // Extract unique locations
-      const locs = [...new Set(emps.map(e => e.location).filter(Boolean))];
+      // Extract unique locations & divisions
+      const locs = [...new Set(emps.map(e => e.location).filter(Boolean))].sort();
+      const divs = [...new Set(emps.map(e => e.division).filter(Boolean))].sort();
       setLocations(locs);
+      setDivisions(divs);
     } catch (error) {
       console.error("Error fetching employees:", error);
     }
@@ -118,6 +123,9 @@ const HolidaysAllowance = () => {
 
       if (selectedLocation) {
         filteredEmps = filteredEmps.filter(e => e.location === selectedLocation);
+      }
+      if (selectedDivision) {
+        filteredEmps = filteredEmps.filter(e => e.division === selectedDivision);
       }
 
       const savedMap = new Map();
@@ -343,16 +351,31 @@ const HolidaysAllowance = () => {
       {/* Controls */}
       <div className="bg-white p-4 rounded-lg shadow mb-6 flex flex-wrap gap-4 items-center">
         {/* Location */}
-        <div className="flex items-center bg-white border rounded-md px-3 py-2 w-64">
+        <div className="flex items-center bg-white border rounded-md px-3 py-2 w-56">
           <MapPinIcon className="h-5 w-5 text-[#1e2050] mr-2" />
           <select 
-            className="w-full outline-none text-gray-700 bg-transparent"
+            className="w-full outline-none text-gray-700 bg-transparent text-sm"
             value={selectedLocation}
             onChange={(e) => setSelectedLocation(e.target.value)}
           >
-            <option value="">Select Location</option>
+            <option value="">All Locations</option>
             {locations.map(loc => (
               <option key={loc} value={loc}>{loc}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Division Filter */}
+        <div className="flex items-center bg-white border rounded-md px-3 py-2 w-56">
+          <BuildingOfficeIcon className="h-5 w-5 text-[#1e2050] mr-2" />
+          <select 
+            className="w-full outline-none text-gray-700 bg-transparent text-sm"
+            value={selectedDivision}
+            onChange={(e) => setSelectedDivision(e.target.value)}
+          >
+            <option value="">All Divisions</option>
+            {divisions.map(d => (
+              <option key={d} value={d}>{d}</option>
             ))}
           </select>
         </div>

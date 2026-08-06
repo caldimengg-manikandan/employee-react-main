@@ -332,7 +332,7 @@ router.post('/documents', auth, async (req, res) => {
             title: 'Document Pending Director Approval',
             message: `${req.user.name} submitted ${newDoc.templateName} (${newDoc.documentNumber}) for ${employeeDetails?.name || employeeId} for approval.`,
             type: 'SUPPORT_TICKET',
-            link: '/director-document-approvals'
+            link: '/document-templates'
           });
         }
       } catch (notifErr) {
@@ -411,7 +411,7 @@ router.post('/documents/:id/submit', auth, async (req, res) => {
           title: 'Document Pending Director Approval',
           message: `${req.user.name} submitted ${doc.templateName} (${doc.documentNumber}) for ${doc.employeeDetails?.name || doc.employeeId} for approval.`,
           type: 'SUPPORT_TICKET',
-          link: '/director-document-approvals'
+          link: '/document-templates'
         });
       }
     } catch (notifErr) {

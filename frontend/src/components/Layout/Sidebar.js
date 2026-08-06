@@ -62,7 +62,6 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     if (!permissions.includes('induction_program')) permissions.push('induction_program');
     if (!permissions.includes('induction_admin')) permissions.push('induction_admin');
     if (!permissions.includes('document_templates')) permissions.push('document_templates');
-    if (!permissions.includes('director_approvals')) permissions.push('director_approvals');
   }
 
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -126,8 +125,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Office Sync": CalendarDaysIcon,
     "Administration": AdjustmentsHorizontalIcon,
     "Extension Master": Cog6ToothIcon,
-    "Document Templates": DocumentTextIcon,
-    "Director Approvals": ClipboardDocumentCheckIcon
+    "Document Templates": DocumentTextIcon
   };
 
   const getIconForMenu = (name) => iconMap[name] || HomeIcon;
@@ -457,7 +455,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       permissions.includes(item.permission) ||
       item.permission === 'home' ||
       ((role === "admin" || role === "hr" || role === "director" || role === "manager" || role === "projectmanager") && 
-        (item.permission === "user_access" || item.permission === "support_group_access" || item.permission === "document_templates" || item.permission === "director_approvals"));
+        (item.permission === "user_access" || item.permission === "support_group_access" || item.permission === "document_templates"));
 
     // 2. For dropdowns, check if any children are visible
     let visibleChildren = [];

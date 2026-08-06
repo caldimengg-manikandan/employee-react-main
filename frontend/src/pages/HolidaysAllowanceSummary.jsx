@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { employeeAPI, holidayAllowanceAPI } from '../services/api';
-import { CalendarDaysIcon, MapPinIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { CalendarDaysIcon, MapPinIcon, ArrowDownTrayIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 import * as XLSX from 'xlsx';
 
 const HolidaysAllowanceSummary = () => {
@@ -14,9 +14,11 @@ const HolidaysAllowanceSummary = () => {
   const initialYear = parseInt(queryParams.get('year'), 10) || new Date().getFullYear();
 
   const [locationFilter, setLocationFilter] = useState(initialLocation);
+  const [divisionFilter, setDivisionFilter] = useState('');
   const [monthFilter, setMonthFilter] = useState(initialMonth);
   const [yearFilter, setYearFilter] = useState(initialYear);
   const [locations, setLocations] = useState([]);
+  const [divisions, setDivisions] = useState([]);
   const [summary, setSummary] = useState(null);
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -37,17 +39,19 @@ const HolidaysAllowanceSummary = () => {
   ];
 
   useEffect(() => {
-    const loadLocations = async () => {
+    const loadInitialMeta = async () => {
       try {
         const res = await employeeAPI.getAllEmployees();
         const emps = res.data || [];
-        const locs = [...new Set(emps.map(e => e.location).filter(Boolean))];
+        const locs = [...new Set(emps.map(e => e.location).filter(Boolean))].sort();
+        const divs = [...new Set(emps.map(e => e.division).filter(Boolean))].sort();
         setLocations(locs);
+        setDivisions(divs);
       } catch (error) {
-        console.error('Error loading locations for summary:', error);
+        console.error('Error loading locations & divisions for summary:', error);
       }
     };
-    loadLocations();
+    loadInitialMeta();
   }, []);
 
   const loadSummary = async () => {
@@ -77,11 +81,12 @@ const HolidaysAllowanceSummary = () => {
           const shiftDays = Number(row.shiftDays || 0);
           const foodDays = Number(row.foodDays || 0);
           const totalAmount = Number(row.totalAmount || 0);
+          const matchesDivision = !divisionFilter || row.division === divisionFilter;
           return (
-            holidayDays > 0 ||
+            (holidayDays > 0 ||
             shiftDays > 0 ||
             foodDays > 0 ||
-            totalAmount > 0
+            totalAmount > 0) && matchesDivision
           );
         });
         setRecords(applicableRows);
@@ -98,7 +103,7 @@ const HolidaysAllowanceSummary = () => {
 
   useEffect(() => {
     loadSummary();
-  }, [monthFilter, yearFilter]);
+  }, [locationFilter, divisionFilter, monthFilter, yearFilter]);
 
   const handleApplyFilter = () => {
     const searchParams = new URLSearchParams();
@@ -231,6 +236,23 @@ const HolidaysAllowanceSummary = () => {
               <option value="">All Locations</option>
               {locations.map(loc => (
                 <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="flex flex-col">
+          <label className="text-xs font-medium text-gray-600 mb-1">Filter by Division:</label>
+          <div className="flex items-center bg-white border rounded-md px-3 py-2 min-w-[200px]">
+            <BuildingOfficeIcon className="h-5 w-5 text-[#1e2050] mr-2" />
+            <select
+              className="w-full outline-none text-gray-700 bg-transparent"
+              value={divisionFilter}
+              onChange={(e) => setDivisionFilter(e.target.value)}
+            >
+              <option value="">All Divisions</option>
+              {divisions.map(d => (
+                <option key={d} value={d}>{d}</option>
               ))}
             </select>
           </div>
