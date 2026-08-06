@@ -117,31 +117,25 @@ router.get('/', auth, async (req, res) => {
     const userId = req.user._id || req.user.id;
     const isTopAdmin = checkIsTopLevelAdmin(req.user);
 
+    const { teamUserIds } = await getTeamMemberUserIds(req.user);
+
     let query = {};
-
-    if (isTopAdmin) {
-      // Top Admin / Director / HR sees system-wide notifications
-      query = {};
+    if (teamUserIds.length > 0) {
+      query = {
+        $or: [
+          { recipient: userId },
+          { sender: userId },
+          { recipient: { $in: teamUserIds } },
+          { sender: { $in: teamUserIds } }
+        ]
+      };
     } else {
-      // Resolve team members for this user (if reporting manager / project manager / team lead)
-      const { teamUserIds } = await getTeamMemberUserIds(req.user);
-
-      if (teamUserIds.length > 0) {
-        // Reporting Manager sees:
-        // 1. Notifications sent to/from the manager themselves
-        // 2. Notifications sent to/from any of their assigned team members
-        query = {
-          $or: [
-            { recipient: userId },
-            { sender: userId },
-            { recipient: { $in: teamUserIds } },
-            { sender: { $in: teamUserIds } }
-          ]
-        };
-      } else {
-        // Regular Employee: ONLY sees notifications sent directly to them
-        query = { recipient: userId };
-      }
+      query = {
+        $or: [
+          { recipient: userId },
+          { sender: userId }
+        ]
+      };
     }
 
     const rawNotifications = await Notification.find(query)

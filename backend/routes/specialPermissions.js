@@ -110,9 +110,11 @@ router.post('/', auth, upload.single('attachment'), async (req, res) => {
       for (const admin of admins) {
         await Notification.create({
           recipient: admin._id,
+          sender: req.user._id,
           title: 'Special Permission Submitted',
           message: `${user.name} submitted a special permission request for ${new Date(date).toLocaleDateString()}.`,
-          type: 'SPECIAL_PERMISSION_SUBMIT'
+          type: 'SPECIAL_PERMISSION_SUBMIT',
+          link: '/admin/special-permissions'
         });
       }
     } catch (err) {
@@ -379,9 +381,11 @@ router.put('/approve/:id', auth, async (req, res) => {
       if (sp.userId) {
         await Notification.create({
           recipient: sp.userId,
+          sender: req.user._id,
           title: 'Special Permission Approved',
           message: `Your special permission on ${new Date(sp.date).toLocaleDateString()} has been approved.`,
-          type: 'SPECIAL_PERMISSION_APPROVED'
+          type: 'SPECIAL_PERMISSION_APPROVED',
+          link: '/timesheet'
         });
       }
     } catch (err) {
@@ -433,9 +437,11 @@ router.put('/reject/:id', auth, async (req, res) => {
       if (sp.userId) {
         await Notification.create({
           recipient: sp.userId,
+          sender: req.user._id,
           title: 'Special Permission Rejected',
           message: `Your special permission on ${new Date(sp.date).toLocaleDateString()} has been rejected.${reason ? ` Reason: ${reason}` : ''}`,
-          type: 'SPECIAL_PERMISSION_REJECTED'
+          type: 'SPECIAL_PERMISSION_REJECTED',
+          link: '/timesheet'
         });
       }
     } catch (err) {
