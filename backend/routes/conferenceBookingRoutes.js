@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require("../middleware/auth");
 const ConferenceBooking = require("../models/ConferenceBooking");
 const Employee = require("../models/Employee");
+const notificationService = require("../services/notificationService");
 
 // Helper to check overlap
 const checkOverlap = async (date, startTime, endTime, excludeId = null) => {
@@ -384,6 +385,21 @@ router.post("/", auth, async (req, res) => {
 
     // Send email notification asynchronously in the background
     sendBookingSubmittedEmail(booking, employee);
+
+    // Create in-app notification via notificationService
+    try {
+      await notificationService.createOrUpdateNotification({
+        recipient: req.user._id,
+        sender: req.user._id,
+        title: 'Conference Room Reserved',
+        message: `Your conference room booking "${title}" on ${date} (${finalStartTime} - ${finalEndTime}) is reserved.`,
+        type: 'CONFERENCE_BOOKING',
+        link: '/office-sync',
+        relatedId: booking._id
+      });
+    } catch (notifErr) {
+      console.error('Error creating conference booking notification:', notifErr);
+    }
 
     res.status(201).json(booking);
   } catch (err) {

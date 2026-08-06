@@ -17,13 +17,14 @@ const notificationSchema = new mongoose.Schema({
   type: {
     type: String,
     enum: [
-      'LOGIN',
       'TIMESHEET_SUBMIT',
       'TIMESHEET_APPROVED',
       'TIMESHEET_REJECTED',
       'LEAVE_APPLY',
       'LEAVE_APPROVED',
       'LEAVE_REJECTED',
+      'CONFERENCE_BOOKING',
+      'LOGIN',
       'EXIT_SUBMIT',
       'EXIT_APPROVED',
       'EXIT_REJECTED',
@@ -52,5 +53,11 @@ const notificationSchema = new mongoose.Schema({
     default: Date.now
   }
 });
+
+// Indexes for optimal database queries
+notificationSchema.index({ recipient: 1, createdAt: -1 });
+notificationSchema.index({ recipient: 1, isRead: 1 });
+notificationSchema.index({ relatedId: 1 });
+notificationSchema.index({ type: 1 });
 
 module.exports = mongoose.model('Notification', notificationSchema);

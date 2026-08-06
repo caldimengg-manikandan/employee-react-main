@@ -160,7 +160,9 @@ const Header = ({ onMenuClick }) => {
     const fetchUnreadCount = async () => {
       try {
         const res = await notificationAPI.getAll();
-        const unread = res.data.filter(n => !n.isRead).length;
+        const data = res.data;
+        const list = Array.isArray(data) ? data : (data?.notifications || []);
+        const unread = typeof data?.unreadCount === 'number' ? data.unreadCount : list.filter(n => !n.isRead).length;
         setUnreadCount(unread);
       } catch (error) {
         console.error('Error fetching notifications:', error);

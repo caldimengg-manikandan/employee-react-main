@@ -4,6 +4,7 @@ const AdminTimesheet = require("../models/AdminTimesheet");
 const Timesheet = require("../models/Timesheet");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
+const notificationService = require("../services/notificationService");
 const Employee = require("../models/Employee");
 const Team = require("../models/Team");
 const nodemailer = require("nodemailer");
@@ -476,16 +477,18 @@ router.put("/approve/:id", auth, async (req, res) => {
 
     await sendStatusEmail(updated, "Approved");
 
-    // Create notification to applicant
+    // Create notification to applicant via notificationService
     try {
       const user = await User.findOne({ employeeId: updated.employeeId });
       if (user) {
-        await Notification.create({
+        await notificationService.createOrUpdateNotification({
           recipient: user._id,
+          sender: req.user._id,
           title: 'Timesheet Approved',
           message: `Your timesheet for week ${updated.week} has been approved.`,
           type: 'TIMESHEET_APPROVED',
-          link: '/timesheet/history'
+          link: '/timesheet/history',
+          relatedId: updated._id
         });
       }
     } catch (err) {
@@ -636,16 +639,18 @@ router.put("/reject/:id", auth, async (req, res) => {
 
     await sendStatusEmail(updated, "Rejected");
 
-    // Create notification
+    // Create notification via notificationService
     try {
       const user = await User.findOne({ employeeId: updated.employeeId });
       if (user) {
-        await Notification.create({
+        await notificationService.createOrUpdateNotification({
           recipient: user._id,
+          sender: req.user._id,
           title: 'Timesheet Rejected',
           message: `Your timesheet for week ${updated.week} has been rejected. Reason: ${reason || 'No reason provided'}`,
           type: 'TIMESHEET_REJECTED',
-          link: '/timesheet/history'
+          link: '/timesheet/history',
+          relatedId: updated._id
         });
       }
     } catch (err) {

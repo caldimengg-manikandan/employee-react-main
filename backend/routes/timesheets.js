@@ -4,6 +4,7 @@ const AdminTimesheet = require("../models/AdminTimesheet");
 const SpecialPermission = require("../models/SpecialPermission");
 const Employee = require("../models/Employee");
 const Notification = require("../models/Notification");
+const notificationService = require("../services/notificationService");
 const User = require("../models/User");
 const auth = require("../middleware/auth");
 const checkActiveEmployee = require("../middleware/checkActiveEmployee");
@@ -725,25 +726,29 @@ router.post("/", auth, checkActiveEmployee, validateTimesheetCreate, async (req,
           console.log("⚠️ Timesheet submitted but email may not have been sent:", emailResult?.error);
         }
 
-        // Create notification
+        // Create notification via notificationService
         try {
           const weekDisplay = new Date(sheet.weekStartDate).toLocaleDateString();
-          await Notification.create({
+          await notificationService.createOrUpdateNotification({
             recipient: req.user._id,
+            sender: req.user._id,
             title: 'Timesheet Submitted',
             message: `Your timesheet for week starting ${weekDisplay} has been submitted.`,
             type: 'TIMESHEET_SUBMIT',
-            link: '/timesheet/history'
+            link: '/timesheet/history',
+            relatedId: sheet._id
           });
           const approvers = await User.find({ role: { $regex: /^(admin|hr|manager|director|projectmanager|project_manager)$/i } }).select('_id');
           for (const appr of approvers) {
             if (String(appr._id) === String(req.user._id)) continue;
-            await Notification.create({
+            await notificationService.createOrUpdateNotification({
               recipient: appr._id,
+              sender: req.user._id,
               title: 'Timesheet Submitted for Approval',
               message: `${req.user.name} submitted timesheet for week starting ${weekDisplay}.`,
               type: 'TIMESHEET_SUBMIT',
-              link: '/admin/timesheet/approval'
+              link: '/admin/timesheet/approval',
+              relatedId: sheet._id
             });
           }
         } catch (err) {
@@ -831,25 +836,29 @@ router.post("/", auth, checkActiveEmployee, validateTimesheetCreate, async (req,
         console.log("⚠️ Timesheet submitted but email may not have been sent:", emailResult?.error);
       }
 
-      // Create notification
+      // Create notification via notificationService
       try {
         const weekDisplay = new Date(sheet.weekStartDate).toLocaleDateString();
-        await Notification.create({
+        await notificationService.createOrUpdateNotification({
           recipient: req.user._id,
+          sender: req.user._id,
           title: 'Timesheet Submitted',
           message: `Your timesheet for week starting ${weekDisplay} has been submitted.`,
           type: 'TIMESHEET_SUBMIT',
-          link: '/timesheet/history'
+          link: '/timesheet/history',
+          relatedId: sheet._id
         });
         const approvers = await User.find({ role: { $regex: /^(admin|hr|manager|director|projectmanager|project_manager)$/i } }).select('_id');
         for (const appr of approvers) {
           if (String(appr._id) === String(req.user._id)) continue;
-          await Notification.create({
+          await notificationService.createOrUpdateNotification({
             recipient: appr._id,
+            sender: req.user._id,
             title: 'Timesheet Submitted for Approval',
             message: `${req.user.name} submitted timesheet for week starting ${weekDisplay}.`,
             type: 'TIMESHEET_SUBMIT',
-            link: '/admin/timesheet/approval'
+            link: '/admin/timesheet/approval',
+            relatedId: sheet._id
           });
         }
       } catch (err) {

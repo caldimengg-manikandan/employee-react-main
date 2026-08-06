@@ -9,6 +9,7 @@ const Timesheet = require('../models/Timesheet');
 const User = require('../models/User');
 const Team = require('../models/Team');
 const Notification = require('../models/Notification');
+const notificationService = require('../services/notificationService');
 const nodemailer = require('nodemailer');
 const jwt = require('jsonwebtoken');
 const { monthsBetween, calcBalanceForEmployee, mergeBalances, runMonthlyAllocation, recordTransaction, calculateLeaveSplit, getPendingDeductions, applyLeaveDeduction, applyLeaveToLedger, reverseLeaveFromLedger, getEmployeeCurrentBalances } = require('../services/leaveService');
@@ -1328,16 +1329,17 @@ router.put('/:id/status', auth, async (req, res) => {
         }
       }
 
-      // Create Notification
+      // Create Notification via notificationService
       try {
         const notifType = status === 'Approved' ? 'LEAVE_APPROVED' : status === 'Rejected' ? 'LEAVE_REJECTED' : 'OTHER';
         if (notifType !== 'OTHER') {
-          await Notification.create({
+          await notificationService.createOrUpdateNotification({
             recipient: existing.userId,
             title: status === 'Approved' ? 'Leave Approved' : 'Leave Rejected',
             message: `Your leave request from ${new Date(updated.startDate).toLocaleDateString()} to ${new Date(updated.endDate).toLocaleDateString()} has been ${status.toLowerCase()}.`,
             type: notifType,
-            isRead: false
+            link: '/leave-applications',
+            relatedId: updated._id
           });
         }
       } catch (err) {
@@ -1562,31 +1564,32 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
     //   await sendLeaveSubmissionEmail(created, req.user, emp || {});
     // } catch (_) {}
 
-    // Create Notification
+    // Create Notification via notificationService
     try {
       // 1. Notify Applicant (Employee)
-      await Notification.create({
+      await notificationService.createOrUpdateNotification({
         recipient: req.user._id,
         sender: req.user._id,
         title: 'Leave Applied',
         message: `Your leave application for ${leaveType} from ${new Date(finalStartDate).toLocaleDateString()} to ${new Date(finalEndDate).toLocaleDateString()} has been submitted.`,
         type: 'LEAVE_APPLY',
-        isRead: false
+        link: '/leave-applications',
+        relatedId: leaveApp._id
       });
 
       // 2. Notify Admins and Reporting Managers
       const recipients = await getAdminAndPMUserIds(emp);
       for (const recipientId of recipients) {
-        // Avoid sending duplicate if admin is also the applicant
         if (recipientId === req.user._id.toString()) continue;
 
-        await Notification.create({
+        await notificationService.createOrUpdateNotification({
           recipient: recipientId,
           sender: req.user._id,
           title: 'New Leave Request',
           message: `${employeeName} applied for ${leaveType} (${new Date(finalStartDate).toLocaleDateString()} - ${new Date(finalEndDate).toLocaleDateString()}).`,
           type: 'LEAVE_APPLY',
-          isRead: false
+          link: '/leave-applications',
+          relatedId: leaveApp._id
         });
       }
     } catch (err) {
@@ -1646,17 +1649,18 @@ router.get('/email-action', async (req, res) => {
     }
     // try { if (updated) await sendLeaveStatusEmail(updated); } catch (_) {}
 
-    // Create Notification
+    // Create Notification via notificationService
     try {
       if (updated) {
         const notifType = action === 'Approved' ? 'LEAVE_APPROVED' : action === 'Rejected' ? 'LEAVE_REJECTED' : 'OTHER';
         if (notifType !== 'OTHER') {
-          await Notification.create({
+          await notificationService.createOrUpdateNotification({
             recipient: updated.userId,
             title: action === 'Approved' ? 'Leave Approved' : 'Leave Rejected',
             message: `Your leave request from ${new Date(updated.startDate).toLocaleDateString()} to ${new Date(updated.endDate).toLocaleDateString()} has been ${action.toLowerCase()}.`,
             type: notifType,
-            isRead: false
+            link: '/leave-applications',
+            relatedId: updated._id
           });
         }
       }

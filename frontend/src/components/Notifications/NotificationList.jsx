@@ -65,47 +65,9 @@ const NotificationList = ({ onClose, onUnreadCountChange }) => {
     }
   };
 
-  const getFallbackTargetRoute = (notification) => {
-    if (notification.link) return notification.link;
-    const type = notification.type || '';
-    switch (type) {
-      case 'SPECIAL_PERMISSION_SUBMIT':
-        return '/admin/special-permissions';
-      case 'SPECIAL_PERMISSION_APPROVED':
-      case 'SPECIAL_PERMISSION_REJECTED':
-        return '/timesheet';
-      case 'TIMESHEET_SUBMIT':
-        return '/admin/timesheet/approval';
-      case 'TIMESHEET_APPROVED':
-      case 'TIMESHEET_REJECTED':
-        return '/timesheet';
-      case 'LEAVE_APPLY':
-        return '/leave-applications';
-      case 'LEAVE_APPROVED':
-      case 'LEAVE_REJECTED':
-        return '/leave-applications';
-      case 'EXIT_SUBMIT':
-        return '/employee-exit/approval';
-      case 'EXIT_APPROVED':
-      case 'EXIT_REJECTED':
-        return '/employee-exit/form';
-      case 'SUPPORT_TICKET':
-      case 'SUPPORT_STATUS':
-      case 'SUPPORT_COMMENT':
-        return '/support/my-tickets';
-      default:
-        return null;
-    }
-  };
-
   const handleNotificationClick = async (notification) => {
     if (!notification.isRead) {
       await markAsRead(notification._id);
-    }
-    const targetRoute = getFallbackTargetRoute(notification);
-    if (targetRoute) {
-      navigate(targetRoute);
-      if (onClose) onClose();
     }
   };
 
@@ -143,6 +105,8 @@ const NotificationList = ({ onClose, onUnreadCountChange }) => {
         return <CheckCircleIcon className="h-6 w-6 text-blue-600" />;
       case 'SUPPORT_COMMENT':
         return <ChatBubbleLeftRightIcon className="h-6 w-6 text-[#262760]" />;
+      case 'CONFERENCE_BOOKING':
+        return <CalendarIcon className="h-6 w-6 text-indigo-600" />;
       default:
         return <BellIcon className="h-6 w-6 text-gray-500" />;
     }
