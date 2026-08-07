@@ -99,10 +99,18 @@ const HolidayWorkingRequest = () => {
     "sr. team lead",
     "sr team lead",
     "assistant project manager",
-    "asst project manager"
+    "asst project manager",
+    "project manager",
+    "sr. project manager",
+    "sr project manager",
+    "senior project manager",
+    "delivery manager",
+    "general manager",
+    "general manager (gm)",
+    "gm"
   ];
   
-  const isAllowedToCreate = allowedDesignations.includes(userDesignation) || isAdmin;
+  const isAllowedToCreate = allowedDesignations.includes(userDesignation) || isAdmin || isHR || isGM;
   const isManagerOrTL = isAllowedToCreate;
   const canEditDelete = isAllowedToCreate || isAdmin;
 

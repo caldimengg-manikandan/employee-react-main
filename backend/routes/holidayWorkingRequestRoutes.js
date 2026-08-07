@@ -11,12 +11,27 @@ const Attendance = require("../models/Attendance");
 const Team = require("../models/Team");
 const { sendZohoMail } = require("../zohoMail.service");
 
-// Helper function to resolve email(s) strictly for Project Managers, Sr. Project Managers, Asst. Project Managers, and Delivery Managers
+// Helper function to resolve email(s) strictly for HR, Project Manager, Sr. Project Manager, Asst. Project Manager, Delivery Manager, and General Manager
 async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeId) {
   try {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    // Strictly match ONLY Project Manager, Sr. Project Manager, Asst. Project Manager, Delivery Manager designations
-    const managerTitleRegex = /(project\s*manager|sr\.?\s*project\s*manager|senior\s*project\s*manager|asst\.?\s*project\s*manager|assistant\s*project\s*manager|delivery\s*manager)/i;
+    // Strictly match ONLY HR, Project Manager, Sr. Project Manager, Asst. Project Manager, Delivery Manager, General Manager (GM)
+    const allowedTitleRegex = /(^|\b)(project\s*manager|sr\.?\s*project\s*manager|senior\s*project\s*manager|asst\.?\s*project\s*manager|assistant\s*project\s*manager|delivery\s*manager|general\s*manager|gm|hr|hr\s*manager)($|\b)/i;
+
+    // Helper to extract strict official email ONLY for an employee
+    const getStrictOfficialEmail = (emp) => {
+      if (!emp) return '';
+      const official = (emp.officialEmail || '').trim();
+      if (official && emailRegex.test(official)) {
+        return official;
+      }
+      // If officialEmail field is empty, fallback to email field ONLY IF it is an official corporate email (@caldimengg / @caldim)
+      const personal = (emp.email || '').trim();
+      if (personal && emailRegex.test(personal) && (personal.toLowerCase().includes('@caldimengg') || personal.toLowerCase().includes('@caldim'))) {
+        return personal;
+      }
+      return '';
+    };
 
     let targetEmails = [];
     const reqDiv = (request.division || '').trim();
@@ -25,9 +40,9 @@ async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeI
     const managerQuery = {
       status: { $ne: "Inactive" },
       $or: [
-        { designation: managerTitleRegex },
-        { position: managerTitleRegex },
-        { role: managerTitleRegex }
+        { designation: allowedTitleRegex },
+        { position: allowedTitleRegex },
+        { role: allowedTitleRegex }
       ]
     };
 
@@ -43,8 +58,8 @@ async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeI
       }).select('officialEmail email employeeId designation position role');
 
       for (const mgr of divManagers) {
-        const officialMail = (mgr.officialEmail || mgr.email || '').trim();
-        if (officialMail && emailRegex.test(officialMail) && mgr.employeeId !== creatorEmployeeId) {
+        const officialMail = getStrictOfficialEmail(mgr);
+        if (officialMail && mgr.employeeId !== creatorEmployeeId) {
           targetEmails.push(officialMail);
         }
       }
@@ -54,38 +69,61 @@ async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeI
     if (targetEmails.length === 0) {
       const allManagers = await Employee.find(managerQuery).select('officialEmail email employeeId designation position role');
       for (const mgr of allManagers) {
-        const officialMail = (mgr.officialEmail || mgr.email || '').trim();
-        if (officialMail && emailRegex.test(officialMail) && mgr.employeeId !== creatorEmployeeId) {
+        const officialMail = getStrictOfficialEmail(mgr);
+        if (officialMail && mgr.employeeId !== creatorEmployeeId) {
           targetEmails.push(officialMail);
         }
       }
     }
 
-    // 3. Check Team Management: If creator's team leader holds one of the allowed manager titles, include their email
-    const memberTeams = await Team.find({ members: { $in: [creatorEmployeeId] } });
-    for (const team of memberTeams) {
-      if (team.leaderEmployeeId && team.leaderEmployeeId !== creatorEmployeeId) {
-        const leaderEmp = await Employee.findOne({ employeeId: team.leaderEmployeeId });
-        if (leaderEmp && leaderEmp.status !== "Inactive") {
-          const leaderTitle = `${leaderEmp.designation || ''} ${leaderEmp.position || ''} ${leaderEmp.role || ''}`;
-          if (managerTitleRegex.test(leaderTitle)) {
-            const leaderUser = await User.findOne({ employeeId: team.leaderEmployeeId });
-            const officialMail = (leaderEmp.officialEmail || leaderEmp.email || leaderUser?.email || '').trim();
-            if (officialMail && emailRegex.test(officialMail)) {
-              targetEmails.push(officialMail);
-            }
-          }
-        }
+    // 3. Include HR users strictly using their Official Email from Employee profile
+    const hrUsers = await User.find({ role: "hr" }).select('email employeeId');
+    for (const hr of hrUsers) {
+      let hrMail = '';
+      if (hr.employeeId) {
+        const hrEmp = await Employee.findOne({ employeeId: hr.employeeId, status: { $ne: "Inactive" } });
+        hrMail = getStrictOfficialEmail(hrEmp);
+      }
+      if (!hrMail && hr.email && emailRegex.test(hr.email) && (hr.email.toLowerCase().includes('@caldimengg') || hr.email.toLowerCase().includes('@caldim'))) {
+        hrMail = hr.email.trim();
+      }
+      if (hrMail && hr.employeeId !== creatorEmployeeId) {
+        targetEmails.push(hrMail);
       }
     }
 
     // De-duplicate email addresses
     targetEmails = Array.from(new Set(targetEmails));
 
-    if (targetEmails.length === 0) {
-      console.log(`[HolidayWorking Email] No Project Manager / Delivery Manager email found for creator ${creatorEmployeeId}`);
+    // STRICT SANITY VERIFICATION: Guarantee ONLY official emails and authorized designations receive this email
+    const verifiedTargetEmails = [];
+    for (const mail of targetEmails) {
+      const emp = await Employee.findOne({ $or: [{ officialEmail: mail }, { email: mail }] });
+      const usr = await User.findOne({ email: mail });
+
+      const empTitle = emp ? `${emp.designation || ''} ${emp.position || ''} ${emp.role || ''}` : '';
+      const usrRole = usr ? String(usr.role || '') : '';
+
+      const isAllowedEmp = allowedTitleRegex.test(empTitle);
+      const isAllowedUsr = usrRole.toLowerCase() === 'hr' || allowedTitleRegex.test(usrRole);
+
+      // Verify official corporate domain (@caldimengg / @caldim) or officialEmail match
+      const isOfficialDomain = mail.toLowerCase().includes('@caldimengg') || mail.toLowerCase().includes('@caldim');
+      const isEmpOfficial = emp && emp.officialEmail && emp.officialEmail.trim().toLowerCase() === mail.toLowerCase();
+
+      if ((isAllowedEmp || isAllowedUsr) && (isOfficialDomain || isEmpOfficial)) {
+        verifiedTargetEmails.push(mail);
+      } else {
+        console.log(`[HolidayWorking Email Blocked] Prevented sending email to non-official/unauthorized mail ${mail} (Title: ${empTitle})`);
+      }
+    }
+
+    if (verifiedTargetEmails.length === 0) {
+      console.log(`[HolidayWorking Email] No allowed official manager email found for creator ${creatorEmployeeId}`);
       return;
     }
+
+    targetEmails = verifiedTargetEmails;
 
     const workingDateStr = new Date(request.workingDate).toLocaleDateString('en-IN', {
       weekday: 'short',
@@ -215,11 +253,19 @@ router.post("/", auth, async (req, res) => {
         "sr. team lead",
         "sr team lead",
         "assistant project manager",
-        "asst project manager"
+        "asst project manager",
+        "project manager",
+        "sr. project manager",
+        "sr project manager",
+        "senior project manager",
+        "delivery manager",
+        "general manager",
+        "general manager (gm)",
+        "gm"
       ];
 
-      if (!allowedDesignations.includes(creatorDesignation)) {
-        return res.status(403).json({ message: "Not authorized to create requests. Only Team Lead, Sr. Team Lead, and Assistant Project Manager can create requests." });
+      if (!allowedDesignations.includes(creatorDesignation) && !["hr", "admin", "manager", "director"].includes(userRole)) {
+        return res.status(403).json({ message: "Not authorized to create requests." });
       }
     }
 
