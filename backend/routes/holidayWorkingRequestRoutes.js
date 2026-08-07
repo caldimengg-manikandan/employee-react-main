@@ -11,12 +11,10 @@ const Attendance = require("../models/Attendance");
 const Team = require("../models/Team");
 const { sendZohoMail } = require("../zohoMail.service");
 
-// Helper function to resolve email(s) strictly for HR, Project Manager, Sr. Project Manager, Asst. Project Manager, Delivery Manager, and General Manager
+// Helper function to resolve email(s) strictly for HR, PMs/Delivery Managers (SDS/Tekla), or GM (DAS Software) filtered by applicant location
 async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeId) {
   try {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    // Strictly match ONLY HR, Project Manager, Sr. Project Manager, Asst. Project Manager, Delivery Manager, General Manager (GM)
-    const allowedTitleRegex = /(^|\b)(project\s*manager|sr\.?\s*project\s*manager|senior\s*project\s*manager|asst\.?\s*project\s*manager|assistant\s*project\s*manager|delivery\s*manager|general\s*manager|gm|hr|hr\s*manager)($|\b)/i;
 
     // Helper to extract strict official email ONLY for an employee
     const getStrictOfficialEmail = (emp) => {
@@ -33,97 +31,146 @@ async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeI
       return '';
     };
 
+    // 1. Fetch creator employee profile and user profile to determine applicant's Designation, Role, Location, and Division
+    const creatorEmp = await Employee.findOne({ employeeId: creatorEmployeeId });
+    const creatorUser = await User.findOne({ $or: [{ employeeId: creatorEmployeeId }, { email: creatorEmp?.email }] });
+
+    const creatorLocation = creatorEmp ? (creatorEmp.location || creatorEmp.branch || '').trim() : '';
+    const creatorTitle = creatorEmp ? `${creatorEmp.designation || ''} ${creatorEmp.position || ''} ${creatorEmp.role || ''}` : '';
+    const creatorRole = (creatorUser?.role || '').toLowerCase();
+
+    const hrOrAdminTitleRegex = /(^|\b)(hr|hr\s*manager|hr\s*executive|human\s*resource|human\s*resources|admin|administrator)($|\b)/i;
+    const isApplicantHrOrAdmin = hrOrAdminTitleRegex.test(creatorTitle) || ['hr', 'admin'].includes(creatorRole);
+
+    const gmTitleRegex = /(^|\b)(general\s*manager|gm|general\s*manager\s*\(gm\))($|\b)/i;
+    const pmTitleRegex = /(^|\b)(project\s*manager|sr\.?\s*project\s*manager|senior\s*project\s*manager|asst\.?\s*project\s*manager|assistant\s*project\s*manager|delivery\s*manager)($|\b)/i;
+
+    const reqDiv = (request.division || (creatorEmp ? creatorEmp.division : '') || '').trim();
+    const isDasSoftware = /das/i.test(reqDiv);
+
     let targetEmails = [];
-    const reqDiv = (request.division || '').trim();
 
-    // 1. Search Active Employees whose designation, position, or role matches the allowed manager designations
-    const managerQuery = {
-      status: { $ne: "Inactive" },
-      $or: [
-        { designation: allowedTitleRegex },
-        { position: allowedTitleRegex },
-        { role: allowedTitleRegex }
-      ]
-    };
-
-    // If request specifies a division, search division-matching managers first
-    if (reqDiv) {
-      const divRegex = new RegExp(reqDiv.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-      const divManagers = await Employee.find({
-        ...managerQuery,
+    if (isApplicantHrOrAdmin) {
+      // RULE OVERRIDE: If created by HR or Admin -> Send ONLY to General Manager (GM) of the same location
+      const gmFilter = {
+        status: "Active", // Strict Active status
         $or: [
-          { division: divRegex },
-          { department: divRegex }
+          { designation: gmTitleRegex },
+          { position: gmTitleRegex },
+          { role: gmTitleRegex }
         ]
-      }).select('officialEmail email employeeId designation position role');
+      };
 
-      for (const mgr of divManagers) {
-        const officialMail = getStrictOfficialEmail(mgr);
-        if (officialMail && mgr.employeeId !== creatorEmployeeId) {
+      if (creatorLocation) {
+        const locEscaped = creatorLocation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const locRegex = new RegExp(locEscaped, 'i');
+        gmFilter.$and = [
+          {
+            $or: [
+              { location: locRegex },
+              { branch: locRegex }
+            ]
+          }
+        ];
+      }
+
+      const gms = await Employee.find(gmFilter).select('officialEmail email employeeId status location branch');
+      for (const gm of gms) {
+        if (gm.status !== "Active") continue;
+        const officialMail = getStrictOfficialEmail(gm);
+        if (officialMail && gm.employeeId !== creatorEmployeeId) {
           targetEmails.push(officialMail);
         }
       }
-    }
 
-    // 2. If no division-specific managers found, fallback to all active managers matching these specific designations
-    if (targetEmails.length === 0) {
-      const allManagers = await Employee.find(managerQuery).select('officialEmail email employeeId designation position role');
-      for (const mgr of allManagers) {
-        const officialMail = getStrictOfficialEmail(mgr);
-        if (officialMail && mgr.employeeId !== creatorEmployeeId) {
-          targetEmails.push(officialMail);
-        }
-      }
-    }
-
-    // 3. Include HR users strictly using their Official Email from Employee profile
-    const hrUsers = await User.find({ role: "hr" }).select('email employeeId');
-    for (const hr of hrUsers) {
-      let hrMail = '';
-      if (hr.employeeId) {
-        const hrEmp = await Employee.findOne({ employeeId: hr.employeeId, status: { $ne: "Inactive" } });
-        hrMail = getStrictOfficialEmail(hrEmp);
-      }
-      if (!hrMail && hr.email && emailRegex.test(hr.email) && (hr.email.toLowerCase().includes('@caldimengg') || hr.email.toLowerCase().includes('@caldim'))) {
-        hrMail = hr.email.trim();
-      }
-      if (hrMail && hr.employeeId !== creatorEmployeeId) {
-        targetEmails.push(hrMail);
-      }
-    }
-
-    // De-duplicate email addresses
-    targetEmails = Array.from(new Set(targetEmails));
-
-    // STRICT SANITY VERIFICATION: Guarantee ONLY official emails and authorized designations receive this email
-    const verifiedTargetEmails = [];
-    for (const mail of targetEmails) {
-      const emp = await Employee.findOne({ $or: [{ officialEmail: mail }, { email: mail }] });
-      const usr = await User.findOne({ email: mail });
-
-      const empTitle = emp ? `${emp.designation || ''} ${emp.position || ''} ${emp.role || ''}` : '';
-      const usrRole = usr ? String(usr.role || '') : '';
-
-      const isAllowedEmp = allowedTitleRegex.test(empTitle);
-      const isAllowedUsr = usrRole.toLowerCase() === 'hr' || allowedTitleRegex.test(usrRole);
-
-      // Verify official corporate domain (@caldimengg / @caldim) or officialEmail match
-      const isOfficialDomain = mail.toLowerCase().includes('@caldimengg') || mail.toLowerCase().includes('@caldim');
-      const isEmpOfficial = emp && emp.officialEmail && emp.officialEmail.trim().toLowerCase() === mail.toLowerCase();
-
-      if ((isAllowedEmp || isAllowedUsr) && (isOfficialDomain || isEmpOfficial)) {
-        verifiedTargetEmails.push(mail);
+      console.log(`[HolidayWorking Email] Applicant ${creatorEmployeeId} is HR/Admin. Targeted ONLY GM(s) for location "${creatorLocation}".`);
+    } else {
+      // Standard Division-Based Routing Rules:
+      // Rule A: DAS Software -> General Manager & HR ONLY (Exclude PM, Sr PM, Asst PM, Delivery Manager)
+      // Rule B: SDS / Tekla -> PM, Sr PM, Asst PM, Delivery Manager & HR ONLY (Exclude GM)
+      let allowedDesignationRegex;
+      if (isDasSoftware) {
+        allowedDesignationRegex = /(^|\b)(general\s*manager|gm|general\s*manager\s*\(gm\)|hr|hr\s*manager|hr\s*executive|human\s*resource|human\s*resources)($|\b)/i;
       } else {
-        console.log(`[HolidayWorking Email Blocked] Prevented sending email to non-official/unauthorized mail ${mail} (Title: ${empTitle})`);
+        allowedDesignationRegex = /(^|\b)(project\s*manager|sr\.?\s*project\s*manager|senior\s*project\s*manager|asst\.?\s*project\s*manager|assistant\s*project\s*manager|delivery\s*manager|hr|hr\s*manager|hr\s*executive|human\s*resource|human\s*resources)($|\b)/i;
+      }
+
+      // Build Query for Active Employees with matching Location
+      const empFilter = {
+        status: "Active", // Strict Active status only
+        $or: [
+          { designation: allowedDesignationRegex },
+          { position: allowedDesignationRegex },
+          { role: allowedDesignationRegex }
+        ]
+      };
+
+      if (creatorLocation) {
+        const locEscaped = creatorLocation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const locRegex = new RegExp(locEscaped, 'i');
+        empFilter.$and = [
+          {
+            $or: [
+              { location: locRegex },
+              { branch: locRegex }
+            ]
+          }
+        ];
+      }
+
+      const candidateEmployees = await Employee.find(empFilter).select('officialEmail email employeeId designation position role location branch status');
+
+      for (const emp of candidateEmployees) {
+        if (emp.status !== "Active") continue;
+
+        const empTitle = `${emp.designation || ''} ${emp.position || ''} ${emp.role || ''}`;
+
+        // Strict Exclusion Check based on Division
+        if (isDasSoftware) {
+          // For DAS Software: Do NOT send to PM, Sr. PM, Asst. PM, or Delivery Manager
+          if (pmTitleRegex.test(empTitle)) continue;
+        } else {
+          // For SDS / Tekla: Do NOT send to General Manager
+          if (gmTitleRegex.test(empTitle)) continue;
+        }
+
+        const officialMail = getStrictOfficialEmail(emp);
+        if (officialMail && emp.employeeId !== creatorEmployeeId) {
+          targetEmails.push(officialMail);
+        }
+      }
+
+      // Also include HR users matching active employee status and applicant location
+      const hrUsers = await User.find({ role: "hr" }).select('email employeeId');
+      for (const hr of hrUsers) {
+        if (hr.employeeId) {
+          const hrEmp = await Employee.findOne({ employeeId: hr.employeeId, status: "Active" });
+          if (hrEmp) {
+            let locationMatch = true;
+            if (creatorLocation) {
+              const empLoc = (hrEmp.location || hrEmp.branch || '').trim();
+              locationMatch = new RegExp(creatorLocation.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(empLoc);
+            }
+            if (locationMatch) {
+              const hrMail = getStrictOfficialEmail(hrEmp);
+              if (hrMail && hrEmp.employeeId !== creatorEmployeeId) {
+                targetEmails.push(hrMail);
+              }
+            }
+          }
+        }
       }
     }
 
-    if (verifiedTargetEmails.length === 0) {
-      console.log(`[HolidayWorking Email] No allowed official manager email found for creator ${creatorEmployeeId}`);
+    // 4. Duplicate Prevention (Unique email addresses)
+    targetEmails = Array.from(new Set(targetEmails.map(e => e.trim().toLowerCase())));
+
+    if (targetEmails.length === 0) {
+      console.log(`[HolidayWorking Email] No allowed active official manager emails found for Creator "${creatorEmployeeId}", Division "${reqDiv}" and Location "${creatorLocation}"`);
       return;
     }
 
-    targetEmails = verifiedTargetEmails;
+    console.log(`[HolidayWorking Email] Found ${targetEmails.length} recipient(s) for Division "${reqDiv}" Location "${creatorLocation}": ${targetEmails.join(', ')}`);
 
     const workingDateStr = new Date(request.workingDate).toLocaleDateString('en-IN', {
       weekday: 'short',
@@ -206,7 +253,7 @@ async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeI
       }).catch(err => console.error(`[HolidayWorking Email] Failed to send email to ${email}:`, err.message));
     }
 
-    console.log(`[HolidayWorking Email] Sent notification to reporting manager(s): ${targetEmails.join(', ')}`);
+    console.log(`[HolidayWorking Email] Sent notification to recipient(s): ${targetEmails.join(', ')}`);
   } catch (err) {
     console.error("[HolidayWorking Email] Helper error:", err);
   }

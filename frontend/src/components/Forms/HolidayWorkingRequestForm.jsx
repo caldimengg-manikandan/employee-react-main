@@ -222,12 +222,13 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
   };
 
   const isAdmin = user.role?.toLowerCase() === "admin";
-  const userDiv = currentUserProfile?.division || user?.division || "";
+  const rawUserDiv = currentUserProfile?.division || user?.division || "";
+  const normalizedUserDiv = rawUserDiv.toLowerCase().includes("das") ? "DAS (Software)" : rawUserDiv;
+
+  const defaultDivisions = ["SDS", "TEKLA", "DAS (Software)", "HR/Admin"];
   const availableDivisions = isAdmin 
-    ? ["SDS", "TEKLA", "DAS (Software)", "DAS(Software)", "HR/Admin"] 
-    : (userDiv 
-        ? Array.from(new Set([userDiv, "DAS (Software)", "DAS(Software)", "SDS", "TEKLA"]))
-        : ["DAS (Software)", "DAS(Software)", "SDS", "TEKLA"]);
+    ? defaultDivisions 
+    : Array.from(new Set(normalizedUserDiv ? [normalizedUserDiv, ...defaultDivisions.filter(d => d !== "HR/Admin")] : ["SDS", "TEKLA", "DAS (Software)"]));
 
   const uniqueFilteredProjects = Array.from(
     new Set(
