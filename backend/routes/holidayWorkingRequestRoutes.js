@@ -11,95 +11,71 @@ const Attendance = require("../models/Attendance");
 const Team = require("../models/Team");
 const { sendZohoMail } = require("../zohoMail.service");
 
-// Helper function to resolve reporting manager email(s) from Team Management module & send automated notification
+// Helper function to resolve email(s) strictly for Project Managers, Sr. Project Managers, Asst. Project Managers, and Delivery Managers
 async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeId) {
   try {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    let targetEmails = [];
+    // Strictly match ONLY Project Manager, Sr. Project Manager, Asst. Project Manager, Delivery Manager designations
+    const managerTitleRegex = /(project\s*manager|sr\.?\s*project\s*manager|senior\s*project\s*manager|asst\.?\s*project\s*manager|assistant\s*project\s*manager|delivery\s*manager)/i;
 
-    // 1. Check Team Management (Team model): Find teams where creator is listed as a member
+    let targetEmails = [];
+    const reqDiv = (request.division || '').trim();
+
+    // 1. Search Active Employees whose designation, position, or role matches the allowed manager designations
+    const managerQuery = {
+      status: { $ne: "Inactive" },
+      $or: [
+        { designation: managerTitleRegex },
+        { position: managerTitleRegex },
+        { role: managerTitleRegex }
+      ]
+    };
+
+    // If request specifies a division, search division-matching managers first
+    if (reqDiv) {
+      const divRegex = new RegExp(reqDiv.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const divManagers = await Employee.find({
+        ...managerQuery,
+        $or: [
+          { division: divRegex },
+          { department: divRegex }
+        ]
+      }).select('officialEmail email employeeId designation position role');
+
+      for (const mgr of divManagers) {
+        const officialMail = (mgr.officialEmail || mgr.email || '').trim();
+        if (officialMail && emailRegex.test(officialMail) && mgr.employeeId !== creatorEmployeeId) {
+          targetEmails.push(officialMail);
+        }
+      }
+    }
+
+    // 2. If no division-specific managers found, fallback to all active managers matching these specific designations
+    if (targetEmails.length === 0) {
+      const allManagers = await Employee.find(managerQuery).select('officialEmail email employeeId designation position role');
+      for (const mgr of allManagers) {
+        const officialMail = (mgr.officialEmail || mgr.email || '').trim();
+        if (officialMail && emailRegex.test(officialMail) && mgr.employeeId !== creatorEmployeeId) {
+          targetEmails.push(officialMail);
+        }
+      }
+    }
+
+    // 3. Check Team Management: If creator's team leader holds one of the allowed manager titles, include their email
     const memberTeams = await Team.find({ members: { $in: [creatorEmployeeId] } });
     for (const team of memberTeams) {
       if (team.leaderEmployeeId && team.leaderEmployeeId !== creatorEmployeeId) {
         const leaderEmp = await Employee.findOne({ employeeId: team.leaderEmployeeId });
-        const leaderUser = await User.findOne({ employeeId: team.leaderEmployeeId });
-        // Strictly fetch Official Email from Employee form
-        const officialMail = (leaderEmp?.officialEmail || leaderEmp?.email || leaderUser?.email || '').trim();
-        if (officialMail && emailRegex.test(officialMail)) {
-          targetEmails.push(officialMail);
-        }
-      }
-    }
-
-    // 2. If creator is team leader of their own team, check if that team's division has a Project Manager / Manager
-    if (targetEmails.length === 0) {
-      const leaderTeams = await Team.find({ leaderEmployeeId: creatorEmployeeId });
-      for (const team of leaderTeams) {
-        const pms = await Employee.find({
-          division: team.division || request.division,
-          $or: [
-            { designation: /project manager|manager/i },
-            { position: /project manager|manager/i },
-            { role: /projectmanager|manager/i }
-          ]
-        }).select('officialEmail email employeeId');
-        
-        for (const pm of pms) {
-          const officialMail = (pm.officialEmail || pm.email || '').trim();
-          if (officialMail && emailRegex.test(officialMail) && pm.employeeId !== creatorEmployeeId) {
-            targetEmails.push(officialMail);
+        if (leaderEmp && leaderEmp.status !== "Inactive") {
+          const leaderTitle = `${leaderEmp.designation || ''} ${leaderEmp.position || ''} ${leaderEmp.role || ''}`;
+          if (managerTitleRegex.test(leaderTitle)) {
+            const leaderUser = await User.findOne({ employeeId: team.leaderEmployeeId });
+            const officialMail = (leaderEmp.officialEmail || leaderEmp.email || leaderUser?.email || '').trim();
+            if (officialMail && emailRegex.test(officialMail)) {
+              targetEmails.push(officialMail);
+            }
           }
         }
-      }
-    }
-
-    // 3. Fallback: Search for Reporting Managers / PMs for the request's division / department
-    if (targetEmails.length === 0 && (request.division || request.department)) {
-      const query = {
-        $or: [
-          { designation: /project manager|manager/i },
-          { position: /project manager|manager/i },
-          { role: /projectmanager|manager/i }
-        ]
-      };
-      if (request.division) query.division = request.division;
-      if (request.department) query.department = request.department;
-
-      const pms = await Employee.find(query).select('officialEmail email employeeId');
-
-      for (const pm of pms) {
-        const officialMail = (pm.officialEmail || pm.email || '').trim();
-        if (officialMail && emailRegex.test(officialMail) && pm.employeeId !== creatorEmployeeId) {
-          targetEmails.push(officialMail);
-        }
-      }
-    }
-
-    // 4. Include Delivery Manager(s) from Employee Management for SDS and TEKLA (and request division)
-    const reqDiv = (request.division || '').trim();
-
-    const dmQuery = {
-      status: { $ne: "Inactive" },
-      $or: [
-        { designation: /delivery\s*manager/i },
-        { position: /delivery\s*manager/i },
-        { role: /delivery\s*manager/i }
-      ]
-    };
-
-    if (reqDiv) {
-      const divRegex = new RegExp(reqDiv, 'i');
-      dmQuery.$or.push(
-        { division: divRegex },
-        { department: divRegex }
-      );
-    }
-
-    const deliveryManagers = await Employee.find(dmQuery).select('officialEmail email employeeId division designation');
-    for (const dm of deliveryManagers) {
-      const officialMail = (dm.officialEmail || dm.email || '').trim();
-      if (officialMail && emailRegex.test(officialMail) && dm.employeeId !== creatorEmployeeId) {
-        targetEmails.push(officialMail);
       }
     }
 
@@ -107,7 +83,7 @@ async function sendHolidayWorkingReportingManagerEmail(request, creatorEmployeeI
     targetEmails = Array.from(new Set(targetEmails));
 
     if (targetEmails.length === 0) {
-      console.log(`[HolidayWorking Email] No reporting manager email found for creator ${creatorEmployeeId}`);
+      console.log(`[HolidayWorking Email] No Project Manager / Delivery Manager email found for creator ${creatorEmployeeId}`);
       return;
     }
 
@@ -323,7 +299,7 @@ router.get("/", auth, async (req, res) => {
       }
     }
 
-    const { status, startDate, endDate } = req.query;
+    const { status, startDate, endDate, month, year, location } = req.query;
     const userRole = String(req.user.role || '').toLowerCase();
     const employeeId = req.user.employeeId;
 
@@ -331,7 +307,21 @@ router.get("/", auth, async (req, res) => {
 
     // Filters
     if (status) filter.status = status;
-    if (startDate && endDate) {
+    if (location && location !== "All") {
+      filter["employees.location"] = new RegExp(location.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    }
+    if (year && year !== "All" && month && month !== "All") {
+      const m = parseInt(month, 10);
+      const y = parseInt(year, 10);
+      const startOfMonth = new Date(y, m - 1, 1);
+      const endOfMonth = new Date(y, m, 0, 23, 59, 59, 999);
+      filter.workingDate = { $gte: startOfMonth, $lte: endOfMonth };
+    } else if (year && year !== "All") {
+      const y = parseInt(year, 10);
+      const startOfYear = new Date(y, 0, 1);
+      const endOfYear = new Date(y, 11, 31, 23, 59, 59, 999);
+      filter.workingDate = { $gte: startOfYear, $lte: endOfYear };
+    } else if (startDate && endDate) {
       filter.workingDate = { $gte: new Date(startDate), $lte: new Date(endDate) };
     } else if (startDate) {
       filter.workingDate = { $gte: new Date(startDate) };

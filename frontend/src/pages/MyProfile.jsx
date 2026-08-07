@@ -532,6 +532,7 @@ const MyProfile = () => {
       delete updatedUser.photo;
 
       sessionStorage.setItem('user', JSON.stringify(updatedUser));
+      sessionStorage.removeItem('cached_employees');
       setUser(updatedUser);
       showSuccess('Profile updated successfully!');
       setSaveModalOpen(true);

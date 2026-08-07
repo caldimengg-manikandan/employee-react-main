@@ -262,11 +262,11 @@ router.get('/', auth, async (req, res) => {
             }))
           : [];
 
-        // Normalize profilePicture URL and ALWAYS strip legacy base64 data to keep payload size small
+        // Normalize profilePicture URL
         let profilePicture = '';
-        if (emp.profilePicture && (emp.profilePicture.startsWith('http://') || emp.profilePicture.startsWith('https://'))) {
+        if (emp.profilePicture && typeof emp.profilePicture === 'string') {
           profilePicture = emp.profilePicture;
-        } else if (emp.photo && (emp.photo.startsWith('http://') || emp.photo.startsWith('https://'))) {
+        } else if (emp.photo && typeof emp.photo === 'string') {
           profilePicture = emp.photo;
         }
 
@@ -344,9 +344,20 @@ router.get('/', auth, async (req, res) => {
         'dateOfBirth': 1,
         'mobileNo': 1,
         '_id': 1,
-        'status': 1
-      }).sort({ name: 1 });
-      return res.json(employees);
+        'status': 1,
+        'profilePicture': 1,
+        'photo': 1
+      }).sort({ name: 1 }).lean();
+
+      const formattedEmployees = employees.map(emp => {
+        if (!emp) return emp;
+        const profilePicture = emp.profilePicture || emp.photo || '';
+        return {
+          ...emp,
+          profilePicture
+        };
+      });
+      return res.json(formattedEmployees);
     }
 
     // Limited access for users with timesheet_access only
@@ -363,9 +374,20 @@ router.get('/', auth, async (req, res) => {
         'ifsc': 1,
         'branch': 1,
         '_id': 1,
-        'status': 1
-      }).sort({ name: 1 });
-      return res.json(employees);
+        'status': 1,
+        'profilePicture': 1,
+        'photo': 1
+      }).sort({ name: 1 }).lean();
+
+      const formattedEmployees = employees.map(emp => {
+        if (!emp) return emp;
+        const profilePicture = emp.profilePicture || emp.photo || '';
+        return {
+          ...emp,
+          profilePicture
+        };
+      });
+      return res.json(formattedEmployees);
     }
 
     // Otherwise deny
