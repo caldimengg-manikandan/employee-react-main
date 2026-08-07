@@ -54,10 +54,14 @@ const notificationSchema = new mongoose.Schema({
   }
 });
 
-// Indexes for optimal database queries
+// Indexes for optimal database queries & duplicate prevention
 notificationSchema.index({ recipient: 1, createdAt: -1 });
 notificationSchema.index({ recipient: 1, isRead: 1 });
 notificationSchema.index({ relatedId: 1 });
 notificationSchema.index({ type: 1 });
+notificationSchema.index(
+  { recipient: 1, type: 1, relatedId: 1 },
+  { unique: true, partialFilterExpression: { relatedId: { $exists: true, $type: "objectId" } } }
+);
 
 module.exports = mongoose.model('Notification', notificationSchema);

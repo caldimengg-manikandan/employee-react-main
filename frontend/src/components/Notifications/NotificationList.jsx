@@ -7,7 +7,8 @@ import {
   InformationCircleIcon, 
   ClockIcon,
   CalendarIcon,
-  ChatBubbleLeftRightIcon
+  ChatBubbleLeftRightIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import { notificationAPI } from '../../services/api';
 
@@ -23,7 +24,18 @@ const NotificationList = ({ onClose, onUnreadCountChange }) => {
   const fetchNotifications = async () => {
     try {
       const response = await notificationAPI.getAll();
-      const list = Array.isArray(response.data) ? response.data : [];
+      const rawList = Array.isArray(response.data) ? response.data : (response.data?.notifications || []);
+      
+      // Deduplicate notifications by _id
+      const seen = new Set();
+      const list = [];
+      for (const item of rawList) {
+        if (item && item._id && !seen.has(String(item._id))) {
+          seen.add(String(item._id));
+          list.push(item);
+        }
+      }
+
       setNotifications(list);
       setLoading(false);
       if (onUnreadCountChange) {
@@ -51,6 +63,20 @@ const NotificationList = ({ onClose, onUnreadCountChange }) => {
     }
   };
 
+  const handleDelete = async (e, id) => {
+    e.stopPropagation();
+    try {
+      await notificationAPI.delete(id);
+      const updated = notifications.filter(n => n._id !== id);
+      setNotifications(updated);
+      if (onUnreadCountChange) {
+        onUnreadCountChange(updated.filter(n => !n.isRead).length);
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  };
+
   const markAllAsRead = async () => {
     try {
       await notificationAPI.markAllAsRead();
@@ -68,6 +94,10 @@ const NotificationList = ({ onClose, onUnreadCountChange }) => {
   const handleNotificationClick = async (notification) => {
     if (!notification.isRead) {
       await markAsRead(notification._id);
+    }
+    if (notification.link) {
+      navigate(notification.link);
+      if (onClose) onClose();
     }
   };
 
@@ -166,11 +196,18 @@ const NotificationList = ({ onClose, onUnreadCountChange }) => {
                     {formatDate(notification.createdAt)}
                   </p>
                 </div>
-                {!notification.isRead && (
-                  <div className="flex-shrink-0 mt-1">
+                <div className="flex-shrink-0 flex items-center gap-1.5 mt-1">
+                  {!notification.isRead && (
                     <span className="inline-block h-2 w-2 rounded-full bg-[#262760]"></span>
-                  </div>
-                )}
+                  )}
+                  <button
+                    onClick={(e) => handleDelete(e, notification._id)}
+                    className="text-gray-300 hover:text-red-500 p-1 rounded transition-colors opacity-60 hover:opacity-100"
+                    title="Delete Notification"
+                  >
+                    <TrashIcon className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           ))

@@ -2,7 +2,6 @@ const Notification = require('../models/Notification');
 const Team = require('../models/Team');
 const Employee = require('../models/Employee');
 const User = require('../models/User');
-const Allocation = require('../models/Allocation');
 
 /**
  * Check if logged-in user is a top-level admin (Admin, HR, Director, General Manager)
@@ -19,14 +18,15 @@ function checkIsTopAdmin(user) {
 }
 
 /**
- * Resolve all assigned team member User ObjectIds for a manager/team lead
+ * Resolve assigned team member User ObjectIds strictly from Team Management
+ * (Do NOT use Project Allocation for notification mapping)
  */
 async function getTeamMemberUserIds(user) {
   const userEmpId = user?.employeeId;
   const userName = user?.name;
   const memberEmpIds = new Set();
 
-  // 1. Members from Team collection where leader is this user
+  // 1. Members from Team collection (Team Management module) where leader is this user
   if (userEmpId) {
     const leaderTeams = await Team.find({ leaderEmployeeId: userEmpId }).select('members').lean();
     for (const t of leaderTeams) {
@@ -36,18 +36,7 @@ async function getTeamMemberUserIds(user) {
     }
   }
 
-  // 2. Members from Allocation collection where assignedBy is this user
-  if (userEmpId || userName) {
-    const allocConditions = [];
-    if (userEmpId) allocConditions.push({ assignedBy: userEmpId });
-    if (userName) allocConditions.push({ assignedBy: userName });
-    if (allocConditions.length > 0) {
-      const allocs = await Allocation.find({ $or: allocConditions }).select('employeeCode').lean();
-      allocs.forEach(a => { if (a.employeeCode) memberEmpIds.add(a.employeeCode); });
-    }
-  }
-
-  // 3. Members from Employee collection where reportingManager matches this user
+  // 2. Members from Employee collection where reportingManager is this user (Team Management hierarchy)
   if (userEmpId || userName) {
     const empConditions = [];
     if (userEmpId) empConditions.push({ reportingManager: userEmpId });
@@ -69,29 +58,25 @@ async function getTeamMemberUserIds(user) {
 
 /**
  * Build recipient/role based visibility query
+ * - Employees: Only their own notifications (recipient = userId)
+ * - Reporting Managers / Admins: Their own notifications + team members mapped under them in Team Management
  */
 async function getNotificationQueryForUser(user) {
   const userId = user._id || user.id;
-  const isTopAdmin = checkIsTopAdmin(user);
-
-  if (isTopAdmin) {
-    // Top Admins see system-wide notifications
-    return {};
-  }
-
   const teamUserIds = await getTeamMemberUserIds(user);
+
   if (teamUserIds.length > 0) {
-    // Reporting Manager sees notifications for self + assigned team members
+    // Reporting Manager sees personal notifications + mapped team member notifications
     return { recipient: { $in: [userId, ...teamUserIds] } };
   }
 
-  // Regular Employee sees ONLY notifications where recipient is themselves
+  // Regular Employee / User sees ONLY notifications where recipient is themselves
   return { recipient: userId };
 }
 
 /**
- * Centralized Notification Creation & Upsert Service
- * Prevents duplicates by recipient, type, and relatedId
+ * Centralized Atomic Notification Creation & Upsert Service
+ * Prevents duplicate notifications by recipient, type, and relatedId (or 10-second deduplication window)
  */
 async function createOrUpdateNotification({ recipient, title, message, type = 'OTHER', link, relatedId, sender }) {
   if (!recipient || !title || !message) {
@@ -101,17 +86,38 @@ async function createOrUpdateNotification({ recipient, title, message, type = 'O
 
   try {
     if (relatedId) {
-      const existing = await Notification.findOne({ recipient, type, relatedId });
-      if (existing) {
-        existing.title = title;
-        existing.message = message;
-        if (link) existing.link = link;
-        if (sender) existing.sender = sender;
-        existing.isRead = false;
-        existing.createdAt = new Date();
-        await existing.save();
-        return existing;
-      }
+      // Atomic findOneAndUpdate with upsert: true ensures no duplicate records are created
+      const updated = await Notification.findOneAndUpdate(
+        { recipient, type, relatedId },
+        {
+          $set: {
+            title,
+            message,
+            link: link || '',
+            sender: sender || null,
+            isRead: false,
+            createdAt: new Date()
+          }
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+      return updated;
+    }
+
+    // 10-second deduplication window for notifications without relatedId
+    const tenSecondsAgo = new Date(Date.now() - 10000);
+    const recentDuplicate = await Notification.findOne({
+      recipient,
+      type,
+      message,
+      createdAt: { $gte: tenSecondsAgo }
+    });
+
+    if (recentDuplicate) {
+      recentDuplicate.title = title;
+      recentDuplicate.createdAt = new Date();
+      await recentDuplicate.save();
+      return recentDuplicate;
     }
 
     const notif = await Notification.create({
@@ -119,18 +125,60 @@ async function createOrUpdateNotification({ recipient, title, message, type = 'O
       title,
       message,
       type,
-      link,
-      relatedId,
-      sender,
+      link: link || '',
+      relatedId: relatedId || null,
+      sender: sender || null,
       isRead: false,
       createdAt: new Date()
     });
 
     return notif;
   } catch (error) {
+    // Handle MongoDB duplicate key error (E11000) gracefully
+    if (error.code === 11000 && relatedId) {
+      return await Notification.findOneAndUpdate(
+        { recipient, type, relatedId },
+        {
+          $set: {
+            title,
+            message,
+            link: link || '',
+            sender: sender || null,
+            isRead: false,
+            createdAt: new Date()
+          }
+        },
+        { new: true }
+      );
+    }
     console.error('Error in createOrUpdateNotification:', error);
     return null;
   }
+}
+
+/**
+ * Bulk notification creation helper for multi-recipient notifications (e.g. HR approvals)
+ * Prevents duplicate sends per recipient
+ */
+async function createBulkNotifications({ recipients, title, message, type = 'OTHER', link, relatedId, sender }) {
+  if (!Array.isArray(recipients) || recipients.length === 0) return [];
+  
+  const results = [];
+  const uniqueRecipients = Array.from(new Set(recipients.map(r => String(r._id || r))));
+
+  for (const recipientId of uniqueRecipients) {
+    const res = await createOrUpdateNotification({
+      recipient: recipientId,
+      title,
+      message,
+      type,
+      link,
+      relatedId,
+      sender
+    });
+    if (res) results.push(res);
+  }
+  return results;
 }
 
 /**
@@ -192,6 +240,7 @@ module.exports = {
   checkIsTopAdmin,
   getTeamMemberUserIds,
   createOrUpdateNotification,
+  createBulkNotifications,
   getNotificationsForUser,
   markAsRead,
   markAllAsReadForUser,
