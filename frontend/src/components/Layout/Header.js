@@ -165,7 +165,7 @@ const Header = ({ onMenuClick }) => {
         const unread = typeof data?.unreadCount === 'number' ? data.unreadCount : list.filter(n => !n.isRead).length;
         setUnreadCount(unread);
       } catch (error) {
-        console.error('Error fetching notifications:', error);
+        // Suppress noisy console error for background poll
       }
     };
 

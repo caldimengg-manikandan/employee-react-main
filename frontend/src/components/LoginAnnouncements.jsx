@@ -7,20 +7,16 @@ const LoginAnnouncements = ({ title = '📢 Company Announcements', mode = 'list
 
   useEffect(() => {
     fetchAnnouncements();
-    const interval = setInterval(fetchAnnouncements, 10000);
+    const interval = setInterval(fetchAnnouncements, 60000);
     return () => clearInterval(interval);
   }, []);
 
   const fetchAnnouncements = async () => {
     try {
       const data = await authAPI.announcement.getActive();
-      
-      
-      
       const allAnnouncements = Array.isArray(data) ? data : [];
       setAnnouncements(allAnnouncements);
     } catch (error) {
-      console.error('Failed to fetch announcements:', error);
       // Fallback to empty array on error
       setAnnouncements([]);
     } finally {

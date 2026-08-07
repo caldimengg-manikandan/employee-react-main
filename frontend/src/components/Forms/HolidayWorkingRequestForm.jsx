@@ -164,7 +164,28 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
+
+    if (!formData.workingDate) {
+      setError("Please select a Working Date.");
+      return;
+    }
+    if (!formData.holidayType) {
+      setError("Please select a Holiday Type.");
+      return;
+    }
+    if (!formData.division) {
+      setError("Please select a Division.");
+      return;
+    }
+    if (!formData.shiftTiming) {
+      setError("Please select Shift Timing.");
+      return;
+    }
+    if (!formData.reason || !formData.reason.trim()) {
+      setError("Please provide a Reason for Working.");
+      return;
+    }
     if (selectedEmployees.length === 0) {
       setError("Please select at least one employee.");
       return;
@@ -186,13 +207,15 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
         res = await api.post("/holiday-working-requests", payload);
       }
 
-      if (res.data.success) {
+      if (res.data && (res.data.success || res.status === 201 || res.status === 200)) {
         onSuccess();
+        onClose();
       } else {
-        setError(res.data.message || "Failed to submit request.");
+        setError(res.data?.message || "Failed to submit request.");
       }
     } catch (err) {
-      setError(err.response?.data?.message || "An error occurred.");
+      console.error("Error submitting holiday request:", err);
+      setError(err.response?.data?.message || "An error occurred while submitting the request.");
     } finally {
       setLoading(false);
     }
@@ -254,7 +277,7 @@ const HolidayWorkingRequestForm = ({ isOpen, onClose, onSuccess, initialData }) 
             </div>
           )}
 
-          <form className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Working Date *</label>

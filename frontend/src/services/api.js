@@ -473,8 +473,12 @@ authAPI.announcement = {
     return res.data;
   },
   getActive: async () => {
-    const res = await api.get('/announcements/active');
-    return res.data;
+    try {
+      const res = await api.get('/announcements/active');
+      return res.data;
+    } catch (err) {
+      return [];
+    }
   },
   create: async (data) => {
     const res = await api.post('/announcements', data);
