@@ -56,22 +56,23 @@ const AttendanceRegularization = () => {
   };
 
   const formatHours = (h) => {
-    const hours = Math.floor(h);
-    const minutes = Math.round((h - hours) * 60);
+    const totalMinutes = Math.round((Number(h) || 0) * 60);
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
     const mm = String(minutes).padStart(2, "0");
     return `${hours}:${mm} hrs`;
   };
 
   const getRecordHours = (rec) => {
-    if (typeof rec.hours === "number" && rec.hours > 0) {
-      return rec.hours;
-    }
     if (rec.punchIn && rec.punchOut) {
       const inDt = new Date(rec.punchIn);
       const outDt = new Date(rec.punchOut);
       if (outDt > inDt) {
         return (outDt - inDt) / (1000 * 60 * 60);
       }
+    }
+    if (typeof rec.hours === "number" && rec.hours > 0) {
+      return rec.hours;
     }
     return 0;
   };

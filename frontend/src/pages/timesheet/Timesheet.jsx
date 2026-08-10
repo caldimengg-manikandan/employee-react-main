@@ -226,6 +226,24 @@ const Timesheet = () => {
         }
 
         // --- Process Attendance Data ---
+        const computeRecordDurationHours = (record) => {
+          if (!record) return 0;
+          if (record.punchIn && record.punchOut) {
+            const inDt = new Date(record.punchIn);
+            const outDt = new Date(record.punchOut);
+            if (outDt > inDt) {
+              return (outDt - inDt) / (1000 * 60 * 60);
+            }
+          }
+          if (typeof record.hours === "number" && record.hours > 0) {
+            return record.hours;
+          }
+          if (typeof record.workDurationSeconds === "number" && record.workDurationSeconds > 0) {
+            return record.workDurationSeconds / 3600;
+          }
+          return 0;
+        };
+
         let attendanceOnPremises = null;
         if (attendanceRes.status === "fulfilled" && attendanceRes.value) {
           const attRes = attendanceRes.value;
