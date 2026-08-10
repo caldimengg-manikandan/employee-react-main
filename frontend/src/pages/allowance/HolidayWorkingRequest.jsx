@@ -20,6 +20,20 @@ const HolidayWorkingRequest = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [employeeLocations, setEmployeeLocations] = useState([]);
 
+  const formatDate = (dateInput) => {
+    if (!dateInput) return "N/A";
+    try {
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return String(dateInput);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return String(dateInput);
+    }
+  };
+
   const monthsList = [
     { value: "All", label: "All Months" },
     { value: "1", label: "January" },
@@ -295,7 +309,7 @@ const HolidayWorkingRequest = () => {
     const exportData = filteredRequests.map((req, index) => ({
       "S.no": index + 1,
       "Request ID": req.requestId,
-      "Date": new Date(req.workingDate).toLocaleDateString(),
+      "Date": formatDate(req.workingDate),
       "Type": req.holidayType,
       "Division": req.division || "N/A",
       "Projects": req.projectName || "N/A",
@@ -325,7 +339,7 @@ const HolidayWorkingRequest = () => {
       const rowData = [
         index + 1,
         req.requestId,
-        new Date(req.workingDate).toLocaleDateString(),
+        formatDate(req.workingDate),
         req.holidayType,
         req.division || "N/A",
         req.projectName || "N/A",
@@ -541,7 +555,7 @@ const HolidayWorkingRequest = () => {
                       {req.requestId}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-900">
-                      {new Date(req.workingDate).toLocaleDateString()}
+                      {formatDate(req.workingDate)}
                     </td>
                     <td className="py-4 px-6 text-sm text-gray-500">
                       {req.holidayType}

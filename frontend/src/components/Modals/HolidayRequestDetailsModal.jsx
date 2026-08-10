@@ -12,6 +12,20 @@ const HolidayRequestDetailsModal = ({ isOpen, onClose, request, onStatusChange }
   const isHR = ["hr", "admin"].includes(userRole);
   const isGM = ["manager", "director"].includes(userRole);
 
+  const formatDate = (dateInput) => {
+    if (!dateInput) return "N/A";
+    try {
+      const d = new Date(dateInput);
+      if (isNaN(d.getTime())) return String(dateInput);
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    } catch {
+      return String(dateInput);
+    }
+  };
+
   if (!isOpen || !request) return null;
 
   const handleStatusUpdate = async (newStatus) => {
@@ -252,7 +266,7 @@ const HolidayRequestDetailsModal = ({ isOpen, onClose, request, onStatusChange }
                       <p className="text-sm text-gray-500">Working Date</p>
                       <p className="font-medium text-gray-900 flex items-center">
                         <Calendar className="w-4 h-4 mr-1 text-gray-400" />
-                        {new Date(request.workingDate).toLocaleDateString()}
+                        {formatDate(request.workingDate)}
                       </p>
                     </div>
                     <div>
