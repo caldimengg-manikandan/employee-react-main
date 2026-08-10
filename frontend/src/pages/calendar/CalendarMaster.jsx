@@ -320,7 +320,7 @@ const CalendarMaster = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-4 lg:p-8 animate-in fade-in duration-700">
+    <div className="min-h-screen relative z-10 p-4 lg:p-8 animate-in fade-in duration-700">
       <div className="max-w-7xl mx-auto">
 
         {/* Header Section */}

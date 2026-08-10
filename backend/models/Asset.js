@@ -39,7 +39,8 @@ const AssetSchema = new mongoose.Schema({
   },
   seatNo: {
     type: String,
-    trim: true
+    trim: true,
+    index: false
   },
   serialNumber: {
     type: String,
@@ -81,4 +82,18 @@ const AssetSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
-module.exports = mongoose.model("Asset", AssetSchema);
+const Asset = mongoose.model("Asset", AssetSchema);
+
+// Safeguard: Ensure problematic unique index on seatNo is dropped if present
+Asset.on('index', async () => {
+  try {
+    const indexes = await Asset.collection.indexes();
+    for (const idx of indexes) {
+      if (idx.name === 'seatNo_1' || (idx.key && idx.key.seatNo && idx.unique)) {
+        await Asset.collection.dropIndex(idx.name);
+      }
+    }
+  } catch (_) {}
+});
+
+module.exports = Asset;

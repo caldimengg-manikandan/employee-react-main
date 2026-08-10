@@ -75,7 +75,7 @@ const AnnouncementManagement = () => {
   };
 
   return (
-    <div className="p-6 bg-white rounded-xl shadow-lg w-full">
+    <div className="p-6 relative z-10 min-h-screen text-slate-800 font-sans w-full">
 
       
 

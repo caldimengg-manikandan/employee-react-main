@@ -555,7 +555,7 @@ export default function OfficeSync() {
     );
   }
   return (
-    <div className="min-h-screen bg-white text-slate-800 p-6 space-y-6">
+    <div className="min-h-screen relative z-10 text-slate-800 p-6 space-y-6">
 
       {/* Header section */}
       <div className="flex justify-end items-center gap-3">

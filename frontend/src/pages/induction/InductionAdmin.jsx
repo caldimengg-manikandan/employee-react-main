@@ -1134,7 +1134,7 @@ const InductionAdmin = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
+    <div className="min-h-screen relative z-10 text-slate-800 pb-16">
       {/* Admin Tabs */}
       <div className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div className="max-w-7xl mx-auto flex space-x-4 p-4">

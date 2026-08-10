@@ -318,7 +318,7 @@ export default function AssetManagement() {
 
   // Dropdown options & Dynamic Category Configuration
   const categories = useMemo(() => {
-    const baseCats = ["Laptop", "Desktop 1", "Desktop 2", "Monitor", "Keyboard", "Mouse", "Headset"];
+    const baseCats = ["Laptop", "Desktop 1", "Desktop 2", "Monitor", "Keyboard", "Mouse", "Headset", "Charger"];
     const masterCats = (assets || []).map(a => a.category).filter(Boolean);
     return Array.from(new Set([...baseCats, ...masterCats]));
   }, [assets]);
@@ -330,7 +330,8 @@ export default function AssetManagement() {
     "Monitor": { showScreenSize: true },
     "Keyboard": { showKeyboardType: true },
     "Mouse": { showMouseType: true },
-    "Headset": { showHeadsetType: true }
+    "Headset": { showHeadsetType: true },
+    "Charger": {}
   }), []);
 
   const currentCategoryConfig = useMemo(() => {
@@ -619,22 +620,20 @@ export default function AssetManagement() {
         alert("Asset updated successfully!");
       } else {
         // Create mode
-        const numSuffix = (newAsset.assetId || "").trim();
-        if (!numSuffix) {
+        const inputAssetId = (newAsset.assetId || "").trim();
+        if (!inputAssetId) {
           alert("Asset ID is mandatory.");
           return;
         }
 
-        const fullAssetId = numSuffix.startsWith("CDTKHSD") ? numSuffix : `CDTKHSD${numSuffix}`;
-
         // Check for duplicate Asset ID
-        const exists = assets.some(a => (a.assetId || "").toUpperCase() === fullAssetId.toUpperCase());
+        const exists = assets.some(a => (a.assetId || "").toUpperCase() === inputAssetId.toUpperCase());
         if (exists) {
           alert("This Asset ID already exists.");
           return;
         }
 
-        payload.assetId = fullAssetId;
+        payload.assetId = inputAssetId;
         await assetAPI.create(payload);
         alert("Asset created successfully!");
       }
@@ -923,7 +922,7 @@ export default function AssetManagement() {
   };
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen text-slate-800 font-sans">
+    <div className="p-6 relative z-10 min-h-screen text-slate-800 font-sans">
       {/* Tabs navigation */}
       <div className="flex gap-2 mb-6 border-b border-slate-200 overflow-x-auto pb-1 scrollbar-thin">
         <button
@@ -951,20 +950,6 @@ export default function AssetManagement() {
               <Briefcase className="h-4 w-4" />
               Asset Master
             </button>
-
-            {isITOrSuperAdmin && (
-              <button
-                onClick={() => setActiveTab("extensionMaster")}
-                className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${
-                  activeTab === "extensionMaster"
-                    ? "border-[#f37021] text-[#262760]"
-                    : "border-transparent text-slate-500 hover:text-slate-800"
-                }`}
-              >
-                <Phone className="h-4 w-4 text-[#f37021]" />
-                Extension Master
-              </button>
-            )}
 
             <button
               onClick={() => setActiveTab("allocation")}
@@ -1003,6 +988,20 @@ export default function AssetManagement() {
           >
             <LogOut className="h-4 w-4" />
             Exit Clearance
+          </button>
+        )}
+
+        {isITOrSuperAdmin && (
+          <button
+            onClick={() => setActiveTab("extensionMaster")}
+            className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${
+              activeTab === "extensionMaster"
+                ? "border-[#f37021] text-[#262760]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
+          >
+            <Phone className="h-4 w-4 text-[#f37021]" />
+            Extension Master
           </button>
         )}
       </div>
@@ -2102,22 +2101,14 @@ export default function AssetManagement() {
               ) : (
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Asset ID *</label>
-                  <div className="flex rounded-xl border border-slate-300 overflow-hidden focus-within:ring-2 focus-within:ring-blue-500">
-                    <span className="bg-slate-100 px-3 py-2 text-sm text-slate-600 font-mono font-bold border-r border-slate-300 select-none">
-                      CDTKHSD
-                    </span>
-                    <input
-                      type="text"
-                      required
-                      value={newAsset.assetId}
-                      onChange={(e) => {
-                        const val = e.target.value.replace(/\D/g, ""); // Allow digits only
-                        setNewAsset(prev => ({ ...prev, assetId: val }));
-                      }}
-                      placeholder="Enter numbers (e.g. 001)"
-                      className="w-full px-3 py-2 outline-none text-sm font-mono font-bold"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={newAsset.assetId}
+                    onChange={(e) => setNewAsset(prev => ({ ...prev, assetId: e.target.value }))}
+                    placeholder="Enter Full Asset ID (e.g. CDTKHSD001)"
+                    className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm font-mono font-bold"
+                  />
                 </div>
               )}
 

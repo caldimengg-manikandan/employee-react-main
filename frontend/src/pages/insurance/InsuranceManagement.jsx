@@ -2294,7 +2294,7 @@ const InsuranceManagement = () => {
   // Main Landing Page
   if (currentView === 'main') {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 p-6 md:p-10">
+      <div className="min-h-screen relative z-10 p-6 md:p-10">
         <div className="max-w-6xl mx-auto space-y-10">
           <div className="text-center space-y-4">
             <h1 className="text-3xl md:text-5xl font-bold text-gray-900">Insurance Management</h1>
@@ -2375,7 +2375,7 @@ const InsuranceManagement = () => {
   // New Claim Form
   if (currentView === 'newClaim') {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="min-h-screen relative z-10 p-4 md:p-6">
         <div className="max-w-6xl mx-auto">
           {/* Header with Back Button */}
           <div className="flex items-center mb-6 md:mb-8">
@@ -2492,7 +2492,7 @@ const InsuranceManagement = () => {
   // Claim History View
   if (currentView === 'claimHistory') {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="min-h-screen relative z-10 p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center mb-6 md:mb-8">
             <button
@@ -3269,7 +3269,7 @@ const InsuranceManagement = () => {
   // Insurance Records View
   if (currentView === 'insuranceRecords') {
     return (
-      <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+      <div className="min-h-screen relative z-10 p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center mb-6 md:mb-8">
             <button

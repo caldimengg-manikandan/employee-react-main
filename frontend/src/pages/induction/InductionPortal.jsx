@@ -287,7 +287,7 @@ const InductionPortal = () => {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 pb-16">
+    <div className="min-h-screen relative z-10 text-slate-800 pb-16">
 
 
       {/* Navigation Tabs */}

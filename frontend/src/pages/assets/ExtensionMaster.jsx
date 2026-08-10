@@ -212,7 +212,7 @@ export default function ExtensionMaster() {
   }
 
   return (
-    <div className="p-6 bg-slate-50 min-h-screen text-slate-800 font-sans">
+    <div className="p-6 relative z-10 text-slate-800 font-sans">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
         <div>
