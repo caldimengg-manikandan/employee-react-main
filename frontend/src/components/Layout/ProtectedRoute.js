@@ -27,7 +27,9 @@ const ProtectedRoute = ({
   // If roles are specified, enforce role gating (admin already handled)
   if (Array.isArray(roles) && roles.length > 0) {
     const isITAdmin = user.role === 'it_admin' || /IT Admin/i.test(user.designation || '');
-    const userHasAllowedRole = roles.includes(user.role) || (isITAdmin && roles.includes('it_admin'));
+    const userHasAllowedRole = roles.includes(user.role) || 
+                               (isITAdmin && (roles.includes('it_admin') || roles.includes('employees'))) ||
+                               (allowEmployeeRole && roles.includes('employees'));
     if (!userHasAllowedRole) {
       return (
         <div className="flex items-center justify-center min-h-screen bg-gray-50">

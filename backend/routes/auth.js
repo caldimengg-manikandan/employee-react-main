@@ -74,7 +74,7 @@ router.post('/login', validateLogin, async (req, res) => {
 
         const normalizedDesignation = String(empDesignation).trim().toLowerCase();
         if (normalizedDesignation === "it admin") {
-          finalRole = "admin";
+          finalRole = "it_admin";
         }
         if (finalRole !== 'admin' && employee.status !== 'Active') {
           return res.status(403).json({ message: 'This account belongs to an inactive or exited employee and cannot access the system.' });

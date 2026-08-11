@@ -23,7 +23,7 @@ const auth = async (req, res, next) => {
         user.designation = employee.designation;
         const normalizedDesignation = String(employee.designation || "").trim().toLowerCase();
         if (normalizedDesignation === "it admin") {
-          user.role = "admin";
+          user.role = "it_admin";
         }
       }
     }
