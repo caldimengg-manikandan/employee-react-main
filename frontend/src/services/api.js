@@ -512,11 +512,13 @@ export const celebrationAPI = {
 
 export const performancePayAPI = {
   getAll: (params) => api.get('/performance-pay', { params }),
+  getApprovedPayslips: () => api.get('/performance-pay/approved'),
+  getApprovedByEmployee: (employeeId) => api.get(`/performance-pay/employee/${employeeId}`),
   create: (data) => api.post('/performance-pay', data),
   update: (id, data) => api.put(`/performance-pay/${id}`, data),
+  updateTds: (id, data) => api.put(`/performance-pay/${id}/tds`, data),
   remove: (id) => api.delete(`/performance-pay/${id}`),
   approve: (ids) => api.post('/performance-pay/approve', { ids }),
-  generateLetter: (ids) => api.post('/performance-pay/generate-letter', { ids }),
   credit: (ids) => api.post('/performance-pay/credit', { ids }),
   getPendingPayroll: () => api.get('/performance-pay/pending-payroll'),
 };

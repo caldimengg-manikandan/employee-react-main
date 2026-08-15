@@ -3,38 +3,50 @@ import { Play, Download, Check, X, Mail, Filter, Edit } from 'lucide-react';
 import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI, mailAPI, performancePayAPI, compensationAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
 
-const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
-  // Use the components to calculate true Gross Salary
-  const basicDA = parseFloat(salaryData.basicDA) || 0;
-  const hra = parseFloat(salaryData.hra) || 0;
-  const specialAllowance = parseFloat(salaryData.specialAllowance) || 0;
-  const performancePay = parseFloat(salaryData.performancePay) || 0;
-  
-  // In this org, PF is the sum of Emp + Empr contributions.
-  // Volunteer PF should be handled separately as a voluntary deduction.
-  const employeePF = parseFloat(salaryData.employeePfContribution) || 0;
-  const employerPF = parseFloat(salaryData.employerPfContribution) || 0;
-  const volunteerPF = parseFloat(salaryData.volunteerPF) || 0;
-  
-  // If individual fields are missing, fallback to 'pf' but subtract volunteerPF if it was summed in
-  let pf = (employeePF + employerPF);
-  if (pf === 0 && salaryData.pf) {
-    pf = parseFloat(salaryData.pf);
-    // Heuristic: if pf is exactly the sum of expected PF + volunteerPF, subtract it
-    // But safer to just use it as is and assume volunteerPF is separate in the source
-  }
+const cleanNum = (val) => {
+  if (val === null || val === undefined || val === '') return 0;
+  if (typeof val === 'number') return isNaN(val) ? 0 : val;
+  const cleaned = String(val).replace(/,/g, '').replace(/[^0-9.-]/g, '');
+  const parsed = parseFloat(cleaned);
+  return isNaN(parsed) ? 0 : parsed;
+};
 
-  const stdEsi = parseFloat(salaryData.esi) || 0;
-  const totalGross = basicDA + hra + specialAllowance + pf + stdEsi + performancePay;
+const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
+  // Use component sum for Gross Salary (Basic + HRA + Special Allowance + Performance Pay)
+  const basicDA = cleanNum(salaryData.basicDA);
+  let hra = cleanNum(salaryData.hra);
+  if (hra === 0 && basicDA > 0) {
+    hra = Math.round(basicDA * 0.5);
+  }
+  let specialAllowance = cleanNum(salaryData.specialAllowance);
+  const performancePay = cleanNum(salaryData.performancePay);
   
-  const stdTax = parseFloat(salaryData.tax) || 0;
-  const stdProfessionalTax = parseFloat(salaryData.professionalTax) || 0;
-  const stdLoanDeduction = parseFloat(salaryData.loanDeduction) || 0;
+  const storedEarnings = cleanNum(salaryData.totalEarnings);
+  if (specialAllowance === 0 && storedEarnings > (basicDA + hra) && storedEarnings <= 150000) {
+    specialAllowance = storedEarnings - basicDA - hra;
+  }
+  
+  let employeePF = cleanNum(salaryData.employeePfContribution);
+  if (employeePF === 0) {
+    employeePF = cleanNum(salaryData.pfDeduction) || cleanNum(salaryData.pf);
+  }
+  const employerPF = cleanNum(salaryData.employerPfContribution);
+  const volunteerPF = cleanNum(salaryData.volunteerPF);
+  
+  const componentGross = basicDA + hra + specialAllowance + performancePay;
+  const totalGross = componentGross > 0 
+    ? componentGross 
+    : (storedEarnings > 0 && storedEarnings <= 150000 ? storedEarnings : basicDA * 2);
+  
+  const stdEsi = cleanNum(salaryData.esi);
+  const stdTax = cleanNum(salaryData.tax);
+  const stdProfessionalTax = cleanNum(salaryData.professionalTax);
+  const stdLoanDeduction = cleanNum(salaryData.loanDeduction);
 
   // Use input if provided, otherwise check record, otherwise 0
-  const lopDays = lopDaysInput !== undefined ? lopDaysInput : (parseFloat(salaryData.lopDays) || 0);
+  const lopDays = lopDaysInput !== undefined ? lopDaysInput : cleanNum(salaryData.lopDays);
 
-  const totalEarnings = totalGross;
+  const totalEarnings = Math.round(totalGross);
   
   // Calculate LOP deduction
   const safeDaysInMonth = daysInMonth > 0 ? daysInMonth : 30;
@@ -45,10 +57,10 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const attendanceRatio = Math.max(0, (safeDaysInMonth - lopDays) / safeDaysInMonth);
   const isFullLop = attendanceRatio === 0;
   
-  // Standard PF components
-  const stdEmployeePF = isFullLop ? 0 : employeePF;
-  const stdEmployerPF = isFullLop ? 0 : employerPF;
-  const currentPF = stdEmployeePF + stdEmployerPF;
+  // Employee PF is deducted from Employee Net Salary
+  const currentEmployeePF = isFullLop ? 0 : employeePF;
+  const currentEmployerPF = isFullLop ? 0 : employerPF;
+  const currentPF = currentEmployeePF;
   
   const currentESI = isFullLop ? 0 : stdEsi;
   const currentTax = isFullLop ? 0 : stdTax;
@@ -61,11 +73,16 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   const remainingForLoan = Math.max(0, earningsAfterLop - otherDeductions);
   const loanDeduction = Math.min(stdLoanDeduction, remainingForLoan);
 
-  const totalDeductions = currentPF + currentESI + currentTax + currentPT + loanDeduction + lopDeduction + currentVolunteerPF;
-  const netSalary = totalEarnings - totalDeductions;
+  const totalDeductions = Math.round(currentPF + currentESI + currentTax + currentPT + loanDeduction + lopDeduction + currentVolunteerPF);
+  const calculatedNet = Math.max(0, totalEarnings - totalDeductions);
   
-  const gratuity = parseFloat(salaryData.gratuity) || 0;
-  const ctc = totalEarnings + gratuity;
+  // Honor DB netSalary if provided and no LOP adjustments are present
+  const netSalary = (salaryData.netSalary && cleanNum(salaryData.netSalary) > 0 && (lopDaysInput === undefined || lopDaysInput === 0))
+    ? cleanNum(salaryData.netSalary)
+    : calculatedNet;
+  
+  const gratuity = cleanNum(salaryData.gratuity);
+  const ctc = totalEarnings + gratuity + currentEmployerPF;
 
   return {
     ...salaryData,
@@ -81,8 +98,8 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
     lopDays,
     daysInMonth: safeDaysInMonth, 
     pf: currentPF,
-    employerPF: stdEmployerPF,
-    employeePF: stdEmployeePF,
+    employerPF: currentEmployerPF,
+    employeePF: currentEmployeePF,
     esi: currentESI,
     tax: currentTax,
     professionalTax: currentPT,
@@ -393,6 +410,78 @@ export default function MonthlyPayroll() {
           return sum + monthly;
         }, 0);
 
+        // Calculate true Gross Earnings from components with robust fallbacks across activeComp -> payrollRec -> emp
+        const calcBasic = (activeComp && Number(activeComp.basicDA) > 0) 
+          ? Number(activeComp.basicDA) 
+          : ((payrollRec && Number(payrollRec.basicDA) > 0) 
+            ? Number(payrollRec.basicDA) 
+            : Number(emp.basicDA || emp.basic || emp.basicSalary || 0));
+
+        const calcHra = (activeComp && Number(activeComp.hra) > 0) 
+          ? Number(activeComp.hra) 
+          : ((payrollRec && Number(payrollRec.hra) > 0) 
+            ? Number(payrollRec.hra) 
+            : Number(emp.hra || 0));
+
+        const calcSpecial = (activeComp && Number(activeComp.specialAllowance) > 0) 
+          ? Number(activeComp.specialAllowance) 
+          : ((payrollRec && Number(payrollRec.specialAllowance) > 0) 
+            ? Number(payrollRec.specialAllowance) 
+            : Number(emp.specialAllowance || 0));
+
+        const calcEmpPF = (activeComp && Number(activeComp.employeePfContribution) > 0)
+          ? Number(activeComp.employeePfContribution)
+          : ((payrollRec && Number(payrollRec.employeePfContribution) > 0)
+            ? Number(payrollRec.employeePfContribution)
+            : Number(emp.employeePfContribution || emp.pfDeduction || 0));
+
+        const calcEmprPF = (activeComp && Number(activeComp.employerPfContribution) > 0)
+          ? Number(activeComp.employerPfContribution)
+          : ((payrollRec && Number(payrollRec.employerPfContribution) > 0)
+            ? Number(payrollRec.employerPfContribution)
+            : Number(emp.employerPfContribution || 0));
+
+        const calcEsi = (activeComp && Number(activeComp.esi) > 0)
+          ? Number(activeComp.esi)
+          : ((payrollRec && Number(payrollRec.esi) > 0)
+            ? Number(payrollRec.esi)
+            : Number(emp.esi || 0));
+
+        const calcTax = (activeComp && Number(activeComp.tax) > 0)
+          ? Number(activeComp.tax)
+          : ((payrollRec && Number(payrollRec.tax) > 0)
+            ? Number(payrollRec.tax)
+            : Number(emp.tax || 0));
+
+        const calcPT = (activeComp && Number(activeComp.professionalTax) > 0)
+          ? Number(activeComp.professionalTax)
+          : ((payrollRec && Number(payrollRec.professionalTax) > 0)
+            ? Number(payrollRec.professionalTax)
+            : Number(emp.professionalTax || 0));
+
+        const calcVolPF = (activeComp && Number(activeComp.volunteerPF) > 0)
+          ? Number(activeComp.volunteerPF)
+          : ((payrollRec && Number(payrollRec.volunteerPF) > 0)
+            ? Number(payrollRec.volunteerPF)
+            : Number(emp.volunteerPF || 0));
+
+        const calcGratuity = (activeComp && Number(activeComp.gratuity) > 0)
+          ? Number(activeComp.gratuity)
+          : ((payrollRec && Number(payrollRec.gratuity) > 0)
+            ? Number(payrollRec.gratuity)
+            : Number(emp.gratuity || 0));
+
+        const compSum = calcBasic + calcHra + calcSpecial;
+        const grossVal = compSum > 0 ? compSum : (activeComp ? (activeComp.gross || activeComp.totalEarnings || 0) : (payrollRec ? (payrollRec.totalEarnings || 0) : (emp.totalEarnings || emp.gross || 0)));
+
+        const storedNet = (payrollRec && Number(payrollRec.netSalary) > 0)
+          ? Number(payrollRec.netSalary)
+          : ((emp && Number(emp.netSalary) > 0)
+            ? Number(emp.netSalary)
+            : ((activeComp && Number(activeComp.netSalary) > 0)
+              ? Number(activeComp.netSalary)
+              : undefined));
+
         return {
           id: emp._id,
           employeeId: emp.employeeId,
@@ -403,21 +492,22 @@ export default function MonthlyPayroll() {
           location: activeComp ? activeComp.location : (emp.location || emp.address || emp.currentAddress || 'Unknown'),
           dateOfJoining: emp.dateOfJoining,
           
-          // Use active compensation if available, else payroll record, else fallback to employee record
-          totalEarnings: activeComp ? (activeComp.gross || activeComp.totalEarnings || 0) : (payrollRec ? (payrollRec.totalEarnings || 0) : (emp.totalEarnings || emp.gross || 0)),
-          basicDA: activeComp ? (activeComp.basicDA || 0) : (payrollRec ? (payrollRec.basicDA || 0) : (emp.basicDA || emp.basic || 0)),
-          hra: activeComp ? (activeComp.hra || 0) : (payrollRec ? (payrollRec.hra || 0) : (emp.hra || 0)),
-          specialAllowance: activeComp ? (activeComp.specialAllowance || 0) : (payrollRec ? (payrollRec.specialAllowance || 0) : (emp.specialAllowance || 0)),
+          // Use calculated component gross if available, else active comp, payroll, or employee gross
+          totalEarnings: grossVal,
+          netSalary: storedNet,
+          basicDA: calcBasic,
+          hra: calcHra,
+          specialAllowance: calcSpecial,
           performancePay: empPP,
-          gratuity: activeComp ? (activeComp.gratuity || 0) : (payrollRec ? (payrollRec.gratuity || 0) : (emp.gratuity || 0)),
+          gratuity: calcGratuity,
           
-          pf: activeComp ? (activeComp.pf || 0) : (payrollRec ? (payrollRec.pf || 0) : (emp.pf || 0)),
-          employeePfContribution: activeComp ? (activeComp.employeePfContribution || 0) : (payrollRec ? (payrollRec.employeePfContribution || 0) : (emp.employeePfContribution || 0)),
-          employerPfContribution: activeComp ? (activeComp.employerPfContribution || 0) : (payrollRec ? (payrollRec.employerPfContribution || 0) : (emp.employerPfContribution || 0)),
-          esi: activeComp ? (activeComp.esi || 0) : (payrollRec ? (payrollRec.esi || 0) : (emp.esi || 0)),
-          tax: activeComp ? (activeComp.tax || 0) : (payrollRec ? (payrollRec.tax || 0) : (emp.tax || 0)),
-          professionalTax: activeComp ? (activeComp.professionalTax || 0) : (payrollRec ? (payrollRec.professionalTax || 0) : (emp.professionalTax || 0)),
-          volunteerPF: activeComp ? (activeComp.volunteerPF || 0) : (payrollRec ? (payrollRec.volunteerPF || 0) : (emp.volunteerPF || 0)),
+          pf: calcEmpPF + calcEmprPF,
+          employeePfContribution: calcEmpPF,
+          employerPfContribution: calcEmprPF,
+          esi: calcEsi,
+          tax: calcTax,
+          professionalTax: calcPT,
+          volunteerPF: calcVolPF,
           
           // Use calculated loan deduction if the employee has loans in the system, otherwise fallback to static values
           loanDeduction: allEmpLoans.length > 0 ? calculatedLoanDeduction : (payrollRec ? (payrollRec.loanDeduction || 0) : (emp.loanDeduction || 0)),

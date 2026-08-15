@@ -26,161 +26,6 @@ import {
   AlertCircle
 } from "lucide-react";
 import { performancePayAPI, employeeAPI, payrollAPI } from "../../services/api";
-import { getAbsoluteSignatureUrl } from "../../utils/signatureUtils";
-
-const AwardLetterContent = ({ selectedRecord, id = "award-letter-p1" }) => {
-  if (!selectedRecord) return null;
-  const sigUrl = getAbsoluteSignatureUrl(selectedRecord.location || '');
-  const fy = selectedRecord.financialYear || "2025-26";
-  const payoutYear = fy.includes("-") ? `20${fy.split("-")[1]}` : "2026";
-  return (
-    <div
-      id={id}
-      className="bg-white relative h-[1123px] min-h-[1123px] max-h-[1123px] w-[794px] shadow-lg flex-shrink-0 flex flex-col text-left overflow-hidden"
-      style={{ fontFamily: "Arial, sans-serif", color: "#333", height: "1123px", minHeight: "1123px", maxHeight: "1123px", boxSizing: "border-box" }}
-    >
-      {/* Letter Pad Header — identical to salary slip header */}
-      <div className="w-full h-32 relative overflow-hidden flex bg-white" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
-          <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
-            <path d="M0,0 L526,0 L456,128 L0,128 Z" fill="#1e2b58" />
-            <path d="M526,0 L556,0 L486,128 L456,128 Z" fill="#f37021" />
-          </svg>
-        </div>
-        <div className="relative z-10 w-full h-full" style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%' }}>
-          {/* Left: Logo and Title */}
-          <div style={{ position: 'absolute', left: '24px', top: '10px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ height: '64px', width: 'auto', display: 'block' }} />
-            <div className="font-bitsumishi" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', color: 'white' }}>
-              <h1 className="text-white font-bold text-6xl tracking-[0.05em]" style={{ margin: 0, padding: 0, textAlign: 'left', lineHeight: 1, position: 'relative', top: '-8px' }}>CALDIM</h1>
-              <p className="text-[15px] font-bold tracking-[0.18em] text-[#ff8c00] uppercase" style={{ margin: 0, padding: 0, marginTop: '2px', textAlign: 'left', whiteSpace: 'nowrap' }}>ENGINEERING PRIVATE LIMITED</p>
-            </div>
-          </div>
-
-          {/* Right: Contact Info */}
-          <div style={{ position: 'absolute', right: '16px', top: '12px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-            <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-              <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
-              <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                </svg>
-              </div>
-            </div>
-            <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
-              <span className="text-sm font-semibold text-gray-700 leading-tight" style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
-                No.118, Minimac Center,<br />
-                Arcot Road, Valasaravakkam,<br />
-                Chennai - 600 087.
-              </span>
-              <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '12px', marginTop: '4px', flexShrink: 0 }}>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Content Container */}
-      <div style={{ padding: "30px 48px", display: "flex", flexDirection: "column", flexGrow: 1 }}>
-        <div style={{ textAlign: "center", fontWeight: "bold", fontSize: "20px", marginBottom: "15px", textDecoration: "underline", letterSpacing: "1px" }}>
-          PERFORMANCE PAY AWARD LETTER
-        </div>
-
-        <div style={{ textAlign: "right", marginBottom: "15px", fontSize: "11pt", color: "#374151" }}>
-          Date: {selectedRecord.letterGeneratedDate ? new Date(selectedRecord.letterGeneratedDate).toLocaleDateString("en-IN") : new Date().toLocaleDateString("en-IN")}
-        </div>
-
-        <div style={{ marginBottom: "15px", fontSize: "11pt", lineHeight: "1.4", color: "#1f2937" }}>
-          <strong>To,</strong><br />
-          <strong>{selectedRecord.employeeName}</strong><br />
-          <span>Employee ID: {selectedRecord.employeeId}</span><br />
-          <span>Designation: {selectedRecord.designation}</span><br />
-          <span>Department: {selectedRecord.department}</span>
-        </div>
-
-        <div style={{ marginBottom: "15px", fontSize: "10.5pt", lineHeight: "1.5", color: "#374151", textAlign: "justify" }}>
-          Dear {selectedRecord.employeeName},<br /><br />
-          We are pleased to inform you that you have been awarded a one-time Performance Pay of <strong>₹{selectedRecord.performancePayAmount.toLocaleString("en-IN")}</strong> based on your contribution and performance during FY <strong>{fy}</strong>.<br /><br />
-          CALDIM Performance (Overall) for the FY <strong>{fy}</strong> is <strong>105%</strong> against the peak target of <strong>150%</strong>.<br /><br />
-          This amount will be credited in the month of August {payoutYear} provided you are in the company payroll.<br />
-          As this information is confidential, we expect you to refrain from sharing the same with your colleagues. If we found any disclosure of the Performance pay to others, it will lead to the revoking of the Performance pay from an individual who disclosed.<br /><br />
-          I take this opportunity to thank you for the contribution made by you during the last financial year and wish you a success for the year ahead.<br /><br />
-          We look forward to your continued dedication and commitment to the organization.
-        </div>
-
-        <div style={{ marginBottom: "15px", fontSize: "8.5pt", lineHeight: "1.35", color: "#4b5563" }}>
-          <strong>Notes:</strong>
-          <div style={{ marginTop: "4px" }}>
-            <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "4px" }}>
-              <span style={{ minWidth: "15px", fontWeight: "bold" }}>1.</span>
-              <span style={{ flex: 1, textAlign: "justify" }}>Your Performance Pay will be subject to applicable statutory deductions, including Tax Deducted at Source (TDS) under the Income Tax Act, 1961, as amended from time to time, and any other statutory obligations.</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "4px" }}>
-              <span style={{ minWidth: "15px", fontWeight: "bold" }}>2.</span>
-              <span style={{ flex: 1, textAlign: "justify" }}>Employees must be on the Company's active payroll on the date of payment to be eligible for receiving the Performance Pay.</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "4px" }}>
-              <span style={{ minWidth: "15px", fontWeight: "bold" }}>3.</span>
-              <span style={{ flex: 1, textAlign: "justify" }}>This Performance Pay is a one-time discretionary reward and does not guarantee similar payments in future years. Also, this shall not be considered as part of your fixed salary, future compensation, or any contractual entitlement.</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "4px" }}>
-              <span style={{ minWidth: "15px", fontWeight: "bold" }}>4.</span>
-              <span style={{ flex: 1, textAlign: "justify" }}>The Company reserves the right to revise, withhold, or recover the payment in case of any violations against Company Policies.</span>
-            </div>
-            <div style={{ display: "flex", alignItems: "flex-start", marginBottom: "4px" }}>
-              <span style={{ minWidth: "15px", fontWeight: "bold" }}>5.</span>
-              <span style={{ flex: 1, textAlign: "justify" }}>In the event of your resignation within six (6) months from the date of receipt of the Performance Pay, the company shall be entitled to recover the entire Performance Pay amount disbursed to you.</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Signatures — location-based signature image only */}
-        <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid #e5e7eb', paddingTop: '20px' }}>
-          {/* Authorized Signatory (Company) */}
-          <div style={{ textAlign: 'left' }}>
-            <div className="font-bitsumishi" style={{ fontSize: '11pt', fontWeight: 'bold', color: '#1f2937', marginBottom: '4px' }}>For Caldim Engineering Private Limited</div>
-            <div style={{ marginTop: '8px', marginBottom: '4px', height: '70px', display: 'flex', alignItems: 'center' }}>
-              <img
-                src={sigUrl}
-                alt="Authorized Signature"
-                crossOrigin="anonymous"
-                style={{ height: '64px', width: 'auto', objectFit: 'contain' }}
-              />
-            </div>
-            <div style={{ fontSize: '9pt', color: '#6b7280' }}>Authorized Signatory</div>
-          </div>
-
-          {/* Employee */}
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ marginTop: '8px', marginBottom: '4px', height: '70px' }}></div>
-            <div style={{ width: '160px', borderTop: '1.5px solid #9ca3af', paddingTop: '6px' }}>
-              <div style={{ fontSize: '10pt', fontWeight: 'bold', color: '#374151' }}>{selectedRecord.employeeName}</div>
-              <div style={{ fontSize: '9pt', color: '#6b7280' }}>Employee Signature & Date</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-      {/* Footer — identical to salary slip footer */}
-      <div className="w-full flex items-end mt-auto relative h-20" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative', height: '80px' }}>
-        <div className="bg-[#f37021] flex-1 mb-0 h-8" style={{ backgroundColor: '#f37021', flex: 1, marginBottom: 0, height: '32px' }}></div>
-        <div className="bg-[#1e2b58] text-white flex flex-col items-end justify-center relative min-w-[400px] h-16 px-10" style={{ backgroundColor: '#1e2b58', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', position: 'relative', minWidth: '400px', height: '64px', paddingLeft: '40px', paddingRight: '40px' }}>
-          <div
-            className="absolute inset-y-0 left-0 w-16 bg-[#1e2b58]"
-            style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '64px', backgroundColor: '#1e2b58', transform: 'skew(-20deg)', transformOrigin: 'top left', marginLeft: '-32px' }}
-          ></div>
-          <div className="text-sm font-medium tracking-wide" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em' }}>Website : www.caldimengg.com</div>
-          <div className="text-sm font-medium tracking-wide mt-1" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em', marginTop: '4px' }}>CIN U74999TN2016PTC110683</div>
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const getCurrentFinancialYearShort = () => {
   return "2025-26";
@@ -244,7 +89,8 @@ const PerformancePay = () => {
     performancePayAmount: "",
     reason: "Outstanding Performance",
     remarks: "",
-    letterGeneratedDate: "",
+    releaseDate: "2026-08-18",
+    tdsAmount: 0,
   });
 
   const [employeeSearchTerm, setEmployeeSearchTerm] = useState("");
@@ -296,7 +142,6 @@ const PerformancePay = () => {
       </div>
     );
   }
-
 
   // Derived filter options
   const departments = useMemo(() => {
@@ -383,9 +228,18 @@ const PerformancePay = () => {
     }
 
     try {
-      if (selectedRecord && selectedRecord.status === "DRAFT") {
-        await performancePayAPI.update(selectedRecord._id, formData);
-        setSuccessMsg("Performance Pay award updated successfully!");
+      if (selectedRecord) {
+        if (selectedRecord.status === "DRAFT") {
+          await performancePayAPI.update(selectedRecord._id, formData);
+          setSuccessMsg("Performance Pay award updated successfully!");
+        } else {
+          // If already approved, update TDS & Release date provision
+          await performancePayAPI.updateTds(selectedRecord._id, {
+            tdsAmount: formData.tdsAmount,
+            releaseDate: formData.releaseDate
+          });
+          setSuccessMsg("TDS and Release Date updated successfully!");
+        }
       } else {
         await performancePayAPI.create(formData);
         setSuccessMsg("Performance Pay award created successfully!");
@@ -411,7 +265,8 @@ const PerformancePay = () => {
       performancePayAmount: "",
       reason: "Outstanding Performance",
       remarks: "",
-      letterGeneratedDate: "",
+      releaseDate: "2026-08-18",
+      tdsAmount: 0,
     });
     setEmployeeSearchTerm("");
     setSelectedRecord(null);
@@ -419,6 +274,7 @@ const PerformancePay = () => {
 
   const handleEdit = (record) => {
     setSelectedRecord(record);
+    const rDate = record.releaseDate ? new Date(record.releaseDate).toISOString().split('T')[0] : "2026-08-18";
     setFormData({
       employeeId: record.employeeId,
       employeeName: record.employeeName,
@@ -430,7 +286,8 @@ const PerformancePay = () => {
       performancePayAmount: record.performancePayAmount,
       reason: record.reason,
       remarks: record.remarks || "",
-      letterGeneratedDate: record.letterGeneratedDate ? new Date(record.letterGeneratedDate).toISOString().split('T')[0] : "",
+      releaseDate: rDate,
+      tdsAmount: record.tdsAmount || 0,
     });
     setEmployeeSearchTerm(record.employeeName);
     setIsAddEditOpen(true);
@@ -811,8 +668,9 @@ const PerformancePay = () => {
                     <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider">FY</th>
                     <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">Current Salary</th>
                     <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">PP Amount</th>
+                    <th className="px-6 py-3 text-right text-xs font-semibold uppercase tracking-wider">TDS</th>
+                    <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Release Date</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Status</th>
-                    <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Letter Gen Date</th>
                     <th className="px-6 py-3 text-center text-xs font-semibold uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
@@ -829,6 +687,12 @@ const PerformancePay = () => {
                         <td className="px-6 py-4 whitespace-nowrap font-medium">{row.financialYear}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-right text-gray-600">₹{row.currentSalary.toLocaleString("en-IN")}</td>
                         <td className="px-6 py-4 whitespace-nowrap text-right font-bold text-[#262760]">₹{row.performancePayAmount.toLocaleString("en-IN")}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right font-medium text-red-600">
+                          {row.tdsAmount > 0 ? `₹${row.tdsAmount.toLocaleString("en-IN")}` : "₹0"}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-center text-gray-600 font-medium">
+                          {row.releaseDate ? new Date(row.releaseDate).toLocaleDateString("en-GB") : "18/08/2026"}
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <span className={`px-2.5 py-1 text-xs rounded-full font-bold ${
                             row.status === "DRAFT" ? "bg-gray-100 text-gray-700" : "bg-blue-100 text-blue-800"
@@ -836,41 +700,17 @@ const PerformancePay = () => {
                             {row.status === "DRAFT" ? "DRAFT" : "APPROVED"}
                           </span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-center text-gray-500">
-                          {row.letterGeneratedDate ? new Date(row.letterGeneratedDate).toLocaleDateString("en-IN") : "-"}
-                        </td>
                         <td className="px-6 py-4 whitespace-nowrap text-center">
                           <div className="flex items-center justify-center space-x-2">
-                            {/* View / Letter Preview */}
                             <button
-                              onClick={() => {
-                                setSelectedRecord(row);
-                                setIsViewLetterOpen(true);
-                              }}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded"
-                              title="Preview Award Letter"
+                              onClick={() => handleEdit(row)}
+                              className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"
+                              title={row.status === "DRAFT" ? "Edit Record" : "Update TDS / Release Date"}
                             >
-                              <Eye className="h-4 w-4" />
+                              <Edit className="h-4 w-4" />
                             </button>
-
-                            {/* Direct PDF Download Action Button */}
-                            <button
-                              onClick={() => downloadAwardLetter(row, true)}
-                              className="p-1.5 text-green-600 hover:bg-green-50 rounded"
-                              title="Download PDF"
-                            >
-                              <Download className="h-4 w-4" />
-                            </button>
-
                             {row.status === "DRAFT" && (
                               <>
-                                <button
-                                  onClick={() => handleEdit(row)}
-                                  className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded"
-                                  title="Edit"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </button>
                                 <button
                                   onClick={() => handleDelete(row._id)}
                                   className="p-1.5 text-red-600 hover:bg-red-50 rounded"
@@ -910,7 +750,7 @@ const PerformancePay = () => {
           <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in-95">
             <div className="bg-[#262760] text-white px-6 py-4 flex justify-between items-center">
               <h2 className="text-lg font-bold">
-                {selectedRecord ? "Edit Performance Pay Award" : "Add Performance Pay Award"}
+                {selectedRecord ? (selectedRecord.status === "DRAFT" ? "Edit Performance Pay Award" : "Update TDS / Release Date") : "Add Performance Pay Award"}
               </h2>
               <button onClick={() => setIsAddEditOpen(false)} className="text-white hover:opacity-75">
                 <X className="h-6 w-6" />
@@ -1015,6 +855,7 @@ const PerformancePay = () => {
                 <div>
                   <label className="block text-xs font-semibold text-gray-500 mb-1">Financial Year</label>
                   <select
+                    disabled={selectedRecord && selectedRecord.status !== "DRAFT"}
                     value={formData.financialYear}
                     onChange={(e) => setFormData(p => ({ ...p, financialYear: e.target.value }))}
                     className="w-full border-gray-305 rounded-lg text-sm focus:ring-[#262760]"
@@ -1029,32 +870,43 @@ const PerformancePay = () => {
                   <label className="block text-sm font-medium text-gray-700 mb-1">Performance Pay Amount *</label>
                   <input
                     type="number"
+                    disabled={selectedRecord && selectedRecord.status !== "DRAFT"}
                     value={formData.performancePayAmount}
                     onChange={(e) => setFormData(p => ({ ...p, performancePayAmount: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold text-gray-900"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-bold text-gray-900 disabled:bg-gray-100"
                     placeholder="Enter Award Amount"
                   />
                 </div>
 
-
+                <div>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">TDS Amount (₹)</label>
+                  <input
+                    type="number"
+                    value={formData.tdsAmount}
+                    onChange={(e) => setFormData(p => ({ ...p, tdsAmount: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm font-medium"
+                    placeholder="Actual confirmed TDS (₹0 if none)"
+                  />
+                </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 mb-1">Letter Generate Date</label>
+                  <label className="block text-xs font-semibold text-gray-500 mb-1">Release Date</label>
                   <input
                     type="date"
-                    value={formData.letterGeneratedDate}
-                    onChange={(e) => setFormData(p => ({ ...p, letterGeneratedDate: e.target.value }))}
+                    value={formData.releaseDate}
+                    onChange={(e) => setFormData(p => ({ ...p, releaseDate: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
                   />
                 </div>
 
                 <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Remarks Textarea</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Remarks</label>
                   <textarea
+                    disabled={selectedRecord && selectedRecord.status !== "DRAFT"}
                     value={formData.remarks}
                     onChange={(e) => setFormData(p => ({ ...p, remarks: e.target.value }))}
                     rows={3}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-100"
                     placeholder="Provide additional details or achievements context..."
                   />
                 </div>
@@ -1120,41 +972,6 @@ const PerformancePay = () => {
         </div>
       )}
 
-      {/* View Award Letter Modal & hidden print template */}
-      {isViewLetterOpen && selectedRecord && (
-        <div className="fixed inset-0 bg-black/80 z-50 backdrop-blur-sm flex justify-center items-center p-4">
-          <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[95vh] flex flex-col relative overflow-hidden">
-            <div className="flex justify-between items-center p-4 border-b border-gray-250 bg-white z-20 shrink-0">
-              <h2 className="text-xl font-bold text-gray-800">Performance Pay Award Letter</h2>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => downloadAwardLetter(selectedRecord)}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#262760] text-white rounded-lg hover:bg-[#1e2050] transition-colors"
-                >
-                  <Download className="w-4 h-4" />
-                  Download PDF
-                </button>
-                <button
-                  onClick={() => setIsViewLetterOpen(false)}
-                  className="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-full transition-colors"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-            </div>
-            <div className="p-4 md:p-8 bg-gray-100 overflow-auto flex flex-col items-center gap-8 flex-grow">
-              <AwardLetterContent selectedRecord={selectedRecord} id="award-letter-p1" />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Hidden PDF Generation Elements */}
-      {downloadRecord && (
-        <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }}>
-          <AwardLetterContent selectedRecord={downloadRecord} id="award-letter-p1-hidden" />
-        </div>
-      )}
     </div>
   );
 };

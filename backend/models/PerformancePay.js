@@ -55,6 +55,14 @@ const PerformancePaySchema = new mongoose.Schema(
       default: false,
     },
     letterGeneratedDate: Date,
+    releaseDate: {
+      type: Date,
+      default: () => new Date("2026-08-18"),
+    },
+    tdsAmount: {
+      type: Number,
+      default: 0,
+    },
     createdBy: String,
   },
   { timestamps: true }
