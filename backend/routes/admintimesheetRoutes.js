@@ -132,7 +132,8 @@ router.get("/list", auth, async (req, res) => {
     if (week && week !== "All Weeks") adminQuery.week = week;
     if (project && project !== "All Projects") adminQuery["timeEntries.project"] = project;
 
-    if (fromDate || toDate) {
+    const hasWeek = week && week !== "All Weeks";
+    if ((fromDate || toDate) && !hasWeek) {
       adminQuery.submittedDate = {};
       if (fromDate) adminQuery.submittedDate.$gte = fromDate;
       if (toDate) adminQuery.submittedDate.$lte = toDate;
@@ -158,7 +159,7 @@ router.get("/list", auth, async (req, res) => {
     if (includeSubmitted) {
       const tsQuery = { status: "Submitted" };
       
-      if (fromDate || toDate) {
+      if ((fromDate || toDate) && !hasWeek) {
         tsQuery.submittedAt = {};
         if (fromDate) tsQuery.submittedAt.$gte = new Date(fromDate);
         if (toDate) tsQuery.submittedAt.$lte = new Date(toDate + "T23:59:59.999Z");
