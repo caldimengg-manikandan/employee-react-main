@@ -22,6 +22,34 @@ import {
   Building2
 } from 'lucide-react';
 
+const toWeekString = (d) => {
+  const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dayNum = date.getDay() || 7;
+  date.setDate(date.getDate() + 4 - dayNum);
+  const yearStart = new Date(date.getFullYear(), 0, 1);
+  const weekNo = Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
+  const weekStr = String(weekNo).padStart(2, "0");
+  return `${date.getFullYear()}-W${weekStr}`;
+};
+
+const getWeeksInRange = (fromDateStr, toDateStr) => {
+  if (!fromDateStr || !toDateStr) return [];
+  const start = new Date(fromDateStr + 'T00:00:00');
+  const end = new Date(toDateStr + 'T23:59:59');
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return [];
+  
+  const weeks = new Set();
+  const current = new Date(start.getTime());
+  
+  let safetyLimit = 0;
+  while (current <= end && safetyLimit < 1000) {
+    weeks.add(toWeekString(current));
+    current.setDate(current.getDate() + 1);
+    safetyLimit++;
+  }
+  return Array.from(weeks);
+};
+
 const AdminTimesheet = () => {
   const [timesheets, setTimesheets] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -214,10 +242,18 @@ const AdminTimesheet = () => {
         setProjectOptions(["All Projects", ...Array.from(setProjects).sort()]);
       }
 
-      if (filters.week === 'All Weeks') {
-        if (filters.status !== 'Not Submitted') {
-          const uniqueWeeks = Array.from(new Set(data.map(r => r.week).filter(Boolean))).sort().reverse();
-          setWeekOptions(["All Weeks", ...uniqueWeeks]);
+      if (filters.fromDate && filters.toDate) {
+        const weeksInRange = getWeeksInRange(filters.fromDate, filters.toDate);
+        setWeekOptions(["All Weeks", ...weeksInRange]);
+        if (filters.week !== 'All Weeks' && !weeksInRange.includes(filters.week)) {
+          setFilters(prev => ({ ...prev, week: 'All Weeks' }));
+        }
+      } else {
+        if (filters.week === 'All Weeks') {
+          if (filters.status !== 'Not Submitted') {
+            const uniqueWeeks = Array.from(new Set(data.map(r => r.week).filter(Boolean))).sort().reverse();
+            setWeekOptions(["All Weeks", ...uniqueWeeks]);
+          }
         }
       }
 

@@ -20,6 +20,66 @@ const MyProfile = () => {
   const navigate = useNavigate();
   const [user, setUser] = useState(JSON.parse(sessionStorage.getItem('user') || '{}'));
   
+  const [bloodGroupOptions, setBloodGroupOptions] = useState([
+    { value: '', label: 'Select Blood Group' },
+    { value: 'A+', label: 'A+' },
+    { value: 'A-', label: 'A-' },
+    { value: 'B+', label: 'B+' },
+    { value: 'B-', label: 'B-' },
+    { value: 'O+', label: 'O+' },
+    { value: 'O-', label: 'O-' },
+    { value: 'AB+', label: 'AB+' },
+    { value: 'AB-', label: 'AB-' },
+    { value: 'A1B+', label: 'A1B+' },
+    { value: 'A1B-', label: 'A1B-' }
+  ]);
+  const [showAddBloodGroup, setShowAddBloodGroup] = useState(false);
+  const [newBloodGroup, setNewBloodGroup] = useState('');
+
+  const [designationOptions, setDesignationOptions] = useState([
+    { value: '', label: 'Select Designation' },
+    { value: 'Managing Director (MD)', label: 'Managing Director (MD)' },
+    { value: 'General Manager (GM)', label: 'General Manager (GM)' },
+    { value: 'Branch Manager', label: 'Branch Manager' },
+    { value: 'Admin Manager', label: 'Admin Manager' },
+    { value: 'Office Assistant', label: 'Office Assistant' },
+    { value: 'IT Admin', label: 'IT Admin' },
+    { value: 'Trainee', label: 'Trainee' },
+    { value: 'System Engineer', label: 'System Engineer' },
+    { value: 'Sr.Engineer', label: 'Sr.Engineer' },
+    { value: 'Jr.Engineer', label: 'Jr.Engineer' },
+    { value: 'Sr. Modeler', label: 'Sr. Modeler' },
+    { value: 'Jr. Modeler', label: 'Jr. Modeler' },
+    { value: 'Modeler', label: 'Modeler' },
+    { value: 'Sr. Checker', label: 'Sr. Checker' },
+    { value: 'Jr. Checker', label: 'Jr. Checker' },
+    { value: 'Sr. Detailer', label: 'Sr. Detailer' },
+    { value: 'Jr. Detailer', label: 'Jr. Detailer' },
+    { value: 'Detailer', label: 'Detailer' },
+    { value: 'Project Manager', label: 'Project Manager' },
+    { value: 'Sr Project Manager', label: 'Sr Project Manager' },
+    { value: 'Asst Project Manager', label: 'Asst Project Manager' },
+    { value: 'Delivery Manager', label: 'Delivery Manager' },
+    { value: 'Team Lead', label: 'Team Lead' },
+    { value: 'Sr Team Lead', label: 'Sr Team Lead' },
+    { value: 'Jr Team Lead', label: 'Jr Team Lead' },
+    { value: 'Project Co-Ordinator', label: 'Project Co-Ordinator' },
+    { value: 'Software Developer', label: 'Software Developer' },
+    { value: 'HR Executive', label: 'HR Executive' },
+    { value: 'Accountant', label: 'Accountant' },
+    { value: 'Sales Executive', label: 'Sales Executive' },
+    { value: 'Marketing Manager', label: 'Marketing Manager' },
+    { value: 'Operations Manager', label: 'Operations Manager' },
+    { value: 'Quality Analyst', label: 'Quality Analyst' },
+    { value: 'Technical Support', label: 'Technical Support' },
+    { value: 'Network Engineer', label: 'Network Engineer' },
+    { value: 'Database Administrator', label: 'Database Administrator' },
+    { value: 'Business Analyst', label: 'Business Analyst' },
+    { value: 'Consultant', label: 'Consultant' }
+  ]);
+  const [showAddDesignation, setShowAddDesignation] = useState(false);
+  const [newDesignation, setNewDesignation] = useState('');
+
   // Profile form state
   const [formData, setFormData] = useState({
     // Personal Information
@@ -225,6 +285,26 @@ const MyProfile = () => {
         photo: user.photo || user.profilePicture || '',
         profilePicture: user.profilePicture || user.photo || ''
       };
+
+      if (user.bloodGroup) {
+        const bgVal = user.bloodGroup.trim().toUpperCase();
+        setBloodGroupOptions(prev => {
+          if (bgVal && !prev.some(opt => opt.value === bgVal)) {
+            return [...prev, { value: bgVal, label: bgVal }];
+          }
+          return prev;
+        });
+      }
+
+      if (user.designation) {
+        const desVal = user.designation.trim();
+        setDesignationOptions(prev => {
+          if (desVal && !prev.some(opt => opt.value === desVal)) {
+            return [...prev, { value: desVal, label: desVal }];
+          }
+          return prev;
+        });
+      }
       
       try {
         setLoading(true);
@@ -232,6 +312,24 @@ const MyProfile = () => {
         const emp = res.data;
         if (emp && emp.employeeId) {
           setEmployeeDoc(emp);
+          if (emp.bloodGroup) {
+            const bgVal = emp.bloodGroup.trim().toUpperCase();
+            setBloodGroupOptions(prev => {
+              if (bgVal && !prev.some(opt => opt.value === bgVal)) {
+                return [...prev, { value: bgVal, label: bgVal }];
+              }
+              return prev;
+            });
+          }
+          if (emp.designation) {
+            const desVal = emp.designation.trim();
+            setDesignationOptions(prev => {
+              if (desVal && !prev.some(opt => opt.value === desVal)) {
+                return [...prev, { value: desVal, label: desVal }];
+              }
+              return prev;
+            });
+          }
           const perm = parseAddress(emp.permanentAddress);
           const curr = parseAddress(emp.currentAddress);
           const mappedData = {
@@ -431,6 +529,20 @@ const MyProfile = () => {
     setErrors((prev) => ({ ...prev, [field]: err }));
   };
 
+  const handleSaveBloodGroup = () => {
+    const val = newBloodGroup.trim().toUpperCase();
+    if (!val) return;
+    setBloodGroupOptions(prev => {
+      if (!prev.some(opt => opt.value === val)) {
+        return [...prev, { value: val, label: val }];
+      }
+      return prev;
+    });
+    handleInputChange('bloodGroup', val);
+    setShowAddBloodGroup(false);
+    setNewBloodGroup('');
+  };
+
   const handleOrganizationChange = (index, field, value) => {
     let newValue = value;
     if (field === 'organization') {
@@ -566,59 +678,7 @@ const MyProfile = () => {
   };
 
   // Options for dropdowns
-  const designationOptions = [
-    { value: '', label: 'Select Designation' },
-    { value: 'Managing Director (MD)', label: 'Managing Director (MD)' },
-    { value: 'General Manager (GM)', label: 'General Manager (GM)' },
-    { value: 'Branch Manager', label: 'Branch Manager' },
-    { value: 'Admin Manager', label: 'Admin Manager' },
-    { value: 'Office Assistant', label: 'Office Assistant' },
-    { value: 'IT Admin', label: 'IT Admin' },
-    { value: 'Trainee', label: 'Trainee' },
-    { value: 'System Engineer', label: 'System Engineer' },
-    { value: 'Sr.Engineer', label: 'Sr.Engineer' },
-    { value: 'Jr.Engineer', label: 'Jr.Engineer' },
-    { value: 'Sr. Modeler', label: 'Sr. Modeler' },
-    { value: 'Jr. Modeler', label: 'Jr. Modeler' },
-    { value: 'Modeler', label: 'Modeler' },
-    { value: 'Sr. Checker', label: 'Sr. Checker' },
-    { value: 'Jr. Checker', label: 'Jr. Checker' },
-    { value: 'Sr. Detailer', label: 'Sr. Detailer' },
-    { value: 'Jr. Detailer', label: 'Jr. Detailer' },
-    { value: 'Detailer', label: 'Detailer' },
-    { value: 'Project Manager', label: 'Project Manager' },
-    { value: 'Sr Project Manager', label: 'Sr Project Manager' },
-    { value: 'Asst Project Manager', label: 'Asst Project Manager' },
-    { value: 'Delivery Manager', label: 'Delivery Manager' },
-    { value: 'Team Lead', label: 'Team Lead' },
-    { value: 'Sr Team Lead', label: 'Sr Team Lead' },
-    { value: 'Jr Team Lead', label: 'Jr Team Lead' },
-    { value: 'Project Co-Ordinator', label: 'Project Co-Ordinator' },
-    { value: 'Software Developer', label: 'Software Developer' },
-    { value: 'HR Executive', label: 'HR Executive' },
-    { value: 'Accountant', label: 'Accountant' },
-    { value: 'Sales Executive', label: 'Sales Executive' },
-    { value: 'Marketing Manager', label: 'Marketing Manager' },
-    { value: 'Operations Manager', label: 'Operations Manager' },
-    { value: 'Quality Analyst', label: 'Quality Analyst' },
-    { value: 'Technical Support', label: 'Technical Support' },
-    { value: 'Network Engineer', label: 'Network Engineer' },
-    { value: 'Database Administrator', label: 'Database Administrator' },
-    { value: 'Business Analyst', label: 'Business Analyst' },
-    { value: 'Consultant', label: 'Consultant' }
-  ];
 
-  const bloodGroupOptions = [
-    { value: '', label: 'Select Blood Group' },
-    { value: 'A+', label: 'A+' },
-    { value: 'A-', label: 'A-' },
-    { value: 'B+', label: 'B+' },
-    { value: 'B-', label: 'B-' },
-    { value: 'O+', label: 'O+' },
-    { value: 'O-', label: 'O-' },
-    { value: 'AB+', label: 'AB+' },
-    { value: 'AB-', label: 'AB-' }
-  ];
 
   const divisionOptions = [
     { value: '', label: 'Select Division' },
@@ -989,21 +1049,61 @@ const MyProfile = () => {
                     </div>
 
                     <div>
-                      <label className="block text-sm text-gray-700 mb-1">
-                        Blood Group <span className="text-red-600">*</span>
-                      </label>
-                      <select
-                        value={formData.bloodGroup}
-                        onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
-                        required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.bloodGroup ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
-                      >
-                        {bloodGroupOptions.map(option => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </select>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm text-gray-700">
+                          Blood Group <span className="text-red-600">*</span>
+                        </label>
+                        {!showAddBloodGroup && (
+                          <button
+                            type="button"
+                            onClick={() => setShowAddBloodGroup(true)}
+                            className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          >
+                            <PlusIcon className="w-3.5 h-3.5" /> Add Custom
+                          </button>
+                        )}
+                      </div>
+                      {showAddBloodGroup ? (
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            placeholder="E.G., A1B+"
+                            value={newBloodGroup}
+                            onChange={(e) => setNewBloodGroup(e.target.value)}
+                            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 uppercase bg-white"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveBloodGroup}
+                            className="px-3.5 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-semibold hover:opacity-95 transition-opacity"
+                          >
+                            Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAddBloodGroup(false);
+                              setNewBloodGroup('');
+                            }}
+                            className="px-3.5 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <select
+                          value={formData.bloodGroup}
+                          onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
+                          required
+                          className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.bloodGroup ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-blue-500 focus:border-blue-500'}`}
+                        >
+                          {bloodGroupOptions.map(option => (
+                            <option key={option.value} value={option.value}>
+                              {option.label}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                       {errors.bloodGroup && <p className="text-xs text-red-600 mt-1">{errors.bloodGroup}</p>}
                     </div>
 

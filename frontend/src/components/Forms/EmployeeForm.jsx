@@ -99,6 +99,63 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   const [previewUrl, setPreviewUrl] = useState('');
   const [removeProfilePicture, setRemoveProfilePicture] = useState(false);
 
+  const [bloodGroupOptions, setBloodGroupOptions] = useState([
+    { value: '', label: 'Select Blood Group' },
+    { value: 'A+', label: 'A+' },
+    { value: 'A-', label: 'A-' },
+    { value: 'B+', label: 'B+' },
+    { value: 'B-', label: 'B-' },
+    { value: 'O+', label: 'O+' },
+    { value: 'O-', label: 'O-' },
+    { value: 'AB+', label: 'AB+' },
+    { value: 'AB-', label: 'AB-' },
+    { value: 'A1B+', label: 'A1B+' },
+    { value: 'A1B-', label: 'A1B-' }
+  ]);
+  const [showAddBloodGroup, setShowAddBloodGroup] = useState(false);
+  const [newBloodGroup, setNewBloodGroup] = useState('');
+
+  const [designationOptions, setDesignationOptions] = useState([
+    { value: '', label: 'Select Designation' },
+    { value: 'Managing Director (MD)', label: 'Managing Director (MD)' },
+    { value: 'General Manager (GM)', label: 'General Manager (GM)' },
+    { value: 'Branch Manager', label: 'Branch Manager' },
+    { value: 'Admin Manager', label: 'Admin Manager' },
+    { value: 'Sr.Admin Manager', label: 'Sr.Admin Manager' },
+    { value: 'Office Assistant', label: 'Office Assistant' },
+    { value: 'IT Admin', label: 'IT Admin' },
+    { value: 'Trainee', label: 'Trainee' },
+    { value: 'System Engineer', label: 'System Engineer' },
+    { value: 'Asst System Engineer', label: 'Asst System Engineer' },
+    { value: 'Sr.Engineer', label: 'Sr.Engineer' },
+    { value: 'Jr.Engineer', label: 'Jr.Engineer' },
+    { value: 'Project Manager', label: 'Project Manager' },
+    { value: 'Sr Project Manager', label: 'Sr Project Manager' },
+    { value: 'Asst Project Manager', label: 'Asst Project Manager' },
+    { value: 'Delivery Manager', label: 'Delivery Manager' },
+    { value: 'Sr Team Lead', label: 'Sr Team Lead' },
+    { value: 'Team Lead', label: 'Team Lead' },
+    { value: 'Jr Team Lead', label: 'Jr Team Lead' },
+    { value: 'Software Developer', label: 'Software Developer' },
+    { value: 'HR Executive', label: 'HR Executive' },
+    { value: 'Accountant', label: 'Accountant' },
+    { value: 'Sales Executive', label: 'Sales Executive' },
+    { value: 'Marketing Manager', label: 'Marketing Manager' },
+    { value: 'Operations Manager', label: 'Operations Manager' },
+    { value: 'Technical Support', label: 'Technical Support' },
+    { value: 'Network Engineer', label: 'Network Engineer' },
+    { value: 'Sr. Modeler', label: 'Sr. Modeler' },
+    { value: 'Jr. Modeler', label: 'Jr. Modeler' },
+    { value: 'Sr. Checker', label: 'Sr. Checker' },
+    { value: 'Jr. Checker', label: 'Jr. Checker' },
+    { value: 'Detailer', label: 'Detailer' },
+    { value: 'Sr. Detailer', label: 'Sr. Detailer' },
+    { value: 'Jr. Detailer', label: 'Jr. Detailer' },
+    { value: 'Modeler', label: 'Modeler' }
+  ]);
+  const [showAddDesignation, setShowAddDesignation] = useState(false);
+  const [newDesignation, setNewDesignation] = useState('');
+
   const [formData, setFormData] = useState({
     // Personal Information
     employeeId: '',
@@ -270,60 +327,9 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     return Object.keys(cleaned).length === 0;
   };
 
-  // Designation options - CORRECTED NAME
-  const designationOptions = [
-    { value: '', label: 'Select Designation' },
-    { value: 'Managing Director (MD)', label: 'Managing Director (MD)' },
-    { value: 'General Manager (GM)', label: 'General Manager (GM)' },
-    { value: 'Branch Manager', label: 'Branch Manager' },
-    { value: 'Admin Manager', label: 'Admin Manager' },
-    { value: 'Sr.Admin Manager', label: 'Sr.Admin Manager' },
-    { value: 'Office Assistant', label: 'Office Assistant' },
-    { value: 'IT Admin', label: 'IT Admin' },
-    { value: 'Trainee', label: 'Trainee' },
-    { value: 'System Engineer', label: 'System Engineer' },
-    { value: 'Asst System Engineer', label: 'Asst System Engineer' },
-    { value: 'Sr.Engineer', label: 'Sr.Engineer' },
-    { value: 'Jr.Engineer', label: 'Jr.Engineer' },
-    { value: 'Project Manager', label: 'Project Manager' },
-    { value: 'Sr Project Manager', label: 'Sr Project Manager' },
-    { value: 'Asst Project Manager', label: 'Asst Project Manager' },
-    { value: 'Delivery Manager', label: 'Delivery Manager' },
-    { value: 'Sr Team Lead', label: 'Sr Team Lead' },
-    { value: 'Team Lead', label: 'Team Lead' },
-    { value: 'Jr Team Lead', label: 'Jr Team Lead' },
-    { value: 'Software Developer', label: 'Software Developer' },
-    { value: 'HR Executive', label: 'HR Executive' },
-    { value: 'Accountant', label: 'Accountant' },
-    { value: 'Sales Executive', label: 'Sales Executive' },
-    { value: 'Marketing Manager', label: 'Marketing Manager' },
-    { value: 'Operations Manager', label: 'Operations Manager' },
-    { value: 'Technical Support', label: 'Technical Support' },
-    { value: 'Network Engineer', label: 'Network Engineer' },
-    { value: 'Sr. Modeler', label: 'Sr. Modeler' },
-    { value: 'Jr. Modeler', label: 'Jr. Modeler' },
-    { value: 'Sr. Checker', label: 'Sr. Checker' },
-    { value: 'Jr. Checker', label: 'Jr. Checker' },
-    { value: 'Detailer', label: 'Detailer' },
-    { value: 'Sr. Detailer', label: 'Sr. Detailer' },
-    { value: 'Jr. Detailer', label: 'Jr. Detailer' },
-    { value: 'Modeler', label: 'Modeler' },
-  ];
 
-  // Blood group options
-  const bloodGroupOptions = [
-    { value: '', label: 'Select Blood Group' },
-    { value: 'A+', label: 'A+' },
-    { value: 'A-', label: 'A-' },
-    { value: 'B+', label: 'B+' },
-    { value: 'B-', label: 'B-' },
-    { value: 'O+', label: 'O+' },
-    { value: 'O-', label: 'O-' },
-    { value: 'AB+', label: 'AB+' },
-    { value: 'AB-', label: 'AB-' },
-    { value: 'A1B+', label: 'A1B+' },
-    { value: 'A1B-', label: 'A1B-' }
-  ];
+
+
 
   // Division options
   const divisionOptions = [
@@ -411,6 +417,26 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
       setSelectedFile(null);
       setRemoveProfilePicture(false);
       setPreviewUrl(employee.profilePicture || employee.photo || '');
+
+      if (employee.bloodGroup) {
+        const bgVal = employee.bloodGroup.trim().toUpperCase();
+        setBloodGroupOptions(prev => {
+          if (bgVal && !prev.some(opt => opt.value === bgVal)) {
+            return [...prev, { value: bgVal, label: bgVal }];
+          }
+          return prev;
+        });
+      }
+
+      if (employee.designation) {
+        const desVal = employee.designation.trim();
+        setDesignationOptions(prev => {
+          if (desVal && !prev.some(opt => opt.value === desVal)) {
+            return [...prev, { value: desVal, label: desVal }];
+          }
+          return prev;
+        });
+      }
 
       const perm = parseAddress(employee.permanentAddress);
       const curr = parseAddress(employee.currentAddress);
@@ -630,6 +656,34 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     setFormData(updatedData);
     const err = validateField(field, updatedData[field]);
     setErrors((prev) => ({ ...prev, [field]: err }));
+  };
+
+  const handleSaveBloodGroup = () => {
+    const val = newBloodGroup.trim().toUpperCase();
+    if (!val) return;
+    setBloodGroupOptions(prev => {
+      if (!prev.some(opt => opt.value === val)) {
+        return [...prev, { value: val, label: val }];
+      }
+      return prev;
+    });
+    handleInputChange('bloodGroup', val);
+    setShowAddBloodGroup(false);
+    setNewBloodGroup('');
+  };
+
+  const handleSaveDesignation = () => {
+    const val = newDesignation.trim();
+    if (!val) return;
+    setDesignationOptions(prev => {
+      if (!prev.some(opt => opt.value === val)) {
+        return [...prev, { value: val, label: val }];
+      }
+      return prev;
+    });
+    handleInputChange('designation', val);
+    setShowAddDesignation(false);
+    setNewDesignation('');
   };
 
   const handleOrganizationChange = (index, field, value) => {
@@ -1026,19 +1080,59 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Blood Group <span className="text-red-600">*</span></label>
-                  <select
-                    value={formData.bloodGroup}
-                    onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
-                    required
-                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.bloodGroup ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
-                  >
-                    {bloodGroupOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Blood Group <span className="text-red-600">*</span></label>
+                    {!showAddBloodGroup && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddBloodGroup(true)}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <PlusIcon className="w-3.5 h-3.5" /> Add Custom
+                      </button>
+                    )}
+                  </div>
+                  {showAddBloodGroup ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="E.G., A1B+"
+                        value={newBloodGroup}
+                        onChange={(e) => setNewBloodGroup(e.target.value)}
+                        className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 uppercase bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveBloodGroup}
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-semibold hover:opacity-95 transition-opacity"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddBloodGroup(false);
+                          setNewBloodGroup('');
+                        }}
+                        className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.bloodGroup}
+                      onChange={(e) => handleInputChange('bloodGroup', e.target.value)}
+                      required
+                      className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.bloodGroup ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                    >
+                      {bloodGroupOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   {errors.bloodGroup && <p className="text-xs text-red-600 mt-1">{errors.bloodGroup}</p>}
                 </div>
 
@@ -1415,21 +1509,61 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Designation <span className="text-red-600">*</span>
-                  </label>
-                  <select
-                    value={formData.designation}
-                    onChange={(e) => handleInputChange('designation', e.target.value)}
-                    required
-                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.designation ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
-                  >
-                    {designationOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Designation <span className="text-red-600">*</span>
+                    </label>
+                    {!showAddDesignation && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddDesignation(true)}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <PlusIcon className="w-3.5 h-3.5" /> Add Custom
+                      </button>
+                    )}
+                  </div>
+                  {showAddDesignation ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="E.G., Team Lead"
+                        value={newDesignation}
+                        onChange={(e) => setNewDesignation(e.target.value)}
+                        className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveDesignation}
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-semibold hover:opacity-95 transition-opacity"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddDesignation(false);
+                          setNewDesignation('');
+                        }}
+                        className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.designation}
+                      onChange={(e) => handleInputChange('designation', e.target.value)}
+                      required
+                      className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.designation ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                    >
+                      {designationOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   {errors.designation && <p className="text-xs text-red-600 mt-1">{errors.designation}</p>}
                 </div>
 
