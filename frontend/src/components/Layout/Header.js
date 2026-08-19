@@ -16,6 +16,18 @@ const Header = ({ onMenuClick }) => {
   const notificationRef = useRef(null);
   const navigate = useNavigate();
   const [profileEmployeeId, setProfileEmployeeId] = useState('');
+  const [profilePicture, setProfilePicture] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('user');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed.profilePicture || parsed.photo || '';
+      }
+      return '';
+    } catch (e) {
+      return '';
+    }
+  });
 
   // Map routes to page titles
   const getPageTitle = () => {
@@ -140,12 +152,18 @@ const Header = ({ onMenuClick }) => {
       try {
         const res = await employeeAPI.getMyProfile();
         const emp = res.data;
-        if (emp && emp.employeeId) {
-          setProfileEmployeeId(emp.employeeId);
+        if (emp) {
+          if (emp.employeeId) {
+            setProfileEmployeeId(emp.employeeId);
+          }
+          if (emp.profilePicture || emp.photo) {
+            setProfilePicture(emp.profilePicture || emp.photo);
+          }
           const storedUser = JSON.parse(sessionStorage.getItem('user') || '{}');
           const updatedUser = {
             ...storedUser,
-            employeeId: emp.employeeId
+            employeeId: emp.employeeId || storedUser.employeeId,
+            profilePicture: emp.profilePicture || emp.photo || storedUser.profilePicture
           };
           sessionStorage.setItem('user', JSON.stringify(updatedUser));
         }
@@ -298,8 +316,17 @@ const Header = ({ onMenuClick }) => {
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center p-1 rounded-lg hover:bg-white/10 transition-colors"
               >
-                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-white/20 text-white font-black">
-                  {userInitial}
+                <div className="flex items-center justify-center w-9 h-9 rounded-full bg-white/20 text-white font-black overflow-hidden">
+                  {profilePicture ? (
+                    <img 
+                      src={profilePicture} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover"
+                      onError={() => setProfilePicture('')} 
+                    />
+                  ) : (
+                    userInitial
+                  )}
                 </div>
               </button>
 
@@ -308,8 +335,17 @@ const Header = ({ onMenuClick }) => {
                 <div className="absolute right-0 mt-2 w-72 bg-white text-gray-800 rounded-lg shadow-lg border border-gray-200 overflow-hidden z-50">
                   <div className="p-4 bg-gray-50">
                     <div className="flex items-center space-x-3">
-                      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-300 text-gray-700 font-medium">
-                        {userInitial}
+                      <div className="flex items-center justify-center w-12 h-12 rounded-full bg-gray-300 text-gray-700 font-medium overflow-hidden">
+                        {profilePicture ? (
+                          <img 
+                            src={profilePicture} 
+                            alt="Profile" 
+                            className="w-full h-full object-cover"
+                            onError={() => setProfilePicture('')} 
+                          />
+                        ) : (
+                          userInitial
+                        )}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm text-gray-500">{getGreeting()}</p>

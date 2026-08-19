@@ -88,46 +88,97 @@ const categoryImages = {
     'Support Center': '/images/modules/support-center.png'
 };
 
+const getCategoryStyles = (category) => {
+    const styles = {
+        'Work & Productivity': {
+            iconBg: 'bg-cyan-50 text-cyan-600 group-hover:bg-cyan-600 group-hover:text-white',
+            badgeBg: 'bg-cyan-50 text-cyan-700 border-cyan-100',
+            hoverBorder: 'hover:border-cyan-200 hover:shadow-cyan-100/50'
+        },
+        'Leave Management': {
+            iconBg: 'bg-emerald-50 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white',
+            badgeBg: 'bg-emerald-50 text-emerald-700 border-emerald-100',
+            hoverBorder: 'hover:border-emerald-200 hover:shadow-emerald-100/50'
+        },
+        'Finance & Payroll': {
+            iconBg: 'bg-amber-50 text-amber-600 group-hover:bg-amber-600 group-hover:text-white',
+            badgeBg: 'bg-amber-50 text-amber-700 border-amber-100',
+            hoverBorder: 'hover:border-amber-200 hover:shadow-amber-100/50'
+        },
+        'Company & Resources': {
+            iconBg: 'bg-purple-50 text-purple-600 group-hover:bg-purple-600 group-hover:text-white',
+            badgeBg: 'bg-purple-50 text-purple-700 border-purple-100',
+            hoverBorder: 'hover:border-purple-200 hover:shadow-purple-100/50'
+        },
+        'Performance Management': {
+            iconBg: 'bg-rose-50 text-rose-600 group-hover:bg-rose-600 group-hover:text-white',
+            badgeBg: 'bg-rose-50 text-rose-700 border-rose-100',
+            hoverBorder: 'hover:border-rose-200 hover:shadow-rose-100/50'
+        },
+        'Support Center': {
+            iconBg: 'bg-teal-50 text-teal-600 group-hover:bg-teal-600 group-hover:text-white',
+            badgeBg: 'bg-teal-50 text-teal-700 border-teal-100',
+            hoverBorder: 'hover:border-teal-200 hover:shadow-teal-100/50'
+        }
+    };
+    return styles[category] || {
+        iconBg: 'bg-indigo-50 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white',
+        badgeBg: 'bg-indigo-50 text-indigo-700 border-indigo-100',
+        hoverBorder: 'hover:border-indigo-200 hover:shadow-indigo-100/50'
+    };
+};
+
 const CategoryCard = ({ category, modules, onViewDetails, images }) => {
     const [isExpanded, setIsExpanded] = useState(false);
     const displayModules = isExpanded ? modules : modules.slice(0, 4);
+    const styles = getCategoryStyles(category);
 
     return (
-        <div className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition-shadow duration-300 flex flex-col h-full">
-            <div className="h-40 overflow-hidden relative group">
-                <div className="absolute inset-0 bg-blue-900/20 group-hover:bg-transparent transition-colors z-10" />
+        <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg transition-all duration-300 flex flex-col h-full overflow-hidden group/card ${styles.hoverBorder}`}>
+            <div className="h-40 overflow-hidden relative">
+                <div className="absolute inset-0 bg-slate-900/10 group-hover/card:bg-slate-900/0 transition-colors z-10" />
                 <img
                     src={images[category] || 'https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80&w=1000'}
                     alt={category}
-                    className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
+                    className="w-full h-full object-cover transform scale-100 group-hover/card:scale-105 transition-transform duration-700 ease-out"
                 />
-                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/80 to-transparent z-20">
-                    <h3 className="text-white font-bold text-lg">{category}</h3>
+                <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-slate-900/90 via-slate-900/40 to-transparent z-20">
+                    <h3 className="text-white font-extrabold text-lg tracking-wide">{category}</h3>
+                    <span className="text-[10px] font-bold text-blue-200 uppercase tracking-wider">{modules.length} modules</span>
                 </div>
             </div>
-            <div className="p-5 flex-1 flex flex-col">
-                <ul className="space-y-3 flex-1">
+            <div className="p-4 flex-1 flex flex-col justify-between">
+                <ul className="space-y-2 flex-1">
                     {displayModules.map((mod, mIdx) => (
                         <li key={mIdx}>
                             <Link
                                 to={mod.path}
-                                className="flex items-center text-gray-600 hover:text-blue-600 transition-colors group"
+                                className="flex items-center p-2 rounded-xl text-gray-700 hover:bg-slate-50 border border-transparent hover:border-slate-100 transition-all duration-200 group"
                             >
-                                <mod.icon className="h-4 w-4 mr-2 text-gray-400 group-hover:text-blue-500" />
-                                <span className="text-sm font-medium">{mod.name}</span>
+                                <div className={`p-1.5 rounded-lg mr-3 transition-all duration-300 ${styles.iconBg} shadow-sm`}>
+                                    <mod.icon className="h-4 w-4" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-xs font-bold text-gray-800 truncate group-hover:text-indigo-950">{mod.name}</div>
+                                    {mod.description && (
+                                        <div className="text-[10px] text-gray-400 truncate group-hover:text-gray-500">{mod.description}</div>
+                                    )}
+                                </div>
+                                <ChevronRightIcon className="h-3 w-3 text-gray-300 opacity-0 group-hover:opacity-100 group-hover:text-gray-400 transition-all transform translate-x-[-4px] group-hover:translate-x-0 ml-1" />
                             </Link>
                         </li>
                     ))}
-                    {modules.length > 4 && (
-                        <li
-                            className="text-xs text-blue-500 font-medium pt-2 cursor-pointer hover:text-blue-700 hover:underline"
+                </ul>
+                {modules.length > 4 && (
+                    <div className="pt-3 mt-3 border-t border-slate-50">
+                        <button
+                            className="w-full py-1.5 px-3 rounded-lg text-xs font-semibold text-center text-slate-500 hover:text-slate-800 bg-slate-50 hover:bg-slate-100 transition-colors"
                             onClick={() => setIsExpanded(!isExpanded)}
                         >
-                            {isExpanded ? 'Show less' : `+ ${modules.length - 4} more items`}
-                        </li>
-                    )}
-                </ul>
-
+                            {isExpanded ? 'Show Less' : `+ ${modules.length - 4} More Modules`}
+                        </button>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -534,28 +585,32 @@ const ProjectDashboard = () => {
         </div>
     ));
 
-    const ModuleCard = ({ module }) => (
-        <Link
-            to={module.path}
-            className="bg-white p-6 rounded-xl shadow-md hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1 flex flex-col h-full"
-        >
-            <div className="flex items-start mb-4">
-                <div className="p-3 rounded-full bg-indigo-50 mr-4">
-                    <module.icon className="h-6 w-6 text-indigo-600" />
+    const ModuleCard = ({ module }) => {
+        const styles = getCategoryStyles(module.category);
+        return (
+            <Link
+                to={module.path}
+                className={`bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 flex flex-col h-full group ${styles.hoverBorder}`}
+            >
+                <div className="flex items-start mb-4">
+                    <div className={`p-3 rounded-xl mr-4 transition-colors duration-300 ${styles.iconBg}`}>
+                        <module.icon className="h-6 w-6" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-bold text-gray-900 mb-1 truncate group-hover:text-indigo-950">{module.name}</h3>
+                        <p className="text-xs text-gray-500 line-clamp-2">{module.description}</p>
+                    </div>
+                    <ChevronRightIcon className="h-5 w-5 text-gray-300 ml-2 group-hover:text-gray-400 group-hover:translate-x-1 transition-transform" />
                 </div>
-                <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-1">{module.name}</h3>
-                    <p className="text-sm text-gray-600">{module.description}</p>
+                <div className="mt-auto pt-4 border-t border-gray-50 flex items-center justify-between">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md border ${styles.badgeBg}`}>
+                        {module.category}
+                    </span>
+                    <span className="text-xs font-semibold text-gray-400 group-hover:text-gray-600 transition-colors">Open Page →</span>
                 </div>
-                <ChevronRightIcon className="h-5 w-5 text-gray-400 ml-2" />
-            </div>
-            <div className="mt-auto pt-4 border-t border-gray-100">
-                <span className="text-xs font-medium text-indigo-600 bg-indigo-50 px-2 py-1 rounded">
-                    {module.category}
-                </span>
-            </div>
-        </Link>
-    );
+            </Link>
+        );
+    };
 
 
 
