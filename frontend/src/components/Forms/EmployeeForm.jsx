@@ -156,6 +156,19 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   const [showAddDesignation, setShowAddDesignation] = useState(false);
   const [newDesignation, setNewDesignation] = useState('');
 
+  const [divisionOptions, setDivisionOptions] = useState([
+    { value: '', label: 'Select Division' },
+    { value: 'SDS', label: 'SDS' },
+    { value: 'TEKLA', label: 'TEKLA' },
+    { value: 'DAS(Software)', label: 'DAS(Software)' },
+    { value: 'DDS(Manufacturing)', label: 'DDS(Manufacturing)' },
+    { value: 'Electrical', label: 'Electrical' },
+    { value: 'HR/Admin', label: 'HR/Admin' },
+    { value: 'Engineering Services', label: 'Engineering Services' }
+  ]);
+  const [showAddDivision, setShowAddDivision] = useState(false);
+  const [newDivision, setNewDivision] = useState('');
+
   const [formData, setFormData] = useState({
     // Personal Information
     employeeId: '',
@@ -331,17 +344,7 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
 
 
-  // Division options
-  const divisionOptions = [
-    { value: '', label: 'Select Division' },
-    { value: 'SDS', label: 'SDS' },
-    { value: 'TEKLA', label: 'TEKLA' },
-    { value: 'DAS(Software)', label: 'DAS(Software)' },
-    { value: 'DDS(Manufacturing)', label: 'DDS(Manufacturing)' },
-    { value: 'Electrical', label: 'Electrical' },
-    { value: 'HR/Admin', label: 'HR/Admin' },
-    { value: 'Engineering Services', label: 'Engineering Services' }
-  ];
+  // Division options state is defined above
 
   // Location options
   const locationOptions = [
@@ -433,6 +436,16 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
         setDesignationOptions(prev => {
           if (desVal && !prev.some(opt => opt.value === desVal)) {
             return [...prev, { value: desVal, label: desVal }];
+          }
+          return prev;
+        });
+      }
+
+      if (employee.division) {
+        const divVal = employee.division.trim();
+        setDivisionOptions(prev => {
+          if (divVal && !prev.some(opt => opt.value === divVal)) {
+            return [...prev, { value: divVal, label: divVal }];
           }
           return prev;
         });
@@ -684,6 +697,20 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     handleInputChange('designation', val);
     setShowAddDesignation(false);
     setNewDesignation('');
+  };
+
+  const handleSaveDivision = () => {
+    const val = newDivision.trim();
+    if (!val) return;
+    setDivisionOptions(prev => {
+      if (!prev.some(opt => opt.value === val)) {
+        return [...prev, { value: val, label: val }];
+      }
+      return prev;
+    });
+    handleInputChange('division', val);
+    setShowAddDivision(false);
+    setNewDivision('');
   };
 
   const handleOrganizationChange = (index, field, value) => {
@@ -1568,19 +1595,61 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Division <span className="text-red-600">*</span></label>
-                  <select
-                    value={formData.division}
-                    onChange={(e) => handleInputChange('division', e.target.value)}
-                    required
-                    className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.division ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
-                  >
-                    {divisionOptions.map(option => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="flex justify-between items-center mb-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Division <span className="text-red-600">*</span>
+                    </label>
+                    {!showAddDivision && (
+                      <button
+                        type="button"
+                        onClick={() => setShowAddDivision(true)}
+                        className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                      >
+                        <PlusIcon className="w-3.5 h-3.5" /> Add Custom
+                      </button>
+                    )}
+                  </div>
+                  {showAddDivision ? (
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="E.G., Support"
+                        value={newDivision}
+                        onChange={(e) => setNewDivision(e.target.value)}
+                        className="flex-1 px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleSaveDivision}
+                        className="px-4 py-2.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg text-sm font-semibold hover:opacity-95 transition-opacity"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddDivision(false);
+                          setNewDivision('');
+                        }}
+                        className="px-4 py-2.5 bg-gray-100 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-200 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={formData.division}
+                      onChange={(e) => handleInputChange('division', e.target.value)}
+                      required
+                      className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.division ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}
+                    >
+                      {divisionOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   {errors.division && <p className="text-xs text-red-600 mt-1">{errors.division}</p>}
                 </div>
 
