@@ -16,6 +16,192 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 const { sendZohoMail } = require("../zohoMail.service");
+const AssetCategory = require("../models/AssetCategory");
+const AssetFieldConfig = require("../models/AssetFieldConfig");
+
+// Auto-seed default asset categories & field config
+async function seedDefaultCategoriesAndConfig() {
+  try {
+    const countCats = await AssetCategory.countDocuments({});
+    if (countCats === 0) {
+      const defaultCats = ["Laptop", "Desktop 1", "Desktop 2", "Monitor", "Keyboard", "Mouse", "Headset", "Charger"];
+      await AssetCategory.insertMany(defaultCats.map(name => ({ name })));
+      console.log("Default asset categories seeded successfully.");
+    }
+    
+    const countConfig = await AssetFieldConfig.countDocuments({});
+    const defaultFields = [
+      { key: "processor", label: "Processor", enabled: true, type: "text" },
+      { key: "ram", label: "RAM", enabled: true, type: "text" },
+      { key: "hardDisk", label: "Hard Disk / SSD", enabled: true, type: "text" },
+      { key: "screenSize", label: "Screen Size", enabled: true, type: "text" },
+      { key: "keyboardType", label: "Keyboard Type", enabled: true, type: "text" },
+      { key: "mouseType", label: "Mouse Type", enabled: true, type: "text" },
+      { key: "headsetType", label: "Headset Type", enabled: true, type: "text" },
+      { key: "gpu", label: "GPU / Graphics Card", enabled: true, type: "text" },
+      { key: "operatingSystem", label: "Operating System", enabled: true, type: "text" },
+      { key: "warrantyExpiry", label: "Warranty / Expiry Date", enabled: true, type: "text" },
+      { key: "simCardNo", label: "SIM Card Number", enabled: true, type: "text" },
+      { key: "ipMacAddress", label: "IP / MAC Address", enabled: true, type: "text" },
+      { key: "chargerPower", label: "Charger / Power Adapter", enabled: true, type: "text" },
+      { key: "version", label: "Model Number / Version", enabled: true, type: "text" }
+    ];
+
+    if (countConfig === 0) {
+      const defaultConfig = new AssetFieldConfig({ fields: defaultFields });
+      await defaultConfig.save();
+      console.log("Default asset field config seeded successfully.");
+    } else {
+      let config = await AssetFieldConfig.findOne({});
+      if (config) {
+        let modified = false;
+        defaultFields.forEach(df => {
+          const found = config.fields.some(f => f.key === df.key);
+          if (!found) {
+            config.fields.push(df);
+            modified = true;
+          }
+        });
+        if (modified) {
+          await config.save();
+          console.log("Merged missing default fields into existing asset field config.");
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Error seeding default asset categories/config:", err);
+  }
+}
+seedDefaultCategoriesAndConfig();
+
+// ==========================================
+// ASSET CATEGORIES CRUD
+// ==========================================
+
+// Get all categories
+router.get("/categories", auth, async (req, res) => {
+  try {
+    const categories = await AssetCategory.find({}).sort({ name: 1 }).lean();
+    res.json(categories);
+  } catch (err) {
+    res.status(505).json({ error: err.message });
+  }
+});
+
+// Create a new category
+router.post("/categories", auth, async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || !name.trim()) {
+      return res.status(400).json({ error: "Category name is required" });
+    }
+    const trimmedName = name.trim();
+    
+    // Check if category already exists
+    const existing = await AssetCategory.findOne({ name: { $regex: new RegExp(`^${trimmedName}$`, "i") } });
+    if (existing) {
+      return res.status(400).json({ error: "Category already exists" });
+    }
+    
+    const category = new AssetCategory({ name: trimmedName });
+    await category.save();
+    res.status(201).json(category);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Delete category
+router.delete("/categories/:id", auth, async (req, res) => {
+  try {
+    const category = await AssetCategory.findById(req.params.id);
+    if (!category) {
+      return res.status(404).json({ error: "Category not found" });
+    }
+
+    // Check if category is currently used by any assets
+    const count = await Asset.countDocuments({ category: category.name });
+    if (count > 0) {
+      return res.status(400).json({ error: `Cannot delete category "${category.name}" as it is currently associated with ${count} asset(s).` });
+    }
+
+    await AssetCategory.findByIdAndDelete(req.params.id);
+    res.json({ message: "Category deleted successfully" });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+
+// ==========================================
+// ASSET FIELD VISIBILITY CONFIG CRUD
+// ==========================================
+
+// Get field visibility config
+router.get("/field-config", auth, async (req, res) => {
+  try {
+    const defaultFields = [
+      { key: "processor", label: "Processor", enabled: true, type: "text" },
+      { key: "ram", label: "RAM", enabled: true, type: "text" },
+      { key: "hardDisk", label: "Hard Disk / SSD", enabled: true, type: "text" },
+      { key: "screenSize", label: "Screen Size", enabled: true, type: "text" },
+      { key: "keyboardType", label: "Keyboard Type", enabled: true, type: "text" },
+      { key: "mouseType", label: "Mouse Type", enabled: true, type: "text" },
+      { key: "headsetType", label: "Headset Type", enabled: true, type: "text" },
+      { key: "gpu", label: "GPU / Graphics Card", enabled: true, type: "text" },
+      { key: "operatingSystem", label: "Operating System", enabled: true, type: "text" },
+      { key: "warrantyExpiry", label: "Warranty / Expiry Date", enabled: true, type: "text" },
+      { key: "simCardNo", label: "SIM Card Number", enabled: true, type: "text" },
+      { key: "ipMacAddress", label: "IP / MAC Address", enabled: true, type: "text" },
+      { key: "chargerPower", label: "Charger / Power Adapter", enabled: true, type: "text" }
+    ];
+
+    let config = await AssetFieldConfig.findOne({});
+    if (!config) {
+      config = new AssetFieldConfig({ fields: defaultFields });
+      await config.save();
+    } else {
+      // Merge missing default fields
+      let modified = false;
+      defaultFields.forEach(df => {
+        const found = config.fields.some(f => f.key === df.key);
+        if (!found) {
+          config.fields.push(df);
+          modified = true;
+        }
+      });
+      if (modified) {
+        await config.save();
+      }
+    }
+    res.json(config);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update field visibility config
+router.put("/field-config", auth, async (req, res) => {
+  try {
+    const { fields } = req.body;
+    if (!Array.isArray(fields)) {
+      return res.status(400).json({ error: "Fields array is required" });
+    }
+
+    let config = await AssetFieldConfig.findOne({});
+    if (!config) {
+      config = new AssetFieldConfig();
+    }
+
+    config.fields = fields;
+    await config.save();
+    res.json(config);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+
 
 // Configure Multer storage for Asset Request Attachments
 const uploadDir = path.join(__dirname, "../uploads/asset-requests");
@@ -163,15 +349,13 @@ router.get("/", auth, async (req, res) => {
 router.post("/", auth, async (req, res) => {
   try {
     const {
-      assetId, category, brandName, division, processor, version,
-      ram, hardDisk, serialNumber, screenSize, keyboardType, mouseType,
-      headsetType, purchaseDate, condition, location, status
+      assetId, category, brandName, division, version,
+      serialNumber, purchaseDate, condition, location, status
     } = req.body;
 
     // Common mandatory fields validation
-    if (!assetId || !category || !brandName || !division || !version ||
-        !purchaseDate || !condition || !location) {
-      return res.status(400).json({ error: "All required common fields are mandatory" });
+    if (!assetId) {
+      return res.status(400).json({ error: "Asset ID is required" });
     }
 
     // Check duplicate Asset ID
@@ -182,24 +366,27 @@ router.post("/", auth, async (req, res) => {
 
     const payload = {
       assetId: assetId.trim().toUpperCase(),
-      category,
-      brandName: brandName.trim(),
-      division,
-      version: version.trim(),
+      category: category || "",
+      brandName: brandName ? brandName.trim() : "",
+      division: division || "",
+      version: version ? version.trim() : "",
       serialNumber: serialNumber ? serialNumber.trim() : "",
-      purchaseDate,
-      condition,
-      location,
+      purchaseDate: purchaseDate || "",
+      condition: condition || "",
+      location: location || "",
       status: status || "Available"
     };
 
-    if (processor) payload.processor = processor.trim();
-    if (ram) payload.ram = ram;
-    if (hardDisk) payload.hardDisk = hardDisk;
-    if (screenSize) payload.screenSize = screenSize.trim();
-    if (keyboardType) payload.keyboardType = keyboardType;
-    if (mouseType) payload.mouseType = mouseType;
-    if (headsetType) payload.headsetType = headsetType;
+    // Load active field config keys
+    const config = await AssetFieldConfig.findOne({});
+    const activeKeys = config ? config.fields.map(f => f.key) : [];
+
+    // Copy dynamically enabled keys from req.body
+    activeKeys.forEach(key => {
+      if (req.body[key] !== undefined) {
+        payload[key] = typeof req.body[key] === 'string' ? req.body[key].trim() : req.body[key];
+      }
+    });
 
     const asset = new Asset(payload);
     await asset.save();
@@ -213,14 +400,12 @@ router.post("/", auth, async (req, res) => {
 router.put("/:id", auth, async (req, res) => {
   try {
     const {
-      assetId, category, brandName, division, processor, version,
-      ram, hardDisk, serialNumber, screenSize, keyboardType, mouseType,
-      headsetType, purchaseDate, condition, location, status
+      assetId, category, brandName, division, version,
+      serialNumber, purchaseDate, condition, location, status
     } = req.body;
 
-    if (!assetId || !category || !brandName || !division || !version ||
-        !purchaseDate || !condition || !location) {
-      return res.status(400).json({ error: "All required fields are mandatory" });
+    if (!assetId) {
+      return res.status(400).json({ error: "Asset ID is required" });
     }
 
     const asset = await Asset.findById(req.params.id);
@@ -237,23 +422,32 @@ router.put("/:id", auth, async (req, res) => {
     }
 
     asset.assetId = assetId.trim().toUpperCase();
-    asset.category = category;
-    asset.brandName = brandName.trim();
-    asset.division = division;
-    asset.version = version.trim();
+    asset.category = category || "";
+    asset.brandName = brandName ? brandName.trim() : "";
+    asset.division = division || "";
+    asset.version = version ? version.trim() : "";
     asset.serialNumber = serialNumber ? serialNumber.trim() : "";
     asset.purchaseDate = purchaseDate;
     asset.condition = condition;
     asset.location = location;
     if (status) asset.status = status;
 
-    asset.processor = processor ? processor.trim() : undefined;
-    asset.ram = ram || undefined;
-    asset.hardDisk = hardDisk || undefined;
-    asset.screenSize = screenSize ? screenSize.trim() : undefined;
-    asset.keyboardType = keyboardType || undefined;
-    asset.mouseType = mouseType || undefined;
-    asset.headsetType = headsetType || undefined;
+    // Load active field config keys
+    const config = await AssetFieldConfig.findOne({});
+    const activeKeys = config ? config.fields.map(f => f.key) : [];
+
+    // Reset all spec fields first, then set values from req.body
+    const allKeys = new Set([
+      'processor', 'ram', 'hardDisk', 'screenSize', 'keyboardType', 'mouseType', 'headsetType',
+      ...activeKeys
+    ]);
+    allKeys.forEach(key => {
+      if (req.body[key] !== undefined) {
+        asset.set(key, typeof req.body[key] === 'string' ? req.body[key].trim() : req.body[key]);
+      } else {
+        asset.set(key, undefined);
+      }
+    });
 
     await asset.save();
     res.json(asset);
@@ -299,7 +493,7 @@ router.get("/allocations", auth, async (req, res) => {
 // Allocate an asset
 router.post("/allocations", auth, async (req, res) => {
   try {
-    const { assetId, assignedToId, allocatedDate } = req.body;
+    const { assetId, assignedToId, allocatedDate, division } = req.body;
 
     if (!assetId || !assignedToId || !allocatedDate) {
       return res.status(400).json({ error: "Asset, Employee, and Allocation Date are required" });
@@ -321,14 +515,13 @@ router.post("/allocations", auth, async (req, res) => {
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    // Check if employee already has an active allocation of this asset category
+    // Check if this physical asset is already assigned
     const activeAlloc = await AssetAllocation.findOne({
-      employeeId: employee._id,
-      category: asset.category,
+      assetId: asset.assetId,
       status: "Assigned"
     });
     if (activeAlloc) {
-      return res.status(400).json({ error: `Employee ${employee.name} (${employee.employeeId}) already has an active allocation for a ${asset.category} (Asset ID: ${activeAlloc.assetId}).` });
+      return res.status(400).json({ error: `Asset ${asset.assetId} is already assigned to ${activeAlloc.employeeName} (${activeAlloc.employeeCode}).` });
     }
 
     const allocation = new AssetAllocation({
@@ -337,6 +530,7 @@ router.post("/allocations", auth, async (req, res) => {
       category: asset.category,
       brandName: asset.brandName,
       version: asset.version,
+      division: division || employee.division || employee.department || "",
       employeeId: employee._id,
       employeeCode: employee.employeeId,
       employeeName: employee.name,
@@ -643,6 +837,8 @@ router.put("/requests/:id/allocate", auth, async (req, res) => {
       category: asset.category,
       brandName: asset.brandName,
       version: asset.version,
+      division: request.division || request.department || "",
+      employeeId: request.employeeId,
       assignedTo: request.employeeId,
       employeeName: request.employeeName,
       employeeCode: request.employeeCode,

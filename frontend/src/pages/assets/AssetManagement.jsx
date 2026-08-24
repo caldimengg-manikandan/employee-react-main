@@ -66,6 +66,12 @@ export default function AssetManagement() {
   const [allocations, setAllocations] = useState([]);
   const [requests, setRequests] = useState([]);
   const [employees, setEmployees] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
+  const [fieldConfig, setFieldConfig] = useState({ fields: [] });
+  const [showFieldConfigPanel, setShowFieldConfigPanel] = useState(false);
+  const [newFieldName, setNewFieldName] = useState("");
 
   // Logged-in Employee detail for auto-filled forms
   const currentEmployeeDetail = useMemo(() => {
@@ -187,7 +193,6 @@ export default function AssetManagement() {
     assetId: "",
     category: "Laptop",
     brandName: "",
-    division: "SDS",
     processor: "",
     version: "",
     ram: "8 GB",
@@ -208,9 +213,16 @@ export default function AssetManagement() {
   const [allocateAsset, setAllocateAsset] = useState(null);
   const [allocationData, setAllocationData] = useState({
     assignedToId: "",
-    allocatedDate: new Date().toISOString().split("T")[0]
+    allocatedDate: new Date().toISOString().split("T")[0],
+    division: ""
   });
 
+  // Allocation Tab Filters
+  const [allocSearch, setAllocSearch] = useState("");
+  const [allocStatus, setAllocStatus] = useState("All");
+  const [allocCategory, setAllocCategory] = useState("All");
+  const [allocDivision, setAllocDivision] = useState("All");
+  const [viewAssetDetails, setViewAssetDetails] = useState(null);
   // Asset Request Modals & Form state
   const [requestFormOpen, setRequestFormOpen] = useState(false);
   const [newRequest, setNewRequest] = useState({
@@ -303,6 +315,85 @@ export default function AssetManagement() {
     }
   };
 
+  const loadFieldConfig = async () => {
+    try {
+      const res = await assetAPI.getFieldConfig();
+      if (res && res.data) {
+        setFieldConfig(res.data);
+      }
+    } catch (err) {
+      console.error("Error loading field config:", err);
+    }
+  };
+
+  const handleToggleFieldConfig = async (fieldKey, enabledValue) => {
+    try {
+      const updatedFields = fieldConfig.fields.map(f => {
+        if (f.key === fieldKey) {
+          return { ...f, enabled: enabledValue };
+        }
+        return f;
+      });
+      const updatedConfig = { ...fieldConfig, fields: updatedFields };
+      setFieldConfig(updatedConfig);
+      await assetAPI.updateFieldConfig(updatedConfig);
+    } catch (err) {
+      console.error("Error updating field config:", err);
+    }
+  };
+
+  const handleAddNewField = async (e) => {
+    e.preventDefault();
+    if (!newFieldName.trim()) return;
+    const labelName = newFieldName.trim();
+    
+    // Generate camelCase key
+    const keyName = labelName
+      .replace(/[^a-zA-Z0-9 ]/g, "")
+      .split(" ")
+      .map((word, index) => {
+        if (index === 0) return word.toLowerCase();
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+      })
+      .join("");
+
+    if (!keyName) return;
+
+    // Check if field already exists
+    const exists = (fieldConfig.fields || []).some(f => f.key.toLowerCase() === keyName.toLowerCase());
+    if (exists) {
+      alert("This specification field already exists!");
+      return;
+    }
+
+    try {
+      const newFieldItem = { key: keyName, label: labelName, enabled: true, type: "text" };
+      const updatedConfig = { ...fieldConfig, fields: [...(fieldConfig.fields || []), newFieldItem] };
+      setFieldConfig(updatedConfig);
+      await assetAPI.updateFieldConfig(updatedConfig);
+      setNewFieldName("");
+      alert("Specification field added successfully!");
+    } catch (err) {
+      console.error("Error adding new custom field:", err);
+      alert("Error adding specification field.");
+    }
+  };
+
+  const handleDeleteField = async (fieldKey) => {
+    if (window.confirm("Are you sure you want to delete this specification field? Any data stored in this field across your assets will no longer be visible in table columns and CSV export.")) {
+      try {
+        const updatedFields = fieldConfig.fields.filter(f => f.key !== fieldKey);
+        const updatedConfig = { ...fieldConfig, fields: updatedFields };
+        setFieldConfig(updatedConfig);
+        await assetAPI.updateFieldConfig(updatedConfig);
+        alert("Specification field deleted successfully!");
+      } catch (err) {
+        console.error("Error deleting field config:", err);
+        alert("Error deleting specification field.");
+      }
+    }
+  };
+
   // Initial load
   useEffect(() => {
     setLoading(true);
@@ -312,45 +403,33 @@ export default function AssetManagement() {
       loadRequests(),
       loadEmployees(),
       loadHandoverHistory(),
-      loadExitClearances()
+      loadExitClearances(),
+      loadCategories(),
+      loadFieldConfig()
     ]).finally(() => setLoading(false));
   }, []);
 
-  // Dropdown options & Dynamic Category Configuration
-  const categories = useMemo(() => {
-    const baseCats = ["Laptop", "Desktop 1", "Desktop 2", "Monitor", "Keyboard", "Mouse", "Headset", "Charger"];
-    const masterCats = (assets || []).map(a => a.category).filter(Boolean);
-    return Array.from(new Set([...baseCats, ...masterCats]));
-  }, [assets]);
+  const loadCategories = async () => {
+    try {
+      const res = await assetAPI.getCategories();
+      setCategories(res.data || []);
+    } catch (err) {
+      console.error("Error loading categories:", err);
+    }
+  };
 
-  const CATEGORY_CONFIG = useMemo(() => ({
-    "Laptop": { showProcessor: true, showRam: true, showHardDisk: true },
-    "Desktop 1": { showProcessor: true, showRam: true, showHardDisk: true },
-    "Desktop 2": { showProcessor: true, showRam: true, showHardDisk: true },
-    "Monitor": { showScreenSize: true },
-    "Keyboard": { showKeyboardType: true },
-    "Mouse": { showMouseType: true },
-    "Headset": { showHeadsetType: true },
-    "Charger": {}
-  }), []);
 
-  const currentCategoryConfig = useMemo(() => {
-    return CATEGORY_CONFIG[newAsset.category] || { showProcessor: true, showRam: true, showHardDisk: true };
-  }, [CATEGORY_CONFIG, newAsset.category]);
 
   const handleCategoryChangeInForm = (selectedCat) => {
-    const cfg = CATEGORY_CONFIG[selectedCat] || { showProcessor: true, showRam: true, showHardDisk: true };
-    setNewAsset(prev => ({
-      ...prev,
-      category: selectedCat,
-      processor: cfg.showProcessor ? prev.processor : "",
-      ram: cfg.showRam ? (prev.ram || "8 GB") : "",
-      hardDisk: cfg.showHardDisk ? (prev.hardDisk || "512 GB SSD") : "",
-      screenSize: cfg.showScreenSize ? (prev.screenSize || "24 Inch") : "",
-      keyboardType: cfg.showKeyboardType ? (prev.keyboardType || "Wired") : "",
-      mouseType: cfg.showMouseType ? (prev.mouseType || "Wired") : "",
-      headsetType: cfg.showHeadsetType ? (prev.headsetType || "Wired") : ""
-    }));
+    setNewAsset(prev => {
+      const updated = { ...prev, category: selectedCat };
+      (fieldConfig.fields || []).forEach(f => {
+        if (!f.enabled) {
+          updated[f.key] = "";
+        }
+      });
+      return updated;
+    });
   };
 
   const rams = ["4 GB", "8 GB", "16 GB", "32 GB", "64 GB"];
@@ -526,6 +605,7 @@ export default function AssetManagement() {
   const employeeStats = useMemo(() => {
     const myEmpCode = loggedUser.employeeId || "CDE001";
     const myAllocations = allocations.filter(al => al.employeeCode === myEmpCode && al.status === "Assigned");
+    myAllocations.sort((a, b) => (a.category || "").localeCompare(b.category || ""));
     const myRequests = requests.filter(r => r.employeeCode === myEmpCode || r.employeeId === loggedUser._id);
     return {
       assigned: myAllocations.length,
@@ -561,6 +641,38 @@ export default function AssetManagement() {
     });
   }, [requests, reqSearch, reqStatus, reqCategory, reqType, reqDiv, reqLoc]);
 
+  // Unique divisions in allocations
+  const uniqueAllocDivisions = useMemo(() => {
+    const divs = (allocations || []).map(al => al.division).filter(Boolean);
+    return Array.from(new Set(["All", ...divs]));
+  }, [allocations]);
+
+  // Filtered Allocations
+  const filteredAllocations = useMemo(() => {
+    return (allocations || []).filter(al => {
+      const q = allocSearch.toLowerCase().trim();
+      const assetId = (al.assetId || "").toLowerCase();
+      const category = (al.category || "").toLowerCase();
+      const brand = (al.brandName || "").toLowerCase();
+      const empName = (al.employeeName || "").toLowerCase();
+      const empCode = (al.employeeCode || "").toLowerCase();
+      const division = (al.division || "").toLowerCase();
+
+      const matchSearch = !q ||
+        assetId.includes(q) ||
+        category.includes(q) ||
+        brand.includes(q) ||
+        empName.includes(q) ||
+        empCode.includes(q);
+
+      const matchStatus = allocStatus === "All" || al.status === allocStatus;
+      const matchCat = allocCategory === "All" || al.category === allocCategory;
+      const matchDiv = allocDivision === "All" || division === allocDivision.toLowerCase();
+
+      return matchSearch && matchStatus && matchCat && matchDiv;
+    });
+  }, [allocations, allocSearch, allocStatus, allocCategory, allocDivision]);
+
   // Filtered Assets
   const filteredAssets = useMemo(() => {
     return assets.filter(asset => {
@@ -586,17 +698,75 @@ export default function AssetManagement() {
     });
   }, [assets, searchQuery, categoryFilter]);
 
+  // Active specification fields that have at least one entered value in the filtered list
+  const activeEnteredFields = useMemo(() => {
+    const enabledFields = (fieldConfig.fields || []).filter(f => f.enabled);
+    return enabledFields.filter(f => {
+      return filteredAssets.some(asset => {
+        const val = asset[f.key];
+        return val !== undefined && val !== null && String(val).trim() !== "";
+      });
+    });
+  }, [fieldConfig.fields, filteredAssets]);
+
+  const activeColumns = useMemo(() => {
+    const cols = {
+      sNo: true,
+      assetId: true,
+      category: true,
+      brandName: true,
+      version: true
+    };
+    activeEnteredFields.forEach(f => {
+      cols[f.key] = true;
+    });
+    cols.purchaseDate = true;
+    cols.condition = true;
+    cols.location = true;
+    cols.status = true;
+    cols.actions = true;
+    return cols;
+  }, [activeEnteredFields]);
+
+  const colSpanCount = useMemo(() => {
+    return Object.values(activeColumns).filter(Boolean).length;
+  }, [activeColumns]);
+
   // Handlers
+  const handleAddCategory = async (e) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    try {
+      await assetAPI.createCategory({ name: newCategoryName.trim() });
+      alert("Category added successfully!");
+      setNewCategoryName("");
+      loadCategories();
+    } catch (err) {
+      console.error("Error adding category:", err);
+      alert(err.response?.data?.error || "Error adding category.");
+    }
+  };
+
+  const handleDeleteCategory = async (catId, catName) => {
+    if (window.confirm(`Are you sure you want to delete category "${catName}"?`)) {
+      try {
+        await assetAPI.deleteCategory(catId);
+        alert("Category deleted successfully!");
+        loadCategories();
+      } catch (err) {
+        console.error("Error deleting category:", err);
+        alert(err.response?.data?.error || "Error deleting category.");
+      }
+    }
+  };
+
   const handleSaveAsset = async (e) => {
     e.preventDefault();
     try {
-      const cfg = CATEGORY_CONFIG[newAsset.category] || { showProcessor: true, showRam: true, showHardDisk: true };
-
-      // Build payload containing ONLY applicable fields for selected category
+      // Build payload containing common fields
       const payload = {
         category: newAsset.category,
         brandName: newAsset.brandName,
-        division: newAsset.division,
         version: newAsset.version,
         serialNumber: newAsset.serialNumber || "",
         purchaseDate: newAsset.purchaseDate,
@@ -605,13 +775,12 @@ export default function AssetManagement() {
         status: newAsset.status || "Available"
       };
 
-      if (cfg.showProcessor) payload.processor = newAsset.processor;
-      if (cfg.showRam) payload.ram = newAsset.ram;
-      if (cfg.showHardDisk) payload.hardDisk = newAsset.hardDisk;
-      if (cfg.showScreenSize) payload.screenSize = newAsset.screenSize;
-      if (cfg.showKeyboardType) payload.keyboardType = newAsset.keyboardType;
-      if (cfg.showMouseType) payload.mouseType = newAsset.mouseType;
-      if (cfg.showHeadsetType) payload.headsetType = newAsset.headsetType;
+      // Dynamically copy enabled fields from newAsset
+      (fieldConfig.fields || []).forEach(f => {
+        if (f.enabled && newAsset[f.key] !== undefined) {
+          payload[f.key] = newAsset[f.key];
+        }
+      });
 
       if (selectedAsset) {
         // Edit mode - Asset ID is read-only
@@ -639,25 +808,24 @@ export default function AssetManagement() {
       }
       setAssetFormOpen(false);
       setSelectedAsset(null);
-      setNewAsset({
+
+      // Dynamically reset all fields
+      const baseAssetDefaults = {
         assetId: "",
-        category: "Laptop",
+        category: categories[0]?.name || "Laptop",
         brandName: "",
-        division: "SDS",
-        processor: "",
         version: "",
-        ram: "8 GB",
-        hardDisk: "512 GB SSD",
         serialNumber: "",
-        screenSize: "24 Inch",
-        keyboardType: "Wired",
-        mouseType: "Wired",
-        headsetType: "Wired",
         purchaseDate: "",
         condition: "New",
         location: "Chennai Office",
         status: "Available"
+      };
+      (fieldConfig.fields || []).forEach(f => {
+        baseAssetDefaults[f.key] = "";
       });
+      setNewAsset(baseAssetDefaults);
+
       loadAssets();
     } catch (err) {
       console.error("Error saving asset:", err);
@@ -667,25 +835,21 @@ export default function AssetManagement() {
 
   const handleOpenEditAsset = (asset) => {
     setSelectedAsset(asset);
-    setNewAsset({
+    const baseEditFields = {
       assetId: asset.assetId,
       category: asset.category || "Laptop",
       brandName: asset.brandName || "",
-      division: asset.division || "SDS",
-      processor: asset.processor || "",
       version: asset.version || "",
-      ram: asset.ram || "8 GB",
-      hardDisk: asset.hardDisk || "512 GB SSD",
       serialNumber: asset.serialNumber || "",
-      screenSize: asset.screenSize || "24 Inch",
-      keyboardType: asset.keyboardType || "Wired",
-      mouseType: asset.mouseType || "Wired",
-      headsetType: asset.headsetType || "Wired",
       purchaseDate: asset.purchaseDate || "",
       condition: asset.condition || "New",
       location: asset.location || "Chennai Office",
       status: asset.status || "Available"
+    };
+    (fieldConfig.fields || []).forEach(f => {
+      baseEditFields[f.key] = asset[f.key] || "";
     });
+    setNewAsset(baseEditFields);
     setAssetFormOpen(true);
   };
 
@@ -708,14 +872,16 @@ export default function AssetManagement() {
       await assetAPI.allocate({
         assetId: allocateAsset._id,
         assignedToId: allocationData.assignedToId,
-        allocatedDate: allocationData.allocatedDate
+        allocatedDate: allocationData.allocatedDate,
+        division: allocationData.division
       });
       alert("Asset allocated successfully!");
       setAllocationFormOpen(false);
       setAllocateAsset(null);
       setAllocationData({
         assignedToId: "",
-        allocatedDate: new Date().toISOString().split("T")[0]
+        allocatedDate: new Date().toISOString().split("T")[0],
+        division: ""
       });
       loadAssets();
       loadAllocations();
@@ -859,16 +1025,19 @@ export default function AssetManagement() {
 
   // Export functions
   const exportCSV = () => {
+    const specHeaders = (fieldConfig.fields || []).filter(f => f.enabled).map(f => f.label);
     const headers = [
-      "Asset ID", "Category", "Brand Name", "Division", "Processor",
-      "OS Version/Model", "RAM", "Hard Disk", "Seat No",
-      "BIO's Date", "Condition", "Location", "Status"
+      "Asset ID", "Category", "Brand Name",
+      ...specHeaders, "Seat No", "BIO's Date", "Condition", "Location", "Status"
     ];
-    const rows = assets.map(a => [
-      a.assetId, a.category, a.brandName, a.division, a.processor,
-      a.version, a.ram, a.hardDisk, a.seatNo,
-      a.purchaseDate, a.condition, a.location, a.status
-    ]);
+    const rows = assets.map(a => {
+      const specVals = (fieldConfig.fields || []).filter(f => f.enabled).map(f => a[f.key] || "");
+      return [
+        a.assetId, a.category, a.brandName,
+        ...specVals, a.seatNo || "",
+        a.purchaseDate, a.condition, a.location, a.status
+      ];
+    });
     const csvContent = [headers.join(","), ...rows.map(e => e.map(val => `"${val || ""}"`).join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
@@ -881,16 +1050,19 @@ export default function AssetManagement() {
   };
 
   const exportExcel = () => {
+    const specHeaders = (fieldConfig.fields || []).filter(f => f.enabled).map(f => f.label);
     const headers = [
-      "Asset ID", "Category", "Brand Name", "Division", "Processor",
-      "OS Version/Model", "RAM", "Hard Disk", "Seat No",
-      "BIO's Date", "Condition", "Location", "Status"
+      "Asset ID", "Category", "Brand Name",
+      ...specHeaders, "Seat No", "BIO's Date", "Condition", "Location", "Status"
     ];
-    const rows = assets.map(a => [
-      a.assetId, a.category, a.brandName, a.division, a.processor,
-      a.version, a.ram, a.hardDisk, a.seatNo,
-      a.purchaseDate, a.condition, a.location, a.status
-    ]);
+    const rows = assets.map(a => {
+      const specVals = (fieldConfig.fields || []).filter(f => f.enabled).map(f => a[f.key] || "");
+      return [
+        a.assetId, a.category, a.brandName,
+        ...specVals, a.seatNo || "",
+        a.purchaseDate, a.condition, a.location, a.status
+      ];
+    });
     const wsData = [headers, ...rows];
     const worksheet = XLSX.utils.aoa_to_sheet(wsData);
     const workbook = XLSX.utils.book_new();
@@ -901,16 +1073,19 @@ export default function AssetManagement() {
   const exportPDF = () => {
     const doc = new jsPDF("l", "mm", "a4");
     doc.text("Caldim Engineering Private Limited - Asset Report", 14, 15);
+    const specHeaders = (fieldConfig.fields || []).filter(f => f.enabled).map(f => f.label);
     const headers = [[
-      "Asset ID", "Category", "Brand Name", "Division", "Processor",
-      "OS Version/Model", "RAM", "Hard Disk", "Seat No",
-      "BIO's Date", "Condition", "Location", "Status"
+      "Asset ID", "Category", "Brand Name",
+      ...specHeaders, "Seat No", "BIO's Date", "Condition", "Location", "Status"
     ]];
-    const rows = assets.map(a => [
-      a.assetId, a.category, a.brandName, a.division, a.processor,
-      a.version, a.ram, a.hardDisk, a.seatNo,
-      a.purchaseDate, a.condition, a.location, a.status
-    ]);
+    const rows = assets.map(a => {
+      const specVals = (fieldConfig.fields || []).filter(f => f.enabled).map(f => a[f.key] || "");
+      return [
+        a.assetId, a.category, a.brandName,
+        ...specVals, a.seatNo || "",
+        a.purchaseDate, a.condition, a.location, a.status
+      ];
+    });
     doc.autoTable({
       head: headers,
       body: rows,
@@ -1202,7 +1377,7 @@ export default function AssetManagement() {
                 className="border rounded-xl px-3 py-2 text-sm bg-white"
               >
                 <option value="All">All Categories</option>
-                {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
               </select>
             </div>
             <div className="flex gap-2">
@@ -1234,7 +1409,6 @@ export default function AssetManagement() {
                     assetId: "",
                     category: "Laptop",
                     brandName: "",
-                    division: "SDS",
                     processor: "",
                     version: "",
                     ram: "8 GB",
@@ -1263,11 +1437,9 @@ export default function AssetManagement() {
                   <th className="p-4 font-bold text-white">Asset ID</th>
                   <th className="p-4 font-bold text-white">Category</th>
                   <th className="p-4 font-bold text-white">Brand Name</th>
-                  <th className="p-4 font-bold text-white">Division</th>
-                  <th className="p-4 font-bold text-white">Processor</th>
-                  <th className="p-4 font-bold text-white">OS Version / Model</th>
-                  <th className="p-4 font-bold text-white">RAM</th>
-                  <th className="p-4 font-bold text-white">Hard Disk</th>
+                  {activeEnteredFields.map(f => (
+                    <th key={f.key} className="p-4 font-bold text-white">{f.label}</th>
+                  ))}
                   <th className="p-4 font-bold text-white">BIO's Date</th>
                   <th className="p-4 font-bold text-white">Condition</th>
                   <th className="p-4 font-bold text-white">Location</th>
@@ -1278,7 +1450,7 @@ export default function AssetManagement() {
               <tbody className="divide-y divide-slate-100">
                 {filteredAssets.length === 0 ? (
                   <tr>
-                    <td colSpan="14" className="p-8 text-center text-slate-400 font-medium">No assets matching the filters.</td>
+                    <td colSpan={colSpanCount} className="p-8 text-center text-slate-400 font-medium">No assets matching the filters.</td>
                   </tr>
                 ) : filteredAssets.map((asset, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/55 transition-colors">
@@ -1286,11 +1458,9 @@ export default function AssetManagement() {
                     <td className="p-4 font-mono font-bold text-[#262760]">{asset.assetId}</td>
                     <td className="p-4">{asset.category}</td>
                     <td className="p-4 font-semibold text-slate-800">{asset.brandName}</td>
-                    <td className="p-4">{asset.division}</td>
-                    <td className="p-4">{asset.processor}</td>
-                    <td className="p-4">{asset.version}</td>
-                    <td className="p-4">{asset.ram}</td>
-                    <td className="p-4">{asset.hardDisk}</td>
+                    {activeEnteredFields.map(f => (
+                      <td key={f.key} className="p-4">{asset[f.key] || "—"}</td>
+                    ))}
                     <td className="p-4">{asset.purchaseDate}</td>
                     <td className="p-4">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
@@ -1339,6 +1509,13 @@ export default function AssetManagement() {
                           </button>
                         )}
                         <button
+                          onClick={() => setViewAssetDetails(asset)}
+                          title="View Details"
+                          className="p-1.5 text-slate-600 hover:bg-slate-50 rounded-lg"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleOpenEditAsset(asset)}
                           title="Edit"
                           className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg"
@@ -1365,7 +1542,82 @@ export default function AssetManagement() {
       {/* ALLOCATIONS TAB */}
       {activeTab === "allocation" && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <h2 className="text-xl font-bold text-[#262760] mb-6">Asset Allocation History</h2>
+          <h2 className="text-xl font-bold text-[#262760] mb-4">Asset Allocation History</h2>
+          
+          {/* Allocation Filters */}
+          <div className="flex flex-wrap items-center gap-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[240px] max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search Asset ID, Category, Brand, Employee..."
+                value={allocSearch}
+                onChange={(e) => setAllocSearch(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-slate-300 rounded-xl w-full text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+              />
+            </div>
+
+            {/* Category Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">Category:</span>
+              <select
+                value={allocCategory}
+                onChange={(e) => setAllocCategory(e.target.value)}
+                className="border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="All">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat._id} value={cat.name}>{cat.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Division Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">Division:</span>
+              <select
+                value={allocDivision}
+                onChange={(e) => setAllocDivision(e.target.value)}
+                className="border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {uniqueAllocDivisions.map(div => (
+                  <option key={div} value={div}>{div === "All" ? "All Divisions" : div}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-500">Status:</span>
+              <select
+                value={allocStatus}
+                onChange={(e) => setAllocStatus(e.target.value)}
+                className="border border-slate-300 rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="All">All Statuses</option>
+                <option value="Assigned">Assigned</option>
+                <option value="Returned">Returned</option>
+              </select>
+            </div>
+
+            {/* Reset Filters */}
+            {(allocSearch !== "" || allocStatus !== "All" || allocCategory !== "All" || allocDivision !== "All") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setAllocSearch("");
+                  setAllocStatus("All");
+                  setAllocCategory("All");
+                  setAllocDivision("All");
+                }}
+                className="px-4 py-2 text-xs font-bold text-[#262760] hover:text-white border border-[#262760] hover:bg-[#262760] rounded-xl transition-all"
+              >
+                Reset Filters
+              </button>
+            )}
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
@@ -1374,6 +1626,7 @@ export default function AssetManagement() {
                   <th className="p-4 font-bold text-white">Asset ID</th>
                   <th className="p-4 font-bold text-white">Asset Name</th>
                   <th className="p-4 font-bold text-white">Allocated To</th>
+                  <th className="p-4 font-bold text-white">Division</th>
                   <th className="p-4 font-bold text-white">Allocation Date</th>
                   <th className="p-4 font-bold text-white">Return Date</th>
                   <th className="p-4 font-bold text-white">Status</th>
@@ -1381,11 +1634,11 @@ export default function AssetManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {allocations.length === 0 ? (
+                {filteredAllocations.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="p-8 text-center text-slate-400 font-medium">No allocation records currently.</td>
+                    <td colSpan="9" className="p-8 text-center text-slate-400 font-medium">No allocation records match the filters.</td>
                   </tr>
-                ) : allocations.map((al, idx) => (
+                ) : filteredAllocations.map((al, idx) => (
                   <tr key={idx}>
                     <td className="p-4 text-center font-medium text-slate-500">{idx + 1}</td>
                     <td className="p-4 font-mono font-bold text-slate-700">{al.assetId}</td>
@@ -1396,6 +1649,7 @@ export default function AssetManagement() {
                         <span className="text-[10px] text-slate-400 font-mono">{al.employeeCode}</span>
                       </div>
                     </td>
+                    <td className="p-4 font-semibold text-slate-800">{al.division || "—"}</td>
                     <td className="p-4">{al.allocatedDate || "N/A"}</td>
                     <td className="p-4">{al.returnDate || "-"}</td>
                     <td className="p-4">
@@ -1747,7 +2001,7 @@ export default function AssetManagement() {
                   className="w-full text-xs border rounded-xl px-3 py-2 bg-white outline-none focus:ring-2 focus:ring-[#262760]"
                 >
                   <option value="All">All Categories</option>
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
 
@@ -2113,21 +2367,31 @@ export default function AssetManagement() {
               )}
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Category *</label>
-                <select
-                  required
-                  value={newAsset.category}
-                  onChange={(e) => handleCategoryChangeInForm(e.target.value)}
-                  className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                >
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Category</label>
+                <div className="flex gap-2">
+                  <select
+                    value={newAsset.category}
+                    onChange={(e) => handleCategoryChangeInForm(e.target.value)}
+                    className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Choose Category --</option>
+                    {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setCategoryModalOpen(true)}
+                    className="bg-[#262760] hover:bg-[#1a1c43] text-white rounded-xl px-3 flex items-center justify-center font-bold text-sm"
+                    title="Manage Categories"
+                  >
+                    <Layers className="h-4 w-4" />
+                  </button>
+                </div>
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Brand Name *</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Brand Name</label>
                 <input
-                  type="text" required
+                  type="text"
                   value={newAsset.brandName}
                   onChange={(e) => setNewAsset(prev => ({ ...prev, brandName: e.target.value }))}
                   className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -2135,154 +2399,74 @@ export default function AssetManagement() {
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Division *</label>
-                <div className="flex gap-2">
-                  <select
-                    required
-                    value={newAsset.division}
-                    onChange={(e) => setNewAsset(prev => ({ ...prev, division: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  >
-                    {divisions.map(d => <option key={d} value={d}>{d}</option>)}
-                  </select>
+
+
+              {/* Field Visibility & Custom Fields Settings inside popup */}
+              <div className="col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200 font-sans mt-2">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-[#262760] mb-3">Configure Specification Fields</h4>
+                
+                {/* Active checkboxes */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+                  {(fieldConfig.fields || []).map(f => {
+                    return (
+                      <div key={f.key} className="flex items-center justify-between gap-1 text-xs font-semibold text-slate-700 bg-white px-2.5 py-1.5 rounded-lg border shadow-sm">
+                        <label className="flex items-center gap-2 cursor-pointer hover:text-[#262760] flex-1 min-w-0">
+                          <input
+                            type="checkbox"
+                            checked={f.enabled}
+                            onChange={(e) => handleToggleFieldConfig(f.key, e.target.checked)}
+                            className="rounded text-[#262760] focus:ring-[#262760] flex-shrink-0"
+                          />
+                          <span className="truncate">{f.label}</span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteField(f.key)}
+                          title="Delete Field"
+                          className="p-1 hover:bg-slate-100 rounded-md text-red-500 hover:text-red-700 transition-colors flex-shrink-0"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Add New Field Inline form */}
+                <div className="flex gap-2 items-center border-t pt-3">
+                  <input
+                    type="text"
+                    placeholder="Enter new field label (e.g. Graphics Card)"
+                    value={newFieldName}
+                    onChange={(e) => setNewFieldName(e.target.value)}
+                    className="flex-1 border rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 text-xs font-semibold"
+                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      const newDiv = prompt("Enter new Division name:");
-                      if (newDiv && newDiv.trim()) {
-                        const trimmed = newDiv.trim();
-                        if (!divisions.includes(trimmed)) {
-                          setDivisions(prev => [...prev, trimmed]);
-                        }
-                        setNewAsset(prev => ({ ...prev, division: trimmed }));
-                      }
-                    }}
-                    className="bg-[#262760] hover:bg-[#1a1c43] text-white rounded-xl px-3 flex items-center justify-center font-bold text-sm"
-                    title="Add Custom Division"
+                    onClick={handleAddNewField}
+                    className="bg-[#262760] hover:bg-[#1a1c43] text-white rounded-lg px-3 py-1.5 font-bold text-xs flex items-center gap-1 transition-colors whitespace-nowrap"
                   >
-                    <Plus className="h-4 w-4" />
+                    <Plus className="h-3.5 w-3.5" /> Add Field
                   </button>
                 </div>
               </div>
 
-              {/* Processor (Only for Laptop & Desktops) */}
-              {currentCategoryConfig.showProcessor && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Processor *</label>
-                  <input
-                    type="text" required
-                    value={newAsset.processor}
-                    onChange={(e) => setNewAsset(prev => ({ ...prev, processor: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="e.g. Intel i7 12th Gen, Ryzen 5"
-                  />
-                </div>
-              )}
-
-              {/* Model Number / Version */}
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Model Number / Version *</label>
-                <input
-                  type="text" required
-                  value={newAsset.version}
-                  onChange={(e) => setNewAsset(prev => ({ ...prev, version: e.target.value }))}
-                  className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                  placeholder="e.g. Latitude 5420, Windows 11 Pro"
-                />
-              </div>
-
-              {/* RAM (Only for Laptop & Desktops) */}
-              {currentCategoryConfig.showRam && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">RAM *</label>
-                  <select
-                    required
-                    value={newAsset.ram}
-                    onChange={(e) => setNewAsset(prev => ({ ...prev, ram: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  >
-                    {rams.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                </div>
-              )}
-
-              {/* Hard Disk (Only for Laptop & Desktops) */}
-              {currentCategoryConfig.showHardDisk && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Hard Disk / SSD *</label>
-                  <select
-                    required
-                    value={newAsset.hardDisk}
-                    onChange={(e) => setNewAsset(prev => ({ ...prev, hardDisk: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  >
-                    {hardDisks.map(hd => <option key={hd} value={hd}>{hd}</option>)}
-                  </select>
-                </div>
-              )}
-
-              {/* Screen Size (Only for Monitor) */}
-              {currentCategoryConfig.showScreenSize && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Screen Size *</label>
-                  <input
-                    type="text" required
-                    value={newAsset.screenSize}
-                    onChange={(e) => setNewAsset(prev => ({ ...prev, screenSize: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                    placeholder="e.g. 24 Inch, 27 Inch"
-                  />
-                </div>
-              )}
-
-              {/* Keyboard Type (Only for Keyboard) */}
-              {currentCategoryConfig.showKeyboardType && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Keyboard Type *</label>
-                  <select
-                    required
-                    value={newAsset.keyboardType}
-                    onChange={(e) => setNewAsset(prev => ({ ...prev, keyboardType: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  >
-                    <option value="Wired">Wired</option>
-                    <option value="Wireless">Wireless</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Mouse Type (Only for Mouse) */}
-              {currentCategoryConfig.showMouseType && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Mouse Type *</label>
-                  <select
-                    required
-                    value={newAsset.mouseType}
-                    onChange={(e) => setNewAsset(prev => ({ ...prev, mouseType: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  >
-                    <option value="Wired">Wired</option>
-                    <option value="Wireless">Wireless</option>
-                  </select>
-                </div>
-              )}
-
-              {/* Headset Type (Only for Headset) */}
-              {currentCategoryConfig.showHeadsetType && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Headset Type *</label>
-                  <select
-                    required
-                    value={newAsset.headsetType}
-                    onChange={(e) => setNewAsset(prev => ({ ...prev, headsetType: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
-                  >
-                    <option value="Wired">Wired</option>
-                    <option value="Wireless">Wireless</option>
-                  </select>
-                </div>
-              )}
+              {/* Dynamic Specifications Fields */}
+              {(fieldConfig.fields || []).map(f => {
+                if (!f.enabled) return null;
+                return (
+                  <div key={f.key}>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">{f.label}</label>
+                    <input
+                      type="text"
+                      value={newAsset[f.key] || ""}
+                      onChange={(e) => setNewAsset(prev => ({ ...prev, [f.key]: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                      placeholder={`Enter ${f.label.toLowerCase()}`}
+                    />
+                  </div>
+                );
+              })}
 
               {/* Serial Number */}
               <div>
@@ -2298,9 +2482,9 @@ export default function AssetManagement() {
 
               {/* BIO's Date */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">BIO's Date *</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">BIO's Date</label>
                 <input
-                  type="date" required
+                  type="date"
                   value={newAsset.purchaseDate}
                   onChange={(e) => setNewAsset(prev => ({ ...prev, purchaseDate: e.target.value }))}
                   className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
@@ -2309,26 +2493,26 @@ export default function AssetManagement() {
 
               {/* Condition */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Condition *</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Condition</label>
                 <select
-                  required
                   value={newAsset.condition}
                   onChange={(e) => setNewAsset(prev => ({ ...prev, condition: e.target.value }))}
                   className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                 >
+                  <option value="">-- Choose Condition --</option>
                   {conditions.map(cd => <option key={cd} value={cd}>{cd}</option>)}
                 </select>
               </div>
 
               {/* Location */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Location *</label>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Location</label>
                 <select
-                  required
                   value={newAsset.location}
                   onChange={(e) => setNewAsset(prev => ({ ...prev, location: e.target.value }))}
                   className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white"
                 >
+                  <option value="">-- Choose Location --</option>
                   {locations.map(l => <option key={l} value={l}>{l}</option>)}
                 </select>
               </div>
@@ -2353,48 +2537,286 @@ export default function AssetManagement() {
         </div>
       )}
 
-      {/* ALLOCATION DIALOG */}
-      {allocationFormOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <form onSubmit={handleAllocate} className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
+      {/* CATEGORY MANAGEMENT MODAL */}
+      {categoryModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-[60]">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
             <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center">
-              <h3 className="text-lg font-bold">Assign Asset: {allocateAsset?.brandName} {allocateAsset?.version}</h3>
-              <button type="button" onClick={() => setAllocationFormOpen(false)} className="text-white hover:text-slate-200">✕</button>
+              <h3 className="text-lg font-bold">Manage Asset Categories</h3>
+              <button type="button" onClick={() => setCategoryModalOpen(false)} className="text-white hover:text-slate-200 font-bold">✕</button>
             </div>
+            
             <div className="p-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Select Employee *</label>
-                <select
-                  required
-                  value={allocationData.assignedToId}
-                  onChange={(e) => setAllocationData(prev => ({ ...prev, assignedToId: e.target.value }))}
-                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">-- Choose Employee --</option>
-                  {sortedEmployees.map(emp => (
-                    <option key={emp._id} value={emp.employeeId || emp.employeeCode}>
-                      {emp.employeeId || emp.employeeCode} - {emp.name || emp.employeename} ({emp.division || emp.department || "SDS"})
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Allocation Date *</label>
+              {/* Add category form */}
+              <form onSubmit={handleAddCategory} className="flex gap-2 pb-4 border-b">
                 <input
-                  type="date" required
-                  value={allocationData.allocatedDate}
-                  onChange={(e) => setAllocationData(prev => ({ ...prev, allocatedDate: e.target.value }))}
-                  className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  type="text"
+                  required
+                  placeholder="New category name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  className="flex-1 border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
                 />
+                <button
+                  type="submit"
+                  className="bg-[#262760] hover:bg-[#1a1c43] text-white rounded-xl px-4 py-2 font-bold text-sm flex items-center gap-1"
+                >
+                  <Plus className="h-4 w-4" /> Add
+                </button>
+              </form>
+
+              {/* List of categories */}
+              <div className="max-h-60 overflow-y-auto border border-slate-100 rounded-xl divide-y divide-slate-150">
+                {categories.length === 0 ? (
+                  <div className="p-4 text-center text-slate-400 text-sm">No categories configured.</div>
+                ) : (
+                  categories.map(cat => (
+                    <div key={cat._id} className="p-3 flex justify-between items-center hover:bg-slate-50">
+                      <span className="text-sm font-semibold text-slate-700">{cat.name}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteCategory(cat._id, cat.name)}
+                        className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg p-1.5 transition-colors"
+                        title="Delete Category"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
-            <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2">
-              <button type="button" onClick={() => setAllocationFormOpen(false)} className="px-4 py-2 border rounded-xl text-sm font-semibold hover:bg-slate-100">Cancel</button>
-              <button type="submit" className="px-4 py-2 bg-[#262760] text-white rounded-xl text-sm font-semibold hover:bg-[#1a1c43]">Allocate</button>
+            
+            <div className="px-6 py-4 bg-slate-50 border-t flex justify-end">
+              <button
+                type="button"
+                onClick={() => setCategoryModalOpen(false)}
+                className="px-4 py-2 border rounded-xl text-sm font-semibold hover:bg-slate-100"
+              >
+                Close
+              </button>
             </div>
-          </form>
+          </div>
         </div>
       )}
+
+      {/* ALLOCATION DIALOG */}
+      {allocationFormOpen && (() => {
+        const selectedEmployeeAllocations = (allocations || []).filter(
+          al => al.employeeCode === allocationData.assignedToId && al.status === "Assigned"
+        );
+        return (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+            <form onSubmit={handleAllocate} className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
+              <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center">
+                <h3 className="text-lg font-bold">Assign Asset: {allocateAsset?.brandName} {allocateAsset?.version}</h3>
+                <button type="button" onClick={() => setAllocationFormOpen(false)} className="text-white hover:text-slate-200">✕</button>
+              </div>
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Select Employee *</label>
+                  <select
+                    required
+                    value={allocationData.assignedToId}
+                    onChange={(e) => {
+                      const empId = e.target.value;
+                      const selectedEmp = employees.find(emp => (emp.employeeId || emp.employeeCode) === empId);
+                      const empDiv = selectedEmp ? (selectedEmp.division || selectedEmp.department || "") : "";
+                      setAllocationData(prev => ({
+                        ...prev,
+                        assignedToId: empId,
+                        division: empDiv
+                      }));
+                    }}
+                    className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Choose Employee --</option>
+                    {sortedEmployees.map(emp => (
+                      <option key={emp._id} value={emp.employeeId || emp.employeeCode}>
+                        {emp.employeeId || emp.employeeCode} - {emp.name || emp.employeename} ({emp.division || emp.department || "SDS"})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {allocationData.assignedToId && (() => {
+                  const selectedEmp = employees.find(emp => (emp.employeeId || emp.employeeCode) === allocationData.assignedToId);
+                  const empName = selectedEmp ? selectedEmp.name : "";
+                  return (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-sans mt-2 space-y-2.5 animate-fadeIn">
+                      <div className="font-bold text-slate-700">
+                        Employee: <span className="text-[#262760] font-black">{allocationData.assignedToId}</span> - {empName}
+                      </div>
+                      <div>
+                        <div className="font-bold text-slate-500 mb-1">Currently Assigned:</div>
+                        {selectedEmployeeAllocations.length === 0 ? (
+                          <div className="text-slate-400 font-medium italic pl-1">No assets assigned.</div>
+                        ) : (
+                          <div className="space-y-1 pl-1">
+                            {selectedEmployeeAllocations.map(al => (
+                              <div key={al._id} className="flex items-center gap-1.5 text-slate-700 font-semibold">
+                                <span className="text-green-600 font-bold">✓</span>
+                                <span>{al.category} - <span className="font-mono text-slate-500">{al.assetId}</span></span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="border-t pt-2 mt-1 font-bold text-slate-700">
+                        <span>New Allocation:</span>
+                        <div className="pl-4 mt-1 font-semibold text-slate-800">
+                          Asset: {allocateAsset?.category} - <span className="font-mono text-slate-500">{allocateAsset?.assetId}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Division *</label>
+                  <input
+                    type="text" required
+                    value={allocationData.division || ""}
+                    onChange={(e) => setAllocationData(prev => ({ ...prev, division: e.target.value }))}
+                    className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Enter Division (e.g. IT, HR, Sales)"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Allocation Date *</label>
+                  <input
+                    type="date" required
+                    value={allocationData.allocatedDate}
+                    onChange={(e) => setAllocationData(prev => ({ ...prev, allocatedDate: e.target.value }))}
+                    className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+              <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2">
+                <button type="button" onClick={() => setAllocationFormOpen(false)} className="px-4 py-2 border rounded-xl text-sm font-semibold hover:bg-slate-100">Cancel</button>
+                <button type="submit" className="px-4 py-2 bg-[#262760] text-white rounded-xl text-sm font-semibold hover:bg-[#1a1c43]">Allocate</button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
+
+      {/* VIEW ASSET DETAILS DIALOG */}
+      {viewAssetDetails && (() => {
+        const activeAlloc = allocations.find(al => al.assetId === viewAssetDetails.assetId && al.status === "Assigned");
+        return (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 animate-fadeIn">
+            <div className="bg-white rounded-2xl w-full max-w-xl shadow-2xl overflow-hidden border border-slate-200">
+              <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center font-sans">
+                <div>
+                  <h3 className="text-lg font-bold">View Asset Details</h3>
+                  <p className="text-xs text-slate-300 font-mono">ID: {viewAssetDetails.assetId}</p>
+                </div>
+                <button type="button" onClick={() => setViewAssetDetails(null)} className="text-white hover:text-slate-200 font-bold text-lg font-sans">✕</button>
+              </div>
+
+              <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto font-sans">
+                {/* General Details */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#262760] mb-3">General Information</h4>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div>
+                      <span className="block text-slate-400 font-medium">Category</span>
+                      <span className="font-bold text-slate-800">{viewAssetDetails.category || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-400 font-medium">Brand Name</span>
+                      <span className="font-bold text-slate-800">{viewAssetDetails.brandName || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-400 font-medium">Serial Number</span>
+                      <span className="font-semibold text-slate-700 font-mono">{viewAssetDetails.serialNumber || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-400 font-medium">BIO's Date</span>
+                      <span className="font-semibold text-slate-700">{viewAssetDetails.purchaseDate || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-400 font-medium">Condition</span>
+                      <span className="font-bold text-slate-800">{viewAssetDetails.condition || "—"}</span>
+                    </div>
+                    <div>
+                      <span className="block text-slate-400 font-medium">Location</span>
+                      <span className="font-semibold text-slate-700">{viewAssetDetails.location || "—"}</span>
+                    </div>
+                    <div className="col-span-2">
+                      <span className="block text-slate-400 font-medium">Status</span>
+                      <span className={`inline-block px-2.5 py-0.5 mt-0.5 rounded-full text-[10px] font-bold ${
+                        viewAssetDetails.status === "Assigned"
+                          ? "bg-green-100 text-green-800"
+                          : viewAssetDetails.status === "Available"
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-amber-100 text-amber-800"
+                      }`}>
+                        {viewAssetDetails.status}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Specs Details */}
+                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#262760] mb-3">Specification Details</h4>
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    {(fieldConfig.fields || []).filter(f => f.enabled).length === 0 ? (
+                      <div className="col-span-2 text-slate-400 italic">No specifications configured.</div>
+                    ) : (
+                      (fieldConfig.fields || []).filter(f => f.enabled).map(f => (
+                        <div key={f.key}>
+                          <span className="block text-slate-400 font-medium">{f.label}</span>
+                          <span className="font-bold text-slate-800">{viewAssetDetails[f.key] || "—"}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                {/* Active Allocation details */}
+                {viewAssetDetails.status === "Assigned" && activeAlloc && (
+                  <div className="bg-green-50/50 p-4 rounded-xl border border-green-200 animate-fadeIn">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-green-800 mb-3 flex items-center gap-1">
+                      <span className="text-green-600 font-black">✓</span> Active Allocation
+                    </h4>
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div>
+                        <span className="block text-green-600/70 font-medium">Assigned To</span>
+                        <span className="font-black text-slate-800">{activeAlloc.employeeName}</span>
+                      </div>
+                      <div>
+                        <span className="block text-green-600/70 font-medium">Employee Code</span>
+                        <span className="font-bold text-slate-800 font-mono">{activeAlloc.employeeCode}</span>
+                      </div>
+                      <div>
+                        <span className="block text-green-600/70 font-medium">Division</span>
+                        <span className="font-semibold text-slate-700">{activeAlloc.division || "—"}</span>
+                      </div>
+                      <div>
+                        <span className="block text-green-600/70 font-medium">Allocation Date</span>
+                        <span className="font-semibold text-slate-700">{activeAlloc.allocatedDate}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="px-6 py-4 bg-slate-50 border-t flex justify-end font-sans">
+                <button
+                  type="button"
+                  onClick={() => setViewAssetDetails(null)}
+                  className="px-4 py-2 bg-[#262760] text-white rounded-xl text-sm font-semibold hover:bg-[#1c1d47]"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* CREATE ASSET REQUEST MODAL (POPUP) */}
       {requestFormOpen && (
@@ -2446,7 +2868,7 @@ export default function AssetManagement() {
                     onChange={(e) => setNewRequest(prev => ({ ...prev, assetCategory: e.target.value }))}
                     className="w-full border rounded-xl px-3 py-2 text-xs bg-white outline-none focus:ring-2 focus:ring-[#262760]"
                   >
-                    {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                    {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
                   </select>
                 </div>
 

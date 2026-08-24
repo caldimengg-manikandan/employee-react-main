@@ -21,6 +21,9 @@ const AssetAllocationSchema = new mongoose.Schema({
   version: {
     type: String
   },
+  division: {
+    type: String
+  },
   employeeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Employee",

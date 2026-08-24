@@ -9,17 +9,15 @@ const AssetSchema = new mongoose.Schema({
   },
   category: {
     type: String,
-    required: [true, "Category is required"],
     trim: true
   },
   brandName: {
     type: String,
-    required: [true, "Brand Name is required"],
     trim: true
   },
   division: {
     type: String,
-    required: [true, "Division is required"],
+    required: false,
     trim: true
   },
   processor: {
@@ -28,7 +26,6 @@ const AssetSchema = new mongoose.Schema({
   },
   version: {
     type: String,
-    required: [true, "Version / Model is required"],
     trim: true
   },
   ram: {
@@ -63,16 +60,13 @@ const AssetSchema = new mongoose.Schema({
     trim: true
   },
   purchaseDate: {
-    type: String,
-    required: [true, "Purchase Date is required"]
+    type: String
   },
   condition: {
-    type: String,
-    required: [true, "Condition is required"]
+    type: String
   },
   location: {
-    type: String,
-    required: [true, "Location is required"]
+    type: String
   },
   status: {
     type: String,
@@ -80,7 +74,7 @@ const AssetSchema = new mongoose.Schema({
     enum: ["Available", "Assigned", "Under Maintenance", "Damaged", "Scrapped"],
     default: "Available"
   }
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 const Asset = mongoose.model("Asset", AssetSchema);
 

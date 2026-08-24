@@ -552,6 +552,13 @@ export const assetAPI = {
   update: (id, data) => api.put(`/assets/${id}`, data),
   delete: (id) => api.delete(`/assets/${id}`),
 
+  getCategories: () => api.get('/assets/categories'),
+  createCategory: (data) => api.post('/assets/categories', data),
+  deleteCategory: (id) => api.delete(`/assets/categories/${id}`),
+
+  getFieldConfig: () => api.get('/assets/field-config'),
+  updateFieldConfig: (data) => api.put('/assets/field-config', data),
+
   getAllAllocations: () => api.get('/assets/allocations'),
   allocate: (data) => api.post('/assets/allocations', data),
   returnAsset: (id, data) => api.put(`/assets/allocations/${id}/return`, data),
