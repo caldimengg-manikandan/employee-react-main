@@ -71,9 +71,23 @@ const AssetSchema = new mongoose.Schema({
   status: {
     type: String,
     required: true,
-    enum: ["Available", "Assigned", "Under Maintenance", "Damaged", "Scrapped"],
+    enum: ["Available", "Assigned", "Under Maintenance", "Damaged", "Scrapped", "Retired"],
     default: "Available"
-  }
+  },
+  isComponent: {
+    type: Boolean,
+    default: false
+  },
+  parentAsset: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Asset"
+  },
+  components: [
+    {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Asset"
+    }
+  ]
 }, { timestamps: true, strict: false });
 
 const Asset = mongoose.model("Asset", AssetSchema);

@@ -13,11 +13,11 @@ const getAPI_BASE_URL = () => {
   }
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '127.0.0.1';
   const protocol = typeof window !== 'undefined' ? window.location.protocol : 'http:';
-  const isLocal = hostname === 'localhost' || 
-                  hostname === '127.0.0.1' || 
-                  /^192\.168\./.test(hostname) || 
-                  /^10\./.test(hostname) || 
-                  /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
+  const isLocal = hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    /^192\.168\./.test(hostname) ||
+    /^10\./.test(hostname) ||
+    /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(hostname);
   if (isLocal) {
     return `${protocol}//${hostname}:5003/api`;
   }
@@ -277,20 +277,20 @@ export const performanceAPI = {
   createSelfAppraisal: (data) => api.post('/performance/self-appraisals', data),
   updateSelfAppraisal: (id, data) => api.put(`/performance/self-appraisals/${id}`, data),
   deleteSelfAppraisal: (id) => api.delete(`/performance/self-appraisals/${id}`),
-  
+
   // For Team Appraisal (Manager View)
   getTeamAppraisals: () => api.get('/performance/team-appraisals'),
   updateTeamAppraisal: (id, data) => api.put(`/performance/team-appraisals/${id}`, data),
   saveManagerReview: (id, data) => api.put(`/performance/team-appraisals/${id}/review`, data),
   submitToReviewer: (id) => api.post(`/performance/team-appraisals/${id}/approve`),
   sendBackToEmployee: (id, data) => api.post(`/performance/team-appraisals/${id}/send-back`, data),
-  
+
   // Reviewer View (Legacy/Specific)
   getReviewerAppraisals: (params) => api.get('/performance/reviewer', { params }),
   updateReviewerAppraisal: (id, data) => api.put(`/performance/reviewer/${id}`, data),
   openReviewerAppraisal: (id) => api.post(`/performance/reviewer/${id}/open`),
   reviewerSubmitToDirector: (ids) => api.post('/performance/reviewer/submit-director', { ids }), // Reviewer's batch submit
-  
+
   getDirectorAppraisals: (params) => api.get('/performance/director', { params }),
   updateDirectorAppraisal: (id, data) => api.put(`/performance/director/${id}`, data),
   openDirectorAppraisal: (id) => api.post(`/performance/director/${id}/open`),

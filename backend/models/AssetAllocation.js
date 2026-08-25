@@ -24,6 +24,15 @@ const AssetAllocationSchema = new mongoose.Schema({
   division: {
     type: String
   },
+  components: [
+    {
+      asset: { type: mongoose.Schema.Types.ObjectId, ref: "Asset" },
+      assetId: String,
+      category: String,
+      serialNumber: String,
+      condition: String
+    }
+  ],
   employeeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Employee",

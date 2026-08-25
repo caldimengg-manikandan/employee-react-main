@@ -22,13 +22,11 @@ const AssetFieldConfig = require("../models/AssetFieldConfig");
 // Auto-seed default asset categories & field config
 async function seedDefaultCategoriesAndConfig() {
   try {
-    const countCats = await AssetCategory.countDocuments({});
-    if (countCats === 0) {
-      const defaultCats = ["Laptop", "Desktop 1", "Desktop 2", "Monitor", "Keyboard", "Mouse", "Headset", "Charger"];
-      await AssetCategory.insertMany(defaultCats.map(name => ({ name })));
-      console.log("Default asset categories seeded successfully.");
-    }
-    
+    await AssetCategory.deleteMany({});
+    const defaultCats = ["Laptop", "Desktop / CPU", "Adapter", "Charger", "Mouse", "Keyboard", "Headset", "Monitor"];
+    await AssetCategory.insertMany(defaultCats.map(name => ({ name })));
+    console.log("Default asset categories seeded successfully.");
+
     const countConfig = await AssetFieldConfig.countDocuments({});
     const defaultFields = [
       { key: "processor", label: "Processor", enabled: true, type: "text" },
@@ -44,6 +42,7 @@ async function seedDefaultCategoriesAndConfig() {
       { key: "simCardNo", label: "SIM Card Number", enabled: true, type: "text" },
       { key: "ipMacAddress", label: "IP / MAC Address", enabled: true, type: "text" },
       { key: "chargerPower", label: "Charger / Power Adapter", enabled: true, type: "text" },
+      { key: "resolution", label: "Monitor Resolution", enabled: true, type: "text" },
       { key: "version", label: "Model Number / Version", enabled: true, type: "text" }
     ];
 
@@ -96,13 +95,13 @@ router.post("/categories", auth, async (req, res) => {
       return res.status(400).json({ error: "Category name is required" });
     }
     const trimmedName = name.trim();
-    
+
     // Check if category already exists
     const existing = await AssetCategory.findOne({ name: { $regex: new RegExp(`^${trimmedName}$`, "i") } });
     if (existing) {
       return res.status(400).json({ error: "Category already exists" });
     }
-    
+
     const category = new AssetCategory({ name: trimmedName });
     await category.save();
     res.status(201).json(category);
@@ -339,18 +338,23 @@ async function sendAssetRequestEmail(assetReq, reqUser, host) {
 // Get all assets
 router.get("/", auth, async (req, res) => {
   try {
-    const assets = await Asset.find({}).sort({ createdAt: -1 }).lean();
+    const assets = await Asset.find({ isComponent: { $ne: true } })
+      .populate("components")
+      .sort({ createdAt: -1 })
+      .lean();
     res.json(assets);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
+
 // Create new asset
 router.post("/", auth, async (req, res) => {
   try {
     const {
       assetId, category, brandName, division, version,
-      serialNumber, purchaseDate, condition, location, status
+      serialNumber, purchaseDate, condition, location, status,
+      components
     } = req.body;
 
     // Common mandatory fields validation
@@ -358,10 +362,53 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ error: "Asset ID is required" });
     }
 
-    // Check duplicate Asset ID
+    // Check duplicate Asset ID for parent
     const existingAsset = await Asset.findOne({ assetId: assetId.trim().toUpperCase() });
     if (existingAsset) {
       return res.status(400).json({ error: "This Asset ID already exists." });
+    }
+
+    // Check duplicates and validate for components if provided
+    const componentDocs = [];
+    if (components && Array.isArray(components) && components.length > 0) {
+      for (const comp of components) {
+        if (!comp.assetId || !comp.assetId.trim()) {
+          return res.status(400).json({ error: "Component Asset ID is required" });
+        }
+        const compIdClean = comp.assetId.trim().toUpperCase();
+        // Check database duplicate
+        const existingComp = await Asset.findOne({ assetId: compIdClean });
+        if (existingComp) {
+          return res.status(400).json({ error: `Component Asset ID "${compIdClean}" already exists.` });
+        }
+        // Check duplicate within the input payload
+        if (compIdClean === assetId.trim().toUpperCase() || componentDocs.some(d => d.assetId === compIdClean)) {
+          return res.status(400).json({ error: `Duplicate Asset ID "${compIdClean}" in payload.` });
+        }
+
+        const compPayload = {
+          assetId: compIdClean,
+          category: comp.category || "",
+          brandName: brandName ? brandName.trim() : "",
+          division: division || "",
+          version: version ? version.trim() : "",
+          serialNumber: comp.serialNumber ? comp.serialNumber.trim() : "",
+          purchaseDate: purchaseDate || "",
+          condition: comp.condition || condition || "New",
+          location: location || "",
+          status: status || "Available",
+          isComponent: true
+        };
+        componentDocs.push(compPayload);
+      }
+    }
+
+    // Save components first
+    const savedComponentIds = [];
+    for (const compDoc of componentDocs) {
+      const cAsset = new Asset(compDoc);
+      await cAsset.save();
+      savedComponentIds.push(cAsset._id);
     }
 
     const payload = {
@@ -374,7 +421,9 @@ router.post("/", auth, async (req, res) => {
       purchaseDate: purchaseDate || "",
       condition: condition || "",
       location: location || "",
-      status: status || "Available"
+      status: status || "Available",
+      isComponent: false,
+      components: savedComponentIds
     };
 
     // Load active field config keys
@@ -390,7 +439,10 @@ router.post("/", auth, async (req, res) => {
 
     const asset = new Asset(payload);
     await asset.save();
-    res.status(201).json(asset);
+
+    // Populate and return
+    const populatedAsset = await Asset.findById(asset._id).populate("components").lean();
+    res.status(201).json(populatedAsset);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -401,7 +453,8 @@ router.put("/:id", auth, async (req, res) => {
   try {
     const {
       assetId, category, brandName, division, version,
-      serialNumber, purchaseDate, condition, location, status
+      serialNumber, purchaseDate, condition, location, status,
+      components
     } = req.body;
 
     if (!assetId) {
@@ -421,6 +474,84 @@ router.put("/:id", auth, async (req, res) => {
       }
     }
 
+    // Process components update
+    const finalComponentIds = [];
+    const incomingComponentIds = [];
+
+    if (components && Array.isArray(components)) {
+      for (const comp of components) {
+        if (!comp.assetId || !comp.assetId.trim()) {
+          return res.status(400).json({ error: "Component Asset ID is required" });
+        }
+        const compIdClean = comp.assetId.trim().toUpperCase();
+
+        if (comp._id) {
+          // Existing component
+          const existingComp = await Asset.findById(comp._id);
+          if (!existingComp) {
+            return res.status(404).json({ error: `Component with ID ${comp._id} not found` });
+          }
+
+          // Check duplicate assetId if changed
+          if (compIdClean !== existingComp.assetId) {
+            const dupCheck = await Asset.findOne({ assetId: compIdClean });
+            if (dupCheck) {
+              return res.status(400).json({ error: `Component Asset ID "${compIdClean}" already exists.` });
+            }
+          }
+
+          existingComp.assetId = compIdClean;
+          existingComp.category = comp.category || "";
+          existingComp.brandName = brandName ? brandName.trim() : "";
+          existingComp.division = division || "";
+          existingComp.version = version ? version.trim() : "";
+          existingComp.serialNumber = comp.serialNumber ? comp.serialNumber.trim() : "";
+          existingComp.purchaseDate = purchaseDate || "";
+          existingComp.condition = comp.condition || condition || "New";
+          existingComp.location = location || "";
+          if (status) existingComp.status = status;
+
+          await existingComp.save();
+          finalComponentIds.push(existingComp._id);
+          incomingComponentIds.push(existingComp._id.toString());
+        } else {
+          // New component
+          const dupCheck = await Asset.findOne({ assetId: compIdClean });
+          if (dupCheck) {
+            return res.status(400).json({ error: `Component Asset ID "${compIdClean}" already exists.` });
+          }
+
+          const newComp = new Asset({
+            assetId: compIdClean,
+            category: comp.category || "",
+            brandName: brandName ? brandName.trim() : "",
+            division: division || "",
+            version: version ? version.trim() : "",
+            serialNumber: comp.serialNumber ? comp.serialNumber.trim() : "",
+            purchaseDate: purchaseDate || "",
+            condition: comp.condition || condition || "New",
+            location: location || "",
+            status: status || "Available",
+            isComponent: true,
+            parentAsset: asset._id
+          });
+
+          await newComp.save();
+          finalComponentIds.push(newComp._id);
+          incomingComponentIds.push(newComp._id.toString());
+        }
+      }
+    }
+
+    // Delete orphaned components
+    const oldComponentIds = asset.components || [];
+    for (const oldId of oldComponentIds) {
+      if (!incomingComponentIds.includes(oldId.toString())) {
+        await Asset.findByIdAndDelete(oldId);
+      }
+    }
+
+    // Update parent asset properties
     asset.assetId = assetId.trim().toUpperCase();
     asset.category = category || "";
     asset.brandName = brandName ? brandName.trim() : "";
@@ -431,6 +562,7 @@ router.put("/:id", auth, async (req, res) => {
     asset.condition = condition;
     asset.location = location;
     if (status) asset.status = status;
+    asset.components = finalComponentIds;
 
     // Load active field config keys
     const config = await AssetFieldConfig.findOne({});
@@ -450,7 +582,8 @@ router.put("/:id", auth, async (req, res) => {
     });
 
     await asset.save();
-    res.json(asset);
+    const populatedAsset = await Asset.findById(asset._id).populate("components").lean();
+    res.json(populatedAsset);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -493,13 +626,13 @@ router.get("/allocations", auth, async (req, res) => {
 // Allocate an asset
 router.post("/allocations", auth, async (req, res) => {
   try {
-    const { assetId, assignedToId, allocatedDate, division } = req.body;
+    const { assetId, assignedToId, allocatedDate, division, componentIds } = req.body;
 
     if (!assetId || !assignedToId || !allocatedDate) {
       return res.status(400).json({ error: "Asset, Employee, and Allocation Date are required" });
     }
 
-    // Find asset
+    // Find parent asset
     const asset = await Asset.findById(assetId);
     if (!asset) {
       return res.status(404).json({ error: "Asset not found" });
@@ -509,20 +642,35 @@ router.post("/allocations", auth, async (req, res) => {
       return res.status(400).json({ error: "Asset is already assigned" });
     }
 
+    // Validate and fetch selected components from DB
+    const componentsList = [];
+    if (componentIds && Array.isArray(componentIds) && componentIds.length > 0) {
+      for (const compId of componentIds) {
+        const comp = await Asset.findById(compId);
+        if (!comp) {
+          return res.status(404).json({ error: `Component with ID ${compId} not found` });
+        }
+        if (comp.status === "Assigned") {
+          return res.status(400).json({ error: `Component ${comp.assetId} (${comp.category}) is already assigned.` });
+        }
+        componentsList.push(comp);
+      }
+    }
+
     // Find employee
     const employee = await Employee.findOne({ employeeId: assignedToId });
     if (!employee) {
       return res.status(404).json({ error: "Employee not found" });
     }
 
-    // Check if this physical asset is already assigned
-    const activeAlloc = await AssetAllocation.findOne({
-      assetId: asset.assetId,
-      status: "Assigned"
-    });
-    if (activeAlloc) {
-      return res.status(400).json({ error: `Asset ${asset.assetId} is already assigned to ${activeAlloc.employeeName} (${activeAlloc.employeeCode}).` });
-    }
+    // Map components data to save in allocation
+    const allocationComponents = componentsList.map(c => ({
+      asset: c._id,
+      assetId: c.assetId,
+      category: c.category,
+      serialNumber: c.serialNumber,
+      condition: c.condition
+    }));
 
     const allocation = new AssetAllocation({
       asset: asset._id,
@@ -535,15 +683,24 @@ router.post("/allocations", auth, async (req, res) => {
       employeeCode: employee.employeeId,
       employeeName: employee.name,
       allocatedDate,
-      conditionOnAllocation: asset.condition,
-      status: "Assigned"
+      conditionOnAllocation: asset.condition || "New",
+      status: "Assigned",
+      components: allocationComponents
     });
 
     await allocation.save();
 
-    // Update asset status
+    // Link components array in the parent Asset document for consistency
+    asset.components = componentsList.map(c => c._id);
     asset.status = "Assigned";
     await asset.save();
+
+    // Update components status and link to parent
+    for (const comp of componentsList) {
+      comp.status = "Assigned";
+      comp.parentAsset = asset._id;
+      await comp.save();
+    }
 
     res.status(201).json(allocation);
   } catch (err) {
@@ -572,6 +729,23 @@ router.put("/allocations/:id/return", auth, async (req, res) => {
         asset.condition = conditionOnReturn;
       }
       await asset.save();
+    }
+
+    // Deallocate all components based on the allocation record
+    if (allocation.components && allocation.components.length > 0) {
+      for (const compItem of allocation.components) {
+        if (compItem.asset) {
+          const comp = await Asset.findById(compItem.asset);
+          if (comp) {
+            comp.status = "Available";
+            comp.parentAsset = null;
+            if (conditionOnReturn) {
+              comp.condition = conditionOnReturn;
+            }
+            await comp.save();
+          }
+        }
+      }
     }
 
     allocation.status = "Returned";
@@ -814,7 +988,7 @@ router.put("/requests/:id/reject", auth, async (req, res) => {
 // Allocate Asset for Request (IT Admin) -> Updates status to "Asset Allocated" then "Completed"
 router.put("/requests/:id/allocate", auth, async (req, res) => {
   try {
-    const { assetId, allocatedDate } = req.body;
+    const { assetId, allocatedDate, componentIds } = req.body;
     if (!assetId) {
       return res.status(400).json({ error: "Please select an available asset to allocate." });
     }
@@ -829,8 +1003,35 @@ router.put("/requests/:id/allocate", auth, async (req, res) => {
       return res.status(404).json({ error: "Selected asset not found in Asset Master" });
     }
 
+    if (asset.status === "Assigned") {
+      return res.status(400).json({ error: "Asset is already assigned" });
+    }
+
+    // Validate and fetch selected components from DB
+    const componentsList = [];
+    if (componentIds && Array.isArray(componentIds) && componentIds.length > 0) {
+      for (const compId of componentIds) {
+        const comp = await Asset.findById(compId);
+        if (!comp) {
+          return res.status(404).json({ error: `Component with ID ${compId} not found` });
+        }
+        if (comp.status === "Assigned") {
+          return res.status(400).json({ error: `Component ${comp.assetId} (${comp.category}) is already assigned.` });
+        }
+        componentsList.push(comp);
+      }
+    }
+
     // 1. Create Asset Allocation Record
     const dateStr = allocatedDate || new Date().toISOString().split("T")[0];
+    const allocationComponents = componentsList.map(c => ({
+      asset: c._id,
+      assetId: c.assetId,
+      category: c.category,
+      serialNumber: c.serialNumber,
+      condition: c.condition
+    }));
+
     const allocation = new AssetAllocation({
       asset: asset._id,
       assetId: asset.assetId,
@@ -843,13 +1044,22 @@ router.put("/requests/:id/allocate", auth, async (req, res) => {
       employeeName: request.employeeName,
       employeeCode: request.employeeCode,
       allocatedDate: dateStr,
-      status: "Assigned"
+      status: "Assigned",
+      components: allocationComponents
     });
     await allocation.save();
 
-    // 2. Update Asset Status in Master to "Assigned"
+    // 2. Update Asset Status in Master to "Assigned" and link components
+    asset.components = componentsList.map(c => c._id);
     asset.status = "Assigned";
     await asset.save();
+
+    // Update components status and link to parent
+    for (const comp of componentsList) {
+      comp.status = "Assigned";
+      comp.parentAsset = asset._id;
+      await comp.save();
+    }
 
     // 3. Update Asset Request Status -> "Asset Allocated" -> "Completed"
     request.status = "Completed";

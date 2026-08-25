@@ -29,6 +29,65 @@ import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
+const ASSET_CATEGORIES_CONFIG = {
+  "Laptop": [
+    { label: "Adapter", key: "adapter" },
+    { label: "Charger", key: "charger" },
+    { label: "Mouse (Wired / Non-Wired)", key: "mouse" },
+    { label: "Headset", key: "headset" }
+  ],
+  "Desktop / CPU": [
+    { label: "Keyboard", key: "keyboard" },
+    { label: "Mouse", key: "mouse" },
+    { label: "Single Monitor", key: "singleMonitor" },
+    { label: "Double Monitor", key: "doubleMonitor" },
+    { label: "Headset", key: "headset" }
+  ]
+};
+
+const CATEGORY_FIELDS = {
+  "Laptop": [
+    { key: "processor", label: "Processor", type: "text" },
+    { key: "ram", label: "RAM", type: "text" },
+    { key: "hardDisk", label: "Hard Disk / SSD", type: "text" },
+    { key: "screenSize", label: "Screen Size", type: "text" },
+    { key: "operatingSystem", label: "Operating System", type: "text" },
+    { key: "gpu", label: "GPU / Graphics Card", type: "text" },
+    { key: "version", label: "Model Number / Version", type: "text" }
+  ],
+  "Desktop / CPU": [
+    { key: "processor", label: "Processor", type: "text" },
+    { key: "ram", label: "RAM", type: "text" },
+    { key: "hardDisk", label: "Hard Disk / SSD", type: "text" },
+    { key: "operatingSystem", label: "Operating System", type: "text" },
+    { key: "gpu", label: "GPU / Graphics Card", type: "text" },
+    { key: "version", label: "Model Number / Version", type: "text" }
+  ],
+  "Adapter": [
+    { key: "chargerPower", label: "Charger Power (Watts)", type: "text" },
+    { key: "version", label: "Model Number / Version", type: "text" }
+  ],
+  "Charger": [
+    { key: "chargerPower", label: "Charger Power (Watts)", type: "text" },
+    { key: "version", label: "Model Number / Version", type: "text" }
+  ],
+  "Mouse": [
+    { key: "mouseType", label: "Mouse Type", type: "select", options: ["Wired", "Non-Wired"] }
+  ],
+  "Keyboard": [
+    { key: "keyboardType", label: "Keyboard Type", type: "select", options: ["Wired", "Non-Wired"] }
+  ],
+  "Headset": [
+    { key: "headsetType", label: "Headset Type", type: "text" },
+    { key: "version", label: "Model Number / Version", type: "text" }
+  ],
+  "Monitor": [
+    { key: "screenSize", label: "Screen Size", type: "text" },
+    { key: "resolution", label: "Resolution / Refresh Rate", type: "text" },
+    { key: "version", label: "Model Number / Version", type: "text" }
+  ]
+};
+
 export default function AssetManagement() {
   const isRealAdmin = useMemo(() => {
     const loggedUser = JSON.parse(sessionStorage.getItem("user") || "{}");
@@ -59,7 +118,7 @@ export default function AssetManagement() {
     return JSON.parse(sessionStorage.getItem("user") || "{}");
   }, []);
 
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(currentRole === "Admin/HR" ? "master" : "requests");
 
   // Core Data States
   const [assets, setAssets] = useState([]);
@@ -211,6 +270,16 @@ export default function AssetManagement() {
   // Allocation Modal state
   const [allocationFormOpen, setAllocationFormOpen] = useState(false);
   const [allocateAsset, setAllocateAsset] = useState(null);
+  const [allocCategorySelected, setAllocCategorySelected] = useState("");
+  const [allocAssetSetSelectedId, setAllocAssetSetSelectedId] = useState("");
+  const [selectedComponents, setSelectedComponents] = useState({
+    adapterChargerType: "",
+    adapterCharger: "",
+    mouse: "",
+    keyboard: "",
+    headset: "",
+    monitor: ""
+  });
   const [allocationData, setAllocationData] = useState({
     assignedToId: "",
     allocatedDate: new Date().toISOString().split("T")[0],
@@ -223,6 +292,15 @@ export default function AssetManagement() {
   const [allocCategory, setAllocCategory] = useState("All");
   const [allocDivision, setAllocDivision] = useState("All");
   const [viewAssetDetails, setViewAssetDetails] = useState(null);
+  const [setComponents, setSetComponents] = useState({
+    adapter: { checked: false, assetId: "", serialNumber: "" },
+    charger: { checked: false, assetId: "", serialNumber: "" },
+    mouse: { checked: false, assetId: "", serialNumber: "" },
+    headset: { checked: false, assetId: "", serialNumber: "" },
+    keyboard: { checked: false, assetId: "", serialNumber: "" },
+    singleMonitor: { checked: false, assetId: "", serialNumber: "" },
+    doubleMonitor: { checked: false, assetId: "", serialNumber: "" }
+  });
   // Asset Request Modals & Form state
   const [requestFormOpen, setRequestFormOpen] = useState(false);
   const [newRequest, setNewRequest] = useState({
@@ -346,7 +424,7 @@ export default function AssetManagement() {
     e.preventDefault();
     if (!newFieldName.trim()) return;
     const labelName = newFieldName.trim();
-    
+
     // Generate camelCase key
     const keyName = labelName
       .replace(/[^a-zA-Z0-9 ]/g, "")
@@ -683,7 +761,7 @@ export default function AssetManagement() {
       const modelStr = asset.version || "";
       const seatStr = asset.seatNo || "";
       const divStr = asset.division || "";
-      
+
       const matchSearch =
         idStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
         catStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -692,7 +770,7 @@ export default function AssetManagement() {
         modelStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
         seatStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
         divStr.toLowerCase().includes(searchQuery.toLowerCase());
-        
+
       const matchCat = categoryFilter === "All" || asset.category === categoryFilter;
       return matchSearch && matchCat;
     });
@@ -763,6 +841,35 @@ export default function AssetManagement() {
   const handleSaveAsset = async (e) => {
     e.preventDefault();
     try {
+      // Build subcomponents payload
+      const compsToSend = Object.keys(setComponents)
+        .filter(k => setComponents[k].checked)
+        .map(k => {
+          let categoryLabel = "";
+          if (k === "adapter") categoryLabel = "Adapter";
+          else if (k === "charger") categoryLabel = "Charger";
+          else if (k === "mouse") categoryLabel = newAsset.category === "Laptop" ? "Mouse (Wired / Non-Wired)" : "Mouse";
+          else if (k === "headset") categoryLabel = "Headset";
+          else if (k === "keyboard") categoryLabel = "Keyboard";
+          else if (k === "singleMonitor") categoryLabel = "Single Monitor";
+          else if (k === "doubleMonitor") categoryLabel = "Double Monitor";
+
+          return {
+            _id: setComponents[k]._id,
+            category: categoryLabel,
+            assetId: (setComponents[k].assetId || "").trim(),
+            serialNumber: (setComponents[k].serialNumber || "").trim()
+          };
+        });
+
+      // Validate subcomponents have assetIds if checked
+      for (const comp of compsToSend) {
+        if (!comp.assetId) {
+          alert(`Asset ID is required for component "${comp.category}".`);
+          return;
+        }
+      }
+
       // Build payload containing common fields
       const payload = {
         category: newAsset.category,
@@ -772,7 +879,8 @@ export default function AssetManagement() {
         purchaseDate: newAsset.purchaseDate,
         condition: newAsset.condition,
         location: newAsset.location,
-        status: newAsset.status || "Available"
+        status: newAsset.status || "Available",
+        components: compsToSend
       };
 
       // Dynamically copy enabled fields from newAsset
@@ -795,7 +903,7 @@ export default function AssetManagement() {
           return;
         }
 
-        // Check for duplicate Asset ID
+        // Check for duplicate Asset ID (only for main parent assets in list)
         const exists = assets.some(a => (a.assetId || "").toUpperCase() === inputAssetId.toUpperCase());
         if (exists) {
           alert("This Asset ID already exists.");
@@ -809,10 +917,21 @@ export default function AssetManagement() {
       setAssetFormOpen(false);
       setSelectedAsset(null);
 
+      // Reset components state
+      setSetComponents({
+        adapter: { checked: false, assetId: "", serialNumber: "" },
+        charger: { checked: false, assetId: "", serialNumber: "" },
+        mouse: { checked: false, assetId: "", serialNumber: "" },
+        headset: { checked: false, assetId: "", serialNumber: "" },
+        keyboard: { checked: false, assetId: "", serialNumber: "" },
+        singleMonitor: { checked: false, assetId: "", serialNumber: "" },
+        doubleMonitor: { checked: false, assetId: "", serialNumber: "" }
+      });
+
       // Dynamically reset all fields
       const baseAssetDefaults = {
         assetId: "",
-        category: categories[0]?.name || "Laptop",
+        category: "Laptop",
         brandName: "",
         version: "",
         serialNumber: "",
@@ -850,6 +969,41 @@ export default function AssetManagement() {
       baseEditFields[f.key] = asset[f.key] || "";
     });
     setNewAsset(baseEditFields);
+
+    // Populate components state
+    const initialComps = {
+      adapter: { checked: false, assetId: "", serialNumber: "" },
+      charger: { checked: false, assetId: "", serialNumber: "" },
+      mouse: { checked: false, assetId: "", serialNumber: "" },
+      headset: { checked: false, assetId: "", serialNumber: "" },
+      keyboard: { checked: false, assetId: "", serialNumber: "" },
+      singleMonitor: { checked: false, assetId: "", serialNumber: "" },
+      doubleMonitor: { checked: false, assetId: "", serialNumber: "" }
+    };
+    if (asset.components && Array.isArray(asset.components)) {
+      asset.components.forEach(comp => {
+        let key = "";
+        const catLower = (comp.category || "").toLowerCase();
+        if (catLower.includes("adapter")) key = "adapter";
+        else if (catLower.includes("charger")) key = "charger";
+        else if (catLower.includes("keyboard")) key = "keyboard";
+        else if (catLower.includes("single monitor")) key = "singleMonitor";
+        else if (catLower.includes("double monitor")) key = "doubleMonitor";
+        else if (catLower.includes("headset")) key = "headset";
+        else if (catLower.includes("mouse")) key = "mouse";
+
+        if (key) {
+          initialComps[key] = {
+            _id: comp._id,
+            checked: true,
+            assetId: comp.assetId || "",
+            serialNumber: comp.serialNumber || ""
+          };
+        }
+      });
+    }
+    setSetComponents(initialComps);
+
     setAssetFormOpen(true);
   };
 
@@ -868,16 +1022,34 @@ export default function AssetManagement() {
 
   const handleAllocate = async (e) => {
     e.preventDefault();
+    if (!allocAssetSetSelectedId) {
+      alert("Please select an Asset Set to allocate.");
+      return;
+    }
     try {
+      // Exclude adapterChargerType (plain string, not an ObjectId)
+      const { adapterChargerType: _acType1, ...componentIdsOnly1 } = selectedComponents;
+      const compIds = Object.values(componentIdsOnly1).filter(id => id !== "");
       await assetAPI.allocate({
-        assetId: allocateAsset._id,
+        assetId: allocAssetSetSelectedId,
         assignedToId: allocationData.assignedToId,
         allocatedDate: allocationData.allocatedDate,
-        division: allocationData.division
+        division: allocationData.division,
+        componentIds: compIds
       });
       alert("Asset allocated successfully!");
       setAllocationFormOpen(false);
       setAllocateAsset(null);
+      setAllocAssetSetSelectedId("");
+      setAllocCategorySelected("");
+      setSelectedComponents({
+        adapterChargerType: "",
+        adapterCharger: "",
+        mouse: "",
+        keyboard: "",
+        headset: "",
+        monitor: ""
+      });
       setAllocationData({
         assignedToId: "",
         allocatedDate: new Date().toISOString().split("T")[0],
@@ -904,6 +1076,26 @@ export default function AssetManagement() {
         console.error("Error returning asset:", err);
         alert(err.response?.data?.error || "Error returning asset.");
       }
+    }
+  };
+
+  const handleViewAssetFromAllocation = (al) => {
+    const found = assets.find(ast => ast.assetId === al.assetId);
+    if (found) {
+      setViewAssetDetails(found);
+    } else {
+      setViewAssetDetails({
+        assetId: al.assetId,
+        category: al.category,
+        brandName: al.brandName || "Unknown",
+        version: al.version || "",
+        serialNumber: al.serialNumber || (al.components?.[0]?.serialNumber) || "—",
+        purchaseDate: al.allocatedDate || "—",
+        condition: al.conditionOnAllocation || "Good",
+        location: al.division || "Chennai Office",
+        status: al.status,
+        components: al.components || []
+      });
     }
   };
 
@@ -995,12 +1187,23 @@ export default function AssetManagement() {
       return;
     }
     try {
+      // Exclude adapterChargerType (plain string, not an ObjectId)
+      const { adapterChargerType: _acType2, ...componentIdsOnly2 } = selectedComponents;
+      const compIds = Object.values(componentIdsOnly2).filter(id => id !== "");
       await assetAPI.allocateAssetForRequest(allocateModal.request._id, {
         assetId: allocateModal.selectedAssetId,
-        allocatedDate: allocateModal.allocatedDate
+        allocatedDate: allocateModal.allocatedDate,
+        componentIds: compIds
       });
       alert(`Asset allocated successfully! Request updated to Completed.`);
       setAllocateModal(null);
+      setSelectedComponents({
+        adapterCharger: "",
+        mouse: "",
+        keyboard: "",
+        headset: "",
+        monitor: ""
+      });
       loadAssets();
       loadAllocations();
       loadRequests();
@@ -1100,27 +1303,16 @@ export default function AssetManagement() {
     <div className="p-6 relative z-10 min-h-screen text-slate-800 font-sans">
       {/* Tabs navigation */}
       <div className="flex gap-2 mb-6 border-b border-slate-200 overflow-x-auto pb-1 scrollbar-thin">
-        <button
-          onClick={() => setActiveTab("dashboard")}
-          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${
-            activeTab === "dashboard"
-              ? "border-[#f37021] text-[#262760]"
-              : "border-transparent text-slate-500 hover:text-slate-800"
-          }`}
-        >
-          <Layers className="h-4 w-4" />
-          Dashboard
-        </button>
+
 
         {currentRole !== "Employee" && (
           <>
             <button
               onClick={() => setActiveTab("master")}
-              className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${
-                activeTab === "master"
-                  ? "border-[#f37021] text-[#262760]"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
+              className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "master"
+                ? "border-[#f37021] text-[#262760]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
             >
               <Briefcase className="h-4 w-4" />
               Asset Master
@@ -1128,11 +1320,10 @@ export default function AssetManagement() {
 
             <button
               onClick={() => setActiveTab("allocation")}
-              className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${
-                activeTab === "allocation"
-                  ? "border-[#f37021] text-[#262760]"
-                  : "border-transparent text-slate-500 hover:text-slate-800"
-              }`}
+              className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "allocation"
+                ? "border-[#f37021] text-[#262760]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
             >
               <UserCheck className="h-4 w-4" />
               Allocations
@@ -1142,11 +1333,10 @@ export default function AssetManagement() {
 
         <button
           onClick={() => setActiveTab("requests")}
-          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${
-            activeTab === "requests"
-              ? "border-[#f37021] text-[#262760]"
-              : "border-transparent text-slate-500 hover:text-slate-800"
-          }`}
+          className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "requests"
+            ? "border-[#f37021] text-[#262760]"
+            : "border-transparent text-slate-500 hover:text-slate-800"
+            }`}
         >
           <Bell className="h-4 w-4" />
           Asset Requests
@@ -1155,11 +1345,10 @@ export default function AssetManagement() {
         {currentRole !== "Employee" && (
           <button
             onClick={() => setActiveTab("exit")}
-            className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${
-              activeTab === "exit"
-                ? "border-[#f37021] text-[#262760]"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
+            className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "exit"
+              ? "border-[#f37021] text-[#262760]"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
           >
             <LogOut className="h-4 w-4" />
             Exit Clearance
@@ -1169,11 +1358,10 @@ export default function AssetManagement() {
         {isITOrSuperAdmin && (
           <button
             onClick={() => setActiveTab("extensionMaster")}
-            className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${
-              activeTab === "extensionMaster"
-                ? "border-[#f37021] text-[#262760]"
-                : "border-transparent text-slate-500 hover:text-slate-800"
-            }`}
+            className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "extensionMaster"
+              ? "border-[#f37021] text-[#262760]"
+              : "border-transparent text-slate-500 hover:text-slate-800"
+              }`}
           >
             <Phone className="h-4 w-4 text-[#f37021]" />
             Extension Master
@@ -1192,195 +1380,27 @@ export default function AssetManagement() {
       {/* EXTENSION MASTER TAB */}
       {activeTab === "extensionMaster" && <ExtensionMaster />}
 
-      {/* DASHBOARD TAB */}
-      {activeTab === "dashboard" && (
-        <div className="space-y-6">
-          {currentRole === "Employee" ? (
-            <>
-              {/* Stats Cards */}
-              <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-                {[
-                  { label: "My Assigned Assets", val: employeeStats.assigned, color: "border-green-500 text-green-600 bg-green-50" },
-                  { label: "Total Requests", val: employeeStats.totalRequests, color: "border-blue-500 text-blue-600 bg-blue-50" },
-                  { label: "Pending Requests", val: employeeStats.pendingRequests, color: "border-amber-500 text-amber-600 bg-amber-50" },
-                  { label: "Approved Requests", val: employeeStats.approvedRequests, color: "border-indigo-500 text-indigo-600 bg-indigo-50" },
-                  { label: "Completed Requests", val: employeeStats.completedRequests, color: "border-emerald-500 text-emerald-600 bg-emerald-50" }
-                ].map((stat, idx) => (
-                  <div key={idx} className={`p-5 rounded-2xl border bg-white shadow-sm ${stat.color}`}>
-                    <p className="text-xs font-bold text-slate-500 uppercase tracking-wide">{stat.label}</p>
-                    <p className="text-3xl font-black mt-2">{stat.val}</p>
-                  </div>
-                ))}
-              </div>
 
-              {/* Employee Assigned Assets list */}
-              <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h2 className="text-lg font-bold text-[#262760] mb-4">My Assigned Assets</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-sm">
-                    <thead>
-                      <tr className="bg-[#262760] text-white">
-                        <th className="p-4 font-bold text-white text-center w-12">S.No</th>
-                        <th className="p-4 font-bold text-white">Asset ID</th>
-                        <th className="p-4 font-bold text-white">Category</th>
-                        <th className="p-4 font-bold text-white">Brand & Model</th>
-                        <th className="p-4 font-bold text-white">Allocation Date</th>
-                        <th className="p-4 font-bold text-white">Location</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {employeeStats.assetsList.length === 0 ? (
-                        <tr>
-                          <td colSpan="6" className="p-8 text-center text-slate-400 font-medium">No assets assigned to you currently.</td>
-                        </tr>
-                      ) : employeeStats.assetsList.map((al, idx) => (
-                        <tr key={idx}>
-                          <td className="p-4 text-center font-medium text-slate-500">{idx + 1}</td>
-                          <td className="p-4 font-mono font-bold text-[#262760]">{al.assetId}</td>
-                          <td className="p-4 font-semibold text-slate-800">{al.category}</td>
-                          <td className="p-4">{al.brandName} {al.version || (al.asset && al.asset.version) || ""}</td>
-                          <td className="p-4">{al.allocatedDate || "N/A"}</td>
-                          <td className="p-4">{(al.asset && al.asset.location) || "N/A"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </>
-          ) : (
-            <>
-              {/* Stats Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-                {[
-                  { label: "Total Assets", val: stats.total, color: "border-blue-500 text-blue-600 bg-blue-50" },
-                  { label: "Assigned Assets", val: stats.assigned, color: "border-green-500 text-green-600 bg-green-50" },
-                  { label: "Available Assets", val: stats.available, color: "border-indigo-500 text-indigo-600 bg-indigo-50" },
-                  { label: "Pending Exit Clearances", val: stats.pendingExitClearances, color: "border-amber-500 text-amber-600 bg-amber-50" },
-                  { label: "Completed Exit Clearances", val: stats.completedExitClearances, color: "border-emerald-500 text-emerald-600 bg-emerald-50" },
-                  { label: "Assets Returned", val: stats.assetsReturned, color: "border-cyan-500 text-cyan-600 bg-cyan-50" },
-                  { label: "Damaged Assets", val: stats.damaged, color: "border-red-500 text-red-600 bg-red-50" },
-                  { label: "Lost Assets", val: stats.lostAssets, color: "border-purple-500 text-purple-600 bg-purple-50" }
-                ].map((stat, idx) => (
-                  <div key={idx} className={`p-4 rounded-2xl border bg-white shadow-sm ${stat.color}`}>
-                    <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wide truncate">{stat.label}</p>
-                    <p className="text-2xl font-black mt-1">{stat.val}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Asset Status SVG Chart Widget */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 flex flex-col justify-between">
-                  <h2 className="text-lg font-bold text-[#262760] mb-4">Asset Status Summary</h2>
-                  <div className="flex justify-center items-center h-48 relative">
-                    {/* SVG Pie/Donut Chart */}
-                    <svg width="160" height="160" viewBox="0 0 36 36" className="transform -rotate-90">
-                      <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="4" />
-                      <circle
-                        cx="18" cy="18" r="15.915" fill="none"
-                        stroke="#10b981" strokeWidth="4"
-                        strokeDasharray={`${(stats.assigned / (stats.total || 1)) * 100} ${100 - (stats.assigned / (stats.total || 1)) * 100}`}
-                        strokeDashoffset="0"
-                      />
-                      <circle
-                        cx="18" cy="18" r="15.915" fill="none"
-                        stroke="#6366f1" strokeWidth="4"
-                        strokeDasharray={`${(stats.available / (stats.total || 1)) * 100} ${100 - (stats.available / (stats.total || 1)) * 100}`}
-                        strokeDashoffset={`${-((stats.assigned / (stats.total || 1)) * 100)}`}
-                      />
-                      <circle
-                        cx="18" cy="18" r="15.915" fill="none"
-                        stroke="#ef4444" strokeWidth="4"
-                        strokeDasharray={`${(stats.damaged / (stats.total || 1)) * 100} ${100 - (stats.damaged / (stats.total || 1)) * 100}`}
-                        strokeDashoffset={`${-(((stats.assigned + stats.available) / (stats.total || 1)) * 100)}`}
-                      />
-                    </svg>
-                    <div className="absolute text-center">
-                      <p className="text-2xl font-black text-[#262760]">{stats.total}</p>
-                      <p className="text-[10px] uppercase font-bold text-slate-400">Total Items</p>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 text-center text-xs mt-4">
-                    <div className="bg-green-50 p-2 rounded-lg border border-green-200">
-                      <span className="block w-2.5 h-2.5 bg-green-500 rounded-full mx-auto mb-1"></span>
-                      <span className="font-semibold text-slate-500">Assigned</span>
-                      <span className="block font-bold text-green-700">{stats.assigned}</span>
-                    </div>
-                    <div className="bg-indigo-50 p-2 rounded-lg border border-indigo-200">
-                      <span className="block w-2.5 h-2.5 bg-indigo-500 rounded-full mx-auto mb-1"></span>
-                      <span className="font-semibold text-slate-500">Available</span>
-                      <span className="block font-bold text-indigo-700">{stats.available}</span>
-                    </div>
-                    <div className="bg-red-50 p-2 rounded-lg border border-red-200">
-                      <span className="block w-2.5 h-2.5 bg-red-500 rounded-full mx-auto mb-1"></span>
-                      <span className="font-semibold text-slate-500">Damaged</span>
-                      <span className="block font-bold text-red-700">{stats.damaged}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Recent Asset Activities */}
-                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 lg:col-span-2">
-                  <h2 className="text-lg font-bold text-[#262760] mb-4">Recent Asset Activities</h2>
-                  <div className="space-y-4 max-h-64 overflow-y-auto pr-1">
-                    {assets.slice(0, 10).map((asset, idx) => (
-                      <div key={idx} className="flex gap-4 items-start pb-3 border-b border-slate-100 last:border-b-0">
-                        <div className="bg-slate-100 p-2.5 rounded-xl border">
-                          <Briefcase className="h-4 w-4 text-[#262760]" />
-                        </div>
-                        <div className="flex-1 text-sm">
-                          <p className="font-bold text-slate-800">{asset.brandName} {asset.version}</p>
-                          <p className="text-slate-500 text-xs">
-                            ID: <span className="font-semibold font-mono text-[#262760]">{asset.assetId}</span> • Category: <span className="font-semibold">{asset.category}</span> • Seat No: <span className="font-semibold">{asset.seatNo}</span>
-                          </p>
-                        </div>
-                        <div>
-                          <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                            asset.status === "Assigned"
-                              ? "bg-green-100 text-green-700"
-                              : asset.status === "Available"
-                              ? "bg-indigo-100 text-indigo-700"
-                              : "bg-red-100 text-red-700"
-                          }`}>
-                            {asset.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
 
       {/* ASSET MASTER TAB */}
       {activeTab === "master" && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-            <div className="flex flex-1 gap-2 w-full">
-              <div className="relative flex-1 max-w-md">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search by ID, Category, Model, Division..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-4 py-2 border rounded-xl w-full outline-none focus:ring-2 focus:ring-blue-500"
-                />
+          <div className="flex flex-col gap-3 mb-6">
+            {/* Search + Action row */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex flex-1 gap-2 w-full">
+                <div className="relative flex-1 max-w-md">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Search by ID, Category, Model, Division..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-4 py-2 border rounded-xl w-full outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
               </div>
-              <select
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-                className="border rounded-xl px-3 py-2 text-sm bg-white"
-              >
-                <option value="All">All Categories</option>
-                {categories.map(c => <option key={c.name} value={c.name}>{c.name}</option>)}
-              </select>
-            </div>
-            <div className="flex gap-2">
+              <div className="flex gap-2">
               <button
                 onClick={exportCSV}
                 className="flex items-center gap-2 border border-slate-300 rounded-xl px-3 py-2 text-sm hover:bg-slate-50 font-bold"
@@ -1426,8 +1446,86 @@ export default function AssetManagement() {
                 <Plus className="h-4 w-4" />
                 Add Asset
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAllocateAsset(null);
+                  setAllocCategorySelected("");
+                  setAllocAssetSetSelectedId("");
+                  setSelectedComponents({
+                    adapterCharger: "",
+                    mouse: "",
+                    keyboard: "",
+                    headset: "",
+                    monitor: ""
+                  });
+                  setAllocationData({
+                    assignedToId: "",
+                    allocatedDate: new Date().toISOString().split("T")[0],
+                    division: ""
+                  });
+                  setAllocationFormOpen(true);
+                }}
+                className="flex items-center gap-2 bg-green-700 text-white rounded-xl px-4 py-2 text-sm hover:bg-green-800 font-bold"
+              >
+                <UserCheck className="h-4 w-4" />
+                Assign Set
+              </button>
+              </div>
             </div>
           </div>
+
+          {/* ── Colorful Category Tab Bar ── */}
+          {(() => {
+            const TAB_COLORS = [
+              { bg: "bg-[#262760]", activeBg: "bg-[#262760]", border: "border-[#262760]", text: "text-[#262760]", activeBadge: "bg-white/20 text-white" },
+              { bg: "bg-blue-600",  activeBg: "bg-blue-600",  border: "border-blue-600",  text: "text-blue-600",  activeBadge: "bg-white/20 text-white" },
+              { bg: "bg-emerald-600", activeBg: "bg-emerald-600", border: "border-emerald-600", text: "text-emerald-700", activeBadge: "bg-white/20 text-white" },
+              { bg: "bg-violet-600", activeBg: "bg-violet-600", border: "border-violet-600", text: "text-violet-700", activeBadge: "bg-white/20 text-white" },
+              { bg: "bg-orange-500", activeBg: "bg-orange-500", border: "border-orange-500", text: "text-orange-600", activeBadge: "bg-white/20 text-white" },
+              { bg: "bg-rose-600",   activeBg: "bg-rose-600",   border: "border-rose-600",   text: "text-rose-600",   activeBadge: "bg-white/20 text-white" },
+              { bg: "bg-teal-600",   activeBg: "bg-teal-600",   border: "border-teal-600",   text: "text-teal-700",   activeBadge: "bg-white/20 text-white" },
+              { bg: "bg-pink-600",   activeBg: "bg-pink-600",   border: "border-pink-600",   text: "text-pink-600",   activeBadge: "bg-white/20 text-white" },
+              { bg: "bg-amber-500",  activeBg: "bg-amber-500",  border: "border-amber-500",  text: "text-amber-600",  activeBadge: "bg-white/20 text-white" },
+              { bg: "bg-cyan-600",   activeBg: "bg-cyan-600",   border: "border-cyan-600",   text: "text-cyan-700",   activeBadge: "bg-white/20 text-white" },
+            ];
+            const allCount = assets.length;
+            const tabs = [
+              { name: "All", count: allCount, color: TAB_COLORS[0] },
+              ...categories.map((c, i) => ({
+                name: c.name,
+                count: (assets || []).filter(a => a.category === c.name).length,
+                color: TAB_COLORS[(i + 1) % TAB_COLORS.length]
+              }))
+            ];
+            return (
+              <div className="overflow-x-auto pb-1 mb-4">
+                <div className="flex gap-2 min-w-max">
+                  {tabs.map(tab => {
+                    const isActive = categoryFilter === tab.name;
+                    return (
+                      <button
+                        key={tab.name}
+                        type="button"
+                        onClick={() => setCategoryFilter(tab.name)}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border-2 transition-all duration-200 whitespace-nowrap shadow-sm
+                          ${isActive
+                            ? `${tab.color.activeBg} text-white border-transparent shadow-md scale-[1.03]`
+                            : `bg-white ${tab.color.text} ${tab.color.border} hover:opacity-80`
+                          }`}
+                      >
+                        {tab.name}
+                        <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-black
+                          ${isActive ? tab.color.activeBadge : `${tab.color.bg} text-white`}`}>
+                          {tab.count}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
 
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm min-w-[1300px]">
@@ -1455,7 +1553,18 @@ export default function AssetManagement() {
                 ) : filteredAssets.map((asset, idx) => (
                   <tr key={idx} className="hover:bg-slate-50/55 transition-colors">
                     <td className="p-4 text-center font-medium text-slate-500">{idx + 1}</td>
-                    <td className="p-4 font-mono font-bold text-[#262760]">{asset.assetId}</td>
+                    <td className="p-4">
+                      <span className="font-mono font-bold text-[#262760]">{asset.assetId}</span>
+                      {asset.components && asset.components.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                          {asset.components.map(comp => (
+                            <span key={comp._id} className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 rounded px-1.5 py-0.5 font-sans whitespace-nowrap" title={`S/N: ${comp.serialNumber || 'N/A'}`}>
+                              {comp.category}: {comp.assetId}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="p-4">{asset.category}</td>
                     <td className="p-4 font-semibold text-slate-800">{asset.brandName}</td>
                     {activeEnteredFields.map(f => (
@@ -1463,34 +1572,41 @@ export default function AssetManagement() {
                     ))}
                     <td className="p-4">{asset.purchaseDate}</td>
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        asset.condition === "New" || asset.condition === "Excellent" || asset.condition === "Good"
-                          ? "bg-slate-100 text-slate-750"
-                          : "bg-amber-100 text-amber-700"
-                      }`}>
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${asset.condition === "New" || asset.condition === "Excellent" || asset.condition === "Good"
+                        ? "bg-slate-100 text-slate-750"
+                        : "bg-amber-100 text-amber-700"
+                        }`}>
                         {asset.condition}
                       </span>
                     </td>
                     <td className="p-4">{asset.location}</td>
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        asset.status === "Assigned"
-                          ? "bg-green-150 text-green-700"
-                          : asset.status === "Available"
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${asset.status === "Assigned"
+                        ? "bg-green-150 text-green-700"
+                        : asset.status === "Available"
                           ? "bg-blue-150 text-blue-700"
                           : asset.status === "Under Maintenance"
-                          ? "bg-amber-150 text-amber-700"
-                          : "bg-red-150 text-red-700"
-                      }`}>
+                            ? "bg-amber-150 text-amber-700"
+                            : "bg-red-150 text-red-700"
+                        }`}>
                         {asset.status}
                       </span>
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2 justify-center">
-                        {asset.status !== "Assigned" && (
+                        {asset.status !== "Assigned" && (asset.category === "Laptop" || asset.category === "Desktop / CPU") && (
                           <button
                             onClick={() => {
                               setAllocateAsset(asset);
+                              setAllocCategorySelected(asset.category);
+                              setAllocAssetSetSelectedId(asset._id);
+                              setSelectedComponents({
+                                adapterCharger: "",
+                                mouse: "",
+                                keyboard: "",
+                                headset: "",
+                                monitor: ""
+                              });
                               setAllocationFormOpen(true);
                             }}
                             title="Assign to Employee"
@@ -1499,7 +1615,7 @@ export default function AssetManagement() {
                             Assign
                           </button>
                         )}
-                        {asset.status === "Assigned" && (
+                        {asset.status === "Assigned" && (asset.category === "Laptop" || asset.category === "Desktop / CPU") && (
                           <button
                             onClick={() => handleDeallocateByAsset(asset._id)}
                             title="Deallocate Asset"
@@ -1543,7 +1659,7 @@ export default function AssetManagement() {
       {activeTab === "allocation" && (
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
           <h2 className="text-xl font-bold text-[#262760] mb-4">Asset Allocation History</h2>
-          
+
           {/* Allocation Filters */}
           <div className="flex flex-wrap items-center gap-3 mb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
             {/* Search */}
@@ -1641,7 +1757,18 @@ export default function AssetManagement() {
                 ) : filteredAllocations.map((al, idx) => (
                   <tr key={idx}>
                     <td className="p-4 text-center font-medium text-slate-500">{idx + 1}</td>
-                    <td className="p-4 font-mono font-bold text-slate-700">{al.assetId}</td>
+                    <td className="p-4">
+                      <span className="font-mono font-bold text-slate-700">{al.assetId}</span>
+                      {al.components && al.components.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1 font-sans">
+                          {al.components.map((comp, cIdx) => (
+                            <span key={cIdx} className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 rounded px-1.5 py-0.5 whitespace-nowrap" title={`S/N: ${comp.serialNumber || 'N/A'}`}>
+                              {comp.category}: {comp.assetId}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
                     <td className="p-4 font-semibold text-slate-805">{al.category} ({al.brandName})</td>
                     <td className="p-4">
                       <div className="flex flex-col">
@@ -1653,23 +1780,34 @@ export default function AssetManagement() {
                     <td className="p-4">{al.allocatedDate || "N/A"}</td>
                     <td className="p-4">{al.returnDate || "-"}</td>
                     <td className="p-4">
-                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${
-                        al.status === "Assigned" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-700"
-                      }`}>
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${al.status === "Assigned" ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-700"
+                        }`}>
                         {al.status}
                       </span>
                     </td>
                     <td className="p-4 text-center">
-                      {al.status === "Assigned" ? (
+                      <div className="flex items-center justify-center gap-2 flex-wrap">
+                        {/* View Button — always visible */}
                         <button
-                          onClick={() => handleDeallocate(al._id)}
-                          className="px-3 py-1.5 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-bold"
+                          onClick={() => handleViewAssetFromAllocation(al)}
+                          title="View Asset Details"
+                          className="p-1.5 border border-slate-200 bg-slate-50 text-slate-600 hover:bg-[#262760] hover:text-white hover:border-[#262760] rounded-lg transition-all"
                         >
-                          Return Checklist / Clear
+                          <Eye className="h-4 w-4" />
                         </button>
-                      ) : (
-                        <span className="text-xs text-slate-400 italic">Returned ({al.conditionOnReturn || "Good"})</span>
-                      )}
+
+                        {/* Return button (only for Assigned) */}
+                        {al.status === "Assigned" ? (
+                          <button
+                            onClick={() => handleDeallocate(al._id)}
+                            className="px-3 py-1.5 border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-bold"
+                          >
+                            Return
+                          </button>
+                        ) : (
+                          <span className="text-xs text-slate-400 italic">Returned</span>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1693,22 +1831,20 @@ export default function AssetManagement() {
               <button
                 type="button"
                 onClick={() => setHandoverSubTab("queue")}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                  handoverSubTab === "queue"
-                    ? "bg-[#262760] text-white shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
+                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${handoverSubTab === "queue"
+                  ? "bg-[#262760] text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+                  }`}
               >
                 Assigned Assets Queue ({allocations.filter(al => al.status === "Assigned").length})
               </button>
               <button
                 type="button"
                 onClick={() => setHandoverSubTab("history")}
-                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${
-                  handoverSubTab === "history"
-                    ? "bg-[#262760] text-white shadow-sm"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
+                className={`px-4 py-2 text-xs font-bold rounded-lg transition-all ${handoverSubTab === "history"
+                  ? "bg-[#262760] text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900"
+                  }`}
               >
                 Handover History ({handoverHistory.length})
               </button>
@@ -1861,13 +1997,12 @@ export default function AssetManagement() {
                       <td className="p-4 font-mono font-semibold text-slate-600">{ho.employeeCode || ho.employeeId}</td>
                       <td className="p-4 font-mono text-xs">{ho.handoverDate}</td>
                       <td className="p-4">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                          ho.condition === "Excellent" || ho.condition === "Good"
-                            ? "bg-green-100 text-green-700"
-                            : ho.condition === "Minor Damage"
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${ho.condition === "Excellent" || ho.condition === "Good"
+                          ? "bg-green-100 text-green-700"
+                          : ho.condition === "Minor Damage"
                             ? "bg-amber-100 text-amber-700"
                             : "bg-red-100 text-red-700"
-                        }`}>
+                          }`}>
                           {ho.condition}
                         </span>
                       </td>
@@ -1943,11 +2078,10 @@ export default function AssetManagement() {
               <button
                 type="button"
                 onClick={() => setShowReqFilters(!showReqFilters)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${
-                  showReqFilters || activeFilterCount > 0
-                    ? "bg-[#262760] text-white border-[#262760]"
-                    : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all border shadow-sm ${showReqFilters || activeFilterCount > 0
+                  ? "bg-[#262760] text-white border-[#262760]"
+                  : "bg-white text-slate-700 border-slate-300 hover:bg-slate-50"
+                  }`}
               >
                 <Filter className="h-4 w-4" />
                 <span>Filters</span>
@@ -2087,19 +2221,18 @@ export default function AssetManagement() {
                       {req.requestDate}
                     </td>
                     <td className="p-3.5 text-center">
-                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-block whitespace-nowrap ${
-                        req.status === "Pending"
-                          ? "bg-amber-100 text-amber-800 border border-amber-200"
-                          : req.status === "Approved"
+                      <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold inline-block whitespace-nowrap ${req.status === "Pending"
+                        ? "bg-amber-100 text-amber-800 border border-amber-200"
+                        : req.status === "Approved"
                           ? "bg-blue-100 text-blue-800 border border-blue-200"
                           : req.status === "Asset Allocated"
-                          ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
-                          : req.status === "Completed"
-                          ? "bg-green-100 text-green-800 border border-green-200"
-                          : req.status === "Rejected"
-                          ? "bg-red-100 text-red-800 border border-red-200"
-                          : "bg-slate-100 text-slate-600 border border-slate-200"
-                      }`}>
+                            ? "bg-indigo-100 text-indigo-800 border border-indigo-200"
+                            : req.status === "Completed"
+                              ? "bg-green-100 text-green-800 border border-green-200"
+                              : req.status === "Rejected"
+                                ? "bg-red-100 text-red-800 border border-red-200"
+                                : "bg-slate-100 text-slate-600 border border-slate-200"
+                        }`}>
                         {req.status}
                       </span>
                     </td>
@@ -2144,8 +2277,15 @@ export default function AssetManagement() {
                                 onClick={() => {
                                   const matchingAvailableAssets = assets.filter(
                                     a => a.status === "Available" &&
-                                    a.category === (req.assetCategory || req.category)
+                                      a.category === (req.assetCategory || req.category)
                                   );
+                                  setSelectedComponents({
+                                    adapterCharger: "",
+                                    mouse: "",
+                                    keyboard: "",
+                                    headset: "",
+                                    monitor: ""
+                                  });
                                   setAllocateModal({
                                     request: req,
                                     selectedAssetId: matchingAvailableAssets.length > 0 ? matchingAvailableAssets[0]._id : "",
@@ -2290,24 +2430,22 @@ export default function AssetManagement() {
                       </span>
                     </td>
                     <td className="p-4 text-center">
-                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                        cl.status === "Pending"
-                          ? "bg-amber-100 text-amber-800 border border-amber-200"
-                          : cl.status === "In Progress"
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${cl.status === "Pending"
+                        ? "bg-amber-100 text-amber-800 border border-amber-200"
+                        : cl.status === "In Progress"
                           ? "bg-blue-100 text-blue-800 border border-blue-200"
                           : "bg-green-100 text-green-800 border border-green-200"
-                      }`}>
+                        }`}>
                         {cl.status}
                       </span>
                     </td>
                     <td className="p-4 text-center">
                       <button
                         onClick={() => setClearanceModal(cl)}
-                        className={`px-4 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1 mx-auto whitespace-nowrap ${
-                          cl.status === "Completed"
-                            ? "bg-slate-100 text-slate-700 hover:bg-slate-200 border"
-                            : "bg-[#262760] text-white hover:bg-[#1a1c43]"
-                        }`}
+                        className={`px-4 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-1 mx-auto whitespace-nowrap ${cl.status === "Completed"
+                          ? "bg-slate-100 text-slate-700 hover:bg-slate-200 border"
+                          : "bg-[#262760] text-white hover:bg-[#1a1c43]"
+                          }`}
                       >
                         {cl.status === "Completed" ? (
                           <>
@@ -2341,7 +2479,7 @@ export default function AssetManagement() {
               <button type="button" onClick={() => setAssetFormOpen(false)} className="text-white hover:text-slate-200 font-bold">✕</button>
             </div>
             <div className="p-6 grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
-              
+
               {selectedAsset ? (
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Asset ID (Read Only)</label>
@@ -2399,74 +2537,39 @@ export default function AssetManagement() {
                 />
               </div>
 
-
-
-              {/* Field Visibility & Custom Fields Settings inside popup */}
-              <div className="col-span-2 bg-slate-50 p-4 rounded-xl border border-slate-200 font-sans mt-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-[#262760] mb-3">Configure Specification Fields</h4>
-                
-                {/* Active checkboxes */}
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
-                  {(fieldConfig.fields || []).map(f => {
+              {/* Dynamic / Category-Specific Specification Fields */}
+              {(() => {
+                const fieldsToRender = CATEGORY_FIELDS[newAsset.category] || (fieldConfig.fields || []).filter(f => f.enabled);
+                return fieldsToRender.map(f => {
+                  if (f.type === "select") {
                     return (
-                      <div key={f.key} className="flex items-center justify-between gap-1 text-xs font-semibold text-slate-700 bg-white px-2.5 py-1.5 rounded-lg border shadow-sm">
-                        <label className="flex items-center gap-2 cursor-pointer hover:text-[#262760] flex-1 min-w-0">
-                          <input
-                            type="checkbox"
-                            checked={f.enabled}
-                            onChange={(e) => handleToggleFieldConfig(f.key, e.target.checked)}
-                            className="rounded text-[#262760] focus:ring-[#262760] flex-shrink-0"
-                          />
-                          <span className="truncate">{f.label}</span>
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteField(f.key)}
-                          title="Delete Field"
-                          className="p-1 hover:bg-slate-100 rounded-md text-red-500 hover:text-red-700 transition-colors flex-shrink-0"
+                      <div key={f.key}>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">{f.label}</label>
+                        <select
+                          value={newAsset[f.key] || ""}
+                          onChange={(e) => setNewAsset(prev => ({ ...prev, [f.key]: e.target.value }))}
+                          className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-semibold"
                         >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                          <option value="">-- Choose {f.label} --</option>
+                          {f.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
                       </div>
                     );
-                  })}
-                </div>
-
-                {/* Add New Field Inline form */}
-                <div className="flex gap-2 items-center border-t pt-3">
-                  <input
-                    type="text"
-                    placeholder="Enter new field label (e.g. Graphics Card)"
-                    value={newFieldName}
-                    onChange={(e) => setNewFieldName(e.target.value)}
-                    className="flex-1 border rounded-lg px-2.5 py-1.5 outline-none focus:ring-2 focus:ring-blue-500 text-xs font-semibold"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddNewField}
-                    className="bg-[#262760] hover:bg-[#1a1c43] text-white rounded-lg px-3 py-1.5 font-bold text-xs flex items-center gap-1 transition-colors whitespace-nowrap"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Add Field
-                  </button>
-                </div>
-              </div>
-
-              {/* Dynamic Specifications Fields */}
-              {(fieldConfig.fields || []).map(f => {
-                if (!f.enabled) return null;
-                return (
-                  <div key={f.key}>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">{f.label}</label>
-                    <input
-                      type="text"
-                      value={newAsset[f.key] || ""}
-                      onChange={(e) => setNewAsset(prev => ({ ...prev, [f.key]: e.target.value }))}
-                      className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-                      placeholder={`Enter ${f.label.toLowerCase()}`}
-                    />
-                  </div>
-                );
-              })}
+                  }
+                  return (
+                    <div key={f.key}>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">{f.label}</label>
+                      <input
+                        type="text"
+                        value={newAsset[f.key] || ""}
+                        onChange={(e) => setNewAsset(prev => ({ ...prev, [f.key]: e.target.value }))}
+                        className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                        placeholder={`Enter ${f.label.toLowerCase()}`}
+                      />
+                    </div>
+                  );
+                });
+              })()}
 
               {/* Serial Number */}
               <div>
@@ -2519,13 +2622,19 @@ export default function AssetManagement() {
 
               {/* Status */}
               <div>
-                <label className="block text-xs font-bold text-slate-500 mb-1">Status (Auto)</label>
-                <input
-                  type="text"
-                  readOnly
-                  value={newAsset.status}
-                  className="w-full border rounded-xl px-3 py-2 bg-slate-100 outline-none text-sm text-slate-600 font-semibold"
-                />
+                <label className="block text-xs font-bold text-slate-500 mb-1">Status</label>
+                <select
+                  value={newAsset.status || "Available"}
+                  onChange={(e) => setNewAsset(prev => ({ ...prev, status: e.target.value }))}
+                  className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm bg-white font-semibold"
+                >
+                  <option value="Available">Available</option>
+                  <option value="Assigned">Assigned</option>
+                  <option value="Under Maintenance">Under Maintenance</option>
+                  <option value="Damaged">Damaged</option>
+                  <option value="Scrapped">Scrapped</option>
+                  <option value="Retired">Retired</option>
+                </select>
               </div>
 
             </div>
@@ -2545,7 +2654,7 @@ export default function AssetManagement() {
               <h3 className="text-lg font-bold">Manage Asset Categories</h3>
               <button type="button" onClick={() => setCategoryModalOpen(false)} className="text-white hover:text-slate-200 font-bold">✕</button>
             </div>
-            
+
             <div className="p-6 space-y-4">
               {/* Add category form */}
               <form onSubmit={handleAddCategory} className="flex gap-2 pb-4 border-b">
@@ -2586,7 +2695,7 @@ export default function AssetManagement() {
                 )}
               </div>
             </div>
-            
+
             <div className="px-6 py-4 bg-slate-50 border-t flex justify-end">
               <button
                 type="button"
@@ -2606,13 +2715,13 @@ export default function AssetManagement() {
           al => al.employeeCode === allocationData.assignedToId && al.status === "Assigned"
         );
         return (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-            <form onSubmit={handleAllocate} className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
-              <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center">
-                <h3 className="text-lg font-bold">Assign Asset: {allocateAsset?.brandName} {allocateAsset?.version}</h3>
-                <button type="button" onClick={() => setAllocationFormOpen(false)} className="text-white hover:text-slate-200">✕</button>
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 animate-fadeIn">
+            <form onSubmit={handleAllocate} className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+              <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center font-sans shrink-0">
+                <h3 className="text-lg font-bold">Assign Asset Set</h3>
+                <button type="button" onClick={() => setAllocationFormOpen(false)} className="text-white hover:text-slate-200 text-lg font-bold">✕</button>
               </div>
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-4 overflow-y-auto flex-1">
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Select Employee *</label>
                   <select
@@ -2639,6 +2748,239 @@ export default function AssetManagement() {
                   </select>
                 </div>
 
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 mb-1">Select Main Category *</label>
+                  <select
+                    required
+                    value={allocCategorySelected}
+                    onChange={(e) => {
+                      setAllocCategorySelected(e.target.value);
+                      setAllocAssetSetSelectedId("");
+                      setSelectedComponents({
+                        adapterCharger: "",
+                        mouse: "",
+                        keyboard: "",
+                        headset: "",
+                        monitor: ""
+                      });
+                    }}
+                    className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">-- Choose Category --</option>
+                    <option value="Laptop">Laptop</option>
+                    <option value="Desktop / CPU">Desktop / CPU</option>
+                  </select>
+                </div>
+
+                {allocCategorySelected && (() => {
+                  const mainAssets = (assets || []).filter(
+                    a => a.category === allocCategorySelected && (a.status === "Available" || a._id === allocAssetSetSelectedId)
+                  );
+                  const availableAdapters = (assets || []).filter(a => a.category === "Adapter" && a.status === "Available");
+                  const availableChargers = (assets || []).filter(a => a.category === "Charger" && a.status === "Available");
+                  const availableMice = (assets || []).filter(a => (a.category === "Mouse" || a.category === "Mouse (Wired / Non-Wired)") && a.status === "Available");
+                  const availableKeyboards = (assets || []).filter(a => a.category === "Keyboard" && a.status === "Available");
+                  const availableHeadsets = (assets || []).filter(a => a.category === "Headset" && a.status === "Available");
+                  const availableMonitors = (assets || []).filter(a => a.category === "Monitor" && a.status === "Available");
+
+                  return (
+                    <>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Select Available {allocCategorySelected} *</label>
+                        <select
+                          required
+                          value={allocAssetSetSelectedId}
+                          onChange={(e) => setAllocAssetSetSelectedId(e.target.value)}
+                          className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                          <option value="">-- Choose {allocCategorySelected} --</option>
+                          {mainAssets.map(set => (
+                            <option key={set._id} value={set._id}>
+                              {set.assetId} - {set.brandName} {set.version ? `(${set.version})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {allocCategorySelected === "Laptop" && (
+                        <>
+                          {/* ── Adapter / Charger type selector ── */}
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Adapter / Charger</label>
+                            <select
+                              value={selectedComponents.adapterChargerType}
+                              onChange={(e) => setSelectedComponents(prev => ({
+                                ...prev,
+                                adapterChargerType: e.target.value,
+                                adapterCharger: ""
+                              }))}
+                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">-- None / Not Required --</option>
+                              <option value="Adapter">Adapter</option>
+                              <option value="Charger">Charger</option>
+                            </select>
+                          </div>
+
+                          {/* ── Asset list filtered by chosen type ── */}
+                          {selectedComponents.adapterChargerType && (() => {
+                            const filteredList = (assets || []).filter(
+                              a => a.category === selectedComponents.adapterChargerType && a.status === "Available"
+                            );
+                            const selAC = assets.find(a => a._id === selectedComponents.adapterCharger);
+                            return (
+                              <div>
+                                <label className="block text-xs font-bold text-slate-500 mb-1">
+                                  Select Available {selectedComponents.adapterChargerType}
+                                </label>
+                                <select
+                                  value={selectedComponents.adapterCharger}
+                                  onChange={(e) => setSelectedComponents(prev => ({ ...prev, adapterCharger: e.target.value }))}
+                                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                  <option value="">-- Choose {selectedComponents.adapterChargerType} --</option>
+                                  {filteredList.map(ast => (
+                                    <option key={ast._id} value={ast._id}>
+                                      {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                    </option>
+                                  ))}
+                                </select>
+                                {filteredList.length === 0 && (
+                                  <p className="text-[11px] text-red-500 mt-1 font-semibold">No available {selectedComponents.adapterChargerType}s found.</p>
+                                )}
+
+                                {/* ── Dynamic detail fields for selected asset ── */}
+                                {selAC && (
+                                  <div className="mt-2 p-3 rounded-xl border border-blue-100 bg-blue-50 text-xs animate-fadeIn">
+                                    <div className="font-bold text-blue-700 mb-2">{selAC.category} Details</div>
+                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-slate-700">
+                                      <span className="font-semibold text-slate-500">Asset ID:</span>
+                                      <span>{selAC.assetId}</span>
+                                      <span className="font-semibold text-slate-500">Brand:</span>
+                                      <span>{selAC.brandName}</span>
+                                      {selAC.chargerPower && (
+                                        <><span className="font-semibold text-slate-500">Power (Watts):</span><span>{selAC.chargerPower}</span></>
+                                      )}
+                                      {selAC.version && (
+                                        <><span className="font-semibold text-slate-500">Model / Version:</span><span>{selAC.version}</span></>
+                                      )}
+                                      {selAC.serialNumber && (
+                                        <><span className="font-semibold text-slate-500">Serial No:</span><span>{selAC.serialNumber}</span></>
+                                      )}
+                                      <span className="font-semibold text-slate-500">Condition:</span>
+                                      <span>{selAC.condition}</span>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Mouse</label>
+                            <select
+                              value={selectedComponents.mouse}
+                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, mouse: e.target.value }))}
+                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">-- None / Not Required --</option>
+                              {availableMice.map(ast => (
+                                <option key={ast._id} value={ast._id}>
+                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Headset</label>
+                            <select
+                              value={selectedComponents.headset}
+                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, headset: e.target.value }))}
+                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">-- None / Not Required --</option>
+                              {availableHeadsets.map(ast => (
+                                <option key={ast._id} value={ast._id}>
+                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </>
+                      )}
+
+                      {allocCategorySelected === "Desktop / CPU" && (
+                        <>
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Keyboard</label>
+                            <select
+                              value={selectedComponents.keyboard}
+                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, keyboard: e.target.value }))}
+                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">-- None / Not Required --</option>
+                              {availableKeyboards.map(ast => (
+                                <option key={ast._id} value={ast._id}>
+                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Mouse</label>
+                            <select
+                              value={selectedComponents.mouse}
+                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, mouse: e.target.value }))}
+                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">-- None / Not Required --</option>
+                              {availableMice.map(ast => (
+                                <option key={ast._id} value={ast._id}>
+                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Monitor</label>
+                            <select
+                              value={selectedComponents.monitor}
+                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, monitor: e.target.value }))}
+                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">-- None / Not Required --</option>
+                              {availableMonitors.map(ast => (
+                                <option key={ast._id} value={ast._id}>
+                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Headset</label>
+                            <select
+                              value={selectedComponents.headset}
+                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, headset: e.target.value }))}
+                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="">-- None / Not Required --</option>
+                              {availableHeadsets.map(ast => (
+                                <option key={ast._id} value={ast._id}>
+                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  );
+                })()}
+
                 {allocationData.assignedToId && (() => {
                   const selectedEmp = employees.find(emp => (emp.employeeId || emp.employeeCode) === allocationData.assignedToId);
                   const empName = selectedEmp ? selectedEmp.name : "";
@@ -2652,7 +2994,7 @@ export default function AssetManagement() {
                         {selectedEmployeeAllocations.length === 0 ? (
                           <div className="text-slate-400 font-medium italic pl-1">No assets assigned.</div>
                         ) : (
-                          <div className="space-y-1 pl-1">
+                          <div className="space-y-1 pl-1 font-sans">
                             {selectedEmployeeAllocations.map(al => (
                               <div key={al._id} className="flex items-center gap-1.5 text-slate-700 font-semibold">
                                 <span className="text-green-600 font-bold">✓</span>
@@ -2661,12 +3003,6 @@ export default function AssetManagement() {
                             ))}
                           </div>
                         )}
-                      </div>
-                      <div className="border-t pt-2 mt-1 font-bold text-slate-700">
-                        <span>New Allocation:</span>
-                        <div className="pl-4 mt-1 font-semibold text-slate-800">
-                          Asset: {allocateAsset?.category} - <span className="font-mono text-slate-500">{allocateAsset?.assetId}</span>
-                        </div>
                       </div>
                     </div>
                   );
@@ -2692,7 +3028,7 @@ export default function AssetManagement() {
                   />
                 </div>
               </div>
-              <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2">
+              <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2 shrink-0">
                 <button type="button" onClick={() => setAllocationFormOpen(false)} className="px-4 py-2 border rounded-xl text-sm font-semibold hover:bg-slate-100">Cancel</button>
                 <button type="submit" className="px-4 py-2 bg-[#262760] text-white rounded-xl text-sm font-semibold hover:bg-[#1a1c43]">Allocate</button>
               </div>
@@ -2716,65 +3052,79 @@ export default function AssetManagement() {
               </div>
 
               <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto font-sans">
-                {/* General Details */}
+                {/* General Details — only show fields with actual values */}
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                   <h4 className="text-xs font-bold uppercase tracking-wider text-[#262760] mb-3">General Information</h4>
                   <div className="grid grid-cols-2 gap-3 text-xs">
-                    <div>
-                      <span className="block text-slate-400 font-medium">Category</span>
-                      <span className="font-bold text-slate-800">{viewAssetDetails.category || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="block text-slate-400 font-medium">Brand Name</span>
-                      <span className="font-bold text-slate-800">{viewAssetDetails.brandName || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="block text-slate-400 font-medium">Serial Number</span>
-                      <span className="font-semibold text-slate-700 font-mono">{viewAssetDetails.serialNumber || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="block text-slate-400 font-medium">BIO's Date</span>
-                      <span className="font-semibold text-slate-700">{viewAssetDetails.purchaseDate || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="block text-slate-400 font-medium">Condition</span>
-                      <span className="font-bold text-slate-800">{viewAssetDetails.condition || "—"}</span>
-                    </div>
-                    <div>
-                      <span className="block text-slate-400 font-medium">Location</span>
-                      <span className="font-semibold text-slate-700">{viewAssetDetails.location || "—"}</span>
-                    </div>
+                    {[
+                      { label: "Category",    value: viewAssetDetails.category },
+                      { label: "Brand Name",  value: viewAssetDetails.brandName },
+                      { label: "Serial Number", value: viewAssetDetails.serialNumber, mono: true },
+                      { label: "BIO's Date",  value: viewAssetDetails.purchaseDate },
+                      { label: "Seat No",     value: viewAssetDetails.seatNo },
+                      { label: "Condition",   value: viewAssetDetails.condition },
+                      { label: "Location",    value: viewAssetDetails.location },
+                    ].filter(f => f.value && f.value.toString().trim() !== "").map(f => (
+                      <div key={f.label}>
+                        <span className="block text-slate-400 font-medium">{f.label}</span>
+                        <span className={`font-bold text-slate-800 ${f.mono ? "font-mono" : ""}`}>{f.value}</span>
+                      </div>
+                    ))}
+                    {/* Status always shown */}
                     <div className="col-span-2">
                       <span className="block text-slate-400 font-medium">Status</span>
-                      <span className={`inline-block px-2.5 py-0.5 mt-0.5 rounded-full text-[10px] font-bold ${
-                        viewAssetDetails.status === "Assigned"
-                          ? "bg-green-100 text-green-800"
-                          : viewAssetDetails.status === "Available"
+                      <span className={`inline-block px-2.5 py-0.5 mt-0.5 rounded-full text-[10px] font-bold ${viewAssetDetails.status === "Assigned"
+                        ? "bg-green-100 text-green-800"
+                        : viewAssetDetails.status === "Available"
                           ? "bg-blue-100 text-blue-800"
                           : "bg-amber-100 text-amber-800"
-                      }`}>
+                        }`}>
                         {viewAssetDetails.status}
                       </span>
                     </div>
                   </div>
                 </div>
 
-                {/* Specs Details */}
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-[#262760] mb-3">Specification Details</h4>
-                  <div className="grid grid-cols-2 gap-3 text-xs">
-                    {(fieldConfig.fields || []).filter(f => f.enabled).length === 0 ? (
-                      <div className="col-span-2 text-slate-400 italic">No specifications configured.</div>
-                    ) : (
-                      (fieldConfig.fields || []).filter(f => f.enabled).map(f => (
-                        <div key={f.key}>
-                          <span className="block text-slate-400 font-medium">{f.label}</span>
-                          <span className="font-bold text-slate-800">{viewAssetDetails[f.key] || "—"}</span>
+                {/* Set Components details section */}
+                {viewAssetDetails.components && viewAssetDetails.components.length > 0 && (
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 animate-fadeIn font-sans">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-[#262760] mb-3">Set Components List</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      {viewAssetDetails.components.map(comp => (
+                        <div key={comp._id} className="p-2 bg-white rounded-lg border border-slate-150 shadow-sm flex items-center justify-between">
+                          <div>
+                            <span className="block text-slate-400 font-medium">{comp.category}</span>
+                            <span className="font-bold text-[#262760] font-mono">{comp.assetId}</span>
+                          </div>
+                          <div className="text-right">
+                            <span className="block text-slate-400 font-medium">Serial No</span>
+                            <span className="font-semibold text-slate-700 font-mono">{comp.serialNumber || "—"}</span>
+                          </div>
                         </div>
-                      ))
-                    )}
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
+
+                {/* Specs Details — only show fields that have a saved value */}
+                {(() => {
+                  const filledSpecs = (fieldConfig.fields || [])
+                    .filter(f => f.enabled && viewAssetDetails[f.key] && viewAssetDetails[f.key].toString().trim() !== "");
+                  if (filledSpecs.length === 0) return null;
+                  return (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-[#262760] mb-3">Specification Details</h4>
+                      <div className="grid grid-cols-2 gap-3 text-xs">
+                        {filledSpecs.map(f => (
+                          <div key={f.key}>
+                            <span className="block text-slate-400 font-medium">{f.label}</span>
+                            <span className="font-bold text-slate-800">{viewAssetDetails[f.key]}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Active Allocation details */}
                 {viewAssetDetails.status === "Assigned" && activeAlloc && (
@@ -3000,13 +3350,13 @@ export default function AssetManagement() {
 
       {/* ALLOCATE ASSET MODAL FOR APPROVED REQUEST */}
       {allocateModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
-            <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center">
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+            <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center shrink-0">
               <h3 className="text-base font-bold">Allocate Asset for Request</h3>
-              <button type="button" onClick={() => setAllocateModal(null)} className="text-white hover:text-slate-200 font-bold">✕</button>
+              <button type="button" onClick={() => setAllocateModal(null)} className="text-white hover:text-slate-200 font-bold text-lg">✕</button>
             </div>
-            <div className="p-6 space-y-4 text-xs">
+            <div className="p-6 space-y-4 text-xs overflow-y-auto flex-1 font-sans">
               <div className="bg-blue-50 border border-blue-200 text-blue-900 p-3 rounded-xl space-y-1">
                 <p><strong>Request Number:</strong> {allocateModal.request.requestNumber || allocateModal.request.requestId}</p>
                 <p><strong>Employee:</strong> {allocateModal.request.employeeName} ({allocateModal.request.employeeCode})</p>
@@ -3033,6 +3383,200 @@ export default function AssetManagement() {
                 )}
               </div>
 
+              {allocateModal.selectedAssetId && (() => {
+                const reqCategory = allocateModal.request.assetCategory || allocateModal.request.category;
+                if (reqCategory !== "Laptop" && reqCategory !== "Desktop / CPU") return null;
+
+                const availableAdapters = (assets || []).filter(a => a.category === "Adapter" && a.status === "Available");
+                const availableChargers = (assets || []).filter(a => a.category === "Charger" && a.status === "Available");
+                const availableMice = (assets || []).filter(a => (a.category === "Mouse" || a.category === "Mouse (Wired / Non-Wired)") && a.status === "Available");
+                const availableKeyboards = (assets || []).filter(a => a.category === "Keyboard" && a.status === "Available");
+                const availableHeadsets = (assets || []).filter(a => a.category === "Headset" && a.status === "Available");
+                const availableMonitors = (assets || []).filter(a => a.category === "Monitor" && a.status === "Available");
+
+                return (
+                  <>
+                    <div className="font-bold text-[#262760] text-[11px] uppercase tracking-wider mt-3">Select Accessories / Components:</div>
+
+                    {reqCategory === "Laptop" && (
+                      <>
+                        {/* ── Adapter / Charger type selector ── */}
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Adapter / Charger</label>
+                          <select
+                            value={selectedComponents.adapterChargerType}
+                            onChange={(e) => setSelectedComponents(prev => ({
+                              ...prev,
+                              adapterChargerType: e.target.value,
+                              adapterCharger: ""
+                            }))}
+                            className="w-full border rounded-xl p-2.5 text-xs bg-white outline-none focus:ring-2 focus:ring-[#262760]"
+                          >
+                            <option value="">-- None / Not Required --</option>
+                            <option value="Adapter">Adapter</option>
+                            <option value="Charger">Charger</option>
+                          </select>
+                        </div>
+
+                        {/* ── Asset list filtered by chosen type ── */}
+                        {selectedComponents.adapterChargerType && (() => {
+                          const filteredList = (assets || []).filter(
+                            a => a.category === selectedComponents.adapterChargerType && a.status === "Available"
+                          );
+                          const selAC = assets.find(a => a._id === selectedComponents.adapterCharger);
+                          return (
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">
+                                Select Available {selectedComponents.adapterChargerType}
+                              </label>
+                              <select
+                                value={selectedComponents.adapterCharger}
+                                onChange={(e) => setSelectedComponents(prev => ({ ...prev, adapterCharger: e.target.value }))}
+                                className="w-full border rounded-xl p-2.5 text-xs bg-white outline-none focus:ring-2 focus:ring-[#262760]"
+                              >
+                                <option value="">-- Choose {selectedComponents.adapterChargerType} --</option>
+                                {filteredList.map(ast => (
+                                  <option key={ast._id} value={ast._id}>
+                                    {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                              {filteredList.length === 0 && (
+                                <p className="text-[11px] text-red-500 mt-1 font-semibold">No available {selectedComponents.adapterChargerType}s found.</p>
+                              )}
+
+                              {/* ── Dynamic detail fields for selected asset ── */}
+                              {selAC && (
+                                <div className="mt-2 p-3 rounded-xl border border-[#262760]/20 bg-[#f0f1ff] text-xs animate-fadeIn">
+                                  <div className="font-bold text-[#262760] mb-2">{selAC.category} Details</div>
+                                  <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-slate-700">
+                                    <span className="font-semibold text-slate-500">Asset ID:</span>
+                                    <span>{selAC.assetId}</span>
+                                    <span className="font-semibold text-slate-500">Brand:</span>
+                                    <span>{selAC.brandName}</span>
+                                    {selAC.chargerPower && (
+                                      <><span className="font-semibold text-slate-500">Power (Watts):</span><span>{selAC.chargerPower}</span></>
+                                    )}
+                                    {selAC.version && (
+                                      <><span className="font-semibold text-slate-500">Model / Version:</span><span>{selAC.version}</span></>
+                                    )}
+                                    {selAC.serialNumber && (
+                                      <><span className="font-semibold text-slate-500">Serial No:</span><span>{selAC.serialNumber}</span></>
+                                    )}
+                                    <span className="font-semibold text-slate-500">Condition:</span>
+                                    <span>{selAC.condition}</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Mouse</label>
+                          <select
+                            value={selectedComponents.mouse}
+                            onChange={(e) => setSelectedComponents(prev => ({ ...prev, mouse: e.target.value }))}
+                            className="w-full border rounded-xl p-2.5 text-xs bg-white outline-none focus:ring-2 focus:ring-[#262760]"
+                          >
+                            <option value="">-- None / Not Required --</option>
+                            {availableMice.map(ast => (
+                              <option key={ast._id} value={ast._id}>
+                                {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Headset</label>
+                          <select
+                            value={selectedComponents.headset}
+                            onChange={(e) => setSelectedComponents(prev => ({ ...prev, headset: e.target.value }))}
+                            className="w-full border rounded-xl p-2.5 text-xs bg-white outline-none focus:ring-2 focus:ring-[#262760]"
+                          >
+                            <option value="">-- None / Not Required --</option>
+                            {availableHeadsets.map(ast => (
+                              <option key={ast._id} value={ast._id}>
+                                {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    )}
+
+                    {reqCategory === "Desktop / CPU" && (
+                      <>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Keyboard</label>
+                          <select
+                            value={selectedComponents.keyboard}
+                            onChange={(e) => setSelectedComponents(prev => ({ ...prev, keyboard: e.target.value }))}
+                            className="w-full border rounded-xl p-2.5 text-xs bg-white outline-none focus:ring-2 focus:ring-[#262760]"
+                          >
+                            <option value="">-- None / Not Required --</option>
+                            {availableKeyboards.map(ast => (
+                              <option key={ast._id} value={ast._id}>
+                                {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Mouse</label>
+                          <select
+                            value={selectedComponents.mouse}
+                            onChange={(e) => setSelectedComponents(prev => ({ ...prev, mouse: e.target.value }))}
+                            className="w-full border rounded-xl p-2.5 text-xs bg-white outline-none focus:ring-2 focus:ring-[#262760]"
+                          >
+                            <option value="">-- None / Not Required --</option>
+                            {availableMice.map(ast => (
+                              <option key={ast._id} value={ast._id}>
+                                {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Monitor</label>
+                          <select
+                            value={selectedComponents.monitor}
+                            onChange={(e) => setSelectedComponents(prev => ({ ...prev, monitor: e.target.value }))}
+                            className="w-full border rounded-xl p-2.5 text-xs bg-white outline-none focus:ring-2 focus:ring-[#262760]"
+                          >
+                            <option value="">-- None / Not Required --</option>
+                            {availableMonitors.map(ast => (
+                              <option key={ast._id} value={ast._id}>
+                                {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Headset</label>
+                          <select
+                            value={selectedComponents.headset}
+                            onChange={(e) => setSelectedComponents(prev => ({ ...prev, headset: e.target.value }))}
+                            className="w-full border rounded-xl p-2.5 text-xs bg-white outline-none focus:ring-2 focus:ring-[#262760]"
+                          >
+                            <option value="">-- None / Not Required --</option>
+                            {availableHeadsets.map(ast => (
+                              <option key={ast._id} value={ast._id}>
+                                {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </>
+                    )}
+                  </>
+                );
+              })()}
+
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1">Allocation Date *</label>
                 <input
@@ -3044,7 +3588,7 @@ export default function AssetManagement() {
                 />
               </div>
             </div>
-            <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2 text-xs">
+            <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2 text-xs shrink-0">
               <button type="button" onClick={() => setAllocateModal(null)} className="px-4 py-2 border rounded-xl font-semibold hover:bg-slate-100">Cancel</button>
               <button
                 onClick={handleConfirmAllocate}
@@ -3077,17 +3621,16 @@ export default function AssetManagement() {
                   <span className="font-mono font-bold text-slate-800 text-sm">{viewRequestModal.requestNumber || viewRequestModal.requestId}</span>
                 </div>
                 <div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    viewRequestModal.status === "Pending"
-                      ? "bg-amber-100 text-amber-800"
-                      : viewRequestModal.status === "Approved"
+                  <span className={`px-3 py-1 rounded-full text-xs font-bold ${viewRequestModal.status === "Pending"
+                    ? "bg-amber-100 text-amber-800"
+                    : viewRequestModal.status === "Approved"
                       ? "bg-blue-100 text-blue-800"
                       : viewRequestModal.status === "Asset Allocated"
-                      ? "bg-indigo-100 text-indigo-800"
-                      : viewRequestModal.status === "Completed"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
-                  }`}>
+                        ? "bg-indigo-100 text-indigo-800"
+                        : viewRequestModal.status === "Completed"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                    }`}>
                     {viewRequestModal.status}
                   </span>
                 </div>
@@ -3186,7 +3729,7 @@ export default function AssetManagement() {
               <h3 className="text-lg font-bold">Process Asset Handover</h3>
               <button type="button" onClick={() => setHandoverModal(null)} className="text-white hover:text-slate-200 font-bold">✕</button>
             </div>
-            
+
             <div className="p-6 space-y-5 max-h-[75vh] overflow-y-auto">
               {/* Employee Information Section */}
               <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
@@ -3215,7 +3758,7 @@ export default function AssetManagement() {
               {/* Handover Input Information */}
               <div className="space-y-3">
                 <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Handover Information</h4>
-                
+
                 <div>
                   <label className="block text-xs font-bold text-slate-600 mb-1">Handover Date *</label>
                   <input

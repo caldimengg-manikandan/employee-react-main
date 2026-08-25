@@ -526,7 +526,7 @@ const ExitForm = () => {
                       <th className="px-6 py-3.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider w-12">S.No</th>
                       <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Asset ID</th>
                       <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Category</th>
-                      <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Brand & Model</th>
+                      <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Brand & Model / Serial No.</th>
                       <th className="px-6 py-3.5 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Allocation Date</th>
                       <th className="px-6 py-3.5 text-center text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
                     </tr>
@@ -540,25 +540,69 @@ const ExitForm = () => {
                       </tr>
                     ) : (
                       assignedAssets.map((al, idx) => (
-                        <tr key={al._id || idx} className="hover:bg-indigo-50/30 transition-colors">
-                          <td className="px-6 py-4 text-center text-gray-500 font-medium">{idx + 1}</td>
-                          <td className="px-6 py-4 font-mono font-bold text-[#1e2050]">{al.assetId}</td>
-                          <td className="px-6 py-4 font-semibold text-gray-800">{al.category || 'Asset'}</td>
-                          <td className="px-6 py-4 text-gray-700">{al.brandName} {al.version || (al.asset && al.asset.version) || ''}</td>
-                          <td className="px-6 py-4 font-mono text-xs text-gray-600">{al.allocatedDate || 'N/A'}</td>
-                          <td className="px-6 py-4 text-center">
-                            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                              al.status === "Returned" ? "bg-green-100 text-green-800 border border-green-200" : "bg-amber-100 text-amber-800 border border-amber-200"
-                            }`}>
-                              {al.status}
-                            </span>
-                          </td>
-                        </tr>
+                        <React.Fragment key={al._id || idx}>
+                          {/* ── Main asset row ── */}
+                          <tr className="hover:bg-indigo-50/30 transition-colors bg-white">
+                            <td className="px-6 py-4 text-center text-gray-500 font-medium">{idx + 1}</td>
+                            <td className="px-6 py-4 font-mono font-bold text-[#1e2050]">{al.assetId}</td>
+                            <td className="px-6 py-4 font-semibold text-gray-800">{al.category || 'Asset'}</td>
+                            <td className="px-6 py-4 text-gray-700">{al.brandName} {al.version || (al.asset && al.asset.version) || ''}</td>
+                            <td className="px-6 py-4 font-mono text-xs text-gray-600">{al.allocatedDate || 'N/A'}</td>
+                            <td className="px-6 py-4 text-center">
+                              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                                al.status === "Returned" ? "bg-green-100 text-green-800 border border-green-200" : "bg-amber-100 text-amber-800 border border-amber-200"
+                              }`}>
+                                {al.status}
+                              </span>
+                            </td>
+                          </tr>
+                          {/* ── Component sub-rows (Adapter, Charger, Mouse, etc.) ── */}
+                          {al.components && al.components.length > 0 && al.components.map((comp, cIdx) => (
+                            <tr key={`${al._id}-comp-${cIdx}`} className="bg-indigo-50/40 hover:bg-indigo-50/70 transition-colors border-t border-indigo-100/60">
+                              <td className="pl-10 pr-4 py-2.5 text-center text-indigo-300 text-base select-none">↳</td>
+                              <td className="px-6 py-2.5">
+                                <span className="font-mono text-xs text-indigo-700 font-semibold">{comp.assetId || '—'}</span>
+                              </td>
+                              <td className="px-6 py-2.5">
+                                <span className="inline-flex items-center text-xs font-semibold text-indigo-800 bg-indigo-100 border border-indigo-200 px-2.5 py-0.5 rounded-full">
+                                  {comp.category || '—'}
+                                </span>
+                              </td>
+                              <td className="px-6 py-2.5 text-xs text-gray-500">
+                                {comp.serialNumber
+                                  ? <span className="font-mono bg-gray-100 px-2 py-0.5 rounded">SN: {comp.serialNumber}</span>
+                                  : <span className="italic text-gray-400">—</span>}
+                              </td>
+                              <td className="px-6 py-2.5 text-xs text-gray-400 italic">Component of {al.category}</td>
+                              <td className="px-6 py-2.5 text-center">
+                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                                  al.status === "Returned" ? "bg-green-100 text-green-700 border border-green-200" : "bg-amber-50 text-amber-700 border border-amber-100"
+                                }`}>
+                                  {al.status}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </React.Fragment>
                       ))
                     )}
                   </tbody>
                 </table>
               </div>
+              {/* Summary count */}
+              {assignedAssets.length > 0 && (
+                <div className="mt-4 flex flex-wrap gap-3 text-xs font-semibold text-gray-600">
+                  <span className="bg-indigo-50 border border-indigo-200 text-indigo-700 px-3 py-1 rounded-full">
+                    Main Assets: {assignedAssets.length}
+                  </span>
+                  <span className="bg-purple-50 border border-purple-200 text-purple-700 px-3 py-1 rounded-full">
+                    Components: {assignedAssets.reduce((sum, al) => sum + (al.components ? al.components.length : 0), 0)}
+                  </span>
+                  <span className="bg-amber-50 border border-amber-200 text-amber-700 px-3 py-1 rounded-full">
+                    Total Items to Return: {assignedAssets.reduce((sum, al) => sum + 1 + (al.components ? al.components.length : 0), 0)}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 
