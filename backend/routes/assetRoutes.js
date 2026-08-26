@@ -352,14 +352,24 @@ router.get("/", auth, async (req, res) => {
 router.post("/", auth, async (req, res) => {
   try {
     const {
-      assetId, category, brandName, division, version,
+      category, brandName, division, version,
       serialNumber, purchaseDate, condition, location, status,
-      components
+      components, trackingType, itemType, individualTracking, quantityDetails
     } = req.body;
 
-    // Common mandatory fields validation
-    if (!assetId) {
-      return res.status(400).json({ error: "Asset ID is required" });
+    let assetId = req.body.assetId;
+
+    // Handle Quantity-Based Asset Initialization
+    if (trackingType === "Quantity") {
+      if (!assetId || !assetId.trim()) {
+        const count = await Asset.countDocuments({ trackingType: "Quantity" });
+        const cleanItemName = (itemType || "ITEM").trim().replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
+        assetId = `QTY-${cleanItemName}-${count + 1}-${Date.now().toString().slice(-4)}`;
+      }
+    } else {
+      if (!assetId || !assetId.trim()) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
     }
 
     // Check duplicate Asset ID for parent
@@ -368,20 +378,18 @@ router.post("/", auth, async (req, res) => {
       return res.status(400).json({ error: "This Asset ID already exists." });
     }
 
-    // Check duplicates and validate for components if provided
-    const componentDocs = [];
-    if (components && Array.isArray(components) && components.length > 0) {
+    let savedComponentIds = [];
+    if (trackingType !== "Quantity" && components && Array.isArray(components) && components.length > 0) {
+      const componentDocs = [];
       for (const comp of components) {
         if (!comp.assetId || !comp.assetId.trim()) {
           return res.status(400).json({ error: "Component Asset ID is required" });
         }
         const compIdClean = comp.assetId.trim().toUpperCase();
-        // Check database duplicate
         const existingComp = await Asset.findOne({ assetId: compIdClean });
         if (existingComp) {
           return res.status(400).json({ error: `Component Asset ID "${compIdClean}" already exists.` });
         }
-        // Check duplicate within the input payload
         if (compIdClean === assetId.trim().toUpperCase() || componentDocs.some(d => d.assetId === compIdClean)) {
           return res.status(400).json({ error: `Duplicate Asset ID "${compIdClean}" in payload.` });
         }
@@ -396,19 +404,18 @@ router.post("/", auth, async (req, res) => {
           purchaseDate: purchaseDate || "",
           condition: comp.condition || condition || "New",
           location: location || "",
-          status: status || "Available",
-          isComponent: true
+          status: comp.status || status || "Available",
+          isComponent: true,
+          trackingType: "Individual"
         };
         componentDocs.push(compPayload);
       }
-    }
 
-    // Save components first
-    const savedComponentIds = [];
-    for (const compDoc of componentDocs) {
-      const cAsset = new Asset(compDoc);
-      await cAsset.save();
-      savedComponentIds.push(cAsset._id);
+      for (const compDoc of componentDocs) {
+        const cAsset = new Asset(compDoc);
+        await cAsset.save();
+        savedComponentIds.push(cAsset._id);
+      }
     }
 
     const payload = {
@@ -423,14 +430,34 @@ router.post("/", auth, async (req, res) => {
       location: location || "",
       status: status || "Available",
       isComponent: false,
-      components: savedComponentIds
+      components: savedComponentIds,
+      trackingType: trackingType || "Individual",
+      itemType: itemType || "",
+      individualTracking: !!individualTracking
     };
+
+    if (trackingType === "Quantity") {
+      let totalQty = parseInt(req.body.totalQuantity || req.body.quantity);
+      if (isNaN(totalQty)) {
+        totalQty = quantityDetails && !isNaN(parseInt(quantityDetails.total)) ? parseInt(quantityDetails.total) : 0;
+      }
+      payload.quantityDetails = {
+        total: totalQty,
+        available: totalQty,
+        inUse: 0,
+        maintenance: 0,
+        damaged: 0,
+        retired: 0
+      };
+      payload.itemType = itemType || req.body.itemName || "";
+      payload.brandName = payload.itemType;
+      payload.individualTracking = false;
+    }
 
     // Load active field config keys
     const config = await AssetFieldConfig.findOne({});
     const activeKeys = config ? config.fields.map(f => f.key) : [];
 
-    // Copy dynamically enabled keys from req.body
     activeKeys.forEach(key => {
       if (req.body[key] !== undefined) {
         payload[key] = typeof req.body[key] === 'string' ? req.body[key].trim() : req.body[key];
@@ -440,7 +467,6 @@ router.post("/", auth, async (req, res) => {
     const asset = new Asset(payload);
     await asset.save();
 
-    // Populate and return
     const populatedAsset = await Asset.findById(asset._id).populate("components").lean();
     res.status(201).json(populatedAsset);
   } catch (err) {
@@ -452,18 +478,27 @@ router.post("/", auth, async (req, res) => {
 router.put("/:id", auth, async (req, res) => {
   try {
     const {
-      assetId, category, brandName, division, version,
+      category, brandName, division, version,
       serialNumber, purchaseDate, condition, location, status,
-      components
+      components, trackingType, itemType, individualTracking, quantityDetails
     } = req.body;
 
-    if (!assetId) {
-      return res.status(400).json({ error: "Asset ID is required" });
-    }
+    let assetId = req.body.assetId;
 
     const asset = await Asset.findById(req.params.id);
     if (!asset) {
       return res.status(404).json({ error: "Asset not found" });
+    }
+
+    // Handle Quantity tracking assetId check
+    if (asset.trackingType === "Quantity") {
+      if (!assetId || !assetId.trim()) {
+        assetId = asset.assetId; // Keep existing generated ID if omitted
+      }
+    } else {
+      if (!assetId || !assetId.trim()) {
+        return res.status(400).json({ error: "Asset ID is required" });
+      }
     }
 
     // Check Asset ID uniqueness if changed
@@ -474,80 +509,79 @@ router.put("/:id", auth, async (req, res) => {
       }
     }
 
-    // Process components update
-    const finalComponentIds = [];
-    const incomingComponentIds = [];
+    let finalComponentIds = [];
+    if (asset.trackingType !== "Quantity") {
+      const incomingComponentIds = [];
 
-    if (components && Array.isArray(components)) {
-      for (const comp of components) {
-        if (!comp.assetId || !comp.assetId.trim()) {
-          return res.status(400).json({ error: "Component Asset ID is required" });
-        }
-        const compIdClean = comp.assetId.trim().toUpperCase();
-
-        if (comp._id) {
-          // Existing component
-          const existingComp = await Asset.findById(comp._id);
-          if (!existingComp) {
-            return res.status(404).json({ error: `Component with ID ${comp._id} not found` });
+      if (components && Array.isArray(components)) {
+        for (const comp of components) {
+          if (!comp.assetId || !comp.assetId.trim()) {
+            return res.status(400).json({ error: "Component Asset ID is required" });
           }
+          const compIdClean = comp.assetId.trim().toUpperCase();
 
-          // Check duplicate assetId if changed
-          if (compIdClean !== existingComp.assetId) {
+          if (comp._id) {
+            const existingComp = await Asset.findById(comp._id);
+            if (!existingComp) {
+              return res.status(404).json({ error: `Component with ID ${comp._id} not found` });
+            }
+
+            if (compIdClean !== existingComp.assetId) {
+              const dupCheck = await Asset.findOne({ assetId: compIdClean });
+              if (dupCheck) {
+                return res.status(400).json({ error: `Component Asset ID "${compIdClean}" already exists.` });
+              }
+            }
+
+            existingComp.assetId = compIdClean;
+            existingComp.category = comp.category || "";
+            existingComp.brandName = brandName ? brandName.trim() : "";
+            existingComp.division = division || "";
+            existingComp.version = version ? version.trim() : "";
+            existingComp.serialNumber = comp.serialNumber ? comp.serialNumber.trim() : "";
+            existingComp.purchaseDate = purchaseDate || "";
+            existingComp.condition = comp.condition || condition || "New";
+            existingComp.location = location || "";
+            if (status) existingComp.status = status;
+
+            await existingComp.save();
+            finalComponentIds.push(existingComp._id);
+            incomingComponentIds.push(existingComp._id.toString());
+          } else {
             const dupCheck = await Asset.findOne({ assetId: compIdClean });
             if (dupCheck) {
               return res.status(400).json({ error: `Component Asset ID "${compIdClean}" already exists.` });
             }
+
+            const newComp = new Asset({
+              assetId: compIdClean,
+              category: comp.category || "",
+              brandName: brandName ? brandName.trim() : "",
+              division: division || "",
+              version: version ? version.trim() : "",
+              serialNumber: comp.serialNumber ? comp.serialNumber.trim() : "",
+              purchaseDate: purchaseDate || "",
+              condition: comp.condition || condition || "New",
+              location: location || "",
+              status: status || "Available",
+              isComponent: true,
+              parentAsset: asset._id,
+              trackingType: "Individual"
+            });
+
+            await newComp.save();
+            finalComponentIds.push(newComp._id);
+            incomingComponentIds.push(newComp._id.toString());
           }
-
-          existingComp.assetId = compIdClean;
-          existingComp.category = comp.category || "";
-          existingComp.brandName = brandName ? brandName.trim() : "";
-          existingComp.division = division || "";
-          existingComp.version = version ? version.trim() : "";
-          existingComp.serialNumber = comp.serialNumber ? comp.serialNumber.trim() : "";
-          existingComp.purchaseDate = purchaseDate || "";
-          existingComp.condition = comp.condition || condition || "New";
-          existingComp.location = location || "";
-          if (status) existingComp.status = status;
-
-          await existingComp.save();
-          finalComponentIds.push(existingComp._id);
-          incomingComponentIds.push(existingComp._id.toString());
-        } else {
-          // New component
-          const dupCheck = await Asset.findOne({ assetId: compIdClean });
-          if (dupCheck) {
-            return res.status(400).json({ error: `Component Asset ID "${compIdClean}" already exists.` });
-          }
-
-          const newComp = new Asset({
-            assetId: compIdClean,
-            category: comp.category || "",
-            brandName: brandName ? brandName.trim() : "",
-            division: division || "",
-            version: version ? version.trim() : "",
-            serialNumber: comp.serialNumber ? comp.serialNumber.trim() : "",
-            purchaseDate: purchaseDate || "",
-            condition: comp.condition || condition || "New",
-            location: location || "",
-            status: status || "Available",
-            isComponent: true,
-            parentAsset: asset._id
-          });
-
-          await newComp.save();
-          finalComponentIds.push(newComp._id);
-          incomingComponentIds.push(newComp._id.toString());
         }
       }
-    }
 
-    // Delete orphaned components
-    const oldComponentIds = asset.components || [];
-    for (const oldId of oldComponentIds) {
-      if (!incomingComponentIds.includes(oldId.toString())) {
-        await Asset.findByIdAndDelete(oldId);
+      // Delete orphaned components
+      const oldComponentIds = asset.components || [];
+      for (const oldId of oldComponentIds) {
+        if (!incomingComponentIds.includes(oldId.toString())) {
+          await Asset.findByIdAndDelete(oldId);
+        }
       }
     }
 
@@ -562,13 +596,35 @@ router.put("/:id", auth, async (req, res) => {
     asset.condition = condition;
     asset.location = location;
     if (status) asset.status = status;
-    asset.components = finalComponentIds;
+
+    if (asset.trackingType !== "Quantity") {
+      asset.components = finalComponentIds;
+    } else {
+      // Simple quantity/count management for Office Accessories
+      const total = req.body.totalQuantity !== undefined 
+        ? parseInt(req.body.totalQuantity) 
+        : (req.body.quantity !== undefined 
+            ? parseInt(req.body.quantity) 
+            : (asset.quantityDetails?.total || 0));
+
+      asset.quantityDetails = {
+        total,
+        available: total,
+        inUse: 0,
+        maintenance: 0,
+        damaged: 0,
+        retired: 0
+      };
+      asset.itemType = itemType || req.body.itemName || asset.itemType;
+      asset.brandName = asset.itemType;
+      asset.individualTracking = false;
+    }
 
     // Load active field config keys
     const config = await AssetFieldConfig.findOne({});
     const activeKeys = config ? config.fields.map(f => f.key) : [];
 
-    // Reset all spec fields first, then set values from req.body
+    // Reset spec fields first, then set values from req.body
     const allKeys = new Set([
       'processor', 'ram', 'hardDisk', 'screenSize', 'keyboardType', 'mouseType', 'headsetType',
       ...activeKeys
@@ -626,10 +682,13 @@ router.get("/allocations", auth, async (req, res) => {
 // Allocate an asset
 router.post("/allocations", auth, async (req, res) => {
   try {
-    const { assetId, assignedToId, allocatedDate, division, componentIds } = req.body;
+    const {
+      assetId, allocatedDate, division, componentIds,
+      assignmentType, assignedToId, assignedDepartment, assignedTeam, assignedLocation, quantity
+    } = req.body;
 
-    if (!assetId || !assignedToId || !allocatedDate) {
-      return res.status(400).json({ error: "Asset, Employee, and Allocation Date are required" });
+    if (!assetId || !allocatedDate) {
+      return res.status(400).json({ error: "Asset and Allocation Date are required" });
     }
 
     // Find parent asset
@@ -638,71 +697,140 @@ router.post("/allocations", auth, async (req, res) => {
       return res.status(404).json({ error: "Asset not found" });
     }
 
-    if (asset.status === "Assigned") {
-      return res.status(400).json({ error: "Asset is already assigned" });
-    }
+    const finalType = assignmentType || "Employee";
+    const allocQty = parseInt(quantity) || 1;
 
-    // Validate and fetch selected components from DB
-    const componentsList = [];
-    if (componentIds && Array.isArray(componentIds) && componentIds.length > 0) {
-      for (const compId of componentIds) {
-        const comp = await Asset.findById(compId);
-        if (!comp) {
-          return res.status(404).json({ error: `Component with ID ${compId} not found` });
-        }
-        if (comp.status === "Assigned") {
-          return res.status(400).json({ error: `Component ${comp.assetId} (${comp.category}) is already assigned.` });
-        }
-        componentsList.push(comp);
+    let employeeDoc = null;
+    if (finalType === "Employee") {
+      if (!assignedToId) {
+        return res.status(400).json({ error: "Employee is required for Employee assignment type" });
       }
+      employeeDoc = await Employee.findOne({ employeeId: assignedToId });
+      if (!employeeDoc) {
+        return res.status(404).json({ error: "Employee not found" });
+      }
+    } else if (finalType === "Department") {
+      if (!assignedDepartment) return res.status(400).json({ error: "Department is required" });
+    } else if (finalType === "Team") {
+      if (!assignedTeam) return res.status(400).json({ error: "Team is required" });
+    } else if (finalType === "Location") {
+      if (!assignedLocation) return res.status(400).json({ error: "Location is required" });
     }
 
-    // Find employee
-    const employee = await Employee.findOne({ employeeId: assignedToId });
-    if (!employee) {
-      return res.status(404).json({ error: "Employee not found" });
+    if (asset.trackingType === "Quantity") {
+      const currentQty = asset.quantityDetails || {};
+      if (allocQty <= 0) {
+        return res.status(400).json({ error: "Quantity must be greater than zero." });
+      }
+      if ((currentQty.available || 0) < allocQty) {
+        return res.status(400).json({ error: `Requested quantity (${allocQty}) exceeds available quantity (${currentQty.available || 0}).` });
+      }
+
+      // Create allocation record
+      const allocation = new AssetAllocation({
+        asset: asset._id,
+        assetId: asset.assetId,
+        category: asset.category,
+        brandName: asset.brandName || asset.itemType || "",
+        version: asset.version || "",
+        division: division || (employeeDoc ? (employeeDoc.division || employeeDoc.department || "") : ""),
+        employeeId: employeeDoc ? employeeDoc._id : null,
+        employeeCode: employeeDoc ? employeeDoc.employeeId : "",
+        employeeName: employeeDoc ? employeeDoc.name : "",
+        allocatedDate,
+        conditionOnAllocation: asset.condition || "New",
+        status: "Assigned",
+        quantity: allocQty,
+        assignmentType: finalType,
+        assignedDepartment: finalType === "Department" ? assignedDepartment : undefined,
+        assignedTeam: finalType === "Team" ? assignedTeam : undefined,
+        assignedLocation: finalType === "Location" ? assignedLocation : undefined,
+        components: []
+      });
+
+      await allocation.save();
+
+      // Deduct available, add to inUse
+      asset.quantityDetails = {
+        total: currentQty.total || 0,
+        available: (currentQty.available || 0) - allocQty,
+        inUse: (currentQty.inUse || 0) + allocQty,
+        maintenance: currentQty.maintenance || 0,
+        damaged: currentQty.damaged || 0,
+        retired: currentQty.retired || 0
+      };
+      asset.status = asset.quantityDetails.available === 0 ? "Assigned" : "Available";
+      await asset.save();
+
+      return res.status(201).json(allocation);
+
+    } else {
+      // Individual Asset Allocation
+      if (asset.status === "Assigned") {
+        return res.status(400).json({ error: "Asset is already assigned" });
+      }
+
+      // Validate and fetch selected components from DB
+      const componentsList = [];
+      if (componentIds && Array.isArray(componentIds) && componentIds.length > 0) {
+        for (const compId of componentIds) {
+          const comp = await Asset.findById(compId);
+          if (!comp) {
+            return res.status(404).json({ error: `Component with ID ${compId} not found` });
+          }
+          if (comp.status === "Assigned") {
+            return res.status(400).json({ error: `Component ${comp.assetId} (${comp.category}) is already assigned.` });
+          }
+          componentsList.push(comp);
+        }
+      }
+
+      // Map components data to save in allocation
+      const allocationComponents = componentsList.map(c => ({
+        asset: c._id,
+        assetId: c.assetId,
+        category: c.category,
+        serialNumber: c.serialNumber,
+        condition: c.condition
+      }));
+
+      const allocation = new AssetAllocation({
+        asset: asset._id,
+        assetId: asset.assetId,
+        category: asset.category,
+        brandName: asset.brandName || "",
+        version: asset.version || "",
+        division: division || (employeeDoc ? (employeeDoc.division || employeeDoc.department || "") : ""),
+        employeeId: employeeDoc ? employeeDoc._id : null,
+        employeeCode: employeeDoc ? employeeDoc.employeeId : "",
+        employeeName: employeeDoc ? employeeDoc.name : "",
+        allocatedDate,
+        conditionOnAllocation: asset.condition || "New",
+        status: "Assigned",
+        quantity: 1,
+        assignmentType: finalType,
+        assignedDepartment: finalType === "Department" ? assignedDepartment : undefined,
+        assignedTeam: finalType === "Team" ? assignedTeam : undefined,
+        assignedLocation: finalType === "Location" ? assignedLocation : undefined,
+        components: allocationComponents
+      });
+
+      await allocation.save();
+
+      // Link components array in the parent Asset document for consistency
+      asset.components = componentsList.map(c => c._id);
+      asset.status = "Assigned";
+      await asset.save();
+
+      // Update components status and link to parent
+      for (const comp of componentsList) {
+        comp.status = "Assigned";
+        comp.parentAsset = asset._id;
+        await comp.save();
+      }
+
+      return res.status(201).json(allocation);
     }
-
-    // Map components data to save in allocation
-    const allocationComponents = componentsList.map(c => ({
-      asset: c._id,
-      assetId: c.assetId,
-      category: c.category,
-      serialNumber: c.serialNumber,
-      condition: c.condition
-    }));
-
-    const allocation = new AssetAllocation({
-      asset: asset._id,
-      assetId: asset.assetId,
-      category: asset.category,
-      brandName: asset.brandName,
-      version: asset.version,
-      division: division || employee.division || employee.department || "",
-      employeeId: employee._id,
-      employeeCode: employee.employeeId,
-      employeeName: employee.name,
-      allocatedDate,
-      conditionOnAllocation: asset.condition || "New",
-      status: "Assigned",
-      components: allocationComponents
-    });
-
-    await allocation.save();
-
-    // Link components array in the parent Asset document for consistency
-    asset.components = componentsList.map(c => c._id);
-    asset.status = "Assigned";
-    await asset.save();
-
-    // Update components status and link to parent
-    for (const comp of componentsList) {
-      comp.status = "Assigned";
-      comp.parentAsset = asset._id;
-      await comp.save();
-    }
-
-    res.status(201).json(allocation);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -724,25 +852,55 @@ router.put("/allocations/:id/return", auth, async (req, res) => {
 
     const asset = await Asset.findById(allocation.asset);
     if (asset) {
-      asset.status = "Available";
-      if (conditionOnReturn) {
-        asset.condition = conditionOnReturn;
-      }
-      await asset.save();
-    }
+      if (asset.trackingType === "Quantity") {
+        const currentQty = asset.quantityDetails || {};
+        const returnQty = allocation.quantity || 1;
 
-    // Deallocate all components based on the allocation record
-    if (allocation.components && allocation.components.length > 0) {
-      for (const compItem of allocation.components) {
-        if (compItem.asset) {
-          const comp = await Asset.findById(compItem.asset);
-          if (comp) {
-            comp.status = "Available";
-            comp.parentAsset = null;
-            if (conditionOnReturn) {
-              comp.condition = conditionOnReturn;
+        let availableChange = returnQty;
+        let damagedChange = 0;
+        let retiredChange = 0;
+
+        if (conditionOnReturn === "Damaged") {
+          damagedChange = returnQty;
+          availableChange = 0;
+        } else if (conditionOnReturn === "Retired" || conditionOnReturn === "Scrapped") {
+          retiredChange = returnQty;
+          availableChange = 0;
+        }
+
+        asset.quantityDetails = {
+          total: currentQty.total || 0,
+          available: (currentQty.available || 0) + availableChange,
+          inUse: Math.max(0, (currentQty.inUse || 0) - returnQty),
+          maintenance: currentQty.maintenance || 0,
+          damaged: (currentQty.damaged || 0) + damagedChange,
+          retired: (currentQty.retired || 0) + retiredChange
+        };
+
+        asset.status = asset.quantityDetails.available > 0 ? "Available" : "Assigned";
+        await asset.save();
+      } else {
+        // Individual asset return
+        asset.status = "Available";
+        if (conditionOnReturn) {
+          asset.condition = conditionOnReturn;
+        }
+        await asset.save();
+
+        // Deallocate all components based on the allocation record
+        if (allocation.components && allocation.components.length > 0) {
+          for (const compItem of allocation.components) {
+            if (compItem.asset) {
+              const comp = await Asset.findById(compItem.asset);
+              if (comp) {
+                comp.status = "Available";
+                comp.parentAsset = null;
+                if (conditionOnReturn) {
+                  comp.condition = conditionOnReturn;
+                }
+                await comp.save();
+              }
             }
-            await comp.save();
           }
         }
       }
@@ -1229,39 +1387,128 @@ router.get("/maintenance", auth, async (req, res) => {
 // Schedule maintenance
 router.post("/maintenance", auth, async (req, res) => {
   try {
-    const { assetId, maintenanceType, cost, startDate, endDate, vendorName, description } = req.body;
+    const { assetId, maintenanceType, cost, startDate, endDate, vendorName, description, quantity } = req.body;
 
     if (!assetId || !maintenanceType || !startDate || !endDate || !vendorName || !description) {
       return res.status(400).json({ error: "Asset, maintenance type, start/end dates, vendor, and description are required" });
     }
 
-    const asset = await Asset.findOne({ assetId });
+    const asset = await Asset.findOne({ assetId: assetId.trim().toUpperCase() });
     if (!asset) {
       return res.status(404).json({ error: "Asset not found" });
+    }
+
+    const mQty = parseInt(quantity) || 1;
+    if (asset.trackingType === "Quantity") {
+      const qd = asset.quantityDetails || {};
+      if (mQty <= 0) {
+        return res.status(400).json({ error: "Quantity must be greater than zero." });
+      }
+      if ((qd.available || 0) < mQty) {
+        return res.status(400).json({ error: `Requested quantity (${mQty}) exceeds available quantity (${qd.available || 0}).` });
+      }
+
+      // Deduct available, add to maintenance
+      asset.quantityDetails = {
+        total: qd.total || 0,
+        available: (qd.available || 0) - mQty,
+        inUse: qd.inUse || 0,
+        maintenance: (qd.maintenance || 0) + mQty,
+        damaged: qd.damaged || 0,
+        retired: qd.retired || 0
+      };
+      asset.status = asset.quantityDetails.available === 0 ? "Under Maintenance" : "Available";
+      await asset.save();
+    } else {
+      asset.status = "Under Maintenance";
+      await asset.save();
     }
 
     const maintenanceId = `MNT-${Date.now().toString().slice(-4)}`;
 
     const maintenance = new AssetMaintenance({
       maintenanceId,
-      assetId,
-      assetName: `${asset.brandName} ${asset.version}`,
+      assetId: asset.assetId,
+      assetName: asset.trackingType === "Quantity" ? asset.itemType : `${asset.brandName} ${asset.version}`,
       maintenanceType,
       cost: parseFloat(cost) || 0,
       startDate,
       endDate,
       vendorName,
       status: "Scheduled",
-      description
+      description,
+      quantity: asset.trackingType === "Quantity" ? mQty : 1,
+      trackingType: asset.trackingType || "Individual"
     });
 
     await maintenance.save();
-
-    // Automatically update the Asset Status to 'Under Maintenance'
-    asset.status = "Under Maintenance";
-    await asset.save();
-
     res.status(201).json(maintenance);
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// Complete maintenance
+router.put("/maintenance/:id/complete", auth, async (req, res) => {
+  try {
+    const { returnCondition } = req.body;
+    const maintenance = await AssetMaintenance.findById(req.params.id);
+    if (!maintenance) {
+      return res.status(404).json({ error: "Maintenance record not found" });
+    }
+
+    if (maintenance.status === "Completed") {
+      return res.status(400).json({ error: "Maintenance is already completed" });
+    }
+
+    const asset = await Asset.findOne({ assetId: maintenance.assetId });
+    if (asset) {
+      if (asset.trackingType === "Quantity") {
+        const qd = asset.quantityDetails || {};
+        const mQty = maintenance.quantity || 1;
+
+        let availableChange = mQty;
+        let damagedChange = 0;
+        let retiredChange = 0;
+
+        if (returnCondition === "Damaged") {
+          damagedChange = mQty;
+          availableChange = 0;
+        } else if (returnCondition === "Retired" || returnCondition === "Scrapped" || returnCondition === "Lost") {
+          retiredChange = mQty;
+          availableChange = 0;
+        }
+
+        asset.quantityDetails = {
+          total: qd.total || 0,
+          available: (qd.available || 0) + availableChange,
+          inUse: qd.inUse || 0,
+          maintenance: Math.max(0, (qd.maintenance || 0) - mQty),
+          damaged: (qd.damaged || 0) + damagedChange,
+          retired: (qd.retired || 0) + retiredChange
+        };
+
+        asset.status = asset.quantityDetails.available > 0 ? "Available" : "Available";
+        await asset.save();
+      } else {
+        if (returnCondition === "Damaged") {
+          asset.status = "Damaged";
+          asset.condition = "Damaged";
+        } else if (returnCondition === "Retired" || returnCondition === "Scrapped" || returnCondition === "Lost") {
+          asset.status = "Retired";
+          asset.condition = "Retired";
+        } else {
+          asset.status = "Available";
+          if (returnCondition) asset.condition = returnCondition;
+        }
+        await asset.save();
+      }
+    }
+
+    maintenance.status = "Completed";
+    await maintenance.save();
+
+    res.json(maintenance);
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -1581,6 +1828,90 @@ router.put("/exit-clearances/:id", auth, async (req, res) => {
   } catch (err) {
     console.error("Error updating exit clearance:", err);
     res.status(400).json({ error: err.message });
+  }
+});
+
+// Bulk Import Assets
+router.post("/bulk-import", auth, async (req, res) => {
+  try {
+    const assetsList = req.body;
+    if (!Array.isArray(assetsList)) {
+      return res.status(400).json({ error: "Invalid payload: Expected an array of assets." });
+    }
+
+    let importCount = 0;
+    let skippedCount = 0;
+    const errors = [];
+
+    // Load active field config keys
+    const config = await AssetFieldConfig.findOne({});
+    const activeKeys = config ? config.fields.map(f => f.key) : [];
+    const allKeys = new Set([
+      'processor', 'ram', 'hardDisk', 'screenSize', 'keyboardType', 'mouseType', 'headsetType',
+      ...activeKeys
+    ]);
+
+    for (const item of assetsList) {
+      try {
+        if (!item.assetId || !item.assetId.toString().trim()) {
+          skippedCount++;
+          continue;
+        }
+
+        const assetIdClean = item.assetId.toString().trim().toUpperCase();
+
+        // Check if already exists in DB
+        const existing = await Asset.findOne({ assetId: assetIdClean });
+        if (existing) {
+          skippedCount++;
+          continue;
+        }
+
+        // Setup payload
+        const payload = {
+          assetId: assetIdClean,
+          category: (item.category || "").toString().trim(),
+          brandName: (item.brandName || item.brand || "").toString().trim(),
+          version: (item.version || item.makeModel || item.model || "").toString().trim(),
+          serialNumber: (item.serialNumber || item.serialNo || "").toString().trim(),
+          purchaseDate: (item.purchaseDate || item.biosDate || "").toString().trim(),
+          condition: (item.condition || "New").toString().trim(),
+          location: (item.location || "").toString().trim(),
+          status: (item.status || "Available").toString().trim(),
+          isComponent: false,
+          trackingType: "Individual",
+          components: []
+        };
+
+        // Copy dynamic keys
+        allKeys.forEach(key => {
+          if (item[key] !== undefined) {
+            payload[key] = typeof item[key] === 'string' ? item[key].trim() : item[key];
+          }
+        });
+
+        // Specific fields from spreadsheet columns
+        if (item.biosDate) payload.biosDate = item.biosDate;
+        if (item.os && !payload.operatingSystem) payload.operatingSystem = item.os;
+        if (item.storage && !payload.hardDisk) payload.hardDisk = item.storage;
+        if (item.makeModel) payload.version = item.makeModel;
+
+        const asset = new Asset(payload);
+        await asset.save();
+        importCount++;
+      } catch (errItem) {
+        errors.push({ assetId: item.assetId, error: errItem.message });
+      }
+    }
+
+    res.json({
+      message: `Bulk import completed. Successfully imported: ${importCount}, Skipped/Duplicates: ${skippedCount}`,
+      imported: importCount,
+      skipped: skippedCount,
+      errors
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

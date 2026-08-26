@@ -579,6 +579,8 @@ export const assetAPI = {
 
   getAllMaintenance: () => api.get('/assets/maintenance'),
   createMaintenance: (data) => api.post('/assets/maintenance', data),
+  completeMaintenance: (id, data) => api.put(`/assets/maintenance/${id}/complete`, data),
+  bulkImport: (data) => api.post('/assets/bulk-import', data),
 
   getHandoverHistory: () => api.get('/assets/handovers/history'),
   processHandover: (data) => api.post('/assets/handovers', data),

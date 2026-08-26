@@ -87,7 +87,28 @@ const AssetSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: "Asset"
     }
-  ]
+  ],
+  trackingType: {
+    type: String,
+    enum: ["Individual", "Quantity"],
+    default: "Individual"
+  },
+  itemType: {
+    type: String,
+    trim: true
+  },
+  individualTracking: {
+    type: Boolean,
+    default: false
+  },
+  quantityDetails: {
+    total: { type: Number, default: 0 },
+    available: { type: Number, default: 0 },
+    inUse: { type: Number, default: 0 },
+    maintenance: { type: Number, default: 0 },
+    damaged: { type: Number, default: 0 },
+    retired: { type: Number, default: 0 }
+  }
 }, { timestamps: true, strict: false });
 
 const Asset = mongoose.model("Asset", AssetSchema);

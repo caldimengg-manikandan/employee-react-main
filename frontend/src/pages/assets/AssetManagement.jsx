@@ -21,11 +21,19 @@ import {
   X,
   Send,
   Filter,
-  Phone
+  Phone,
+  LayoutDashboard,
+  Wrench,
+  Upload,
+  Coffee,
+  Shield,
+  Key,
+  Building2,
+  Package
 } from "lucide-react";
 import { employeeAPI, assetAPI, BASE_URL } from "../../services/api";
 import ExtensionMaster from "./ExtensionMaster";
-import * as XLSX from "xlsx";
+import XLSX from "xlsx-js-style";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
 
@@ -328,6 +336,57 @@ export default function AssetManagement() {
   const [handoverConditionFilter, setHandoverConditionFilter] = useState("All");
   const [handoverDeptFilter, setHandoverDeptFilter] = useState("All");
 
+  // Office Accessories states
+  const [accessoryModalOpen, setAccessoryModalOpen] = useState(false);
+  const [editingAccessory, setEditingAccessory] = useState(null);
+  const [accessoryFormData, setAccessoryFormData] = useState({
+    category: "Furniture",
+    itemName: "",
+    quantity: 1,
+    location: "Chennai Office",
+    remarks: ""
+  });
+  const [accessorySearchQuery, setAccessorySearchQuery] = useState("");
+  const [accessoryCategoryFilter, setAccessoryCategoryFilter] = useState("All");
+
+  // Quantity tracking and Excel Import states
+  const [trackingTypeFilter, setTrackingTypeFilter] = useState("All");
+  const [trackingType, setTrackingType] = useState("Individual");
+  const [itemType, setItemType] = useState("");
+  const [totalQuantity, setTotalQuantity] = useState(0);
+  const [individualTracking, setIndividualTracking] = useState(false);
+
+  // Maintenance states
+  const [maintenanceList, setMaintenanceList] = useState([]);
+  const [maintenanceFormOpen, setMaintenanceFormOpen] = useState(false);
+  const [maintenanceData, setMaintenanceData] = useState({
+    assetId: "",
+    maintenanceType: "Repair",
+    cost: "",
+    startDate: new Date().toISOString().split("T")[0],
+    endDate: new Date().toISOString().split("T")[0],
+    vendorName: "",
+    description: "",
+    quantity: 1
+  });
+  const [completeMntModalOpen, setCompleteMntModalOpen] = useState(false);
+  const [selectedMntRecord, setSelectedMntRecord] = useState(null);
+  const [completeReturnCondition, setCompleteReturnCondition] = useState("Good");
+
+  // Excel Import states
+  const [excelImportOpen, setExcelImportOpen] = useState(false);
+  const [excelPreviewData, setExcelPreviewData] = useState([]);
+  const [excelFileName, setExcelFileName] = useState("");
+  const [excelParsingError, setExcelParsingError] = useState("");
+
+  // Allocation modifications
+  const [allocTrackingType, setAllocTrackingType] = useState("Individual");
+  const [allocAssignmentType, setAllocAssignmentType] = useState("Employee");
+  const [allocDepartment, setAllocDepartment] = useState("");
+  const [allocTeam, setAllocTeam] = useState("");
+  const [allocLocation, setAllocLocation] = useState("");
+  const [allocQuantity, setAllocQuantity] = useState(1);
+
   // Load functions
   const loadAssets = async () => {
     try {
@@ -472,6 +531,15 @@ export default function AssetManagement() {
     }
   };
 
+  const loadMaintenance = async () => {
+    try {
+      const res = await assetAPI.getAllMaintenance();
+      setMaintenanceList(res.data || []);
+    } catch (err) {
+      console.error("Error loading maintenance list:", err);
+    }
+  };
+
   // Initial load
   useEffect(() => {
     setLoading(true);
@@ -483,7 +551,8 @@ export default function AssetManagement() {
       loadHandoverHistory(),
       loadExitClearances(),
       loadCategories(),
-      loadFieldConfig()
+      loadFieldConfig(),
+      loadMaintenance()
     ]).finally(() => setLoading(false));
   }, []);
 
@@ -550,8 +619,8 @@ export default function AssetManagement() {
     const completedExitClearances = (exitClearances || []).filter(c => c.status === "Completed").length;
 
     let returnedCount = 0;
-    let damagedCount = assets.filter(a => a.status === "Damaged" || a.condition === "Damaged").length;
-    let lostCount = assets.filter(a => a.status === "Scrapped" || a.condition === "Lost").length;
+    let damagedCount = 0;
+    let lostCount = 0;
 
     (exitClearances || []).forEach(c => {
       (c.assignedAssets || []).forEach(a => {
@@ -561,11 +630,100 @@ export default function AssetManagement() {
       });
     });
 
+    // Helper to group assets
+    const getAssetGroup = (asset) => {
+      const cat = (asset.category || "").trim();
+      const tracking = asset.trackingType || "Individual";
+      
+      if (tracking === "Individual") {
+        const itCats = ["Laptop", "Desktop / CPU", "Adapter", "Charger", "Mouse", "Keyboard", "Headset", "Monitor"];
+        if (itCats.includes(cat)) return "IT Assets";
+      }
+      
+      if (cat === "Furniture") return "Furniture";
+      if (cat === "Electrical / Utility" || cat === "Electrical") return "Electrical";
+      if (cat === "Kitchen / Pantry" || cat === "Kitchen") return "Kitchen / Pantry";
+      if (cat === "Safety") return "Safety";
+      if (cat === "Security / Access" || cat === "Security") return "Security / Access";
+      if (cat === "Facility Equipment" || cat === "Facility") return "Facility Equipment";
+      if (cat === "Waste Management" || cat === "Waste") return "Waste Management";
+      
+      return "Other";
+    };
+
+    let totalIndiv = 0;
+    let totalQtyUnique = 0;
+    let totalQtySum = 0;
+    
+    let availableSum = 0;
+    let inUseSum = 0;
+    let maintenanceSum = 0;
+    let damagedSum = 0;
+    let retiredSum = 0;
+    
+    const groups = {
+      "IT Assets": { label: "IT Assets", total: 0, available: 0, inUse: 0, maintenance: 0, damaged: 0, retired: 0 },
+      "Furniture": { label: "Furniture", total: 0, available: 0, inUse: 0, maintenance: 0, damaged: 0, retired: 0 },
+      "Electrical": { label: "Electrical / Utility", total: 0, available: 0, inUse: 0, maintenance: 0, damaged: 0, retired: 0 },
+      "Kitchen / Pantry": { label: "Kitchen / Pantry", total: 0, available: 0, inUse: 0, maintenance: 0, damaged: 0, retired: 0 },
+      "Safety": { label: "Safety", total: 0, available: 0, inUse: 0, maintenance: 0, damaged: 0, retired: 0 },
+      "Security / Access": { label: "Security / Access", total: 0, available: 0, inUse: 0, maintenance: 0, damaged: 0, retired: 0 },
+      "Facility Equipment": { label: "Facility Equipment", total: 0, available: 0, inUse: 0, maintenance: 0, damaged: 0, retired: 0 },
+      "Waste Management": { label: "Waste Management", total: 0, available: 0, inUse: 0, maintenance: 0, damaged: 0, retired: 0 },
+      "Other": { label: "Other", total: 0, available: 0, inUse: 0, maintenance: 0, damaged: 0, retired: 0 }
+    };
+    
+    assets.forEach(a => {
+      const groupName = getAssetGroup(a);
+      const targetGroup = groups[groupName] || groups["Other"];
+      
+      if (a.trackingType === "Quantity") {
+        totalQtyUnique++;
+        const qd = a.quantityDetails || {};
+        const total = qd.total || 0;
+        const available = qd.available || 0;
+        const inUse = qd.inUse || 0;
+        const maint = qd.maintenance || 0;
+        const dmg = qd.damaged || 0;
+        const ret = qd.retired || 0;
+        
+        totalQtySum += total;
+        availableSum += available;
+        inUseSum += inUse;
+        maintenanceSum += maint;
+        damagedSum += dmg;
+        retiredSum += ret;
+        
+        targetGroup.total += total;
+        targetGroup.available += available;
+        targetGroup.inUse += inUse;
+        targetGroup.maintenance += maint;
+        targetGroup.damaged += dmg;
+        targetGroup.retired += ret;
+      } else {
+        totalIndiv++;
+        const status = a.status || "Available";
+        
+        availableSum += (status === "Available" ? 1 : 0);
+        inUseSum += (status === "Assigned" ? 1 : 0);
+        maintenanceSum += (status === "Under Maintenance" ? 1 : 0);
+        damagedSum += (status === "Damaged" ? 1 : 0);
+        retiredSum += ((status === "Retired" || status === "Scrapped" || status === "Scrapped" || status === "Lost") ? 1 : 0);
+        
+        targetGroup.total += 1;
+        targetGroup.available += (status === "Available" ? 1 : 0);
+        targetGroup.inUse += (status === "Assigned" ? 1 : 0);
+        targetGroup.maintenance += (status === "Under Maintenance" ? 1 : 0);
+        targetGroup.damaged += (status === "Damaged" ? 1 : 0);
+        targetGroup.retired += ((status === "Retired" || status === "Scrapped" || status === "Lost") ? 1 : 0);
+      }
+    });
+
     return {
       total: assets.length,
-      assigned: assets.filter(a => a.status === "Assigned").length,
-      available: assets.filter(a => a.status === "Available").length,
-      damaged: damagedCount,
+      assigned: inUseSum,
+      available: availableSum,
+      damaged: damagedSum || damagedCount,
       totalRequests: requests.length,
       pendingRequests: requests.filter(r => r.status === "Pending").length,
       approvedRequests: requests.filter(r => r.status === "Approved").length,
@@ -574,7 +732,19 @@ export default function AssetManagement() {
       pendingExitClearances,
       completedExitClearances,
       assetsReturned: returnedCount,
-      lostAssets: lostCount
+      lostAssets: lostCount || retiredSum,
+      
+      // new stats
+      totalIndividual: totalIndiv,
+      totalQuantityUnique: totalQtyUnique,
+      totalQuantitySum: totalQtySum,
+      totalAssetsCount: totalIndiv + totalQtySum,
+      availableSum,
+      inUseSum,
+      maintenanceSum,
+      damagedSum,
+      retiredSum,
+      groups
     };
   }, [assets, allocations, exitClearances, requests]);
 
@@ -751,9 +921,11 @@ export default function AssetManagement() {
     });
   }, [allocations, allocSearch, allocStatus, allocCategory, allocDivision]);
 
-  // Filtered Assets
+  // Filtered Assets (Individual tracking only for Asset Master)
   const filteredAssets = useMemo(() => {
     return assets.filter(asset => {
+      if (asset.trackingType === "Quantity") return false;
+
       const idStr = asset.assetId || "";
       const catStr = asset.category || "";
       const brandStr = asset.brandName || "";
@@ -761,6 +933,7 @@ export default function AssetManagement() {
       const modelStr = asset.version || "";
       const seatStr = asset.seatNo || "";
       const divStr = asset.division || "";
+      const locStr = asset.location || "";
 
       const matchSearch =
         idStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -769,12 +942,54 @@ export default function AssetManagement() {
         procStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
         modelStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
         seatStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        divStr.toLowerCase().includes(searchQuery.toLowerCase());
+        divStr.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        locStr.toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchCat = categoryFilter === "All" || asset.category === categoryFilter;
       return matchSearch && matchCat;
     });
   }, [assets, searchQuery, categoryFilter]);
+
+  // Filtered Accessories (Quantity tracking only)
+  const filteredAccessories = useMemo(() => {
+    return assets.filter(asset => {
+      if (asset.trackingType !== "Quantity") return false;
+
+      const catStr = asset.category || "";
+      const itemStr = asset.itemType || "";
+      const locStr = asset.location || "";
+      const remarksStr = asset.remarks || "";
+
+      const matchSearch =
+        catStr.toLowerCase().includes(accessorySearchQuery.toLowerCase()) ||
+        itemStr.toLowerCase().includes(accessorySearchQuery.toLowerCase()) ||
+        locStr.toLowerCase().includes(accessorySearchQuery.toLowerCase()) ||
+        remarksStr.toLowerCase().includes(accessorySearchQuery.toLowerCase());
+
+      const matchCat = accessoryCategoryFilter === "All" || asset.category === accessoryCategoryFilter;
+      return matchSearch && matchCat;
+    });
+  }, [assets, accessorySearchQuery, accessoryCategoryFilter]);
+
+  // Compute stats for each Office Accessories category
+  const accessoryStats = useMemo(() => {
+    const stats = {
+      "Furniture": 0,
+      "Electrical / Utility": 0,
+      "Kitchen / Pantry": 0,
+      "Safety": 0,
+      "Security / Access": 0,
+      "Facility": 0,
+      "Waste Management": 0,
+      "Other": 0
+    };
+    assets.forEach(a => {
+      if (a.trackingType === "Quantity" && stats[a.category] !== undefined) {
+        stats[a.category] += Number(a.quantityDetails?.total ?? a.totalQuantity ?? a.quantity ?? 0);
+      }
+    });
+    return stats;
+  }, [assets]);
 
   // Active specification fields that have at least one entered value in the filtered list
   const activeEnteredFields = useMemo(() => {
@@ -870,25 +1085,63 @@ export default function AssetManagement() {
         }
       }
 
-      // Build payload containing common fields
-      const payload = {
-        category: newAsset.category,
-        brandName: newAsset.brandName,
-        version: newAsset.version,
-        serialNumber: newAsset.serialNumber || "",
-        purchaseDate: newAsset.purchaseDate,
-        condition: newAsset.condition,
-        location: newAsset.location,
-        status: newAsset.status || "Available",
-        components: compsToSend
-      };
-
-      // Dynamically copy enabled fields from newAsset
-      (fieldConfig.fields || []).forEach(f => {
-        if (f.enabled && newAsset[f.key] !== undefined) {
-          payload[f.key] = newAsset[f.key];
+      // Build payload based on tracking type
+      let payload = {};
+      if (trackingType === "Quantity") {
+        payload = {
+          trackingType: "Quantity",
+          category: newAsset.category,
+          brandName: newAsset.brandName || "",
+          itemType: itemType || "",
+          individualTracking: individualTracking,
+          quantityDetails: {
+            total: parseInt(totalQuantity) || 0,
+            available: parseInt(totalQuantity) || 0,
+            inUse: selectedAsset?.quantityDetails?.inUse || 0,
+            maintenance: selectedAsset?.quantityDetails?.maintenance || 0,
+            damaged: selectedAsset?.quantityDetails?.damaged || 0,
+            retired: selectedAsset?.quantityDetails?.retired || 0
+          },
+          location: newAsset.location || "Chennai Office",
+          status: newAsset.status || "Available",
+          purchaseDate: newAsset.purchaseDate || ""
+        };
+        
+        if (selectedAsset) {
+          const inUse = selectedAsset.quantityDetails?.inUse || 0;
+          const maint = selectedAsset.quantityDetails?.maintenance || 0;
+          const dmg = selectedAsset.quantityDetails?.damaged || 0;
+          const ret = selectedAsset.quantityDetails?.retired || 0;
+          const total = parseInt(totalQuantity) || 0;
+          
+          const avail = total - (inUse + maint + dmg + ret);
+          if (avail < 0) {
+            alert(`New total quantity (${total}) is less than current in-use, maintenance, damaged, and retired counts combined (${inUse + maint + dmg + ret}).`);
+            return;
+          }
+          payload.quantityDetails.available = avail;
         }
-      });
+      } else {
+        payload = {
+          trackingType: "Individual",
+          category: newAsset.category,
+          brandName: newAsset.brandName,
+          version: newAsset.version,
+          serialNumber: newAsset.serialNumber || "",
+          purchaseDate: newAsset.purchaseDate,
+          condition: newAsset.condition,
+          location: newAsset.location,
+          status: newAsset.status || "Available",
+          components: compsToSend
+        };
+
+        // Dynamically copy enabled fields from newAsset
+        (fieldConfig.fields || []).forEach(f => {
+          if (f.enabled && newAsset[f.key] !== undefined) {
+            payload[f.key] = newAsset[f.key];
+          }
+        });
+      }
 
       if (selectedAsset) {
         // Edit mode - Asset ID is read-only
@@ -898,19 +1151,26 @@ export default function AssetManagement() {
       } else {
         // Create mode
         const inputAssetId = (newAsset.assetId || "").trim();
-        if (!inputAssetId) {
-          alert("Asset ID is mandatory.");
-          return;
+        
+        if (trackingType === "Quantity") {
+          if (inputAssetId) {
+            payload.assetId = inputAssetId;
+          }
+        } else {
+          if (!inputAssetId) {
+            alert("Asset ID is mandatory.");
+            return;
+          }
+
+          // Check for duplicate Asset ID (only for main parent assets in list)
+          const exists = assets.some(a => (a.assetId || "").toUpperCase() === inputAssetId.toUpperCase());
+          if (exists) {
+            alert("This Asset ID already exists.");
+            return;
+          }
+          payload.assetId = inputAssetId;
         }
 
-        // Check for duplicate Asset ID (only for main parent assets in list)
-        const exists = assets.some(a => (a.assetId || "").toUpperCase() === inputAssetId.toUpperCase());
-        if (exists) {
-          alert("This Asset ID already exists.");
-          return;
-        }
-
-        payload.assetId = inputAssetId;
         await assetAPI.create(payload);
         alert("Asset created successfully!");
       }
@@ -954,6 +1214,12 @@ export default function AssetManagement() {
 
   const handleOpenEditAsset = (asset) => {
     setSelectedAsset(asset);
+    const tType = asset.trackingType || "Individual";
+    setTrackingType(tType);
+    setItemType(asset.itemType || "");
+    setTotalQuantity(asset.quantityDetails?.total || 0);
+    setIndividualTracking(asset.individualTracking || false);
+
     const baseEditFields = {
       assetId: asset.assetId,
       category: asset.category || "Laptop",
@@ -1022,6 +1288,69 @@ export default function AssetManagement() {
 
   const handleAllocate = async (e) => {
     e.preventDefault();
+
+    if (allocTrackingType === "Quantity") {
+      if (!allocAssetSetSelectedId) {
+        alert("Please select a quantity asset.");
+        return;
+      }
+      
+      const targetAsset = assets.find(a => a._id === allocAssetSetSelectedId);
+      if (!targetAsset) return;
+      
+      const payload = {
+        assetId: targetAsset.assetId,
+        trackingType: "Quantity",
+        assignmentType: allocAssignmentType,
+        quantity: parseInt(allocQuantity) || 1,
+        allocatedDate: allocationData.allocatedDate
+      };
+      
+      if (allocAssignmentType === "Employee") {
+        if (!allocationData.assignedToId) {
+          alert("Please select an employee.");
+          return;
+        }
+        payload.assignedToId = allocationData.assignedToId;
+        payload.division = allocationData.division;
+      } else if (allocAssignmentType === "Department") {
+        if (!allocDepartment) {
+          alert("Please select/enter a department.");
+          return;
+        }
+        payload.department = allocDepartment;
+      } else if (allocAssignmentType === "Team") {
+        if (!allocTeam) {
+          alert("Please enter a team name.");
+          return;
+        }
+        payload.team = allocTeam;
+      } else if (allocAssignmentType === "Location") {
+        if (!allocLocation) {
+          alert("Please select a location.");
+          return;
+        }
+        payload.location = allocLocation;
+      }
+      
+      try {
+        setLoading(true);
+        await assetAPI.allocate(payload);
+        alert("Quantity asset allocated successfully!");
+        setAllocationFormOpen(false);
+        setAllocateAsset(null);
+        setAllocAssetSetSelectedId("");
+        loadAssets();
+        loadAllocations();
+      } catch (err) {
+        console.error("Error allocating quantity asset:", err);
+        alert(err.response?.data?.error || "Error allocating quantity asset.");
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+
     if (!allocAssetSetSelectedId) {
       alert("Please select an Asset Set to allocate.");
       return;
@@ -1112,6 +1441,58 @@ export default function AssetManagement() {
         alert("Active allocation record not found for this asset.");
       }
     }
+  };
+
+  const handleSaveAccessory = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      const payload = {
+        category: accessoryFormData.category,
+        itemType: accessoryFormData.itemName.trim(),
+        brandName: accessoryFormData.itemName.trim(),
+        trackingType: "Quantity",
+        totalQuantity: parseInt(accessoryFormData.quantity) || 1,
+        location: accessoryFormData.location,
+        remarks: accessoryFormData.remarks,
+        status: "Available"
+      };
+
+      if (editingAccessory) {
+        await assetAPI.update(editingAccessory._id, payload);
+        alert("Office Accessory updated successfully!");
+      } else {
+        await assetAPI.create(payload);
+        alert("Office Accessory added successfully!");
+      }
+      setAccessoryModalOpen(false);
+      setEditingAccessory(null);
+      setAccessoryFormData({
+        category: "Furniture",
+        itemName: "",
+        quantity: 1,
+        location: "Chennai Office",
+        remarks: ""
+      });
+      loadAssets();
+    } catch (err) {
+      console.error("Error saving accessory:", err);
+      alert(err.response?.data?.error || "Error saving Office Accessory.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditAccessoryClick = (acc) => {
+    setEditingAccessory(acc);
+    setAccessoryFormData({
+      category: acc.category || "Furniture",
+      itemName: acc.itemType || acc.brandName || "",
+      quantity: acc.quantityDetails?.total || acc.totalQuantity || 1,
+      location: acc.location || "Chennai Office",
+      remarks: acc.remarks || ""
+    });
+    setAccessoryModalOpen(true);
   };
 
 
@@ -1226,6 +1607,184 @@ export default function AssetManagement() {
     }
   };
 
+  const handleSaveMaintenance = async (e) => {
+    e.preventDefault();
+    if (!maintenanceData.assetId) {
+      alert("Please select an asset.");
+      return;
+    }
+    
+    // If quantity asset, validate quantity count
+    const targetAsset = assets.find(a => a.assetId === maintenanceData.assetId);
+    if (targetAsset && targetAsset.trackingType === "Quantity") {
+      const available = targetAsset.quantityDetails?.available || 0;
+      const mQty = parseInt(maintenanceData.quantity) || 1;
+      if (mQty <= 0) {
+        alert("Quantity must be greater than zero.");
+        return;
+      }
+      if (mQty > available) {
+        alert(`Cannot send ${mQty} units to maintenance. Only ${available} available.`);
+        return;
+      }
+    }
+
+    try {
+      setLoading(true);
+      await assetAPI.createMaintenance(maintenanceData);
+      alert("Maintenance scheduled successfully!");
+      setMaintenanceFormOpen(false);
+      loadAssets();
+      loadMaintenance();
+    } catch (err) {
+      console.error("Error creating maintenance log:", err);
+      alert(err.response?.data?.error || "Error scheduling maintenance.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCompleteMaintenanceSubmit = async (e) => {
+    e.preventDefault();
+    if (!selectedMntRecord) return;
+    try {
+      setLoading(true);
+      await assetAPI.completeMaintenance(selectedMntRecord._id, {
+        returnCondition: completeReturnCondition
+      });
+      alert("Maintenance record completed successfully!");
+      setCompleteMntModalOpen(false);
+      setSelectedMntRecord(null);
+      loadAssets();
+      loadMaintenance();
+    } catch (err) {
+      console.error("Error completing maintenance log:", err);
+      alert(err.response?.data?.error || "Error completing maintenance.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleExcelImportChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setExcelFileName(file.name);
+    setExcelParsingError("");
+    setExcelPreviewData([]);
+    
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, { type: "array" });
+        
+        const validSheets = [
+          { sheetName: "Laptop", category: "Laptop" },
+          { sheetName: "Monitor", category: "Monitor" },
+          { sheetName: "Desktop (CPU)", category: "Desktop / CPU" },
+          { sheetName: "Adapter", category: "Adapter" },
+          { sheetName: "Keyboard", category: "Keyboard" },
+          { sheetName: "Mouse", category: "Mouse" },
+          { sheetName: "Headset", category: "Headset" }
+        ];
+        
+        const allParsedAssets = [];
+        
+        validSheets.forEach(({ sheetName, category }) => {
+          const actualSheetName = workbook.SheetNames.find(
+            name => name.trim().toLowerCase() === sheetName.toLowerCase()
+          );
+          
+          if (!actualSheetName) return;
+          
+          const worksheet = workbook.Sheets[actualSheetName];
+          const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
+          
+          rawRows.forEach((row) => {
+            const getVal = (colNames) => {
+              const matchedKey = Object.keys(row).find(key => 
+                colNames.some(cName => key.trim().toLowerCase() === cName.toLowerCase())
+              );
+              return matchedKey ? row[matchedKey].toString().trim() : "";
+            };
+            
+            const assetId = getVal(["Asset ID", "AssetID"]);
+            if (!assetId) return;
+            
+            const version = getVal(["Make/Model", "Make & Model", "Model", "Make / Model", "MakeModel"]);
+            const brandName = getVal(["Brand Name", "Brand", "BrandName"]);
+            const connectionType = getVal(["Connection Type", "Connection", "Type"]);
+            
+            const payloadRow = {
+              assetId,
+              category,
+              brandName: brandName || (category === "Desktop / CPU" ? "HP" : "Caldim"),
+              version: version || "Standard",
+              serialNumber: getVal(["Serial Number", "Serial No", "SerialNumber", "Serial"]),
+              purchaseDate: getVal(["Bio's Date", "Bios Date", "Purchase Date", "Date"]),
+              status: getVal(["Status"]) || "Available",
+              condition: getVal(["Condition"]) || "Good"
+            };
+            
+            const ram = getVal(["RAM", "Memory"]);
+            if (ram) payloadRow.ram = ram;
+            
+            const storage = getVal(["Storage", "Hard Disk", "Hard Drive", "HDD", "SSD"]);
+            if (storage) payloadRow.hardDisk = storage;
+            
+            const processor = getVal(["Processor", "CPU Type", "CPU"]);
+            if (processor) payloadRow.processor = processor;
+            
+            const os = getVal(["OS", "Operating System", "Platform"]);
+            if (os) payloadRow.operatingSystem = os;
+            
+            const screenSize = getVal(["Screen Size", "ScreenSize", "Size"]);
+            if (screenSize) payloadRow.screenSize = screenSize;
+            
+            const chargerPower = getVal(["Charger Power", "Power", "Watts"]);
+            if (chargerPower) payloadRow.chargerPower = chargerPower;
+            
+            if (category === "Keyboard") payloadRow.keyboardType = connectionType || "Wired";
+            if (category === "Mouse") payloadRow.mouseType = connectionType || "Wired";
+            if (category === "Headset") payloadRow.headsetType = connectionType || "Wired";
+            
+            allParsedAssets.push(payloadRow);
+          });
+        });
+        
+        if (allParsedAssets.length === 0) {
+          setExcelParsingError("No valid assets found in the matching sheets. Please verify the sheets and column headers.");
+        } else {
+          setExcelPreviewData(allParsedAssets);
+        }
+      } catch (err) {
+        console.error("Excel parse error:", err);
+        setExcelParsingError("Failed to parse workbook: " + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+
+  const handleExcelImportSubmit = async (e) => {
+    e.preventDefault();
+    if (excelPreviewData.length === 0) return;
+    try {
+      setLoading(true);
+      const res = await assetAPI.bulkImport(excelPreviewData);
+      alert(res.data?.message || "Excel import completed successfully!");
+      setExcelImportOpen(false);
+      setExcelPreviewData([]);
+      setExcelFileName("");
+      loadAssets();
+    } catch (err) {
+      console.error("Error bulk importing assets:", err);
+      alert(err.response?.data?.error || "Error importing assets.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Export functions
   const exportCSV = () => {
     const specHeaders = (fieldConfig.fields || []).filter(f => f.enabled).map(f => f.label);
@@ -1253,24 +1812,332 @@ export default function AssetManagement() {
   };
 
   const exportExcel = () => {
-    const specHeaders = (fieldConfig.fields || []).filter(f => f.enabled).map(f => f.label);
-    const headers = [
-      "Asset ID", "Category", "Brand Name",
-      ...specHeaders, "Seat No", "BIO's Date", "Condition", "Location", "Status"
-    ];
-    const rows = assets.map(a => {
-      const specVals = (fieldConfig.fields || []).filter(f => f.enabled).map(f => a[f.key] || "");
-      return [
-        a.assetId, a.category, a.brandName,
-        ...specVals, a.seatNo || "",
-        a.purchaseDate, a.condition, a.location, a.status
-      ];
+    // Filter to only individual assets
+    const individualAssets = assets.filter(a => a.trackingType !== "Quantity");
+
+    // Group assets by category
+    const grouped = {};
+    individualAssets.forEach(a => {
+      const cat = a.category || "Other";
+      if (!grouped[cat]) grouped[cat] = [];
+      grouped[cat].push(a);
     });
-    const wsData = [headers, ...rows];
-    const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Asset Report");
+
+    // If there are no individual assets, create a single empty sheet
+    if (individualAssets.length === 0) {
+      const emptyWS = XLSX.utils.aoa_to_sheet([["No assets found"]]);
+      XLSX.utils.book_append_sheet(workbook, emptyWS, "Empty");
+      XLSX.writeFile(workbook, `Caldim_Asset_Report_${Date.now()}.xlsx`);
+      return;
+    }
+
+    // Configured fields for specific categories as requested by the user
+    const categoryConfig = {
+      "Adapter": [
+        { label: "Asset ID", key: "assetId" },
+        { label: "Category", key: "category" },
+        { label: "Brand Name", key: "brandName" },
+        { label: "RAM", key: "ram" },
+        { label: "Hard Disk / SSD", key: "hardDisk" },
+        { label: "Charger / Power Adapter", key: "chargerPower" },
+        { label: "Model Number / Version", key: "version" },
+        { label: "BIO's Date", key: "purchaseDate" },
+        { label: "Condition", key: "condition" },
+        { label: "Location", key: "location" }
+      ],
+      "Mouse": [
+        { label: "Asset ID", key: "assetId" },
+        { label: "Category", key: "category" },
+        { label: "Brand Name", key: "brandName" },
+        { label: "RAM", key: "ram" },
+        { label: "Hard Disk / SSD", key: "hardDisk" },
+        { label: "Mouse Type", key: "mouseType" },
+        { label: "BIO's Date", key: "purchaseDate" },
+        { label: "Condition", key: "condition" },
+        { label: "Location", key: "location" }
+      ],
+      "Laptop": [
+        { label: "Asset ID", key: "assetId" },
+        { label: "Category", key: "category" },
+        { label: "Brand Name", key: "brandName" },
+        { label: "Processor", key: "processor" },
+        { label: "RAM", key: "ram" },
+        { label: "Hard Disk / SSD", key: "hardDisk" },
+        { label: "Screen Size", key: "screenSize" },
+        { label: "Operating System", key: "operatingSystem" },
+        { label: "BIO's Date", key: "purchaseDate" },
+        { label: "Condition", key: "condition" },
+        { label: "Location", key: "location" }
+      ],
+      "Desktop / CPU": [
+        { label: "Asset ID", key: "assetId" },
+        { label: "Category", key: "category" },
+        { label: "Brand Name", key: "brandName" },
+        { label: "Processor", key: "processor" },
+        { label: "RAM", key: "ram" },
+        { label: "Hard Disk / SSD", key: "hardDisk" },
+        { label: "Operating System", key: "operatingSystem" },
+        { label: "GPU / Graphics Card", key: "gpu" },
+        { label: "Model Number / Version", key: "version" },
+        { label: "Serial Number", key: "serialNumber" },
+        { label: "BIO's Date", key: "purchaseDate" },
+        { label: "Condition", key: "condition" },
+        { label: "Location", key: "location" }
+      ],
+      "Keyboard": [
+        { label: "Asset ID", key: "assetId" },
+        { label: "Category", key: "category" },
+        { label: "Brand Name", key: "brandName" },
+        { label: "Keyboard Type", key: "keyboardType" },
+        { label: "Serial Number", key: "serialNumber" },
+        { label: "BIO's Date", key: "purchaseDate" },
+        { label: "Condition", key: "condition" },
+        { label: "Location", key: "location" }
+      ]
+    };
+
+    // Build worksheets for each category
+    Object.keys(grouped).forEach(catName => {
+      const catAssets = grouped[catName];
+      
+      // Determine fields for this category based on configuration or fallback
+      let fields = [];
+      if (categoryConfig[catName]) {
+        fields = categoryConfig[catName];
+      } else {
+        // Fallback fields configuration for other categories
+        const catSpecFields = CATEGORY_FIELDS[catName] || (fieldConfig.fields || []).filter(f => f.enabled);
+        fields = [
+          { label: "Asset ID", key: "assetId" },
+          { label: "Category", key: "category" },
+          { label: "Brand Name", key: "brandName" },
+          ...catSpecFields,
+          { label: "Serial Number", key: "serialNumber" },
+          { label: "BIO's Date", key: "purchaseDate" },
+          { label: "Condition", key: "condition" },
+          { label: "Location", key: "location" },
+          { label: "Status", key: "status" }
+        ];
+      }
+
+      // Headers
+      const headers = fields.map(f => f.label);
+
+      // Rows
+      const rows = catAssets.map(a => {
+        return fields.map(f => {
+          // Special fallback mappings
+          if (f.key === "chargerPower") {
+            return a.chargerPower || a.charger || a.adapter || "";
+          }
+          return a[f.key] || "";
+        });
+      });
+
+      // Construct Sheet
+      const wsData = [headers, ...rows];
+      const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+
+      // Header style: dark blue background, bold white text with a border
+      const headerStyle = {
+        fill: {
+          fgColor: { rgb: "262760" }
+        },
+        font: {
+          name: "Segoe UI",
+          sz: 10,
+          bold: true,
+          color: { rgb: "FFFFFF" }
+        },
+        alignment: {
+          vertical: "center",
+          horizontal: "left"
+        },
+        border: {
+          bottom: { style: "medium", color: { rgb: "F37021" } }
+        }
+      };
+
+      // General data row style
+      const dataStyle = {
+        font: {
+          name: "Segoe UI",
+          sz: 9,
+          color: { rgb: "333333" }
+        },
+        alignment: {
+          vertical: "center",
+          horizontal: "left"
+        },
+        border: {
+          bottom: { style: "thin", color: { rgb: "E2E8F0" } }
+        }
+      };
+
+      // Set widths for columns
+      const colWidths = headers.map(() => ({ wch: 18 }));
+      worksheet["!cols"] = colWidths;
+
+      // Apply styles to cells
+      const range = XLSX.utils.decode_range(worksheet["!ref"]);
+      for (let R = range.s.r; R <= range.e.r; ++R) {
+        for (let C = range.s.c; C <= range.e.c; ++C) {
+          const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+          if (!worksheet[cellRef]) continue;
+
+          if (R === 0) {
+            worksheet[cellRef].s = headerStyle;
+          } else {
+            worksheet[cellRef].s = dataStyle;
+            
+            // Color code the status text
+            const cellValue = worksheet[cellRef].v;
+            if (cellValue === "Available") {
+              worksheet[cellRef].s = {
+                ...dataStyle,
+                font: { ...dataStyle.font, bold: true, color: { rgb: "059669" } }
+              };
+            } else if (cellValue === "Assigned") {
+              worksheet[cellRef].s = {
+                ...dataStyle,
+                font: { ...dataStyle.font, bold: true, color: { rgb: "2563EB" } }
+              };
+            } else if (cellValue === "Under Maintenance") {
+              worksheet[cellRef].s = {
+                ...dataStyle,
+                font: { ...dataStyle.font, bold: true, color: { rgb: "D97706" } }
+              };
+            }
+          }
+        }
+      }
+
+      // Add sheet name limited to 30 characters
+      const sheetName = catName.substring(0, 30);
+      XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
+    });
+
     XLSX.writeFile(workbook, `Caldim_Asset_Report_${Date.now()}.xlsx`);
+  };
+
+  const exportAccessoriesExcel = () => {
+    // Array of arrays format for worksheet construction
+    const aoa = [
+      ["CALDIM OFFICE ACCESSORIES SUMMARY REPORT", "", "", "", "", ""],
+      ["", "", "", "", "", ""],
+      ["CATEGORY WISE QUANTITIES SUMMARY", "", "", "", "", ""],
+      ["Category", "Total Quantity", "", "", "", ""],
+      ["Furniture", accessoryStats["Furniture"] || 0, "", "", "", ""],
+      ["Electrical / Utility", accessoryStats["Electrical / Utility"] || 0, "", "", "", ""],
+      ["Kitchen / Pantry", accessoryStats["Kitchen / Pantry"] || 0, "", "", "", ""],
+      ["Safety", accessoryStats["Safety"] || 0, "", "", "", ""],
+      ["Security / Access", accessoryStats["Security / Access"] || 0, "", "", "", ""],
+      ["Facility", accessoryStats["Facility"] || 0, "", "", "", ""],
+      ["Waste Management", accessoryStats["Waste Management"] || 0, "", "", "", ""],
+      ["Other", accessoryStats["Other"] || 0, "", "", "", ""],
+      ["", "", "", "", "", ""],
+      ["DETAILED ACCESSORIES INVENTORY LIST", "", "", "", "", ""],
+      ["S.No", "Category", "Item Name", "Quantity", "Location", "Remarks"]
+    ];
+
+    // Append detail records to the aoa list
+    filteredAccessories.forEach((a, idx) => {
+      aoa.push([
+        idx + 1,
+        a.category || "",
+        a.itemType || a.itemName || "",
+        a.quantityDetails?.total ?? a.totalQuantity ?? a.quantity ?? 0,
+        a.location || "",
+        a.remarks || ""
+      ]);
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet(aoa);
+    const workbook = XLSX.utils.book_new();
+
+    // Set merges for title cells
+    worksheet["!merges"] = [
+      // Merge main title: row 0, col 0 to col 5 (A1 to F1)
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 5 } },
+      // Merge category summary title: row 2, col 0 to col 5 (A3 to F3)
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 5 } },
+      // Merge detail inventory title: row 13, col 0 to col 5 (A14 to F14)
+      { s: { r: 13, c: 0 }, e: { r: 13, c: 5 } }
+    ];
+
+    // Set column widths
+    const colWidths = [
+      { wch: 10 }, // S.No
+      { wch: 22 }, // Category
+      { wch: 25 }, // Item Name
+      { wch: 15 }, // Quantity
+      { wch: 20 }, // Location
+      { wch: 30 }  // Remarks
+    ];
+    worksheet["!cols"] = colWidths;
+
+    // Apply styles to cell ranges
+    const range = XLSX.utils.decode_range(worksheet["!ref"]);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!worksheet[cellRef]) continue;
+
+        if (R === 0) {
+          // Main Title row: Dark Blue background, bold white text
+          worksheet[cellRef].s = {
+            fill: { fgColor: { rgb: "262760" } },
+            font: { name: "Segoe UI", sz: 12, bold: true, color: { rgb: "FFFFFF" } },
+            alignment: { vertical: "center", horizontal: "center" }
+          };
+        } else if (R === 2 || R === 13) {
+          // Section header rows: Orange background, bold white text
+          worksheet[cellRef].s = {
+            fill: { fgColor: { rgb: "F37021" } },
+            font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "FFFFFF" } },
+            alignment: { vertical: "center", horizontal: "center" }
+          };
+        } else if (R === 3) {
+          // Summary table headers
+          worksheet[cellRef].s = {
+            fill: { fgColor: { rgb: "F1F5F9" } },
+            font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "334155" } },
+            alignment: { vertical: "center", horizontal: C === 1 ? "right" : "left" },
+            border: { bottom: { style: "medium", color: { rgb: "E2E8F0" } } }
+          };
+        } else if (R >= 4 && R <= 11) {
+          // Summary data rows
+          worksheet[cellRef].s = {
+            font: { name: "Segoe UI", sz: 9, color: { rgb: "333333" } },
+            alignment: { vertical: "center", horizontal: C === 1 ? "right" : "left" },
+            border: { bottom: { style: "thin", color: { rgb: "F1F5F9" } } }
+          };
+          if (C === 1 && Number(worksheet[cellRef].v) > 0) {
+            worksheet[cellRef].s.font = { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "262760" } };
+          }
+        } else if (R === 14) {
+          // Detail table headers: Dark Blue background, bold white text
+          worksheet[cellRef].s = {
+            fill: { fgColor: { rgb: "262760" } },
+            font: { name: "Segoe UI", sz: 10, bold: true, color: { rgb: "FFFFFF" } },
+            alignment: { vertical: "center", horizontal: C === 3 ? "right" : "left" },
+            border: { bottom: { style: "medium", color: { rgb: "F37021" } } }
+          };
+        } else if (R >= 15) {
+          // Detail data rows
+          worksheet[cellRef].s = {
+            font: { name: "Segoe UI", sz: 9, color: { rgb: "333333" } },
+            alignment: { vertical: "center", horizontal: C === 3 ? "right" : "left" },
+            border: { bottom: { style: "thin", color: { rgb: "E2E8F0" } } }
+          };
+        }
+      }
+    }
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Office Accessories");
+    XLSX.writeFile(workbook, `Caldim_Accessories_Report_${Date.now()}.xlsx`);
   };
 
   const exportPDF = () => {
@@ -1328,6 +2195,17 @@ export default function AssetManagement() {
               <UserCheck className="h-4 w-4" />
               Allocations
             </button>
+
+            <button
+              onClick={() => setActiveTab("accessories")}
+              className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-sm transition-all whitespace-nowrap ${activeTab === "accessories"
+                ? "border-[#f37021] text-[#262760]"
+                : "border-transparent text-slate-500 hover:text-slate-800"
+                }`}
+            >
+              <Layers className="h-4 w-4" />
+              Office Accessories
+            </button>
           </>
         )}
 
@@ -1377,6 +2255,171 @@ export default function AssetManagement() {
 
       {/* ======================================================== TAB CONTENT ======================================================== */}
 
+      {/* OFFICE ACCESSORIES TAB */}
+      {activeTab === "accessories" && currentRole !== "Employee" && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 animate-fade-in">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-[#262760]">Office Accessories & Facility Assets</h2>
+              <p className="text-xs text-slate-400 mt-1">Simple count/quantity based records of office assets.</p>
+            </div>
+            
+            <div className="flex gap-2 self-start md:self-auto">
+              <button
+                onClick={exportAccessoriesExcel}
+                className="flex items-center gap-2 border border-slate-300 rounded-xl px-3 py-2 text-sm hover:bg-slate-50 font-bold bg-white text-slate-700"
+              >
+                <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                Excel
+              </button>
+              <button
+                onClick={() => {
+                  setEditingAccessory(null);
+                  setAccessoryFormData({
+                    category: "Furniture",
+                    itemName: "",
+                    quantity: 1,
+                    location: "Chennai Office",
+                    remarks: ""
+                  });
+                  setAccessoryModalOpen(true);
+                }}
+                className="flex items-center gap-2 bg-[#262760] text-white rounded-xl px-4 py-2.5 text-sm hover:bg-[#1a1c43] font-bold"
+              >
+                <Plus className="h-4 w-4" />
+                Add Office Accessory
+              </button>
+            </div>
+          </div>
+
+          {/* Category Dashboard Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
+            {[
+              { name: "Furniture", icon: Package, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" },
+              { name: "Electrical / Utility", icon: Wrench, color: "text-amber-600", bg: "bg-amber-50", border: "border-amber-100" },
+              { name: "Kitchen / Pantry", icon: Coffee, color: "text-emerald-600", bg: "bg-emerald-50", border: "border-emerald-100" },
+              { name: "Safety", icon: Shield, color: "text-red-600", bg: "bg-red-50", border: "border-red-100" },
+              { name: "Security / Access", icon: Key, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-100" },
+              { name: "Facility", icon: Building2, color: "text-violet-600", bg: "bg-violet-50", border: "border-violet-100" },
+              { name: "Waste Management", icon: Trash2, color: "text-teal-600", bg: "bg-teal-50", border: "border-teal-100" },
+              { name: "Other", icon: Layers, color: "text-slate-600", bg: "bg-slate-50", border: "border-slate-100" }
+            ].map(cat => {
+              const IconComp = cat.icon;
+              const count = accessoryStats[cat.name] || 0;
+              return (
+                <div
+                  key={cat.name}
+                  className={`flex flex-col items-center justify-center p-4 rounded-2xl border ${cat.border} ${cat.bg} transition-all duration-300 hover:shadow-md hover:scale-[1.03] text-center`}
+                >
+                  <div className={`p-2.5 rounded-xl bg-white shadow-sm mb-3 ${cat.color}`}>
+                    <IconComp className="h-5 w-5" />
+                  </div>
+                  <span className="text-xs font-semibold text-slate-500 line-clamp-1" title={cat.name}>
+                    {cat.name}
+                  </span>
+                  <span className="text-lg font-bold text-slate-800 mt-1">
+                    {count}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Search and Filters */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
+              <input
+                type="text"
+                placeholder="Search accessories by item, location, remarks..."
+                value={accessorySearchQuery}
+                onChange={(e) => setAccessorySearchQuery(e.target.value)}
+                className="pl-10 pr-4 py-2 border rounded-xl w-full outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+              />
+            </div>
+            
+            <select
+              value={accessoryCategoryFilter}
+              onChange={(e) => setAccessoryCategoryFilter(e.target.value)}
+              className="border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 font-semibold text-slate-700"
+            >
+              <option value="All">All Categories</option>
+              <option value="Furniture">Furniture</option>
+              <option value="Electrical / Utility">Electrical / Utility</option>
+              <option value="Kitchen / Pantry">Kitchen / Pantry</option>
+              <option value="Safety">Safety</option>
+              <option value="Security / Access">Security / Access</option>
+              <option value="Facility">Facility</option>
+              <option value="Waste Management">Waste Management</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          {/* Grid Table */}
+          <div className="overflow-x-auto border border-slate-100 rounded-2xl">
+            <table className="w-full text-left border-collapse text-sm">
+              <thead>
+                <tr className="bg-[#262760] text-white font-sans uppercase text-[11px] tracking-wider font-extrabold">
+                  <th className="px-6 py-4 text-white text-center w-16">S.No</th>
+                  <th className="px-6 py-4 text-white">Category</th>
+                  <th className="px-6 py-4 text-white">Item</th>
+                  <th className="px-6 py-4 text-white">Quantity</th>
+                  <th className="px-6 py-4 text-white">Location</th>
+                  <th className="px-6 py-4 text-white text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 font-sans font-semibold text-slate-700">
+                {filteredAccessories.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-6 py-10 text-center text-slate-400 italic">
+                      No office accessories found matching filters.
+                    </td>
+                  </tr>
+                ) : (
+                  filteredAccessories.map((item, idx) => (
+                    <tr key={item._id} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="px-6 py-4 text-center font-medium text-slate-500">
+                        {idx + 1}
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="bg-slate-100 text-slate-800 text-xs px-2.5 py-1 rounded-full font-bold">
+                          {item.category}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-[#262760] font-bold text-sm">
+                        {item.itemType || item.brandName || "—"}
+                      </td>
+                      <td className="px-6 py-4 text-slate-900 font-black text-sm">
+                        {item.quantityDetails?.total ?? item.totalQuantity ?? 0}
+                      </td>
+                      <td className="px-6 py-4 text-slate-500 font-medium text-xs">
+                        {item.location || "—"}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button
+                            onClick={() => handleEditAccessoryClick(item)}
+                            className="bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                          >
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleDeleteAsset(item._id)}
+                            className="bg-red-50 text-red-600 hover:bg-red-100 px-3 py-1.5 rounded-xl text-xs font-bold transition-all"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
       {/* EXTENSION MASTER TAB */}
       {activeTab === "extensionMaster" && <ExtensionMaster />}
 
@@ -1402,26 +2445,13 @@ export default function AssetManagement() {
               </div>
               <div className="flex gap-2">
               <button
-                onClick={exportCSV}
-                className="flex items-center gap-2 border border-slate-300 rounded-xl px-3 py-2 text-sm hover:bg-slate-50 font-bold"
-              >
-                <Download className="h-4 w-4" />
-                CSV
-              </button>
-              <button
                 onClick={exportExcel}
                 className="flex items-center gap-2 border border-slate-300 rounded-xl px-3 py-2 text-sm hover:bg-slate-50 font-bold"
               >
                 <FileSpreadsheet className="h-4 w-4 text-green-600" />
                 Excel
               </button>
-              <button
-                onClick={exportPDF}
-                className="flex items-center gap-2 border border-slate-300 rounded-xl px-3 py-2 text-sm hover:bg-slate-50 font-bold"
-              >
-                <FileText className="h-4 w-4 text-red-600" />
-                PDF
-              </button>
+
               <button
                 onClick={() => {
                   setSelectedAsset(null);
@@ -1445,6 +2475,19 @@ export default function AssetManagement() {
               >
                 <Plus className="h-4 w-4" />
                 Add Asset
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setExcelFileName("");
+                  setExcelParsingError("");
+                  setExcelPreviewData([]);
+                  setExcelImportOpen(true);
+                }}
+                className="flex items-center gap-2 border border-green-600 text-green-700 bg-green-50 rounded-xl px-4 py-2 text-sm hover:bg-green-100 font-bold"
+              >
+                <Upload className="h-4 w-4" />
+                Import Excel
               </button>
               <button
                 type="button"
@@ -1554,75 +2597,135 @@ export default function AssetManagement() {
                   <tr key={idx} className="hover:bg-slate-50/55 transition-colors">
                     <td className="p-4 text-center font-medium text-slate-500">{idx + 1}</td>
                     <td className="p-4">
-                      <span className="font-mono font-bold text-[#262760]">{asset.assetId}</span>
-                      {asset.components && asset.components.length > 0 && (
-                        <div className="mt-1 flex flex-wrap gap-1">
-                          {asset.components.map(comp => (
-                            <span key={comp._id} className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 rounded px-1.5 py-0.5 font-sans whitespace-nowrap" title={`S/N: ${comp.serialNumber || 'N/A'}`}>
-                              {comp.category}: {comp.assetId}
-                            </span>
-                          ))}
-                        </div>
+                      {asset.trackingType === "Quantity" ? (
+                        <>
+                          <span className="font-mono font-bold text-teal-700">{asset.assetId}</span>
+                          <span className="ml-1.5 text-[9px] bg-teal-50 text-teal-700 px-1 py-0.5 rounded font-black uppercase">Quantity</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="font-mono font-bold text-[#262760]">{asset.assetId}</span>
+                          {asset.components && asset.components.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {asset.components.map(comp => (
+                                <span key={comp._id} className="text-[10px] bg-slate-100 border border-slate-200 text-slate-600 rounded px-1.5 py-0.5 font-sans whitespace-nowrap" title={`S/N: ${comp.serialNumber || 'N/A'}`}>
+                                  {comp.category}: {comp.assetId}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="p-4">{asset.category}</td>
-                    <td className="p-4 font-semibold text-slate-800">{asset.brandName}</td>
+                    <td className="p-4">
+                      {asset.trackingType === "Quantity" ? (
+                        <div>
+                          <span className="font-semibold text-slate-800">{asset.brandName || "—"}</span>
+                          {asset.itemType && <div className="text-xs text-slate-400 font-medium mt-0.5">{asset.itemType}</div>}
+                        </div>
+                      ) : (
+                        <span className="font-semibold text-slate-800">{asset.brandName}</span>
+                      )}
+                    </td>
                     {activeEnteredFields.map(f => (
                       <td key={f.key} className="p-4">{asset[f.key] || "—"}</td>
                     ))}
                     <td className="p-4">{asset.purchaseDate}</td>
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${asset.condition === "New" || asset.condition === "Excellent" || asset.condition === "Good"
-                        ? "bg-slate-100 text-slate-750"
-                        : "bg-amber-100 text-amber-700"
-                        }`}>
-                        {asset.condition}
-                      </span>
+                      {asset.trackingType === "Quantity" ? (
+                        <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-teal-50 text-teal-800">
+                          Bulk
+                        </span>
+                      ) : (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${asset.condition === "New" || asset.condition === "Excellent" || asset.condition === "Good"
+                          ? "bg-slate-100 text-slate-750"
+                          : "bg-amber-100 text-amber-700"
+                          }`}>
+                          {asset.condition}
+                        </span>
+                      )}
                     </td>
                     <td className="p-4">{asset.location}</td>
                     <td className="p-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${asset.status === "Assigned"
-                        ? "bg-green-150 text-green-700"
-                        : asset.status === "Available"
-                          ? "bg-blue-150 text-blue-700"
-                          : asset.status === "Under Maintenance"
-                            ? "bg-amber-150 text-amber-700"
-                            : "bg-red-150 text-red-700"
-                        }`}>
-                        {asset.status}
-                      </span>
+                      {asset.trackingType === "Quantity" ? (
+                        <div className="flex flex-col gap-0.5 text-[11px] font-bold text-slate-600 bg-slate-50 border rounded-lg p-2 font-mono">
+                          <div>Total: {asset.quantityDetails?.total || 0}</div>
+                          <div className="text-emerald-600">Avail: {asset.quantityDetails?.available || 0}</div>
+                          <div className="text-orange-650">In Use: {asset.quantityDetails?.inUse || 0}</div>
+                          <div className="text-amber-600">Maint: {asset.quantityDetails?.maintenance || 0}</div>
+                        </div>
+                      ) : (
+                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${asset.status === "Assigned"
+                          ? "bg-green-150 text-green-700"
+                          : asset.status === "Available"
+                            ? "bg-blue-150 text-blue-700"
+                            : asset.status === "Under Maintenance"
+                              ? "bg-amber-150 text-amber-700"
+                              : "bg-red-150 text-red-700"
+                          }`}>
+                          {asset.status}
+                        </span>
+                      )}
                     </td>
                     <td className="p-4">
                       <div className="flex items-center gap-2 justify-center">
-                        {asset.status !== "Assigned" && (asset.category === "Laptop" || asset.category === "Desktop / CPU") && (
-                          <button
-                            onClick={() => {
-                              setAllocateAsset(asset);
-                              setAllocCategorySelected(asset.category);
-                              setAllocAssetSetSelectedId(asset._id);
-                              setSelectedComponents({
-                                adapterCharger: "",
-                                mouse: "",
-                                keyboard: "",
-                                headset: "",
-                                monitor: ""
-                              });
-                              setAllocationFormOpen(true);
-                            }}
-                            title="Assign to Employee"
-                            className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg font-bold text-xs flex items-center gap-1 border border-green-200"
-                          >
-                            Assign
-                          </button>
-                        )}
-                        {asset.status === "Assigned" && (asset.category === "Laptop" || asset.category === "Desktop / CPU") && (
-                          <button
-                            onClick={() => handleDeallocateByAsset(asset._id)}
-                            title="Deallocate Asset"
-                            className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg font-bold text-xs flex items-center gap-1 border border-red-200"
-                          >
-                            Return
-                          </button>
+                        {asset.trackingType === "Quantity" ? (
+                          (asset.quantityDetails?.available || 0) > 0 && (
+                            <button
+                              onClick={() => {
+                                setAllocateAsset(asset);
+                                setAllocCategorySelected(asset.category);
+                                setAllocAssetSetSelectedId(asset._id);
+                                setAllocTrackingType("Quantity");
+                                setAllocAssignmentType("Employee");
+                                setAllocDepartment("");
+                                setAllocTeam("");
+                                setAllocLocation("");
+                                setAllocQuantity(1);
+                                setAllocationFormOpen(true);
+                              }}
+                              title="Assign Quantity Asset"
+                              className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg font-bold text-xs flex items-center gap-1 border border-green-200 shadow-sm"
+                            >
+                              Assign
+                            </button>
+                          )
+                        ) : (
+                          <>
+                            {asset.status !== "Assigned" && (asset.category === "Laptop" || asset.category === "Desktop / CPU") && (
+                              <button
+                                onClick={() => {
+                                  setAllocateAsset(asset);
+                                  setAllocCategorySelected(asset.category);
+                                  setAllocAssetSetSelectedId(asset._id);
+                                  setAllocTrackingType("Individual");
+                                  setAllocAssignmentType("Employee");
+                                  setSelectedComponents({
+                                    adapterCharger: "",
+                                    mouse: "",
+                                    keyboard: "",
+                                    headset: "",
+                                    monitor: ""
+                                  });
+                                  setAllocationFormOpen(true);
+                                }}
+                                title="Assign to Employee"
+                                className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg font-bold text-xs flex items-center gap-1 border border-green-200"
+                              >
+                                Assign
+                              </button>
+                            )}
+                            {asset.status === "Assigned" && (asset.category === "Laptop" || asset.category === "Desktop / CPU") && (
+                              <button
+                                onClick={() => handleDeallocateByAsset(asset._id)}
+                                title="Deallocate Asset"
+                                className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg font-bold text-xs flex items-center gap-1 border border-red-200"
+                              >
+                                Return
+                              </button>
+                            )}
+                          </>
                         )}
                         <button
                           onClick={() => setViewAssetDetails(asset)}
@@ -1816,6 +2919,7 @@ export default function AssetManagement() {
           </div>
         </div>
       )}
+
 
       {/* ASSET HANDOVER TAB */}
       {activeTab === "handover" && currentRole !== "Employee" && (
@@ -2479,7 +3583,7 @@ export default function AssetManagement() {
               <button type="button" onClick={() => setAssetFormOpen(false)} className="text-white hover:text-slate-200 font-bold">✕</button>
             </div>
             <div className="p-6 grid grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
-
+              {/* Individual Tracking fields */}
               {selectedAsset ? (
                 <div>
                   <label className="block text-xs font-bold text-slate-500 mb-1">Asset ID (Read Only)</label>
@@ -2487,7 +3591,7 @@ export default function AssetManagement() {
                     type="text"
                     readOnly
                     value={selectedAsset.assetId}
-                    className="w-full border rounded-xl px-3 py-2 bg-slate-100 outline-none text-sm text-slate-655 font-mono font-bold"
+                    className="w-full border rounded-xl px-3 py-2 bg-slate-100 outline-none text-sm text-slate-600 font-mono font-bold"
                   />
                 </div>
               ) : (
@@ -2718,316 +3822,451 @@ export default function AssetManagement() {
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 animate-fadeIn">
             <form onSubmit={handleAllocate} className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
               <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center font-sans shrink-0">
-                <h3 className="text-lg font-bold">Assign Asset Set</h3>
+                <h3 className="text-lg font-bold">
+                  {allocTrackingType === "Quantity" ? "Allocate Quantity Asset" : "Assign Asset Set"}
+                </h3>
                 <button type="button" onClick={() => setAllocationFormOpen(false)} className="text-white hover:text-slate-200 text-lg font-bold">✕</button>
               </div>
-              <div className="p-6 space-y-4 overflow-y-auto flex-1">
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Select Employee *</label>
-                  <select
-                    required
-                    value={allocationData.assignedToId}
-                    onChange={(e) => {
-                      const empId = e.target.value;
-                      const selectedEmp = employees.find(emp => (emp.employeeId || emp.employeeCode) === empId);
-                      const empDiv = selectedEmp ? (selectedEmp.division || selectedEmp.department || "") : "";
-                      setAllocationData(prev => ({
-                        ...prev,
-                        assignedToId: empId,
-                        division: empDiv
-                      }));
-                    }}
-                    className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">-- Choose Employee --</option>
-                    {sortedEmployees.map(emp => (
-                      <option key={emp._id} value={emp.employeeId || emp.employeeCode}>
-                        {emp.employeeId || emp.employeeCode} - {emp.name || emp.employeename} ({emp.division || emp.department || "SDS"})
-                      </option>
-                    ))}
-                  </select>
-                </div>
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Select Main Category *</label>
-                  <select
-                    required
-                    value={allocCategorySelected}
-                    onChange={(e) => {
-                      setAllocCategorySelected(e.target.value);
-                      setAllocAssetSetSelectedId("");
-                      setSelectedComponents({
-                        adapterCharger: "",
-                        mouse: "",
-                        keyboard: "",
-                        headset: "",
-                        monitor: ""
-                      });
-                    }}
-                    className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">-- Choose Category --</option>
-                    <option value="Laptop">Laptop</option>
-                    <option value="Desktop / CPU">Desktop / CPU</option>
-                  </select>
-                </div>
+              {allocTrackingType === "Quantity" ? (
+                <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Quantity Asset Selected</label>
+                    <div className="bg-slate-50 p-3 rounded-xl border text-sm font-semibold text-slate-800">
+                      {allocateAsset?.category} - {allocateAsset?.itemType} ({allocateAsset?.location})
+                      <div className="text-xs text-slate-400 font-normal mt-0.5">Available: {allocateAsset?.quantityDetails?.available || 0}</div>
+                    </div>
+                  </div>
 
-                {allocCategorySelected && (() => {
-                  const mainAssets = (assets || []).filter(
-                    a => a.category === allocCategorySelected && (a.status === "Available" || a._id === allocAssetSetSelectedId)
-                  );
-                  const availableAdapters = (assets || []).filter(a => a.category === "Adapter" && a.status === "Available");
-                  const availableChargers = (assets || []).filter(a => a.category === "Charger" && a.status === "Available");
-                  const availableMice = (assets || []).filter(a => (a.category === "Mouse" || a.category === "Mouse (Wired / Non-Wired)") && a.status === "Available");
-                  const availableKeyboards = (assets || []).filter(a => a.category === "Keyboard" && a.status === "Available");
-                  const availableHeadsets = (assets || []).filter(a => a.category === "Headset" && a.status === "Available");
-                  const availableMonitors = (assets || []).filter(a => a.category === "Monitor" && a.status === "Available");
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Assignment Target Type *</label>
+                    <select
+                      required
+                      value={allocAssignmentType}
+                      onChange={(e) => setAllocAssignmentType(e.target.value)}
+                      className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="Employee">Employee</option>
+                      <option value="Department">Department</option>
+                      <option value="Team">Team</option>
+                      <option value="Location">Location</option>
+                    </select>
+                  </div>
 
-                  return (
+                  {allocAssignmentType === "Employee" && (
                     <>
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 mb-1">Select Available {allocCategorySelected} *</label>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Select Employee *</label>
                         <select
                           required
-                          value={allocAssetSetSelectedId}
-                          onChange={(e) => setAllocAssetSetSelectedId(e.target.value)}
+                          value={allocationData.assignedToId}
+                          onChange={(e) => {
+                            const empId = e.target.value;
+                            const selectedEmp = employees.find(emp => (emp.employeeId || emp.employeeCode) === empId);
+                            const empDiv = selectedEmp ? (selectedEmp.division || selectedEmp.department || "") : "";
+                            setAllocationData(prev => ({
+                              ...prev,
+                              assignedToId: empId,
+                              division: empDiv
+                            }));
+                          }}
                           className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
                         >
-                          <option value="">-- Choose {allocCategorySelected} --</option>
-                          {mainAssets.map(set => (
-                            <option key={set._id} value={set._id}>
-                              {set.assetId} - {set.brandName} {set.version ? `(${set.version})` : ""}
+                          <option value="">-- Choose Employee --</option>
+                          {sortedEmployees.map(emp => (
+                            <option key={emp._id} value={emp.employeeId || emp.employeeCode}>
+                              {emp.employeeId || emp.employeeCode} - {emp.name || emp.employeename} ({emp.division || emp.department || "SDS"})
                             </option>
                           ))}
                         </select>
                       </div>
 
-                      {allocCategorySelected === "Laptop" && (
-                        <>
-                          {/* ── Adapter / Charger type selector ── */}
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Adapter / Charger</label>
-                            <select
-                              value={selectedComponents.adapterChargerType}
-                              onChange={(e) => setSelectedComponents(prev => ({
-                                ...prev,
-                                adapterChargerType: e.target.value,
-                                adapterCharger: ""
-                              }))}
-                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">-- None / Not Required --</option>
-                              <option value="Adapter">Adapter</option>
-                              <option value="Charger">Charger</option>
-                            </select>
-                          </div>
-
-                          {/* ── Asset list filtered by chosen type ── */}
-                          {selectedComponents.adapterChargerType && (() => {
-                            const filteredList = (assets || []).filter(
-                              a => a.category === selectedComponents.adapterChargerType && a.status === "Available"
-                            );
-                            const selAC = assets.find(a => a._id === selectedComponents.adapterCharger);
-                            return (
-                              <div>
-                                <label className="block text-xs font-bold text-slate-500 mb-1">
-                                  Select Available {selectedComponents.adapterChargerType}
-                                </label>
-                                <select
-                                  value={selectedComponents.adapterCharger}
-                                  onChange={(e) => setSelectedComponents(prev => ({ ...prev, adapterCharger: e.target.value }))}
-                                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                  <option value="">-- Choose {selectedComponents.adapterChargerType} --</option>
-                                  {filteredList.map(ast => (
-                                    <option key={ast._id} value={ast._id}>
-                                      {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
-                                    </option>
-                                  ))}
-                                </select>
-                                {filteredList.length === 0 && (
-                                  <p className="text-[11px] text-red-500 mt-1 font-semibold">No available {selectedComponents.adapterChargerType}s found.</p>
-                                )}
-
-                                {/* ── Dynamic detail fields for selected asset ── */}
-                                {selAC && (
-                                  <div className="mt-2 p-3 rounded-xl border border-blue-100 bg-blue-50 text-xs animate-fadeIn">
-                                    <div className="font-bold text-blue-700 mb-2">{selAC.category} Details</div>
-                                    <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-slate-700">
-                                      <span className="font-semibold text-slate-500">Asset ID:</span>
-                                      <span>{selAC.assetId}</span>
-                                      <span className="font-semibold text-slate-500">Brand:</span>
-                                      <span>{selAC.brandName}</span>
-                                      {selAC.chargerPower && (
-                                        <><span className="font-semibold text-slate-500">Power (Watts):</span><span>{selAC.chargerPower}</span></>
-                                      )}
-                                      {selAC.version && (
-                                        <><span className="font-semibold text-slate-500">Model / Version:</span><span>{selAC.version}</span></>
-                                      )}
-                                      {selAC.serialNumber && (
-                                        <><span className="font-semibold text-slate-500">Serial No:</span><span>{selAC.serialNumber}</span></>
-                                      )}
-                                      <span className="font-semibold text-slate-500">Condition:</span>
-                                      <span>{selAC.condition}</span>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })()}
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Mouse</label>
-                            <select
-                              value={selectedComponents.mouse}
-                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, mouse: e.target.value }))}
-                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">-- None / Not Required --</option>
-                              {availableMice.map(ast => (
-                                <option key={ast._id} value={ast._id}>
-                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Headset</label>
-                            <select
-                              value={selectedComponents.headset}
-                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, headset: e.target.value }))}
-                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">-- None / Not Required --</option>
-                              {availableHeadsets.map(ast => (
-                                <option key={ast._id} value={ast._id}>
-                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </>
-                      )}
-
-                      {allocCategorySelected === "Desktop / CPU" && (
-                        <>
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Keyboard</label>
-                            <select
-                              value={selectedComponents.keyboard}
-                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, keyboard: e.target.value }))}
-                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">-- None / Not Required --</option>
-                              {availableKeyboards.map(ast => (
-                                <option key={ast._id} value={ast._id}>
-                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Mouse</label>
-                            <select
-                              value={selectedComponents.mouse}
-                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, mouse: e.target.value }))}
-                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">-- None / Not Required --</option>
-                              {availableMice.map(ast => (
-                                <option key={ast._id} value={ast._id}>
-                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Monitor</label>
-                            <select
-                              value={selectedComponents.monitor}
-                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, monitor: e.target.value }))}
-                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">-- None / Not Required --</option>
-                              {availableMonitors.map(ast => (
-                                <option key={ast._id} value={ast._id}>
-                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Headset</label>
-                            <select
-                              value={selectedComponents.headset}
-                              onChange={(e) => setSelectedComponents(prev => ({ ...prev, headset: e.target.value }))}
-                              className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                              <option value="">-- None / Not Required --</option>
-                              {availableHeadsets.map(ast => (
-                                <option key={ast._id} value={ast._id}>
-                                  {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </>
-                      )}
-                    </>
-                  );
-                })()}
-
-                {allocationData.assignedToId && (() => {
-                  const selectedEmp = employees.find(emp => (emp.employeeId || emp.employeeCode) === allocationData.assignedToId);
-                  const empName = selectedEmp ? selectedEmp.name : "";
-                  return (
-                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-sans mt-2 space-y-2.5 animate-fadeIn">
-                      <div className="font-bold text-slate-700">
-                        Employee: <span className="text-[#262760] font-black">{allocationData.assignedToId}</span> - {empName}
-                      </div>
                       <div>
-                        <div className="font-bold text-slate-500 mb-1">Currently Assigned:</div>
-                        {selectedEmployeeAllocations.length === 0 ? (
-                          <div className="text-slate-400 font-medium italic pl-1">No assets assigned.</div>
-                        ) : (
-                          <div className="space-y-1 pl-1 font-sans">
-                            {selectedEmployeeAllocations.map(al => (
-                              <div key={al._id} className="flex items-center gap-1.5 text-slate-700 font-semibold">
-                                <span className="text-green-600 font-bold">✓</span>
-                                <span>{al.category} - <span className="font-mono text-slate-500">{al.assetId}</span></span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Division / Department *</label>
+                        <input
+                          type="text" required
+                          value={allocationData.division || ""}
+                          onChange={(e) => setAllocationData(prev => ({ ...prev, division: e.target.value }))}
+                          className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                          placeholder="Enter Division (e.g. IT, HR, Sales)"
+                        />
                       </div>
-                    </div>
-                  );
-                })()}
+                    </>
+                  )}
 
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Division *</label>
-                  <input
-                    type="text" required
-                    value={allocationData.division || ""}
-                    onChange={(e) => setAllocationData(prev => ({ ...prev, division: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter Division (e.g. IT, HR, Sales)"
-                  />
+                  {allocAssignmentType === "Department" && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">Select/Enter Department *</label>
+                      <input
+                        type="text"
+                        required
+                        value={allocDepartment}
+                        onChange={(e) => setAllocDepartment(e.target.value)}
+                        placeholder="e.g. Finance, HR, Sales, Development"
+                        className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+
+                  {allocAssignmentType === "Team" && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">Enter Team Name *</label>
+                      <input
+                        type="text"
+                        required
+                        value={allocTeam}
+                        onChange={(e) => setAllocTeam(e.target.value)}
+                        placeholder="e.g. React Developers Team, HR Ops"
+                        className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  )}
+
+                  {allocAssignmentType === "Location" && (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 mb-1">Select Target Location *</label>
+                      <select
+                        required
+                        value={allocLocation}
+                        onChange={(e) => setAllocLocation(e.target.value)}
+                        className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="">-- Choose Location --</option>
+                        {locations.map(l => <option key={l} value={l}>{l}</option>)}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Quantity to Allocate * (Max: {allocateAsset?.quantityDetails?.available || 0})</label>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      max={allocateAsset?.quantityDetails?.available || 1}
+                      value={allocQuantity}
+                      onChange={(e) => setAllocQuantity(parseInt(e.target.value) || 1)}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Allocation Date *</label>
+                    <input
+                      type="date" required
+                      value={allocationData.allocatedDate}
+                      onChange={(e) => setAllocationData(prev => ({ ...prev, allocatedDate: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 mb-1">Allocation Date *</label>
-                  <input
-                    type="date" required
-                    value={allocationData.allocatedDate}
-                    onChange={(e) => setAllocationData(prev => ({ ...prev, allocatedDate: e.target.value }))}
-                    className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
-                  />
+              ) : (
+                <div className="p-6 space-y-4 overflow-y-auto flex-1">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Select Employee *</label>
+                    <select
+                      required
+                      value={allocationData.assignedToId}
+                      onChange={(e) => {
+                        const empId = e.target.value;
+                        const selectedEmp = employees.find(emp => (emp.employeeId || emp.employeeCode) === empId);
+                        const empDiv = selectedEmp ? (selectedEmp.division || selectedEmp.department || "") : "";
+                        setAllocationData(prev => ({
+                          ...prev,
+                          assignedToId: empId,
+                          division: empDiv
+                        }));
+                      }}
+                      className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Choose Employee --</option>
+                      {sortedEmployees.map(emp => (
+                        <option key={emp._id} value={emp.employeeId || emp.employeeCode}>
+                          {emp.employeeId || emp.employeeCode} - {emp.name || emp.employeename} ({emp.division || emp.department || "SDS"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Select Main Category *</label>
+                    <select
+                      required
+                      value={allocCategorySelected}
+                      onChange={(e) => {
+                        setAllocCategorySelected(e.target.value);
+                        setAllocAssetSetSelectedId("");
+                        setSelectedComponents({
+                          adapterCharger: "",
+                          mouse: "",
+                          keyboard: "",
+                          headset: "",
+                          monitor: ""
+                        });
+                      }}
+                      className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">-- Choose Category --</option>
+                      <option value="Laptop">Laptop</option>
+                      <option value="Desktop / CPU">Desktop / CPU</option>
+                    </select>
+                  </div>
+
+                  {allocCategorySelected && (() => {
+                    const mainAssets = (assets || []).filter(
+                      a => a.category === allocCategorySelected && (a.status === "Available" || a._id === allocAssetSetSelectedId)
+                    );
+                    const availableAdapters = (assets || []).filter(a => a.category === "Adapter" && a.status === "Available");
+                    const availableChargers = (assets || []).filter(a => a.category === "Charger" && a.status === "Available");
+                    const availableMice = (assets || []).filter(a => (a.category === "Mouse" || a.category === "Mouse (Wired / Non-Wired)") && a.status === "Available");
+                    const availableKeyboards = (assets || []).filter(a => a.category === "Keyboard" && a.status === "Available");
+                    const availableHeadsets = (assets || []).filter(a => a.category === "Headset" && a.status === "Available");
+                    const availableMonitors = (assets || []).filter(a => a.category === "Monitor" && a.status === "Available");
+
+                    return (
+                      <>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 mb-1">Select Available {allocCategorySelected} *</label>
+                          <select
+                            required
+                            value={allocAssetSetSelectedId}
+                            onChange={(e) => setAllocAssetSetSelectedId(e.target.value)}
+                            className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value="">-- Choose {allocCategorySelected} --</option>
+                            {mainAssets.map(set => (
+                              <option key={set._id} value={set._id}>
+                                {set.assetId} - {set.brandName} {set.version ? `(${set.version})` : ""}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {allocCategorySelected === "Laptop" && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Adapter / Charger</label>
+                              <select
+                                value={selectedComponents.adapterChargerType}
+                                onChange={(e) => setSelectedComponents(prev => ({
+                                  ...prev,
+                                  adapterChargerType: e.target.value,
+                                  adapterCharger: ""
+                                }))}
+                                className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">-- None / Not Required --</option>
+                                <option value="Adapter">Adapter</option>
+                                <option value="Charger">Charger</option>
+                              </select>
+                            </div>
+
+                            {selectedComponents.adapterChargerType && (() => {
+                              const filteredList = (assets || []).filter(
+                                a => a.category === selectedComponents.adapterChargerType && a.status === "Available"
+                              );
+                              const selAC = assets.find(a => a._id === selectedComponents.adapterCharger);
+                              return (
+                                <div>
+                                  <label className="block text-xs font-bold text-slate-500 mb-1">
+                                    Select Available {selectedComponents.adapterChargerType}
+                                  </label>
+                                  <select
+                                    value={selectedComponents.adapterCharger}
+                                    onChange={(e) => setSelectedComponents(prev => ({ ...prev, adapterCharger: e.target.value }))}
+                                    className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                                  >
+                                    <option value="">-- Choose {selectedComponents.adapterChargerType} --</option>
+                                    {filteredList.map(ast => (
+                                      <option key={ast._id} value={ast._id}>
+                                        {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  {filteredList.length === 0 && (
+                                    <p className="text-[11px] text-red-500 mt-1 font-semibold">No available {selectedComponents.adapterChargerType}s found.</p>
+                                  )}
+
+                                  {selAC && (
+                                    <div className="mt-2 p-3 rounded-xl border border-blue-100 bg-blue-50 text-xs animate-fadeIn">
+                                      <div className="font-bold text-blue-700 mb-2">{selAC.category} Details</div>
+                                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-slate-700">
+                                        <span className="font-semibold text-slate-500">Asset ID:</span>
+                                        <span>{selAC.assetId}</span>
+                                        <span className="font-semibold text-slate-500">Brand:</span>
+                                        <span>{selAC.brandName}</span>
+                                        {selAC.chargerPower && (
+                                          <><span className="font-semibold text-slate-500">Power (Watts):</span><span>{selAC.chargerPower}</span></>
+                                        )}
+                                        {selAC.version && (
+                                          <><span className="font-semibold text-slate-500">Model / Version:</span><span>{selAC.version}</span></>
+                                        )}
+                                        {selAC.serialNumber && (
+                                          <><span className="font-semibold text-slate-500">Serial No:</span><span>{selAC.serialNumber}</span></>
+                                        )}
+                                        <span className="font-semibold text-slate-500">Condition:</span>
+                                        <span>{selAC.condition}</span>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })()}
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Mouse</label>
+                              <select
+                                value={selectedComponents.mouse}
+                                onChange={(e) => setSelectedComponents(prev => ({ ...prev, mouse: e.target.value }))}
+                                className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">-- None / Not Required --</option>
+                                {availableMice.map(ast => (
+                                  <option key={ast._id} value={ast._id}>
+                                    {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Headset</label>
+                              <select
+                                value={selectedComponents.headset}
+                                onChange={(e) => setSelectedComponents(prev => ({ ...prev, headset: e.target.value }))}
+                                className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">-- None / Not Required --</option>
+                                {availableHeadsets.map(ast => (
+                                  <option key={ast._id} value={ast._id}>
+                                    {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </>
+                        )}
+
+                        {allocCategorySelected === "Desktop / CPU" && (
+                          <>
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Keyboard</label>
+                              <select
+                                value={selectedComponents.keyboard}
+                                onChange={(e) => setSelectedComponents(prev => ({ ...prev, keyboard: e.target.value }))}
+                                className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">-- None / Not Required --</option>
+                                {availableKeyboards.map(ast => (
+                                  <option key={ast._id} value={ast._id}>
+                                    {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Mouse</label>
+                              <select
+                                value={selectedComponents.mouse}
+                                onChange={(e) => setSelectedComponents(prev => ({ ...prev, mouse: e.target.value }))}
+                                className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">-- None / Not Required --</option>
+                                {availableMice.map(ast => (
+                                  <option key={ast._id} value={ast._id}>
+                                    {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Monitor</label>
+                              <select
+                                value={selectedComponents.monitor}
+                                onChange={(e) => setSelectedComponents(prev => ({ ...prev, monitor: e.target.value }))}
+                                className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">-- None / Not Required --</option>
+                                {availableMonitors.map(ast => (
+                                  <option key={ast._id} value={ast._id}>
+                                    {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+
+                            <div>
+                              <label className="block text-xs font-bold text-slate-500 mb-1">Select Available Headset</label>
+                              <select
+                                value={selectedComponents.headset}
+                                onChange={(e) => setSelectedComponents(prev => ({ ...prev, headset: e.target.value }))}
+                                className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                              >
+                                <option value="">-- None / Not Required --</option>
+                                {availableHeadsets.map(ast => (
+                                  <option key={ast._id} value={ast._id}>
+                                    {ast.assetId} - {ast.brandName} {ast.version ? `(${ast.version})` : ""}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          </>
+                        )}
+                      </>
+                    );
+                  })()}
+
+                  {allocationData.assignedToId && (() => {
+                    const selectedEmp = employees.find(emp => (emp.employeeId || emp.employeeCode) === allocationData.assignedToId);
+                    const empName = selectedEmp ? selectedEmp.name : "";
+                    return (
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 text-xs font-sans mt-2 space-y-2.5 animate-fadeIn">
+                        <div className="font-bold text-slate-700">
+                          Employee: <span className="text-[#262760] font-black">{allocationData.assignedToId}</span> - {empName}
+                        </div>
+                        <div>
+                          <div className="font-bold text-slate-500 mb-1">Currently Assigned:</div>
+                          {selectedEmployeeAllocations.length === 0 ? (
+                            <div className="text-slate-400 font-medium italic pl-1">No assets assigned.</div>
+                          ) : (
+                            <div className="space-y-1 pl-1 font-sans">
+                              {selectedEmployeeAllocations.map(al => (
+                                <div key={al._id} className="flex items-center gap-1.5 text-slate-700 font-semibold">
+                                  <span className="text-green-600 font-bold">✓</span>
+                                  <span>{al.category} - <span className="font-mono text-slate-500">{al.assetId}</span></span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Division *</label>
+                    <input
+                      type="text" required
+                      value={allocationData.division || ""}
+                      onChange={(e) => setAllocationData(prev => ({ ...prev, division: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter Division (e.g. IT, HR, Sales)"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 mb-1">Allocation Date *</label>
+                    <input
+                      type="date" required
+                      value={allocationData.allocatedDate}
+                      onChange={(e) => setAllocationData(prev => ({ ...prev, allocatedDate: e.target.value }))}
+                      className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
+
               <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2 shrink-0">
                 <button type="button" onClick={() => setAllocationFormOpen(false)} className="px-4 py-2 border rounded-xl text-sm font-semibold hover:bg-slate-100">Cancel</button>
                 <button type="submit" className="px-4 py-2 bg-[#262760] text-white rounded-xl text-sm font-semibold hover:bg-[#1a1c43]">Allocate</button>
@@ -3036,6 +4275,99 @@ export default function AssetManagement() {
           </div>
         );
       })()}
+
+      {/* ADD / EDIT OFFICE ACCESSORY DIALOG */}
+      {accessoryModalOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50 animate-fadeIn">
+          <form onSubmit={handleSaveAccessory} className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[95vh] sm:max-h-[90vh]">
+            <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center font-sans shrink-0">
+              <h3 className="text-lg font-bold">
+                {editingAccessory ? "Edit Office Accessory" : "Add Office Accessory"}
+              </h3>
+              <button type="button" onClick={() => setAccessoryModalOpen(false)} className="text-white hover:text-slate-200 text-lg font-bold">✕</button>
+            </div>
+            
+            <div className="p-6 space-y-4 overflow-y-auto flex-1 text-sm font-sans">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Category *</label>
+                <select
+                  required
+                  value={accessoryFormData.category}
+                  onChange={(e) => setAccessoryFormData(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
+                >
+                  <option value="Furniture">Furniture</option>
+                  <option value="Electrical / Utility">Electrical / Utility</option>
+                  <option value="Kitchen / Pantry">Kitchen / Pantry</option>
+                  <option value="Safety">Safety</option>
+                  <option value="Security / Access">Security / Access</option>
+                  <option value="Facility">Facility</option>
+                  <option value="Waste Management">Waste Management</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Item Name * (e.g. Rolling Chair, AC)</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Enter item name..."
+                  value={accessoryFormData.itemName}
+                  onChange={(e) => setAccessoryFormData(prev => ({ ...prev, itemName: e.target.value }))}
+                  className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm font-semibold"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Quantity *</label>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="Enter quantity..."
+                  value={accessoryFormData.quantity}
+                  onChange={(e) => setAccessoryFormData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                  className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm font-black"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Location *</label>
+                <select
+                  required
+                  value={accessoryFormData.location}
+                  onChange={(e) => setAccessoryFormData(prev => ({ ...prev, location: e.target.value }))}
+                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 font-semibold"
+                >
+                  <option value="Chennai Office">Chennai Office</option>
+                  <option value="Hosur Office">Hosur Office</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 mb-1">Remarks</label>
+                <textarea
+                  placeholder="Enter remarks (if any)..."
+                  rows="3"
+                  value={accessoryFormData.remarks}
+                  onChange={(e) => setAccessoryFormData(prev => ({ ...prev, remarks: e.target.value }))}
+                  className="w-full border rounded-xl px-3 py-2 outline-none focus:ring-2 focus:ring-blue-500 text-sm font-medium resize-none"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2 shrink-0">
+              <button type="button" onClick={() => setAccessoryModalOpen(false)} className="px-4 py-2 border rounded-xl text-sm font-bold hover:bg-slate-100 transition-all">
+                Cancel
+              </button>
+              <button type="submit" className="px-4 py-2 bg-[#262760] text-white rounded-xl text-sm font-bold hover:bg-[#1a1c43] transition-all">
+                {editingAccessory ? "Save Changes" : "Add Accessory"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* VIEW ASSET DETAILS DIALOG */}
       {viewAssetDetails && (() => {
@@ -4012,6 +5344,320 @@ export default function AssetManagement() {
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* LOG MAINTENANCE MODAL */}
+      {maintenanceFormOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleSaveMaintenance} className="bg-white rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden border border-slate-200">
+            <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center">
+              <h3 className="text-lg font-bold">Schedule Asset Maintenance</h3>
+              <button type="button" onClick={() => setMaintenanceFormOpen(false)} className="text-white hover:text-slate-200 font-bold">✕</button>
+            </div>
+
+            <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Select Asset *</label>
+                <select
+                  required
+                  value={maintenanceData.assetId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setMaintenanceData(prev => ({ 
+                      ...prev, 
+                      assetId: val,
+                      quantity: 1
+                    }));
+                  }}
+                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="">-- Choose Asset --</option>
+                  <optgroup label="Individual Assets">
+                    {assets.filter(a => a.trackingType !== "Quantity").map(a => (
+                      <option key={a._id} value={a.assetId}>{a.assetId} - {a.category} ({a.brandName} {a.version}) [{a.status}]</option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Quantity-Based Assets">
+                    {assets.filter(a => a.trackingType === "Quantity").map(a => (
+                      <option key={a._id} value={a.assetId}>{a.category} - {a.itemType} ({a.location}) [Avail: {a.quantityDetails?.available || 0}]</option>
+                    ))}
+                  </optgroup>
+                </select>
+              </div>
+
+              {/* Show Quantity if selected asset is Quantity tracking */}
+              {(() => {
+                const selected = assets.find(a => a.assetId === maintenanceData.assetId);
+                if (selected && selected.trackingType === "Quantity") {
+                  return (
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1">Quantity to send * (Max: {selected.quantityDetails?.available || 0})</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max={selected.quantityDetails?.available || 1}
+                        required
+                        value={maintenanceData.quantity}
+                        onChange={(e) => setMaintenanceData(prev => ({ ...prev, quantity: parseInt(e.target.value) || 1 }))}
+                        className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                  );
+                }
+                return null;
+              })()}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Service Type *</label>
+                  <select
+                    required
+                    value={maintenanceData.maintenanceType}
+                    onChange={(e) => setMaintenanceData(prev => ({ ...prev, maintenanceType: e.target.value }))}
+                    className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="Repair">Repair</option>
+                    <option value="General Service">General Service</option>
+                    <option value="Warranty Claim">Warranty Claim</option>
+                    <option value="Replacement">Replacement</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Estimated Cost (₹)</label>
+                  <input
+                    type="number"
+                    value={maintenanceData.cost}
+                    onChange={(e) => setMaintenanceData(prev => ({ ...prev, cost: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">Start Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={maintenanceData.startDate}
+                    onChange={(e) => setMaintenanceData(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1">End Date *</label>
+                  <input
+                    type="date"
+                    required
+                    value={maintenanceData.endDate}
+                    onChange={(e) => setMaintenanceData(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Vendor Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={maintenanceData.vendorName}
+                  onChange={(e) => setMaintenanceData(prev => ({ ...prev, vendorName: e.target.value }))}
+                  placeholder="e.g. Dell Service Center, local vendor"
+                  className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Issue Description *</label>
+                <textarea
+                  rows={3}
+                  required
+                  value={maintenanceData.description}
+                  onChange={(e) => setMaintenanceData(prev => ({ ...prev, description: e.target.value }))}
+                  placeholder="Describe the issue or service details..."
+                  className="w-full border rounded-xl px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setMaintenanceFormOpen(false)}
+                className="px-4 py-2 border rounded-xl text-sm font-semibold hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-[#262760] hover:bg-[#1a1c43] text-white rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-1.5"
+              >
+                <CheckCircle className="h-4 w-4" />
+                Schedule
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* COMPLETE MAINTENANCE MODAL */}
+      {completeMntModalOpen && selectedMntRecord && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleCompleteMaintenanceSubmit} className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden border border-slate-200">
+            <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center">
+              <h3 className="text-lg font-bold">Complete Asset Maintenance</h3>
+              <button type="button" onClick={() => setCompleteMntModalOpen(false)} className="text-white hover:text-slate-200 font-bold">✕</button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
+                <div><span className="font-bold text-slate-500">Asset ID:</span> <span className="font-mono font-bold text-slate-800">{selectedMntRecord.assetId}</span></div>
+                <div><span className="font-bold text-slate-500">Asset Name:</span> <span className="font-bold text-slate-800">{selectedMntRecord.assetName}</span></div>
+                <div><span className="font-bold text-slate-500">Service Type:</span> <span className="font-bold text-slate-800">{selectedMntRecord.maintenanceType}</span></div>
+                <div><span className="font-bold text-slate-500">Quantity:</span> <span className="font-bold text-slate-800">{selectedMntRecord.quantity || 1}</span></div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1">Return Asset Condition *</label>
+                <select
+                  required
+                  value={completeReturnCondition}
+                  onChange={(e) => setCompleteReturnCondition(e.target.value)}
+                  className="w-full border rounded-xl px-3 py-2 text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="Good">Good / Working</option>
+                  <option value="Excellent">Excellent</option>
+                  <option value="Damaged">Damaged / Needs Repair</option>
+                  <option value="Retired">Retired / Scrapped</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCompleteMntModalOpen(false)}
+                className="px-4 py-2 border rounded-xl text-sm font-semibold hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow transition-all"
+              >
+                Complete
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* EXCEL IMPORT MODAL */}
+      {excelImportOpen && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <form onSubmit={handleExcelImportSubmit} className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col max-h-[90vh]">
+            <div className="px-6 py-4 border-b bg-[#262760] text-white flex justify-between items-center shrink-0">
+              <h3 className="text-lg font-bold">Import Assets from Excel</h3>
+              <button type="button" onClick={() => setExcelImportOpen(false)} className="text-white hover:text-slate-200 font-bold">✕</button>
+            </div>
+
+            <div className="p-6 space-y-6 overflow-y-auto flex-1">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-2">Upload Caldim Asset Management Excel Workbook *</label>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 border border-dashed border-slate-300 rounded-xl px-4 py-3 bg-slate-50 text-slate-600 hover:bg-slate-100 cursor-pointer font-bold transition-all">
+                    <Upload className="h-4 w-4 text-[#f37021]" />
+                    <span>Select File</span>
+                    <input
+                      type="file"
+                      accept=".xlsx, .xls"
+                      onChange={handleExcelImportChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {excelFileName && (
+                    <span className="text-sm font-semibold text-slate-700 font-mono">{excelFileName}</span>
+                  )}
+                </div>
+              </div>
+
+              {excelParsingError && (
+                <div className="bg-rose-50 border border-rose-200 text-rose-800 p-4 rounded-xl text-xs font-bold">
+                  {excelParsingError}
+                </div>
+              )}
+
+              {excelPreviewData.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500">Asset Preview (Detected {excelPreviewData.length} Items)</h4>
+                    <span className="text-xs text-amber-600 font-bold">Duplicate Asset IDs present in system will be automatically skipped during import.</span>
+                  </div>
+
+                  <div className="overflow-x-auto border rounded-xl max-h-[40vh] overflow-y-auto">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <thead>
+                        <tr className="bg-slate-100 border-b text-slate-700 font-bold sticky top-0">
+                          <th className="p-3 w-12">S.No</th>
+                          <th className="p-3">Asset ID</th>
+                          <th className="p-3">Category</th>
+                          <th className="p-3">Brand & Model</th>
+                          <th className="p-3">Serial No</th>
+                          <th className="p-3">Bio's Date</th>
+                          <th className="p-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {excelPreviewData.map((ast, index) => (
+                          <tr key={index} className="hover:bg-slate-50">
+                            <td className="p-3 text-slate-500 font-medium">{index + 1}</td>
+                            <td className="p-3 font-mono font-bold text-[#262760]">{ast.assetId}</td>
+                            <td className="p-3 font-semibold text-slate-800">{ast.category}</td>
+                            <td className="p-3">{ast.brandName} {ast.version}</td>
+                            <td className="p-3 font-mono">{ast.serialNumber || "—"}</td>
+                            <td className="p-3 font-mono">{ast.purchaseDate || "—"}</td>
+                            <td className="p-3">
+                              <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded text-[10px] font-bold">
+                                {ast.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => setExcelImportOpen(false)}
+                className="px-4 py-2 border rounded-xl text-sm font-semibold hover:bg-slate-100"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={excelPreviewData.length === 0}
+                className={`px-5 py-2 rounded-xl text-sm font-bold shadow-md transition-all flex items-center gap-1.5 ${
+                  excelPreviewData.length === 0
+                    ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+                    : "bg-[#262760] hover:bg-[#1a1c43] text-white"
+                }`}
+              >
+                <CheckCircle className="h-4 w-4" />
+                Confirm & Import
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

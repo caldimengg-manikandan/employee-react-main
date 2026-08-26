@@ -21,6 +21,7 @@ import {
   HomeIcon
 } from '@heroicons/react/24/outline';
 import EmployeeForm from '../components/Forms/EmployeeForm';
+import XLSX from "xlsx-js-style";
 import Modal from '../components/Modals/Modal';
 import Notification from '../components/Notifications/Notification';
 import useNotification from '../hooks/useNotification';
@@ -196,39 +197,151 @@ const EmployeeManagement = () => {
     return Object.values(filters).some(value => value !== '');
   }, [filters]);
 
-  const exportToCSV = () => {
+  const exportToExcel = () => {
     const headers = [
-      'S.No', 'Employee ID', 'Full Name', 'Division', 'Designation',
-      'Highest Qualification', 'Date of Birth', 'Original Date of Birth', 'Date of Joining', 'Experience', 'Contact', 'Status'
+      "S.No", "Employee ID", "Full Name", "Gender", "Date of Birth",
+      "Original Date of Birth", "Qualification", "Blood Group", "Marital Status",
+      "Spouse Name", "Spouse Contact", "Nationality", "Guardian Name",
+      "PAN Number", "Aadhaar Number", "Passport Number", "UAN Number",
+      "Permanent Address", "Current Address", "Mobile Number", "Personal Email",
+      "Official Email", "Emergency Contact", "Designation", "Division",
+      "Date of Joining", "Current Experience", "Previous Experience", "Bank Name",
+      "Account Number", "Branch", "IFSC Code", "Status", "Exit Date",
+      "Last Working Day", "Exit Reason"
     ];
 
-    const csvData = filteredEmployees.map((emp, index) => [
-      index + 1,
-      emp.employeeId,
-      `"${emp.name}"`,
-      emp.division,
-      emp.designation || emp.role || emp.position || '',
-      emp.highestQualification || emp.qualification || '',
-      emp.dateOfBirth || emp.dob || '',
-      emp.originalDateOfBirth || '',
-      emp.dateOfJoining || emp.dateofjoin || '',
-      emp.currentExperience || emp.experience || '',
-      emp.mobileNo,
-      emp.status
-    ]);
+    const rows = filteredEmployees.map((emp, index) => {
+      // Format permanent address
+      const permanentAddr = emp.permanentAddress || emp.permanentAddressLine ? (
+        `${emp.permanentAddressLine || emp.permanentAddress || ""}${emp.permanentCity ? ", " + emp.permanentCity : ""}${emp.permanentState ? ", " + emp.permanentState : ""}${emp.permanentPincode ? " - " + emp.permanentPincode : ""}`
+      ) : "-";
 
-    const csvContent = [
-      headers.join(','),
-      ...csvData.map(row => row.join(','))
-    ].join('\n');
+      // Format current address
+      const currentAddr = emp.currentAddress || emp.currentAddressLine ? (
+        `${emp.currentAddressLine || emp.currentAddress || ""}${emp.currentCity ? ", " + emp.currentCity : ""}${emp.currentState ? ", " + emp.currentState : ""}${emp.currentPincode ? " - " + emp.currentPincode : ""}`
+      ) : "-";
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `employees_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
-    window.URL.revokeObjectURL(url);
+      return [
+        index + 1,
+        emp.employeeId || "",
+        emp.name || "",
+        emp.gender || "",
+        formatDate(emp.dateOfBirth || emp.dob),
+        formatDate(emp.originalDateOfBirth),
+        emp.qualification || emp.highestQualification || "",
+        emp.bloodGroup || "",
+        emp.maritalStatus || "",
+        emp.spouseName || "",
+        emp.spouseContact || "",
+        emp.nationality || "Indian",
+        emp.guardianName || "",
+        emp.pan || "",
+        emp.aadhaar || "",
+        emp.passportNumber || "",
+        emp.uan || "",
+        permanentAddr,
+        currentAddr,
+        emp.contactNumber || emp.mobileNo || "",
+        emp.email || "",
+        emp.officialEmail || "",
+        emp.emergencyContact || emp.emergencyMobile || "",
+        emp.designation || emp.role || emp.position || "",
+        emp.division || "",
+        formatDate(emp.dateOfJoining || emp.dateofjoin),
+        calculateServiceYears(emp.dateOfJoining || emp.dateofjoin) || emp.currentExperience || "",
+        emp.previousExperience || "",
+        emp.bankName || "",
+        emp.bankAccount || "",
+        emp.branch || "",
+        emp.ifsc || "",
+        emp.status || "Active",
+        formatDate(emp.exitDate),
+        formatDate(emp.lastWorkingDay),
+        emp.exitReason || ""
+      ];
+    });
+
+    const wsData = [headers, ...rows];
+    const worksheet = XLSX.utils.aoa_to_sheet(wsData);
+    const workbook = XLSX.utils.book_new();
+
+    // Dark Blue theme `#262760` header, bold white text, orange bottom border `#F37021`
+    const headerStyle = {
+      fill: {
+        fgColor: { rgb: "262760" }
+      },
+      font: {
+        name: "Segoe UI",
+        sz: 10,
+        bold: true,
+        color: { rgb: "FFFFFF" }
+      },
+      alignment: {
+        vertical: "center",
+        horizontal: "left"
+      },
+      border: {
+        bottom: { style: "medium", color: { rgb: "F37021" } }
+      }
+    };
+
+    const dataStyle = {
+      font: {
+        name: "Segoe UI",
+        sz: 9,
+        color: { rgb: "333333" }
+      },
+      alignment: {
+        vertical: "center",
+        horizontal: "left"
+      },
+      border: {
+        bottom: { style: "thin", color: { rgb: "E2E8F0" } }
+      }
+    };
+
+    // Set widths for columns
+    const colWidths = headers.map(() => ({ wch: 20 }));
+    colWidths[0] = { wch: 8 }; // S.No
+    worksheet["!cols"] = colWidths;
+
+    // Apply styles to cells
+    const range = XLSX.utils.decode_range(worksheet["!ref"]);
+    for (let R = range.s.r; R <= range.e.r; ++R) {
+      for (let C = range.s.c; C <= range.e.c; ++C) {
+        const cellRef = XLSX.utils.encode_cell({ r: R, c: C });
+        if (!worksheet[cellRef]) continue;
+
+        if (R === 0) {
+          worksheet[cellRef].s = headerStyle;
+        } else {
+          worksheet[cellRef].s = dataStyle;
+
+          if (C === 0) {
+            worksheet[cellRef].s = {
+              ...dataStyle,
+              alignment: { vertical: "center", horizontal: "center" }
+            };
+          }
+
+          const cellValue = worksheet[cellRef].v;
+          if (cellValue === "Active") {
+            worksheet[cellRef].s = {
+              ...dataStyle,
+              font: { ...dataStyle.font, bold: true, color: { rgb: "059669" } }
+            };
+          } else if (cellValue === "Exited") {
+            worksheet[cellRef].s = {
+              ...dataStyle,
+              font: { ...dataStyle.font, bold: true, color: { rgb: "DC2626" } }
+            };
+          }
+        }
+      }
+    }
+
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Employees List");
+    XLSX.writeFile(workbook, `employees_${new Date().toISOString().split('T')[0]}.xlsx`);
   };
 
   // Format date to DD/MM/YYYY for table
@@ -872,7 +985,7 @@ const EmployeeManagement = () => {
                 </button>
 
                 <button
-                  onClick={exportToCSV}
+                  onClick={exportToExcel}
                   className="inline-flex items-center px-3 py-2.5 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors duration-200"
                 >
                   <ArrowDownTrayIcon className="h-5 w-5 mr-2" />

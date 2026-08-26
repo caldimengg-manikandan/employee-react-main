@@ -42,6 +42,15 @@ const AssetMaintenanceSchema = new mongoose.Schema({
   description: {
     type: String,
     required: true
+  },
+  quantity: {
+    type: Number,
+    default: 1
+  },
+  trackingType: {
+    type: String,
+    enum: ["Individual", "Quantity"],
+    default: "Individual"
   }
 }, { timestamps: true });
 

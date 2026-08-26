@@ -36,15 +36,15 @@ const AssetAllocationSchema = new mongoose.Schema({
   employeeId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Employee",
-    required: true
+    required: false
   },
   employeeCode: {
     type: String,
-    required: true
+    required: false
   },
   employeeName: {
     type: String,
-    required: true
+    required: false
   },
   allocatedDate: {
     type: String,
@@ -64,6 +64,27 @@ const AssetAllocationSchema = new mongoose.Schema({
     type: String,
     enum: ["Assigned", "Returned"],
     default: "Assigned"
+  },
+  quantity: {
+    type: Number,
+    default: 1
+  },
+  assignmentType: {
+    type: String,
+    enum: ["Employee", "Department", "Team", "Location"],
+    default: "Employee"
+  },
+  assignedDepartment: {
+    type: String,
+    trim: true
+  },
+  assignedTeam: {
+    type: String,
+    trim: true
+  },
+  assignedLocation: {
+    type: String,
+    trim: true
   }
 }, { timestamps: true });
 
