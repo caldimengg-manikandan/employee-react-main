@@ -242,6 +242,17 @@ const InternReference = () => {
 
   useEffect(() => {
     loadData();
+    // Pre-tint logo to blue on load for instantaneous rendering in certificate preview
+    const preloadLogo = async () => {
+      try {
+        const logoBase64Url = await toDataURL('/images/steel-logo.png');
+        const blueLogo = await tintLogoToBlue(logoBase64Url, '#1e2b58');
+        setCertImages(prev => ({ ...prev, logo: blueLogo }));
+      } catch (err) {
+        console.error("Failed to pre-tint logo:", err);
+      }
+    };
+    preloadLogo();
   }, []);
 
   const validateForm = () => {
@@ -626,6 +637,27 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
     xhr.send();
   });
 
+  const tintLogoToBlue = (base64Str, colorHex) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+        ctx.globalCompositeOperation = "source-in";
+        ctx.fillStyle = colorHex;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL());
+      };
+      img.onerror = () => {
+        resolve(base64Str);
+      };
+      img.src = base64Str;
+    });
+  };
+
   const handleDownloadCertificate = async (intern) => {
     try {
       showNotification("Generating certificate, please wait...", "info");
@@ -639,8 +671,10 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
         toDataURL('/signatures/Arunkumar P Digital sign.jpg').catch(() => '/signatures/Arunkumar P Digital sign.jpg')
       ]);
 
+      const blueLogo = await tintLogoToBlue(logoBase64, '#1e2b58');
+
       setCertImages({
-        logo: logoBase64,
+        logo: blueLogo,
         dirSign: dirSignBase64,
         gmSign: gmSignBase64
       });
@@ -1828,13 +1862,17 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
 
               {/* Header: Logo and Title block */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', zIndex: 2 }}>
-                <div style={{ alignSelf: 'flex-start', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginBottom: '20px' }}>
                   <img 
                     src={certImages.logo || "/images/steel-logo.png"} 
                     alt="CALDIM Logo" 
-                    style={{ height: '55px', width: 'auto' }} 
+                    style={{ height: '80px', width: 'auto', transform: 'translateY(10px)', objectFit: 'contain' }} 
                     crossOrigin="anonymous" 
                   />
+                  <div className="font-bitsumishi" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', textTransform: 'none', textAlign: 'left' }}>
+                    <span style={{ color: '#1e2b58', fontWeight: 'bold', fontSize: '68px', lineHeight: '1.1', letterSpacing: '0.05em', fontFamily: 'Bitsumishi, sans-serif' }}>CALDIM</span>
+                    <span style={{ fontSize: '16px', fontWeight: 'bold', letterSpacing: '0.18em', color: '#ff8c00', whiteSpace: 'nowrap', marginTop: '8px', textTransform: 'uppercase', fontFamily: 'Bitsumishi, sans-serif' }}>ENGINEERING PRIVATE LIMITED</span>
+                  </div>
                 </div>
                 
                 <h1 style={{ fontSize: '46px', fontWeight: 'bold', color: '#1e2b58', letterSpacing: '4px', margin: 0, textTransform: 'uppercase' }}>
@@ -1848,6 +1886,30 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
 
               {/* Body: Recipient name and description */}
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', width: '100%', zIndex: 2, padding: '0 20px' }}>
+                {/* Trophy Decoration */}
+                <div style={{ marginBottom: '10px' }}>
+                  <svg width="60" height="60" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    {/* Trophy Cup */}
+                    <path d="M16 12 C16 36, 48 36, 48 12 Z" fill="url(#goldGrad)" stroke="#c59b27" strokeWidth="2" />
+                    {/* Trophy Handles */}
+                    <path d="M16 16 H8 C4 16, 4 28, 12 28 H16" fill="none" stroke="#c59b27" strokeWidth="3.5" strokeLinecap="round" />
+                    <path d="M48 16 H56 C60 16, 60 28, 52 28 H48" fill="none" stroke="#c59b27" strokeWidth="3.5" strokeLinecap="round" />
+                    {/* Trophy Stem */}
+                    <path d="M32 36 V48" stroke="#c59b27" strokeWidth="6" strokeLinecap="round" />
+                    {/* Trophy Base */}
+                    <path d="M20 48 H44 L48 54 H16 Z" fill="#3a3010" stroke="#c59b27" strokeWidth="1.5" />
+                    {/* Star detail inside cup */}
+                    <polygon points="32,18 35,24 42,24 37,28 39,34 32,30 25,34 27,28 22,24 29,24" fill="#ffffff" opacity="0.9" />
+                    <defs>
+                      <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#ffd700" />
+                        <stop offset="50%" stopColor="#fcd34d" />
+                        <stop offset="100%" stopColor="#d97706" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                </div>
+
                 <span style={{ fontSize: '14px', fontWeight: 'bold', letterSpacing: '3px', color: '#7f8c8d', textTransform: 'uppercase', fontFamily: 'sans-serif', marginBottom: '15px' }}>
                   This Certificate is Presented To
                 </span>
