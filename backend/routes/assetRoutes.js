@@ -836,6 +836,51 @@ router.post("/allocations", auth, async (req, res) => {
   }
 });
 
+// Add a component to an active allocation
+router.put("/allocations/:id/components", auth, async (req, res) => {
+  try {
+    const { componentId } = req.body;
+    if (!componentId) {
+      return res.status(400).json({ error: "Component ID is required" });
+    }
+
+    const allocation = await AssetAllocation.findById(req.params.id);
+    if (!allocation) {
+      return res.status(404).json({ error: "Allocation record not found" });
+    }
+    if (allocation.status !== "Assigned") {
+      return res.status(400).json({ error: "Cannot add components to a returned allocation" });
+    }
+
+    const comp = await Asset.findById(componentId);
+    if (!comp) {
+      return res.status(404).json({ error: "Component asset not found" });
+    }
+    if (comp.status === "Assigned") {
+      return res.status(400).json({ error: `Component ${comp.assetId} is already assigned.` });
+    }
+
+    allocation.components.push({
+      asset: comp._id,
+      assetId: comp.assetId,
+      category: comp.category,
+      serialNumber: comp.serialNumber || "",
+      condition: comp.condition || "Good"
+    });
+
+    await allocation.save();
+
+    comp.status = "Assigned";
+    comp.parentAsset = allocation.asset;
+    await comp.save();
+
+    res.status(200).json(allocation);
+  } catch (err) {
+    console.error("Error adding component to allocation:", err);
+    res.status(500).json({ error: "Server error adding component" });
+  }
+});
+
 // Return allocated asset
 router.put("/allocations/:id/return", auth, async (req, res) => {
   try {

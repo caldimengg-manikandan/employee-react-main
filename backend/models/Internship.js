@@ -42,6 +42,9 @@ const internshipSchema = new mongoose.Schema({
   endDate: {
     type: Date
   },
+  extendDate: {
+    type: Date
+  },
   status: {
     type: String,
     enum: ['Completed', 'Ongoing', 'Terminated'],

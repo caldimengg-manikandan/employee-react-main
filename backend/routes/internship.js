@@ -98,6 +98,9 @@ router.post('/', auth, async (req, res) => {
     if (req.body.endDate) {
       req.body.endDate = new Date(req.body.endDate);
     }
+    if (req.body.extendDate) {
+      req.body.extendDate = new Date(req.body.extendDate);
+    }
     
     // Auto-generate internId if missing, format: <DIV>INT### (e.g., DASINT001)
     if (!req.body.internId) {
@@ -157,6 +160,9 @@ router.put('/:id', auth, async (req, res) => {
     }
     if (req.body.endDate) {
       req.body.endDate = new Date(req.body.endDate);
+    }
+    if (req.body.extendDate) {
+      req.body.extendDate = new Date(req.body.extendDate);
     }
     
     const intern = await Internship.findByIdAndUpdate(

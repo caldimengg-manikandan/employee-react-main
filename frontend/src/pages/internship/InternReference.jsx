@@ -27,7 +27,7 @@ import {
   CurrencyDollarIcon
 } from "@heroicons/react/24/outline";
 import { Popconfirm } from "antd";
-import { EyeIcon } from "lucide-react";
+import { EyeIcon, Award } from "lucide-react";
 
 const InternReference = () => {
   const [interns, setInterns] = useState([]);
@@ -41,6 +41,8 @@ const InternReference = () => {
   const [viewIntern, setViewIntern] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedIntern, setSelectedIntern] = useState(null);
+  const [certificateIntern, setCertificateIntern] = useState(null);
+  const [certImages, setCertImages] = useState({ logo: "", dirSign: "", gmSign: "" });
 
   const [form, setForm] = useState({
     fullName: "",
@@ -52,6 +54,7 @@ const InternReference = () => {
     referenceNote: "",
     startDate: "",
     endDate: "",
+    extendDate: "",
     status: "Completed",
     contactEmail: "",
     contactPhone: "",
@@ -145,10 +148,11 @@ const InternReference = () => {
     return d.toLocaleDateString('en-IN', { year: 'numeric', month: 'long', day: 'numeric' });
   };
 
-  const diffDuration = (start, end) => {
-    if (!start || !end) return "";
+  const diffDuration = (start, end, extend) => {
+    const finalEnd = extend || end;
+    if (!start || !finalEnd) return "";
     const s = new Date(start);
-    const e = new Date(end);
+    const e = new Date(finalEnd);
     const ms = e - s;
     const days = Math.max(0, Math.round(ms / (1000 * 60 * 60 * 24)));
     return `${days} days`;
@@ -186,8 +190,8 @@ const InternReference = () => {
                   <td style="padding: 6px 0; font-weight: 600;">${safe(intern?.mentor)}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 6px 0; color: #6b7280;">Duration</td>
-                  <td style="padding: 6px 0; font-weight: 600;">${diffDuration(intern?.startDate, intern?.endDate)}</td>
+                   <td style="padding: 6px 0; color: #6b7280;">Duration</td>
+                  <td style="padding: 6px 0; font-weight: 600;">${diffDuration(intern?.startDate, intern?.endDate, intern?.extendDate)}</td>
                 </tr>
               </table>
             </div>
@@ -296,6 +300,7 @@ const InternReference = () => {
         ...form,
         startDate: form.startDate || new Date().toISOString().split('T')[0],
         endDate: form.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        extendDate: form.extendDate || null,
         // Convert stipend amount to number if it exists
         stipendAmount: form.stipendAmount ? parseFloat(form.stipendAmount) : null
       };
@@ -318,7 +323,7 @@ const InternReference = () => {
     }
   };
 
-  const handleEdit = (intern) => {
+   const handleEdit = (intern) => {
     setEditingId(intern._id || intern.id);
     setForm({
       fullName: intern.fullName || "",
@@ -330,6 +335,7 @@ const InternReference = () => {
       referenceNote: intern.referenceNote || "",
       startDate: intern.startDate ? new Date(intern.startDate).toISOString().split('T')[0] : "",
       endDate: intern.endDate ? new Date(intern.endDate).toISOString().split('T')[0] : "",
+      extendDate: intern.extendDate ? new Date(intern.extendDate).toISOString().split('T')[0] : "",
       status: intern.status || "Completed",
       contactEmail: intern.contactEmail || "",
       contactPhone: intern.contactPhone || "",
@@ -376,7 +382,7 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
         .replace(/{{Candidate_Name}}/g, data.fullName || "")
         .replace(/{{Division_Name}}/g, data.division || "")
         .replace(/{{Start_Date}}/g, formatDate(data.startDate))
-        .replace(/{{End_Date}}/g, formatDate(data.endDate));
+        .replace(/{{End_Date}}/g, data.extendDate ? `${formatDate(data.endDate)} (Extended to ${formatDate(data.extendDate)})` : formatDate(data.endDate));
 
     setEmailData({
       to: intern.contactEmail || "",
@@ -494,6 +500,7 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
       referenceNote: "",
       startDate: "",
       endDate: "",
+      extendDate: "",
       status: "Completed",
       contactEmail: "",
       contactPhone: "",
@@ -577,6 +584,102 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
     });
 
     doc.save("intern_reference_list.pdf");
+  };
+
+  const getCertificateDirectorDetails = (location) => {
+    if (location && location.toLowerCase() === 'chennai') {
+      return {
+        name: 'UVARAJ S',
+        signature: '/signatures/uvaraj-sign.png'
+      };
+    }
+    return {
+      name: 'BALASUBRAMANIYAM G',
+      signature: '/signatures/bala-sign.png'
+    };
+  };
+
+  const formatCertificateDate = (dateString) => {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return dateString;
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}.${month}.${year}`;
+  };
+
+  const toDataURL = (url) => new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.onload = function() {
+      const reader = new FileReader();
+      reader.onloadend = function() {
+        resolve(reader.result);
+      };
+      reader.readAsDataURL(xhr.response);
+    };
+    xhr.onerror = function() {
+      reject(new Error("Failed to load image: " + url));
+    };
+    xhr.open('GET', url);
+    xhr.responseType = 'blob';
+    xhr.send();
+  });
+
+  const handleDownloadCertificate = async (intern) => {
+    try {
+      showNotification("Generating certificate, please wait...", "info");
+      
+      const dirDetails = getCertificateDirectorDetails(intern.workLocation);
+      
+      // Load all three images as base64 data URLs in parallel to guarantee instant rendering and bypass CORS issues
+      const [logoBase64, dirSignBase64, gmSignBase64] = await Promise.all([
+        toDataURL('/images/steel-logo.png').catch(() => '/images/steel-logo.png'),
+        toDataURL(dirDetails.signature).catch(() => dirDetails.signature),
+        toDataURL('/signatures/Arunkumar P Digital sign.jpg').catch(() => '/signatures/Arunkumar P Digital sign.jpg')
+      ]);
+
+      setCertImages({
+        logo: logoBase64,
+        dirSign: dirSignBase64,
+        gmSign: gmSignBase64
+      });
+      
+      setCertificateIntern(intern);
+
+      // Wait a short moment to let React commit the DOM state update
+      setTimeout(async () => {
+        try {
+          const element = document.getElementById('intern-completion-certificate');
+          if (!element) {
+            showNotification("Certificate template element not found", "error");
+            return;
+          }
+
+          const canvas = await html2canvas(element, {
+            scale: 2, // High resolution crispness
+            useCORS: true,
+            logging: false,
+            backgroundColor: '#ffffff'
+          });
+
+          const imgData = canvas.toDataURL('image/jpeg', 1.0);
+          const pdf = new jsPDF('l', 'mm', 'a4'); // Landscape, millimeters, A4 size
+          pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210);
+
+          const filenameSafe = (intern.fullName || 'Intern_Certificate').replace(/\s+/g, '_');
+          pdf.save(`Internship_Certificate_${filenameSafe}.pdf`);
+          showNotification("Certificate downloaded successfully!");
+        } catch (error) {
+          console.error('Error generating canvas:', error);
+          showNotification("Failed to generate certificate PDF", "error");
+        }
+      }, 600);
+
+    } catch (err) {
+      console.error('Error pre-loading images:', err);
+      showNotification("Failed to load certificate assets", "error");
+    }
   };
 
   // Notification component
@@ -1025,6 +1128,21 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
                           />
                         </div>
                       </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <div className="space-y-2">
+                          <label className="block text-sm font-medium text-gray-700">
+                            Extend Date
+                          </label>
+                          <input
+                            type="date"
+                            className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-all"
+                            value={form.extendDate}
+                            min={form.endDate || form.startDate}
+                            onChange={e => setForm({ ...form, extendDate: e.target.value })}
+                          />
+                        </div>
+                      </div>
                     </div>
 
                     {/* Bank Details */}
@@ -1182,12 +1300,17 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
                         <p className="text-xs text-blue-500">Stipend Amount</p>
                         <p className="font-semibold text-gray-900">{viewIntern.stipendAmount ? `₹${viewIntern.stipendAmount}` : '-'}</p>
                       </div>
-                      <div>
+                                             <div>
                         <p className="text-xs text-blue-500">Duration</p>
                         <p className="font-semibold text-gray-900">
                           {viewIntern.startDate ? new Date(viewIntern.startDate).toLocaleDateString() : 'N/A'} - {viewIntern.endDate ? new Date(viewIntern.endDate).toLocaleDateString() : 'N/A'}
+                          {viewIntern.extendDate && (
+                            <span className="text-xs text-indigo-600 block mt-0.5 font-bold">
+                              (Extended to: {new Date(viewIntern.extendDate).toLocaleDateString()})
+                            </span>
+                          )}
                         </p>
-                      </div>
+                      </div>  
                       <div>
                         <p className="text-xs text-blue-500">Status</p>
                         <span className={`text-xs px-2 py-1 rounded-full inline-block font-medium mt-1 ${viewIntern.status === 'Completed' ? 'bg-green-100 text-green-800' :
@@ -1248,6 +1371,16 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
                       </p>
                     </div>
                   )}
+
+                  <div className="pt-4 border-t border-gray-200 flex justify-end gap-3">
+                    <button
+                      onClick={() => handleDownloadCertificate(viewIntern)}
+                      className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-5 py-2.5 rounded-lg font-semibold shadow-md transition-all text-sm"
+                    >
+                      <Award className="h-4 w-4" />
+                      Download Completion Certificate
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1554,6 +1687,13 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
                           <EyeIcon className="h-4 w-4" />
                         </button>
                         <button
+                          onClick={() => handleDownloadCertificate(intern)}
+                          className="p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition-all shadow-sm"
+                          title="Download Certificate"
+                        >
+                          <Award className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleEdit(intern)}
                           className="p-2 rounded-lg bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white transition-all shadow-sm"
                           title="Edit"
@@ -1592,6 +1732,179 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
 
       {/* Hidden PDF Template */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
+        {/* Completion Certificate */}
+        {certificateIntern && (() => {
+          const dirDetails = getCertificateDirectorDetails(certificateIntern.workLocation);
+          const divisionText = certificateIntern.division || 'DAS';
+          const startDateText = formatCertificateDate(certificateIntern.startDate);
+          const endDateText = formatCertificateDate(certificateIntern.extendDate || certificateIntern.endDate);
+          
+          return (
+            <div 
+              id="intern-completion-certificate" 
+              className="bg-white relative" 
+              style={{ 
+                width: '1123px', 
+                height: '794px', 
+                backgroundColor: '#ffffff', 
+                fontFamily: 'Georgia, serif', 
+                color: '#2c3e50', 
+                display: 'flex', 
+                flexDirection: 'column', 
+                justifyContent: 'space-between',
+                overflow: 'hidden', 
+                padding: '60px 80px', 
+                boxSizing: 'border-box',
+                border: '18px solid #262760',
+                position: 'relative'
+              }}
+            >
+              {/* Inner gold border */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: '12px',
+                  bottom: '12px',
+                  left: '12px',
+                  right: '12px',
+                  border: '2px solid #d4af37',
+                  pointerEvents: 'none'
+                }}
+              />
+
+              {/* Corner ribbons & decorative frames */}
+              <svg 
+                style={{ 
+                  position: 'absolute', 
+                  top: 0, 
+                  left: 0, 
+                  width: '1123px', 
+                  height: '794px', 
+                  pointerEvents: 'none', 
+                  zIndex: 1 
+                }} 
+                viewBox="0 0 1123 794"
+              >
+                {/* Top Right Corner Decoration */}
+                <path d="M 973 0 L 1123 150 L 1123 0 Z" fill="#262760" />
+                <path d="M 943 0 L 1123 180 L 1123 165 L 958 0 Z" fill="#f37021" />
+                <path d="M 913 0 L 1123 210 Q 1060 210 1010 160 Q 960 110 960 50 Z" fill="#d4af37" />
+
+                {/* Bottom Left Corner Decoration */}
+                <path d="M 0 644 L 150 794 L 0 794 Z" fill="#262760" />
+                <path d="M 0 614 L 180 794 L 165 794 L 0 629 Z" fill="#f37021" />
+                <path d="M 0 584 L 210 794 Q 150 794 110 734 Q 70 674 0 644 Z" fill="#d4af37" />
+              </svg>
+
+              {/* Gold Seal/Medal in top-right */}
+              <svg 
+                style={{ 
+                  position: 'absolute', 
+                  top: '40px', 
+                  right: '120px', 
+                  width: '130px', 
+                  height: '170px',
+                  zIndex: 2
+                }} 
+                viewBox="0 0 120 160"
+              >
+                <path d="M 40 90 L 25 150 L 50 140 L 60 90 Z" fill="#d4af37" />
+                <path d="M 80 90 L 95 150 L 70 140 L 60 90 Z" fill="#b8860b" />
+                <circle cx="60" cy="60" r="45" fill="none" stroke="#d4af37" stroke-width="4" opacity="0.3" />
+                <g fill="#d4af37">
+                  <polygon points="60,10 65,25 80,20 75,35 90,40 80,50 90,60 78,65 83,80 68,78 65,93 55,93 52,78 37,80 42,65 30,60 40,50 30,40 45,35 40,20 55,25" />
+                </g>
+                <circle cx="60" cy="60" r="35" fill="url(#goldGradient2)" stroke="#ffffff" stroke-width="2" />
+                <text x="60" y="56" fill="#5c4033" fontSize="10" fontWeight="bold" textAnchor="middle" style={{ fontFamily: 'sans-serif' }}>CALDIM</text>
+                <text x="60" y="68" fill="#5c4033" fontSize="7" fontWeight="bold" textAnchor="middle" style={{ fontFamily: 'sans-serif' }}>OFFICIAL SEAL</text>
+                <defs>
+                  <linearGradient id="goldGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#ffd700" />
+                    <stop offset="50%" stopColor="#f7c844" />
+                    <stop offset="100%" stopColor="#b8860b" />
+                  </linearGradient>
+                </defs>
+              </svg>
+
+              {/* Header: Logo and Title block */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', zIndex: 2 }}>
+                <div style={{ alignSelf: 'flex-start', marginBottom: '20px' }}>
+                  <img 
+                    src={certImages.logo || "/images/steel-logo.png"} 
+                    alt="CALDIM Logo" 
+                    style={{ height: '55px', width: 'auto' }} 
+                    crossOrigin="anonymous" 
+                  />
+                </div>
+                
+                <h1 style={{ fontSize: '46px', fontWeight: 'bold', color: '#1e2b58', letterSpacing: '4px', margin: 0, textTransform: 'uppercase' }}>
+                  Certificate
+                </h1>
+                <div style={{ width: '380px', height: '3px', backgroundColor: '#1e2b58', margin: '8px 0 4px 0' }} />
+                <h2 style={{ fontSize: '20px', fontWeight: 'normal', color: '#5c6b73', letterSpacing: '5px', margin: 0, textTransform: 'uppercase', fontFamily: 'sans-serif' }}>
+                  Internship Completion
+                </h2>
+              </div>
+
+              {/* Body: Recipient name and description */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', width: '100%', zIndex: 2, padding: '0 20px' }}>
+                <span style={{ fontSize: '14px', fontWeight: 'bold', letterSpacing: '3px', color: '#7f8c8d', textTransform: 'uppercase', fontFamily: 'sans-serif', marginBottom: '15px' }}>
+                  This Certificate is Presented To
+                </span>
+                
+                <h3 style={{ fontSize: '38px', fontWeight: 'bold', color: '#1e2b58', margin: '0 0 10px 0', borderBottom: '2.5px solid #262760', paddingBottom: '5px', minWidth: '400px' }}>
+                  {certificateIntern.fullName}
+                </h3>
+
+                <p style={{ fontSize: '16px', lineHeight: '1.8', color: '#2c3e50', margin: '15px 0 0 0', maxWidth: '850px', fontFamily: 'sans-serif' }}>
+                  Who has successfully completed an internship at <span style={{ fontWeight: 'bold', color: '#1e2b58' }}>CALDIM Engineering Pvt. Ltd.</span> in <span style={{ fontWeight: 'bold', color: '#1e2b58' }}>{divisionText} Division</span> from <span style={{ fontWeight: 'bold' }}>{startDateText}</span> to <span style={{ fontWeight: 'bold' }}>{endDateText}</span>.
+                </p>
+                <p style={{ fontSize: '15px', lineHeight: '1.6', color: '#5c6b73', fontStyle: 'italic', margin: '12px 0 0 0', maxWidth: '800px', fontFamily: 'sans-serif' }}>
+                  We appreciate their efforts and wish them success in their future endeavors.
+                </p>
+              </div>
+
+              {/* Signatures block */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', padding: '0 80px', width: '100%', zIndex: 2, boxSizing: 'border-box' }}>
+                {/* Director Sign */}
+                <div style={{ textAlign: 'center', width: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ height: '55px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginBottom: '8px' }}>
+                    <img 
+                      src={certImages.dirSign || dirDetails.signature} 
+                      alt="Director Signature" 
+                      style={{ maxHeight: '55px', maxWidth: '180px' }} 
+                      crossOrigin="anonymous" 
+                    />
+                  </div>
+                  <div style={{ borderTop: '1.5px solid #2c3e50', width: '100%', paddingTop: '4px', fontWeight: 'bold', fontSize: '13px', color: '#1e2b58', textTransform: 'uppercase', fontFamily: 'sans-serif' }}>
+                    {dirDetails.name}
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#7f8c8d', fontWeight: 'bold', marginTop: '2px', fontFamily: 'sans-serif', letterSpacing: '1px' }}>
+                    DIRECTOR
+                  </div>
+                </div>
+
+                {/* GM Sign */}
+                <div style={{ textAlign: 'center', width: '220px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <div style={{ height: '55px', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', marginBottom: '8px' }}>
+                    <img 
+                      src={certImages.gmSign || "/signatures/Arunkumar P Digital sign.jpg"} 
+                      alt="General Manager Signature" 
+                      style={{ maxHeight: '55px', maxWidth: '180px' }} 
+                      crossOrigin="anonymous" 
+                    />
+                  </div>
+                  <div style={{ borderTop: '1.5px solid #2c3e50', width: '100%', paddingTop: '4px', fontWeight: 'bold', fontSize: '13px', color: '#1e2b58', textTransform: 'uppercase', fontFamily: 'sans-serif' }}>
+                    ARUNKUMAR P
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#7f8c8d', fontWeight: 'bold', marginTop: '2px', fontFamily: 'sans-serif', letterSpacing: '1px' }}>
+                    GENERAL MANAGER
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
         {/* Page 1: Offer Letter */}
         <div id="intern-offer-letter-p1" className="bg-white relative mx-auto" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <LetterHeader />
@@ -1618,7 +1931,7 @@ Your internship with CALDIM Engineering Private Limited will commence on {{Start
                 </p>
 
                 <p>
-                  Your internship will commence on <span className="font-bold text-gray-900">{formatDate(selectedIntern?.startDate)}</span> and will continue until <span className="font-bold text-gray-900">{formatDate(selectedIntern?.endDate)}</span>, unless extended or terminated earlier in accordance with the company policies.
+                  Your internship will commence on <span className="font-bold text-gray-900">{formatDate(selectedIntern?.startDate)}</span> and will continue until <span className="font-bold text-gray-900">{formatDate(selectedIntern?.endDate)}</span>{selectedIntern?.extendDate && <span> (Extended to <span className="font-bold text-gray-900">{formatDate(selectedIntern?.extendDate)}</span>)</span>}, unless extended or terminated earlier in accordance with the company policies.
                 </p>
 
                 <p>

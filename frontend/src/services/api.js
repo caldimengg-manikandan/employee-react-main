@@ -562,6 +562,7 @@ export const assetAPI = {
   getAllAllocations: () => api.get('/assets/allocations'),
   allocate: (data) => api.post('/assets/allocations', data),
   returnAsset: (id, data) => api.put(`/assets/allocations/${id}/return`, data),
+  addComponentToAllocation: (id, data) => api.put(`/assets/allocations/${id}/components`, data),
 
   getAllRequests: (params) => api.get('/assets/requests', { params }),
   getMyRequests: () => api.get('/assets/requests/my'),

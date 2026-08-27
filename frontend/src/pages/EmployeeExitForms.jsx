@@ -22,6 +22,18 @@ const ExitForm = () => {
   const [saving, setSaving] = useState(false);
   const [viewDetails, setViewDetails] = useState(false);
   const [assignedAssets, setAssignedAssets] = useState([]);
+  const [clearanceInfo, setClearanceInfo] = useState(null);
+
+  const getAssetClearanceStatus = (assetId, defaultStatus) => {
+    if (!clearanceInfo || !clearanceInfo.assignedAssets) {
+      return defaultStatus === "Returned" ? "Returned" : "Pending";
+    }
+    const match = clearanceInfo.assignedAssets.find(item => item.assetId === assetId);
+    if (match) {
+      return match.returned ? "Returned" : "Pending";
+    }
+    return defaultStatus === "Returned" ? "Returned" : "Pending";
+  };
   const [employeeInfo, setEmployeeInfo] = useState({
     employeeId: '',
     employeeName: '',
@@ -93,9 +105,20 @@ const ExitForm = () => {
 
       // 2. Fetch Existing Exit Form
       const exitRes = await exitFormalityAPI.getMyExit();
+      let existingForm = null;
       if (exitRes.data?.data && exitRes.data.data.length > 0) {
-        const existingForm = exitRes.data.data[0];
+        existingForm = exitRes.data.data[0];
         
+        // Fetch clearance details
+        try {
+          const clRes = await exitFormalityAPI.getClearance(existingForm._id);
+          if (clRes.data?.data) {
+            setClearanceInfo(clRes.data.data);
+          }
+        } catch (errClearance) {
+          console.error("Error fetching clearance info:", errClearance);
+        }
+
         // Transform assets from backend format
         const formattedAssets = (existingForm.assetsToReturn || []).map(asset => {
           const parts = (asset.assetDetails || '').split(' || ');
@@ -151,7 +174,20 @@ const ExitForm = () => {
             (al.employeeName && emp.name && al.employeeName.trim().toLowerCase() === emp.name.trim().toLowerCase())
           )
         );
-        setAssignedAssets(myAssigned);
+
+        // Prepend default ID Card asset
+        const defaultIDCard = {
+          _id: "default-id-card",
+          assetId: "ID CARD",
+          category: "ID Card",
+          brandName: "Company ID Card",
+          version: "Physical Card",
+          allocatedDate: emp.dateOfJoining ? emp.dateOfJoining.split('T')[0] : 'N/A',
+          status: "Assigned",
+          components: []
+        };
+
+        setAssignedAssets([defaultIDCard, ...myAssigned]);
       } catch (errAlloc) {
         console.error("Error fetching assigned assets:", errAlloc);
       }
@@ -550,9 +586,9 @@ const ExitForm = () => {
                             <td className="px-6 py-4 font-mono text-xs text-gray-600">{al.allocatedDate || 'N/A'}</td>
                             <td className="px-6 py-4 text-center">
                               <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                                al.status === "Returned" ? "bg-green-100 text-green-800 border border-green-200" : "bg-amber-100 text-amber-800 border border-amber-200"
+                                getAssetClearanceStatus(al.assetId, al.status) === "Returned" ? "bg-green-100 text-green-800 border border-green-200" : "bg-amber-100 text-amber-800 border border-amber-200"
                               }`}>
-                                {al.status}
+                                {getAssetClearanceStatus(al.assetId, al.status)}
                               </span>
                             </td>
                           </tr>
@@ -576,9 +612,9 @@ const ExitForm = () => {
                               <td className="px-6 py-2.5 text-xs text-gray-400 italic">Component of {al.category}</td>
                               <td className="px-6 py-2.5 text-center">
                                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
-                                  al.status === "Returned" ? "bg-green-100 text-green-700 border border-green-200" : "bg-amber-50 text-amber-700 border border-amber-100"
+                                  getAssetClearanceStatus(al.assetId, al.status) === "Returned" ? "bg-green-100 text-green-700 border border-green-200" : "bg-amber-50 text-amber-700 border border-amber-100"
                                 }`}>
-                                  {al.status}
+                                  {getAssetClearanceStatus(al.assetId, al.status)}
                                 </span>
                               </td>
                             </tr>

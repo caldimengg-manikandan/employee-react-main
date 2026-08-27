@@ -204,58 +204,77 @@ router.post('/:id/submit', auth, async (req, res) => {
     item.currentStage = 'hr_review';
     await item.save();
 
-    // Auto-create ExitClearance record for active asset allocations
+    // Auto-create ExitClearance record for the employee with default ID Card
     try {
       const emp = await Employee.findById(item.employeeId);
       const empCode = emp ? emp.employeeId : (req.user ? req.user.employeeId : '');
 
-      const activeAllocations = await AssetAllocation.find({
-        $or: [
-          { employeeCode: empCode },
-          { assignedToId: empCode },
-          { employeeName: item.employeeName }
-        ],
-        status: 'Assigned'
-      }).populate('asset');
+      let existingClearance = await ExitClearance.findOne({ exitRequestId: item._id });
 
-      if (activeAllocations && activeAllocations.length > 0) {
-        let existingClearance = await ExitClearance.findOne({ exitRequestId: item._id });
+      if (!existingClearance) {
+        const clearanceCount = await ExitClearance.countDocuments();
+        const clearanceId = `CLR-${String(clearanceCount + 1).padStart(4, '0')}`;
 
-        if (!existingClearance) {
-          const clearanceCount = await ExitClearance.countDocuments();
-          const clearanceId = `CLR-${String(clearanceCount + 1).padStart(4, '0')}`;
-
-          const assignedAssets = activeAllocations.map(alloc => ({
-            assetId: alloc.assetId,
-            category: alloc.category || (alloc.asset && alloc.asset.category) || 'Asset',
-            brandName: alloc.brandName || (alloc.asset && alloc.asset.brandName) || '',
-            version: alloc.version || (alloc.asset && alloc.asset.version) || '',
-            serialNumber: (alloc.asset && alloc.asset.serialNumber) || alloc.serialNumber || 'N/A',
-            allocationDate: alloc.allocatedDate || '',
+        // 1. Default ID Card item that every employee must return
+        const assignedAssets = [
+          {
+            assetId: 'ID CARD',
+            category: 'ID Card',
+            brandName: 'Company ID Card',
+            version: 'Physical Card',
+            serialNumber: 'N/A',
+            allocationDate: item.submittedDate ? new Date(item.submittedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
             currentStatus: 'Assigned',
             returned: false,
-            condition: (alloc.asset && alloc.asset.condition) || 'Good',
-            remarks: ''
-          }));
+            condition: 'Good',
+            remarks: 'Default requirement'
+          }
+        ];
 
-          const newClearance = new ExitClearance({
-            clearanceId,
-            exitRequestId: item._id,
-            exitRequestNumber: item.applicationNo || `EXT-${item._id.toString().slice(-4).toUpperCase()}`,
-            employeeId: empCode || activeAllocations[0].employeeCode,
-            employeeCode: empCode || activeAllocations[0].employeeCode,
-            employeeName: item.employeeName || (emp ? emp.name : activeAllocations[0].employeeName),
-            department: item.division || (emp ? emp.department : '') || activeAllocations[0].department || 'SDS',
-            designation: (emp && emp.designation) || item.position || '',
-            email: (emp && (emp.officialEmail || emp.email)) || item.employeeEmail || '',
-            applicationDate: item.submittedDate ? new Date(item.submittedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
-            proposedLastWorkingDay: item.proposedLastWorkingDay ? new Date(item.proposedLastWorkingDay).toISOString().split('T')[0] : '',
-            assignedAssets,
-            status: 'Pending'
+        // 2. Fetch active allocations and append them if they exist
+        const activeAllocations = await AssetAllocation.find({
+          $or: [
+            { employeeCode: empCode },
+            { assignedToId: empCode },
+            { employeeName: item.employeeName }
+          ],
+          status: 'Assigned'
+        }).populate('asset');
+
+        if (activeAllocations && activeAllocations.length > 0) {
+          activeAllocations.forEach(alloc => {
+            assignedAssets.push({
+              assetId: alloc.assetId,
+              category: alloc.category || (alloc.asset && alloc.asset.category) || 'Asset',
+              brandName: alloc.brandName || (alloc.asset && alloc.asset.brandName) || '',
+              version: alloc.version || (alloc.asset && alloc.asset.version) || '',
+              serialNumber: (alloc.asset && alloc.asset.serialNumber) || alloc.serialNumber || 'N/A',
+              allocationDate: alloc.allocatedDate || '',
+              currentStatus: 'Assigned',
+              returned: false,
+              condition: (alloc.asset && alloc.asset.condition) || 'Good',
+              remarks: ''
+            });
           });
-
-          await newClearance.save();
         }
+
+        const newClearance = new ExitClearance({
+          clearanceId,
+          exitRequestId: item._id,
+          exitRequestNumber: item.applicationNo || `EXT-${item._id.toString().slice(-4).toUpperCase()}`,
+          employeeId: empCode || (activeAllocations.length > 0 ? activeAllocations[0].employeeCode : item.employeeId || ''),
+          employeeCode: empCode || (activeAllocations.length > 0 ? activeAllocations[0].employeeCode : ''),
+          employeeName: item.employeeName || (emp ? emp.name : ''),
+          department: item.division || (emp ? emp.department : '') || 'SDS',
+          designation: (emp && emp.designation) || item.position || '',
+          email: (emp && (emp.officialEmail || emp.email)) || item.employeeEmail || '',
+          applicationDate: item.submittedDate ? new Date(item.submittedDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+          proposedLastWorkingDay: item.proposedLastWorkingDay ? new Date(item.proposedLastWorkingDay).toISOString().split('T')[0] : '',
+          assignedAssets,
+          status: 'Pending'
+        });
+
+        await newClearance.save();
       }
     } catch (errClear) {
       console.error('Error creating Exit Clearance for exit submission:', errClear);
