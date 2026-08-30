@@ -12,32 +12,22 @@ const cleanNum = (val) => {
 };
 
 const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
-  // Use component sum for Gross Salary (Basic + HRA + Special Allowance + Performance Pay)
+  // Gross Salary = BasicDA + HRA + Special Allowance + Employee PF + Employer PF + ESI
+  // This matches the PayrollDetails formula exactly.
+  // (Performance Pay is excluded — it is paid separately)
   const basicDA = cleanNum(salaryData.basicDA);
   let hra = cleanNum(salaryData.hra);
   if (hra === 0 && basicDA > 0) {
     hra = Math.round(basicDA * 0.5);
   }
   let specialAllowance = cleanNum(salaryData.specialAllowance);
-  const performancePay = cleanNum(salaryData.performancePay);
-  
-  const storedEarnings = cleanNum(salaryData.totalEarnings);
-  if (specialAllowance === 0 && storedEarnings > (basicDA + hra) && storedEarnings <= 150000) {
-    specialAllowance = storedEarnings - basicDA - hra;
-  }
-  
+
   let employeePF = cleanNum(salaryData.employeePfContribution);
   if (employeePF === 0) {
     employeePF = cleanNum(salaryData.pfDeduction) || cleanNum(salaryData.pf);
   }
   const employerPF = cleanNum(salaryData.employerPfContribution);
   const volunteerPF = cleanNum(salaryData.volunteerPF);
-  
-  const componentGross = basicDA + hra + specialAllowance + performancePay;
-  const totalGross = componentGross > 0 
-    ? componentGross 
-    : (storedEarnings > 0 && storedEarnings <= 150000 ? storedEarnings : basicDA * 2);
-  
   const stdEsi = cleanNum(salaryData.esi);
   const stdTax = cleanNum(salaryData.tax);
   const stdProfessionalTax = cleanNum(salaryData.professionalTax);
@@ -46,57 +36,62 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   // Use input if provided, otherwise check record, otherwise 0
   const lopDays = lopDaysInput !== undefined ? lopDaysInput : cleanNum(salaryData.lopDays);
 
-  const totalEarnings = Math.round(totalGross);
-  
-  // Calculate LOP deduction
+  // Gross = Basic + HRA + Special + Employee PF + Employer PF + ESI (matches PayrollDetails)
+  const totalEarnings = Math.round(basicDA + hra + specialAllowance + employeePF + employerPF + stdEsi);
+
+  // LOP is calculated on the take-home base (Basic + HRA + Special), not on PF/ESI components
+  const takeHomeBase = basicDA + hra + specialAllowance;
   const safeDaysInMonth = daysInMonth > 0 ? daysInMonth : 30;
-  const perDaySalary = totalEarnings / safeDaysInMonth;
+  const perDaySalary = takeHomeBase / safeDaysInMonth;
   const lopDeduction = Math.round(perDaySalary * lopDays);
 
   // Pro-rate standard deductions based on attendance
-  const attendanceRatio = Math.max(0, (safeDaysInMonth - lopDays) / safeDaysInMonth);
-  const isFullLop = attendanceRatio === 0;
-  
-  // Employee PF is deducted from Employee Net Salary
+  const isFullLop = lopDays >= safeDaysInMonth;
+
+  // Employee PF is deducted from net salary; Employer PF is a company contribution (not deducted from employee)
   const currentEmployeePF = isFullLop ? 0 : employeePF;
   const currentEmployerPF = isFullLop ? 0 : employerPF;
   const currentPF = currentEmployeePF;
-  
+
   const currentESI = isFullLop ? 0 : stdEsi;
   const currentTax = isFullLop ? 0 : stdTax;
   const currentPT = isFullLop ? 0 : stdProfessionalTax;
   const currentVolunteerPF = isFullLop ? 0 : volunteerPF;
 
-  // Loan deduction cap
+  // Loan deduction cap: cannot exceed what is left after other deductions
   const earningsAfterLop = Math.max(0, totalEarnings - lopDeduction);
   const otherDeductions = currentPF + currentESI + currentTax + currentPT + currentVolunteerPF;
   const remainingForLoan = Math.max(0, earningsAfterLop - otherDeductions);
   const loanDeduction = Math.min(stdLoanDeduction, remainingForLoan);
 
-  const totalDeductions = Math.round(currentPF + currentESI + currentTax + currentPT + loanDeduction + lopDeduction + currentVolunteerPF);
+  // Total Deductions = Employee PF + Employer PF + ESI + Tax + PT + Loan + LOP + VolPF
+  // (Matches PayrollDetails: employeePF + employerPF + esi + tax + pt + loan + lop + volunteerPF)
+  const totalDeductions = Math.round(
+    currentEmployeePF + currentEmployerPF + currentESI + currentTax + currentPT + loanDeduction + lopDeduction + currentVolunteerPF
+  );
   const calculatedNet = Math.max(0, totalEarnings - totalDeductions);
-  
+
   // Honor DB netSalary if provided and no LOP adjustments are present
   const netSalary = (salaryData.netSalary && cleanNum(salaryData.netSalary) > 0 && (lopDaysInput === undefined || lopDaysInput === 0))
     ? cleanNum(salaryData.netSalary)
     : calculatedNet;
-  
+
   const gratuity = cleanNum(salaryData.gratuity);
-  const ctc = totalEarnings + gratuity + currentEmployerPF;
+  const ctc = totalEarnings + gratuity;
 
   return {
     ...salaryData,
     basicDA,
     hra,
     specialAllowance,
-    performancePay,
+    performancePay: 0, // Performance Pay is paid separately — excluded from monthly payroll
     totalEarnings,
     totalDeductions,
     netSalary,
     ctc,
     lop: lopDeduction,
     lopDays,
-    daysInMonth: safeDaysInMonth, 
+    daysInMonth: safeDaysInMonth,
     pf: currentPF,
     employerPF: currentEmployerPF,
     employeePF: currentEmployeePF,
@@ -355,11 +350,10 @@ export default function MonthlyPayroll() {
   const fetchEmployees = async () => {
     setLoading(true);
     try {
-      const [empResponse, payrollResponse, loanResponse, ppResponse, compResponse] = await Promise.all([
+      const [empResponse, payrollResponse, loanResponse, compResponse] = await Promise.all([
         employeeAPI.getAllEmployees(),
         payrollAPI.list(),
         loanAPI.list(),
-        performancePayAPI.getPendingPayroll().catch(() => ({ data: { data: [] } })),
         compensationAPI.getAll().catch(() => ({ data: [] }))
       ]);
       
@@ -367,7 +361,6 @@ export default function MonthlyPayroll() {
       const employees = allEmployees.filter(emp => emp.status === 'Active' || emp.status === 'ACTIVE');
       const payrolls = Array.isArray(payrollResponse.data) ? payrollResponse.data : [];
       const loans = loanResponse.data && loanResponse.data.loans ? loanResponse.data.loans : [];
-      const pendingPP = ppResponse.data && ppResponse.data.data ? ppResponse.data.data : [];
       const compensations = Array.isArray(compResponse.data) ? compResponse.data : [];
 
       // Calculate end of selected month date to find active compensations
@@ -392,10 +385,8 @@ export default function MonthlyPayroll() {
           }
         }
 
-        // Sum up pending performance pay (Only for August month as requested)
-        const empPP = month === '08' ? pendingPP
-          .filter(p => p.employeeId === emp.employeeId)
-          .reduce((sum, item) => sum + (item.performancePayAmount || 0), 0) : 0;
+        // Performance pay is paid separately — not included in monthly payroll
+        const empPP = 0;
         
         // Calculate Loan Deduction from active loans
         const allEmpLoans = loans.filter(l => l.employeeId === emp.employeeId);
@@ -471,8 +462,12 @@ export default function MonthlyPayroll() {
             ? Number(payrollRec.gratuity)
             : Number(emp.gratuity || 0));
 
-        const compSum = calcBasic + calcHra + calcSpecial;
-        const grossVal = compSum > 0 ? compSum : (activeComp ? (activeComp.gross || activeComp.totalEarnings || 0) : (payrollRec ? (payrollRec.totalEarnings || 0) : (emp.totalEarnings || emp.gross || 0)));
+        // Compute gross as the sum of components (matches PayrollDetails formula)
+        // totalEarnings = basicDA + hra + specialAllowance + employeePF + employerPF + ESI
+        const compSum = calcBasic + calcHra + calcSpecial + calcEmpPF + calcEmprPF + calcEsi;
+        const grossVal = compSum > 0
+          ? compSum
+          : (payrollRec ? (payrollRec.totalEarnings || 0) : (emp.totalEarnings || emp.gross || 0));
 
         const storedNet = (payrollRec && Number(payrollRec.netSalary) > 0)
           ? Number(payrollRec.netSalary)
