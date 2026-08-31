@@ -636,8 +636,11 @@ export default function MonthlyPayroll() {
         // of truth calculated by the backend at approval time.
         // Filter only leaves that overlap with the selected month to avoid counting
         // leaves from other months.
-        const monthStartLocal = new Date(parseInt(year), parseInt(month) - 1, 1);
-        const monthEndLocal   = new Date(parseInt(year), parseInt(month), 0);
+        // NOTE: monthEndLocal must be end-of-day (23:59:59) NOT midnight — leave dates are
+        // stored as UTC midnight which in IST (+05:30) is 05:30 AM local, so a midnight
+        // boundary would exclude leaves on the very last day of the month.
+        const monthStartLocal = new Date(parseInt(year), parseInt(month) - 1, 1, 0, 0, 0, 0);
+        const monthEndLocal   = new Date(parseInt(year), parseInt(month), 0, 23, 59, 59, 999);
 
         let lopDaysInMonth = employeeLeaves
           .filter(l => {
