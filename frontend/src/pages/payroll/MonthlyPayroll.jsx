@@ -560,50 +560,26 @@ export default function MonthlyPayroll() {
     const [year, month] = selectedMonth.split('-');
     
     try {
-      // Fetch approved leaves for the selected month
-      // We only fetch leaves overlapping with the selected month to minimize data payload.
-      // Use UTC dates to avoid timezone offsets shifting the date (e.g. 2026-03-01 -> 2026-02-28T18:30:00Z)
+      // Fetch approved leaves overlapping with the selected month.
+      // lopDays is already stored on each LeaveApplication record (set at approval time)
+      // — this is the single source of truth, same as Leave Application History.
       const monthStartQuery = new Date(Date.UTC(parseInt(year), parseInt(month) - 1, 1));
       const monthEnd = new Date(Date.UTC(parseInt(year), parseInt(month), 0, 23, 59, 59, 999));
 
-      const [leavesResponse, balancesResponse, ledgerSummaryResponse] = await Promise.all([
-        leaveAPI.list({
-          status: 'Approved',
-          startDate: monthStartQuery.toISOString(),
-          endDate: monthEnd.toISOString(),
-          overlap: 'true'
-        }),
-        leaveAPI.getBalance({ calculationDate: monthEnd.toISOString() }),
-        leaveAPI.getLedgerSummary(parseInt(year), parseInt(month)).catch(() => ({ data: [] }))
-      ]);
-      
+      const leavesResponse = await leaveAPI.list({
+        status: 'Approved',
+        startDate: monthStartQuery.toISOString(),
+        endDate: monthEnd.toISOString(),
+        overlap: 'true'
+      });
+
       const leaves = leavesResponse.data || [];
-      const balancesList = Array.isArray(balancesResponse.data) ? balancesResponse.data : [];
-      const ledgerSummaryList = Array.isArray(ledgerSummaryResponse?.data) ? ledgerSummaryResponse.data : [];
-      
-      const ledgerMap = new Map();
-      ledgerSummaryList.forEach(item => {
-        if (item.employee_id) {
-          ledgerMap.set(String(item.employee_id).trim(), item);
-        }
-      });
-      
-      // Create a map of employee balances for quick lookup
-      const balanceMap = new Map();
-      balancesList.forEach(item => {
-        if (item.employeeId && item.balances) {
-          const empId = String(item.employeeId).trim();
-          // Check if isMonthlyExpiry is at root or inside balances
-          const isMonthly = item.isMonthlyExpiry !== undefined ? item.isMonthlyExpiry : item.balances.isMonthlyExpiry;
-          balanceMap.set(empId, { ...item.balances, isMonthlyExpiry: isMonthly });
-        }
-      });
-      setSimulatedBalances(balanceMap);
 
       const selectedRecords = salaryRecords.filter(r => selectedEmployees.includes(r.id));
-      
+
       // Calculate days in month
       const daysInMonth = new Date(parseInt(year), parseInt(month), 0).getDate();
+
 
       const results = selectedRecords.map(rec => {
         // DOJ Calculation Logic
@@ -649,204 +625,30 @@ export default function MonthlyPayroll() {
             }
         }
 
-        // Get employee leaves sorted by start date
-        const employeeLeaves = leaves
-          .filter(l => (l.employeeId && l.employeeId === rec.employeeId))
-          .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
-        
-        // Get initial balances (Allocation)
-        // Note: The balance API returns CURRENT balance (Allocated - Used).
-        // We need the Allocated amount to replay.
+        // Get employee leaves for this month (only Approved, overlapping with selected month)
         const empId = String(rec.employeeId || '').trim();
-        const empBalances = balanceMap.get(empId);
-        let clAlloc = 0, slAlloc = 0, plAlloc = 0;
-        let clUsedFromBalance = 0, slUsedFromBalance = 0, plUsedFromBalance = 0;
-        
-        if (empBalances) {
-          clAlloc = Number(empBalances.casual?.allocated || 0);
-          slAlloc = Number(empBalances.sick?.allocated || 0);
-          plAlloc = Number(empBalances.privilege?.allocated || 0);
-          
-          clUsedFromBalance = Number(empBalances.casual?.used || 0);
-          slUsedFromBalance = Number(empBalances.sick?.used || 0);
-          plUsedFromBalance = Number(empBalances.privilege?.used || 0);
-        } else {
-             console.warn(`[Payroll Simulation] No balance found for employee: ${empId}`);
-        }
+        const employeeLeaves = leaves
+          .filter(l => l.employeeId && String(l.employeeId).trim() === empId)
+          .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
 
-        // Helper to check date intersection with selected month
-        const isDateInMonth = (d) => {
-            const date = new Date(d);
-            return date.getFullYear() === parseInt(year) && date.getMonth() === (parseInt(month) - 1);
-        };
+        // ─── LOP DAYS: Use the pre-calculated lopDays stored on each LeaveApplication ───
+        // This is the SAME value shown in Leave Application History and is the single source
+        // of truth calculated by the backend at approval time.
+        // Filter only leaves that overlap with the selected month to avoid counting
+        // leaves from other months.
+        const monthStartLocal = new Date(parseInt(year), parseInt(month) - 1, 1);
+        const monthEndLocal   = new Date(parseInt(year), parseInt(month), 0);
 
-        let lopDaysInMonth = 0;
-        let plLopDaysInMonth = 0;
+        let lopDaysInMonth = employeeLeaves
+          .filter(l => {
+            // Include any leave that overlaps this month
+            const s = new Date(l.startDate);
+            const e = new Date(l.endDate);
+            return s <= monthEndLocal && e >= monthStartLocal;
+          })
+          .reduce((sum, l) => sum + (Number(l.lopDays) || 0), 0);
 
-        const empLedger = ledgerMap.get(empId);
-
-        if (empLedger) {
-          lopDaysInMonth = Number(empLedger.total_lop || 0);
-          plLopDaysInMonth = Number(empLedger.PL?.lop_days || 0);
-        } else {
-          // Replay Logic
-          // Since we only fetched leaves for the current month, we calculate 'UsedInMonth'
-          // and subtract it from the Total Balance (which is YTD) to get the starting point.
-          // Starting Point = Total Used (from Balance API) - Used This Month (from List)
-          
-          const monthStart = new Date(parseInt(year), parseInt(month) - 1, 1);
-
-          const calcUsedInMonth = (type) => {
-               let count = 0;
-               employeeLeaves
-                  .filter(l => (l.leaveType || '').toUpperCase().trim() === type)
-                  .forEach(leave => {
-                      const start = new Date(leave.startDate);
-                      const end = new Date(leave.endDate);
-                      start.setHours(0,0,0,0);
-                      end.setHours(0,0,0,0);
-                      
-                      let curr = new Date(start);
-                      while (curr <= end) {
-                          // Only count days within the selected month
-                          if (isDateInMonth(curr)) {
-                              // Count every day (consistent with Leave System)
-                              count += (leave.dayType === 'Half Day' ? 0.5 : 1);
-                          }
-                          curr.setDate(curr.getDate() + 1);
-                      }
-                  });
-               return count;
-          };
-
-          const clUsedInMonth = calcUsedInMonth('CL') + calcUsedInMonth('CASUAL_LEAVE');
-          const slUsedInMonth = calcUsedInMonth('SL') + calcUsedInMonth('SICK_LEAVE');
-          const plUsedInMonth = calcUsedInMonth('PL') + calcUsedInMonth('PRIVILEGE_LEAVE');
-
-          // Note: If balance API includes future leaves, this subtraction might be imperfect,
-          // but it is the best we can do without fetching the full history.
-          let clUsed = Math.max(0, clUsedFromBalance - clUsedInMonth);
-          let slUsed = Math.max(0, slUsedFromBalance - slUsedInMonth);
-          let plUsed = Math.max(0, plUsedFromBalance - plUsedInMonth);
-
-          employeeLeaves.forEach(leave => {
-              // Determine leave type category
-              const type = (leave.leaveType || '').toUpperCase().trim().replace(/\s+/g, '_');
-              const isExplicitLOP = ['LOP', 'LOSS_OF_PAY', 'LOSSOFPAY', 'UNPAID', 'LWOP'].some(t => type === t || type.replace(/_/g, '') === t);
-              
-              // Iterate day by day for this leave
-              const startD = new Date(leave.startDate);
-              const endD = new Date(leave.endDate);
-              startD.setHours(0,0,0,0);
-              endD.setHours(0,0,0,0);
-              
-              const currentD = new Date(startD);
-              while (currentD <= endD) {
-                  // We only process days within the selected month because the initial balance 
-                  // is set to (Total - Month). Adding days outside the month would double-count them.
-                  if (!isDateInMonth(currentD)) {
-                       currentD.setDate(currentD.getDate() + 1);
-                       continue;
-                  }
-
-                  // If monthly expiry (Probation/Trainee), only consider leaves in the current month against the allocation
-                  // Leaves outside the current month should not consume the current month's allocation
-                  if (empBalances?.isMonthlyExpiry && !isDateInMonth(currentD)) {
-                       currentD.setDate(currentD.getDate() + 1);
-                       continue;
-                  }
-
-                  // If the day is before DOJ, ignore it (it's covered by preDojDays)
-                  if (joiningDate && currentD < joiningDate) {
-                      currentD.setDate(currentD.getDate() + 1);
-                      continue;
-                  }
-
-                  // Count every day (consistent with Leave System)
-
-
-                  // Determine day value (0.5 for Half Day, 1 for Full Day)
-                  let dayValue = 1;
-                  if (leave.dayType === 'Half Day') {
-                      dayValue = 0.5;
-                  }
-
-                  let lopAmount = 0;
-
-                  if (isExplicitLOP) {
-                      lopAmount = dayValue;
-                  } else {
-                      // Check balance
-                      if (type === 'CL' || type === 'CASUAL_LEAVE') {
-                          if (clUsed + dayValue <= clAlloc) {
-                              clUsed += dayValue;
-                          } else if (clUsed < clAlloc) {
-                              const available = clAlloc - clUsed;
-                              clUsed += available;
-                              lopAmount = dayValue - available;
-                          } else {
-                              lopAmount = dayValue;
-                          }
-                      } else if (type === 'SL' || type === 'SICK_LEAVE') {
-                          if (slUsed + dayValue <= slAlloc) {
-                              slUsed += dayValue;
-                          } else if (slUsed < slAlloc) {
-                              const available = slAlloc - slUsed;
-                              slUsed += available;
-                              lopAmount = dayValue - available;
-                          } else {
-                              lopAmount = dayValue;
-                          }
-                      } else if (type === 'PL' || type === 'PRIVILEGE_LEAVE') {
-                           if (plUsed + dayValue <= plAlloc) {
-                              plUsed += dayValue;
-                          } else if (plUsed < plAlloc) {
-                              const available = plAlloc - plUsed;
-                              plUsed += available;
-                              lopAmount = dayValue - available;
-                          } else {
-                              lopAmount = dayValue;
-                          }
-                      } else if (type === 'BEREAVEMENT') {
-                           lopAmount = 0;
-                      } else {
-                          // Unknown type -> Treat as Paid (0 LOP)
-                          lopAmount = 0; 
-                      }
-                  }
-
-                  // If this day contributes to LOP and falls in the selected month, add to count
-                  if (lopAmount > 0 && isDateInMonth(currentD)) {
-                      lopDaysInMonth += lopAmount;
-                      if (type === 'PL' || type === 'PRIVILEGE_LEAVE') {
-                          plLopDaysInMonth += lopAmount;
-                      }
-                  }
-                  
-                  currentD.setDate(currentD.getDate() + 1);
-              }
-          });
-        }
-
-        // Negative PL Balance Correction:
-        // If the employee has a negative PL balance, this indicates excess usage that must be treated as LOP.
-        // We override the simulated PL LOP with the actual negative balance if the debt is greater.
-        let plBalance = 0;
-        if (empBalances && empBalances.privilege) {
-             plBalance = Number(empBalances.privilege.balance || 0);
-        }
-        
-        if (plBalance < 0) {
-            const totalDebt = Math.abs(plBalance);
-            // If the total debt is greater than what simulation found for this month, use the total debt.
-            // This covers carry-forward negative balances or simulation discrepancies.
-            if (totalDebt > plLopDaysInMonth) {
-                // Remove the simulated PL component and add the full debt
-                lopDaysInMonth = (lopDaysInMonth - plLopDaysInMonth) + totalDebt;
-            }
-        }
-
-        // Total LOP days = calculated from replay + Pre-DOJ days
+        // Total LOP days = leave LOP + Pre-DOJ days
         const lopDays = lopDaysInMonth + preDojDays;
 
         const base = calculateSalaryFields(rec, lopDays, daysInMonth);
