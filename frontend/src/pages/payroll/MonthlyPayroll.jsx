@@ -39,10 +39,9 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   // Gross = Basic + HRA + Special + Employee PF + Employer PF + ESI (matches PayrollDetails)
   const totalEarnings = Math.round(basicDA + hra + specialAllowance + employeePF + employerPF + stdEsi);
 
-  // LOP is calculated on the take-home base (Basic + HRA + Special), not on PF/ESI components
-  const takeHomeBase = basicDA + hra + specialAllowance;
+  // LOP is calculated on total gross salary (totalEarnings)
   const safeDaysInMonth = daysInMonth > 0 ? daysInMonth : 30;
-  const perDaySalary = takeHomeBase / safeDaysInMonth;
+  const perDaySalary = totalEarnings / safeDaysInMonth;
   const lopDeduction = Math.round(perDaySalary * lopDays);
 
   // Pro-rate standard deductions based on attendance
