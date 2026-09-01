@@ -31,45 +31,51 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
 
   const toInputDate = (d) => {
     if (!d) return '';
+    const s = String(d).trim();
+    const m = s.match(/^(\d{2})[-/.](\d{2})[-/.](\d{4})$/);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+    const m2 = s.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})$/);
+    if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
     const date = new Date(d);
-    if (isNaN(date.getTime())) {
-      const s = String(d);
-      const p = s.split('T')[0];
-      if (/^\d{4}-\d{2}-\d{2}$/.test(p)) return p;
-      return '';
+    if (!isNaN(date.getTime())) {
+      const y = date.getFullYear();
+      const mo = String(date.getMonth() + 1).padStart(2, '0');
+      const da = String(date.getDate()).padStart(2, '0');
+      return `${y}-${mo}-${da}`;
     }
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const da = String(date.getDate()).padStart(2, '0');
-    return `${y}-${m}-${da}`;
+    return s;
   };
 
   const toDisplayDate = (d) => {
     if (!d) return '';
+    const s = String(d).trim();
+    let p = s.split('T')[0];
+    const m = p.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})$/);
+    if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+    const m2 = p.match(/^(\d{2})[-/.](\d{2})[-/.](\d{4})$/);
+    if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
     const date = new Date(d);
-    if (isNaN(date.getTime())) {
-      const s = String(d);
-      const p = s.split('T')[0];
-      const m = p.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-      const m2 = p.match(/^(\d{2})-(\d{2})-(\d{4})$/);
-      if (m2) return p;
-      return '';
+    if (!isNaN(date.getTime())) {
+      const y = date.getFullYear();
+      const mo = String(date.getMonth() + 1).padStart(2, '0');
+      const da = String(date.getDate()).padStart(2, '0');
+      return `${da}-${mo}-${y}`;
     }
-    const y = date.getFullYear();
-    const m = String(date.getMonth() + 1).padStart(2, '0');
-    const da = String(date.getDate()).padStart(2, '0');
-    return `${da}-${m}-${y}`;
+    return p;
   };
 
   const toDbDate = (d) => {
     if (!d) return '';
     const s = String(d).trim();
-    const m = s.match(/^(\d{2})-(\d{2})-(\d{4})$/);
+    const m = s.match(/^(\d{2})[-/.](\d{2})[-/.](\d{4})$/);
     if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-    const m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (m2) return s;
-    return '';
+    const m2 = s.match(/^(\d{4})[-/.](\d{2})[-/.](\d{2})$/);
+    if (m2) return `${m2[1]}-${m2[2]}-${m2[3]}`;
+    const date = new Date(d);
+    if (!isNaN(date.getTime())) {
+      return date.toISOString().split('T')[0];
+    }
+    return s; // Fallback to raw string, let backend reject it if invalid
   };
   const parseAddress = (addr) => {
     if (!addr || typeof addr !== 'string') {
