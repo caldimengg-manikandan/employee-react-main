@@ -143,6 +143,77 @@ router.post("/", async (req, res) => {
   }
 });
 
+// 🔄 SYNC ALL EMPLOYEES TO COMPENSATION MASTER
+router.post("/sync-all", async (req, res) => {
+  try {
+    const employees = await Employee.find({ status: { $in: ["Active", "ACTIVE"] } });
+    const existingComp = await Compensation.find();
+    const existingCompMap = new Set(existingComp.map(c => String(c.employeeId || '').toLowerCase()));
+    
+    const payrolls = await Payroll.find();
+    const payrollMap = new Map(payrolls.map(p => [String(p.employeeId || '').toLowerCase(), p]));
+
+    const created = [];
+    for (const emp of employees) {
+      const empIdKey = String(emp.employeeId || '').toLowerCase();
+      if (!empIdKey || existingCompMap.has(empIdKey)) continue;
+
+      const pRec = payrollMap.get(empIdKey);
+      
+      const basic = Number(emp.basicDA || emp.basic || pRec?.basicDA || 0);
+      const hra = Number(emp.hra || pRec?.hra || (basic > 0 ? Math.round(basic * 0.5) : 0));
+      const special = Number(emp.specialAllowance || pRec?.specialAllowance || 0);
+      const empPF = Number(emp.employeePfContribution || emp.pfDeduction || pRec?.employeePfContribution || (basic > 0 ? (basic < 15000 ? Math.round(basic * 0.12) : 1800) : 0));
+      const emprPF = Number(emp.employerPfContribution || pRec?.employerPfContribution || (basic > 0 ? (basic < 15000 ? Math.round(basic * 0.13) + 150 : 1950) : 0));
+      const esi = Number(emp.esi || pRec?.esi || 0);
+      const tax = Number(emp.tax || pRec?.tax || 0);
+      const pt = Number(emp.professionalTax || pRec?.professionalTax || 0);
+      const volunteerPF = Number(emp.volunteerPF || pRec?.volunteerPF || 0);
+      const gratuity = Number(emp.gratuity || pRec?.gratuity || Math.round(basic * 0.0486));
+
+      const grossSum = basic + hra + special + empPF + emprPF + esi;
+      const gross = grossSum > 0 ? grossSum : (pRec?.totalEarnings || emp.totalEarnings || emp.gross || 0);
+      const ctc = gross + gratuity;
+
+      const compBody = {
+        employeeId: emp.employeeId,
+        name: emp.name,
+        designation: emp.designation || pRec?.designation || 'Staff',
+        department: emp.department || emp.division || pRec?.department || 'General',
+        location: emp.location || emp.address || pRec?.location || 'Chennai',
+        effectiveDate: emp.dateOfJoining || emp.dateofjoin || new Date().toISOString().slice(0, 10),
+        gross,
+        basicDA: basic,
+        hra,
+        specialAllowance: special,
+        employeePfContribution: empPF,
+        employerPfContribution: emprPF,
+        esi,
+        tax,
+        professionalTax: pt,
+        volunteerPF,
+        gratuity,
+        netSalary: (basic + hra + special) - tax - pt - volunteerPF,
+        ctc,
+        status: "Active"
+      };
+
+      const newComp = await Compensation.create(compBody);
+      created.push(newComp);
+    }
+
+    res.json({
+      success: true,
+      message: `Synced ${created.length} employees into Compensation Master`,
+      count: created.length,
+      created
+    });
+  } catch (error) {
+    console.error("Error syncing employees to compensation:", error);
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
 // 📥 GET all Compensations
 router.get("/", async (req, res) => {
   try {
