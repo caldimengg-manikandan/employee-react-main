@@ -1245,49 +1245,37 @@ router.delete("/:id", async (req, res) => {
   try {
     const { id } = req.params;
     const privilegedRoles = ["admin", "hr", "director"];
-    const managerRoles = ["manager", "projectmanager", "teamlead"];
     const userRole = String(req.user?.role || "").toLowerCase();
 
-    if (managerRoles.includes(userRole) && !privilegedRoles.includes(userRole)) {
-      return res.status(403).json({
-        success: false,
-        message: "Access denied: Managers cannot modify or delete employee timesheets directly."
-      });
-    }
-
-    let timesheet;
-    if (privilegedRoles.includes(userRole)) {
-      timesheet = await Timesheet.findById(id);
-    } else {
-      timesheet = await Timesheet.findOne({ _id: id, userId: req.user?._id });
-    }
+    const timesheet = await Timesheet.findById(id);
 
     if (!timesheet) {
       return res.status(404).json({
         success: false,
-        message: "Timesheet not found or access denied"
+        message: "Timesheet not found"
+      });
+    }
+
+    const isOwner = String(timesheet.userId) === String(req.user?._id);
+    const isPrivileged = privilegedRoles.includes(userRole);
+
+    if (!isOwner && !isPrivileged) {
+      return res.status(403).json({
+        success: false,
+        message: "Access denied: You can only delete your own draft timesheets"
       });
     }
 
     // Only allow deletion of draft timesheets
-    if (timesheet.status !== "Draft") {
+    if (timesheet.status !== "Draft" && !isPrivileged) {
       return res.status(400).json({
         success: false,
         message: "Only draft timesheets can be deleted"
       });
     }
 
-    // const hasApprovedLeave = (timesheet.entries || []).some(
-    //   (e) => (e.project || "") === "Leave" && (e.task || "") === "Leave Approved"
-    // );
-    // if (hasApprovedLeave) {
-    //   return res.status(400).json({
-    //     success: false,
-    //     message: "Leave-approved draft timesheets cannot be deleted"
-    //   });
-    // }
-
     await Timesheet.findByIdAndDelete(id);
+    await AdminTimesheet.deleteMany({ timesheetId: id });
 
     res.json({
       success: true,
