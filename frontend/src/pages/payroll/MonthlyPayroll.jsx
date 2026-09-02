@@ -70,10 +70,7 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   );
   const calculatedNet = Math.max(0, totalEarnings - totalDeductions);
 
-  // Honor DB netSalary if provided and no LOP adjustments are present
-  const netSalary = (salaryData.netSalary && cleanNum(salaryData.netSalary) > 0 && (lopDaysInput === undefined || lopDaysInput === 0))
-    ? cleanNum(salaryData.netSalary)
-    : calculatedNet;
+  const netSalary = calculatedNet;
 
   const gratuity = cleanNum(salaryData.gratuity);
   const ctc = totalEarnings + gratuity;
@@ -443,10 +440,10 @@ export default function MonthlyPayroll() {
             ? Number(payrollRec.tax)
             : Number(emp.tax || 0));
 
-        const calcPT = (activeComp && Number(activeComp.professionalTax) > 0)
-          ? Number(activeComp.professionalTax)
-          : ((payrollRec && Number(payrollRec.professionalTax) > 0)
-            ? Number(payrollRec.professionalTax)
+        const calcPT = (payrollRec && payrollRec.professionalTax !== undefined)
+          ? Number(payrollRec.professionalTax || 0)
+          : ((activeComp && activeComp.professionalTax !== undefined)
+            ? Number(activeComp.professionalTax || 0)
             : Number(emp.professionalTax || 0));
 
         const calcVolPF = (activeComp && Number(activeComp.volunteerPF) > 0)
