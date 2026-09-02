@@ -228,7 +228,7 @@ const SalarySlips = () => {
       const paidDate = formatPayslipDate(rawPaidDate);
       const basicSalary = Math.round(Number(rec.basicDA || 0));
       const hra = Math.round(Number(rec.hra || 0));
-      const pfDeduction = Math.round(Number(rec.pf || 0));
+      
       const professionalTax = Math.round(Number(rec.professionalTax || 0));
       const tds = Math.round(Number(rec.tax || 0));
       const esi = Math.round(Number(rec.esi || 0));
@@ -236,21 +236,42 @@ const SalarySlips = () => {
       const loanDeduction = Math.round(Number(rec.loanDeduction || 0));
       const gratuity = Math.round(Number(rec.gratuity || 0));
       const volunteerPF = Math.round(Number(rec.volunteerPF || 0));
+
+      const otherDeductions = professionalTax + tds + esi + lopDeduction + loanDeduction + volunteerPF;
       
-      const totalDeductions = pfDeduction + professionalTax + tds + esi + lopDeduction + loanDeduction + volunteerPF;
+      let pfDeduction = Math.round(Number(rec.pf || 0));
+      const storedTotalDeductions = Math.round(Number(rec.totalDeductions || 0));
+      const empPf = Number(rec.employeePfContribution || 0);
+      const emprPf = Number(rec.employerPfContribution || 0);
+
+      if (empPf + emprPf > 0) {
+        pfDeduction = Math.round(empPf + emprPf);
+      } else if (storedTotalDeductions > 0 && storedTotalDeductions > pfDeduction + otherDeductions) {
+        pfDeduction = storedTotalDeductions - otherDeductions;
+      }
+
+      const totalDeductions = storedTotalDeductions > 0
+        ? storedTotalDeductions
+        : (pfDeduction + otherDeductions);
+      
       let totalEarnings = Math.round(Number(rec.totalEarnings || 0));
       
-      // Balance specialAllowance so basic + hra + specialAllowance equals total earnings without 1 rupee discrepancy
       const rawSpecial = Number(rec.specialAllowance || 0);
       let specialAllowance = Math.round(rawSpecial);
       
-      if (totalEarnings > 0) {
-        specialAllowance = Math.max(0, totalEarnings - basicSalary - hra);
-      } else {
-        totalEarnings = basicSalary + hra + specialAllowance;
+      if (specialAllowance === 0 && totalEarnings > 0) {
+        const pfAndEsiInGross = (empPf + emprPf || pfDeduction) + esi;
+        specialAllowance = Math.max(0, totalEarnings - basicSalary - hra - pfAndEsiInGross);
       }
       
-      const netSalary = Math.max(0, totalEarnings - totalDeductions);
+      if (totalEarnings === 0) {
+        totalEarnings = basicSalary + hra + specialAllowance + pfDeduction + esi;
+      }
+      
+      const storedNetSalary = Math.round(Number(rec.netSalary || 0));
+      const netSalary = storedNetSalary > 0
+        ? storedNetSalary
+        : Math.max(0, totalEarnings - totalDeductions);
 
       const mapped = {
         employeeId: rec.employeeId,

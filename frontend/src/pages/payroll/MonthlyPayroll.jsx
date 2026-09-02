@@ -50,7 +50,7 @@ const calculateSalaryFields = (salaryData, lopDaysInput, daysInMonth = 30) => {
   // Employee PF is deducted from net salary; Employer PF is a company contribution (not deducted from employee)
   const currentEmployeePF = isFullLop ? 0 : employeePF;
   const currentEmployerPF = isFullLop ? 0 : employerPF;
-  const currentPF = currentEmployeePF;
+  const currentPF = isFullLop ? 0 : (currentEmployeePF + currentEmployerPF);
 
   const currentESI = isFullLop ? 0 : stdEsi;
   const currentTax = isFullLop ? 0 : stdTax;
