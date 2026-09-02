@@ -466,7 +466,8 @@ const EmployeeManagement = () => {
       fetchEmployees();
     } catch (error) {
       console.error('Error saving employee:', error);
-      alert('Error saving employee. Please try again.');
+      const serverMsg = error.response?.data?.message || error.message || 'Error saving employee. Please try again.';
+      showError(`Failed to save employee: ${serverMsg}`);
     }
   };
 

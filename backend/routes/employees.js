@@ -590,6 +590,20 @@ router.post('/', auth, handleUpload('profilePictureFile'), validateEmployeeCreat
     if (!data.position && data.role) data.position = data.role;
     if (!data.position && data.designation) data.position = data.designation;
 
+    const dateFields = ['dateOfBirth', 'originalDateOfBirth', 'dateOfJoining', 'exitDate', 'lastWorkingDay', 'dob', 'dateofjoin', 'hireDate'];
+    for (const f of dateFields) {
+      if (data[f] === '' || data[f] === 'null' || data[f] === 'undefined' || data[f] === undefined) {
+        delete data[f];
+      }
+    }
+
+    const emailFields = ['email', 'officialEmail', 'personalEmail'];
+    for (const f of emailFields) {
+      if (data[f] === '' || data[f] === 'null' || data[f] === 'undefined') {
+        delete data[f];
+      }
+    }
+
     // Handle single-request file upload to Cloudinary if file provided
     if (req.file) {
       const uploadResult = await uploadEmployeeProfilePicture(req.file.buffer, data.employeeId || 'general');
@@ -630,6 +644,8 @@ router.post('/', auth, handleUpload('profilePictureFile'), validateEmployeeCreat
         if (!o.position && o.role) o.position = o.role;
         if (!o.position && o.designation) o.position = o.designation;
         delete o.role;
+        if (o.startDate === '' || o.startDate === 'null' || o.startDate === 'undefined') delete o.startDate;
+        if (o.endDate === '' || o.endDate === 'null' || o.endDate === 'undefined') delete o.endDate;
         return o;
       });
     }
@@ -643,7 +659,12 @@ router.post('/', auth, handleUpload('profilePictureFile'), validateEmployeeCreat
 
     res.status(201).json(savedEmployee);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    let msg = error.message;
+    if (error.name === 'ValidationError' && error.errors) {
+      msg = Object.values(error.errors).map(e => `${e.path || e.kind || 'Field'}: ${e.message}`).join('; ');
+    }
+    console.error('Error creating employee:', msg);
+    res.status(400).json({ message: msg });
   }
 });
 

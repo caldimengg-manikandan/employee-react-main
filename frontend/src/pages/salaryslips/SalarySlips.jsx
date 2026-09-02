@@ -245,6 +245,14 @@ const SalarySlips = () => {
 
       if (empPf + emprPf > 0) {
         pfDeduction = Math.round(empPf + emprPf);
+      } else if (pfDeduction > 0 && pfDeduction <= 1800 && basicSalary > 0) {
+        if (basicSalary >= 15000) {
+          pfDeduction = 3750;
+        } else {
+          const calcEmp = Math.round(basicSalary * 0.12);
+          const calcEmpr = Math.round(basicSalary * 0.13) + 150;
+          pfDeduction = calcEmp + calcEmpr;
+        }
       }
 
       const calculatedTotalDeductions = pfDeduction + otherDeductions;
