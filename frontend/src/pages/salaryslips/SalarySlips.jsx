@@ -240,19 +240,19 @@ const SalarySlips = () => {
       const otherDeductions = professionalTax + tds + esi + lopDeduction + loanDeduction + volunteerPF;
       
       let pfDeduction = Math.round(Number(rec.pf || 0));
-      const storedTotalDeductions = Math.round(Number(rec.totalDeductions || 0));
       const empPf = Number(rec.employeePfContribution || 0);
       const emprPf = Number(rec.employerPfContribution || 0);
 
       if (empPf + emprPf > 0) {
         pfDeduction = Math.round(empPf + emprPf);
-      } else if (storedTotalDeductions > 0 && storedTotalDeductions > pfDeduction + otherDeductions) {
-        pfDeduction = storedTotalDeductions - otherDeductions;
       }
 
-      const totalDeductions = storedTotalDeductions > 0
+      const calculatedTotalDeductions = pfDeduction + otherDeductions;
+      const storedTotalDeductions = Math.round(Number(rec.totalDeductions || 0));
+
+      const totalDeductions = (storedTotalDeductions > 0 && Math.abs(storedTotalDeductions - calculatedTotalDeductions) <= 1)
         ? storedTotalDeductions
-        : (pfDeduction + otherDeductions);
+        : calculatedTotalDeductions;
       
       let totalEarnings = Math.round(Number(rec.totalEarnings || 0));
       
@@ -901,7 +901,7 @@ const SalarySlips = () => {
                 <div className="p-4 space-y-3">
                   <div className="flex justify-between text-sm"><span className="text-gray-600">Provident Fund</span> <span className="font-bold text-gray-800">{data.pfDeduction.toLocaleString('en-IN')}</span></div>
                   {data.volunteerPF > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Volunteer PF</span> <span className="font-bold text-gray-800">{data.volunteerPF.toLocaleString('en-IN')}</span></div>}
-                  <div className="flex justify-between text-sm"><span className="text-gray-600">Professional Tax</span> <span className="font-bold text-gray-800">{data.professionalTax.toLocaleString('en-IN')}</span></div>
+                  {data.professionalTax > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Professional Tax</span> <span className="font-bold text-gray-800">{data.professionalTax.toLocaleString('en-IN')}</span></div>}
                   <div className="flex justify-between text-sm"><span className="text-gray-600">TDS</span> <span className="font-bold text-gray-800">{data.tds.toLocaleString('en-IN')}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-gray-600">ESI</span> <span className="font-bold text-gray-800">{data.esi.toLocaleString('en-IN')}</span></div>
                   {data.lopDeduction > 0 && <div className="flex justify-between text-sm"><span className="text-gray-600">Loss of Pay</span> <span className="font-bold text-gray-800">{data.lopDeduction.toLocaleString('en-IN')}</span></div>}
