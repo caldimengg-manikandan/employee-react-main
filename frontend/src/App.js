@@ -264,7 +264,7 @@ function App() {
             <Route
               path="document-templates"
               element={
-                <ProtectedRoute roles={["admin", "hr", "director"]}>
+                <ProtectedRoute roles={["admin", "hr", "director", "gm", "general_manager", "generalmanager"]}>
                   <DocumentTemplates />
                 </ProtectedRoute>
               }

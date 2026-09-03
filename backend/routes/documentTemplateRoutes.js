@@ -275,10 +275,10 @@ router.post('/director-profile', auth, async (req, res) => {
 router.post('/documents', auth, async (req, res) => {
   try {
     const roleLower = String(req.user.role || '').toLowerCase();
-    const isHRorAdmin = ['admin', 'hr', 'director'].includes(roleLower);
+    const isAllowed = ['admin', 'hr', 'director', 'gm', 'general_manager', 'generalmanager'].includes(roleLower);
 
-    if (!isHRorAdmin) {
-      return res.status(403).json({ success: false, message: 'Access denied: HR/Admin only' });
+    if (!isAllowed) {
+      return res.status(403).json({ success: false, message: 'Access denied: HR/Admin/GM/Director only' });
     }
 
     const { templateId, templateName, employeeId, employeeDetails, title, content, submitNow } = req.body;
@@ -573,6 +573,8 @@ router.get('/documents', auth, async (req, res) => {
 
     if (status && status !== 'ALL') {
       filter.status = status;
+    } else if (!status) {
+      filter.status = { $ne: 'Archived' };
     }
 
     if (templateId) {
@@ -619,22 +621,14 @@ router.get('/documents/:id', auth, async (req, res) => {
 });
 
 // ----------------------------------------------------
-// 12. DELETE /documents/:id - Archive Document
+// 12. DELETE /documents/:id - Delete Document Permanently
 // ----------------------------------------------------
 router.delete('/documents/:id', auth, async (req, res) => {
   try {
-    const doc = await GeneratedDocument.findById(req.params.id);
-    if (!doc) return res.status(404).json({ success: false, message: 'Document not found' });
+    const deletedDoc = await GeneratedDocument.findByIdAndDelete(req.params.id);
+    if (!deletedDoc) return res.status(404).json({ success: false, message: 'Document not found' });
 
-    doc.status = 'Archived';
-    doc.auditLog.push({
-      action: 'ARCHIVED',
-      performedBy: { userId: req.user._id, name: req.user.name, role: req.user.role },
-      notes: 'Archived document'
-    });
-
-    await doc.save();
-    res.json({ success: true, message: 'Document archived successfully' });
+    res.json({ success: true, message: 'Document deleted successfully' });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
   }

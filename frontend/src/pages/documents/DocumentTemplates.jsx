@@ -6,6 +6,7 @@ import LetterheadPreview from '../../components/documents/LetterheadPreview';
 const DocumentTemplates = () => {
   const [documentTitle, setDocumentTitle] = useState('');
   const [documentContent, setDocumentContent] = useState('');
+  const [location, setLocation] = useState('Chennai');
   const [savedDocuments, setSavedDocuments] = useState([]);
   const [saving, setSaving] = useState(false);
   const [loadingDocs, setLoadingDocs] = useState(false);
@@ -50,7 +51,7 @@ const DocumentTemplates = () => {
         templateId: 'CUSTOM',
         templateName: documentTitle,
         employeeId: 'EMP-GENERAL',
-        employeeDetails: { name: 'General Document' },
+        employeeDetails: { name: 'General Document', location },
         title: documentTitle,
         content: documentContent,
         submitNow: false
@@ -72,6 +73,7 @@ const DocumentTemplates = () => {
   const handleLoadDocument = (doc) => {
     setDocumentTitle(doc.title);
     setDocumentContent(doc.content);
+    setLocation(doc.employeeDetails?.location || 'Chennai');
     setActiveView('CREATE');
     setMessage({ type: 'success', text: `Loaded "${doc.title}" into editor and letterhead preview.` });
   };
@@ -80,17 +82,22 @@ const DocumentTemplates = () => {
   const handleDeleteDocument = async (id, title) => {
     if (!window.confirm(`Are you sure you want to delete "${title}"?`)) return;
     try {
-      await documentTemplateAPI.archiveDocument(id);
-      setMessage({ type: 'success', text: `Deleted "${title}".` });
-      fetchSavedDocuments();
+      const res = await documentTemplateAPI.archiveDocument(id);
+      if (res.data?.success || res.status === 200) {
+        setSavedDocuments((prev) => prev.filter((d) => d._id !== id));
+        setMessage({ type: 'success', text: `Deleted "${title}" successfully.` });
+        fetchSavedDocuments();
+      }
     } catch (err) {
-      setMessage({ type: 'error', text: 'Failed to delete document.' });
+      console.error('Error deleting document:', err);
+      setMessage({ type: 'error', text: err.response?.data?.message || 'Failed to delete document.' });
     }
   };
 
   const handleReset = () => {
     setDocumentTitle('');
     setDocumentContent('');
+    setLocation('Chennai');
     setMessage({ type: '', text: '' });
   };
 
@@ -169,13 +176,28 @@ const DocumentTemplates = () => {
               />
             </div>
 
-            {/* 2. Document Content Input */}
+            {/* 2. Location Select Input */}
+            <div>
+              <label className="block text-xs font-extrabold text-gray-800 mb-1.5">
+                Location (Determines Authorized Signature) <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-[#1b2752] focus:outline-none bg-slate-50"
+              >
+                <option value="Chennai">Chennai Location (Signature: Uvaraj)</option>
+                <option value="Hosur">Hosur Location (Signature: Bala)</option>
+              </select>
+            </div>
+
+            {/* 3. Document Content Input */}
             <div>
               <label className="block text-xs font-extrabold text-gray-800 mb-1.5">
                 Document Content / Body <span className="text-red-500">*</span>
               </label>
               <textarea
-                rows={13}
+                rows={11}
                 value={documentContent}
                 onChange={(e) => setDocumentContent(e.target.value)}
                 className="w-full p-3.5 border border-gray-300 rounded-xl text-xs font-mono focus:ring-2 focus:ring-[#1b2752] focus:outline-none leading-relaxed bg-slate-900 text-slate-100 shadow-inner"
@@ -211,7 +233,8 @@ const DocumentTemplates = () => {
                 documentNumber="CAL-DOC-LIVE"
                 title={documentTitle || 'OFFICIAL DOCUMENT'}
                 content={documentContent}
-                employeeDetails={{}}
+                location={location}
+                employeeDetails={{ location }}
                 status="Active"
                 showActions={true}
                 onSave={handleSaveDocument}
@@ -241,6 +264,7 @@ const DocumentTemplates = () => {
               <thead>
                 <tr className="bg-[#1b2752] text-white font-extrabold uppercase tracking-wider">
                   <th className="p-3.5 pl-4">Document Title / Name</th>
+                  <th className="p-3.5">Location / Signature</th>
                   <th className="p-3.5">Saved Date</th>
                   <th className="p-3.5 pr-4 text-right">Actions</th>
                 </tr>
@@ -248,7 +272,7 @@ const DocumentTemplates = () => {
               <tbody className="divide-y divide-gray-100">
                 {savedDocuments.length === 0 ? (
                   <tr>
-                    <td colSpan={3} className="text-center py-10 text-gray-400 font-medium">
+                    <td colSpan={4} className="text-center py-10 text-gray-400 font-medium">
                       No saved documents yet. Type a document name and click "Save Document" to store it here.
                     </td>
                   </tr>
@@ -256,6 +280,15 @@ const DocumentTemplates = () => {
                   savedDocuments.map((doc) => (
                     <tr key={doc._id} className="hover:bg-slate-50 transition">
                       <td className="p-3.5 font-bold text-gray-900">{doc.title}</td>
+                      <td className="p-3.5">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          (doc.employeeDetails?.location || '').toLowerCase().includes('hosur')
+                            ? 'bg-amber-100 text-amber-800'
+                            : 'bg-blue-100 text-blue-800'
+                        }`}>
+                          {doc.employeeDetails?.location || 'Chennai'} Signature
+                        </span>
+                      </td>
                       <td className="p-3.5 text-gray-500">{new Date(doc.createdAt).toLocaleDateString()}</td>
                       <td className="p-3.5 text-right">
                         <div className="flex items-center justify-end space-x-2">

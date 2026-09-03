@@ -9,12 +9,21 @@ const LetterheadPreview = ({
   title = 'OFFICIAL DOCUMENT',
   content = '',
   employeeDetails = {},
+  location = 'Chennai',
   status = 'Active',
   showActions = true,
   onSave,
   onLogAction
 }) => {
   const previewRef = useRef(null);
+
+  const getSignatureUrl = (loc) => {
+    const locationStr = (loc || '').toLowerCase().trim();
+    if (locationStr.includes('hosur') || locationStr.includes('bangalore')) {
+      return '/signatures/bala-sign.png';
+    }
+    return '/signatures/uvaraj-sign.png';
+  };
 
   const currentDateStr = employeeDetails?.currentDate || new Date().toLocaleDateString('en-GB', {
     day: '2-digit',
@@ -175,12 +184,22 @@ const LetterheadPreview = ({
 
             {/* Authorized Signatory Block (Left Aligned) */}
             <div className="flex flex-col items-start mt-8 pb-4">
-              <p className="text-[11px] text-gray-600 italic mb-2">
+              <p className="text-[11px] text-gray-600 italic mb-1">
                 For <strong>CALDIM ENGINEERING PRIVATE LIMITED</strong>
               </p>
 
               <div className="text-left min-w-[200px]">
-                <div className="h-10 border-b border-gray-900 mb-1 w-48" />
+                <div className="h-16 flex items-end mb-1">
+                  <img
+                    src={getSignatureUrl(location || employeeDetails?.location)}
+                    alt="Authorized Signatory Signature"
+                    className="h-14 object-contain max-w-[180px]"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                    }}
+                  />
+                </div>
+                <div className="border-b border-gray-900 mb-1 w-48" />
                 <p className="text-xs font-bold text-gray-900">Authorized Signatory</p>
               </div>
             </div>

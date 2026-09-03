@@ -50,7 +50,8 @@ const generatedDocumentSchema = new mongoose.Schema({
     salary: { type: String, default: '' },
     reportingManager: { type: String, default: '' },
     currentDate: { type: String, default: '' },
-    email: { type: String, default: '' }
+    email: { type: String, default: '' },
+    location: { type: String, default: 'Chennai' }
   },
   title: {
     type: String,

@@ -268,7 +268,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       path: "/document-templates",
       icon: getIconForMenu("Document Templates"),
       allowEmployeeRole: false,
-      showForRoles: ["admin", "hr", "director", "manager", "projectmanager", "project_manager"],
+      showForRoles: ["admin", "hr", "director", "manager", "projectmanager", "project_manager", "gm", "general_manager", "generalmanager"],
       permission: "document_templates"
     },
     {

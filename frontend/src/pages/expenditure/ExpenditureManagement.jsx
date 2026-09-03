@@ -42,6 +42,7 @@ const ExpenditureManagement = () => {
     "Net Banking",
     "UPI",
     "Credit Card",
+    "Debit Card",
     "Cheque",
     "Cash"
   ];
@@ -2390,7 +2391,7 @@ const ExpenditureManagement = () => {
                         <td className="px-4 py-3 font-medium text-gray-900">{exp.type}</td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1 text-gray-600">
-                            {exp.paymentMode === "Credit Card" && <CreditCard className="w-4 h-4" />}
+                            {(exp.paymentMode === "Credit Card" || exp.paymentMode === "Debit Card") && <CreditCard className="w-4 h-4" />}
                             {exp.paymentMode === "UPI" && <Receipt className="w-4 h-4" />}
                             {exp.paymentMode === "Net Banking" && <Banknote className="w-4 h-4" />}
                             {exp.paymentMode === "Cash" && <Wallet className="w-4 h-4" />}
