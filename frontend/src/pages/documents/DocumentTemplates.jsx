@@ -184,10 +184,11 @@ const DocumentTemplates = () => {
               <select
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-[#1b2752] focus:outline-none bg-slate-50"
+                className="w-full px-3.5 py-2.5 border border-gray-300 rounded-xl text-xs font-bold text-gray-900 focus:ring-2 focus:ring-[#1b2752] focus:outline-none bg-slate-50 cursor-pointer shadow-xs"
               >
-                <option value="Chennai">Chennai Location (Signature: Uvaraj)</option>
-                <option value="Hosur">Hosur Location (Signature: Bala)</option>
+                <option value="CALDIM Seal">1. Caldim Seal</option>
+                <option value="Bala sign Hosur location">2. Bala sign Hosur location</option>
+                <option value="Uvaraj sign chennai location">3. Uvaraj sign chennai location</option>
               </select>
             </div>
 

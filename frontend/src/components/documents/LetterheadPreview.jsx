@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import { Printer, Download, Save } from 'lucide-react';
 import caldimLetterheadImg from '../../assets/caldim_letterhead.png';
+import caldimSealImg from '../../assets/caldim_seal.png';
 
 const LetterheadPreview = ({
   documentNumber = 'CAL-DOC-PREVIEW',
@@ -188,18 +189,32 @@ const LetterheadPreview = ({
                 For <strong>CALDIM ENGINEERING PRIVATE LIMITED</strong>
               </p>
 
-              <div className="text-left min-w-[200px]">
-                <div className="h-16 flex items-end mb-1">
-                  <img
-                    src={getSignatureUrl(location || employeeDetails?.location)}
-                    alt="Authorized Signatory Signature"
-                    className="h-14 object-contain max-w-[180px]"
-                    onError={(e) => {
-                      e.target.style.display = 'none';
-                    }}
-                  />
+              <div className="relative text-left min-w-[220px]">
+                <div className="h-20 flex items-center relative my-1">
+                  {String(location || employeeDetails?.location || '').toLowerCase().includes('caldim seal') ||
+                   String(location || employeeDetails?.location || '').toLowerCase() === 'seal' ? (
+                    /* 1. Caldim Seal */
+                    <img
+                      src={caldimSealImg}
+                      alt="CALDIM Official Seal"
+                      className="h-20 w-20 object-contain z-10 drop-shadow-sm"
+                      onError={(e) => {
+                        e.target.src = '/caldim_seal.png';
+                      }}
+                    />
+                  ) : (
+                    /* 2 & 3. Signature Without Seal (Bala for Hosur, Uvaraj for Chennai) */
+                    <img
+                      src={getSignatureUrl(location || employeeDetails?.location)}
+                      alt="Authorized Signatory Signature"
+                      className="h-14 object-contain max-w-[160px] relative z-10"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  )}
                 </div>
-                <div className="border-b border-gray-900 mb-1 w-48" />
+                <div className="border-b border-gray-900 mb-1 w-52" />
                 <p className="text-xs font-bold text-gray-900">Authorized Signatory</p>
               </div>
             </div>

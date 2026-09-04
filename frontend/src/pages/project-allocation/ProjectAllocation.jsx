@@ -6,7 +6,14 @@ import Modal from '../../components/Modals/Modal';
 const ProjectAllocation = () => {
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const roleStr = String(user.role || '').toLowerCase();
-  const isProjectManager = ['projectmanager', 'project_manager', 'admin', 'hr', 'director', 'manager'].includes(roleStr);
+  const designationStr = String(user.designation || user.role || '').toLowerCase();
+  const isProjectManager = [
+    'projectmanager', 'project_manager', 'project manager',
+    'teamlead', 'team_lead', 'team lead', 'lead',
+    'projectlead', 'project_lead', 'project lead',
+    'sr team lead', 'senior team lead',
+    'admin', 'hr', 'director', 'manager'
+  ].some(r => roleStr.includes(r) || designationStr.includes(r));
   const canEdit = isProjectManager;
   const [deleteProjectModal, setDeleteProjectModal] = useState({ isOpen: false, projectId: null, projectName: '' });
   const [deleteAllocationModal, setDeleteAllocationModal] = useState({ isOpen: false, allocationId: null });
@@ -61,6 +68,7 @@ const ProjectAllocation = () => {
     projectName: [],
     projectCategory: [],
     employeeId: [],
+    employeeName: [],
     division: [],
     location: [],
     status: []
@@ -80,6 +88,7 @@ const ProjectAllocation = () => {
     projectName: false,
     projectCategory: false,
     employeeId: false,
+    employeeName: false,
     division: false,
     location: false,
     status: false
@@ -214,6 +223,7 @@ const ProjectAllocation = () => {
       projectName: [],
       projectCategory: [],
       employeeId: [],
+      employeeName: [],
       division: [],
       location: [],
       status: []
@@ -249,6 +259,7 @@ const ProjectAllocation = () => {
         projectName: false,
         projectCategory: false,
         employeeId: false,
+        employeeName: false,
         division: false,
         location: false,
         status: false
@@ -273,6 +284,7 @@ const ProjectAllocation = () => {
       projectName: false,
       projectCategory: false,
       employeeId: false,
+      employeeName: false,
       division: false,
       location: false,
       status: false
@@ -314,18 +326,24 @@ const ProjectAllocation = () => {
 
   const getUniqueEmployeeIds = (divisionFilters = []) => {
     let filteredAllocations = allocations;
+    let filteredEmployees = employees;
 
     if (divisionFilters && divisionFilters.length > 0) {
       const normDivs = divisionFilters.map(d => String(d).trim().toLowerCase());
       filteredAllocations = filteredAllocations.filter(a => {
         const div = String(a.projectDivision || a.division || '').trim().toLowerCase();
-        return normDivs.includes(div);
+        return normDivs.some(nd => nd === div || div.includes(nd) || nd.includes(div));
+      });
+      filteredEmployees = filteredEmployees.filter(emp => {
+        const empDiv = String(emp.division || emp.department || '').trim().toLowerCase();
+        return normDivs.some(nd => nd === empDiv || empDiv.includes(nd) || nd.includes(empDiv));
       });
     }
 
     const empMap = new Map(employees.map(e => [String(e._id || e.id), e.employeeId]));
 
-    const codes = filteredAllocations.map(a => {
+    const codesFromMaster = filteredEmployees.map(e => String(e.employeeId || '').trim()).filter(Boolean);
+    const codesFromAllocations = filteredAllocations.map(a => {
       let code = a.employeeCode;
       if (!code && a.employeeId) {
         code = empMap.get(String(a.employeeId));
@@ -333,7 +351,31 @@ const ProjectAllocation = () => {
       return String(code || a.employeeName || '').trim();
     }).filter(Boolean);
 
-    return [...new Set(codes)].sort((a, b) => compareEmployeeCodes(a, b));
+    const codes = Array.from(new Set([...codesFromMaster, ...codesFromAllocations]));
+    return codes.sort((a, b) => compareEmployeeCodes(a, b));
+  };
+
+  const getUniqueEmployeeNames = (divisionFilters = []) => {
+    let filteredAllocations = allocations;
+    let filteredEmployees = employees;
+
+    if (divisionFilters && divisionFilters.length > 0) {
+      const normDivs = divisionFilters.map(d => String(d).trim().toLowerCase());
+      filteredAllocations = filteredAllocations.filter(a => {
+        const div = String(a.projectDivision || a.division || '').trim().toLowerCase();
+        return normDivs.some(nd => nd === div || div.includes(nd) || nd.includes(div));
+      });
+      filteredEmployees = filteredEmployees.filter(emp => {
+        const empDiv = String(emp.division || emp.department || '').trim().toLowerCase();
+        return normDivs.some(nd => nd === empDiv || empDiv.includes(nd) || nd.includes(empDiv));
+      });
+    }
+
+    const empNamesFromMaster = filteredEmployees.map(e => String(e.name || '').trim()).filter(Boolean);
+    const empNamesFromAllocations = filteredAllocations.map(a => String(a.employeeName || '').trim()).filter(Boolean);
+
+    const names = Array.from(new Set([...empNamesFromMaster, ...empNamesFromAllocations]));
+    return names.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
   };
 
   // Filter functions (Case-insensitive & trimmed)
@@ -391,6 +433,11 @@ const ProjectAllocation = () => {
           const norm = String(e).trim().toLowerCase();
           return norm === aEmpCode || norm === aEmpName || (allocation.employeeId && norm === String(allocation.employeeId).trim().toLowerCase());
         });
+      const matchesEmployeeName = !allocationFilters.employeeName || allocationFilters.employeeName.length === 0 ||
+        allocationFilters.employeeName.some(eName => {
+          const norm = String(eName).trim().toLowerCase();
+          return norm === aEmpName || (aEmpCode && norm === aEmpCode);
+        });
       const matchesDivision = allocationFilters.division.length === 0 ||
         allocationFilters.division.some(d => String(d).trim().toLowerCase() === aDiv);
       const matchesLocation = allocationFilters.location.length === 0 ||
@@ -398,7 +445,7 @@ const ProjectAllocation = () => {
       const matchesStatus = allocationFilters.status.length === 0 ||
         allocationFilters.status.some(s => String(s).trim().toLowerCase() === aStatus);
 
-      return matchesCode && matchesName && matchesCategory && matchesEmployeeId && matchesDivision && matchesLocation && matchesStatus;
+      return matchesCode && matchesName && matchesCategory && matchesEmployeeId && matchesEmployeeName && matchesDivision && matchesLocation && matchesStatus;
     });
   };
 
@@ -450,7 +497,14 @@ const ProjectAllocation = () => {
     const norm = String(divisionName).trim().toLowerCase();
     return sorted.filter(emp => {
       const empDiv = String(emp.division || emp.department || '').trim().toLowerCase();
-      return empDiv === norm || empDiv.includes(norm) || norm.includes(empDiv);
+      if (!empDiv) return false;
+      if (empDiv === norm) return true;
+      if (norm.includes('tek') && empDiv.includes('tek')) return true;
+      if (norm.includes('sds') && empDiv.includes('sds')) return true;
+      if (norm.includes('das') && empDiv.includes('das')) return true;
+      if (norm.includes('elec') && empDiv.includes('elec')) return true;
+      if (norm.includes('hr') && empDiv.includes('hr')) return true;
+      return empDiv.includes(norm) || norm.includes(empDiv);
     });
   };
 
@@ -1742,7 +1796,7 @@ const ProjectAllocation = () => {
                 )}
 
                 {(activeTab === 'allocations' || activeTab === 'myAllocations') && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
                     <MultiSelectDropdown
                       label="Project Code"
                       options={getUniqueProjectCodes(allocationFilters.division, 'allocations')}
@@ -1791,6 +1845,18 @@ const ProjectAllocation = () => {
                       onToggle={() => toggleAllocationDropdown('employeeId')}
                       onClose={() => setAllocationDropdowns(prev => ({ ...prev, employeeId: false }))}
                       type="code"
+                    />
+
+                    <MultiSelectDropdown
+                      label="Employee Name"
+                      options={getUniqueEmployeeNames(allocationFilters.division)}
+                      selectedValues={allocationFilters.employeeName}
+                      onChange={(value) => handleAllocationFilterChange('employeeName', value)}
+                      onSelectAll={(options) => selectAllAllocationFilters('employeeName', options)}
+                      onClear={() => clearAllocationFilter('employeeName')}
+                      isOpen={allocationDropdowns.employeeName}
+                      onToggle={() => toggleAllocationDropdown('employeeName')}
+                      onClose={() => setAllocationDropdowns(prev => ({ ...prev, employeeName: false }))}
                     />
 
                     <MultiSelectDropdown

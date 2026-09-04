@@ -305,9 +305,9 @@ router.get('/', auth, async (req, res) => {
     const allowedDesignations = [
       'project manager', 'project_manager', 'projectmanager',
       'team lead', 'team_lead', 'teamlead', 'sr. team lead', 'sr team lead',
-      'technical lead', 'assistant manager', 'deputy manager', 'assistant project manager', 'asst project manager', 'pm', 'tl'
+      'technical lead', 'assistant manager', 'deputy manager', 'assistant project manager', 'asst project manager', 'pm', 'tl', 'lead'
     ];
-    const isPM = ['projectmanager', 'project_manager', 'teamlead', 'team_lead', 'pm', 'tl'].includes(roleLower) ||
+    const isPM = ['projectmanager', 'project_manager', 'teamlead', 'team_lead', 'pm', 'tl', 'lead', 'manager'].includes(roleLower) ||
       allowedDesignations.some(d => d && empDesignation.includes(d));
 
     if (isPM || byDivision === 'true' || req.user.permissions?.includes('holiday_working_request')) {
@@ -316,13 +316,15 @@ router.get('/', auth, async (req, res) => {
         const targetDiv = division || loggedInEmp?.division;
         if (targetDiv) {
           query.division = getDivisionQueryValue(targetDiv);
-        } else {
-          // If no division, return empty list to protect other divisions
-          return res.json([]);
+        }
+      } else if (isPM) {
+        // PM/TL sees division-wise employees (if division parameter passed, filter by division; otherwise fetch active employees)
+        if (division) {
+          query.division = getDivisionQueryValue(division);
         }
       } else {
         const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
-        // Ensure they only see their assigned team members + themselves
+        // Ensure standard users only see their assigned team members + themselves
         const allowedIds = [...myAssignedMemberIds, req.user.employeeId].filter(Boolean);
         query.employeeId = { $in: allowedIds };
       }

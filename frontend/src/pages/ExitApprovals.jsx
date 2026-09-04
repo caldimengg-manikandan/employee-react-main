@@ -23,6 +23,7 @@ import { Modal, message, Input } from 'antd';
 
 import { getAbsoluteSignatureUrl } from '../utils/signatureUtils';
 import caldimLetterheadImg from '../assets/caldim_letterhead.png';
+import caldimSealImg from '../assets/caldim_seal.png';
 
 
 const ExitApproval = () => {
@@ -998,21 +999,29 @@ const ExitApproval = () => {
                     For <strong>{companyName}</strong>
                   </p>
 
-                  <div className="text-left min-w-[200px]">
-                    <div className="h-16 flex items-end mb-1">
+                  <div className="relative text-left min-w-[220px]">
+                    <div className="h-20 flex items-center relative my-1">
                       {letterData.signatureImage && (
                         <img 
                           src={letterData.signatureImage} 
                           alt="Authorized Signatory Signature" 
-                          className="h-14 object-contain max-w-[180px]"
+                          className="h-14 object-contain max-w-[160px] relative z-10"
                           crossOrigin="anonymous"
                           onError={(e) => {
                             e.target.style.display = 'none';
                           }}
                         />
                       )}
+                      <img
+                        src={caldimSealImg}
+                        alt="CALDIM Official Seal"
+                        className="h-20 w-20 object-contain absolute -top-1 left-24 z-20 pointer-events-none drop-shadow-sm"
+                        onError={(e) => {
+                          e.target.src = '/caldim_seal.png';
+                        }}
+                      />
                     </div>
-                    <div className="border-b border-gray-900 mb-1 w-48" />
+                    <div className="border-b border-gray-900 mb-1 w-52" />
                     <p className="text-sm font-bold text-gray-900">Authorized Signatory</p>
                   </div>
                 </div>
@@ -1105,21 +1114,29 @@ const ExitApproval = () => {
                     For <strong>{experienceLetterData.companyName || companyName}</strong>
                   </p>
 
-                  <div className="text-left min-w-[200px]">
-                    <div className="h-16 flex items-end mb-1">
+                  <div className="relative text-left min-w-[220px]">
+                    <div className="h-20 flex items-center relative my-1">
                       {experienceLetterData.signatureImage && (
                         <img 
                           src={experienceLetterData.signatureImage} 
                           alt="Authorized Signatory Signature" 
-                          className="h-14 object-contain max-w-[180px]"
+                          className="h-14 object-contain max-w-[160px] relative z-10"
                           crossOrigin="anonymous"
                           onError={(e) => {
                             e.target.style.display = 'none';
                           }}
                         />
                       )}
+                      <img
+                        src={caldimSealImg}
+                        alt="CALDIM Official Seal"
+                        className="h-20 w-20 object-contain absolute -top-1 left-24 z-20 pointer-events-none drop-shadow-sm"
+                        onError={(e) => {
+                          e.target.src = '/caldim_seal.png';
+                        }}
+                      />
                     </div>
-                    <div className="border-b border-gray-900 mb-1 w-48" />
+                    <div className="border-b border-gray-900 mb-1 w-52" />
                     <p className="text-sm font-bold text-gray-900">Authorized Signatory</p>
                   </div>
                 </div>
