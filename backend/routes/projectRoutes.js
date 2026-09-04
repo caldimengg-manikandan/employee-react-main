@@ -1,4 +1,5 @@
 const router = require("express").Router();
+const mongoose = require("mongoose");
 const Project = require("../models/Project");
 const Allocation = require("../models/Allocation");
 const ProjectAuditLog = require("../models/ProjectAuditLog");
@@ -57,12 +58,20 @@ router.get("/audit-logs", async (req, res) => {
 // GET AUDIT LOGS FOR SPECIFIC PROJECT
 router.get("/:id/audit-logs", async (req, res) => {
   try {
-    const logs = await ProjectAuditLog.find({ projectId: req.params.id })
+    const { id } = req.params;
+    let query = {};
+    if (mongoose.Types.ObjectId.isValid(id)) {
+      query = { $or: [{ projectId: id }, { projectCode: id }] };
+    } else {
+      query = { projectCode: id };
+    }
+    const logs = await ProjectAuditLog.find(query)
       .sort({ createdAt: -1 })
       .lean();
-    res.json(logs);
+    res.json(Array.isArray(logs) ? logs : []);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Error fetching project audit logs:", err);
+    res.json([]);
   }
 });
 
@@ -100,12 +109,18 @@ router.put("/:id", async (req, res) => {
       if (updated.branch) {
         updateFields.branch = updated.branch;
       }
+      const escapeRegex = (str) => String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim();
+      const exactRegex = (str) => new RegExp(`^${escapeRegex(str)}$`, "i");
+
       const allocRes = await Allocation.updateMany(
         {
           $or: [
             { projectId: updated._id },
-            { projectCode: existingProject.code },
-            { projectName: existingProject.name }
+            { projectId: String(updated._id) },
+            { projectCode: exactRegex(existingProject.code) },
+            { projectCode: exactRegex(updated.code) },
+            { projectName: exactRegex(existingProject.name) },
+            { projectName: exactRegex(updated.name) }
           ]
         },
         { $set: updateFields }

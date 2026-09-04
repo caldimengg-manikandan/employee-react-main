@@ -1090,15 +1090,26 @@ const ProjectAllocation = () => {
   };
 
   const openProjectAuditModal = async (project) => {
+    if (!project) return;
+    const targetId = project._id || project.id || project.code;
     try {
-      const res = await projectAPI.getProjectAuditLogs(project._id || project.id);
+      let logs = [];
+      if (targetId) {
+        const res = await projectAPI.getProjectAuditLogs(targetId);
+        logs = Array.isArray(res.data) ? res.data : [];
+      }
       setProjectAuditModal({
         isOpen: true,
         project,
-        logs: Array.isArray(res.data) ? res.data : []
+        logs
       });
     } catch (e) {
-      alert("Failed to load audit logs for this project.");
+      console.error("Error loading project audit logs:", e);
+      setProjectAuditModal({
+        isOpen: true,
+        project,
+        logs: []
+      });
     }
   };
 
@@ -2006,14 +2017,20 @@ const ProjectAllocation = () => {
 
                   const groupedAllocationsMap = new Map();
                   filteredAllocations.forEach(alloc => {
-                    const key = alloc.projectId || alloc.projectCode;
+                    const matchedProject = projects.find(p => String(p._id) === String(alloc.projectId) || (alloc.projectCode && p.code === alloc.projectCode));
+                    const currentProjectName = matchedProject ? matchedProject.name : alloc.projectName;
+                    const currentProjectCode = matchedProject ? matchedProject.code : alloc.projectCode;
+                    const currentCategory = matchedProject ? (matchedProject.projectCategory || 'Product') : (alloc.projectCategory || 'Product');
+                    const currentDivision = matchedProject ? matchedProject.division : (alloc.projectDivision || alloc.division);
+                    const key = matchedProject ? String(matchedProject._id) : (alloc.projectId || alloc.projectCode || alloc.projectName);
+
                     if (!groupedAllocationsMap.has(key)) {
                       groupedAllocationsMap.set(key, {
                         projectId: alloc.projectId,
-                        projectCode: alloc.projectCode,
-                        projectName: alloc.projectName,
-                        projectCategory: alloc.projectCategory || 'Product',
-                        division: alloc.projectDivision || alloc.division,
+                        projectCode: currentProjectCode,
+                        projectName: currentProjectName,
+                        projectCategory: currentCategory,
+                        division: currentDivision,
                         branch: alloc.branch,
                         status: alloc.status,
                         employees: [],
@@ -2187,20 +2204,27 @@ const ProjectAllocation = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {getMyFilteredAllocations().map(allocation => (
-                          <tr key={allocation._id || allocation.id} className="hover:bg-gray-50 border-b">
-                            <td className="p-3">
-                              <div className="text-sm text-blue-600 font-mono font-semibold">{allocation.projectCode}</div>
-                            </td>
-                            <td className="p-3">
-                              <div className="font-medium text-gray-900">{allocation.projectName}</div>
-                            </td>
-                            <td className="p-3">
-                              {getCategoryBadge(allocation.projectCategory || 'Product')}
-                            </td>
-                            <td className="p-3">
-                              <div className="text-sm text-gray-600">{allocation.projectDivision || allocation.division}</div>
-                            </td>
+                        {getMyFilteredAllocations().map(allocation => {
+                          const matchedProject = projects.find(p => String(p._id) === String(allocation.projectId) || (allocation.projectCode && p.code === allocation.projectCode));
+                          const currentName = matchedProject ? matchedProject.name : allocation.projectName;
+                          const currentCode = matchedProject ? matchedProject.code : allocation.projectCode;
+                          const currentCat = matchedProject ? (matchedProject.projectCategory || 'Product') : (allocation.projectCategory || 'Product');
+                          const currentDiv = matchedProject ? matchedProject.division : (allocation.projectDivision || allocation.division);
+
+                          return (
+                            <tr key={allocation._id || allocation.id} className="hover:bg-gray-50 border-b">
+                              <td className="p-3">
+                                <div className="text-sm text-blue-600 font-mono font-semibold">{currentCode}</div>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-medium text-gray-900">{currentName}</div>
+                              </td>
+                              <td className="p-3">
+                                {getCategoryBadge(currentCat)}
+                              </td>
+                              <td className="p-3">
+                                <div className="text-sm text-gray-600">{currentDiv}</div>
+                              </td>
                             <td className="p-3">
                               <div className="text-sm text-gray-600">{allocation.branch}</div>
                             </td>
@@ -2224,7 +2248,8 @@ const ProjectAllocation = () => {
                               </button>
                             </td>
                           </tr>
-                        ))}
+                        );
+                      })}
                       </tbody>
                     </table>
                   </div>
