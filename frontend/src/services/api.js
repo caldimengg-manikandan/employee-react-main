@@ -128,7 +128,9 @@ export const projectAPI = {
   getAllProjects: () => api.get('/projects'),
   createProject: (data) => api.post('/projects', data),
   updateProject: (id, data) => api.put(`/projects/${id}`, data),
-  deleteProject: (id) => api.delete(`/projects/${id}`),
+  deleteProject: (id, params) => api.delete(`/projects/${id}`, { data: params, params }),
+  getAuditLogs: () => api.get('/projects/audit-logs'),
+  getProjectAuditLogs: (id) => api.get(`/projects/${id}/audit-logs`),
 };
 
 export const policyAPI = {

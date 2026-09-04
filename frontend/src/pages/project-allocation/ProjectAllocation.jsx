@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Edit, Trash2, Eye, Building2, Users, Target, Filter, X, ChevronDown } from 'lucide-react';
+import { Edit, Trash2, Eye, Building2, Users, Target, Filter, X, ChevronDown, History } from 'lucide-react';
 import { employeeAPI, projectAPI, allocationAPI } from '../../services/api';
 import Modal from '../../components/Modals/Modal';
 
@@ -10,6 +10,7 @@ const ProjectAllocation = () => {
   const canEdit = isProjectManager;
   const [deleteProjectModal, setDeleteProjectModal] = useState({ isOpen: false, projectId: null, projectName: '' });
   const [deleteAllocationModal, setDeleteAllocationModal] = useState({ isOpen: false, allocationId: null });
+  const [projectAuditModal, setProjectAuditModal] = useState({ isOpen: false, project: null, logs: [] });
   const [successModal, setSuccessModal] = useState({ isOpen: false, message: '' });
   const [messageModal, setMessageModal] = useState({ isOpen: false, title: '', message: '' });
 
@@ -42,6 +43,7 @@ const ProjectAllocation = () => {
   const [projects, setProjects] = useState([]);
   const [employees, setEmployees] = useState([]);
   const [allocations, setAllocations] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filter states
@@ -83,28 +85,31 @@ const ProjectAllocation = () => {
     status: false
   });
 
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+      const [projRes, allocRes, empRes, auditRes] = await Promise.all([
+        projectAPI.getAllProjects(),
+        allocationAPI.getAllAllocations(),
+        employeeAPI.getAllEmployees(),
+        projectAPI.getAuditLogs().catch(() => ({ data: [] }))
+      ]);
+      setProjects(Array.isArray(projRes.data) ? projRes.data : []);
+      setAllocations(Array.isArray(allocRes.data) ? allocRes.data : []);
+      const allEmployees = Array.isArray(empRes.data) ? empRes.data : [];
+      // Filter for active employees only for new allocations
+      setEmployees(allEmployees.filter(emp => String(emp.status || '').toLowerCase() === 'active'));
+      setAuditLogs(Array.isArray(auditRes.data) ? auditRes.data : []);
+    } catch (e) {
+      console.error('Failed to load data from MongoDB:', e);
+      alert('Failed to load data from database. Please refresh the page or contact support.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const [projRes, allocRes, empRes] = await Promise.all([
-          projectAPI.getAllProjects(),
-          allocationAPI.getAllAllocations(),
-          employeeAPI.getAllEmployees(),
-        ]);
-        setProjects(Array.isArray(projRes.data) ? projRes.data : []);
-        setAllocations(Array.isArray(allocRes.data) ? allocRes.data : []);
-        const allEmployees = Array.isArray(empRes.data) ? empRes.data : [];
-        // Filter for active employees only for new allocations
-        setEmployees(allEmployees.filter(emp => emp.status === 'Active'));
-      } catch (e) {
-        console.error('Failed to load data from MongoDB:', e);
-        alert('Failed to load data from database. Please refresh the page or contact support.');
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
+    refreshData();
   }, []);
 
   // Modal states
@@ -449,23 +454,7 @@ const ProjectAllocation = () => {
     });
   };
 
-  // Function to refresh data from MongoDB
-  const refreshData = async () => {
-    try {
-      const [projRes, allocRes, empRes] = await Promise.all([
-        projectAPI.getAllProjects(),
-        allocationAPI.getAllAllocations(),
-        employeeAPI.getAllEmployees(),
-      ]);
-      setProjects(Array.isArray(projRes.data) ? projRes.data : []);
-      setAllocations(Array.isArray(allocRes.data) ? allocRes.data : []);
-      const allEmployees = Array.isArray(empRes.data) ? empRes.data : [];
-      setEmployees(allEmployees.filter(emp => emp.status === 'Active' || emp.status === 'ACTIVE'));
-    } catch (e) {
-      console.error('Failed to refresh data from MongoDB:', e);
-      alert('Failed to refresh data from database.');
-    }
-  };
+
 
   // Calculate current user's allocations
   const myAllocations = allocations.filter(alloc => {
@@ -1072,6 +1061,9 @@ const ProjectAllocation = () => {
       endDate: projectForm.endDate,
       status: projectForm.status,
       description: editingProject ? editingProject.description || `${projectForm.name} project` : `${projectForm.name} project`,
+      updatedBy: user.name || user.fullName || user.email || 'Admin',
+      updatedById: user.employeeId || user._id || '',
+      userRole: user.role || ''
     };
 
     if (editingProject) {
@@ -1097,6 +1089,19 @@ const ProjectAllocation = () => {
     }
   };
 
+  const openProjectAuditModal = async (project) => {
+    try {
+      const res = await projectAPI.getProjectAuditLogs(project._id || project.id);
+      setProjectAuditModal({
+        isOpen: true,
+        project,
+        logs: Array.isArray(res.data) ? res.data : []
+      });
+    } catch (e) {
+      alert("Failed to load audit logs for this project.");
+    }
+  };
+
   const openDeleteProjectModal = (project) => {
     if (!canEdit) {
       alert("You don't have permission to delete projects.");
@@ -1114,9 +1119,13 @@ const ProjectAllocation = () => {
     if (!projectId) return;
     try {
       const removedCount = allocations.filter(a => String(a.projectId) === String(projectId)).length;
-      await projectAPI.deleteProject(projectId);
-      setProjects(prev => prev.filter(p => p._id !== projectId));
-      setAllocations(prev => prev.filter(a => String(a.projectId) !== String(projectId)));
+      await projectAPI.deleteProject(projectId, {
+        updatedBy: user.name || user.fullName || user.email || 'Admin',
+        updatedById: user.employeeId || user._id || '',
+        userRole: user.role || ''
+      });
+      await refreshData();
+      try { window.dispatchEvent(new Event('project-allocations-updated')); } catch (_) { }
       setDeleteProjectModal({ isOpen: false, projectId: null, projectName: '' });
       setSuccessModal({ isOpen: true, message: `Project deleted${removedCount > 0 ? ` with ${removedCount} allocation(s) removed` : ''}.` });
     } catch (e) {
@@ -1556,6 +1565,17 @@ const ProjectAllocation = () => {
                   <Users size={16} />
                   All Allocations
                 </button>
+                <button
+                  onClick={() => setActiveTab('auditLogs')}
+                  className={`px-5 py-2.5 rounded-lg font-semibold text-sm transition-all duration-200 flex items-center gap-2 ${
+                    activeTab === 'auditLogs'
+                      ? 'bg-gradient-to-r from-[#262760] to-[#3a3c8c] text-white shadow-md shadow-indigo-900/20 scale-[1.02]'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  }`}
+                >
+                  <History size={16} />
+                  Audit Logs
+                </button>
                 {!canEdit && (
                   <button
                     onClick={() => setActiveTab('myAllocations')}
@@ -1573,28 +1593,30 @@ const ProjectAllocation = () => {
 
               <div className="flex items-center space-x-3">
                 {/* Filter Button */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowFilters(!showFilters);
-                  }}
-                  className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 border ${
-                    showFilters
-                      ? 'bg-[#262760] text-white border-[#262760] shadow-md'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <Filter size={16} />
-                  Filters
-                  {(hasActiveProjectFilters || hasActiveAllocationFilters) && (
-                    <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
-                      !
-                    </span>
-                  )}
-                </button>
+                {activeTab !== 'auditLogs' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowFilters(!showFilters);
+                    }}
+                    className={`px-4 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 border ${
+                      showFilters
+                        ? 'bg-[#262760] text-white border-[#262760] shadow-md'
+                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                    }`}
+                  >
+                    <Filter size={16} />
+                    Filters
+                    {(hasActiveProjectFilters || hasActiveAllocationFilters) && (
+                      <span className="bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center animate-pulse">
+                        !
+                      </span>
+                    )}
+                  </button>
+                )}
 
                 {/* Action Button */}
-                {canEdit && (
+                {canEdit && activeTab !== 'auditLogs' && (
                   <button
                     onClick={() => activeTab === 'projects' ? openProjectModal() : openAllocationModal()}
                     className="px-5 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white rounded-xl font-semibold text-sm shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center gap-2"
@@ -1616,7 +1638,7 @@ const ProjectAllocation = () => {
             </div>
 
             {/* Filters Panel */}
-            {showFilters && (
+            {showFilters && activeTab !== 'auditLogs' && (
               <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200 relative z-20" onClick={(e) => e.stopPropagation()}>
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-semibold text-gray-800">Filters</h3>
@@ -1896,6 +1918,13 @@ const ProjectAllocation = () => {
                                   title="View"
                                 >
                                   <Eye size={14} />
+                                </button>
+                                <button
+                                  onClick={() => openProjectAuditModal(project)}
+                                  className="p-1 bg-purple-100 text-purple-600 rounded hover:bg-purple-200 transition-colors"
+                                  title="Audit History"
+                                >
+                                  <History size={14} />
                                 </button>
                                 {canEdit && (
                                   <>
@@ -2200,6 +2229,199 @@ const ProjectAllocation = () => {
                     </table>
                   </div>
                 )}
+              </div>
+            </div>
+          )}
+
+          {/* Audit Logs Tab */}
+          {activeTab === 'auditLogs' && (
+            <div className="space-y-4">
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5">
+                <div className="flex justify-between items-center mb-5 pb-4 border-b border-gray-200">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                      <History className="text-indigo-600" size={24} />
+                      Project Change Audit Logs
+                    </h3>
+                  </div>
+                  <span className="bg-indigo-50 text-indigo-700 text-xs font-semibold px-3 py-1.5 rounded-full border border-indigo-200">
+                    Total Audit Entries: {auditLogs.length}
+                  </span>
+                </div>
+
+                {auditLogs.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                    <History size={40} className="mx-auto mb-3 text-gray-400" />
+                    <p className="font-semibold text-gray-700 text-base">No Audit Logs Recorded</p>
+                    <p className="text-xs text-gray-400 mt-1">When project names or details are modified, complete audit trails will appear here automatically.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-[#262760] text-white text-xs font-semibold uppercase tracking-wider">
+                          <th className="p-3.5 text-left border-b border-indigo-900/50 rounded-tl-lg">Date & Time</th>
+                          <th className="p-3.5 text-left border-b border-indigo-900/50">Project Code</th>
+                          <th className="p-3.5 text-left border-b border-indigo-900/50">Project Name Change (Replaced Name)</th>
+                          <th className="p-3.5 text-left border-b border-indigo-900/50">Field Changes Details</th>
+                          <th className="p-3.5 text-left border-b border-indigo-900/50">Allocations Updated</th>
+                          <th className="p-3.5 text-left border-b border-indigo-900/50 rounded-tr-lg">Changed By</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 text-sm">
+                        {auditLogs.map((log) => (
+                          <tr key={log._id} className="hover:bg-slate-50 transition-colors">
+                            <td className="p-3 whitespace-nowrap">
+                              <div className="font-medium text-slate-800">
+                                {new Date(log.timestamp || log.createdAt).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </div>
+                              <div className="text-xs text-slate-500">
+                                {new Date(log.timestamp || log.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                              </div>
+                            </td>
+                            <td className="p-3 font-mono font-bold text-indigo-700 whitespace-nowrap">
+                              {log.projectCode || 'N/A'}
+                            </td>
+                            <td className="p-3">
+                              {log.action === 'PROJECT_DELETED' ? (
+                                <span className="px-2.5 py-1 bg-red-100 text-red-800 border border-red-200 rounded text-xs font-bold flex items-center gap-1 w-fit">
+                                  🗑️ DELETED: {log.oldProjectName}
+                                </span>
+                              ) : log.oldProjectName !== log.newProjectName ? (
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded text-xs font-semibold line-through">
+                                    {log.oldProjectName}
+                                  </span>
+                                  <span className="text-slate-400 font-bold">➔</span>
+                                  <span className="px-2.5 py-1 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded text-xs font-bold">
+                                    {log.newProjectName}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="font-medium text-slate-800">{log.newProjectName}</span>
+                              )}
+                            </td>
+                            <td className="p-3">
+                              {log.action === 'PROJECT_DELETED' ? (
+                                <div className="text-xs bg-red-50 text-red-700 p-1.5 rounded border border-red-200 font-semibold">
+                                  Project deleted permanently along with all active allocations.
+                                </div>
+                              ) : (
+                                <div className="space-y-1.5 max-w-md">
+                                  {log.changes && log.changes.map((c, i) => (
+                                    <div key={i} className="text-xs bg-slate-100 p-1.5 rounded border border-slate-200">
+                                      <span className="font-semibold text-slate-700 capitalize">{c.field}:</span>{' '}
+                                      <span className="text-rose-600 line-through mr-1">{String(c.oldValue || 'Empty')}</span>
+                                      <span className="text-slate-400">➔</span>{' '}
+                                      <span className="text-emerald-700 font-medium">{String(c.newValue || 'Empty')}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              {log.action === 'PROJECT_DELETED' ? (
+                                <span className="px-2.5 py-1 bg-red-50 text-red-700 border border-red-200 rounded-full text-xs font-semibold">
+                                  {log.affectedAllocationsCount || 0} allocation(s) removed
+                                </span>
+                              ) : (
+                                <span className="px-2.5 py-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-full text-xs font-semibold">
+                                  {log.affectedAllocationsCount || 0} allocation(s) updated
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-3 whitespace-nowrap">
+                              <div className="font-semibold text-slate-800">{log.updatedBy || 'Admin'}</div>
+                              {log.userRole && (
+                                <div className="text-xs text-slate-500 capitalize">{log.userRole}</div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Specific Project Audit Modal */}
+          {projectAuditModal.isOpen && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden">
+                <div className="p-6 bg-gradient-to-r from-[#262760] to-[#3a3c8c] text-white flex justify-between items-center">
+                  <div>
+                    <h3 className="text-lg font-bold flex items-center gap-2">
+                      <History size={20} />
+                      Audit Logs for {projectAuditModal.project?.name} ({projectAuditModal.project?.code})
+                    </h3>
+                    <p className="text-xs text-indigo-200 mt-1">Full revision history and project name change details</p>
+                  </div>
+                  <button
+                    onClick={() => setProjectAuditModal({ isOpen: false, project: null, logs: [] })}
+                    className="text-white hover:text-gray-300 font-bold text-xl"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="p-6 max-h-96 overflow-y-auto space-y-4">
+                  {projectAuditModal.logs.length === 0 ? (
+                    <div className="text-center py-8 text-gray-500">
+                      No change history recorded for this project yet.
+                    </div>
+                  ) : (
+                    projectAuditModal.logs.map((log) => (
+                      <div key={log._id} className="p-4 bg-slate-50 rounded-lg border border-slate-200 text-sm space-y-2">
+                        <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                          <div className="text-xs text-slate-500 font-medium">
+                            📅 {new Date(log.timestamp || log.createdAt).toLocaleString()}
+                          </div>
+                          <div className="text-xs font-semibold bg-indigo-100 text-indigo-800 px-2.5 py-0.5 rounded-full">
+                            By: {log.updatedBy || 'Admin'} ({log.userRole || 'User'})
+                          </div>
+                        </div>
+
+                        {log.oldProjectName !== log.newProjectName && (
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="font-semibold text-gray-700">Project Name Changed:</span>
+                            <span className="px-2 py-0.5 bg-amber-100 text-amber-800 line-through rounded">{log.oldProjectName}</span>
+                            <span>➔</span>
+                            <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 font-bold rounded">{log.newProjectName}</span>
+                          </div>
+                        )}
+
+                        <div className="text-xs text-blue-700 font-medium">
+                          🔗 Allocations Auto-Updated: {log.affectedAllocationsCount || 0}
+                        </div>
+
+                        <div className="space-y-1 mt-2">
+                          <div className="text-xs font-bold text-slate-700">Modified Fields:</div>
+                          {log.changes && log.changes.map((c, i) => (
+                            <div key={i} className="text-xs bg-white p-2 rounded border border-slate-200 flex items-center justify-between">
+                              <span className="font-semibold capitalize text-slate-700">{c.field}:</span>
+                              <div>
+                                <span className="text-red-500 line-through mr-2">{String(c.oldValue || '-')}</span>
+                                <span>➔</span>
+                                <span className="text-green-600 font-bold ml-2">{String(c.newValue || '-')}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="p-4 bg-gray-50 border-t border-gray-200 text-right">
+                  <button
+                    onClick={() => setProjectAuditModal({ isOpen: false, project: null, logs: [] })}
+                    className="px-5 py-2 bg-slate-700 text-white rounded-lg text-sm font-semibold hover:bg-slate-800 transition-colors"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
           )}

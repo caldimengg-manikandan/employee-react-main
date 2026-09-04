@@ -87,6 +87,7 @@ const EmployeeManagement = () => {
   const [showModal, setShowModal] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [viewingEmployee, setViewingEmployee] = useState(null);
+  const [viewingPhotoModal, setViewingPhotoModal] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
     designation: '',
@@ -547,13 +548,22 @@ const EmployeeManagement = () => {
           <div className="sticky top-0 z-20 bg-gradient-to-r from-[#262760] via-indigo-900 to-purple-900 text-white p-6 rounded-t-3xl shadow-lg border-b border-white/10 flex justify-between items-center">
             <div className="flex items-center gap-5">
               {/* Passport Size Photo Frame (3.5 x 4.5 cm / 3:4 ratio) */}
-              <div className="w-[75px] h-[95px] rounded-xl border-2 border-white/40 shadow-xl bg-slate-900 overflow-hidden flex-shrink-0 relative group">
+              <div 
+                className="w-[75px] h-[95px] rounded-xl border-2 border-white/40 shadow-xl bg-slate-900 overflow-hidden flex-shrink-0 relative group cursor-pointer"
+                onClick={() => photoUrl && setViewingPhotoModal({ url: photoUrl, name: viewingEmployee.name, id: viewingEmployee.employeeId })}
+                title={photoUrl ? "Click to view full size photo" : "No photo"}
+              >
                 {photoUrl ? (
-                  <img
-                    src={photoUrl}
-                    alt={viewingEmployee.name || 'Passport Photo'}
-                    className="w-full h-full object-cover"
-                  />
+                  <>
+                    <img
+                      src={photoUrl}
+                      alt={viewingEmployee.name || 'Passport Photo'}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-semibold backdrop-blur-[1px]">
+                      <span>Enlarge</span>
+                    </div>
+                  </>
                 ) : (
                   <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-blue-500 to-indigo-700 text-white">
                     <span className="text-3xl font-extrabold">{viewingEmployee.name ? viewingEmployee.name.charAt(0).toUpperCase() : 'E'}</span>
@@ -1146,13 +1156,27 @@ const EmployeeManagement = () => {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap border-r border-gray-100">
                           <div className="flex items-center space-x-3">
-                            <div className="w-[35px] h-[45px] rounded border border-blue-200 shadow-xs overflow-hidden bg-slate-100 flex-shrink-0">
+                            <div 
+                              className="w-[35px] h-[45px] rounded border border-blue-200 shadow-xs overflow-hidden bg-slate-100 flex-shrink-0 cursor-pointer relative group"
+                              onClick={() => {
+                                const photoUrl = employee.profilePicture || employee.photo;
+                                if (photoUrl) {
+                                  setViewingPhotoModal({ url: photoUrl, name: employee.name, id: employee.employeeId });
+                                }
+                              }}
+                              title={employee.profilePicture || employee.photo ? "Click to view full size photo" : "No photo"}
+                            >
                               {employee.profilePicture || employee.photo ? (
-                                <img
-                                  src={employee.profilePicture || employee.photo}
-                                  alt={employee.name || 'Photo'}
-                                  className="w-full h-full object-cover"
-                                />
+                                <>
+                                  <img
+                                    src={employee.profilePicture || employee.photo}
+                                    alt={employee.name || 'Photo'}
+                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                                  />
+                                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[9px] font-bold">
+                                    🔍
+                                  </div>
+                                </>
                               ) : (
                                 <div className="w-full h-full bg-gradient-to-br from-[#262760] to-indigo-800 text-white flex items-center justify-center font-bold text-xs">
                                   {employee.name ? employee.name.charAt(0).toUpperCase() : 'E'}
@@ -1226,13 +1250,27 @@ const EmployeeManagement = () => {
               <div key={employee._id} className="border-b border-gray-200 p-4 hover:bg-gray-50 transition-colors duration-150">
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex items-center space-x-3">
-                    <div className="w-[42px] h-[54px] rounded-lg border border-blue-200 shadow-sm overflow-hidden bg-slate-900 flex-shrink-0">
+                    <div 
+                      className="w-[42px] h-[54px] rounded-lg border border-blue-200 shadow-sm overflow-hidden bg-slate-900 flex-shrink-0 cursor-pointer relative group"
+                      onClick={() => {
+                        const photoUrl = employee.profilePicture || employee.photo;
+                        if (photoUrl) {
+                          setViewingPhotoModal({ url: photoUrl, name: employee.name, id: employee.employeeId });
+                        }
+                      }}
+                      title={employee.profilePicture || employee.photo ? "Touch to view full size photo" : "No photo"}
+                    >
                       {employee.profilePicture || employee.photo ? (
-                        <img
-                          src={employee.profilePicture || employee.photo}
-                          alt={employee.name || 'Photo'}
-                          className="w-full h-full object-cover"
-                        />
+                        <>
+                          <img
+                            src={employee.profilePicture || employee.photo}
+                            alt={employee.name || 'Photo'}
+                            className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+                          />
+                          <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[10px] font-bold">
+                            🔍
+                          </div>
+                        </>
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-[#262760] to-indigo-800 text-white flex items-center justify-center font-bold text-base">
                           {employee.name ? employee.name.charAt(0).toUpperCase() : 'E'}
@@ -1383,6 +1421,49 @@ const EmployeeManagement = () => {
         isVisible={notification.isVisible}
         onClose={hideNotification}
       />
+
+      {/* Large Photo Preview Modal */}
+      {viewingPhotoModal && viewingPhotoModal.url && (
+        <div 
+          className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-[70] p-4 transition-all duration-300 animate-fadeIn"
+          onClick={() => setViewingPhotoModal(null)}
+        >
+          <div 
+            className="relative max-w-4xl max-h-[90vh] bg-white/10 p-3 sm:p-5 rounded-3xl border border-white/20 shadow-2xl overflow-hidden flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={() => setViewingPhotoModal(null)}
+              className="absolute top-4 right-4 bg-black/60 hover:bg-red-600 text-white rounded-full p-2.5 transition-all shadow-lg focus:outline-none z-10 hover:scale-110"
+              title="Close Preview"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Header Info */}
+            <div className="w-full text-center pb-3 text-white/90 font-semibold text-sm sm:text-base border-b border-white/10 mb-3 pr-10">
+              {viewingPhotoModal.name || 'Employee Photo'} {viewingPhotoModal.id ? `(${viewingPhotoModal.id})` : ''}
+            </div>
+
+            {/* Large Image Container */}
+            <div className="relative overflow-hidden rounded-2xl flex items-center justify-center bg-black/40 p-2">
+              <img
+                src={viewingPhotoModal.url}
+                alt={viewingPhotoModal.name || "Employee Passport Photo"}
+                className="max-h-[75vh] max-w-[85vw] sm:max-w-xl object-contain rounded-xl shadow-2xl border-2 border-white/20"
+              />
+            </div>
+
+            <div className="pt-3 text-xs text-white/70 font-medium flex items-center gap-2">
+              <span>Tap anywhere outside to close</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

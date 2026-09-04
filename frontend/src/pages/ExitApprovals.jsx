@@ -13,7 +13,8 @@ import {
   CheckIcon,
   XMarkIcon,
   DocumentTextIcon,
-  ClockIcon
+  ClockIcon,
+  CheckBadgeIcon
 } from '@heroicons/react/24/outline';
 import { exitFormalityAPI, employeeAPI, monthlyPayrollAPI } from '../services/api';
 import jsPDF from 'jspdf';
@@ -21,6 +22,7 @@ import html2canvas from 'html2canvas';
 import { Modal, message, Input } from 'antd';
 
 import { getAbsoluteSignatureUrl } from '../utils/signatureUtils';
+import caldimLetterheadImg from '../assets/caldim_letterhead.png';
 
 
 const ExitApproval = () => {
@@ -47,6 +49,19 @@ const ExitApproval = () => {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyEmployee, setHistoryEmployee] = useState(null);
   const [salaryHistory, setSalaryHistory] = useState([]);
+  const [viewingPhotoModal, setViewingPhotoModal] = useState({ open: false, url: '', name: '', id: '' });
+
+  const getEmployeePhotoUrl = (form) => {
+    if (!form) return null;
+    const empObj = form.employeeId;
+    if (typeof empObj === 'object' && empObj) {
+      if (empObj.profilePicture) return empObj.profilePicture;
+      if (empObj.photo) return empObj.photo;
+    }
+    const empCode = typeof empObj === 'object' ? empObj?.employeeId : (empObj || '');
+    const emp = employees.find(e => (empCode && e.employeeId === empCode) || e.name === form.employeeName);
+    return emp?.profilePicture || emp?.photo || null;
+  };
 
   // Get current user role
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
@@ -606,12 +621,14 @@ const ExitApproval = () => {
       const emp = employees.find(e => e.employeeId === empId);
       return emp?.location || emp?.address || '';
     })();
+    const photoUrl = getEmployeePhotoUrl(form);
     setHistoryEmployee({
       employeeId: empId,
       employeeName,
       division,
       position,
-      location
+      location,
+      profilePicture: photoUrl
     });
     setSalaryHistory([]);
     setHistoryVisible(true);
@@ -768,7 +785,33 @@ const ExitApproval = () => {
                       {form.employeeId?.employeeId || '-'}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
-                      {form.employeeName}
+                      <div className="flex items-center space-x-3">
+                        {(() => {
+                          const photoUrl = getEmployeePhotoUrl(form);
+                          const empIdCode = typeof form.employeeId === 'object' ? form.employeeId?.employeeId : (form.employeeId || '-');
+                          return (
+                            <div
+                              onClick={() => photoUrl && setViewingPhotoModal({ open: true, url: photoUrl, name: form.employeeName, id: empIdCode })}
+                              className={`relative group flex-shrink-0 w-10 h-10 rounded-full border-2 border-indigo-200 overflow-hidden shadow-sm ${photoUrl ? 'cursor-pointer hover:border-indigo-500 hover:scale-105 transition-all' : ''}`}
+                              title={photoUrl ? "Click to view full photo" : "No photo available"}
+                            >
+                              {photoUrl ? (
+                                <>
+                                  <img src={photoUrl} alt={form.employeeName} className="w-full h-full object-cover" />
+                                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                    <MagnifyingGlassIcon className="w-4 h-4 text-white" />
+                                  </div>
+                                </>
+                              ) : (
+                                <div className="w-full h-full bg-gradient-to-br from-indigo-600 to-[#262760] text-white flex items-center justify-center font-bold text-xs">
+                                  {form.employeeName ? form.employeeName.charAt(0).toUpperCase() : 'E'}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
+                        <span className="font-semibold text-gray-900">{form.employeeName}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-500">
                       {form.department || form.division || '-'}
@@ -897,108 +940,86 @@ const ExitApproval = () => {
               </div>
             </div>
             
-            <div id="relieving-letter-template" className="bg-white relative h-[1123px] w-[794px] mx-auto shadow-lg overflow-hidden">
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
-                <img 
-                  src="/images/steel-logo.png" 
-                  alt="" 
-                  className="w-[500px] opacity-[0.05] grayscale"
-                />
-              </div>
-              <div className="relative z-10 flex flex-col h-full justify-between">
-                <div className="w-full h-32 relative overflow-hidden flex bg-white" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
-                    <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
-                      <path d="M0,0 L526,0 L456,128 L0,128 Z" fill="#1e2b58" />
-                      <path d="M526,0 L556,0 L486,128 L456,128 Z" fill="#f37021" />
-                    </svg>
-                  </div>
-                  <div className="relative z-10 w-full h-full" style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%' }}>
-                    {/* Left: Logo and Title */}
-                    <div style={{ position: 'absolute', left: '24px', top: '16px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ height: '64px', width: 'auto', display: 'block' }} />
-                      <div className="font-bitsumishi" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', color: 'white' }}>
-                        <h1 className="text-white font-bold text-6xl tracking-[0.05em]" style={{ margin: 0, padding: 0, textAlign: 'left', lineHeight: 1 }}>CALDIM</h1>
-                        <p className="text-[15px] font-bold tracking-[0.18em] text-[#ff8c00] uppercase" style={{ margin: 0, padding: 0, marginTop: '6px', textAlign: 'left', whiteSpace: 'nowrap' }}>ENGINEERING PRIVATE LIMITED</p>
-                      </div>
-                    </div>
+            <div
+              id="relieving-letter-template"
+              className="bg-white relative w-[210mm] min-h-[297mm] h-[297mm] mx-auto shadow-2xl overflow-hidden flex flex-col justify-between p-0"
+              style={{
+                fontFamily: "'Trebuchet MS', 'Arial', sans-serif",
+                backgroundImage: `url(${caldimLetterheadImg})`,
+                backgroundSize: '100% 100%',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+              }}
+            >
+              {/* Top Spacing to clear Caldim Letterhead Header (165px) */}
+              <div className="h-[165px] w-full shrink-0" />
 
-                    {/* Right: Contact Info */}
-                    <div style={{ position: 'absolute', right: '16px', top: '12px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                      <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                        <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
-                        <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                          </svg>
-                        </div>
-                      </div>
-                      <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
-                        <span className="text-sm font-semibold text-gray-700 leading-tight" style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
-                          No.118, Minimac Center,<br />
-                          Arcot Road, Valasaravakkam,<br />
-                          Chennai - 600 087.
-                        </span>
-                        <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '12px', marginTop: '4px', flexShrink: 0 }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                          </svg>
-                        </div>
-                      </div>
+              {/* Letter Body Area */}
+              <main className="relative z-10 px-14 py-2 flex-1 flex flex-col justify-between">
+                <div>
+                  {/* Date Row */}
+                  <div className="flex justify-end items-center mb-6 text-sm text-gray-700">
+                    <div>
+                      <span className="font-bold text-gray-700">Date: </span>
+                      <span className="font-bold text-gray-900">{letterData.date}</span>
                     </div>
                   </div>
-                </div>
-                <div className="px-12 py-6 flex-grow">
-                  <div className="flex justify-between mb-6">
-                    <div />
-                    <div className="text-gray-700">Date: <span className="font-bold">{letterData.date}</span></div>
+
+                  {/* To Block */}
+                  <div className="mb-6 text-base">
+                    <div className="font-bold text-gray-800">To:</div>
+                    <div className="mt-1 font-bold text-lg text-gray-900">{letterData.employeeName}</div>
+                    <div className="text-gray-700 font-medium">{letterData.designation}</div>
                   </div>
-                  <div className="mb-8">
-                    <div className="font-bold">To:</div>
-                    <div className="mt-3 font-bold text-lg">{letterData.employeeName}</div>
-                    <div className="text-gray-800">{letterData.designation}</div>
-                  </div>
-                  <div className="mb-8">
-                    <div className="font-bold">SUBJECT: <span className="font-normal">Relieving Order</span></div>
-                  </div>
+
+                  {/* Subject Block */}
                   <div className="mb-6">
-                    <div className="mb-2">Dear <span className="font-semibold">{letterData.employeeName}</span>,</div>
-                  </div>
-                  <div className="space-y-6 mb-10 text-justify text-[14px] leading-7">
-                    <p>This is acknowledge the receipt of your resignation letter dated <span className="font-semibold">{letterData.resignationDate}</span>.</p>
-                    <p>While accepting the Same, we thank you very much for close association you had with us during the tenure from <span className="font-semibold">{letterData.joinDate}</span> to <span className="font-semibold">{letterData.lastWorkingDate}</span> as a <span className="font-semibold">{letterData.designation}</span>. You have been relieved from your service with effect from the closing working hours of <span className="font-semibold">{letterData.lastWorkingDate}</span> and your work with us is found to be satisfactory.</p>
-                    <p>We wish you all the best in your future career.</p>
-                  </div>
-                  <div className="mt-10 flex justify-end">
-                    <div className="text-right">
-                      <div className="mb-2 text-sm text-gray-700 font-bold font-bitsumishi">For {companyName}</div>
-                      <div className="mt-8 relative inline-block text-center">
-                        {letterData.signatureImage && (
-                          <img 
-                            src={letterData.signatureImage} 
-                            alt="Signature" 
-                            className="h-20 w-auto mb-2 relative z-10 mx-auto"
-                            crossOrigin="anonymous"
-                          />
-                        )}
-                        <div className="text-gray-600">Authorized Signatory</div>
-                      </div>
+                    <div className="font-bold text-base text-gray-900">
+                      SUBJECT: <span className="font-normal underline decoration-gray-400 underline-offset-4">RELIEVING ORDER</span>
                     </div>
                   </div>
-                </div>
-                <div className="w-full flex items-end mt-auto relative h-20" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative', height: '80px' }}>
-                  <div className="bg-[#f37021] flex-1 mb-0 h-8" style={{ backgroundColor: '#f37021', flex: 1, marginBottom: 0, height: '32px' }}></div>
-                  <div className="bg-[#1e2b58] text-white flex flex-col items-end justify-center relative min-w-[400px] h-16 px-10" style={{ backgroundColor: '#1e2b58', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', position: 'relative', minWidth: '400px', height: '64px', paddingLeft: '40px', paddingRight: '40px' }}>
-                    <div 
-                      className="absolute inset-y-0 left-0 w-16 bg-[#1e2b58]" 
-                      style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '64px', backgroundColor: '#1e2b58', transform: 'skew(-20deg)', transformOrigin: 'top left', marginLeft: '-32px' }}
-                    ></div>
-                    <div className="text-sm font-medium tracking-wide" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em' }}>Website : www.caldimengg.com</div>
-                    <div className="text-sm font-medium tracking-wide mt-1" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em', marginTop: '4px' }}>CIN U74999TN2016PTC110683</div>
+
+                  {/* Salutation */}
+                  <div className="mb-5 text-base">
+                    <div>Dear <span className="font-semibold text-gray-900">{letterData.employeeName}</span>,</div>
+                  </div>
+
+                  {/* Letter Content */}
+                  <div className="space-y-5 text-justify text-base text-gray-800 leading-relaxed">
+                    <p>This is to acknowledge the receipt of your resignation letter dated <span className="font-semibold text-gray-900">{letterData.resignationDate}</span>.</p>
+                    <p>While accepting the same, we thank you very much for the close association you had with us during your tenure from <span className="font-semibold text-gray-900">{letterData.joinDate}</span> to <span className="font-semibold text-gray-900">{letterData.lastWorkingDate}</span> as a <span className="font-semibold text-gray-900">{letterData.designation}</span>. You have been relieved from your service with effect from the closing working hours of <span className="font-semibold text-gray-900">{letterData.lastWorkingDate}</span> and your work with us was found to be satisfactory.</p>
+                    <p>We wish you all the best in your future career endeavors.</p>
                   </div>
                 </div>
-              </div>
+
+                {/* Authorized Signatory Block (Left Aligned matching LetterheadPreview) */}
+                <div className="flex flex-col items-start mt-8 pb-4">
+                  <p className="text-xs text-gray-600 italic mb-1">
+                    For <strong>{companyName}</strong>
+                  </p>
+
+                  <div className="text-left min-w-[200px]">
+                    <div className="h-16 flex items-end mb-1">
+                      {letterData.signatureImage && (
+                        <img 
+                          src={letterData.signatureImage} 
+                          alt="Authorized Signatory Signature" 
+                          className="h-14 object-contain max-w-[180px]"
+                          crossOrigin="anonymous"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      )}
+                    </div>
+                    <div className="border-b border-gray-900 mb-1 w-48" />
+                    <p className="text-sm font-bold text-gray-900">Authorized Signatory</p>
+                  </div>
+                </div>
+              </main>
+
+              {/* Bottom Spacing to clear Caldim Letterhead Footer (75px) */}
+              <div className="h-[75px] w-full shrink-0" />
             </div>
           </div>
         </div>
@@ -1030,108 +1051,82 @@ const ExitApproval = () => {
               </div>
             </div>
             
-            <div id="experience-letter-template" className="bg-white relative h-[1123px] w-[794px] mx-auto shadow-lg overflow-hidden">
-              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden">
-                <img 
-                  src="/images/steel-logo.png" 
-                  alt="" 
-                  className="w-[500px] opacity-[0.05] grayscale"
-                />
-              </div>
-              <div className="relative z-10 flex flex-col h-full justify-between">
-                <div className="w-full h-32 relative overflow-hidden flex bg-white" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
-                  <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
-                    <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
-                      <path d="M0,0 L526,0 L456,128 L0,128 Z" fill="#1e2b58" />
-                      <path d="M526,0 L556,0 L486,128 L456,128 Z" fill="#f37021" />
-                    </svg>
-                  </div>
-                  <div className="relative z-10 w-full h-full" style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%' }}>
-                    {/* Left: Logo and Title */}
-                    <div style={{ position: 'absolute', left: '24px', top: '16px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ height: '64px', width: 'auto', display: 'block' }} />
-                      <div className="font-bitsumishi" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', color: 'white' }}>
-                        <h1 className="text-white font-bold text-6xl tracking-[0.05em]" style={{ margin: 0, padding: 0, textAlign: 'left', lineHeight: 1 }}>CALDIM</h1>
-                        <p className="text-[15px] font-bold tracking-[0.18em] text-[#ff8c00] uppercase" style={{ margin: 0, padding: 0, marginTop: '6px', textAlign: 'left', whiteSpace: 'nowrap' }}>ENGINEERING PRIVATE LIMITED</p>
-                      </div>
-                    </div>
+            <div
+              id="experience-letter-template"
+              className="bg-white relative w-[210mm] min-h-[297mm] h-[297mm] mx-auto shadow-2xl overflow-hidden flex flex-col justify-between p-0"
+              style={{
+                fontFamily: "'Trebuchet MS', 'Arial', sans-serif",
+                backgroundImage: `url(${caldimLetterheadImg})`,
+                backgroundSize: '100% 100%',
+                backgroundPosition: 'center',
+                backgroundRepeat: 'no-repeat'
+              }}
+            >
+              {/* Top Spacing to clear Caldim Letterhead Header (165px) */}
+              <div className="h-[165px] w-full shrink-0" />
 
-                    {/* Right: Contact Info */}
-                    <div style={{ position: 'absolute', right: '16px', top: '12px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                      <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-                        <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
-                        <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-                          </svg>
-                        </div>
-                      </div>
-                      <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
-                        <span className="text-sm font-semibold text-gray-700 leading-tight" style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
-                          No.118, Minimac Center,<br />
-                          Arcot Road, Valasaravakkam,<br />
-                          Chennai - 600 087.
-                        </span>
-                        <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', marginLeft: '12px', marginTop: '4px', flexShrink: 0 }}>
-                          <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-                          </svg>
-                        </div>
-                      </div>
+              {/* Letter Body Area */}
+              <main className="relative z-10 px-14 py-2 flex-1 flex flex-col justify-between">
+                <div>
+                  {/* Date Row */}
+                  <div className="flex justify-end items-center mb-8 text-sm text-gray-700">
+                    <div>
+                      <span className="font-bold text-gray-700">Date: </span>
+                      <span className="font-bold text-gray-900">{experienceLetterData.date}</span>
                     </div>
                   </div>
-                </div>
-                <div className="px-12 py-6 flex-grow">
-                  <div className="flex justify-between mb-10">
-                    <div />
-                    <div className="text-gray-700">Date: <span className="font-bold">{experienceLetterData.date}</span></div>
+
+                  {/* Document Title */}
+                  <div className="text-center mb-8">
+                    <h2 className="text-lg font-bold text-[#1b2752] uppercase tracking-wide border-b-2 border-[#1b2752] inline-block pb-1">
+                      TO WHOMSOEVER IT MAY CONCERN
+                    </h2>
                   </div>
-                  <div className="mb-8 text-center">
-                    <div className="text-lg font-bold tracking-wide">WHOMSOEVER IT MAY CONCERN</div>
-                  </div>
-                  <div className="space-y-6 mb-10 text-justify text-[14px] leading-7">
+
+                  {/* Body Paragraphs */}
+                  <div className="space-y-6 text-justify text-base text-gray-800 leading-relaxed">
                     <p>
-                      This is to certify that <span className="font-semibold">{experienceLetterData.prefix}{experienceLetterData.employeeName}</span> has worked as a <span className="font-semibold">{experienceLetterData.designation}</span> in our organization from <span className="font-semibold">{experienceLetterData.joinDate}</span> to <span className="font-semibold">{experienceLetterData.lastWorkingDate}</span>. During {experienceLetterData.pronounPossessive} tenure, {experienceLetterData.pronounSubject} performance and conduct were found to be satisfactory.
+                      This is to certify that <span className="font-bold text-gray-900">{experienceLetterData.prefix}{experienceLetterData.employeeName}</span> has worked as a <span className="font-bold text-gray-900">{experienceLetterData.designation}</span> in our organization from <span className="font-bold text-gray-900">{experienceLetterData.joinDate}</span> to <span className="font-bold text-gray-900">{experienceLetterData.lastWorkingDate}</span>. During {experienceLetterData.pronounPossessive} tenure, {experienceLetterData.pronounSubject} performance and conduct were found to be satisfactory.
                     </p>
                     {experienceLetterData.experienceText && (
                       <p>
                         The total period of employment with our organization is{' '}
-                        <span className="font-semibold">{experienceLetterData.experienceText}</span>.
+                        <span className="font-bold text-gray-900">{experienceLetterData.experienceText}</span>.
                       </p>
                     )}
-                    <p>We wish you all success in your future endeavors.</p>
-                    <p>Thanking you,</p>
+                    <p>We wish {experienceLetterData.pronounPossessive === 'his' ? 'him' : experienceLetterData.pronounPossessive === 'her' ? 'her' : 'them'} all success in {experienceLetterData.pronounPossessive} future endeavors.</p>
+                    <p className="pt-2">Thanking you,</p>
                   </div>
-                  <div className="mt-10 flex justify-end">
-                    <div className="text-right">
-                      <p className="font-bold mb-2 font-bitsumishi">For {experienceLetterData.companyName}</p>
-                      <div className="text-center relative inline-block">
+                </div>
+
+                {/* Authorized Signatory Block (Left Aligned matching LetterheadPreview) */}
+                <div className="flex flex-col items-start mt-8 pb-4">
+                  <p className="text-xs text-gray-600 italic mb-1">
+                    For <strong>{experienceLetterData.companyName || companyName}</strong>
+                  </p>
+
+                  <div className="text-left min-w-[200px]">
+                    <div className="h-16 flex items-end mb-1">
                       {experienceLetterData.signatureImage && (
                         <img 
                           src={experienceLetterData.signatureImage} 
-                          alt="Signature" 
-                          className="h-20 w-auto mb-2 relative z-10 mx-auto"
+                          alt="Authorized Signatory Signature" 
+                          className="h-14 object-contain max-w-[180px]"
                           crossOrigin="anonymous"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
                         />
                       )}
-                      <div className="text-gray-700">Authorized Signatory</div>
                     </div>
+                    <div className="border-b border-gray-900 mb-1 w-48" />
+                    <p className="text-sm font-bold text-gray-900">Authorized Signatory</p>
                   </div>
                 </div>
-              </div>
-                <div className="w-full flex items-end mt-auto relative h-20" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative', height: '80px' }}>
-                  <div className="bg-[#f37021] flex-1 mb-0 h-8" style={{ backgroundColor: '#f37021', flex: 1, marginBottom: 0, height: '32px' }}></div>
-                  <div className="bg-[#1e2b58] text-white flex flex-col items-end justify-center relative min-w-[400px] h-16 px-10" style={{ backgroundColor: '#1e2b58', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', position: 'relative', minWidth: '400px', height: '64px', paddingLeft: '40px', paddingRight: '40px' }}>
-                    <div 
-                      className="absolute inset-y-0 left-0 w-16 bg-[#1e2b58]" 
-                      style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '64px', backgroundColor: '#1e2b58', transform: 'skew(-20deg)', transformOrigin: 'top left', marginLeft: '-32px' }}
-                    ></div>
-                    <div className="text-sm font-medium tracking-wide" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em' }}>Website : www.caldimengg.com</div>
-                    <div className="text-sm font-medium tracking-wide mt-1" style={{ fontSize: '14px', fontWeight: 500, letterSpacing: '0.025em', marginTop: '4px' }}>CIN U74999TN2016PTC110683</div>
-                  </div>
-                </div>
-              </div>
+              </main>
+
+              {/* Bottom Spacing to clear Caldim Letterhead Footer (75px) */}
+              <div className="h-[75px] w-full shrink-0" />
             </div>
           </div>
         </div>
@@ -1140,69 +1135,359 @@ const ExitApproval = () => {
       {/* Details Modal */}
       {selectedForm && !showRelievingLetter && !showExperienceLetter && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-indigo-100">
+          <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[92vh] overflow-y-auto shadow-2xl border border-indigo-100">
+            {/* Modal Header */}
             <div className="p-6 border-b border-indigo-200 flex justify-between items-center sticky top-0 bg-gradient-to-r from-[#262760] via-indigo-600 to-[#f37021] text-white z-10">
-              <div>
-                <h2 className="text-xl font-bold">Exit Request</h2>
-                <p className="text-sm opacity-90">{selectedForm.employeeName} • {selectedForm.employeeId?.employeeId || '-'}</p>
+              <div className="flex items-center space-x-4">
+                {(() => {
+                  const photoUrl = getEmployeePhotoUrl(selectedForm);
+                  const empIdCode = typeof selectedForm.employeeId === 'object' ? selectedForm.employeeId?.employeeId : (selectedForm.employeeId || '-');
+                  return (
+                    <div
+                      onClick={() => photoUrl && setViewingPhotoModal({ open: true, url: photoUrl, name: selectedForm.employeeName, id: empIdCode })}
+                      className={`relative group flex-shrink-0 w-12 h-12 rounded-full border-2 border-white/80 overflow-hidden shadow-md ${photoUrl ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
+                      title={photoUrl ? "Click to view full photo" : "No photo"}
+                    >
+                      {photoUrl ? (
+                        <>
+                          <img src={photoUrl} alt={selectedForm.employeeName} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <MagnifyingGlassIcon className="w-4 h-4 text-white" />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="w-full h-full bg-indigo-800 text-white flex items-center justify-center font-bold text-base">
+                          {selectedForm.employeeName ? selectedForm.employeeName.charAt(0).toUpperCase() : 'E'}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+                <div>
+                  <h2 className="text-xl font-bold">{selectedForm.employeeName}</h2>
+                  <p className="text-sm opacity-90">
+                    Exit Request Details • ID: {typeof selectedForm.employeeId === 'object' ? selectedForm.employeeId?.employeeId : (selectedForm.employeeId || '-')}
+                  </p>
+                </div>
               </div>
               <div className="flex gap-2">
                 <button
                   onClick={() => setSelectedForm(null)}
-                  className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full"
+                  className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-full transition-colors"
                 >
                   <XCircleIcon className="h-8 w-8" />
                 </button>
               </div>
             </div>
-            <div className="p-6 space-y-6 bg-gradient-to-b from-indigo-50/60 via-white to-orange-50/60">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
-                  <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">Division</p>
-                  <p className="font-semibold text-sm mt-1 text-gray-900">{selectedForm.division || selectedForm.department || '-'}</p>
-                </div>
-                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
-                  <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">Position</p>
-                  <p className="font-semibold text-sm mt-1 text-gray-900">{selectedForm.position || '-'}</p>
-                </div>
-                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
-                  <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">Proposed LWD</p>
-                  <p className="font-semibold text-sm mt-1 text-gray-900">
-                    {selectedForm.proposedLastWorkingDay ? new Date(selectedForm.proposedLastWorkingDay).toLocaleDateString() : '-'}
-                  </p>
-                </div>
-                <div className="border border-indigo-100 rounded-xl p-4 bg-white/80 shadow-sm">
-                  <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide">Status</p>
-                  <div className="mt-2">
-                    <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${getStatusColor(selectedForm.status)}`}>
-                      {selectedForm.status?.toUpperCase().replace(/_/g, ' ')}
-                    </span>
+
+            {/* Modal Body */}
+            <div className="p-6 space-y-6 bg-gradient-to-b from-indigo-50/40 via-white to-orange-50/40">
+              
+              {/* 1. Employee Information Box */}
+              <div className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm">
+                <h3 className="text-sm font-bold text-[#262760] uppercase tracking-wider mb-4 flex items-center">
+                  <UserCircleIcon className="w-5 h-5 mr-2 text-indigo-600" />
+                  Employee Profile Information
+                </h3>
+                
+                <div className="flex flex-col md:flex-row gap-6 items-center md:items-start">
+                  {/* Passport Photo Frame */}
+                  {(() => {
+                    const photoUrl = getEmployeePhotoUrl(selectedForm);
+                    const empIdCode = typeof selectedForm.employeeId === 'object' ? selectedForm.employeeId?.employeeId : (selectedForm.employeeId || '-');
+                    return (
+                      <div className="flex-shrink-0 flex flex-col items-center">
+                        <div
+                          onClick={() => photoUrl && setViewingPhotoModal({ open: true, url: photoUrl, name: selectedForm.employeeName, id: empIdCode })}
+                          className={`relative group w-28 h-36 rounded-xl border-4 border-indigo-100 shadow-md overflow-hidden bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center ${photoUrl ? 'cursor-pointer hover:border-indigo-400 hover:shadow-xl hover:scale-105 transition-all' : ''}`}
+                          title={photoUrl ? "Click to view full photo" : "No photo"}
+                        >
+                          {photoUrl ? (
+                            <>
+                              <img src={photoUrl} alt={selectedForm.employeeName} className="w-full h-full object-cover" />
+                              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <MagnifyingGlassIcon className="w-6 h-6 text-white drop-shadow-md" />
+                              </div>
+                            </>
+                          ) : (
+                            <div className="w-full h-full flex flex-col items-center justify-center text-indigo-400 p-2 text-center">
+                              <UserCircleIcon className="w-10 h-10 mb-1" />
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">No Photo</span>
+                            </div>
+                          )}
+                        </div>
+                        <span className="text-[11px] font-semibold text-gray-500 mt-1.5">Employee Photo</span>
+                      </div>
+                    );
+                  })()}
+                  
+                  {/* Grid of Details */}
+                  <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 w-full">
+                    <div className="border border-indigo-50 rounded-xl p-3.5 bg-indigo-50/30">
+                      <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Employee ID</p>
+                      <p className="font-bold text-sm mt-1 text-gray-900">{typeof selectedForm.employeeId === 'object' ? selectedForm.employeeId?.employeeId : (selectedForm.employeeId || '-')}</p>
+                    </div>
+                    <div className="border border-indigo-50 rounded-xl p-3.5 bg-indigo-50/30">
+                      <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Employee Name</p>
+                      <p className="font-bold text-sm mt-1 text-gray-900">{selectedForm.employeeName}</p>
+                    </div>
+                    <div className="border border-indigo-50 rounded-xl p-3.5 bg-indigo-50/30">
+                      <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Email</p>
+                      <p className="font-semibold text-sm mt-1 text-gray-900 truncate" title={selectedForm.employeeEmail || selectedForm.employeeId?.officialEmail || selectedForm.employeeId?.email}>
+                        {selectedForm.employeeEmail || selectedForm.employeeId?.officialEmail || selectedForm.employeeId?.email || '-'}
+                      </p>
+                    </div>
+                    <div className="border border-indigo-50 rounded-xl p-3.5 bg-indigo-50/30">
+                      <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Division / Dept</p>
+                      <p className="font-semibold text-sm mt-1 text-gray-900">{selectedForm.division || selectedForm.department || '-'}</p>
+                    </div>
+                    <div className="border border-indigo-50 rounded-xl p-3.5 bg-indigo-50/30">
+                      <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Position / Role</p>
+                      <p className="font-semibold text-sm mt-1 text-gray-900">{selectedForm.position || selectedForm.employeeId?.position || selectedForm.employeeId?.designation || '-'}</p>
+                    </div>
+                    <div className="border border-indigo-50 rounded-xl p-3.5 bg-indigo-50/30">
+                      <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Date of Joining</p>
+                      <p className="font-semibold text-sm mt-1 text-gray-900">
+                        {selectedForm.dateOfJoining || selectedForm.employeeId?.dateOfJoining ? new Date(selectedForm.dateOfJoining || selectedForm.employeeId?.dateOfJoining).toLocaleDateString() : '-'}
+                      </p>
+                    </div>
+                    <div className="border border-indigo-50 rounded-xl p-3.5 bg-indigo-50/30">
+                      <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Location</p>
+                      <p className="font-semibold text-sm mt-1 text-gray-900">
+                        {(() => {
+                          if (selectedForm.location) return selectedForm.location;
+                          const empCode = typeof selectedForm.employeeId === 'object' ? selectedForm.employeeId?.employeeId : selectedForm.employeeId;
+                          const emp = employees.find(e => e.employeeId === empCode);
+                          return emp?.location || emp?.address || '-';
+                        })()}
+                      </p>
+                    </div>
+                    <div className="border border-indigo-50 rounded-xl p-3.5 bg-indigo-50/30">
+                      <p className="text-[11px] font-semibold text-indigo-500 uppercase tracking-wide">Status / Stage</p>
+                      <div className="mt-1 flex flex-wrap gap-1 items-center">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${getStatusColor(selectedForm.status)}`}>
+                          {selectedForm.status?.toUpperCase().replace(/_/g, ' ')}
+                        </span>
+                        {selectedForm.currentStage && (
+                          <span className="text-[10px] bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full font-medium">
+                            {selectedForm.currentStage.replace(/_/g, ' ')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
-              <div className="border border-indigo-100 rounded-xl p-4 bg-white/90 shadow-sm">
-                <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-2">Reason for Exit</p>
-                <p className="font-semibold text-sm text-gray-900">{selectedForm.reasonForLeaving?.replace(/_/g,' ') || '-'}</p>
-                <p className="text-sm mt-2 text-gray-700">{selectedForm.reasonDetails || '-'}</p>
+
+              {/* 2. Separation & Exit Details */}
+              <div className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4">
+                <h3 className="text-sm font-bold text-[#262760] uppercase tracking-wider flex items-center">
+                  <DocumentTextIcon className="w-5 h-5 mr-2 text-indigo-600" />
+                  Separation Details
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="border border-gray-100 rounded-xl p-3.5 bg-gray-50/50">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Proposed Last Working Day</p>
+                    <p className="font-bold text-sm mt-1 text-gray-900">
+                      {selectedForm.proposedLastWorkingDay ? new Date(selectedForm.proposedLastWorkingDay).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '-'}
+                    </p>
+                  </div>
+                  <div className="border border-gray-100 rounded-xl p-3.5 bg-gray-50/50">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Reason for Exit</p>
+                    <p className="font-bold text-sm mt-1 text-indigo-700">
+                      {selectedForm.reasonForLeaving ? selectedForm.reasonForLeaving.replace(/_/g, ' ').toUpperCase() : '-'}
+                    </p>
+                  </div>
+                  <div className="border border-gray-100 rounded-xl p-3.5 bg-gray-50/50">
+                    <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Submitted Date</p>
+                    <p className="font-semibold text-sm mt-1 text-gray-900">
+                      {selectedForm.submittedDate || selectedForm.createdAt ? new Date(selectedForm.submittedDate || selectedForm.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedForm.reasonDetails && (
+                  <div className="border border-gray-100 rounded-xl p-4 bg-gray-50/70">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-1">Detailed Comments / Reason</p>
+                    <p className="text-sm text-gray-800 leading-relaxed">{selectedForm.reasonDetails}</p>
+                  </div>
+                )}
+
+                {selectedForm.rejectionReason && (
+                  <div className="border border-red-200 rounded-xl p-4 bg-red-50">
+                    <p className="text-xs font-bold text-red-700 uppercase tracking-wide mb-1">Rejection Reason</p>
+                    <p className="text-sm text-red-800 font-medium">{selectedForm.rejectionReason}</p>
+                  </div>
+                )}
               </div>
-              <div className="border border-indigo-100 rounded-xl p-4 bg-white/90 shadow-sm">
-                <p className="text-xs font-semibold text-indigo-500 uppercase tracking-wide mb-3">Clearance Status</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+
+              {/* 3. Company Assets to Return */}
+              <div className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4">
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-[#262760] uppercase tracking-wider flex items-center">
+                    <CheckBadgeIcon className="w-5 h-5 mr-2 text-indigo-600" />
+                    Company Assets Return List
+                  </h3>
+                  {selectedForm.assetsToReturn && selectedForm.assetsToReturn.length > 0 && (
+                    <span className="text-xs bg-indigo-50 text-indigo-700 px-3 py-1 rounded-full font-semibold border border-indigo-100">
+                      Total Assets: {selectedForm.assetsToReturn.length}
+                    </span>
+                  )}
+                </div>
+
+                {selectedForm.assetsToReturn && selectedForm.assetsToReturn.length > 0 ? (
+                  <div className="overflow-x-auto border border-gray-200 rounded-xl">
+                    <table className="min-w-full divide-y divide-gray-200 text-sm">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">S.No</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Asset Type / Item</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Details / Serial No</th>
+                          <th className="px-4 py-2.5 text-center text-xs font-bold text-gray-500 uppercase">Status</th>
+                          <th className="px-4 py-2.5 text-left text-xs font-bold text-gray-500 uppercase">Return Date</th>
+                        </tr>
+                      </thead>
+                      <tbody className="bg-white divide-y divide-gray-100">
+                        {selectedForm.assetsToReturn.map((ast, idx) => {
+                          const parts = (ast.assetDetails || '').split(' || ');
+                          const itemName = parts[0] || ast.assetType || 'Asset';
+                          const serialNo = parts[2] || parts[1] || ast.assetDetails || '-';
+                          return (
+                            <tr key={idx} className="hover:bg-indigo-50/30 transition-colors">
+                              <td className="px-4 py-3 text-gray-500 font-medium">{idx + 1}</td>
+                              <td className="px-4 py-3 font-semibold text-gray-900 capitalize">{itemName.replace(/_/g, ' ')}</td>
+                              <td className="px-4 py-3 text-gray-600 font-mono text-xs">{serialNo}</td>
+                              <td className="px-4 py-3 text-center">
+                                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${ast.returned ? 'bg-green-100 text-green-800 border border-green-200' : 'bg-amber-100 text-amber-800 border border-amber-200'}`}>
+                                  {ast.returned ? 'Returned' : 'Pending'}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-xs text-gray-500">
+                                {ast.returnDate ? new Date(ast.returnDate).toLocaleDateString() : '-'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500 italic bg-gray-50 p-4 rounded-xl text-center">
+                    No custom assets listed. Standard ID Card and assigned hardware required upon departure.
+                  </p>
+                )}
+
+                {selectedForm.itAssetClearanceInfo && (
+                  <div className="border border-emerald-200 rounded-xl p-4 bg-emerald-50/40 mt-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <span className="font-bold text-emerald-800">IT Clearance Status:</span>
+                      <span className="ml-2 font-bold text-emerald-700">{selectedForm.itAssetClearanceInfo.status || 'Completed'}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold text-gray-600">Cleared By:</span>
+                      <span className="ml-2 font-semibold text-gray-800">{selectedForm.itAssetClearanceInfo.completedBy || 'IT Admin'}</span>
+                    </div>
+                    <div>
+                      <span className="font-bold text-gray-600">Cleared Date:</span>
+                      <span className="ml-2 font-mono text-gray-800">{selectedForm.itAssetClearanceInfo.completedDate || '-'}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* 4. Department Clearances Section */}
+              <div className="bg-white rounded-2xl p-6 border border-indigo-100 shadow-sm space-y-4">
+                <h3 className="text-sm font-bold text-[#262760] uppercase tracking-wider flex items-center">
+                  <CheckCircleIcon className="w-5 h-5 mr-2 text-indigo-600" />
+                  Department Clearances Status
+                </h3>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                   {(selectedForm.clearanceDepartments || []).map((c, i) => (
-                    <div key={i} className="flex items-center justify-between border border-gray-100 rounded-lg px-3 py-2 bg-gray-50">
-                      <span className="text-sm font-medium text-gray-800 capitalize">{c.department}</span>
-                      <span className={`text-xs px-2 py-1 rounded-full font-semibold ${getClearanceStatusClass(c.status)}`}>
-                        {c.status}
-                      </span>
+                    <div key={i} className="border border-gray-200 rounded-xl p-4 bg-white hover:shadow-md transition-shadow flex flex-col justify-between">
+                      <div>
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-sm font-bold text-gray-900 uppercase tracking-wide">{c.department} Clearance</span>
+                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-bold ${getClearanceStatusClass(c.status)}`}>
+                            {c.status}
+                          </span>
+                        </div>
+                        {c.approvedBy && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Approved by: <span className="font-semibold text-gray-800">{c.approvedBy}</span>
+                          </p>
+                        )}
+                        {c.approvedDate && (
+                          <p className="text-xs text-gray-400 font-mono mt-0.5">
+                            {new Date(c.approvedDate).toLocaleDateString()}
+                          </p>
+                        )}
+                        {c.remarks && (
+                          <p className="text-xs text-gray-600 italic mt-2 bg-gray-50 p-2 rounded">
+                            "{c.remarks}"
+                          </p>
+                        )}
+                      </div>
+                      
+                      {(['admin', 'hr'].includes(userRole) || userRole === c.department) && (
+                        <div className="mt-3 pt-2 border-t border-gray-100 flex gap-2 justify-end">
+                          <button
+                            onClick={() => handleClearanceUpdate(selectedForm._id, c.department, 'approved')}
+                            className="text-xs px-2.5 py-1 bg-green-50 text-green-700 hover:bg-green-100 rounded-md font-semibold transition-colors"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => handleClearanceUpdate(selectedForm._id, c.department, 'pending')}
+                            className="text-xs px-2.5 py-1 bg-amber-50 text-amber-700 hover:bg-amber-100 rounded-md font-semibold transition-colors"
+                          >
+                            Set Pending
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
               </div>
-              <div className="flex justify-end gap-3">
+
+              {/* 5. Feedback & Suggestions */}
+              {(selectedForm.feedback || selectedForm.suggestions) && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedForm.feedback && (
+                    <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-sm">
+                      <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-2">Experience Feedback</p>
+                      <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded-xl leading-relaxed">{selectedForm.feedback}</p>
+                    </div>
+                  )}
+                  {selectedForm.suggestions && (
+                    <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-sm">
+                      <p className="text-xs font-bold text-indigo-600 uppercase tracking-wide mb-2">Company Suggestions</p>
+                      <p className="text-sm text-gray-800 bg-gray-50 p-3 rounded-xl leading-relaxed">{selectedForm.suggestions}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 6. Handover & Knowledge Transfer Details */}
+              {(selectedForm.handoverNotes || selectedForm.knowledgeTransfer?.details) && (
+                <div className="bg-white rounded-2xl p-5 border border-indigo-100 shadow-sm space-y-2">
+                  <p className="text-xs font-bold text-[#262760] uppercase tracking-wide">Knowledge Transfer & Handover</p>
+                  {selectedForm.knowledgeTransfer?.handoverTo && (
+                    <p className="text-xs text-gray-600">Handover To: <span className="font-semibold text-gray-900">{selectedForm.knowledgeTransfer.handoverTo}</span></p>
+                  )}
+                  {selectedForm.knowledgeTransfer?.details && (
+                    <p className="text-sm text-gray-800 bg-indigo-50/50 p-3 rounded-xl">{selectedForm.knowledgeTransfer.details}</p>
+                  )}
+                </div>
+              )}
+
+              {/* Modal Action Buttons Bar */}
+              <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-gray-200">
                 {(['projectmanager','teamlead','admin'].includes(userRole) && !selectedForm.approvedByManager && selectedForm.status !== 'completed' && selectedForm.status !== 'rejected') && (
                   <button
                     onClick={() => handleManagerApprove(selectedForm._id)}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                    className="px-5 py-2.5 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-sm transition-all"
                     disabled={actionLoading}
                   >
                     Manager Approve
@@ -1211,29 +1496,47 @@ const ExitApproval = () => {
                 {(['hr','admin'].includes(userRole) && selectedForm.status !== 'completed' && selectedForm.status !== 'rejected') && (
                   <button
                     onClick={() => handleHRApprove(selectedForm._id)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                    className="px-5 py-2.5 bg-indigo-600 text-white font-bold rounded-xl hover:bg-indigo-700 shadow-md transition-all"
                     disabled={actionLoading}
                   >
-                    HR Approve
+                    HR Approve & Complete Exit
                   </button>
                 )}
                 {(selectedForm.status !== 'completed' && selectedForm.status !== 'rejected' && selectedForm.status !== 'cancelled') && (
                   <button
                     onClick={() => handleReject(selectedForm._id)}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                    className="px-5 py-2.5 bg-red-600 text-white font-bold rounded-xl hover:bg-red-700 shadow-sm transition-all"
                     disabled={actionLoading}
                   >
-                    Reject
+                    Reject Exit Request
                   </button>
                 )}
                 {(['admin','hr'].includes(userRole)) && (
                   <button
                     onClick={() => handleDelete(selectedForm._id)}
-                    className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100"
+                    className="px-4 py-2.5 bg-red-50 text-red-700 font-semibold border border-red-200 rounded-xl hover:bg-red-100 transition-colors"
                     disabled={actionLoading}
                   >
-                    Delete
+                    Delete Request
                   </button>
+                )}
+                {selectedForm.status === 'completed' && (
+                  <>
+                    <button
+                      onClick={() => handleGenerateRelievingLetter(selectedForm)}
+                      className="px-4 py-2.5 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 shadow-sm transition-colors flex items-center gap-1.5"
+                    >
+                      <DocumentTextIcon className="w-4 h-4" />
+                      Relieving Letter
+                    </button>
+                    <button
+                      onClick={() => handleGenerateExperienceLetter(selectedForm)}
+                      className="px-4 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 shadow-sm transition-colors flex items-center gap-1.5"
+                    >
+                      <DocumentArrowDownIcon className="w-4 h-4" />
+                      Experience Letter
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -1244,11 +1547,31 @@ const ExitApproval = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
           <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-indigo-100">
             <div className="p-6 border-b border-indigo-200 flex justify-between items-center sticky top-0 bg-gradient-to-r from-[#262760] via-indigo-600 to-[#f37021] text-white z-10">
-              <div>
-                <h2 className="text-xl font-bold">Employee Departure Records</h2>
-                <p className="text-sm opacity-90">
-                  {historyEmployee.employeeName} • {historyEmployee.employeeId}
-                </p>
+              <div className="flex items-center space-x-4">
+                <div
+                  onClick={() => historyEmployee.profilePicture && setViewingPhotoModal({ open: true, url: historyEmployee.profilePicture, name: historyEmployee.employeeName, id: historyEmployee.employeeId })}
+                  className={`relative group flex-shrink-0 w-12 h-12 rounded-full border-2 border-white/80 overflow-hidden shadow-md ${historyEmployee.profilePicture ? 'cursor-pointer hover:scale-105 transition-transform' : ''}`}
+                  title={historyEmployee.profilePicture ? "Click to view full photo" : "No photo"}
+                >
+                  {historyEmployee.profilePicture ? (
+                    <>
+                      <img src={historyEmployee.profilePicture} alt={historyEmployee.employeeName} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <MagnifyingGlassIcon className="w-4 h-4 text-white" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full h-full bg-indigo-800 text-white flex items-center justify-center font-bold text-base">
+                      {historyEmployee.employeeName ? historyEmployee.employeeName.charAt(0).toUpperCase() : 'E'}
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold">Employee Departure Records</h2>
+                  <p className="text-sm opacity-90">
+                    {historyEmployee.employeeName} • {historyEmployee.employeeId}
+                  </p>
+                </div>
               </div>
               <button
                 onClick={() => {
@@ -1425,6 +1748,40 @@ const ExitApproval = () => {
           placeholder="Enter remarks (optional)..."
         />
       </Modal>
+
+      {/* High-Resolution Employee Photo Preview Modal */}
+      {viewingPhotoModal.open && (
+        <div 
+          className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setViewingPhotoModal({ open: false, url: '', name: '', id: '' })}
+        >
+          <div 
+            className="relative bg-white rounded-2xl p-4 shadow-2xl max-w-lg w-full flex flex-col items-center border border-indigo-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex justify-between items-center pb-3 border-b border-gray-100 mb-4 px-2">
+              <div>
+                <h3 className="font-bold text-gray-900 text-lg">{viewingPhotoModal.name}</h3>
+                <p className="text-xs text-indigo-600 font-mono font-medium">ID: {viewingPhotoModal.id || 'N/A'}</p>
+              </div>
+              <button
+                onClick={() => setViewingPhotoModal({ open: false, url: '', name: '', id: '' })}
+                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircleIcon className="w-7 h-7" />
+              </button>
+            </div>
+            <div className="relative w-full max-h-[70vh] flex items-center justify-center bg-gray-900 rounded-xl overflow-hidden shadow-inner">
+              <img
+                src={viewingPhotoModal.url}
+                alt={viewingPhotoModal.name}
+                className="max-h-[68vh] w-auto object-contain transition-transform duration-300 hover:scale-105"
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-3 italic">Tap/click anywhere outside to close preview</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

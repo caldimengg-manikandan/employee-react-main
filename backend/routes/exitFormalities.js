@@ -23,7 +23,7 @@ router.get('/', auth, async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [items, total] = await Promise.all([
       ExitFormality.find(query)
-        .populate('employeeId', 'employeeId')
+        .populate('employeeId', 'employeeId profilePicture photo name division position location status email officialEmail')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
@@ -44,7 +44,7 @@ router.get('/pending', auth, async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [items, total] = await Promise.all([
       ExitFormality.find({ status: { $in: statuses } })
-        .populate('employeeId', 'employeeId')
+        .populate('employeeId', 'employeeId profilePicture photo name division position location status email officialEmail')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
@@ -64,7 +64,7 @@ router.get('/completed', auth, async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [items, total] = await Promise.all([
       ExitFormality.find({ status: 'completed' })
-        .populate('employeeId', 'employeeId')
+        .populate('employeeId', 'employeeId profilePicture photo name division position location status email officialEmail')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
@@ -84,7 +84,7 @@ router.get('/drafts', auth, async (req, res) => {
     const skip = (parseInt(page) - 1) * parseInt(limit);
     const [items, total] = await Promise.all([
       ExitFormality.find({ status: 'draft' })
-        .populate('employeeId', 'employeeId')
+        .populate('employeeId', 'employeeId profilePicture photo name division position location status email officialEmail')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(parseInt(limit))
@@ -100,7 +100,10 @@ router.get('/me', auth, async (req, res) => {
   try {
     const employeeData = await Employee.findOne({ employeeId: req.user.employeeId }) || await Employee.findOne({ email: req.user.email });
     if (!employeeData) return res.json({ success: true, data: [] });
-    const items = await ExitFormality.find({ employeeId: employeeData._id }).sort({ createdAt: -1 }).lean();
+    const items = await ExitFormality.find({ employeeId: employeeData._id })
+      .populate('employeeId', 'employeeId profilePicture photo name division position location status email officialEmail')
+      .sort({ createdAt: -1 })
+      .lean();
     res.json({ success: true, data: items });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
@@ -109,7 +112,9 @@ router.get('/me', auth, async (req, res) => {
 
 router.get('/:id', auth, async (req, res) => {
   try {
-    const item = await ExitFormality.findById(req.params.id).lean();
+    const item = await ExitFormality.findById(req.params.id)
+      .populate('employeeId', 'employeeId profilePicture photo name division position location status email officialEmail')
+      .lean();
     if (!item) return res.status(404).json({ success: false, error: 'Not found' });
     res.json({ success: true, data: item });
   } catch (error) {

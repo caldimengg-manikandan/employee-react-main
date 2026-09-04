@@ -13,7 +13,9 @@ import {
   DocumentTextIcon,
   TrashIcon,
   CheckBadgeIcon,
-  ClockIcon
+  ClockIcon,
+  MagnifyingGlassIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
 
 const ExitForm = () => {
@@ -23,6 +25,7 @@ const ExitForm = () => {
   const [viewDetails, setViewDetails] = useState(false);
   const [assignedAssets, setAssignedAssets] = useState([]);
   const [clearanceInfo, setClearanceInfo] = useState(null);
+  const [viewingPhotoModal, setViewingPhotoModal] = useState({ open: false, url: '', name: '', id: '' });
 
   const getAssetClearanceStatus = (assetId, defaultStatus) => {
     if (!clearanceInfo || !clearanceInfo.assignedAssets) {
@@ -40,7 +43,8 @@ const ExitForm = () => {
     department: '',
     position: '',
     joinDate: '',
-    email: ''
+    email: '',
+    profilePicture: ''
   });
   
   const [formData, setFormData] = useState({
@@ -100,7 +104,8 @@ const ExitForm = () => {
         department: emp.division || emp.department,
         position: emp.position,
         joinDate: emp.dateOfJoining,
-        email: emp.email
+        email: emp.email,
+        profilePicture: emp.profilePicture || emp.photo || ''
       });
 
       // 2. Fetch Existing Exit Form
@@ -403,59 +408,86 @@ const ExitForm = () => {
         <div className="space-y-8">
           {/* Employee Info Section */}
           <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-indigo-100">
-            <div className="bg-[#1e2050] px-6 py-4 border-b border-indigo-900/20">
+            <div className="bg-[#1e2050] px-6 py-4 border-b border-indigo-900/20 flex justify-between items-center">
               <h2 className="text-lg font-bold text-white flex items-center">
                 <UserIcon className="h-6 w-6 mr-2 text-indigo-300" />
                 Employee Information
               </h2>
             </div>
-            <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <div className="group">
-                <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
-                  <IdentificationIcon className="h-4 w-4 mr-1 text-indigo-400" /> Employee ID
-                </label>
-                <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-indigo-200 transition-colors pb-1">
-                  {employeeInfo.employeeId}
+            <div className="p-8 flex flex-col md:flex-row gap-8 items-start">
+              {/* Passport Photo Frame */}
+              <div className="flex-shrink-0 flex flex-col items-center mx-auto md:mx-0">
+                <div
+                  onClick={() => employeeInfo.profilePicture && setViewingPhotoModal({ open: true, url: employeeInfo.profilePicture, name: employeeInfo.employeeName, id: employeeInfo.employeeId })}
+                  className={`relative group w-28 h-36 rounded-xl border-4 border-indigo-100 shadow-md overflow-hidden bg-gradient-to-br from-indigo-50 to-purple-50 flex items-center justify-center ${employeeInfo.profilePicture ? 'cursor-pointer hover:border-indigo-400 hover:shadow-xl hover:scale-105 transition-all' : ''}`}
+                  title={employeeInfo.profilePicture ? "Click to view full photo" : "No photo available"}
+                >
+                  {employeeInfo.profilePicture ? (
+                    <>
+                      <img src={employeeInfo.profilePicture} alt={employeeInfo.employeeName} className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <MagnifyingGlassIcon className="w-6 h-6 text-white drop-shadow-md" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center text-indigo-400 p-2 text-center">
+                      <UserIcon className="w-10 h-10 mb-1" />
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400">No Photo</span>
+                    </div>
+                  )}
                 </div>
+                <span className="text-[11px] font-semibold text-gray-500 mt-2">Employee Photo</span>
               </div>
-              <div className="group">
-                <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
-                  <UserIcon className="h-4 w-4 mr-1 text-purple-400" /> Name
-                </label>
-                <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-purple-200 transition-colors pb-1">
-                  {employeeInfo.employeeName}
+
+              {/* Grid Details */}
+              <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+                <div className="group">
+                  <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
+                    <IdentificationIcon className="h-4 w-4 mr-1 text-indigo-400" /> Employee ID
+                  </label>
+                  <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-indigo-200 transition-colors pb-1">
+                    {employeeInfo.employeeId}
+                  </div>
                 </div>
-              </div>
-              <div className="group">
-                <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
-                  <BriefcaseIcon className="h-4 w-4 mr-1 text-pink-400" /> Department
-                </label>
-                <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-pink-200 transition-colors pb-1">
-                  {employeeInfo.department}
+                <div className="group">
+                  <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
+                    <UserIcon className="h-4 w-4 mr-1 text-purple-400" /> Name
+                  </label>
+                  <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-purple-200 transition-colors pb-1">
+                    {employeeInfo.employeeName}
+                  </div>
                 </div>
-              </div>
-              <div className="group">
-                <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
-                  <CheckBadgeIcon className="h-4 w-4 mr-1 text-teal-400" /> Position
-                </label>
-                <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-teal-200 transition-colors pb-1">
-                  {employeeInfo.position}
+                <div className="group">
+                  <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
+                    <BriefcaseIcon className="h-4 w-4 mr-1 text-pink-400" /> Department
+                  </label>
+                  <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-pink-200 transition-colors pb-1">
+                    {employeeInfo.department}
+                  </div>
                 </div>
-              </div>
-              <div className="group">
-                <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
-                  <CalendarIcon className="h-4 w-4 mr-1 text-orange-400" /> Date of Joining
-                </label>
-                <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-orange-200 transition-colors pb-1">
-                  {employeeInfo.joinDate ? new Date(employeeInfo.joinDate).toLocaleDateString() : '-'}
+                <div className="group">
+                  <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
+                    <CheckBadgeIcon className="h-4 w-4 mr-1 text-teal-400" /> Position
+                  </label>
+                  <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-teal-200 transition-colors pb-1">
+                    {employeeInfo.position}
+                  </div>
                 </div>
-              </div>
-              <div className="group">
-                <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
-                  <EnvelopeIcon className="h-4 w-4 mr-1 text-blue-400" /> Email
-                </label>
-                <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-blue-200 transition-colors pb-1">
-                  {employeeInfo.email}
+                <div className="group">
+                  <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
+                    <CalendarIcon className="h-4 w-4 mr-1 text-orange-400" /> Date of Joining
+                  </label>
+                  <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-orange-200 transition-colors pb-1">
+                    {employeeInfo.joinDate ? new Date(employeeInfo.joinDate).toLocaleDateString() : '-'}
+                  </div>
+                </div>
+                <div className="group">
+                  <label className="flex items-center text-sm font-semibold text-gray-500 mb-1">
+                    <EnvelopeIcon className="h-4 w-4 mr-1 text-blue-400" /> Email
+                  </label>
+                  <div className="text-gray-900 font-bold text-lg border-b-2 border-transparent group-hover:border-blue-200 transition-colors pb-1">
+                    {employeeInfo.email}
+                  </div>
                 </div>
               </div>
             </div>
@@ -810,6 +842,40 @@ const ExitForm = () => {
           </button>
         </div>
       </Modal>
+
+      {/* High-Resolution Employee Photo Preview Modal */}
+      {viewingPhotoModal.open && (
+        <div 
+          className="fixed inset-0 z-[120] bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setViewingPhotoModal({ open: false, url: '', name: '', id: '' })}
+        >
+          <div 
+            className="relative bg-white rounded-2xl p-4 shadow-2xl max-w-lg w-full flex flex-col items-center border border-indigo-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex justify-between items-center pb-3 border-b border-gray-100 mb-4 px-2">
+              <div>
+                <h3 className="font-bold text-gray-900 text-lg">{viewingPhotoModal.name}</h3>
+                <p className="text-xs text-indigo-600 font-mono font-medium">ID: {viewingPhotoModal.id || 'N/A'}</p>
+              </div>
+              <button
+                onClick={() => setViewingPhotoModal({ open: false, url: '', name: '', id: '' })}
+                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XCircleIcon className="w-7 h-7" />
+              </button>
+            </div>
+            <div className="relative w-full max-h-[70vh] flex items-center justify-center bg-gray-900 rounded-xl overflow-hidden shadow-inner">
+              <img
+                src={viewingPhotoModal.url}
+                alt={viewingPhotoModal.name}
+                className="max-h-[68vh] w-auto object-contain transition-transform duration-300 hover:scale-105"
+              />
+            </div>
+            <p className="text-xs text-gray-400 mt-3 italic">Tap/click anywhere outside to close preview</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

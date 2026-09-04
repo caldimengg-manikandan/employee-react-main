@@ -151,6 +151,7 @@ const MyProfile = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
   const [removeProfilePicture, setRemoveProfilePicture] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   const parseAddress = (addr) => {
     if (!addr || typeof addr !== 'string') {
@@ -898,11 +899,23 @@ const MyProfile = () => {
                       <span className="text-xs font-bold text-blue-900 uppercase tracking-wider mb-2">Passport Photo (3.5 × 4.5 cm)</span>
                       <div className="w-[105px] h-[135px] border-2 border-dashed border-blue-400 rounded-lg overflow-hidden bg-slate-100 flex items-center justify-center relative group shadow-inner">
                         {(previewUrl || formData.profilePicture) && !removeProfilePicture ? (
-                          <img
-                            src={previewUrl || formData.profilePicture}
-                            alt="Passport Size Photo"
-                            className="w-full h-full object-cover"
-                          />
+                          <div 
+                            className="w-full h-full relative cursor-pointer group"
+                            onClick={() => setShowImageModal(true)}
+                            title="Click to view full size photo"
+                          >
+                            <img
+                              src={previewUrl || formData.profilePicture}
+                              alt="Passport Size Photo"
+                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center text-white text-[11px] font-semibold gap-1 backdrop-blur-[1px]">
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+                              </svg>
+                              <span>Enlarge</span>
+                            </div>
+                          </div>
                         ) : (
                           <div className="text-center p-2">
                             <UserIcon className="h-10 w-10 text-gray-400 mx-auto mb-1" />
@@ -1849,6 +1862,49 @@ const MyProfile = () => {
         </div>
       </div>
     </Modal>
+
+    {/* Large Photo Preview Modal */}
+    {showImageModal && (previewUrl || formData.profilePicture) && !removeProfilePicture && (
+      <div 
+        className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center z-50 p-4 transition-all duration-300 animate-fadeIn"
+        onClick={() => setShowImageModal(false)}
+      >
+        <div 
+          className="relative max-w-4xl max-h-[90vh] bg-white/10 p-3 sm:p-5 rounded-3xl border border-white/20 shadow-2xl overflow-hidden flex flex-col items-center"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Close Button */}
+          <button
+            type="button"
+            onClick={() => setShowImageModal(false)}
+            className="absolute top-4 right-4 bg-black/60 hover:bg-red-600 text-white rounded-full p-2.5 transition-all shadow-lg focus:outline-none z-10 hover:scale-110"
+            title="Close Preview"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+
+          {/* Header Info */}
+          <div className="w-full text-center pb-3 text-white/90 font-semibold text-sm sm:text-base border-b border-white/10 mb-3 pr-10">
+            {formData.name || user.name || 'Profile Photo'} {formData.employeeId ? `(${formData.employeeId})` : ''}
+          </div>
+
+          {/* Large Image Container */}
+          <div className="relative overflow-hidden rounded-2xl flex items-center justify-center bg-black/40 p-2">
+            <img
+              src={previewUrl || formData.profilePicture}
+              alt={formData.name || "Passport Size Photo"}
+              className="max-h-[75vh] max-w-[85vw] sm:max-w-xl object-contain rounded-xl shadow-2xl border-2 border-white/20"
+            />
+          </div>
+
+          <div className="pt-3 text-xs text-white/70 font-medium flex items-center gap-2">
+            <span>Tap anywhere outside to close</span>
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 };
