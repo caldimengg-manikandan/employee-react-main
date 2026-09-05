@@ -168,9 +168,30 @@ const syncCompensationToEmployeeAndPayroll = async (emp) => {
             totalEarnings: payrollData.totalEarnings,
             totalDeductions: payrollData.totalDeductions,
             netSalary: payrollData.netSalary,
-            ctc: payrollData.ctc
           }
         }
+      );
+    }
+
+    // Sync employee designation and name across MonthlyPayroll, Compensation, and Payroll collections
+    if (emp.employeeId && emp.designation) {
+      const MonthlyPayroll = require("../models/MonthlyPayroll");
+      const compUpdate = { designation: emp.designation };
+      if (emp.name) compUpdate.name = emp.name;
+      const payrollUpdate = { designation: emp.designation };
+      if (emp.name) payrollUpdate.employeeName = emp.name;
+
+      await MonthlyPayroll.updateMany(
+        { employeeId: { $regex: new RegExp(`^${emp.employeeId}$`, 'i') } },
+        { $set: payrollUpdate }
+      );
+      await Compensation.updateMany(
+        { employeeId: { $regex: new RegExp(`^${emp.employeeId}$`, 'i') } },
+        { $set: compUpdate }
+      );
+      await Payroll.updateMany(
+        { employeeId: { $regex: new RegExp(`^${emp.employeeId}$`, 'i') } },
+        { $set: payrollUpdate }
       );
     }
   } catch (syncErr) {
