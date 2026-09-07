@@ -64,15 +64,19 @@ const AttendanceRegularization = () => {
   };
 
   const getRecordHours = (rec) => {
+    if (!rec) return 0;
+    if (typeof rec.hours === "number" && rec.hours > 0) {
+      return rec.hours;
+    }
+    if (typeof rec.workDurationSeconds === "number" && rec.workDurationSeconds > 0) {
+      return rec.workDurationSeconds / 3600;
+    }
     if (rec.punchIn && rec.punchOut) {
       const inDt = new Date(rec.punchIn);
       const outDt = new Date(rec.punchOut);
       if (outDt > inDt) {
         return (outDt - inDt) / (1000 * 60 * 60);
       }
-    }
-    if (typeof rec.hours === "number" && rec.hours > 0) {
-      return rec.hours;
     }
     return 0;
   };
