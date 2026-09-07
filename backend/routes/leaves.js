@@ -1835,6 +1835,11 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(400).json({ error: 'Only Pending applications can be deleted' });
     }
     await LeaveApplication.findByIdAndDelete(req.params.id);
+    try {
+      if (existing.status === 'Approved') {
+        await syncTimesheetWithLeave({ ...existing, status: 'Rejected' });
+      }
+    } catch (_) { }
     res.json({ success: true, message: 'Leave application deleted successfully' });
   } catch (err) {
     res.status(400).json({ error: err.message });

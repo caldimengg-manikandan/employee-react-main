@@ -2,6 +2,7 @@ const express = require("express");
 const Timesheet = require("../models/Timesheet");
 const AdminTimesheet = require("../models/AdminTimesheet");
 const SpecialPermission = require("../models/SpecialPermission");
+const LeaveApplication = require("../models/LeaveApplication");
 const Employee = require("../models/Employee");
 const Notification = require("../models/Notification");
 const notificationService = require("../services/notificationService");
@@ -564,6 +565,94 @@ async function upsertAdminTimesheetRecord(user, sheet) {
 }
 
 /**
+ * Synchronize system-generated 'Leave Approved' entries with valid approved LeaveApplications
+ * from MongoDB for the given user and week.
+ */
+async function syncApprovedLeavesForWeek(userId, employeeId, weekStart, weekEnd, entries) {
+  try {
+    const ws = new Date(weekStart);
+    const weekStartUtc = new Date(Date.UTC(ws.getUTCFullYear(), ws.getUTCMonth(), ws.getUTCDate()));
+    const we = new Date(weekEnd);
+    const weekEndUtc = new Date(Date.UTC(we.getUTCFullYear(), we.getUTCMonth(), we.getUTCDate(), 23, 59, 59, 999));
+
+    // 1. Remove ONLY system-generated Leave Approved rows from entries
+    // Preserve manual leave rows like "Full Day Leave", "Half Day Leave", "Permission", "Office Holiday"
+    const nonLeaveApprovedEntries = (Array.isArray(entries) ? entries : []).filter(e => {
+      const isLeaveApproved = (e.type === "leave" || e.project === "Leave") &&
+        String(e.task || "").startsWith("Leave Approved");
+      return !isLeaveApproved;
+    });
+
+    // 2. Query LeaveApplication collection for currently Approved leaves overlapping this week
+    const orConditions = [{ userId }];
+    if (employeeId) {
+      orConditions.push({ employeeId: String(employeeId) });
+    }
+
+    const approvedLeaves = await LeaveApplication.find({
+      $or: orConditions,
+      status: "Approved",
+      startDate: { $lte: weekEndUtc },
+      endDate: { $gte: weekStartUtc }
+    }).lean();
+
+    // 3. Reconstruct Leave Approved entries
+    const leaveMap = {};
+
+    for (const leave of approvedLeaves) {
+      const leaveStart = new Date(leave.startDate);
+      const leaveStartUtc = new Date(Date.UTC(leaveStart.getUTCFullYear(), leaveStart.getUTCMonth(), leaveStart.getUTCDate()));
+      const leaveEnd = new Date(leave.endDate);
+      const leaveEndUtc = new Date(Date.UTC(leaveEnd.getUTCFullYear(), leaveEnd.getUTCMonth(), leaveEnd.getUTCDate(), 23, 59, 59, 999));
+
+      const leaveHours = leave.dayType === "Half Day" ? 4.75 : 9.5;
+      const taskName = `Leave Approved (${leave.leaveType || "Leave"})`;
+
+      if (!leaveMap[taskName]) {
+        leaveMap[taskName] = {
+          project: "Leave",
+          projectCode: "LEAVE",
+          task: taskName,
+          type: "leave",
+          hours: [0, 0, 0, 0, 0, 0, 0],
+          locked: true,
+          lockedDays: [false, false, false, false, false, false, false]
+        };
+      }
+
+      for (let i = 0; i < 7; i++) {
+        const dayUtc = new Date(Date.UTC(weekStartUtc.getUTCFullYear(), weekStartUtc.getUTCMonth(), weekStartUtc.getUTCDate() + i));
+        if (dayUtc >= leaveStartUtc && dayUtc <= leaveEndUtc) {
+          leaveMap[taskName].hours[i] = Math.min(9.5, (leaveMap[taskName].hours[i] || 0) + leaveHours);
+          leaveMap[taskName].lockedDays[i] = true;
+        }
+      }
+    }
+
+    const approvedEntries = Object.values(leaveMap).filter(entry =>
+      entry.hours.some(h => Number(h) > 0)
+    );
+
+    // 4. Update lockedDays on project entries based on total approved leave hours for each day
+    const totalApprovedLeaveHours = [0, 1, 2, 3, 4, 5, 6].map(i =>
+      approvedEntries.reduce((sum, entry) => sum + (Number(entry.hours[i]) || 0), 0)
+    );
+    const isDayLocked = [0, 1, 2, 3, 4, 5, 6].map(i => totalApprovedLeaveHours[i] >= 8);
+
+    nonLeaveApprovedEntries.forEach(entry => {
+      if (entry.type === "project") {
+        entry.lockedDays = [...isDayLocked];
+      }
+    });
+
+    return [...nonLeaveApprovedEntries, ...approvedEntries];
+  } catch (error) {
+    console.error("❌ Error in syncApprovedLeavesForWeek:", error);
+    return Array.isArray(entries) ? entries : [];
+  }
+}
+
+/**
  * CREATE / UPDATE Timesheet
  */
 router.post("/", auth, checkActiveEmployee, validateTimesheetCreate, async (req, res) => {
@@ -688,7 +777,16 @@ router.post("/", auth, checkActiveEmployee, validateTimesheetCreate, async (req,
       const incomingEntries = Array.isArray(entries) ? entries : [];
       const incomingNonSpecialEntries = incomingEntries.filter(e => e.type !== 'special');
 
-      sheet.entries = [...incomingNonSpecialEntries, ...specialEntriesFromDB];
+      // Reconcile approved leaves from LeaveApplication
+      const reconciledEntries = await syncApprovedLeavesForWeek(
+        userId,
+        employeeId || sheet.employeeId,
+        weekStart,
+        weekEnd,
+        incomingNonSpecialEntries
+      );
+
+      sheet.entries = [...reconciledEntries.filter(e => e.type !== 'special'), ...specialEntriesFromDB];
 
       if (!sheet.employeeId && employeeId) sheet.employeeId = employeeId;
       if (!sheet.employeeName && employeeName) sheet.employeeName = employeeName;
@@ -801,7 +899,16 @@ router.post("/", auth, checkActiveEmployee, validateTimesheetCreate, async (req,
     const initialEntries = Array.isArray(entries) ? entries : [];
     // Filter out any potential special entries from input (though unlikely for new sheet)
     const filteredInitialEntries = initialEntries.filter(e => e.type !== 'special');
-    const finalEntries = [...filteredInitialEntries, ...specialEntriesFromDB];
+
+    // Reconcile approved leaves from LeaveApplication
+    const reconciledEntries = await syncApprovedLeavesForWeek(
+      userId,
+      employeeId,
+      weekStart,
+      weekEnd,
+      filteredInitialEntries
+    );
+    const finalEntries = [...reconciledEntries.filter(e => e.type !== 'special'), ...specialEntriesFromDB];
 
     sheet = await Timesheet.create({
       userId,
@@ -1163,15 +1270,30 @@ router.get("/", auth, async (req, res) => {
     });
 
     if (!sheet) {
-      // Return empty template if no timesheet exists
+      // Return template with current approved leaves if any exist
+      const initialEntries = await syncApprovedLeavesForWeek(
+        req.user._id,
+        req.user.employeeId,
+        new Date(weekStart),
+        new Date(weekEnd),
+        []
+      );
+
+      const totalHours = initialEntries.reduce(
+        (sum, entry) => sum + (entry.hours || []).reduce((a, b) => a + (Number(b) || 0), 0),
+        0
+      );
+
       return res.json({
         success: true,
         data: {
           userId: req.user._id,
+          employeeId: req.user.employeeId || "",
+          employeeName: req.user.name || "",
           weekStartDate: new Date(weekStart),
           weekEndDate: new Date(weekEnd),
-          entries: [],
-          totalHours: 0,
+          entries: initialEntries,
+          totalHours: totalHours,
           status: "Draft",
           submittedAt: null,
           shiftType: "",
@@ -1179,6 +1301,21 @@ router.get("/", auth, async (req, res) => {
           onPremisesTime: { daily: [], weekly: 0 }
         }
       });
+    }
+
+    // Reconcile approved leaves with current LeaveApplication records
+    const previousEntriesJSON = JSON.stringify(sheet.entries);
+    sheet.entries = await syncApprovedLeavesForWeek(
+      req.user._id,
+      req.user.employeeId || sheet.employeeId,
+      new Date(weekStart),
+      new Date(weekEnd),
+      sheet.entries
+    );
+
+    const currentEntriesJSON = JSON.stringify(sheet.entries);
+    if (previousEntriesJSON !== currentEntriesJSON) {
+      await sheet.save();
     }
 
     res.json({
