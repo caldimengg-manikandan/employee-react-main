@@ -77,6 +77,31 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
     }
     return s; // Fallback to raw string, let backend reject it if invalid
   };
+  const calculateAge = (dob) => {
+    if (!dob) return '';
+    let birthDate = new Date(dob);
+    if (isNaN(birthDate.getTime())) {
+      const s = String(dob).trim();
+      const parts = s.split(/[-/.]/);
+      if (parts.length === 3) {
+        if (parts[0].length === 4) {
+          birthDate = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+        } else if (parts[2].length === 4) {
+          birthDate = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+        }
+      }
+    }
+    if (isNaN(birthDate.getTime())) return '';
+
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age >= 0 ? `${age} yrs` : '';
+  };
+
   const parseAddress = (addr) => {
     if (!addr || typeof addr !== 'string') {
       return { line: '', city: '', state: '', pincode: '' };
@@ -776,16 +801,36 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
+    // Clean and normalize previous organizations
+    const cleanOrganizations = (organizations || [])
+      .filter(org => org && (org.organization || org.designation || org.role))
+      .map(org => ({
+        organization: String(org.organization || '').trim(),
+        designation: String(org.designation || org.role || '').trim(),
+        position: String(org.designation || org.role || '').trim(),
+        startDate: toDbDate(org.startDate),
+        endDate: toDbDate(org.endDate)
+      }));
+
     // Prepare final data
     const finalData = {
       ...formData,
       dateOfBirth: toDbDate(formData.dateOfBirth),
       originalDateOfBirth: toDbDate(formData.originalDateOfBirth),
+      dateOfJoining: toDbDate(formData.dateOfJoining),
+      exitDate: toDbDate(formData.exitDate),
+      lastWorkingDay: toDbDate(formData.lastWorkingDay),
       name: formData.name || formData.employeename,
       employeename: formData.employeename || formData.name,
       qualification: formData.qualification || formData.highestQualification,
       highestQualification: formData.highestQualification || formData.qualification,
-      previousOrganizations: organizations
+      designation: formData.designation || formData.role || formData.position,
+      position: formData.position || formData.designation || formData.role,
+      contactNumber: formData.contactNumber || formData.mobileNo,
+      mobileNo: formData.contactNumber || formData.mobileNo,
+      emergencyContact: formData.emergencyContact || formData.emergencyMobileNo,
+      emergencyMobileNo: formData.emergencyContact || formData.emergencyMobileNo,
+      previousOrganizations: cleanOrganizations
     };
 
     const formErrors = validateForm(finalData);
@@ -1045,32 +1090,34 @@ const EmployeeForm = ({ employee, onSubmit, onCancel, isModal = false }) => {
                 </div>
 
                  <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date of Birth <span className="text-red-600">*</span></label>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="block text-sm font-medium text-gray-700">Date of Birth <span className="text-red-600">*</span></label>
+                    {calculateAge(formData.dateOfBirth) && (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-blue-100 text-blue-800 border border-blue-200">
+                        Age: {calculateAge(formData.dateOfBirth)}
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="text"
                     placeholder="DD-MM-YYYY"
                     value={formData.dateOfBirth}
                     onChange={(e) => {
-                      const selectedDate = new Date(e.target.value);
-                      if (!isNaN(selectedDate.getTime()) && e.target.value.length === 10) {
-                        const today = new Date();
-                        const age = today.getFullYear() - selectedDate.getFullYear();
-                        const monthDiff = today.getMonth() - selectedDate.getMonth();
-                        const actualAge = monthDiff < 0 || (monthDiff === 0 && today.getDate() < selectedDate.getDate()) ? age - 1 : age;
-
-                        if (actualAge < 18) {
+                      const selectedVal = e.target.value;
+                      handleInputChange('dateOfBirth', selectedVal);
+                      const ageStr = calculateAge(selectedVal);
+                      if (ageStr) {
+                        const numAge = parseInt(ageStr);
+                        if (numAge < 18) {
                           setErrors(prev => ({ ...prev, dateOfBirth: 'Must be at least 18 years old' }));
                         } else {
                           setErrors(prev => ({ ...prev, dateOfBirth: '' }));
                         }
+                      } else if (selectedVal && selectedVal.length >= 10) {
+                        setErrors(prev => ({ ...prev, dateOfBirth: 'Invalid Date (Format: DD-MM-YYYY)' }));
                       } else {
-                        if (e.target.value.length >= 10) {
-                          setErrors(prev => ({ ...prev, dateOfBirth: 'Invalid Date (Format: DD-MM-YYYY)' }));
-                        } else {
-                          setErrors(prev => ({ ...prev, dateOfBirth: '' }));
-                        }
+                        setErrors(prev => ({ ...prev, dateOfBirth: '' }));
                       }
-                      handleInputChange('dateOfBirth', e.target.value);
                     }}
                     required
                     className={`w-full px-3 py-2.5 border rounded-lg focus:outline-none transition-colors text-sm bg-white ${errors.dateOfBirth ? 'border-red-500 focus:ring-2 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500'}`}

@@ -133,16 +133,18 @@ const employeeSchema = new mongoose.Schema({
       ret.designation = ret.designation || ret.position || ret.role || '';
       ret.position = ret.position || ret.designation || ret.role || '';
 
-      // Normalize profilePicture and strip base64 legacy photo data from API response
-      if (!ret.profilePicture && ret.photo && (ret.photo.startsWith('http://') || ret.photo.startsWith('https://'))) {
-        ret.profilePicture = ret.photo;
+      // Normalize profilePicture and strip invalid or non-HTTP legacy photo data from API response
+      let profilePic = ret.profilePicture || ret.photo || '';
+      if (typeof profilePic === 'string') {
+        profilePic = profilePic.trim();
+        if (!profilePic.startsWith('http://') && !profilePic.startsWith('https://') && !profilePic.startsWith('data:image/')) {
+          profilePic = '';
+        }
+      } else {
+        profilePic = '';
       }
-      ret.profilePicture = ret.profilePicture || '';
-      
-      // Always strip legacy photo field if it's base64 or non-HTTP URL string
-      if (ret.photo && (!ret.photo.startsWith('http://') && !ret.photo.startsWith('https://'))) {
-        delete ret.photo;
-      }
+      ret.profilePicture = profilePic;
+      delete ret.photo;
 
       if (Array.isArray(ret.previousOrganizations)) {
         ret.previousOrganizations = ret.previousOrganizations

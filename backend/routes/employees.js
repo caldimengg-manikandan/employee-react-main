@@ -26,6 +26,33 @@ const handleUpload = (fieldName) => (req, res, next) => {
   });
 };
 
+const parseToDate = (val) => {
+  if (!val || val === '' || val === 'null' || val === 'undefined') return undefined;
+  if (val instanceof Date) return isNaN(val.getTime()) ? undefined : val;
+  const s = String(val).trim();
+  if (!s || s === 'null' || s === 'undefined') return undefined;
+  // Match DD-MM-YYYY or DD/MM/YYYY
+  const dmyMatch = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})$/);
+  if (dmyMatch) {
+    const day = parseInt(dmyMatch[1], 10);
+    const month = parseInt(dmyMatch[2], 10) - 1;
+    const year = parseInt(dmyMatch[3], 10);
+    const d = new Date(year, month, day);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  // Match YYYY-MM-DD or YYYY/MM/DD
+  const ymdMatch = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
+  if (ymdMatch) {
+    const year = parseInt(ymdMatch[1], 10);
+    const month = parseInt(ymdMatch[2], 10) - 1;
+    const day = parseInt(ymdMatch[3], 10);
+    const d = new Date(year, month, day);
+    return isNaN(d.getTime()) ? undefined : d;
+  }
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? undefined : d;
+};
+
 const calculateServiceYears = (dateOfJoining) => {
   if (!dateOfJoining) return '';
   let joinDate = new Date(dateOfJoining);
@@ -283,12 +310,14 @@ router.get('/', auth, async (req, res) => {
             }))
           : [];
 
-        // Normalize profilePicture URL
+        // Normalize profilePicture URL (only allow valid HTTP/HTTPS URLs or Data URIs)
         let profilePicture = '';
-        if (emp.profilePicture && typeof emp.profilePicture === 'string') {
-          profilePicture = emp.profilePicture;
-        } else if (emp.photo && typeof emp.photo === 'string') {
-          profilePicture = emp.photo;
+        const candidatePic = emp.profilePicture || emp.photo || '';
+        if (typeof candidatePic === 'string' && candidatePic.trim()) {
+          const trimmed = candidatePic.trim();
+          if (trimmed.startsWith('http://') || trimmed.startsWith('https://') || trimmed.startsWith('data:image/')) {
+            profilePicture = trimmed;
+          }
         }
 
         const cleanedEmp = { ...emp };
@@ -374,7 +403,10 @@ router.get('/', auth, async (req, res) => {
 
       const formattedEmployees = employees.map(emp => {
         if (!emp) return emp;
-        const profilePicture = emp.profilePicture || emp.photo || '';
+        const candidatePic = emp.profilePicture || emp.photo || '';
+        const profilePicture = (typeof candidatePic === 'string' && (candidatePic.startsWith('http://') || candidatePic.startsWith('https://') || candidatePic.startsWith('data:image/')))
+          ? candidatePic.trim()
+          : '';
         return {
           ...emp,
           profilePicture
@@ -404,7 +436,10 @@ router.get('/', auth, async (req, res) => {
 
       const formattedEmployees = employees.map(emp => {
         if (!emp) return emp;
-        const profilePicture = emp.profilePicture || emp.photo || '';
+        const candidatePic = emp.profilePicture || emp.photo || '';
+        const profilePicture = (typeof candidatePic === 'string' && (candidatePic.startsWith('http://') || candidatePic.startsWith('https://') || candidatePic.startsWith('data:image/')))
+          ? candidatePic.trim()
+          : '';
         return {
           ...emp,
           profilePicture
@@ -615,7 +650,10 @@ router.post('/', auth, handleUpload('profilePictureFile'), validateEmployeeCreat
 
     const dateFields = ['dateOfBirth', 'originalDateOfBirth', 'dateOfJoining', 'exitDate', 'lastWorkingDay', 'dob', 'dateofjoin', 'hireDate'];
     for (const f of dateFields) {
-      if (data[f] === '' || data[f] === 'null' || data[f] === 'undefined' || data[f] === undefined) {
+      const parsed = parseToDate(data[f]);
+      if (parsed) {
+        data[f] = parsed;
+      } else {
         delete data[f];
       }
     }
@@ -623,7 +661,23 @@ router.post('/', auth, handleUpload('profilePictureFile'), validateEmployeeCreat
     const emailFields = ['email', 'officialEmail', 'personalEmail'];
     for (const f of emailFields) {
       if (data[f] === '' || data[f] === 'null' || data[f] === 'undefined') {
-        delete data[f];
+        data[f] = '';
+      }
+    }
+
+    const numFields = ['basicDA', 'hra', 'specialAllowance', 'gratuity', 'lop', 'employeePfContribution', 'employerPfContribution', 'esi', 'tax', 'professionalTax', 'loanDeduction', 'volunteerPF', 'totalEarnings', 'totalDeductions', 'netSalary', 'ctc'];
+    for (const f of numFields) {
+      if (data[f] !== undefined) {
+        if (data[f] === '' || data[f] === null || data[f] === 'null' || data[f] === 'undefined') {
+          delete data[f];
+        } else {
+          const num = Number(data[f]);
+          if (!isNaN(num)) {
+            data[f] = num;
+          } else {
+            delete data[f];
+          }
+        }
       }
     }
 
@@ -637,7 +691,7 @@ router.post('/', auth, handleUpload('profilePictureFile'), validateEmployeeCreat
     // Check if email is already in use by another user
     if (data.email && data.email !== req.user.email) {
       const existingUser = await User.findOne({ email: data.email });
-      if (existingUser) {
+      if (existingUser && existingUser.employeeId && existingUser.employeeId !== data.employeeId) {
         return res.status(400).json({ message: 'Email is already in use by another user' });
       }
     }
@@ -661,16 +715,20 @@ router.post('/', auth, handleUpload('profilePictureFile'), validateEmployeeCreat
       data.currentAddress = currAddrParts.join(', ');
     }
     if (Array.isArray(data.previousOrganizations)) {
-      data.previousOrganizations = data.previousOrganizations.map(org => {
-        const o = { ...org };
-        if (!o.designation && (o.position || o.role)) o.designation = o.position || o.role;
-        if (!o.position && o.role) o.position = o.role;
-        if (!o.position && o.designation) o.position = o.designation;
-        delete o.role;
-        if (o.startDate === '' || o.startDate === 'null' || o.startDate === 'undefined') delete o.startDate;
-        if (o.endDate === '' || o.endDate === 'null' || o.endDate === 'undefined') delete o.endDate;
-        return o;
-      });
+      data.previousOrganizations = data.previousOrganizations
+        .filter(org => org && (org.organization || org.designation || org.position || org.role))
+        .map(org => {
+          const o = { ...org };
+          if (!o.designation && (o.position || o.role)) o.designation = o.position || o.role;
+          if (!o.position && o.role) o.position = o.role;
+          if (!o.position && o.designation) o.position = o.designation;
+          delete o.role;
+          const sDate = parseToDate(o.startDate);
+          const eDate = parseToDate(o.endDate);
+          if (sDate) o.startDate = sDate; else delete o.startDate;
+          if (eDate) o.endDate = eDate; else delete o.endDate;
+          return o;
+        });
     }
     delete data.role;
 
@@ -848,7 +906,14 @@ router.put('/:id', auth, handleUpload('profilePictureFile'), validateEmployeeUpd
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const oldEmployee = await Employee.findById(req.params.id);
+    const mongoose = require('mongoose');
+    let oldEmployee = null;
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      oldEmployee = await Employee.findById(req.params.id);
+    }
+    if (!oldEmployee) {
+      oldEmployee = await Employee.findOne({ employeeId: req.params.id });
+    }
     if (!oldEmployee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
@@ -865,14 +930,55 @@ router.put('/:id', auth, handleUpload('profilePictureFile'), validateEmployeeUpd
       }
     }
 
+    if (!data.name && data.employeename) data.name = data.employeename;
+    if (!data.employeename && data.name) data.employeename = data.name;
+    if (!data.mobileNo && (data.contactNumber || data.phone)) data.mobileNo = data.contactNumber || data.phone;
+    if (!data.contactNumber && data.mobileNo) data.contactNumber = data.mobileNo;
+    if (!data.dateOfBirth && data.dob) data.dateOfBirth = data.dob;
+    if (!data.dateOfJoining && (data.hireDate || data.dateofjoin)) data.dateOfJoining = data.hireDate || data.dateofjoin;
+    if (!data.emergencyMobileNo && (data.emergencyMobile || data.emergencyContact)) data.emergencyMobileNo = data.emergencyMobile || data.emergencyContact;
+    if (!data.emergencyContact && (data.emergencyMobileNo || data.emergencyMobile)) data.emergencyContact = data.emergencyMobileNo || data.emergencyContact;
+    if (!data.highestQualification && data.qualification) data.highestQualification = data.qualification;
+    if (!data.qualification && data.highestQualification) data.qualification = data.highestQualification;
+    if (!data.designation && (data.position || data.role)) data.designation = data.position || data.role;
+    if (!data.position && data.role) data.position = data.role;
+    if (!data.position && data.designation) data.position = data.designation;
+
     const promotionEffectiveDateRaw = data.promotionEffectiveDate;
     const promotionRemarksRaw = data.promotionRemarks;
     delete data.promotionEffectiveDate;
     delete data.promotionRemarks;
+
     const dateFields = ['dateOfBirth', 'originalDateOfBirth', 'dateOfJoining', 'exitDate', 'lastWorkingDay', 'dob', 'dateofjoin', 'hireDate'];
     for (const f of dateFields) {
-      if (data[f] === '' || data[f] === 'null' || data[f] === 'undefined' || data[f] === undefined) {
+      const parsed = parseToDate(data[f]);
+      if (parsed) {
+        data[f] = parsed;
+      } else {
         delete data[f];
+      }
+    }
+
+    const emailFields = ['email', 'officialEmail', 'personalEmail'];
+    for (const f of emailFields) {
+      if (data[f] === '' || data[f] === 'null' || data[f] === 'undefined') {
+        data[f] = '';
+      }
+    }
+
+    const numFields = ['basicDA', 'hra', 'specialAllowance', 'gratuity', 'lop', 'employeePfContribution', 'employerPfContribution', 'esi', 'tax', 'professionalTax', 'loanDeduction', 'volunteerPF', 'totalEarnings', 'totalDeductions', 'netSalary', 'ctc'];
+    for (const f of numFields) {
+      if (data[f] !== undefined) {
+        if (data[f] === '' || data[f] === null || data[f] === 'null' || data[f] === 'undefined') {
+          delete data[f];
+        } else {
+          const num = Number(data[f]);
+          if (!isNaN(num)) {
+            data[f] = num;
+          } else {
+            delete data[f];
+          }
+        }
       }
     }
 
@@ -911,29 +1017,33 @@ router.put('/:id', auth, handleUpload('profilePictureFile'), validateEmployeeUpd
       data.currentAddress = currAddrParts.join(', ');
     }
     if (Array.isArray(data.previousOrganizations)) {
-      data.previousOrganizations = data.previousOrganizations.map(org => {
-        const o = { ...org };
-        if (!o.designation && (o.position || o.role)) o.designation = o.position || o.role;
-        if (!o.position && o.role) o.position = o.role;
-        if (!o.position && o.designation) o.position = o.designation;
-        delete o.role;
-        if (o.startDate === '' || o.startDate === 'null' || o.startDate === 'undefined') delete o.startDate;
-        if (o.endDate === '' || o.endDate === 'null' || o.endDate === 'undefined') delete o.endDate;
-        return o;
-      });
+      data.previousOrganizations = data.previousOrganizations
+        .filter(org => org && (org.organization || org.designation || org.position || org.role))
+        .map(org => {
+          const o = { ...org };
+          if (!o.designation && (o.position || o.role)) o.designation = o.position || o.role;
+          if (!o.position && o.role) o.position = o.role;
+          if (!o.position && o.designation) o.position = o.designation;
+          delete o.role;
+          const sDate = parseToDate(o.startDate);
+          const eDate = parseToDate(o.endDate);
+          if (sDate) o.startDate = sDate; else delete o.startDate;
+          if (eDate) o.endDate = eDate; else delete o.endDate;
+          return o;
+        });
     }
     delete data.role;
 
     // Check if email is already in use by another user
     if (data.email && data.email !== oldEmployee.email) {
       const existingUser = await User.findOne({ email: data.email });
-      if (existingUser) {
+      if (existingUser && existingUser.employeeId && existingUser.employeeId !== oldEmployee.employeeId && existingUser.employeeId !== data.employeeId) {
         return res.status(400).json({ message: 'Email is already in use by another user' });
       }
     }
 
     const employee = await Employee.findByIdAndUpdate(
-      req.params.id,
+      oldEmployee._id,
       data,
       { new: true, runValidators: true }
     );
@@ -962,11 +1072,8 @@ router.put('/:id', auth, handleUpload('profilePictureFile'), validateEmployeeUpd
           String(req.user?.email || '').trim() ||
           'Unknown';
 
-        const effectiveDateCandidate = promotionEffectiveDateRaw ? new Date(promotionEffectiveDateRaw) : null;
-        const effectiveDate = effectiveDateCandidate && !Number.isNaN(effectiveDateCandidate.getTime())
-          ? effectiveDateCandidate
-          : new Date();
-
+        const effectiveDateCandidate = promotionEffectiveDateRaw ? parseToDate(promotionEffectiveDateRaw) : null;
+        const effectiveDate = effectiveDateCandidate || new Date();
         const promotionRemarks = String(promotionRemarksRaw || '').trim();
 
         await PromotionHistory.create({
@@ -997,21 +1104,18 @@ router.put('/:id', auth, handleUpload('profilePictureFile'), validateEmployeeUpd
     const empIdChanged = data.employeeId && data.employeeId !== oldEmployee.employeeId;
 
     if (emailChanged || empIdChanged) {
-      // Try to find user by OLD employeeId first
       let user = await User.findOne({ employeeId: oldEmployee.employeeId });
-
-      // If not found by employeeId, try by OLD email
-      if (!user) {
+      if (!user && oldEmployee.email) {
         user = await User.findOne({ email: oldEmployee.email });
       }
 
       if (user) {
-        if (emailChanged) user.email = data.email;
-        if (empIdChanged) user.employeeId = data.employeeId;
-        // Ensure link
-        if (!user.employeeId) user.employeeId = data.employeeId || oldEmployee.employeeId;
+        const updateFields = {};
+        if (emailChanged) updateFields.email = data.email;
+        if (empIdChanged) updateFields.employeeId = data.employeeId;
+        if (!user.employeeId) updateFields.employeeId = data.employeeId || oldEmployee.employeeId;
 
-        await user.save();
+        await User.findByIdAndUpdate(user._id, { $set: updateFields });
       }
     }
 
@@ -1037,7 +1141,14 @@ router.delete('/:id', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const employee = await Employee.findById(req.params.id);
+    const mongoose = require('mongoose');
+    let employee = null;
+    if (mongoose.Types.ObjectId.isValid(req.params.id)) {
+      employee = await Employee.findById(req.params.id);
+    }
+    if (!employee) {
+      employee = await Employee.findOne({ employeeId: req.params.id });
+    }
     if (!employee) {
       return res.status(404).json({ message: 'Employee not found' });
     }
@@ -1047,7 +1158,7 @@ router.delete('/:id', auth, async (req, res) => {
       await deleteCloudinaryImage(employee.profilePicturePublicId);
     }
 
-    await Employee.findByIdAndDelete(req.params.id);
+    await Employee.findByIdAndDelete(employee._id);
     res.json({ message: 'Employee deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });

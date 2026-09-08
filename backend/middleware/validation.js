@@ -24,10 +24,20 @@ const handleValidationErrors = (req, res, next) => {
 
 // Reusable Atomic Validators
 const validateEmail = (field = 'email') =>
-  body(field).optional({ checkFalsy: true }).isEmail().withMessage(`Invalid email format for ${field}`);
+  body(field).optional({ checkFalsy: true }).custom(val => {
+    if (!val || val === 'null' || val === 'undefined') return true;
+    const str = String(val).trim();
+    if (!str) return true;
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str);
+  }).withMessage(`Invalid email format for ${field}`);
 
 const validatePhone = (field = 'phone') =>
-  body(field).optional({ checkFalsy: true }).isString().isLength({ min: 7, max: 15 }).withMessage(`Invalid phone number length for ${field}`);
+  body(field).optional({ checkFalsy: true }).custom(val => {
+    if (!val || val === 'null' || val === 'undefined') return true;
+    const str = String(val).trim();
+    if (!str) return true;
+    return str.length >= 7 && str.length <= 15;
+  }).withMessage(`Invalid phone number length for ${field}`);
 
 const validateEmployeeId = (field = 'employeeId') =>
   body(field).notEmpty().withMessage(`${field} is required`).isString().withMessage(`${field} must be a string`);
@@ -36,10 +46,17 @@ const validateDate = (field = 'date') =>
   body(field).optional({ checkFalsy: true }).isISO8601().withMessage(`Invalid ISO8601 date format for ${field}`);
 
 const validateSalary = (field = 'salary') =>
-  body(field).optional({ checkFalsy: true }).isNumeric().custom(val => Number(val) >= 0).withMessage(`${field} must be a non-negative number`);
+  body(field).optional({ checkFalsy: true }).custom(val => {
+    if (val === undefined || val === null || val === '' || val === 'null' || val === 'undefined') return true;
+    const num = Number(val);
+    return !isNaN(num) && num >= 0;
+  }).withMessage(`${field} must be a non-negative number`);
 
 const validateObjectIdParam = (field = 'id') =>
-  param(field).optional().isMongoId().withMessage(`Invalid MongoDB ObjectId for param ${field}`);
+  param(field).optional().custom(val => {
+    if (!val) return true;
+    return mongoose.Types.ObjectId.isValid(val) || /^[a-zA-Z0-9\-_.\s\/]+$/.test(String(val).trim());
+  }).withMessage(`Invalid identifier for param ${field}`);
 
 const validateEnum = (field, allowedValues) =>
   body(field).optional({ checkFalsy: true }).isIn(allowedValues).withMessage(`Invalid value for ${field}. Allowed: ${allowedValues.join(', ')}`);

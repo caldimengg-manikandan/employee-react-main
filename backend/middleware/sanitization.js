@@ -142,9 +142,8 @@ function sanitizeValue(val, keyName = '') {
     // Remove dangerous inline javascript or event handlers
     cleaned = cleaned.replace(/javascript:/gi, '');
     cleaned = cleaned.replace(/\b(onerror|onload|onclick|onmouseover|onfocus|onblur)=/gi, '');
-    cleaned = cleaned.replace(/<(iframe|object|embed|link|meta)\b[^>]*>/gi, '');
-
-    return cleaned;
+    cleaned = cleaned.replace(/<\/?(iframe|object|embed|link|meta)\b[^>]*>/gi, '');
+    return cleaned.trim();
   }
 
   if (Array.isArray(val)) {
