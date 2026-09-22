@@ -766,8 +766,7 @@ router.put('/me', auth, handleUpload('profilePictureFile'), validateEmployeeUpda
     if (!isHRAdmin) {
       const allowedFields = [
         'name', 'employeename', 'mobileNo', 'contactNumber', 'phone',
-        'dateOfBirth', 'dob', 'emergencyMobileNo', 'emergencyMobile',
-        'emergencyContact', 'highestQualification', 'qualification',
+        'dateOfBirth', 'dob', 'highestQualification', 'qualification',
         'permanentAddressLine', 'permanentCity', 'permanentState', 'permanentPincode',
         'currentAddressLine', 'currentCity', 'currentState', 'currentPincode',
         'permanentAddress', 'currentAddress', 'previousOrganizations', 'avatar',

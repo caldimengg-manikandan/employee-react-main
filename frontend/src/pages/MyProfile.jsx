@@ -729,7 +729,8 @@ const MyProfile = () => {
       if (!v.includes('@')) return 'Email must include @';
     }
     if (field === 'emergencyContact') {
-      if (!/^\d{10}$/.test(v)) return 'Must be 10 digits';
+      if (v && !/^\d{10}$/.test(v)) return 'Must be 10 digits';
+      return '';
     }
     if (field === 'guardianName') {
       if (v && !/^[A-Za-z\s]+$/.test(v)) return 'Only alphabetic characters allowed';
@@ -761,7 +762,6 @@ const MyProfile = () => {
       if (!formData.bloodGroup) e.bloodGroup = 'Blood group is required';
       e.contactNumber = validateField('contactNumber', formData.contactNumber);
       e.email = validateField('email', formData.email);
-      e.emergencyContact = validateField('emergencyContact', formData.emergencyContact);
       if (!formData.permanentAddressLine) e.permanentAddressLine = 'Address line is required';
       if (!formData.permanentCity) e.permanentCity = 'City is required';
       if (!formData.permanentState) e.permanentState = 'State is required';
@@ -1246,17 +1246,15 @@ const MyProfile = () => {
 
                     <div>
                       <label className="block text-sm text-gray-700 mb-1">
-                        Emergency Contact <span className="text-red-600">*</span>
+                        Emergency Contact <span className="text-xs text-gray-500 font-normal ml-1">(Set by Admin)</span>
                       </label>
                       <input
                         type="tel"
                         value={formData.emergencyContact}
-                        onChange={(e) => handleInputChange('emergencyContact', e.target.value)}
-                        required
-                        className={`w-full px-3 py-2 border rounded-lg focus:outline-none text-sm ${errors.emergencyContact ? 'border-red-500 focus:ring-1 focus:ring-red-500 focus:border-red-500' : 'border-gray-300 focus:ring-1 focus:ring-green-500 focus:border-green-500'}`}
-                        placeholder="Emergency contact number"
+                        disabled
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none text-sm bg-gray-100 cursor-not-allowed text-gray-700"
+                        placeholder="Set by Admin in Employee Management"
                       />
-                      {errors.emergencyContact && <p className="text-xs text-red-600 mt-1">{errors.emergencyContact}</p>}
                     </div>
 
                     <div>
