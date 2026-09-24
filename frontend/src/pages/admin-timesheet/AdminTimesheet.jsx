@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { adminTimesheetAPI, employeeAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
+import XLSXStyle from 'xlsx-js-style';
 import { 
   BarChart3, 
   Clock, 
@@ -19,7 +20,9 @@ import {
   Eye,
   X,
   Loader2,
-  Building2
+  Building2,
+  FileSpreadsheet,
+  Layers
 } from 'lucide-react';
 
 const toWeekString = (d) => {
@@ -90,6 +93,28 @@ const AdminTimesheet = () => {
   const [allEmployees, setAllEmployees] = useState([]);
   const [rejectDialog, setRejectDialog] = useState({ isOpen: false, timesheetId: null, reason: '' });
   const [messageDialog, setMessageDialog] = useState({ isOpen: false, title: '', message: '', type: 'success' });
+
+  // Monthly Shift Allowance Report state
+  const [showShiftAllowanceModal, setShowShiftAllowanceModal] = useState(false);
+  const [shiftAllowanceLoading, setShiftAllowanceLoading] = useState(false);
+  const [shiftAllowanceFilters, setShiftAllowanceFilters] = useState({
+    month: String(new Date().getMonth() + 1),
+    year: String(new Date().getFullYear()),
+    employeeId: '',
+    division: 'All Division',
+    location: 'All Locations',
+    shift: 'All Shifts'
+  });
+  const [shiftAllowanceData, setShiftAllowanceData] = useState({
+    summary: {
+      totalEmployees: 0,
+      firstShift: 0,
+      secondShift: 0,
+      totalShiftRecords: 0
+    },
+    employeeCounts: [],
+    details: []
+  });
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -465,6 +490,282 @@ const AdminTimesheet = () => {
     XLSX.writeFile(workbook, `Admin_Timesheets_${timestamp}.xlsx`);
   };
 
+  const fetchMonthlyShiftAllowance = async () => {
+    try {
+      setShiftAllowanceLoading(true);
+      const params = {
+        month: shiftAllowanceFilters.month,
+        year: shiftAllowanceFilters.year,
+        employeeId: shiftAllowanceFilters.employeeId || undefined,
+        division: shiftAllowanceFilters.division !== 'All Division' ? shiftAllowanceFilters.division : undefined,
+        location: shiftAllowanceFilters.location !== 'All Locations' ? shiftAllowanceFilters.location : undefined,
+        shift: shiftAllowanceFilters.shift !== 'All Shifts' ? shiftAllowanceFilters.shift : undefined,
+      };
+      const res = await adminTimesheetAPI.getMonthlyShiftAllowance(params);
+      if (res.data?.success && res.data?.data) {
+        setShiftAllowanceData(res.data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching monthly shift allowance:", err);
+      showMessage('Error', 'Failed to load Monthly Shift Allowance data.', 'error');
+    } finally {
+      setShiftAllowanceLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showShiftAllowanceModal) {
+      fetchMonthlyShiftAllowance();
+    }
+  }, [showShiftAllowanceModal, shiftAllowanceFilters]);
+
+  const handleShiftAllowanceFilterChange = (key, value) => {
+    setShiftAllowanceFilters(prev => ({
+      ...prev,
+      [key]: value
+    }));
+  };
+
+  const handleExportShiftAllowanceExcel = () => {
+    if (!shiftAllowanceData || !shiftAllowanceData.employeeCounts || shiftAllowanceData.employeeCounts.length === 0) {
+      showMessage('Export Info', 'No shift allowance data to export for the selected filters.', 'info');
+      return;
+    }
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const monthIndex = parseInt(shiftAllowanceFilters.month, 10) - 1;
+    const monthName = monthNames[monthIndex] || "Month";
+    const monthAbbr = monthName.slice(0, 3);
+    const fileName = `Monthly_Shift_Allowance_${monthAbbr}_${shiftAllowanceFilters.year}.xlsx`;
+
+    // Create workbook with xlsx-js-style
+    const wb = XLSXStyle.utils.book_new();
+
+    // Data rows setup
+    const titleText = `MONTHLY SHIFT ALLOWANCE REPORT - ${monthName.toUpperCase()} ${shiftAllowanceFilters.year}`;
+    const filterInfo = `Division: ${shiftAllowanceFilters.division || 'All Division'}   |   Location: ${shiftAllowanceFilters.location || 'All Locations'}   |   Shift: ${shiftAllowanceFilters.shift || 'All Shifts'}`;
+
+    const wsData = [
+      [titleText],
+      [filterInfo],
+      [], // Spacer row
+      ['S.No', 'Employee ID', 'Employee Name', 'Division', 'Location', 'First Shift', 'Second Shift', 'Total Shift']
+    ];
+
+    // Append employee records
+    shiftAllowanceData.employeeCounts.forEach((emp, idx) => {
+      wsData.push([
+        idx + 1,
+        emp.employeeId || '',
+        emp.employeeName || '',
+        emp.division || '',
+        emp.location || '',
+        emp.firstShift || 0,
+        emp.secondShift || 0,
+        emp.totalShift || 0
+      ]);
+    });
+
+    // Summary Total Row at bottom
+    wsData.push([
+      'TOTAL',
+      '',
+      `Total Employees: ${shiftAllowanceData.summary?.totalEmployees || 0}`,
+      '',
+      '',
+      shiftAllowanceData.summary?.firstShift || 0,
+      shiftAllowanceData.summary?.secondShift || 0,
+      shiftAllowanceData.summary?.totalShiftRecords || 0
+    ]);
+
+    const ws = XLSXStyle.utils.aoa_to_sheet(wsData);
+
+    // Merges
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } }, // Title banner A1:H1
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }, // Subtitle filter info A2:H2
+      { s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 1 } }, // Footer TOTAL A..B
+      { s: { r: wsData.length - 1, c: 2 }, e: { r: wsData.length - 1, c: 4 } }  // Footer Employee count C..E
+    ];
+
+    // Column widths
+    ws['!cols'] = [
+      { wch: 8 },  // S.No
+      { wch: 16 }, // Employee ID
+      { wch: 28 }, // Employee Name
+      { wch: 18 }, // Division
+      { wch: 16 }, // Location
+      { wch: 16 }, // First Shift
+      { wch: 16 }, // Second Shift
+      { wch: 16 }  // Total Shift
+    ];
+
+    // Row heights
+    ws['!rows'] = [
+      { hpt: 32 }, // Row 1 Title
+      { hpt: 20 }, // Row 2 Subtitle
+      { hpt: 10 }, // Row 3 Spacing
+      { hpt: 26 }, // Row 4 Table Header
+    ];
+
+    // Borders
+    const borderThin = {
+      top: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+    };
+    const borderHeader = {
+      top: { style: 'medium', color: { rgb: '0F172A' } },
+      bottom: { style: 'medium', color: { rgb: '0F172A' } },
+      left: { style: 'thin', color: { rgb: '334155' } },
+      right: { style: 'thin', color: { rgb: '334155' } }
+    };
+    const borderFooter = {
+      top: { style: 'medium', color: { rgb: '1E293B' } },
+      bottom: { style: 'medium', color: { rgb: '1E293B' } },
+      left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+    };
+
+    const headerRowIndex = 3;
+    const lastRowIndex = wsData.length - 1;
+
+    for (let R = 0; R < wsData.length; R++) {
+      for (let C = 0; C < 8; C++) {
+        const cellRef = XLSXStyle.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
+
+        // Row 0: Title Banner
+        if (R === 0) {
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: '1E1B4B' } }, // Deep Indigo
+            font: { name: 'Calibri', sz: 14, bold: true, color: { rgb: 'FFFFFF' } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
+        }
+        // Row 1: Subtitle Filter info
+        else if (R === 1) {
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: '312E81' } }, // Indigo 800
+            font: { name: 'Calibri', sz: 10, italic: true, color: { rgb: 'E0E7FF' } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
+        }
+        // Row 3: Table Headers
+        else if (R === headerRowIndex) {
+          let headerBg = '1E293B'; // Slate 800
+          if (C === 5) headerBg = '1E40AF'; // Blue 800 for First Shift
+          else if (C === 6) headerBg = '6B21A8'; // Purple 800 for Second Shift
+          else if (C === 7) headerBg = '065F46'; // Emerald 800 for Total Shift
+
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: headerBg } },
+            font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+            border: borderHeader
+          };
+        }
+        // Footer Row
+        else if (R === lastRowIndex) {
+          let footerBg = '0F172A';
+          let fontColor = 'FFFFFF';
+          let align = 'center';
+
+          if (C === 0 || C === 1) {
+            footerBg = '0F172A';
+            align = 'center';
+          } else if (C >= 2 && C <= 4) {
+            footerBg = '1E293B';
+            fontColor = 'F8FAFC';
+            align = 'left';
+          } else if (C === 5) {
+            footerBg = 'DBEAFE'; // Light Blue
+            fontColor = '1E40AF';
+          } else if (C === 6) {
+            footerBg = 'F3E8FF'; // Light Purple
+            fontColor = '6B21A8';
+          } else if (C === 7) {
+            footerBg = 'D1FAE5'; // Light Emerald
+            fontColor = '065F46';
+          }
+
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: footerBg } },
+            font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: fontColor } },
+            alignment: { horizontal: align, vertical: 'center' },
+            border: borderFooter
+          };
+        }
+        // Data Rows
+        else if (R > headerRowIndex && R < lastRowIndex) {
+          const isEven = (R - headerRowIndex) % 2 === 0;
+          let rowBg = isEven ? 'FFFFFF' : 'F8FAFC';
+          let align = 'left';
+          let fontColor = '1E293B';
+          let isBold = false;
+
+          if (C === 0) {
+            align = 'center';
+            fontColor = '64748B';
+          } else if (C === 1) {
+            align = 'center';
+            fontColor = '4338CA'; // Indigo
+            isBold = true;
+          } else if (C === 2) {
+            align = 'left';
+            fontColor = '0F172A';
+            isBold = true;
+          } else if (C === 3 || C === 4) {
+            align = 'left';
+            fontColor = '334155';
+          } else if (C === 5) {
+            align = 'center';
+            const val = Number(ws[cellRef].v || 0);
+            if (val > 0) {
+              rowBg = 'EFF6FF'; // Soft Blue
+              fontColor = '1D4ED8';
+              isBold = true;
+            } else {
+              fontColor = '94A3B8';
+            }
+          } else if (C === 6) {
+            align = 'center';
+            const val = Number(ws[cellRef].v || 0);
+            if (val > 0) {
+              rowBg = 'FAF5FF'; // Soft Purple
+              fontColor = '7E22CE';
+              isBold = true;
+            } else {
+              fontColor = '94A3B8';
+            }
+          } else if (C === 7) {
+            align = 'center';
+            rowBg = 'ECFDF5'; // Soft Emerald
+            fontColor = '047857';
+            isBold = true;
+          }
+
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: rowBg } },
+            font: { name: 'Calibri', sz: 10.5, bold: isBold, color: { rgb: fontColor } },
+            alignment: { horizontal: align, vertical: 'center' },
+            border: borderThin
+          };
+        }
+      }
+    }
+
+    // Append ONLY the single "Shift Summary" sheet (Shift Details sheet removed)
+    XLSXStyle.utils.book_append_sheet(wb, ws, 'Shift Summary');
+
+    // Write file
+    XLSXStyle.writeFile(wb, fileName);
+  };
+
   const handleRefresh = () => {
     fetchTimesheets();
   };
@@ -618,6 +919,14 @@ const AdminTimesheet = () => {
           >
             <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
             {loading ? 'Refreshing...' : 'Refresh'}
+          </button>
+
+          <button 
+            onClick={() => setShowShiftAllowanceModal(true)}
+            className="px-4 py-2.5 bg-gradient-to-r from-indigo-600 via-indigo-700 to-violet-700 text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all shadow-md shadow-indigo-600/20 flex items-center gap-2"
+          >
+            <FileSpreadsheet size={15} />
+            Monthly Shift Allowance
           </button>
 
           <button 
@@ -983,6 +1292,37 @@ const AdminTimesheet = () => {
               </div>
             </div>
 
+            {/* Shift Information */}
+            <div className="space-y-2.5">
+              <h3 className="text-xs font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
+                <Clock size={14} className="text-indigo-600" />
+                Shift Information (Monday – Sunday)
+              </h3>
+              <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+                {shortDays.map((day, idx) => {
+                  const dayShift = (Array.isArray(selectedTimesheet.dailyShiftTypes) && selectedTimesheet.dailyShiftTypes[idx]) 
+                    || selectedTimesheet.shiftType 
+                    || '—';
+                  const isFirst = dayShift.toLowerCase().includes('first');
+                  const isSecond = dayShift.toLowerCase().includes('second');
+                  const isGeneral = dayShift.toLowerCase().includes('general');
+                  return (
+                    <div key={day} className="bg-white p-2.5 rounded-lg border border-slate-200 text-center shadow-xs flex flex-col justify-between items-center">
+                      <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">{day}</p>
+                      <span className={`inline-block mt-1.5 px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
+                        isFirst ? 'bg-blue-100 text-blue-800 border border-blue-200' :
+                        isSecond ? 'bg-purple-100 text-purple-800 border border-purple-200' :
+                        isGeneral ? 'bg-amber-100 text-amber-800 border border-amber-200' :
+                        'bg-slate-100 text-slate-500 border border-slate-200'
+                      }`}>
+                        {dayShift}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Time Entries Table */}
             <div className="space-y-3">
               <h3 className="text-xs font-bold text-indigo-950 uppercase tracking-wider">Time Entries Breakdown</h3>
@@ -1081,6 +1421,320 @@ const AdminTimesheet = () => {
                 </>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Monthly Shift Allowance Modal */}
+      {showShiftAllowanceModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-5xl w-full max-h-[92vh] overflow-y-auto p-6 space-y-6">
+            
+            {/* Modal Header */}
+            <div className="flex justify-between items-center pb-4 border-b border-slate-200">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-xl shadow-md shadow-indigo-600/20">
+                  <FileSpreadsheet size={22} />
+                </div>
+                <div>
+                  <h2 className="text-lg font-extrabold text-indigo-950 flex items-center gap-2">
+                    Monthly Shift Allowance Report
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    First & Second Shift allowance summary for approved timesheets (Source of Truth)
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowShiftAllowanceModal(false)}
+                className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Filters Section */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
+              <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs">
+                <Filter size={14} className="text-indigo-600" />
+                Allowance Filters
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                
+                {/* Month Filter */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Month</label>
+                  <select
+                    value={shiftAllowanceFilters.month}
+                    onChange={(e) => handleShiftAllowanceFilterChange('month', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    {[
+                      { v: "1", l: "January" },
+                      { v: "2", l: "February" },
+                      { v: "3", l: "March" },
+                      { v: "4", l: "April" },
+                      { v: "5", l: "May" },
+                      { v: "6", l: "June" },
+                      { v: "7", l: "July" },
+                      { v: "8", l: "August" },
+                      { v: "9", l: "September" },
+                      { v: "10", l: "October" },
+                      { v: "11", l: "November" },
+                      { v: "12", l: "December" }
+                    ].map(m => (
+                      <option key={m.v} value={m.v}>{m.l}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Year Filter */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Year</label>
+                  <select
+                    value={shiftAllowanceFilters.year}
+                    onChange={(e) => handleShiftAllowanceFilterChange('year', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    {[2024, 2025, 2026, 2027, 2028].map(y => (
+                      <option key={y} value={String(y)}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Employee Filter */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Employee</label>
+                  <select
+                    value={shiftAllowanceFilters.employeeId}
+                    onChange={(e) => handleShiftAllowanceFilterChange('employeeId', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option value="">All Employees</option>
+                    {employeeIdOptions.filter(Boolean).map(id => {
+                      const emp = allEmployees.find(e => e.employeeId === id);
+                      return (
+                        <option key={id} value={id}>
+                          {id} {emp ? `- ${emp.name}` : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+
+                {/* Division Filter */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Division</label>
+                  <select
+                    value={shiftAllowanceFilters.division}
+                    onChange={(e) => handleShiftAllowanceFilterChange('division', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option>All Division</option>
+                    <option>SDS</option>
+                    <option>TEKLA</option>
+                    <option>DAS(Software)</option>
+                    <option>Electrical</option>
+                    <option>HR/Admin</option>
+                  </select>
+                </div>
+
+                {/* Location Filter */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Location</label>
+                  <select
+                    value={shiftAllowanceFilters.location}
+                    onChange={(e) => handleShiftAllowanceFilterChange('location', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option>All Locations</option>
+                    <option>Chennai</option>
+                    <option>Hosur</option>
+                  </select>
+                </div>
+
+                {/* Shift Filter (First Shift & Second Shift ONLY) */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Shift</label>
+                  <select
+                    value={shiftAllowanceFilters.shift}
+                    onChange={(e) => handleShiftAllowanceFilterChange('shift', e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                  >
+                    <option>All Shifts</option>
+                    <option>First Shift</option>
+                    <option>Second Shift</option>
+                  </select>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Summary Cards (4 Cards: Total Employees, First Shift, Second Shift, Total Shift Records) */}
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              <div className="bg-gradient-to-br from-indigo-900 via-[#1e1b4b] to-[#262760] p-4 rounded-xl text-white shadow-md">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-200/80">Total Employees</p>
+                    <h3 className="text-2xl font-extrabold mt-0.5">{shiftAllowanceData.summary?.totalEmployees || 0}</h3>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-indigo-500/20 text-indigo-300">
+                    <Users size={20} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-blue-900 via-[#172554] to-[#1e3a8a] p-4 rounded-xl text-white shadow-md">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-200/80">First Shift</p>
+                    <h3 className="text-2xl font-extrabold mt-0.5">{shiftAllowanceData.summary?.firstShift || 0}</h3>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-blue-500/20 text-blue-300">
+                    <Clock size={20} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-900 via-[#3b0764] to-[#581c87] p-4 rounded-xl text-white shadow-md">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-purple-200/80">Second Shift</p>
+                    <h3 className="text-2xl font-extrabold mt-0.5">{shiftAllowanceData.summary?.secondShift || 0}</h3>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-purple-500/20 text-purple-300">
+                    <Clock size={20} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-emerald-900 via-[#064e3b] to-[#047857] p-4 rounded-xl text-white shadow-md">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-emerald-200/80">Total Shift Records</p>
+                    <h3 className="text-2xl font-extrabold mt-0.5">{shiftAllowanceData.summary?.totalShiftRecords || 0}</h3>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-emerald-500/20 text-emerald-300">
+                    <Layers size={20} />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Shift Allowance Table (ONLY First Shift & Second Shift) */}
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xs font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileSpreadsheet size={14} className="text-indigo-600" />
+                  Employee Shift Allowance Breakdown
+                </h3>
+                <span className="text-[11px] font-bold text-slate-500">
+                  {shiftAllowanceData.employeeCounts?.length || 0} Employees
+                </span>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-[#1e1b4b] via-[#262760] to-[#2e3078] text-white font-bold">
+                      <th className="p-3 pl-4 w-12 text-center">S.No</th>
+                      <th className="p-3">Employee ID</th>
+                      <th className="p-3">Employee Name</th>
+                      <th className="p-3">Division</th>
+                      <th className="p-3">Location</th>
+                      <th className="p-3 text-center">First Shift</th>
+                      <th className="p-3 text-center">Second Shift</th>
+                      <th className="p-3 text-center pr-4 font-extrabold">Total Shift</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {shiftAllowanceLoading ? (
+                      <tr>
+                        <td colSpan="8" className="text-center py-10 text-slate-500">
+                          <Loader2 className="animate-spin w-6 h-6 text-indigo-600 mx-auto mb-2" />
+                          Calculating shift allowance...
+                        </td>
+                      </tr>
+                    ) : (!shiftAllowanceData.employeeCounts || shiftAllowanceData.employeeCounts.length === 0) ? (
+                      <tr>
+                        <td colSpan="8" className="text-center py-10 text-slate-500 font-semibold">
+                          No approved First or Second Shift records found for the selected month and filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      shiftAllowanceData.employeeCounts.map((emp, idx) => (
+                        <tr key={emp.employeeId} className="hover:bg-indigo-50/40 transition-colors">
+                          <td className="p-3 pl-4 text-center text-slate-500">{idx + 1}</td>
+                          <td className="p-3 font-bold text-indigo-700">{emp.employeeId}</td>
+                          <td className="p-3 font-bold text-slate-900">{emp.employeeName}</td>
+                          <td className="p-3 text-slate-600">{emp.division}</td>
+                          <td className="p-3 text-slate-600">{emp.location}</td>
+                          <td className="p-3 text-center font-mono">
+                            <span className={`px-2.5 py-0.5 rounded-full font-bold ${
+                              emp.firstShift > 0 ? 'bg-blue-100 text-blue-800' : 'text-slate-400'
+                            }`}>
+                              {emp.firstShift}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center font-mono">
+                            <span className={`px-2.5 py-0.5 rounded-full font-bold ${
+                              emp.secondShift > 0 ? 'bg-purple-100 text-purple-800' : 'text-slate-400'
+                            }`}>
+                              {emp.secondShift}
+                            </span>
+                          </td>
+                          <td className="p-3 pr-4 text-center font-mono font-extrabold text-indigo-950">
+                            <span className="px-3 py-1 rounded-full bg-emerald-100 text-emerald-800 font-extrabold">
+                              {emp.totalShift}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {shiftAllowanceData.employeeCounts && shiftAllowanceData.employeeCounts.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-slate-100 font-bold border-t border-slate-200 text-slate-900">
+                        <td colSpan="5" className="p-3 text-right pr-4 font-extrabold uppercase tracking-wider text-indigo-950">
+                          Total Allowance Summary:
+                        </td>
+                        <td className="p-3 text-center font-mono text-blue-900 font-extrabold text-sm">
+                          {shiftAllowanceData.summary?.firstShift || 0}
+                        </td>
+                        <td className="p-3 text-center font-mono text-purple-900 font-extrabold text-sm">
+                          {shiftAllowanceData.summary?.secondShift || 0}
+                        </td>
+                        <td className="p-3 pr-4 text-center font-mono text-emerald-900 font-extrabold text-sm">
+                          {shiftAllowanceData.summary?.totalShiftRecords || 0}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+              <button 
+                onClick={handleExportShiftAllowanceExcel}
+                disabled={shiftAllowanceLoading || !shiftAllowanceData.employeeCounts || shiftAllowanceData.employeeCounts.length === 0}
+                className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                <Download size={15} />
+                Export Excel
+              </button>
+
+              <button 
+                onClick={() => setShowShiftAllowanceModal(false)}
+                className="px-5 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
+              >
+                Close
+              </button>
+            </div>
+
           </div>
         </div>
       )}

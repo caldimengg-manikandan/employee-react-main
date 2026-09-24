@@ -536,6 +536,8 @@ async function upsertAdminTimesheetRecord(user, sheet) {
       submittedDate,
       timeEntries,
       weeklyTotal: Number(weeklyTotal || 0),
+      shiftType: sheet.shiftType || "",
+      dailyShiftTypes: Array.isArray(sheet.dailyShiftTypes) ? sheet.dailyShiftTypes : []
     };
 
     const query = {
@@ -545,12 +547,15 @@ async function upsertAdminTimesheetRecord(user, sheet) {
 
     const existing = await AdminTimesheet.findOne(query);
     if (existing) {
+      existing.timesheetId = payload.timesheetId;
       existing.employeeName = payload.employeeName;
       existing.division = payload.division;
       existing.location = payload.location;
       existing.submittedDate = payload.submittedDate;
       existing.timeEntries = payload.timeEntries;
       existing.weeklyTotal = payload.weeklyTotal;
+      existing.shiftType = payload.shiftType;
+      existing.dailyShiftTypes = payload.dailyShiftTypes;
       existing.status = "Pending";
       await existing.save();
       console.log("✅ Updated existing admin timesheet record");

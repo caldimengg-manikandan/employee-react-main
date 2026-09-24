@@ -511,7 +511,12 @@ router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
       if (e.direction === "in") {
         // If we have a pending pair, push it
         if (currentIn && currentOut) {
-          const durationSec = (new Date(currentOut.punchTime) - new Date(currentIn.punchTime)) / 1000;
+          const durationSec = (typeof currentOut.workDurationSeconds === "number" && currentOut.workDurationSeconds > 0)
+            ? currentOut.workDurationSeconds
+            : ((typeof currentIn.workDurationSeconds === "number" && currentIn.workDurationSeconds > 0)
+              ? currentIn.workDurationSeconds
+              : Math.max(0, (new Date(currentOut.punchTime) - new Date(currentIn.punchTime)) / 1000));
+
           pairs.push({
             start: new Date(currentIn.punchTime),
             end: new Date(currentOut.punchTime),
@@ -557,7 +562,12 @@ router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
 
     // Push the last pair if exists
     if (currentIn && currentOut) {
-      const durationSec = (new Date(currentOut.punchTime) - new Date(currentIn.punchTime)) / 1000;
+      const durationSec = (typeof currentOut.workDurationSeconds === "number" && currentOut.workDurationSeconds > 0)
+        ? currentOut.workDurationSeconds
+        : ((typeof currentIn.workDurationSeconds === "number" && currentIn.workDurationSeconds > 0)
+          ? currentIn.workDurationSeconds
+          : Math.max(0, (new Date(currentOut.punchTime) - new Date(currentIn.punchTime)) / 1000));
+
       pairs.push({
         start: new Date(currentIn.punchTime),
         end: new Date(currentOut.punchTime),
@@ -566,21 +576,17 @@ router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
     }
 
     const getPairHours = (p) => {
+      if (typeof p.workDurationSeconds === "number" && p.workDurationSeconds > 0) {
+        return p.workDurationSeconds / 3600;
+      }
       if (p.start && p.end) {
         const diffMs = new Date(p.end) - new Date(p.start);
         if (diffMs > 0) {
           return diffMs / (1000 * 60 * 60);
         }
       }
-      if (typeof p.workDurationSeconds === "number" && p.workDurationSeconds > 0) {
-        return p.workDurationSeconds / 3600;
-      }
       return 0;
     };
-
-    const weeklyTotal = pairs
-      .map(getPairHours)
-      .reduce((a, b) => a + b, 0);
 
     const result = [];
     const dayCursor = new Date(startOfDay);
@@ -594,28 +600,47 @@ router.get("/my-week", auth, checkActiveEmployee, async (req, res) => {
         return k === dateKey;
       });
 
-      if (dayPairs.length > 0) {
-        const firstIn = dayPairs[0].start;
-        const lastOut = dayPairs[dayPairs.length - 1].end;
+      const dayRecords = records.filter(r => {
+        const k = new Date(r.punchTime).toISOString().split("T")[0];
+        return k === dateKey;
+      });
 
-        const sumHours = dayPairs
-          .map(getPairHours)
-          .reduce((a, b) => a + b, 0);
+      if (dayPairs.length > 0 || dayRecords.length > 0) {
+        const firstIn = dayPairs.length > 0 ? dayPairs[0].start : dayRecords[0].punchTime;
+        const lastOut = dayPairs.length > 0 ? dayPairs[dayPairs.length - 1].end : dayRecords[dayRecords.length - 1].punchTime;
 
-        const totalSecs = Math.round(sumHours * 3600);
+        // Check if there is a record with workDurationSeconds (from Hikvision sync or regularization)
+        const workDurationRec = dayRecords.find(r => typeof r.workDurationSeconds === "number" && r.workDurationSeconds > 0);
+
+        let sumHours = 0;
+        let totalSecs = 0;
+
+        if (workDurationRec && workDurationRec.workDurationSeconds > 0) {
+          totalSecs = workDurationRec.workDurationSeconds;
+          sumHours = totalSecs / 3600;
+        } else if (dayPairs.length > 0) {
+          sumHours = dayPairs
+            .map(getPairHours)
+            .reduce((a, b) => a + b, 0);
+          totalSecs = Math.round(sumHours * 3600);
+        }
 
         result.push({
           date: dateKey,
           punchIn: firstIn,
           punchOut: lastOut,
           punchTime: firstIn,
-          hours: sumHours,
+          hours: Number(sumHours.toFixed(4)),
           workDurationSeconds: totalSecs
         });
       }
 
       dayCursor.setDate(dayCursor.getDate() + 1);
     }
+
+    const weeklyTotal = result
+      .map(r => r.hours || 0)
+      .reduce((a, b) => a + b, 0);
 
     res.json({
       success: true,

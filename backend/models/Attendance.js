@@ -8,7 +8,7 @@ const attendanceSchema = new mongoose.Schema({
   deviceId: { type: String },
   correspondingInTime: { type: Date },
   workDurationSeconds: { type: Number },
-  source: { type: String, enum: ["local", "hikvision", "manual"], default: "local" },
+  source: { type: String, default: "local" },
 });
 
 module.exports = mongoose.model("Attendance", attendanceSchema);

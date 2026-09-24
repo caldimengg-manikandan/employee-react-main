@@ -232,6 +232,9 @@ app.post("/api/hikvision/attendance", async (req, res) => {
 
           if (!personInfo.personCode) continue;
 
+          const personName = personInfo.givenName || personInfo.name || personInfo.personName || "Unknown";
+          const durationSec = Number(item.allDurationTime) || Number(item.normalInfo?.durationTime) || 0;
+
           // 1. Process Check-IN
           if (attendanceInfo.beginTime) {
             const checkInTime = new Date(attendanceInfo.beginTime);
@@ -242,10 +245,11 @@ app.post("/api/hikvision/attendance", async (req, res) => {
               },
               {
                 $set: {
-                  name: personInfo.name || "Unknown",
+                  name: personName,
                   direction: "in",
-                  source: "hikvision_sync",
-                  correspondingInTime: null
+                  source: "hikvision",
+                  correspondingInTime: null,
+                  workDurationSeconds: durationSec > 0 ? durationSec : undefined
                 }
               },
               { upsert: true, new: true }
@@ -263,11 +267,11 @@ app.post("/api/hikvision/attendance", async (req, res) => {
               },
               {
                 $set: {
-                  name: personInfo.name || "Unknown",
+                  name: personName,
                   direction: "out",
-                  source: "hikvision_sync",
+                  source: "hikvision",
                   correspondingInTime: null,
-                  workDurationSeconds: item.allDurationTime
+                  workDurationSeconds: durationSec > 0 ? durationSec : undefined
                 }
               },
               { upsert: true, new: true }

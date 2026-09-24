@@ -737,6 +737,200 @@ router.get("/summary", auth, async (req, res) => {
   }
 });
 
+/**
+ * MONTHLY SHIFT ALLOWANCE REPORT
+ * /api/admin-timesheet/monthly-shift-allowance
+ */
+router.get("/monthly-shift-allowance", auth, async (req, res) => {
+  try {
+    const role = String(req.user?.role || "").toLowerCase();
+    const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager", "teamlead", "reporting_manager"];
+    const hasAccess = allowedRoles.includes(role) || (req.user?.permissions || []).includes("admin_timesheet_access");
+    if (!hasAccess) {
+      return res.status(403).json({ success: false, message: "Access denied" });
+    }
+
+    const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
+    const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead" || role === "reporting_manager";
+    const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
+
+    const monthNum = parseInt(req.query.month || (new Date().getMonth() + 1), 10);
+    const yearNum = parseInt(req.query.year || new Date().getFullYear(), 10);
+    const { employeeId, division, location, shift, status: reqStatus } = req.query;
+
+    const divisionFilter = division && division !== "All Division" ? division : "";
+    const locationFilter = location && location !== "All Locations" ? location : "";
+    const shiftFilter = shift && shift !== "All Shifts" ? shift : "";
+    const targetStatus = reqStatus || "Approved";
+
+    // Target month boundaries (UTC)
+    const monthStart = new Date(Date.UTC(yearNum, monthNum - 1, 1, 0, 0, 0, 0));
+    const monthEnd = new Date(Date.UTC(yearNum, monthNum, 0, 23, 59, 59, 999));
+
+    // Find all Timesheets that overlap with this month and match status
+    const timesheetQuery = {
+      status: targetStatus,
+      weekStartDate: { $lte: monthEnd },
+      weekEndDate: { $gte: monthStart }
+    };
+
+    const sheets = await Timesheet.find(timesheetQuery).lean();
+
+    // Collect userIds & employeeIds to preload employee details
+    const userIds = [...new Set(sheets.map(s => s.userId).filter(Boolean))];
+    const users = await User.find({ _id: { $in: userIds } }).select("_id employeeId name email").lean();
+    const userMap = users.reduce((acc, u) => { acc[u._id.toString()] = u; return acc; }, {});
+
+    const employeeIdsToFind = [
+      ...new Set([
+        ...users.map(u => u.employeeId).filter(Boolean),
+        ...sheets.map(s => s.employeeId).filter(Boolean)
+      ])
+    ];
+
+    const employees = await Employee.find({
+      $or: [
+        { employeeId: { $in: employeeIdsToFind } },
+        { status: "Active" }
+      ]
+    }).select("employeeId name division location status").lean();
+
+    const empMap = employees.reduce((acc, emp) => {
+      if (emp.employeeId) acc[emp.employeeId] = emp;
+      return acc;
+    }, {});
+
+    // Role-based filtering constraints
+    let allowedEmployeeIds = null;
+    if (!isAdmin) {
+      if (isPM) {
+        allowedEmployeeIds = new Set(myAssignedMemberIds);
+      } else if (allAssignedMemberIds.length > 0) {
+        // Exclude assigned members
+        const allEmpIds = employees.map(e => e.employeeId);
+        allowedEmployeeIds = new Set(allEmpIds.filter(id => !allAssignedMemberIds.includes(id)));
+      }
+    }
+
+    const employeeAggregation = {};
+    const shiftDetails = [];
+    const processedTimesheetKeys = new Set();
+
+    for (const sheet of sheets) {
+      const user = userMap[sheet.userId?.toString()];
+      const empId = sheet.employeeId || user?.employeeId || "";
+      if (!empId) continue;
+
+      if (allowedEmployeeIds && !allowedEmployeeIds.has(empId)) continue;
+      if (employeeId && empId !== employeeId) continue;
+
+      const emp = empMap[empId];
+      const empName = emp?.name || sheet.employeeName || user?.name || empId;
+      const empDivision = emp?.division || "Not Assigned";
+      const empLocation = emp?.location || "Not Assigned";
+
+      if (divisionFilter && empDivision !== divisionFilter) continue;
+      if (locationFilter && empLocation !== locationFilter) continue;
+
+      // Deduplication by sheet ID or (empId + weekStartDate)
+      const weekStartISO = new Date(sheet.weekStartDate).toISOString().slice(0, 10);
+      const dedupeKey = `${empId}_${weekStartISO}`;
+      if (processedTimesheetKeys.has(dedupeKey)) continue;
+      processedTimesheetKeys.add(dedupeKey);
+
+      if (!employeeAggregation[empId]) {
+        employeeAggregation[empId] = {
+          employeeId: empId,
+          employeeName: empName,
+          division: empDivision,
+          location: empLocation,
+          firstShift: 0,
+          secondShift: 0,
+          totalShift: 0
+        };
+      }
+
+      const dailyShifts = Array.isArray(sheet.dailyShiftTypes) ? sheet.dailyShiftTypes : [];
+      const baseStart = new Date(sheet.weekStartDate);
+
+      for (let dayIdx = 0; dayIdx < 7; dayIdx++) {
+        const dayDate = new Date(Date.UTC(
+          baseStart.getUTCFullYear(),
+          baseStart.getUTCMonth(),
+          baseStart.getUTCDate() + dayIdx
+        ));
+
+        // Check if this day is within the selected month and year
+        if (dayDate.getUTCFullYear() === yearNum && (dayDate.getUTCMonth() + 1) === monthNum) {
+          const rawShift = (dailyShifts[dayIdx] || sheet.shiftType || "").trim();
+          if (!rawShift) continue;
+
+          let normalized = "";
+          if (rawShift.toLowerCase().includes("first")) normalized = "First Shift";
+          else if (rawShift.toLowerCase().includes("second")) normalized = "Second Shift";
+          else {
+            // General Shift or any other shift is ignored completely for Shift Allowance
+            continue;
+          }
+
+          // Apply shift filter if active (First Shift or Second Shift)
+          if (shiftFilter && normalized !== shiftFilter) continue;
+
+          if (normalized === "First Shift") {
+            employeeAggregation[empId].firstShift++;
+            employeeAggregation[empId].totalShift++;
+          } else if (normalized === "Second Shift") {
+            employeeAggregation[empId].secondShift++;
+            employeeAggregation[empId].totalShift++;
+          }
+
+          shiftDetails.push({
+            date: dayDate.toISOString().slice(0, 10),
+            employeeId: empId,
+            employeeName: empName,
+            division: empDivision,
+            location: empLocation,
+            shift: normalized,
+            status: sheet.status
+          });
+        }
+      }
+    }
+
+    // Convert employeeAggregation to list and filter only employees with totalShift > 0 (First Shift or Second Shift)
+    const employeeList = Object.values(employeeAggregation)
+      .filter(emp => emp.totalShift > 0)
+      .sort((a, b) => a.employeeId.localeCompare(b.employeeId));
+
+    const totalFirstShift = employeeList.reduce((sum, e) => sum + e.firstShift, 0);
+    const totalSecondShift = employeeList.reduce((sum, e) => sum + e.secondShift, 0);
+    const totalShiftRecords = totalFirstShift + totalSecondShift;
+
+    const summary = {
+      totalEmployees: employeeList.length,
+      firstShift: totalFirstShift,
+      secondShift: totalSecondShift,
+      totalShiftRecords: totalShiftRecords
+    };
+
+    // Sort shiftDetails by date ascending, then employeeId
+    shiftDetails.sort((a, b) => a.date.localeCompare(b.date) || a.employeeId.localeCompare(b.employeeId));
+
+    res.json({
+      success: true,
+      data: {
+        summary,
+        employeeCounts: employeeList,
+        details: shiftDetails
+      }
+    });
+
+  } catch (err) {
+    console.error("Monthly shift allowance error:", err);
+    res.status(500).json({ success: false, message: "Failed to generate monthly shift allowance report" });
+  }
+});
+
 module.exports = router;
 
 /**

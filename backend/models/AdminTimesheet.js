@@ -37,9 +37,10 @@ const AdminTimesheetSchema = new mongoose.Schema({
 
   timeEntries: [TimeEntrySchema],
 
-  weeklyTotal: { type: Number, required: true },
-
   rejectionReason: { type: String, default: "" },
+
+  shiftType: { type: String, default: "" },
+  dailyShiftTypes: { type: [String], default: [] },
 
   // Track who reviewed
   reviewedBy: { 

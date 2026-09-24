@@ -228,11 +228,11 @@ const Timesheet = () => {
         // --- Process Attendance Data ---
         const computeRecordDurationHours = (record) => {
           if (!record) return 0;
-          if (typeof record.hours === "number" && record.hours > 0) {
-            return record.hours;
-          }
           if (typeof record.workDurationSeconds === "number" && record.workDurationSeconds > 0) {
             return record.workDurationSeconds / 3600;
+          }
+          if (typeof record.hours === "number" && record.hours > 0) {
+            return record.hours;
           }
           if (record.punchIn && record.punchOut) {
             const inDt = new Date(record.punchIn);
@@ -660,7 +660,7 @@ const Timesheet = () => {
   };
 
   const computeRecordDurationHours = (record) => {
-    const candidate = record.workDuration ?? record.workDurationSeconds ?? record.workDurationMs ?? record.workDurationMillis ?? record.duration ?? record.hours;
+    const candidate = record.workDurationSeconds ?? record.workDuration ?? record.workDurationMs ?? record.workDurationMillis ?? record.hours ?? record.duration;
     const direct = parseDurationHours(candidate);
     if (direct && direct > 0) return direct;
     if (Array.isArray(record.intervals)) return sumIntervalsToHours(record.intervals);
