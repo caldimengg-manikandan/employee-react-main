@@ -13,13 +13,14 @@ import {
   Mail,
   Paperclip,
   ChevronDown,
-  Calculator,
-  FileText
+  FileText,
+  Calculator
 } from "lucide-react";
 import { employeeAPI, compensationAPI, mailAPI } from "../../services/api";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { getAbsoluteSignatureUrl } from '../../utils/signatureUtils';
+import caldimLetterheadImg from '../../assets/caldim_letterhead.png';
 
 
 // Salary Calculation Functions
@@ -149,67 +150,6 @@ const initialCompensation = {
 
 
 
-
-const LetterHeader = () => (
-  <div className="w-full h-32 relative overflow-hidden flex bg-white" style={{ width: '100%', height: '128px', position: 'relative', overflow: 'hidden', display: 'flex' }}>
-    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }}>
-      <svg width="100%" height="100%" viewBox="0 0 794 128" preserveAspectRatio="none" style={{ width: '100%', height: '100%', display: 'block' }}>
-        <path d="M0,0 L526,0 L456,128 L0,128 Z" fill="#1e2b58" />
-        <path d="M526,0 L556,0 L486,128 L456,128 Z" fill="#f37021" />
-      </svg>
-    </div>
-    <div className="relative z-10 w-full h-full" style={{ position: 'relative', zIndex: 10, width: '100%', height: '100%' }}>
-      {/* Left: Logo and Title */}
-      <div style={{ position: 'absolute', left: '24px', top: '12px', display: 'flex', alignItems: 'center', gap: '16px' }}>
-        <img src="/images/steel-logo.png" alt="CALDIM" className="h-16 w-auto brightness-0 invert" crossOrigin="anonymous" style={{ height: '64px', width: 'auto', display: 'block' }} />
-        <div className="font-bitsumishi" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', color: 'white' }}>
-          <h1 className="text-white font-bold text-6xl tracking-[0.05em]" style={{ margin: 0, padding: 0, textAlign: 'left', lineHeight: 1, position: 'relative', top: '-8px' }}>CALDIM</h1>
-          <p className="text-[15px] font-bold tracking-[0.18em] text-[#ff8c00] uppercase" style={{ margin: 0, padding: 0, marginTop: '2px', textAlign: 'left', whiteSpace: 'nowrap' }}>ENGINEERING PRIVATE LIMITED</p>
-        </div>
-      </div>
-
-      {/* Right: Contact Info */}
-      <div style={{ position: 'absolute', right: '16px', top: '12px', display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-        <div className="flex items-center mb-2" style={{ display: 'flex', alignItems: 'center', marginBottom: '8px' }}>
-          <span className="font-bold text-gray-800 mr-3 text-lg" style={{ fontWeight: 'bold', marginRight: '12px', fontSize: '18px' }}>044-47860455</span>
-          <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justify: 'center' }}>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" />
-            </svg>
-          </div>
-        </div>
-        <div className="flex items-start justify-end text-right" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', textAlign: 'right' }}>
-          <span className="text-sm font-semibold text-gray-700 leading-tight" style={{ fontSize: '14px', fontWeight: 600, lineHeight: 1.25, whiteSpace: 'nowrap' }}>
-            No.118, Minimac Center,<br />
-            Arcot Road, Valasaravakkam,<br />
-            Chennai - 600 087.
-          </span>
-          <div className="bg-[#1e2b58] rounded-full p-1.5 text-white w-7 h-7 flex items-center justify-center text-xs ml-3 mt-1 shadow-md" style={{ backgroundColor: '#1e2b58', borderRadius: '9999px', padding: '6px', color: 'white', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justify: 'center', marginLeft: '12px', marginTop: '4px', flexShrink: 0 }}>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4" style={{ width: '16px', height: '16px' }}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
-            </svg>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
-
-const LetterFooter = () => (
-  <div className="w-full flex items-end mt-auto relative h-20" style={{ width: '100%', display: 'flex', alignItems: 'flex-end', marginTop: 'auto', position: 'relative', height: '80px' }}>
-    <div className="bg-[#f37021] flex-1 mb-0 h-8" style={{ backgroundColor: '#f37021', flex: 1, marginBottom: 0, height: '32px' }}></div>
-    <div className="bg-[#1e2b58] text-white flex flex-col items-end justify-center relative min-w-[400px] h-16 px-10" style={{ backgroundColor: '#1e2b58', color: 'white', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', justifyContent: 'center', position: 'relative', minWidth: '400px', height: '64px', paddingLeft: '40px', paddingRight: '40px' }}>
-      <div 
-        className="absolute inset-y-0 left-0 w-16 bg-[#1e2b58]" 
-        style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: '64px', backgroundColor: '#1e2b58', transform: 'skewX(-25deg) translateX(-50%)', transformOrigin: 'top' }}
-      ></div>
-      <div className="text-[13px] font-bold tracking-wide relative z-10" style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.025em', position: 'relative', zIndex: 10 }}>Website : www.caldimengg.com</div>
-      <div className="text-[13px] font-bold tracking-wide mt-1 relative z-10" style={{ fontSize: '13px', fontWeight: 'bold', letterSpacing: '0.025em', marginTop: '4px', position: 'relative', zIndex: 10 }}>CIN U74999TN2016PTC110683</div>
-    </div>
-  </div>
-);
 
 const CompensationMaster = () => {
   const [compensation, setCompensation] = useState([]);
@@ -574,11 +514,11 @@ We’re excited to have you join our team and look forward to your growth and su
               </thead>
               <tbody>
                 <tr>
-                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Basic + DA</td>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Basic Salary+DA</td>
                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(basicDA)}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 12px; border: 1px solid #e5e7eb;">HRA</td>
+                  <td style="padding: 12px; border: 1px solid #e5e7eb;">House Rent Allowance</td>
                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(hra)}</td>
                 </tr>
                 <tr>
@@ -586,11 +526,8 @@ We’re excited to have you join our team and look forward to your growth and su
                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(specialAllowance)}</td>
                 </tr>
                 <tr style="background-color: #f9fafb;">
-                   <td style="padding: 12px; border: 1px solid #e5e7eb;"><strong>Gross Earnings</strong></td>
+                   <td style="padding: 12px; border: 1px solid #e5e7eb;"><strong>Gross Salary</strong></td>
                    <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;"><strong>${formatCurrency(totalEarnings)}</strong></td>
-                </tr>
-                <tr>
-                   <td style="padding: 12px; border: 1px solid #e5e7eb; background-color: #f3f4f6;" colspan="2"><strong>Deductions</strong></td>
                 </tr>
                 <tr>
                   <td style="padding: 12px; border: 1px solid #e5e7eb;">Employee PF Contribution</td>
@@ -600,29 +537,17 @@ We’re excited to have you join our team and look forward to your growth and su
                   <td style="padding: 12px; border: 1px solid #e5e7eb;">Employer PF Contribution</td>
                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(employerPF)}</td>
                 </tr>
-                <tr>
-                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Income Tax</td>
-                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(tax)}</td>
-                </tr>
-                <tr>
-                  <td style="padding: 12px; border: 1px solid #e5e7eb;">Professional Tax</td>
-                  <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(professionalTax)}</td>
-                </tr>
-                <tr>
-                   <td style="padding: 12px; border: 1px solid #e5e7eb;"><strong>Total Deductions</strong></td>
-                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;"><strong>${formatCurrency(totalDeductions)}</strong></td>
-                </tr>
-                <tr style="background-color: #eef2ff;">
-                   <td style="padding: 12px; border: 1px solid #e5e7eb; color: #312e81;"><strong>Net Salary</strong></td>
-                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb; color: #312e81;"><strong>${formatCurrency(netSalary)}</strong></td>
+                <tr style="background-color: #f9fafb;">
+                   <td style="padding: 12px; border: 1px solid #e5e7eb;"><strong>Net Salary</strong></td>
+                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;"><strong>${formatCurrency(netSalary)}</strong></td>
                 </tr>
                 <tr>
                    <td style="padding: 12px; border: 1px solid #e5e7eb;">Gratuity (Part of CTC)</td>
                    <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(gratuity)}</td>
                 </tr>
-                <tr>
-                   <td style="padding: 12px; border: 1px solid #e5e7eb;">CTC (Monthly)</td>
-                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb;">${formatCurrency(ctc)}</td>
+                <tr style="background-color: #eef2ff;">
+                   <td style="padding: 12px; border: 1px solid #e5e7eb; color: #312e81;"><strong>Total CTC</strong></td>
+                   <td style="padding: 12px; text-align: right; border: 1px solid #e5e7eb; color: #312e81;"><strong>${formatCurrency(ctc)}</strong></td>
                 </tr>
               </tbody>
             </table>
@@ -636,46 +561,47 @@ We’re excited to have you join our team and look forward to your growth and su
     `;
   };
 
+  const generateOfferLetterPDFDoc = async () => {
+    // Small delay to ensure DOM is ready with updated data
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    const pages = ['offer-letter-p1', 'offer-letter-p2', 'offer-letter-p3', 'offer-letter-p4'];
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    let pageAdded = false;
+
+    for (let i = 0; i < pages.length; i++) {
+      const element = document.getElementById(pages[i]);
+      if (!element) continue;
+
+      if (pageAdded) pdf.addPage();
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+        backgroundColor: '#ffffff',
+        scrollY: -window.scrollY,
+        scrollX: -window.scrollX,
+      });
+
+      const imgData = canvas.toDataURL('image/jpeg', 0.90);
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      pageAdded = true;
+    }
+
+    return pdf;
+  };
+
   const handlePreviewLetter = async () => {
     try {
       setGeneratingPDF(true);
-      console.log("Generating preview for:", selectedCompensation?.name);
-      
-      // Wait a bit for DOM to settle
-      await new Promise(resolve => setTimeout(resolve, 300));
-      
-      const pages = ['offer-letter-p1', 'offer-letter-p2', 'offer-letter-p3', 'offer-letter-p4'];
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      let pageAdded = false;
-
-      for (let i = 0; i < pages.length; i++) {
-        const element = document.getElementById(pages[i]);
-        if (!element) continue;
-
-        if (pageAdded) pdf.addPage();
-
-        const canvas = await html2canvas(element, {
-          scale: 1.5,
-          useCORS: true,
-          logging: false, // Disabled for performance
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          scrollY: -window.scrollY,
-          scrollX: -window.scrollX,
-        });
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.85); // Slightly lower quality for speed
-        const imgWidth = 210;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        const finalHeight = Math.min(imgHeight, 297);
-
-        pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, finalHeight);
-        pageAdded = true;
-      }
-      
+      const pdf = await generateOfferLetterPDFDoc();
       const pdfBlob = pdf.output('bloburl');
       window.open(pdfBlob, '_blank');
-      
     } catch (error) {
       console.error("Error generating preview", error);
       showMessage('Error', "Failed to generate preview", 'error');
@@ -684,60 +610,44 @@ We’re excited to have you join our team and look forward to your growth and su
     }
   };
 
+  const handleDownloadPDF = async (comp = null) => {
+    const targetComp = comp || selectedCompensation;
+    if (!targetComp) return;
+    try {
+      setGeneratingPDF(true);
+      if (comp) {
+        const emp = employees.find(e => e.employeeId === comp.employeeId);
+        setSelectedCompensation({
+          ...comp,
+          dateOfJoining: emp?.dateOfJoining,
+          location: emp?.location || comp.location,
+          designation: emp?.designation || comp.designation
+        });
+      }
+      const pdf = await generateOfferLetterPDFDoc();
+      const safeName = (targetComp.name || 'Employee').replace(/\s+/g, '_');
+      pdf.save(`Offer_Letter_${safeName}.pdf`);
+      showMessage('Success', "Offer Letter PDF downloaded successfully!");
+    } catch (error) {
+      console.error("Error downloading PDF", error);
+      showMessage('Error', "Failed to download PDF", 'error');
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
   const attachCompensationLetter = async (silent = false) => {
     try {
-      // Small delay to ensure DOM is ready with new data
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      const pages = ['offer-letter-p1', 'offer-letter-p2', 'offer-letter-p3', 'offer-letter-p4'];
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    let pageAdded = false;
-
-    for (let i = 0; i < pages.length; i++) {
-      const element = document.getElementById(pages[i]);
-      if (!element) {
-        console.warn(`Element ${pages[i]} not found during attachment`);
-        continue;
-      }
-
-      if (pageAdded) {
-        pdf.addPage();
-      }
-
-      const canvas = await html2canvas(element, {
-        scale: 1.5,
-        useCORS: true,
-        logging: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-        scrollY: -window.scrollY,
-        scrollX: -window.scrollX,
-      });
-
-      const imgData = canvas.toDataURL('image/jpeg', 0.9);
-      const imgWidth = 210;
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-      // Cap height to A4
-      const finalHeight = Math.min(imgHeight, 297);
-
-      pdf.addImage(imgData, 'JPEG', 0, 0, imgWidth, finalHeight);
-      pageAdded = true;
-    }
-      
-      // Get base64 without prefix
+      const pdf = await generateOfferLetterPDFDoc();
       const pdfBase64 = pdf.output('datauristring').split(',')[1];
-      
-      console.log("PDF Generated. Size:", pdfBase64.length);
-
+      const safeName = (selectedCompensation?.name || 'Employee').replace(/\s+/g, '_');
       const newAttachment = {
-        filename: `Offer_Letter_${selectedCompensation.name.replace(/\s+/g, '_')}.pdf`,
+        filename: `Offer_Letter_${safeName}.pdf`,
         content: pdfBase64,
         encoding: 'base64'
       };
-      
+
       setEmailData(prev => {
-        // Remove any existing auto-generated compensation letters to prevent duplicates
         const filteredAttachments = prev.attachments.filter(
           att => !att.filename.startsWith('Compensation_Letter_') && !att.filename.startsWith('Offer_Letter_')
         );
@@ -746,9 +656,8 @@ We’re excited to have you join our team and look forward to your growth and su
           attachments: [...filteredAttachments, newAttachment]
         };
       });
-      
+
       if (!silent) showMessage('Success', "Offer Letter attached successfully!");
-      
     } catch (error) {
       console.error("Error generating PDF", error);
       if (!silent) showMessage('Error', "Failed to generate PDF", 'error');
@@ -1098,6 +1007,14 @@ We’re excited to have you join our team and look forward to your growth and su
                         title="View"
                       >
                         <Eye className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDownloadPDF(t)}
+                        className="p-2 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white transition-all shadow-sm"
+                        title="Download Offer Letter PDF"
+                        disabled={generatingPDF}
+                      >
+                        <Download className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleEdit(compensation.indexOf(t))}
@@ -1848,6 +1765,7 @@ We’re excited to have you join our team and look forward to your growth and su
               <div className="flex justify-end gap-3 pt-2 border-t mt-4">
                 
                 <button
+                  type="button"
                   onClick={handlePreviewLetter}
                   className={`px-4 py-2 border border-blue-600 text-blue-600 rounded hover:bg-blue-50 flex items-center gap-2 transition-all ${generatingPDF ? 'opacity-70 cursor-not-allowed' : ''}`}
                   disabled={sendingEmail || generatingPDF}
@@ -1864,8 +1782,19 @@ We’re excited to have you join our team and look forward to your growth and su
                     </>
                   )}
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadPDF()}
+                  className="px-4 py-2 border border-indigo-600 text-indigo-600 rounded hover:bg-indigo-50 flex items-center gap-2 transition-all disabled:opacity-70"
+                  disabled={sendingEmail || generatingPDF}
+                >
+                  <Download size={16} />
+                  Download PDF
+                </button>
                
                 <button
+                  type="button"
                   onClick={() => setEmailModalOpen(false)}
                   className="px-4 py-2 border rounded hover:bg-gray-50"
                   disabled={sendingEmail}
@@ -1873,6 +1802,7 @@ We’re excited to have you join our team and look forward to your growth and su
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleSendEmail}
                   className="px-4 py-2 bg-[#262760] text-white rounded hover:bg-[#1e2050] flex items-center gap-2 disabled:opacity-70"
                   disabled={sendingEmail}
@@ -1892,346 +1822,378 @@ We’re excited to have you join our team and look forward to your growth and su
         </div>
       )}
       
-      {/* Hidden PDF Template */}
+      {/* Hidden PDF Template using Official Caldim Letterhead */}
       <div style={{ position: 'absolute', left: '-9999px', top: 0 }}>
-        {/* Page 1: Offer Letter */}
-        <div id="offer-letter-p1" className="bg-white relative mx-auto shadow-lg" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          
-          {/* Header */}
-            <LetterHeader />
+        {/* Page 1: Offer Letter & Compensation Structure */}
+        <div 
+          id="offer-letter-p1" 
+          className="bg-white relative mx-auto shadow-lg" 
+          style={{ 
+            width: '794px', 
+            minHeight: '1123px',
+            height: '1123px', 
+            backgroundColor: '#ffffff', 
+            fontFamily: "'Trebuchet MS', 'Arial', sans-serif", 
+            color: '#1f2937', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'space-between',
+            overflow: 'hidden',
+            backgroundImage: `url(${caldimLetterheadImg})`,
+            backgroundSize: '100% 100%',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            boxSizing: 'border-box',
+            padding: 0
+          }}
+        >
+          {/* Top Spacing to clear Caldim Letterhead Header (165px) */}
+          <div style={{ height: '165px', width: '100%', flexShrink: 0 }} />
 
-          {/* Letter Pad Content Container */}
-          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
+          {/* Letter Body Content */}
+          <div style={{ paddingLeft: '52px', paddingRight: '52px', paddingTop: '6px', paddingBottom: '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '20px', color: '#1b2752', marginBottom: '14px', textDecoration: 'underline', letterSpacing: '1px', textTransform: 'uppercase' }}>
+              OFFER LETTER
+            </div>
             
-            {/* Main Content Area */}
-            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-              
-              <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '28px', marginBottom: '20px', textDecoration: 'underline', fontFamily: '"Times New Roman", Times, serif', letterSpacing: '1px' }}>OFFER LETTER</div>
-              
-              <div style={{ textAlign: 'right', marginBottom: '15px', fontSize: '12pt', color: '#374151' }}>
-                 Date: {new Date().toLocaleDateString('en-GB')}
-              </div>
-
-              <div style={{ marginBottom: '15px', fontSize: '12pt', color: '#1f2937' }}>
-                 <strong>To,</strong><br />
-                 <strong>{selectedCompensation?.name}</strong><br />
-              </div>
-
-              <div style={{ marginBottom: '15px', fontSize: '12pt', fontWeight: 'bold', color: '#1f2937' }}>
-                 Subject: Offer of Employment at Caldim Engineering Pvt. Ltd.
-              </div>
-
-              <div style={{ marginBottom: '15px', fontSize: '12pt', lineHeight: '1.6', color: '#374151', textAlign: 'justify' }}>
-                 Dear {selectedCompensation?.name},<br /><br />
-                 We are pleased to offer you employment with Caldim Engineering Private Limited for the position of <strong>{selectedCompensation?.designation}</strong>, effective from <strong>{formatDate(selectedCompensation?.effectiveDate || selectedCompensation?.dateOfJoining)}</strong>.
-                 <br/><br/>
-                 Your appointment will be governed by the terms and conditions outlined below and further detailed in the Annexure – Terms & Conditions of Employment.
-              </div>
-
-              <div style={{ marginBottom: '10px', fontWeight: 'bold', fontSize: '12pt' }}>1. Compensation Structure</div>
-              <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '15px', fontSize: '11pt', border: '1px solid #e5e7eb' }}>
-                 <thead>
-                    <tr style={{ backgroundColor: '#f3f4f6' }}>
-                       <th style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'left', color: '#1f2937' }}>Component</th>
-                       <th style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right', color: '#1f2937' }}>Monthly (₹)</th>
-                    </tr>
-                 </thead>
-                 <tbody>
-                     <tr>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Basic Salary</td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.basicDA || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                     </tr>
-                     <tr>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>HRA</td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.hra || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                     </tr>
-                     <tr>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Special Allowance</td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(selectedCompensation?.specialAllowance || 0).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                     </tr>
-                     <tr style={{backgroundColor: '#f9fafb'}}>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}><strong>Net Salary (Take Home)</strong></td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}><strong>{Number(calcNetSalary).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
-                     </tr>
-                     <tr>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Employee PF Contribution</td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcEmployeePF).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                     </tr>
-                     {calcESI > 0 && (
-                      <tr>
-                         <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>ESI Contribution</td>
-                         <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcESI).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                      </tr>
-                     )}
-                     {calcTax > 0 && (
-                      <tr>
-                         <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Income Tax</td>
-                         <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcTax).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                      </tr>
-                     )}
-                     {calcProfessionalTax > 0 && (
-                      <tr>
-                         <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Professional Tax</td>
-                         <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcProfessionalTax).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                      </tr>
-                     )}
-                     <tr style={{backgroundColor: '#f9fafb'}}>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}><strong>Total Earnings (Gross)</strong></td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}><strong>{Number(calcTotalEarnings).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
-                     </tr>
-                     <tr>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Employer PF Contribution</td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcEmployerPF).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                     </tr>
-                     <tr>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px' }}>Gratuity (Part of CTC)</td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right' }}>{Number(calcGratuity).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</td>
-                     </tr>
-                     <tr style={{ backgroundColor: '#eef2ff' }}>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', color: '#312e81' }}><strong>Total CTC (Cost to Company)</strong></td>
-                        <td style={{ border: '1px solid #d1d5db', padding: '6px', textAlign: 'right', color: '#312e81' }}><strong>{Number(calcCTC).toLocaleString('en-IN', {style:'currency', currency:'INR'})}</strong></td>
-                     </tr>
-                 </tbody>
-              </table>
-              
-              <div style={{ fontSize: '11pt', fontStyle: 'italic', marginBottom: '10px' }}>
-                  Note: Statutory deductions such as PF and Professional Tax (if applicable) will be made as per prevailing laws.
-              </div>
-
-               <div style={{ marginTop: 'auto', fontSize: '11pt', fontStyle: 'italic', textAlign: 'right' }}>
-                  (Continued in next page...)
-              </div>
-
+            <div style={{ textAlign: 'right', marginBottom: '12px', fontSize: '11.5pt', color: '#374151' }}>
+              Date: <strong style={{ color: '#111827' }}>{new Date().toLocaleDateString('en-GB')}</strong>
             </div>
 
-            {/* Footer */}
-            <LetterFooter />
+            <div style={{ marginBottom: '12px', fontSize: '11.5pt', color: '#1f2937' }}>
+              <strong>To,</strong><br />
+              <strong style={{ fontSize: '12.5pt' }}>{selectedCompensation?.name}</strong>
+            </div>
 
+            <div style={{ marginBottom: '12px', fontSize: '11.5pt', fontWeight: 'bold', color: '#111827' }}>
+              Subject: Offer of Employment at Caldim Engineering Pvt. Ltd.
+            </div>
+
+            <div style={{ marginBottom: '14px', fontSize: '11pt', lineHeight: '1.55', color: '#374151', textAlign: 'justify' }}>
+              Dear <strong>{selectedCompensation?.name}</strong>,<br /><br />
+              We are pleased to offer you employment with Caldim Engineering Private Limited for the position of <strong>{selectedCompensation?.designation}</strong>, effective from <strong>{formatDate(selectedCompensation?.effectiveDate || selectedCompensation?.dateOfJoining)}</strong>.
+              <br/><br/>
+              Your appointment will be governed by the terms and conditions outlined below and further detailed in the Annexure – Terms & Conditions of Employment.
+            </div>
+
+            <div style={{ marginBottom: '6px', fontWeight: 'bold', fontSize: '11.5pt', color: '#111827' }}>
+              1. Salary Structure
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '8px', fontSize: '10.5pt', border: '1px solid #d1d5db' }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f3f4f6' }}>
+                  <th style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'left', color: '#1f2937', fontWeight: 'bold' }}>Component</th>
+                  <th style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'right', color: '#1f2937', fontWeight: 'bold' }}>Monthly (₹)</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px' }}>Basic Salary+DA</td>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'right' }}>{Number(selectedCompensation?.basicDA || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px' }}>House rent allowance</td>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'right' }}>{Number(selectedCompensation?.hra || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px' }}>Special Allowance</td>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'right' }}>{Number(selectedCompensation?.specialAllowance || 0).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</td>
+                </tr>
+                <tr style={{ backgroundColor: '#f9fafb' }}>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px' }}><strong>Gross Salary</strong></td>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'right' }}><strong>{Number(calcTotalEarnings).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px' }}>Employee PF Contribution</td>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'right' }}>{Number(calcEmployeePF).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px' }}>Employer PF Contribution</td>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'right' }}>{Number(calcEmployerPF).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</td>
+                </tr>
+                <tr style={{ backgroundColor: '#f9fafb' }}>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px' }}><strong>Net Salary</strong></td>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'right' }}><strong>{Number(calcNetSalary).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></td>
+                </tr>
+                <tr>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px' }}>Gratuity (Part of CTC)</td>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'right' }}>{Number(calcGratuity).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</td>
+                </tr>
+                <tr style={{ backgroundColor: '#eef2ff' }}>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px', color: '#312e81' }}><strong>Total CTC</strong></td>
+                  <td style={{ border: '1px solid #d1d5db', padding: '5px 10px', textAlign: 'right', color: '#312e81' }}><strong>{Number(calcCTC).toLocaleString('en-IN', { style: 'currency', currency: 'INR' })}</strong></td>
+                </tr>
+              </tbody>
+            </table>
+            
+            <div style={{ fontSize: '9.5pt', fontStyle: 'italic', color: '#4b5563', marginBottom: '6px' }}>
+              Note: Statutory deductions such as PF and Professional Tax (if applicable) will be made as per prevailing laws.
+            </div>
+
+            <div style={{ marginTop: 'auto', fontSize: '10pt', fontStyle: 'italic', textAlign: 'right', color: '#6b7280' }}>
+              (Continued in next page...)
+            </div>
           </div>
+
+          {/* Bottom Spacing to clear Caldim Letterhead Footer (75px) */}
+          <div style={{ height: '75px', width: '100%', flexShrink: 0 }} />
         </div>
 
-        {/* Page 2: Annexure */}
-        <div id="offer-letter-p2" className="bg-white relative mx-auto shadow-lg" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          
-           {/* Header (Same as Page 1) */}
-            <LetterHeader />
+        {/* Page 2: Terms & Acceptance */}
+        <div 
+          id="offer-letter-p2" 
+          className="bg-white relative mx-auto shadow-lg" 
+          style={{ 
+            width: '794px', 
+            minHeight: '1123px',
+            height: '1123px', 
+            backgroundColor: '#ffffff', 
+            fontFamily: "'Trebuchet MS', 'Arial', sans-serif", 
+            color: '#1f2937', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'space-between',
+            overflow: 'hidden',
+            backgroundImage: `url(${caldimLetterheadImg})`,
+            backgroundSize: '100% 100%',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            boxSizing: 'border-box',
+            padding: 0
+          }}
+        >
+          {/* Top Spacing to clear Caldim Letterhead Header (165px) */}
+          <div style={{ height: '165px', width: '100%', flexShrink: 0 }} />
 
-          {/* Letter Pad Content Container */}
-          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
-            
-            {/* Main Content Area */}
-            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-              
-              <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
-                  <strong>2. Working Hours</strong>
-                  <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
-                      Employees are expected to complete a minimum of 48 hours per week across 5 working days (Monday to Friday).
-                      This translates to a minimum of 9 hours 30 minutes per day (including breaks) to be eligible for full-day pay.
-                      For employees on shift schedules, the mandated daily hours are 8 hours 30 minutes.
-                  </div>
+          {/* Letter Body Content */}
+          <div style={{ paddingLeft: '52px', paddingRight: '52px', paddingTop: '6px', paddingBottom: '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ marginBottom: '10px', fontSize: '11pt' }}>
+              <strong>2. Working Hours</strong>
+              <div style={{ fontSize: '10.5pt', marginTop: '3px', lineHeight: '1.5', color: '#374151' }}>
+                Employees are expected to complete a minimum of 48 hours per week across 5 working days (Monday to Friday). This translates to a minimum of 9 hours 30 minutes per day (including breaks) to be eligible for full-day pay. For employees on shift schedules, the mandated daily hours are 8 hours 30 minutes.
               </div>
-
-              <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
-                  <strong>3. Place of Work</strong>
-                  <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
-                  Your initial place of work will be <strong>{selectedCompensation?.location || '[Location]'}</strong>. You may be transferred to any other department, branch, or client site as required by the Company.
-                  </div>
-              </div>
-
-               <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
-                  <strong>4. Probation and Confirmation</strong>
-                  <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
-                      For employees with prior experience in the relevant field, the probation period shall be six (6) months from the date of joining. For trainees or freshers, the training period shall be one (1) year from the date of joining.
-During the probation or training period, either party may terminate the employment by giving seven (7) days’ written notice or salary in lieu thereof. Upon successful completion of the probation or training period,
-confirmation of employment will be communicated in writing.
-
-                  </div>
-              </div>
-
-              <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
-                  <strong>5. Notice Period</strong>
-                  <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
-                      During probation, either party may terminate the employment with 15 days' notice. After confirmation, the notice period will be 2 months.
-                  </div>
-              </div>
-
-              <div style={{ marginBottom: '15px', fontSize: '12pt' }}>
-                  <strong>6. Employment Terms</strong>
-                  <div style={{ fontSize: '11pt', marginTop: '5px', lineHeight: '1.6' }}>
-                      Your employment is subject to the rules and regulations of the Company as applicable from time to time. You will be required to sign a Non-Disclosure Agreement (NDA) and other standard employment documents.
-                  </div>
-              </div>
-
-              <div style={{ marginTop: '30px' }}>
-                <div style={{ fontSize: '12pt', fontWeight: 'bold' }}>For Caldim Engineering Pvt Ltd</div>
-                
-                <div style={{ marginTop: '10px', height: '60px', display: 'flex', alignItems: 'flex-end' }}>
-                  <img 
-                    src={getAbsoluteSignatureUrl(selectedCompensation?.location)} 
-                    alt="Authorized Signature" 
-                    style={{ maxHeight: '60px' }} 
-                    crossOrigin="anonymous" 
-                  />
-
-                </div>
-
-                <div style={{ fontSize: '12pt', fontWeight: 'bold' }}>Authorized Signatory</div>
-              </div>
-
-              <div style={{ marginTop: '30px', fontSize: '11pt' }}>
-                  <strong>Acknowledgement & Acceptance:</strong><br/>
-                  I, <strong>{selectedCompensation?.name}</strong>, accept the offer of employment on the terms and conditions mentioned above and in the Annexure.<br/><br/>
-                  Signature: ___________________________ Date: _______________________________
-              </div>
-              
-               <div style={{ marginTop: 'auto', marginBottom: '20px', fontSize: '11pt', fontStyle: 'italic', textAlign: 'right' }}>
-                  (Encl: Annexure - Terms & Conditions)
-              </div>
-
             </div>
 
-            {/* Footer */}
-            <LetterFooter />
+            <div style={{ marginBottom: '10px', fontSize: '11pt' }}>
+              <strong>3. Place of Work</strong>
+              <div style={{ fontSize: '10.5pt', marginTop: '3px', lineHeight: '1.5', color: '#374151' }}>
+                Your initial place of work will be <strong>{selectedCompensation?.location || '[Location]'}</strong>. You may be transferred to any other department, branch, or client site as required by the Company.
+              </div>
+            </div>
 
+            <div style={{ marginBottom: '10px', fontSize: '11pt' }}>
+              <strong>4. Probation and Confirmation</strong>
+              <div style={{ fontSize: '10.5pt', marginTop: '3px', lineHeight: '1.5', color: '#374151' }}>
+                For employees with prior experience in the relevant field, the probation period shall be six (6) months from the date of joining. For trainees or freshers, the training period shall be one (1) year from the date of joining. During the probation or training period, either party may terminate the employment by giving seven (7) days’ written notice or salary in lieu thereof. Upon successful completion of the probation or training period, confirmation of employment will be communicated in writing.
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '10px', fontSize: '11pt' }}>
+              <strong>5. Notice Period</strong>
+              <div style={{ fontSize: '10.5pt', marginTop: '3px', lineHeight: '1.5', color: '#374151' }}>
+                During probation, either party may terminate the employment with 15 days' notice. After confirmation, the notice period will be 2 months.
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '10px', fontSize: '11pt' }}>
+              <strong>6. Employment Terms</strong>
+              <div style={{ fontSize: '10.5pt', marginTop: '3px', lineHeight: '1.5', color: '#374151' }}>
+                Your employment is subject to the rules and regulations of the Company as applicable from time to time. You will be required to sign a Non-Disclosure Agreement (NDA) and other standard employment documents.
+              </div>
+            </div>
+
+            {/* Signatory Block */}
+            <div style={{ marginTop: '16px' }}>
+              <div style={{ fontSize: '11pt', fontWeight: 'bold', color: '#1f2937' }}>For Caldim Engineering Pvt Ltd</div>
+              <div style={{ marginTop: '6px', height: '48px', display: 'flex', alignItems: 'center' }}>
+                <img 
+                  src={getAbsoluteSignatureUrl(selectedCompensation?.location)} 
+                  alt="Authorized Signature" 
+                  style={{ maxHeight: '48px', objectFit: 'contain' }} 
+                  crossOrigin="anonymous" 
+                  onError={(e) => { e.target.style.display = 'none'; }}
+                />
+              </div>
+              <div style={{ fontSize: '11pt', fontWeight: 'bold', color: '#1f2937', marginTop: '2px' }}>Authorized Signatory</div>
+            </div>
+
+            {/* Acceptance Block */}
+            <div style={{ marginTop: '16px', fontSize: '10.5pt', borderTop: '1px dashed #d1d5db', paddingTop: '10px', color: '#374151' }}>
+              <strong style={{ color: '#111827' }}>Acknowledgement & Acceptance:</strong><br />
+              I, <strong>{selectedCompensation?.name}</strong>, accept the offer of employment on the terms and conditions mentioned above and in the Annexure.<br /><br />
+              Signature: ___________________________ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date: _______________________________
+            </div>
+            
+            <div style={{ marginTop: 'auto', fontSize: '10pt', fontStyle: 'italic', textAlign: 'right', color: '#6b7280' }}>
+              (Encl: Annexure - Terms & Conditions)
+            </div>
           </div>
+
+          {/* Bottom Spacing to clear Caldim Letterhead Footer (75px) */}
+          <div style={{ height: '75px', width: '100%', flexShrink: 0 }} />
         </div>
 
-        {/* Page 3: Annexure */}
-        <div id="offer-letter-p3" className="bg-white relative mx-auto shadow-lg" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          
-           {/* Header (Same as Page 1) */}
-            <LetterHeader />
+        {/* Page 3: Annexure Terms */}
+        <div 
+          id="offer-letter-p3" 
+          className="bg-white relative mx-auto shadow-lg" 
+          style={{ 
+            width: '794px', 
+            minHeight: '1123px',
+            height: '1123px', 
+            backgroundColor: '#ffffff', 
+            fontFamily: "'Trebuchet MS', 'Arial', sans-serif", 
+            color: '#1f2937', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'space-between',
+            overflow: 'hidden',
+            backgroundImage: `url(${caldimLetterheadImg})`,
+            backgroundSize: '100% 100%',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            boxSizing: 'border-box',
+            padding: 0
+          }}
+        >
+          {/* Top Spacing to clear Caldim Letterhead Header (165px) */}
+          <div style={{ height: '165px', width: '100%', flexShrink: 0 }} />
 
-          {/* Letter Pad Content Container */}
-          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
+          {/* Letter Body Content */}
+          <div style={{ paddingLeft: '52px', paddingRight: '52px', paddingTop: '6px', paddingBottom: '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '16px', marginBottom: '12px', textDecoration: 'underline', color: '#1b2752' }}>
+              ANNEXURE<br/>TERMS & CONDITIONS OF EMPLOYMENT
+            </div>
             
-            {/* Main Content Area */}
-            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-              
-               <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '16px', marginBottom: '20px', marginTop: '10px', textDecoration: 'underline' }}>
-                    ANNEXURE<br/>TERMS & CONDITIONS OF EMPLOYMENT
-                </div>
-                
-                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
-                    <strong>1. Provident Fund (PF)</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
-                        <li>Employees contribute 12% of basic salary towards PF as per statutory norms.</li>
-                        <li>The Company contributes an equal 12% towards PF.</li>
-                        <li>PF balances will be settled as per PF rules upon separation.</li>
-                    </ul>
-                </div>
-
-                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
-                    <strong>2. Gratuity</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
-                        <li>Payable under the Payment of Gratuity Act, As per Indian Government norms</li>
-                        <li>Formula: Gratuity = Basic × No. of Years × (15/26)</li>
-                    </ul>
-                </div>
-                
-                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
-                    <strong>3. Leave Policy</strong>
-                    <div style={{ paddingLeft: '10px', marginTop: '5px' }}>
-                        <strong>Applicability:</strong>
-                        <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '5px', marginBottom: '10px', lineHeight: '1.6' }}>
-                            <li>Experienced Employees: Leave benefits apply post-probation.</li>
-                            <li>Trainees: 1 day leave/month during training. On confirmation, regular leave norms apply.</li>
-                        </ul>
-                        <strong>Entitlements:</strong>
-                        <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '5px', marginBottom: '10px', lineHeight: '1.6' }}>
-                            <li>Casual Leave (CL): 0.5 day/month</li>
-                            <li>Sick Leave (SL): 0.5 day/month (medical proof for extended absence)</li>
-                            <li>Privilege/Earned Leave (PL/EL): 15 days/year. accumulable for up to 2 years - Encashment Formula: (Basic Salary / Total Days in Month) × Available PL</li>
-                            <li>Bereavement Leave: 2 days paid leave for loss of immediate family</li>
-                            <li>Sandwich Leave: Leaves adjoining holidays will be treated as continuous</li>
-                        </ul>
-                        <strong>Holidays</strong>
-                        <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
-                            <li>Declared holidays will be issued annually.</li>
-                            <li>Saturdays and Sundays are holidays.</li>
-                            <li>Employees working on holidays receive additional payment (not compensatory off), subject to 9-hour completion including breaks</li>
-                        </ul>
-                    </div>
-                </div>
-
-                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
-                    <strong>4. Monthly Permission</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
-                        <li>3 permissions/month, maximum of 1 hour each.</li>
-                        <li>Even shorter durations count as one permission.</li>
-                    </ul>
-                </div>
-                
-                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
-                    <strong>5. Bonus</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
-                        <li>Pro-rata bonus applicable during the first year.</li>
-                        <li>Standard annual bonus of ₹7,500 after one year of continuous service.</li>
-                    </ul>
-                </div>
-
-               <div style={{ marginTop: 'auto', fontSize: '11pt', fontStyle: 'italic', textAlign: 'right' }}>
-                  (Continued in next page...)
-              </div>
-
+            <div style={{ marginBottom: '9px', fontSize: '10.5pt' }}>
+              <strong>1. Provident Fund (PF)</strong>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.45', color: '#374151' }}>
+                <li>Employees contribute 12% of basic salary towards PF as per statutory norms.</li>
+                <li>The Company contributes an equal 12% towards PF.</li>
+                <li>PF balances will be settled as per PF rules upon separation.</li>
+              </ul>
             </div>
 
-            {/* Footer */}
-            <LetterFooter />
+            <div style={{ marginBottom: '9px', fontSize: '10.5pt' }}>
+              <strong>2. Gratuity</strong>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.45', color: '#374151' }}>
+                <li>Payable under the Payment of Gratuity Act, as per Indian Government norms.</li>
+                <li>Formula: Gratuity = Basic × No. of Years × (15/26)</li>
+              </ul>
+            </div>
+            
+            <div style={{ marginBottom: '9px', fontSize: '10.5pt' }}>
+              <strong>3. Leave Policy</strong>
+              <div style={{ paddingLeft: '8px', marginTop: '3px' }}>
+                <strong style={{ color: '#1f2937' }}>Applicability:</strong>
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '2px', marginBottom: '5px', lineHeight: '1.45', color: '#374151' }}>
+                  <li>Experienced Employees: Leave benefits apply post-probation.</li>
+                  <li>Trainees: 1 day leave/month during training. On confirmation, regular leave norms apply.</li>
+                </ul>
+                <strong style={{ color: '#1f2937' }}>Entitlements:</strong>
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '2px', marginBottom: '5px', lineHeight: '1.45', color: '#374151' }}>
+                  <li>Casual Leave (CL): 0.5 day/month</li>
+                  <li>Sick Leave (SL): 0.5 day/month (medical proof for extended absence)</li>
+                  <li>Privilege/Earned Leave (PL/EL): 15 days/year. Accumulable for up to 2 years.</li>
+                  <li>Bereavement Leave: 2 days paid leave for loss of immediate family</li>
+                  <li>Sandwich Leave: Leaves adjoining holidays will be treated as continuous</li>
+                </ul>
+                <strong style={{ color: '#1f2937' }}>Holidays:</strong>
+                <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '2px', marginBottom: '0px', lineHeight: '1.45', color: '#374151' }}>
+                  <li>Declared holidays will be issued annually. Saturdays and Sundays are holidays.</li>
+                  <li>Employees working on holidays receive additional payment, subject to 9-hour completion.</li>
+                </ul>
+              </div>
+            </div>
 
+            <div style={{ marginBottom: '9px', fontSize: '10.5pt' }}>
+              <strong>4. Monthly Permission</strong>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.45', color: '#374151' }}>
+                <li>3 permissions/month, maximum of 1 hour each.</li>
+                <li>Even shorter durations count as one permission.</li>
+              </ul>
+            </div>
+            
+            <div style={{ marginBottom: '9px', fontSize: '10.5pt' }}>
+              <strong>5. Bonus</strong>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.45', color: '#374151' }}>
+                <li>Pro-rata bonus applicable during the first year.</li>
+                <li>Standard annual bonus of ₹7,500 after one year of continuous service.</li>
+              </ul>
+            </div>
+
+            <div style={{ marginTop: 'auto', fontSize: '10pt', fontStyle: 'italic', textAlign: 'right', color: '#6b7280' }}>
+              (Continued in next page...)
+            </div>
           </div>
+
+          {/* Bottom Spacing to clear Caldim Letterhead Footer (75px) */}
+          <div style={{ height: '75px', width: '100%', flexShrink: 0 }} />
         </div>
 
         {/* Page 4: Annexure Continued */}
-        <div id="offer-letter-p4" className="bg-white relative mx-auto shadow-lg" style={{ width: '794px', height: '1123px', backgroundColor: 'white', fontFamily: 'Arial, sans-serif', color: 'black', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-          
-           {/* Header (Same as Page 1) */}
-            <LetterHeader />
+        <div 
+          id="offer-letter-p4" 
+          className="bg-white relative mx-auto shadow-lg" 
+          style={{ 
+            width: '794px', 
+            minHeight: '1123px',
+            height: '1123px', 
+            backgroundColor: '#ffffff', 
+            fontFamily: "'Trebuchet MS', 'Arial', sans-serif", 
+            color: '#1f2937', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            justifyContent: 'space-between',
+            overflow: 'hidden',
+            backgroundImage: `url(${caldimLetterheadImg})`,
+            backgroundSize: '100% 100%',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
+            boxSizing: 'border-box',
+            padding: 0
+          }}
+        >
+          {/* Top Spacing to clear Caldim Letterhead Header (165px) */}
+          <div style={{ height: '165px', width: '100%', flexShrink: 0 }} />
 
-          {/* Letter Pad Content Container */}
-          <div className="relative z-10 flex flex-col" style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', flex: 1 }}>
+          {/* Letter Body Content */}
+          <div style={{ paddingLeft: '52px', paddingRight: '52px', paddingTop: '6px', paddingBottom: '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ marginBottom: '12px', fontSize: '10.5pt' }}>
+              <strong>6. Health Insurance</strong>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.5', color: '#374151' }}>
+                <li>Coverage of ₹1,00,000 upon joining; ₹2,00,000 after 1 year.</li>
+                <li>Covers employee, spouse, and children only.</li>
+                <li>Governed by IRDAI guidelines.</li>
+              </ul>
+            </div>
             
-            {/* Main Content Area */}
-            <div className="px-12 py-2 flex-grow" style={{ paddingLeft: '48px', paddingRight: '48px', paddingTop: '10px', paddingBottom: '20px', flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
-
-                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
-                    <strong>6. Health Insurance</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
-                        <li>Coverage of ₹1,00,000 upon joining; ₹2,00,000 after 1 year.</li>
-                        <li>Covers employee, spouse, and children only.</li>
-                        <li>Governed by IRDAI guidelines.</li>
-                    </ul>
-                </div>
-                
-                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
-                    <strong>7. General</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
-                        <li>Employee must comply with all Company policies and HR guidelines.</li>
-                        <li>The Company reserves the right to modify or withdraw any policy or benefit as required by law or management decision.</li>
-                    </ul>
-                </div>
-
-                <div style={{ marginBottom: '15px', fontSize: '11pt' }}>
-                    <strong>8. Service Commitment (Bond)</strong>
-                    <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '5px', marginBottom: '0px', lineHeight: '1.6' }}>
-                        <li>The Employee undertakes to serve the Company for a minimum period of 18 months from the date of joining.</li>
-                        <li>If the Employee voluntarily resigns or is terminated for cause before completion of 18 months, the Employee agrees to pay the Company a penalty of ₹50,000 (Rupees Fifty Thousand only) as per Company policy.</li>
-                        <li>This penalty covers training, onboarding, and other investments made by the Company.</li>
-                    </ul>
-                </div>
-                
-                <div style={{ marginTop: '30px', fontSize: '11pt' }}>
-                  <strong>Employee Declaration:</strong><br/>
-                  I have read and understood the terms stated in this Annexure and agree to abide by them during my employment with Caldim Engineering Pvt. Ltd.<br/><br/>
-                  Signature: ___________________________ Name: ______________________________ Date: _______________________________
-                </div>
-
+            <div style={{ marginBottom: '12px', fontSize: '10.5pt' }}>
+              <strong>7. General</strong>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.5', color: '#374151' }}>
+                <li>Employee must comply with all Company policies and HR guidelines.</li>
+                <li>The Company reserves the right to modify or withdraw any policy or benefit as required by law or management decision.</li>
+              </ul>
             </div>
 
-            {/* Footer */}
-            <LetterFooter />
-
+            <div style={{ marginBottom: '12px', fontSize: '10.5pt' }}>
+              <strong>8. Service Commitment (Bond)</strong>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.5', color: '#374151' }}>
+                <li>The Employee undertakes to serve the Company for a minimum period of 18 months from the date of joining.</li>
+                <li>If the Employee voluntarily resigns or is terminated for cause before completion of 18 months, the Employee agrees to pay the Company a penalty of ₹50,000 (Rupees Fifty Thousand only) as per Company policy.</li>
+                <li>This penalty covers training, onboarding, and other investments made by the Company.</li>
+              </ul>
+            </div>
+            
+            <div style={{ marginTop: '24px', fontSize: '10.5pt', borderTop: '1px dashed #d1d5db', paddingTop: '12px', color: '#374151' }}>
+              <strong style={{ color: '#111827' }}>Employee Declaration:</strong><br />
+              I have read and understood the terms stated in this Annexure and agree to abide by them during my employment with Caldim Engineering Pvt. Ltd.<br /><br />
+              Signature: ___________________________ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Name: ______________________________ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date: _______________________________
+            </div>
           </div>
+
+          {/* Bottom Spacing to clear Caldim Letterhead Footer (75px) */}
+          <div style={{ height: '75px', width: '100%', flexShrink: 0 }} />
         </div>
       </div>
 

@@ -264,13 +264,10 @@ const SalarySlips = () => {
       
       let totalEarnings = Math.round(Number(rec.totalEarnings || 0));
       
-      const rawSpecial = Number(rec.specialAllowance || 0);
-      let specialAllowance = Math.round(rawSpecial);
-      
-      if (specialAllowance === 0 && totalEarnings > 0) {
-        const pfAndEsiInGross = (empPf + emprPf || pfDeduction) + esi;
-        specialAllowance = Math.max(0, totalEarnings - basicSalary - hra - pfAndEsiInGross);
-      }
+      // In payslip earnings: Basic (50%) + HRA (25%) + Special Allowance (25%) sums to Total Earnings (Gross)
+      let specialAllowance = totalEarnings > 0 
+        ? Math.max(0, totalEarnings - basicSalary - hra)
+        : Math.round(Number(rec.specialAllowance || 0));
       
       if (totalEarnings === 0) {
         totalEarnings = basicSalary + hra + specialAllowance + pfDeduction + esi;
