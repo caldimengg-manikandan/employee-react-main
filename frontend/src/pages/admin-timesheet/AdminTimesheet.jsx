@@ -140,6 +140,27 @@ const AdminTimesheet = () => {
     return `${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
   };
 
+  const getWeeklyTotal = (ts) => {
+    if (!ts) return 0;
+    const timeEntries = ts.timeEntries || [];
+    if (timeEntries.length > 0) {
+      const entriesSum = timeEntries.reduce((sum, entry) => {
+        const entryTotal = Number(entry.total) || (
+          (Number(entry.monday) || 0) +
+          (Number(entry.tuesday) || 0) +
+          (Number(entry.wednesday) || 0) +
+          (Number(entry.thursday) || 0) +
+          (Number(entry.friday) || 0) +
+          (Number(entry.saturday) || 0) +
+          (Number(entry.sunday) || 0)
+        );
+        return sum + entryTotal;
+      }, 0);
+      if (entriesSum > 0) return entriesSum;
+    }
+    return Number(ts.weeklyTotal) || 0;
+  };
+
   const statConfigs = [
     { 
       title: 'Total Timesheets', 
@@ -453,7 +474,7 @@ const AdminTimesheet = () => {
           'Sat (hrs)': '',
           'Sun (hrs)': '',
           'Entry Total (hrs)': '',
-          'Weekly Total (hrs)': formatDuration(ts.weeklyTotal || 0)
+          'Weekly Total (hrs)': formatDuration(getWeeklyTotal(ts))
         });
       } else {
         entries.forEach(te => {
@@ -477,7 +498,7 @@ const AdminTimesheet = () => {
             'Sat (hrs)': te.saturday ? formatDuration(te.saturday) : '00:00',
             'Sun (hrs)': te.sunday ? formatDuration(te.sunday) : '00:00',
             'Entry Total (hrs)': te.total ? formatDuration(te.total) : '00:00',
-            'Weekly Total (hrs)': formatDuration(ts.weeklyTotal || 0)
+            'Weekly Total (hrs)': formatDuration(getWeeklyTotal(ts))
           });
         });
       }
@@ -1184,7 +1205,7 @@ const AdminTimesheet = () => {
                       })()}
                     </td>
                     <td className="p-3.5 text-center font-bold font-mono text-slate-800">
-                      {formatDuration(timesheet.weeklyTotal || 0)}
+                      {formatDuration(getWeeklyTotal(timesheet))}
                     </td>
                     <td className="p-3.5 text-center">
                       <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold tracking-wide uppercase inline-block ${getStatusBadgeClass(timesheet.status)}`}>
@@ -1358,7 +1379,7 @@ const AdminTimesheet = () => {
                     <tr className="bg-slate-100 font-bold">
                       <td colSpan="9" className="p-3 text-right text-slate-800">Weekly Total:</td>
                       <td className="p-3 text-center font-mono text-indigo-950 font-extrabold text-sm">
-                        {formatDuration(selectedTimesheet.weeklyTotal)}
+                        {formatDuration(getWeeklyTotal(selectedTimesheet))}
                       </td>
                     </tr>
                   </tbody>

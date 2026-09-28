@@ -144,8 +144,11 @@ router.get("/list", auth, async (req, res) => {
       .sort({ submittedDate: -1 })
       .lean();
 
-    // Hoist shift data from populated timesheetId to top level
+    // Hoist shift data from populated timesheetId to top level and ensure weeklyTotal
     adminDocs.forEach(doc => {
+      if (!doc.weeklyTotal || doc.weeklyTotal === 0) {
+        doc.weeklyTotal = (doc.timeEntries || []).reduce((sum, te) => sum + (Number(te.total) || 0), 0);
+      }
       if (doc.timesheetId) {
         doc.dailyShiftTypes = doc.timesheetId.dailyShiftTypes || [];
         doc.shiftType = doc.timesheetId.shiftType || "";
