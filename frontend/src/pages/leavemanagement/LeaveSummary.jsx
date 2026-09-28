@@ -78,11 +78,12 @@ const LeaveSummary = () => {
           if (l.leaveType === 'REGIONAL_HOLIDAY') {
             return `Regional Holiday${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`;
           }
-          if (['CL', 'SL', 'PL'].includes(l.leaveType) && (l.clUsed > 0 || l.slUsed > 0 || l.plUsed > 0 || l.negativePL > 0 || l.lopDays > 0)) {
+          if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(l.leaveType) && (l.clUsed > 0 || l.slUsed > 0 || l.plUsed > 0 || l.blUsed > 0 || l.negativePL > 0 || l.lopDays > 0)) {
             const parts = [];
             if (l.clUsed > 0) parts.push('Casual Leave');
             if (l.slUsed > 0) parts.push('Sick Leave');
             if (l.plUsed > 0 || l.negativePL > 0) parts.push('Privilege Leave');
+            if (l.blUsed > 0) parts.push('Bereavement Leave');
             if (l.lopDays > 0) parts.push('Loss of Pay');
             return parts.join(', ');
           }
@@ -107,6 +108,7 @@ const LeaveSummary = () => {
         clUsed: l.clUsed || 0,
         slUsed: l.slUsed || 0,
         plUsed: l.plUsed || 0,
+        blUsed: l.blUsed || 0,
         negativePL: l.negativePL || 0,
         lopDays: l.lopDays || 0,
         bereavementRelation: l.bereavementRelation || '',
@@ -709,13 +711,14 @@ const LeaveSummary = () => {
             </div>
 
             {/* Deduction Breakdown */}
-            {(viewLeave.clUsed > 0 || viewLeave.slUsed > 0 || viewLeave.plUsed > 0 || viewLeave.negativePL > 0 || viewLeave.lopDays > 0) && (
+            {(viewLeave.clUsed > 0 || viewLeave.slUsed > 0 || viewLeave.plUsed > 0 || viewLeave.blUsed > 0 || viewLeave.negativePL > 0 || viewLeave.lopDays > 0) && (
               <div className="bg-indigo-50/60 border border-indigo-100 p-3 rounded-xl space-y-2 text-xs">
                 <p className="font-bold text-indigo-950 uppercase text-[11px]">Deduction Breakdown</p>
                 <div className="grid grid-cols-2 gap-2 text-slate-700 font-semibold">
                   {viewLeave.clUsed > 0 && <div>Casual Leave (CL): <span className="font-bold text-indigo-900">{viewLeave.clUsed} days</span></div>}
                   {viewLeave.slUsed > 0 && <div>Sick Leave (SL): <span className="font-bold text-indigo-900">{viewLeave.slUsed} days</span></div>}
                   {viewLeave.plUsed > 0 && <div>Privilege Leave (PL): <span className="font-bold text-indigo-900">{viewLeave.plUsed} days</span></div>}
+                  {viewLeave.blUsed > 0 && <div>Bereavement Leave (BL): <span className="font-bold text-indigo-900">{viewLeave.blUsed} days</span></div>}
                   {viewLeave.negativePL > 0 && <div className="text-rose-600 font-bold">Negative PL: {viewLeave.negativePL} days</div>}
                   {viewLeave.lopDays > 0 && <div className="text-amber-600 font-bold">Loss of Pay (LOP): {viewLeave.lopDays} days</div>}
                 </div>

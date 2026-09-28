@@ -322,6 +322,7 @@ const applyLeaveToLedger = async (leaveApp) => {
   const clUsed = Number(leaveApp.clUsed || 0);
   const slUsed = Number(leaveApp.slUsed || 0);
   const plUsed = Number(leaveApp.plUsed || 0);
+  const blUsed = Number(leaveApp.blUsed || (leaveApp.leaveType === 'BEREAVEMENT' ? leaveApp.totalDays : 0));
   const negativePL = Number(leaveApp.negativePL || 0);
   const lopDays = Number(leaveApp.lopDays || 0);
 
@@ -333,12 +334,9 @@ const applyLeaveToLedger = async (leaveApp) => {
   const deductions = [
     { type: 'CL', used: clUsed },
     { type: 'SL', used: slUsed },
-    { type: 'PL', used: plUsed + negativePL }
+    { type: 'PL', used: plUsed + negativePL },
+    { type: 'BEREAVEMENT', used: blUsed }
   ];
-
-  if (leaveApp.leaveType === 'BEREAVEMENT') {
-    deductions.push({ type: 'BEREAVEMENT', used: Number(leaveApp.totalDays || 0) });
-  }
 
   for (const d of deductions) {
     if (d.used <= 0) continue;
@@ -380,6 +378,7 @@ const reverseLeaveFromLedger = async (leaveApp) => {
   const clUsed = Number(leaveApp.clUsed || 0);
   const slUsed = Number(leaveApp.slUsed || 0);
   const plUsed = Number(leaveApp.plUsed || 0);
+  const blUsed = Number(leaveApp.blUsed || (leaveApp.leaveType === 'BEREAVEMENT' ? leaveApp.totalDays : 0));
   const negativePL = Number(leaveApp.negativePL || 0);
   const lopDays = Number(leaveApp.lopDays || 0);
 
@@ -390,12 +389,9 @@ const reverseLeaveFromLedger = async (leaveApp) => {
   const reversals = [
     { type: 'CL', used: clUsed },
     { type: 'SL', used: slUsed },
-    { type: 'PL', used: plUsed + negativePL }
+    { type: 'PL', used: plUsed + negativePL },
+    { type: 'BEREAVEMENT', used: blUsed }
   ];
-
-  if (leaveApp.leaveType === 'BEREAVEMENT') {
-    reversals.push({ type: 'BEREAVEMENT', used: Number(leaveApp.totalDays || 0) });
-  }
 
   for (const d of reversals) {
     if (d.used <= 0) continue;
@@ -432,6 +428,7 @@ const applyLeaveDeduction = async (leaveApp) => {
   const clUsed = Number(leaveApp.clUsed || 0);
   const slUsed = Number(leaveApp.slUsed || 0);
   const plUsed = Number(leaveApp.plUsed || 0);
+  const blUsed = Number(leaveApp.blUsed || (leaveApp.leaveType === 'BEREAVEMENT' ? leaveApp.totalDays : 0));
   const negativePL = Number(leaveApp.negativePL || 0);
   const totalPlDebit = plUsed + negativePL;
 
@@ -453,14 +450,10 @@ const applyLeaveDeduction = async (leaveApp) => {
     updateObj.$inc['balances.privilege.balance'] = -totalPlDebit;
     totalUsed += totalPlDebit;
   }
-
-  if (leaveApp.leaveType === 'BEREAVEMENT') {
-    const blUsed = Number(leaveApp.totalDays || 0);
-    if (blUsed > 0) {
-      updateObj.$inc['balances.bereavement.used'] = blUsed;
-      updateObj.$inc['balances.bereavement.balance'] = -blUsed;
-      totalUsed += blUsed;
-    }
+  if (blUsed > 0) {
+    updateObj.$inc['balances.bereavement.used'] = blUsed;
+    updateObj.$inc['balances.bereavement.balance'] = -blUsed;
+    totalUsed += blUsed;
   }
 
   if (totalUsed > 0) {
@@ -476,6 +469,7 @@ const reverseLeaveDeduction = async (leaveApp) => {
   const clUsed = Number(leaveApp.clUsed || 0);
   const slUsed = Number(leaveApp.slUsed || 0);
   const plUsed = Number(leaveApp.plUsed || 0);
+  const blUsed = Number(leaveApp.blUsed || (leaveApp.leaveType === 'BEREAVEMENT' ? leaveApp.totalDays : 0));
   const negativePL = Number(leaveApp.negativePL || 0);
   const totalPlCredit = plUsed + negativePL;
 
@@ -497,14 +491,10 @@ const reverseLeaveDeduction = async (leaveApp) => {
     updateObj.$inc['balances.privilege.balance'] = totalPlCredit;
     totalRestored += totalPlCredit;
   }
-
-  if (leaveApp.leaveType === 'BEREAVEMENT') {
-    const blUsed = Number(leaveApp.totalDays || 0);
-    if (blUsed > 0) {
-      updateObj.$inc['balances.bereavement.used'] = -blUsed;
-      updateObj.$inc['balances.bereavement.balance'] = blUsed;
-      totalRestored += blUsed;
-    }
+  if (blUsed > 0) {
+    updateObj.$inc['balances.bereavement.used'] = -blUsed;
+    updateObj.$inc['balances.bereavement.balance'] = blUsed;
+    totalRestored += blUsed;
   }
 
   if (totalRestored > 0) {
@@ -726,7 +716,28 @@ const recordTransaction = async (data) => {
 
 const calculateLeaveSplit = (requestedDays, balances, leaveType = null) => {
   let rem = requestedDays;
-  const split = { clUsed: 0, slUsed: 0, plUsed: 0, negativePL: 0, lopDays: 0, remainingBalance: 0 };
+  const split = { clUsed: 0, slUsed: 0, plUsed: 0, blUsed: 0, negativePL: 0, lopDays: 0, remainingBalance: 0 };
+
+  const normType = String(leaveType || '').toUpperCase();
+
+  // If Bereavement Leave is requested, deduct solely from Bereavement Leave balance up to max 2 days
+  if (normType === 'BEREAVEMENT' || normType === 'BL') {
+    const bl = Math.max(0, balances.bereavement?.balance || 0);
+    const allowedBL = Math.min(2, bl);
+    if (rem > 0 && allowedBL > 0) {
+      split.blUsed = Math.min(rem, allowedBL);
+      rem -= split.blUsed;
+    }
+    // Do not automatically convert excess bereavement days to LOP
+    split.lopDays = 0;
+    split.negativePL = 0;
+    if (rem > 0 || requestedDays > 2) {
+      split.error = 'Bereavement Leave allows a maximum of 2 days. For additional days, please apply using Casual Leave (CL), Sick Leave (SL), or Privilege Leave (PL).';
+      split.exceededDays = rem > 0 ? rem : (requestedDays - 2);
+    }
+    split.remainingBalance = Math.max(0, bl - split.blUsed);
+    return split;
+  }
 
   const cl = Math.max(0, balances.casual?.balance || 0);
   const sl = Math.max(0, balances.sick?.balance || 0);
@@ -770,7 +781,7 @@ const getEmployeeCurrentBalances = async (emp, targetId) => {
   const prevMonth = currentMonth === 1 ? 12 : currentMonth - 1;
   const prevYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
-  const [ledgers, prevLedgers, stored, approvals] = await Promise.all([
+  const [ledgers, prevLedgers, stored, approvals, policy] = await Promise.all([
     EmployeeLeaveLedger.find({
       employee_id: targetId,
       year: currentYear,
@@ -782,7 +793,8 @@ const getEmployeeCurrentBalances = async (emp, targetId) => {
       month: prevMonth
     }).lean(),
     LeaveBalance.findOne({ employeeId: targetId }).lean(),
-    LeaveApplication.find({ employeeId: targetId, status: 'Approved' }).lean()
+    LeaveApplication.find({ employeeId: targetId, status: 'Approved' }).lean(),
+    targetId ? EmployeeLeavePolicy.findOne({ employeeId: targetId }).lean() : Promise.resolve(null)
   ]);
 
   const systemCalc = calcBalanceForEmployee(empRecord, approvals);
@@ -806,6 +818,9 @@ const getEmployeeCurrentBalances = async (emp, targetId) => {
   const plLedger = getLedgerData('PL');
   const blLedger = getLedgerData('BEREAVEMENT');
 
+  const bereavementEnabled = policy ? !!policy.bereavement_leave_enabled : false;
+  const blAlloc = policy && bereavementEnabled ? (Number(policy.monthly_bereavement_allocation) || 0) : 0;
+
   return {
     casual: {
       allocated: clLedger ? ((clLedger.opening_balance ?? 0) + (clLedger.allocated_leave ?? 0)) : (stored?.balances?.casual?.allocated ?? systemCalc.balances.casual.allocated ?? 0),
@@ -823,9 +838,9 @@ const getEmployeeCurrentBalances = async (emp, targetId) => {
       balance: plLedger ? (plLedger.closing_balance ?? 0) : (stored?.balances?.privilege?.balance ?? systemCalc.balances.privilege.balance ?? 0)
     },
     bereavement: {
-      allocated: blLedger ? ((blLedger.opening_balance ?? 0) + (blLedger.allocated_leave ?? 0)) : (stored?.balances?.bereavement?.allocated ?? systemCalc.balances.bereavement?.allocated ?? 0),
+      allocated: blAlloc,
       used: blLedger ? (blLedger.used_leave ?? 0) : (stored?.balances?.bereavement?.used ?? systemCalc.balances.bereavement?.used ?? 0),
-      balance: blLedger ? (blLedger.closing_balance ?? 0) : (stored?.balances?.bereavement?.balance ?? systemCalc.balances.bereavement?.balance ?? 0)
+      balance: !bereavementEnabled ? 0 : (blLedger && (blLedger.allocated_leave ?? 0) > 0 ? (blLedger.closing_balance ?? 0) : Math.max(0, blAlloc - (blLedger ? (blLedger.used_leave ?? 0) : (stored?.balances?.bereavement?.used ?? systemCalc.balances.bereavement?.used ?? 0))))
     }
   };
 };
@@ -836,17 +851,18 @@ const getPendingDeductions = async (employeeId, excludeLeaveId = null) => {
   const pending = await LeaveApplication.find(query).lean();
   const agg = { CL: 0, SL: 0, PL: 0, BEREAVEMENT: 0 };
   pending.forEach(l => {
-    const hasSplit = (l.clUsed || 0) > 0 || (l.slUsed || 0) > 0 || (l.plUsed || 0) > 0 || (l.negativePL || 0) > 0 || (l.lopDays || 0) > 0;
+    const hasSplit = (l.clUsed || 0) > 0 || (l.slUsed || 0) > 0 || (l.plUsed || 0) > 0 || (l.blUsed || 0) > 0 || (l.negativePL || 0) > 0 || (l.lopDays || 0) > 0;
     if (hasSplit) {
       agg.CL += Number(l.clUsed || 0);
       agg.SL += Number(l.slUsed || 0);
       agg.PL += Number(l.plUsed || 0) + Number(l.negativePL || 0);
+      agg.BEREAVEMENT += Number(l.blUsed || 0);
     } else {
       if (l.leaveType === 'CL') agg.CL += Number(l.totalDays || 0);
       else if (l.leaveType === 'SL') agg.SL += Number(l.totalDays || 0);
       else if (l.leaveType === 'PL') agg.PL += Number(l.totalDays || 0);
+      else if (l.leaveType === 'BEREAVEMENT' || l.leaveType === 'BL') agg.BEREAVEMENT += Number(l.totalDays || 0);
     }
-    if (l.leaveType === 'BEREAVEMENT') agg.BEREAVEMENT += Number(l.totalDays || 0);
   });
   return agg;
 };

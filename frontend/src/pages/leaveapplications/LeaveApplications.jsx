@@ -86,11 +86,12 @@ const LeaveApplications = () => {
           if (l.leaveType === 'REGIONAL_HOLIDAY') {
             return `${allLeaveTypes.find(t => t.value === 'REGIONAL_HOLIDAY')?.label || 'Regional Holiday'}${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`;
           }
-          if (['CL', 'SL', 'PL'].includes(l.leaveType) && (l.clUsed > 0 || l.slUsed > 0 || l.plUsed > 0 || l.negativePL > 0 || l.lopDays > 0)) {
+          if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(l.leaveType) && (l.clUsed > 0 || l.slUsed > 0 || l.plUsed > 0 || l.blUsed > 0 || l.negativePL > 0 || l.lopDays > 0)) {
             const parts = [];
             if (l.clUsed > 0) parts.push('Casual Leave (CL)');
             if (l.slUsed > 0) parts.push('Sick Leave (SL)');
             if (l.plUsed > 0 || l.negativePL > 0) parts.push('Privilege Leave (PL)');
+            if (l.blUsed > 0) parts.push('Bereavement Leave');
             if (l.lopDays > 0) parts.push('Loss of Pay (LOP)');
             return parts.join(', ');
           }
@@ -103,6 +104,7 @@ const LeaveApplications = () => {
         clUsed: l.clUsed || 0,
         slUsed: l.slUsed || 0,
         plUsed: l.plUsed || 0,
+        blUsed: l.blUsed || 0,
         negativePL: l.negativePL || 0,
         lopDays: l.lopDays || 0,
         status: l.status,
@@ -281,7 +283,7 @@ const LeaveApplications = () => {
           excludeLeaveId: editingLeaveId || undefined
         });
         const splitData = res.data?.data || res.data;
-        if (splitData && (splitData.clUsed !== undefined || splitData.slUsed !== undefined || splitData.plUsed !== undefined || splitData.lopDays !== undefined)) {
+        if (splitData && (splitData.clUsed !== undefined || splitData.slUsed !== undefined || splitData.plUsed !== undefined || splitData.blUsed !== undefined || splitData.lopDays !== undefined)) {
           setLeaveSplit(splitData);
         } else {
           setLeaveSplit(null);
@@ -372,8 +374,16 @@ const LeaveApplications = () => {
     const errors = {};
     if (!leaveData.startDate) errors.startDate = 'Start Date is required';
     if (!leaveData.endDate) errors.endDate = 'End Date is required';
-    if (leaveData.leaveType === 'BEREAVEMENT' && !leaveData.bereavementRelation) {
-      errors.bereavementRelation = 'Relationship with Deceased is required';
+    if (leaveData.leaveType === 'BEREAVEMENT') {
+      if (!leaveData.bereavementRelation) {
+        errors.bereavementRelation = 'Relationship with Deceased is required';
+      }
+      const availableBL = getAvailableBalance('BEREAVEMENT');
+      if (totalLeaveDays > 2) {
+        errors.endDate = `Bereavement Leave allows a maximum of 2 days (you selected ${totalLeaveDays} days). For additional days, please apply using CL, SL, or PL.`;
+      } else if (totalLeaveDays > availableBL) {
+        errors.endDate = `Insufficient Bereavement Leave balance (${availableBL} days available). For additional days, please apply using CL, SL, or PL.`;
+      }
     }
     if (leaveData.leaveType === 'REGIONAL_HOLIDAY' && !leaveData.regionalHolidayName) {
       errors.regionalHolidayName = 'Regional Holiday Selection is required';
@@ -443,7 +453,7 @@ const LeaveApplications = () => {
         }
       }
     } catch (error) {
-      const msg = error.response?.data?.message || 'Failed to submit leave application';
+      const msg = error.response?.data?.error || error.response?.data?.message || 'Failed to submit leave application';
       setWarningModal({ isOpen: true, message: msg });
       showNotification(msg, 'error');
     } finally {
@@ -563,12 +573,13 @@ const LeaveApplications = () => {
     const used = { CL: 0, SL: 0, PL: 0, BEREAVEMENT: 0 };
     leaveHistory.forEach(leave => {
       if (leave.status === 'Approved') {
-        const hasSplit = (leave.clUsed || 0) > 0 || (leave.slUsed || 0) > 0 || (leave.plUsed || 0) > 0 || (leave.negativePL || 0) > 0 || (leave.lopDays || 0) > 0;
+        const hasSplit = (leave.clUsed || 0) > 0 || (leave.slUsed || 0) > 0 || (leave.plUsed || 0) > 0 || (leave.blUsed || 0) > 0 || (leave.negativePL || 0) > 0 || (leave.lopDays || 0) > 0;
         if (hasSplit) {
           used.CL += Number(leave.clUsed || 0);
           used.SL += Number(leave.slUsed || 0);
           used.PL += Number(leave.plUsed || 0) + Number(leave.negativePL || 0);
-          if (leave.leaveType === 'BEREAVEMENT') used.BEREAVEMENT += Number(leave.totalDays || 0);
+          used.BEREAVEMENT += Number(leave.blUsed || 0);
+          if (leave.leaveType === 'BEREAVEMENT' && !leave.blUsed) used.BEREAVEMENT += Number(leave.totalDays || 0);
         } else if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(leave.leaveType)) {
           used[leave.leaveType] += Number(leave.totalDays || 0);
         }
@@ -582,12 +593,13 @@ const LeaveApplications = () => {
     const pending = { CL: 0, SL: 0, PL: 0, BEREAVEMENT: 0 };
     leaveHistory.forEach(leave => {
       if (leave.status === 'Pending') {
-        const hasSplit = (leave.clUsed || 0) > 0 || (leave.slUsed || 0) > 0 || (leave.plUsed || 0) > 0 || (leave.negativePL || 0) > 0 || (leave.lopDays || 0) > 0;
+        const hasSplit = (leave.clUsed || 0) > 0 || (leave.slUsed || 0) > 0 || (leave.plUsed || 0) > 0 || (leave.blUsed || 0) > 0 || (leave.negativePL || 0) > 0 || (leave.lopDays || 0) > 0;
         if (hasSplit) {
           pending.CL += Number(leave.clUsed || 0);
           pending.SL += Number(leave.slUsed || 0);
           pending.PL += Number(leave.plUsed || 0) + Number(leave.negativePL || 0);
-          if (leave.leaveType === 'BEREAVEMENT') pending.BEREAVEMENT += Number(leave.totalDays || 0);
+          pending.BEREAVEMENT += Number(leave.blUsed || 0);
+          if (leave.leaveType === 'BEREAVEMENT' && !leave.blUsed) pending.BEREAVEMENT += Number(leave.totalDays || 0);
         } else if (['CL', 'SL', 'PL', 'BEREAVEMENT'].includes(leave.leaveType)) {
           pending[leave.leaveType] += Number(leave.totalDays || 0);
         }
@@ -705,23 +717,34 @@ const LeaveApplications = () => {
       </div>
 
       {leaveData.leaveType === 'BEREAVEMENT' && (
-        <div>
-          <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-            Relationship with Deceased *
-          </label>
-          <select
-            name="bereavementRelation"
-            value={leaveData.bereavementRelation}
-            onChange={handleInputChange}
-            className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:ring-2 outline-none transition-all ${
-              fieldErrors.bereavementRelation ? 'border-rose-500 focus:ring-rose-500' : 'border-slate-200 focus:ring-indigo-500 focus:bg-white'
-            }`}
-          >
-            <option value="">Select Relationship</option>
-            {bereavementRelations.map(relation => (
-              <option key={relation} value={relation}>{relation}</option>
-            ))}
-          </select>
+        <div className="space-y-3">
+          <div className="p-3 bg-purple-50 border border-purple-200 rounded-xl text-xs text-purple-900 flex items-start gap-2">
+            <span className="text-base leading-none">💡</span>
+            <div>
+              <span className="font-bold">Bereavement Leave Policy:</span> Maximum <strong>2 days</strong> allowed (Available: <strong>{getAvailableBalance('BEREAVEMENT')} days</strong>). If you require more than 2 days, please apply for the remaining days separately using <strong>Casual (CL)</strong>, <strong>Sick (SL)</strong>, or <strong>Privilege Leave (PL)</strong>.
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+              Relationship with Deceased *
+            </label>
+            <select
+              name="bereavementRelation"
+              value={leaveData.bereavementRelation}
+              onChange={handleInputChange}
+              className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:ring-2 outline-none transition-all ${
+                fieldErrors.bereavementRelation ? 'border-rose-500 focus:ring-rose-500' : 'border-slate-200 focus:ring-indigo-500 focus:bg-white'
+              }`}
+            >
+              <option value="">Select Relationship</option>
+              {bereavementRelations.map(relation => (
+                <option key={relation} value={relation}>{relation}</option>
+              ))}
+            </select>
+            {fieldErrors.bereavementRelation && (
+              <p className="mt-1 text-xs text-rose-500 font-medium">{fieldErrors.bereavementRelation}</p>
+            )}
+          </div>
         </div>
       )}
 
@@ -743,6 +766,9 @@ const LeaveApplications = () => {
               <option key={h.id} value={`${h.name}||${h.dateISO}`}>{`${h.name} (${h.dateISO})`}</option>
             ))}
           </select>
+          {fieldErrors.regionalHolidayName && (
+            <p className="mt-1 text-xs text-rose-500 font-medium">{fieldErrors.regionalHolidayName}</p>
+          )}
           {hasApprovedRegionalHolidayThisYear && (
             <p className="mt-1.5 text-xs text-rose-600 font-medium">
               You already have an approved regional holiday for this year.
@@ -769,6 +795,9 @@ const LeaveApplications = () => {
               fieldErrors.startDate ? 'border-rose-500 focus:ring-rose-500' : 'border-slate-200 focus:ring-indigo-500 focus:bg-white'
             } ${isRegionalHoliday ? 'bg-slate-100 cursor-not-allowed' : ''}`}
           />
+          {fieldErrors.startDate && (
+            <p className="mt-1 text-xs text-rose-500 font-medium">{fieldErrors.startDate}</p>
+          )}
         </div>
 
         <div>
@@ -814,6 +843,9 @@ const LeaveApplications = () => {
               fieldErrors.endDate ? 'border-rose-500 focus:ring-rose-500' : 'border-slate-200 focus:ring-indigo-500 focus:bg-white'
             } ${leaveData.dayType === 'Half Day' || isRegionalHoliday ? 'bg-slate-100 cursor-not-allowed' : ''}`}
           />
+          {fieldErrors.endDate && (
+            <p className="mt-1 text-xs text-rose-500 font-medium">{fieldErrors.endDate}</p>
+          )}
         </div>
       </div>
 
@@ -842,9 +874,15 @@ const LeaveApplications = () => {
             {leaveSplit.clUsed > 0 && <div>CL: <span className="font-bold text-indigo-900">{leaveSplit.clUsed} days</span></div>}
             {leaveSplit.slUsed > 0 && <div>SL: <span className="font-bold text-indigo-900">{leaveSplit.slUsed} days</span></div>}
             {leaveSplit.plUsed > 0 && <div>PL: <span className="font-bold text-indigo-900">{leaveSplit.plUsed} days</span></div>}
+            {leaveSplit.blUsed > 0 && <div>BL: <span className="font-bold text-indigo-900">{leaveSplit.blUsed} days</span></div>}
             {leaveSplit.negativePL > 0 && <div className="text-rose-600 font-bold">Negative PL: {leaveSplit.negativePL} days</div>}
             {leaveSplit.lopDays > 0 && <div className="text-amber-600 font-bold">LOP: {leaveSplit.lopDays} days</div>}
           </div>
+          {leaveData.leaveType === 'BEREAVEMENT' && (totalLeaveDays > 2 || totalLeaveDays > getAvailableBalance('BEREAVEMENT')) && (
+            <div className="mt-2 text-xs text-rose-700 bg-rose-50 border border-rose-200 p-2.5 rounded-lg flex items-start gap-1.5">
+              <span>⚠️ <strong>Bereavement Leave Limit:</strong> You selected {totalLeaveDays} days. Bereavement leave allows a maximum of 2 days (available: {getAvailableBalance('BEREAVEMENT')} days). Please select up to 2 days for this application, and submit additional days separately under <strong>Casual Leave (CL)</strong>, <strong>Sick Leave (SL)</strong>, or <strong>Privilege Leave (PL)</strong>.</span>
+            </div>
+          )}
         </div>
       )}
 
@@ -1181,13 +1219,14 @@ const LeaveApplications = () => {
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200"><span className="font-bold text-slate-900">Holiday:</span> {viewLeave.regionalHolidayName || '—'}</div>
               )}
 
-              {(viewLeave.clUsed > 0 || viewLeave.slUsed > 0 || viewLeave.plUsed > 0 || viewLeave.negativePL > 0 || viewLeave.lopDays > 0) && (
+              {(viewLeave.clUsed > 0 || viewLeave.slUsed > 0 || viewLeave.plUsed > 0 || viewLeave.blUsed > 0 || viewLeave.negativePL > 0 || viewLeave.lopDays > 0) && (
                 <div className="mt-3 pt-3 border-t border-slate-200 space-y-1">
                   <div className="font-bold text-indigo-950 uppercase text-[11px]">Deduction Breakdown:</div>
                   <div className="grid grid-cols-2 gap-1 text-[11px]">
                     {viewLeave.clUsed > 0 && <div>CL: {viewLeave.clUsed} days</div>}
                     {viewLeave.slUsed > 0 && <div>SL: {viewLeave.slUsed} days</div>}
                     {viewLeave.plUsed > 0 && <div>PL: {viewLeave.plUsed} days</div>}
+                    {viewLeave.blUsed > 0 && <div>BL: {viewLeave.blUsed} days</div>}
                     {viewLeave.negativePL > 0 && <div className="text-rose-600 font-bold">Negative PL: {viewLeave.negativePL} days</div>}
                     {viewLeave.lopDays > 0 && <div className="text-amber-600 font-bold">LOP: {viewLeave.lopDays} days</div>}
                   </div>

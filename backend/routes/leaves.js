@@ -578,7 +578,8 @@ router.get('/balance', auth, async (req, res) => {
     const result = employees.map(emp => {
       const stored = storedBalancesMap[emp.employeeId];
       const policy = policyMap[emp.employeeId];
-      const blAlloc = policy && policy.bereavement_leave_enabled ? (Number(policy.monthly_bereavement_allocation) || 0) : 0;
+      const bereavementEnabled = policy ? !!policy.bereavement_leave_enabled : false;
+      const blAlloc = policy && bereavementEnabled ? (Number(policy.monthly_bereavement_allocation) || 0) : 0;
 
       // System calculation fallback or reference
       const systemCalc = calcBalanceForEmployee(emp, usedMap[emp.employeeId] || [], calcDate);
@@ -618,7 +619,7 @@ router.get('/balance', auth, async (req, res) => {
         bereavement: {
           allocated: blAlloc,
           used: blLedger ? (blLedger.used_leave ?? 0) : (systemCalc.balances.bereavement?.used ?? 0),
-          balance: blLedger ? (blLedger.closing_balance ?? 0) : Math.max(0, blAlloc - (Number(systemCalc.balances.bereavement?.used) || 0))
+          balance: !bereavementEnabled ? 0 : (blLedger && (blLedger.allocated_leave ?? 0) > 0 ? (blLedger.closing_balance ?? 0) : Math.max(0, blAlloc - (blLedger ? (blLedger.used_leave ?? 0) : (systemCalc.balances.bereavement?.used ?? 0))))
         }
       };
 
@@ -971,7 +972,8 @@ router.get('/preview-split', auth, async (req, res) => {
     const availableBalances = {
       casual: { balance: (balances.casual?.balance || 0) - (pending?.CL || 0) },
       sick: { balance: (balances.sick?.balance || 0) - (pending?.SL || 0) },
-      privilege: { balance: (balances.privilege?.balance || 0) - (pending?.PL || 0) }
+      privilege: { balance: (balances.privilege?.balance || 0) - (pending?.PL || 0) },
+      bereavement: { balance: (balances.bereavement?.balance || 0) - (pending?.BEREAVEMENT || 0) }
     };
 
     const split = calculateLeaveSplit(requestedDays, availableBalances, leaveType || null);
@@ -1028,7 +1030,7 @@ router.get('/my-balance', auth, async (req, res) => {
     if (emp && emp.employeeId) {
       const policy = await EmployeeLeavePolicy.findOne({ employeeId: emp.employeeId }).lean();
       bereavementEnabled = policy ? !!policy.bereavement_leave_enabled : false;
-      bereavementAllocation = policy ? (policy.monthly_bereavement_allocation || 0) : 0;
+      bereavementAllocation = policy && bereavementEnabled ? (policy.monthly_bereavement_allocation || 0) : 0;
     }
 
     // Check for stored balance
@@ -1091,7 +1093,7 @@ router.get('/my-balance', auth, async (req, res) => {
         bereavement: {
           allocated: bereavementAllocation,
           used: blLedger ? (blLedger.used_leave ?? 0) : (systemCalc.balances.bereavement?.used ?? 0),
-          balance: blLedger ? (blLedger.closing_balance ?? 0) : Math.max(0, bereavementAllocation - (Number(systemCalc.balances.bereavement?.used) || 0))
+          balance: !bereavementEnabled ? 0 : (blLedger && (blLedger.allocated_leave ?? 0) > 0 ? (blLedger.closing_balance ?? 0) : Math.max(0, bereavementAllocation - (blLedger ? (blLedger.used_leave ?? 0) : (systemCalc.balances.bereavement?.used ?? 0))))
         }
       };
 
@@ -1520,16 +1522,26 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
 
     // NEW: Calculate Leave Split
     const targetEmployeeId = req.user.employeeId || emp?.employeeId || '';
-    let split = { clUsed: 0, slUsed: 0, plUsed: 0, negativePL: 0, lopDays: 0, remainingBalance: 0 };
+    let split = { clUsed: 0, slUsed: 0, plUsed: 0, blUsed: 0, negativePL: 0, lopDays: 0, remainingBalance: 0 };
     
-    if (['CL', 'SL', 'PL'].includes(normalizedType)) {
+    if (['CL', 'SL', 'PL', 'BEREAVEMENT', 'BL'].includes(normalizedType)) {
       const currentBalances = await getEmployeeCurrentBalances(emp || { employeeId: targetEmployeeId }, targetEmployeeId);
       const pending = await getPendingDeductions(targetEmployeeId);
       const availableBalances = {
         casual: { balance: (currentBalances.casual?.balance || 0) - (pending?.CL || 0) },
         sick: { balance: (currentBalances.sick?.balance || 0) - (pending?.SL || 0) },
-        privilege: { balance: (currentBalances.privilege?.balance || 0) - (pending?.PL || 0) }
+        privilege: { balance: (currentBalances.privilege?.balance || 0) - (pending?.PL || 0) },
+        bereavement: { balance: (currentBalances.bereavement?.balance || 0) - (pending?.BEREAVEMENT || 0) }
       };
+
+      if (['BEREAVEMENT', 'BL'].includes(normalizedType)) {
+        if (parseFloat(finalDays) > 2) {
+          return res.status(400).json({ error: 'Bereavement Leave can only be applied for a maximum of 2 days. For additional days, please apply using Casual Leave (CL), Sick Leave (SL), or Privilege Leave (PL).' });
+        }
+        if (parseFloat(finalDays) > (availableBalances.bereavement?.balance || 0)) {
+          return res.status(400).json({ error: `Insufficient Bereavement Leave balance (${availableBalances.bereavement?.balance || 0} days available). For additional days, please apply using CL, SL, or PL.` });
+        }
+      }
 
       split = calculateLeaveSplit(finalDays, availableBalances, finalLeaveType);
     }
@@ -1547,6 +1559,7 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
       clUsed: split.clUsed,
       slUsed: split.slUsed,
       plUsed: split.plUsed,
+      blUsed: split.blUsed,
       negativePL: split.negativePL,
       lopDays: split.lopDays,
       remainingBalance: split.remainingBalance,
@@ -1769,20 +1782,32 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
       clUsed: existing.clUsed || 0, 
       slUsed: existing.slUsed || 0, 
       plUsed: existing.plUsed || 0, 
+      blUsed: existing.blUsed || 0,
       negativePL: existing.negativePL || 0, 
       lopDays: existing.lopDays || 0, 
       remainingBalance: existing.remainingBalance 
     };
     
-    if (['CL', 'SL', 'PL'].includes(normalizedType)) {
+    if (['CL', 'SL', 'PL', 'BEREAVEMENT', 'BL'].includes(normalizedType)) {
       const currentBalances = await getEmployeeCurrentBalances(null, targetEmployeeId);
       
       const pending = await getPendingDeductions(targetEmployeeId, req.params.id);
       const availableBalances = {
-        casual: { balance: (currentBalances.casual?.balance || 0) - pending.CL },
-        sick: { balance: (currentBalances.sick?.balance || 0) - pending.SL },
-        privilege: { balance: (currentBalances.privilege?.balance || 0) - pending.PL }
+        casual: { balance: (currentBalances.casual?.balance || 0) - (pending?.CL || 0) },
+        sick: { balance: (currentBalances.sick?.balance || 0) - (pending?.SL || 0) },
+        privilege: { balance: (currentBalances.privilege?.balance || 0) - (pending?.PL || 0) },
+        bereavement: { balance: (currentBalances.bereavement?.balance || 0) - (pending?.BEREAVEMENT || 0) }
       };
+
+      if (['BEREAVEMENT', 'BL'].includes(normalizedType)) {
+        const daysToCheck = parseFloat(finalDays || existing.totalDays);
+        if (daysToCheck > 2) {
+          return res.status(400).json({ error: 'Bereavement Leave can only be applied for a maximum of 2 days. For additional days, please apply using Casual Leave (CL), Sick Leave (SL), or Privilege Leave (PL).' });
+        }
+        if (daysToCheck > (availableBalances.bereavement?.balance || 0)) {
+          return res.status(400).json({ error: `Insufficient Bereavement Leave balance (${availableBalances.bereavement?.balance || 0} days available). For additional days, please apply using CL, SL, or PL.` });
+        }
+      }
 
       split = calculateLeaveSplit(finalDays || existing.totalDays, availableBalances, nextLeaveType);
     }
@@ -1798,6 +1823,7 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
         clUsed: split.clUsed,
         slUsed: split.slUsed,
         plUsed: split.plUsed,
+        blUsed: split.blUsed,
         negativePL: split.negativePL,
         lopDays: split.lopDays,
         remainingBalance: split.remainingBalance,
@@ -2008,7 +2034,10 @@ router.put('/policy/:employeeId', auth, async (req, res) => {
     );
 
     // Immediately update current year's LeaveBalance for bereavement so it shows on the UI front table
-    const currentYear = new Date().getFullYear();
+    const currentDate = new Date();
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth() + 1;
+
     const existingBalance = await LeaveBalance.findOne({ employeeId, year: currentYear });
     if (existingBalance) {
       await LeaveBalance.updateOne(
@@ -2020,6 +2049,55 @@ router.put('/policy/:employeeId', auth, async (req, res) => {
           }
         }
       );
+    } else {
+      await LeaveBalance.create({
+        employeeId,
+        year: currentYear,
+        balances: {
+          casual: { allocated: 0, used: 0, balance: 0 },
+          sick: { allocated: 0, used: 0, balance: 0 },
+          privilege: { allocated: 0, used: 0, balance: 0 },
+          bereavement: { allocated: blAlloc, used: 0, balance: blAlloc }
+        }
+      });
+    }
+
+    // Immediately update or create current month's EmployeeLeaveLedger for BEREAVEMENT
+    const blLedger = await EmployeeLeaveLedger.findOne({
+      employee_id: employeeId,
+      year: currentYear,
+      month: currentMonth,
+      leave_type: 'BEREAVEMENT'
+    });
+
+    if (blLedger) {
+      const used = blLedger.used_leave || 0;
+      const newAllocated = blAlloc;
+      const newClosing = Math.max(0, (blLedger.opening_balance || 0) + newAllocated - used);
+      await EmployeeLeaveLedger.updateOne(
+        { _id: blLedger._id },
+        {
+          $set: {
+            allocated_leave: newAllocated,
+            closing_balance: newClosing
+          }
+        }
+      );
+    } else {
+      await EmployeeLeaveLedger.create({
+        employee_id: employeeId,
+        employee_name: emp.name,
+        year: currentYear,
+        month: currentMonth,
+        leave_type: 'BEREAVEMENT',
+        opening_balance: 0,
+        allocated_leave: blAlloc,
+        used_leave: 0,
+        closing_balance: blAlloc,
+        carry_forward: true,
+        lop_days: 0,
+        is_locked: false
+      });
     }
 
     res.json(updated);

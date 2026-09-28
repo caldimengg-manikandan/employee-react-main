@@ -14,6 +14,7 @@ const LeaveApplicationSchema = new mongoose.Schema(
     clUsed: { type: Number, default: 0 },
     slUsed: { type: Number, default: 0 },
     plUsed: { type: Number, default: 0 },
+    blUsed: { type: Number, default: 0 },
     negativePL: { type: Number, default: 0 },
     lopDays: { type: Number, default: 0 },
     remainingBalance: { type: Number, default: 0 },

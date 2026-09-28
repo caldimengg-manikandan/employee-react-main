@@ -98,7 +98,7 @@ const LeaveBalance = () => {
             if (r.leaveType === 'CL') agg[id].CL += Number(r.totalDays || 0);
             else if (r.leaveType === 'SL') agg[id].SL += Number(r.totalDays || 0);
             else if (r.leaveType === 'PL') agg[id].PL += Number(r.totalDays || 0);
-            else if (r.leaveType === 'BL') agg[id].BL += Number(r.totalDays || 0);
+            else if (r.leaveType === 'BL' || r.leaveType === 'BEREAVEMENT') agg[id].BL += Number(r.totalDays || 0);
           }
         });
         setPendingMap(agg);
@@ -210,6 +210,7 @@ const LeaveBalance = () => {
           location: policyEmployee.location
         }
       });
+      await loadBalances();
     } catch (err) {
       console.error('Failed to save policy', err);
       showError('Failed to save policy: ' + (err.response?.data?.error || err.message));
