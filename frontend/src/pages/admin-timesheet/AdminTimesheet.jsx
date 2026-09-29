@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { adminTimesheetAPI, employeeAPI, teamAPI } from '../../services/api';
+import { adminTimesheetAPI, employeeAPI, teamAPI, authAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
 import XLSXStyle from 'xlsx-js-style';
 import { 
@@ -59,6 +59,7 @@ const AdminTimesheet = () => {
   const [actionLoading, setActionLoading] = useState({});
   const [filters, setFilters] = useState({
     employeeId: '',
+    reportingManager: 'All Managers',
     division: 'All Division',
     location: 'All Locations',
     status: 'All Status',
@@ -121,6 +122,8 @@ const AdminTimesheet = () => {
   const [weekOptions, setWeekOptions] = useState(["All Weeks"]);
   const [yearOptions, setYearOptions] = useState(["All Years"]);
   const [employeeIdOptions, setEmployeeIdOptions] = useState(['']);
+  const [managerOptions, setManagerOptions] = useState(["All Managers"]);
+  const [allTeams, setAllTeams] = useState([]);
   const [selectedTimesheet, setSelectedTimesheet] = useState(null);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -165,6 +168,60 @@ const AdminTimesheet = () => {
     };
     fetchEmployees();
   }, []);
+
+  useEffect(() => {
+    const fetchTeamsData = async () => {
+      try {
+        const [teamsRes, usersRes] = await Promise.all([
+          teamAPI.list().catch(() => ({ data: [] })),
+          authAPI.getAllUsers().catch(() => ({ data: [] }))
+        ]);
+        const teams = Array.isArray(teamsRes.data) ? teamsRes.data : [];
+        const users = Array.isArray(usersRes.data) ? usersRes.data : [];
+        setAllTeams(teams);
+
+        const empMap = {};
+        allEmployees.forEach(e => {
+          if (e.employeeId) empMap[e.employeeId] = e.name;
+        });
+
+        // Strictly include Reporting Managers from Team Management (projectmanager, manager, director, teamlead, reporting_manager)
+        // EXCLUDE pure admins (admin, hr)
+        const map = new Map();
+
+        // 1. Add users with Reporting Manager / GM / Director roles
+        users
+          .filter(u => ['projectmanager', 'manager', 'director', 'teamlead', 'reporting_manager'].includes(String(u.role || '').toLowerCase()) && u.employeeId)
+          .forEach(u => {
+            const empName = empMap[u.employeeId] || u.name || u.employeeId;
+            const label = `${empName} (${u.employeeId})`;
+            map.set(u.employeeId, { id: u.employeeId, name: empName, label });
+          });
+
+        // 2. Add leaders from teams created in Team Management (excluding admin/hr who are not team leaders)
+        teams.forEach(t => {
+          if (t.leaderEmployeeId && !map.has(t.leaderEmployeeId)) {
+            const userObj = users.find(u => u.employeeId === t.leaderEmployeeId);
+            const userRole = String(userObj?.role || '').toLowerCase();
+            const isAdminRole = ['admin', 'hr'].includes(userRole);
+            
+            // Only add if not an admin role or if they have team members assigned in Team Management
+            if (!isAdminRole || (Array.isArray(t.members) && t.members.length > 0)) {
+              const name = empMap[t.leaderEmployeeId] || t.leaderName || t.leaderEmployeeId;
+              const label = `${name} (${t.leaderEmployeeId})`;
+              map.set(t.leaderEmployeeId, { id: t.leaderEmployeeId, name, label });
+            }
+          }
+        });
+
+        const sorted = Array.from(map.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        setManagerOptions(["All Managers", ...sorted]);
+      } catch (err) {
+        console.error("Error fetching teams for managers:", err);
+      }
+    };
+    fetchTeamsData();
+  }, [allEmployees]);
 
   const formatDuration = (totalHours) => {
     if (!totalHours || Number.isNaN(totalHours)) return '00:00';
@@ -254,6 +311,9 @@ const AdminTimesheet = () => {
       if (filters.status === 'Not Submitted') {
         params.status = 'All Status';
       }
+      if (filters.reportingManager === 'All Managers') {
+        delete params.reportingManager;
+      }
 
       const res = await adminTimesheetAPI.list(params);
       let data = res.data?.data || [];
@@ -280,22 +340,35 @@ const AdminTimesheet = () => {
           if (filters.division !== 'All Division' && emp.division !== filters.division) return false;
           if (filters.location !== 'All Locations' && emp.location !== filters.location) return false;
           if (filters.employeeId !== '' && emp.employeeId !== filters.employeeId) return false;
+          if (filters.reportingManager !== 'All Managers') {
+            const team = allTeams.find(t => (t.members || []).includes(emp.employeeId));
+            const leaderEmpId = team?.leaderEmployeeId || emp.appraiser || emp.reviewer || '';
+            const leaderName = team?.leaderName || '';
+            if (leaderEmpId !== filters.reportingManager && leaderName !== filters.reportingManager) return false;
+          }
           
           return !submittedEmployeeIds.has(emp.employeeId);
         });
 
-        data = missingEmployees.map(emp => ({
-          _id: `missing-${emp.employeeId}`,
-          employeeId: emp.employeeId,
-          employeeName: emp.name,
-          division: emp.division,
-          location: emp.location,
-          week: filters.week === 'All Weeks' ? '-' : filters.week,
-          status: 'Not Submitted',
-          timeEntries: [],
-          weeklyTotal: 0,
-          submittedDate: null
-        }));
+        data = missingEmployees.map(emp => {
+          const team = allTeams.find(t => (t.members || []).includes(emp.employeeId));
+          const leaderName = team?.leaderName || emp.appraiser || emp.reviewer || '';
+          const leaderId = team?.leaderEmployeeId || '';
+          const repManager = leaderName && leaderId ? `${leaderName} (${leaderId})` : (leaderName || leaderId || '—');
+          return {
+            _id: `missing-${emp.employeeId}`,
+            employeeId: emp.employeeId,
+            employeeName: emp.name,
+            reportingManager: repManager,
+            division: emp.division,
+            location: emp.location,
+            week: filters.week === 'All Weeks' ? '-' : filters.week,
+            status: 'Not Submitted',
+            timeEntries: [],
+            weeklyTotal: 0,
+            submittedDate: null
+          };
+        });
       }
 
       if (filters.employeeId === '') {
@@ -453,6 +526,7 @@ const AdminTimesheet = () => {
   const handleClearFilters = () => {
     setFilters({
       employeeId: '',
+      reportingManager: 'All Managers',
       division: 'All Division',
       location: 'All Locations',
       status: 'All Status',
@@ -467,6 +541,7 @@ const AdminTimesheet = () => {
   const isFilterApplied = () => {
     return (
       filters.employeeId !== '' ||
+      filters.reportingManager !== 'All Managers' ||
       filters.division !== 'All Division' ||
       filters.location !== 'All Locations' ||
       filters.status !== 'All Status' ||
@@ -484,65 +559,448 @@ const AdminTimesheet = () => {
       return;
     }
 
-    const flattened = [];
+    const wb = XLSXStyle.utils.book_new();
+
+    const titleText = 'EMPLOYEE MANAGEMENT SYSTEM - ADMIN TIMESHEET MASTER REPORT';
+    const filterInfo = `Division: ${filters.division}   |   Location: ${filters.location}   |   Reporting Manager: ${filters.reportingManager}   |   Status: ${filters.status}   |   Week: ${filters.week}   |   Project: ${filters.project}`;
+    const statsInfo = `Total Submissions: ${timesheets.length}   |   Total Employees: ${stats.totalEmployees}   |   Approved: ${stats.approved}   |   Pending: ${stats.pending}   |   Rejected: ${stats.rejected}   |   Project Hours: ${formatDuration(stats.projectHours)}`;
+
+    const headers = [
+      'S.No',
+      'Employee ID',
+      'Employee Name',
+      'Reporting Manager',
+      'Division',
+      'Location',
+      'Week',
+      'Submitted Date',
+      'Project',
+      'Task',
+      'Type',
+      'Mon (hrs)',
+      'Tue (hrs)',
+      'Wed (hrs)',
+      'Thu (hrs)',
+      'Fri (hrs)',
+      'Sat (hrs)',
+      'Sun (hrs)',
+      'Entry Total (hrs)',
+      'Weekly Total (hrs)',
+      'Status',
+      'Rejection Reason'
+    ];
+
+    const wsData = [
+      [titleText],
+      [filterInfo],
+      [statsInfo],
+      [], // Spacer row
+      headers
+    ];
+
+    let rowCount = 0;
+    let totalMon = 0, totalTue = 0, totalWed = 0, totalThu = 0, totalFri = 0, totalSat = 0, totalSun = 0;
+    let totalEntrySum = 0;
+    const weeklyTotalsSeen = new Set();
+    let totalWeeklySum = 0;
+
     timesheets.forEach(ts => {
       const entries = ts.timeEntries || [];
+      const tsWeekly = getWeeklyTotal(ts);
+      const tsKey = `${ts.employeeId || ''}|${ts.week || ''}`;
+      if (!weeklyTotalsSeen.has(tsKey)) {
+        weeklyTotalsSeen.add(tsKey);
+        totalWeeklySum += Number(tsWeekly) || 0;
+      }
+
       if (entries.length === 0) {
-        flattened.push({
-          'Employee ID': ts.employeeId || '',
-          'Employee Name': ts.employeeName || '',
-          'Division': ts.division || '',
-          'Location': ts.location || '',
-          'Week': ts.week || '',
-          'Submitted Date': ts.submittedDate ? new Date(ts.submittedDate).toLocaleDateString() : '',
-          'Status': ts.status === 'Submitted' ? 'Pending' : (ts.status || ''),
-          'Rejection Reason': ts.rejectionReason || '',
-          'Project': '',
-          'Task': '',
-          'Type': '',
-          'Mon (hrs)': '',
-          'Tue (hrs)': '',
-          'Wed (hrs)': '',
-          'Thu (hrs)': '',
-          'Fri (hrs)': '',
-          'Sat (hrs)': '',
-          'Sun (hrs)': '',
-          'Entry Total (hrs)': '',
-          'Weekly Total (hrs)': formatDuration(getWeeklyTotal(ts))
-        });
+        rowCount++;
+        wsData.push([
+          rowCount,
+          ts.employeeId || '',
+          ts.employeeName || '',
+          ts.reportingManager || '—',
+          ts.division || '',
+          ts.location || '',
+          ts.week || '',
+          ts.submittedDate ? new Date(ts.submittedDate).toLocaleDateString() : '',
+          '—',
+          '—',
+          '—',
+          '00:00',
+          '00:00',
+          '00:00',
+          '00:00',
+          '00:00',
+          '00:00',
+          '00:00',
+          '00:00',
+          formatDuration(tsWeekly),
+          ts.status === 'Submitted' ? 'Pending' : (ts.status || ''),
+          ts.rejectionReason || ''
+        ]);
       } else {
-        entries.forEach(te => {
-          flattened.push({
-            'Employee ID': ts.employeeId || '',
-            'Employee Name': ts.employeeName || '',
-            'Division': ts.division || '',
-            'Location': ts.location || '',
-            'Week': ts.week || '',
-            'Submitted Date': ts.submittedDate ? new Date(ts.submittedDate).toLocaleDateString() : '',
-            'Status': ts.status === 'Submitted' ? 'Pending' : (ts.status || ''),
-            'Rejection Reason': ts.rejectionReason || '',
-            'Project': te.project || '',
-            'Task': te.task || '',
-            'Type': te.type || '',
-            'Mon (hrs)': te.monday ? formatDuration(te.monday) : '00:00',
-            'Tue (hrs)': te.tuesday ? formatDuration(te.tuesday) : '00:00',
-            'Wed (hrs)': te.wednesday ? formatDuration(te.wednesday) : '00:00',
-            'Thu (hrs)': te.thursday ? formatDuration(te.thursday) : '00:00',
-            'Fri (hrs)': te.friday ? formatDuration(te.friday) : '00:00',
-            'Sat (hrs)': te.saturday ? formatDuration(te.saturday) : '00:00',
-            'Sun (hrs)': te.sunday ? formatDuration(te.sunday) : '00:00',
-            'Entry Total (hrs)': te.total ? formatDuration(te.total) : '00:00',
-            'Weekly Total (hrs)': formatDuration(getWeeklyTotal(ts))
-          });
+        entries.forEach((te, entryIdx) => {
+          rowCount++;
+          const m = Number(te.monday || 0);
+          const tu = Number(te.tuesday || 0);
+          const w = Number(te.wednesday || 0);
+          const th = Number(te.thursday || 0);
+          const f = Number(te.friday || 0);
+          const sa = Number(te.saturday || 0);
+          const su = Number(te.sunday || 0);
+          const eTot = Number(te.total || 0) || (m + tu + w + th + f + sa + su);
+
+          totalMon += m;
+          totalTue += tu;
+          totalWed += w;
+          totalThu += th;
+          totalFri += f;
+          totalSat += sa;
+          totalSun += su;
+          totalEntrySum += eTot;
+
+          wsData.push([
+            rowCount,
+            ts.employeeId || '',
+            ts.employeeName || '',
+            ts.reportingManager || '—',
+            ts.division || '',
+            ts.location || '',
+            ts.week || '',
+            ts.submittedDate ? new Date(ts.submittedDate).toLocaleDateString() : '',
+            te.project || '',
+            te.task || '',
+            te.type || 'project',
+            m > 0 ? formatDuration(m) : '00:00',
+            tu > 0 ? formatDuration(tu) : '00:00',
+            w > 0 ? formatDuration(w) : '00:00',
+            th > 0 ? formatDuration(th) : '00:00',
+            f > 0 ? formatDuration(f) : '00:00',
+            sa > 0 ? formatDuration(sa) : '00:00',
+            su > 0 ? formatDuration(su) : '00:00',
+            formatDuration(eTot),
+            entryIdx === 0 ? formatDuration(tsWeekly) : '',
+            ts.status === 'Submitted' ? 'Pending' : (ts.status || ''),
+            ts.rejectionReason || ''
+          ]);
         });
       }
     });
 
-    const worksheet = XLSX.utils.json_to_sheet(flattened);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Timesheets');
+    // Grand Total Row
+    wsData.push([
+      'TOTAL',
+      '',
+      `Total Records: ${rowCount}`,
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      formatDuration(totalMon),
+      formatDuration(totalTue),
+      formatDuration(totalWed),
+      formatDuration(totalThu),
+      formatDuration(totalFri),
+      formatDuration(totalSat),
+      formatDuration(totalSun),
+      formatDuration(totalEntrySum),
+      formatDuration(totalWeeklySum),
+      '',
+      ''
+    ]);
+
+    const ws = XLSXStyle.utils.aoa_to_sheet(wsData);
+    const numCols = headers.length; // 22 columns
+
+    // Merges
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } }, // Title A1:V1
+      { s: { r: 1, c: 0 }, e: { r: 1, c: numCols - 1 } }, // Subtitle A2:V2
+      { s: { r: 2, c: 0 }, e: { r: 2, c: numCols - 1 } }, // Stats A3:V3
+      { s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 1 } }, // Footer TOTAL A..B
+      { s: { r: wsData.length - 1, c: 2 }, e: { r: wsData.length - 1, c: 10 } } // Footer Summary Label C..K
+    ];
+
+    // Column widths
+    ws['!cols'] = [
+      { wch: 8 },  // S.No
+      { wch: 15 }, // Employee ID
+      { wch: 26 }, // Employee Name
+      { wch: 28 }, // Reporting Manager
+      { wch: 18 }, // Division
+      { wch: 15 }, // Location
+      { wch: 14 }, // Week
+      { wch: 16 }, // Submitted Date
+      { wch: 26 }, // Project
+      { wch: 22 }, // Task
+      { wch: 12 }, // Type
+      { wch: 11 }, // Mon
+      { wch: 11 }, // Tue
+      { wch: 11 }, // Wed
+      { wch: 11 }, // Thu
+      { wch: 11 }, // Fri
+      { wch: 11 }, // Sat
+      { wch: 11 }, // Sun
+      { wch: 14 }, // Entry Total
+      { wch: 15 }, // Weekly Total
+      { wch: 15 }, // Status
+      { wch: 30 }  // Rejection Reason
+    ];
+
+    // Row heights
+    ws['!rows'] = [
+      { hpt: 32 }, // Row 0 Title
+      { hpt: 20 }, // Row 1 Subtitle
+      { hpt: 22 }, // Row 2 Stats
+      { hpt: 10 }, // Row 3 Spacer
+      { hpt: 26 }, // Row 4 Table Headers
+    ];
+
+    // Borders
+    const borderThin = {
+      top: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+    };
+    const borderHeader = {
+      top: { style: 'medium', color: { rgb: '0F172A' } },
+      bottom: { style: 'medium', color: { rgb: '0F172A' } },
+      left: { style: 'thin', color: { rgb: '334155' } },
+      right: { style: 'thin', color: { rgb: '334155' } }
+    };
+    const borderFooter = {
+      top: { style: 'medium', color: { rgb: '1E293B' } },
+      bottom: { style: 'medium', color: { rgb: '1E293B' } },
+      left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+    };
+
+    const headerRowIndex = 4;
+    const lastRowIndex = wsData.length - 1;
+
+    for (let R = 0; R < wsData.length; R++) {
+      for (let C = 0; C < numCols; C++) {
+        const cellRef = XLSXStyle.utils.encode_cell({ r: R, c: C });
+        if (!ws[cellRef]) ws[cellRef] = { v: '', t: 's' };
+
+        // Row 0: Title Banner
+        if (R === 0) {
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: '1E1B4B' } }, // Deep Navy / Indigo
+            font: { name: 'Calibri', sz: 14, bold: true, color: { rgb: 'FFFFFF' } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
+        }
+        // Row 1: Subtitle Filter Info
+        else if (R === 1) {
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: '312E81' } }, // Indigo 800
+            font: { name: 'Calibri', sz: 10, italic: true, color: { rgb: 'E0E7FF' } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
+        }
+        // Row 2: KPI Metrics Banner
+        else if (R === 2) {
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: '3730A3' } }, // Indigo 700
+            font: { name: 'Calibri', sz: 10, bold: true, color: { rgb: 'F5F3FF' } },
+            alignment: { horizontal: 'center', vertical: 'center' }
+          };
+        }
+        // Row 4: Table Header Row
+        else if (R === headerRowIndex) {
+          let headerBg = '1E293B'; // Default Slate 800
+          if (C === 1 || C === 2) headerBg = '1E1B4B'; // Employee ID / Name (Navy)
+          else if (C === 3) headerBg = '4C1D95'; // Reporting Manager (Deep Purple)
+          else if (C === 8 || C === 9 || C === 10) headerBg = '1E3A8A'; // Project / Task / Type (Blue 900)
+          else if (C >= 11 && C <= 17) headerBg = '0E7490'; // Mon-Sun Days (Cyan 800)
+          else if (C === 18) headerBg = '0F766E'; // Entry Total (Teal 700)
+          else if (C === 19) headerBg = '065F46'; // Weekly Total (Emerald 800)
+          else if (C === 20) headerBg = '92400E'; // Status (Amber 800)
+          else if (C === 21) headerBg = '881337'; // Rejection Reason (Rose 900)
+
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: headerBg } },
+            font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+            alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+            border: borderHeader
+          };
+        }
+        // Footer Row
+        else if (R === lastRowIndex) {
+          let footerBg = '0F172A';
+          let fontColor = 'FFFFFF';
+          let align = 'center';
+          let isBold = true;
+
+          if (C === 0 || C === 1) {
+            footerBg = '0F172A';
+            align = 'center';
+          } else if (C >= 2 && C <= 10) {
+            footerBg = '1E293B';
+            fontColor = 'F8FAFC';
+            align = 'left';
+          } else if (C >= 11 && C <= 17) {
+            footerBg = '083344'; // Dark Cyan
+            fontColor = '67E8F9';
+          } else if (C === 18) {
+            footerBg = '134E4A'; // Dark Teal
+            fontColor = '5EEAD4';
+          } else if (C === 19) {
+            footerBg = '064E3B'; // Dark Emerald
+            fontColor = '6EE7B7';
+          } else {
+            footerBg = '0F172A';
+          }
+
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: footerBg } },
+            font: { name: 'Calibri', sz: 11, bold: isBold, color: { rgb: fontColor } },
+            alignment: { horizontal: align, vertical: 'center' },
+            border: borderFooter
+          };
+        }
+        // Data Rows
+        else if (R > headerRowIndex && R < lastRowIndex) {
+          const isEven = (R - headerRowIndex) % 2 === 0;
+          let rowBg = isEven ? 'FFFFFF' : 'F8FAFC';
+          let align = 'left';
+          let fontColor = '1E293B';
+          let isBold = false;
+
+          // S.No
+          if (C === 0) {
+            align = 'center';
+            fontColor = '64748B';
+          }
+          // Employee ID
+          else if (C === 1) {
+            align = 'center';
+            fontColor = '4338CA'; // Indigo
+            isBold = true;
+            rowBg = isEven ? 'EEF2FF' : 'E0E7FF';
+          }
+          // Employee Name
+          else if (C === 2) {
+            align = 'left';
+            fontColor = '0F172A';
+            isBold = true;
+          }
+          // Reporting Manager
+          else if (C === 3) {
+            align = 'left';
+            fontColor = '6B21A8'; // Purple
+            isBold = true;
+            if (ws[cellRef].v && ws[cellRef].v !== '—') {
+              rowBg = isEven ? 'FAF5FF' : 'F3E8FF';
+            }
+          }
+          // Division, Location
+          else if (C === 4 || C === 5) {
+            align = 'left';
+            fontColor = '334155';
+          }
+          // Week, Submitted Date
+          else if (C === 6 || C === 7) {
+            align = 'center';
+            fontColor = '475569';
+          }
+          // Project
+          else if (C === 8) {
+            align = 'left';
+            fontColor = '1E40AF'; // Blue
+            isBold = true;
+          }
+          // Task
+          else if (C === 9) {
+            align = 'left';
+            fontColor = '334155';
+          }
+          // Type
+          else if (C === 10) {
+            align = 'center';
+            fontColor = '64748B';
+          }
+          // Daily Hours (Mon-Sun)
+          else if (C >= 11 && C <= 17) {
+            align = 'center';
+            const val = String(ws[cellRef].v || '');
+            if (val && val !== '00:00' && val !== '0' && val !== '-') {
+              fontColor = '1D4ED8';
+              isBold = true;
+              rowBg = isEven ? 'EFF6FF' : 'DBEAFE';
+            } else {
+              fontColor = '94A3B8';
+            }
+          }
+          // Entry Total
+          else if (C === 18) {
+            align = 'center';
+            const val = String(ws[cellRef].v || '');
+            if (val && val !== '00:00') {
+              fontColor = '0F766E'; // Teal
+              isBold = true;
+              rowBg = isEven ? 'F0FDFA' : 'CCFBF1';
+            } else {
+              fontColor = '94A3B8';
+            }
+          }
+          // Weekly Total
+          else if (C === 19) {
+            align = 'center';
+            const val = String(ws[cellRef].v || '');
+            if (val && val !== '00:00' && val !== '') {
+              fontColor = '047857'; // Emerald
+              isBold = true;
+              rowBg = isEven ? 'ECFDF5' : 'D1FAE5';
+            } else {
+              fontColor = '94A3B8';
+            }
+          }
+          // Status
+          else if (C === 20) {
+            align = 'center';
+            isBold = true;
+            const statusVal = String(ws[cellRef].v || '').toLowerCase();
+            if (statusVal === 'approved') {
+              rowBg = 'D1FAE5'; // Soft Emerald
+              fontColor = '065F46';
+            } else if (statusVal === 'pending' || statusVal === 'submitted') {
+              rowBg = 'FEF3C7'; // Soft Amber
+              fontColor = '92400E';
+            } else if (statusVal === 'rejected') {
+              rowBg = 'FFE4E6'; // Soft Rose
+              fontColor = '9F1239';
+            } else if (statusVal === 'not submitted') {
+              rowBg = 'F1F5F9'; // Soft Slate
+              fontColor = '475569';
+            }
+          }
+          // Rejection Reason
+          else if (C === 21) {
+            align = 'left';
+            fontColor = 'BE123C';
+          }
+
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: rowBg } },
+            font: { name: 'Calibri', sz: 10, bold: isBold, color: { rgb: fontColor } },
+            alignment: { horizontal: align, vertical: 'center' },
+            border: borderThin
+          };
+        }
+      }
+    }
+
+    XLSXStyle.utils.book_append_sheet(wb, ws, 'Timesheet Report');
     const timestamp = new Date().toISOString().slice(0, 10);
-    XLSX.writeFile(workbook, `Admin_Timesheets_${timestamp}.xlsx`);
+    XLSXStyle.writeFile(wb, `Admin_Timesheets_Master_${timestamp}.xlsx`);
   };
 
   const fetchMonthlyShiftAllowance = async () => {
@@ -944,6 +1402,44 @@ const AdminTimesheet = () => {
 
   const shortDays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
+  const getModalWeekDates = (timesheet) => {
+    if (!timesheet) return Array(7).fill(null);
+
+    let start = null;
+    if (timesheet.weekStartDate) {
+      const d = new Date(timesheet.weekStartDate);
+      if (!isNaN(d.getTime())) {
+        start = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+      }
+    }
+
+    if (!start && timesheet.week && String(timesheet.week).includes('-W')) {
+      try {
+        const [yearPart, weekPart] = String(timesheet.week).split('-W');
+        const year = Number(yearPart);
+        const week = Number(weekPart);
+        const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+        const dow = simple.getUTCDay();
+        const ISOweekStart = new Date(simple);
+        if (dow <= 4) ISOweekStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
+        else ISOweekStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
+        start = new Date(ISOweekStart.getUTCFullYear(), ISOweekStart.getUTCMonth(), ISOweekStart.getUTCDate());
+      } catch (e) {
+        console.error('Error parsing week string to date:', e);
+      }
+    }
+
+    if (!start) return Array(7).fill(null);
+
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
+      dates.push(d);
+    }
+    return dates;
+  };
+
   return (
     <div className="p-4 md:p-6 bg-slate-50 min-h-screen space-y-6 font-sans text-slate-800">
       
@@ -1036,7 +1532,7 @@ const AdminTimesheet = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
                 <Search size={13} className="text-slate-400" /> Employee ID
@@ -1051,6 +1547,26 @@ const AdminTimesheet = () => {
                     {id === '' ? 'All Employees' : id}
                   </option>
                 ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Users size={13} className="text-slate-400" /> Reporting Manager
+              </label>
+              <select
+                value={filters.reportingManager}
+                onChange={(e) => handleFilterChange('reportingManager', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              >
+                <option value="All Managers">All Reporting Managers</option>
+                {managerOptions
+                  .filter(m => m !== 'All Managers' && m !== 'All Reporting Managers')
+                  .map(mgr => (
+                    <option key={mgr.id || mgr} value={mgr.id || mgr}>
+                      {mgr.name ? `${mgr.name} (${mgr.id || ''})` : (mgr.label || mgr)}
+                    </option>
+                  ))}
               </select>
             </div>
 
@@ -1198,6 +1714,7 @@ const AdminTimesheet = () => {
               <tr className="bg-gradient-to-r from-[#1e1b4b] via-[#262760] to-[#2e3078] text-white text-xs font-bold uppercase tracking-wider">
                 <th className="p-3.5 pl-5">Employee ID</th>
                 <th className="p-3.5">Name</th>
+                <th className="p-3.5">Reporting Manager</th>
                 <th className="p-3.5">Division</th>
                 <th className="p-3.5">Location</th>
                 <th className="p-3.5">Week</th>
@@ -1210,14 +1727,14 @@ const AdminTimesheet = () => {
             <tbody className="divide-y divide-slate-100 text-xs font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-12 text-slate-500">
+                  <td colSpan="10" className="text-center py-12 text-slate-500">
                     <Loader2 className="animate-spin w-6 h-6 text-indigo-600 mx-auto mb-2" />
                     Loading timesheets...
                   </td>
                 </tr>
               ) : timesheets.length === 0 ? (
                 <tr>
-                  <td colSpan="9" className="text-center py-12 text-slate-500 font-semibold">
+                  <td colSpan="10" className="text-center py-12 text-slate-500 font-semibold">
                     No timesheets found for the selected filters.
                   </td>
                 </tr>
@@ -1229,6 +1746,16 @@ const AdminTimesheet = () => {
                   >
                     <td className="p-3.5 pl-5 font-bold text-indigo-700">{timesheet.employeeId || '—'}</td>
                     <td className="p-3.5 font-bold text-slate-900">{timesheet.employeeName}</td>
+                    <td className="p-3.5 font-semibold text-slate-700">
+                      {timesheet.reportingManager && timesheet.reportingManager !== '—' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50/70 text-indigo-950 border border-indigo-200/70 text-[11px] font-bold">
+                          <Users size={12} className="text-indigo-600" />
+                          {timesheet.reportingManager}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400 italic">Not Assigned</span>
+                      )}
+                    </td>
                     <td className="p-3.5 text-slate-600">{timesheet.division}</td>
                     <td className="p-3.5 text-slate-600">{timesheet.location}</td>
                     <td className="p-3.5 text-slate-600">{timesheet.week || '—'}</td>
@@ -1322,6 +1849,10 @@ const AdminTimesheet = () => {
                 <p className="text-sm font-bold text-indigo-950 mt-0.5">{selectedTimesheet.employeeName}</p>
               </div>
               <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
+                <p className="text-[11px] font-medium text-slate-500 uppercase">Reporting Manager</p>
+                <p className="text-sm font-bold text-indigo-950 mt-0.5">{selectedTimesheet.reportingManager || '—'}</p>
+              </div>
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
                 <p className="text-[11px] font-medium text-slate-500 uppercase">Division</p>
                 <p className="text-sm font-bold text-indigo-950 mt-0.5">{selectedTimesheet.division}</p>
               </div>
@@ -1339,7 +1870,7 @@ const AdminTimesheet = () => {
                   {selectedTimesheet.status}
                 </span>
               </div>
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70 sm:col-span-2">
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/70">
                 <p className="text-[11px] font-medium text-slate-500 uppercase">Submitted Date</p>
                 <p className="text-sm font-bold text-indigo-950 mt-0.5">
                   {selectedTimesheet.submittedDate ? new Date(selectedTimesheet.submittedDate).toLocaleString() : '—'}
@@ -1354,7 +1885,9 @@ const AdminTimesheet = () => {
                 Shift Information (Monday – Sunday)
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 bg-slate-50 p-3 rounded-xl border border-slate-200/80">
-                {shortDays.map((day, idx) => {
+                {getModalWeekDates(selectedTimesheet).map((d, idx) => {
+                  const day = shortDays[idx];
+                  const dateStr = d ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : '';
                   const dayShift = (Array.isArray(selectedTimesheet.dailyShiftTypes) && selectedTimesheet.dailyShiftTypes[idx]) 
                     || selectedTimesheet.shiftType 
                     || '—';
@@ -1364,6 +1897,9 @@ const AdminTimesheet = () => {
                   return (
                     <div key={day} className="bg-white p-2.5 rounded-lg border border-slate-200 text-center shadow-xs flex flex-col justify-between items-center">
                       <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">{day}</p>
+                      {dateStr && (
+                        <p className="text-[10px] text-slate-500 font-medium mt-0.5">{dateStr}</p>
+                      )}
                       <span className={`inline-block mt-1.5 px-2 py-0.5 text-[10px] font-extrabold rounded-full ${
                         isFirst ? 'bg-blue-100 text-blue-800 border border-blue-200' :
                         isSecond ? 'bg-purple-100 text-purple-800 border border-purple-200' :
@@ -1387,9 +1923,20 @@ const AdminTimesheet = () => {
                     <tr className="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                       <th className="p-3">Projects</th>
                       <th className="p-3">Task</th>
-                      {shortDays.map(day => (
-                        <th key={day} className="p-3 text-center">{day}</th>
-                      ))}
+                      {getModalWeekDates(selectedTimesheet).map((d, idx) => {
+                        const day = shortDays[idx];
+                        const dateStr = d ? d.toLocaleDateString("en-US", { month: "short", day: "numeric" }) : '';
+                        return (
+                          <th key={day} className="p-3 text-center">
+                            <div>{day}</div>
+                            {dateStr && (
+                              <div className="text-[10px] font-normal text-slate-500 mt-0.5">
+                                {dateStr}
+                              </div>
+                            )}
+                          </th>
+                        );
+                      })}
                       <th className="p-3 text-center font-bold">Total</th>
                     </tr>
                   </thead>

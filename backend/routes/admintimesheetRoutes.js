@@ -91,7 +91,7 @@ async function getTeamManagementAssignmentSets(userEmployeeId) {
 
 router.get("/list", auth, async (req, res) => {
   try {
-    const { employeeId, division, location, status, week, project, fromDate, toDate } = req.query;
+    const { employeeId, division, location, status, week, project, fromDate, toDate, reportingManager } = req.query;
     const role = String(req.user?.role || "").toLowerCase();
     const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
     const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead" || role === "reporting_manager";
@@ -314,31 +314,80 @@ router.get("/list", auth, async (req, res) => {
     for (const r of adminDocs) map.set(key(r), r);
     let combined = Array.from(map.values()).sort((a, b) => (a.submittedDate < b.submittedDate ? 1 : -1));
 
-    // Enrich division/location/name from current Employee records to ensure correctness
+    // Enrich division/location/name and reportingManager from current Employee and Team records
     try {
+      const allTeams = await Team.find({}).lean();
+      const leaderEmployeeIds = Array.from(new Set(allTeams.map(t => t.leaderEmployeeId).filter(Boolean)));
+      const leaderEmployees = await Employee.find({ employeeId: { $in: leaderEmployeeIds } }).select('employeeId name').lean();
+      const leaderNameMap = leaderEmployees.reduce((acc, emp) => {
+        acc[emp.employeeId] = emp.name;
+        return acc;
+      }, {});
+
+      const memberToLeaderMap = {};
+      for (const t of allTeams) {
+        const leaderName = leaderNameMap[t.leaderEmployeeId] || t.leaderName || t.leaderEmployeeId;
+        const members = Array.isArray(t.members) ? t.members : [];
+        for (const m of members) {
+          if (!m) continue;
+          memberToLeaderMap[m] = {
+            leaderEmployeeId: t.leaderEmployeeId,
+            leaderName: leaderName,
+            reportingManager: leaderName ? `${leaderName} (${t.leaderEmployeeId})` : t.leaderEmployeeId
+          };
+        }
+      }
+
       const employeeIds = Array.from(new Set(combined.map(r => r.employeeId).filter(Boolean)));
       if (employeeIds.length > 0) {
         const employees = await Employee.find({ employeeId: { $in: employeeIds }, status: 'Active' })
-          .select('employeeId name division location status')
+          .select('employeeId name division location status appraiser reviewer director')
           .lean();
         const empMap = employees.reduce((acc, emp) => {
           acc[emp.employeeId] = emp;
           return acc;
         }, {});
         
-        // Filter combined list to only include active employees
+        // Filter combined list to only include active employees and add reporting manager
         combined = combined.filter(r => {
           const emp = empMap[r.employeeId];
           return !!emp; // This effectively filters out non-active employees since the query above only returns active ones
         }).map(r => {
           const emp = empMap[r.employeeId];
+          const leaderInfo = memberToLeaderMap[r.employeeId];
+          const reportingManagerName = leaderInfo?.leaderName || emp?.appraiser || emp?.reviewer || '';
+          const reportingManagerId = leaderInfo?.leaderEmployeeId || '';
+          let reportingManager = '—';
+          if (leaderInfo?.reportingManager) {
+            reportingManager = leaderInfo.reportingManager;
+          } else if (reportingManagerName && reportingManagerId) {
+            reportingManager = `${reportingManagerName} (${reportingManagerId})`;
+          } else if (reportingManagerName) {
+            reportingManager = reportingManagerName;
+          } else if (reportingManagerId) {
+            reportingManager = reportingManagerId;
+          }
+
           return {
             ...r,
             employeeName: emp.name || r.employeeName,
             division: emp.division || r.division || 'Not Assigned',
             location: emp.location || r.location || 'Not Assigned',
+            reportingManager: reportingManager,
+            reportingManagerName: reportingManagerName,
+            reportingManagerId: reportingManagerId
           };
         });
+
+        if (reportingManager && reportingManager !== "All Managers") {
+          const filterVal = String(reportingManager).trim().toLowerCase();
+          combined = combined.filter(r => {
+            const rmName = String(r.reportingManagerName || '').toLowerCase();
+            const rmId = String(r.reportingManagerId || '').toLowerCase();
+            const rmFull = String(r.reportingManager || '').toLowerCase();
+            return rmId === filterVal || rmName === filterVal || rmFull === filterVal || rmFull.includes(filterVal) || rmName.includes(filterVal);
+          });
+        }
       }
     } catch (_) {}
 
