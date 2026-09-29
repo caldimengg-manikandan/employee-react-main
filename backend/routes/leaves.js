@@ -1254,6 +1254,12 @@ router.get('/', auth, async (req, res) => {
 // Admin: approve/reject leave
 router.put('/:id/status', auth, async (req, res) => {
   try {
+    const userEmpId = String(req.user?.employeeId || '').trim().toUpperCase();
+    const isViewOnlyAdmin = ['CDE013', 'CDE025'].includes(userEmpId);
+    if (isViewOnlyAdmin) {
+      return res.status(403).json({ message: 'Access denied: View-only access in Leave Summary' });
+    }
+
     const roleAllowed = ['admin', 'projectmanager', 'project_manager', 'hr', 'director', 'manager'].includes(req.user.role);
     const permAllowed = hasPermission(req.user, 'leave_manage');
     if (!roleAllowed && !permAllowed) {
@@ -1286,23 +1292,20 @@ router.put('/:id/status', auth, async (req, res) => {
 
     const role = String(req.user.role || '').toLowerCase();
     const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
-    const isSuperAdmin = role === 'admin' || role === 'director' || role === 'manager';
+    const isSuperAdmin = role === 'admin';
+    const isTeamLeaderOrManager = ['director', 'manager', 'projectmanager', 'project_manager', 'teamlead', 'reporting_manager'].includes(role);
 
-    if (!isSuperAdmin && role !== 'hr') {
-      // Must be a manager / PM
-      const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'teamlead' || role === 'reporting_manager';
-      if (!isPM) {
-        return res.status(403).json({ message: 'Access denied' });
-      }
-
+    if (isTeamLeaderOrManager) {
       if (targetEmployeeId) {
         const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
         if (!myAssignedMemberIds.includes(targetEmployeeId)) {
-          return res.status(403).json({ message: 'Access denied' });
+          return res.status(403).json({ message: 'Access denied: You can only approve/reject leaves for employees assigned to your team.' });
         }
       } else {
         return res.status(400).json({ error: 'Cannot validate reporting hierarchy' });
       }
+    } else if (!isSuperAdmin && !isHR) {
+      return res.status(403).json({ message: 'Access denied' });
     }
 
     const updated = await LeaveApplication.findByIdAndUpdate(

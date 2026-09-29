@@ -257,6 +257,7 @@ export const attendanceApprovalAPI = {
 export const teamAPI = {
   getLeaders: (type) => api.get('/teams/leaders', type ? { params: { type } } : undefined),
   list: () => api.get('/teams'),
+  getMyTeam: () => api.get('/teams/my-team'),
   getByCode: (teamCode) => api.get(`/teams/${encodeURIComponent(teamCode)}`),
   upsert: (data) => api.post('/teams', data),
   addMember: (teamCode, employeeId) => api.post(`/teams/${encodeURIComponent(teamCode)}/members`, { employeeId }),

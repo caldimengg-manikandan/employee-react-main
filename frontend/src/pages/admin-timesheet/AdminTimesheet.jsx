@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { adminTimesheetAPI, employeeAPI } from '../../services/api';
+import { adminTimesheetAPI, employeeAPI, teamAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
 import XLSXStyle from 'xlsx-js-style';
 import { 
@@ -78,10 +78,44 @@ const AdminTimesheet = () => {
     projectHours: 0
   });
 
-  // Get user role
+  // Get user role & employee ID
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const role = user.role || '';
   const isProjectManager = role === 'projectmanager' || role === 'project_manager';
+  const userEmpId = String(user.employeeId || '').trim().toUpperCase();
+  const isViewOnlyAdmin = ['CDE013', 'CDE025'].includes(userEmpId);
+
+  const [assignedMemberIds, setAssignedMemberIds] = useState([]);
+
+  useEffect(() => {
+    const fetchMyTeam = async () => {
+      try {
+        const res = await teamAPI.getMyTeam();
+        const members = Array.isArray(res.data) ? res.data : [];
+        const memberIds = members.map(m => String(m.employeeId || m).trim().toUpperCase()).filter(Boolean);
+        setAssignedMemberIds(memberIds);
+      } catch (err) {
+        console.error('Failed to fetch assigned team members:', err);
+      }
+    };
+    fetchMyTeam();
+  }, []);
+
+  const canApproveEmployee = (targetEmpId) => {
+    if (isViewOnlyAdmin) return false;
+    const normalizedRole = String(role || '').toLowerCase();
+    const normalizedTarget = String(targetEmpId || '').trim().toUpperCase();
+
+    if (['admin', 'hr'].includes(normalizedRole)) {
+      return true;
+    }
+
+    if (['director', 'manager', 'projectmanager', 'project_manager', 'teamlead', 'reporting_manager'].includes(normalizedRole)) {
+      return assignedMemberIds.includes(normalizedTarget);
+    }
+
+    return false;
+  };
 
   const [projectOptions, setProjectOptions] = useState(["All Projects"]);
   const [weekOptions, setWeekOptions] = useState(["All Weeks"]);
@@ -1221,7 +1255,7 @@ const AdminTimesheet = () => {
                         >
                           <Eye size={15} />
                         </button>
-                        {(!['approved','rejected', 'not submitted'].includes((timesheet.status || '').toLowerCase())) && (
+                        {canApproveEmployee(timesheet.employeeId) && (!['approved','rejected', 'not submitted'].includes((timesheet.status || '').toLowerCase())) && (
                           <>
                             <button 
                               onClick={() => handleReject(getTimesheetId(timesheet))}
@@ -1403,7 +1437,7 @@ const AdminTimesheet = () => {
               >
                 Close
               </button>
-              {(['submitted','pending'].includes((selectedTimesheet.status || '').toLowerCase())) && (
+              {canApproveEmployee(selectedTimesheet.employeeId) && (['submitted','pending'].includes((selectedTimesheet.status || '').toLowerCase())) && (
                 <>
                   <button 
                     onClick={handleRejectFromModal}

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { leaveAPI } from '../../services/api';
+import { leaveAPI, teamAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
 import { 
   Eye, 
@@ -20,6 +20,47 @@ import {
 } from 'lucide-react';
 
 const LeaveSummary = () => {
+  let sessionUser = {};
+  try {
+    sessionUser = JSON.parse(sessionStorage.getItem('user') || '{}');
+  } catch {
+    sessionUser = {};
+  }
+  const userEmpId = String(sessionUser.employeeId || '').trim().toUpperCase();
+  const isViewOnlyAdmin = ['CDE013', 'CDE025'].includes(userEmpId);
+
+  const [assignedMemberIds, setAssignedMemberIds] = useState([]);
+
+  useEffect(() => {
+    const fetchMyTeam = async () => {
+      try {
+        const res = await teamAPI.getMyTeam();
+        const members = Array.isArray(res.data) ? res.data : [];
+        const memberIds = members.map(m => String(m.employeeId || m).trim().toUpperCase()).filter(Boolean);
+        setAssignedMemberIds(memberIds);
+      } catch (err) {
+        console.error('Failed to fetch assigned team members for leaves:', err);
+      }
+    };
+    fetchMyTeam();
+  }, []);
+
+  const canApproveLeave = (targetEmpId) => {
+    if (isViewOnlyAdmin) return false;
+    const normalizedRole = String(sessionUser.role || '').toLowerCase();
+    const normalizedTarget = String(targetEmpId || '').trim().toUpperCase();
+
+    if (['admin', 'hr'].includes(normalizedRole)) {
+      return true;
+    }
+
+    if (['director', 'manager', 'projectmanager', 'project_manager', 'teamlead', 'reporting_manager'].includes(normalizedRole)) {
+      return assignedMemberIds.includes(normalizedTarget);
+    }
+
+    return false;
+  };
+
   const currentDate = new Date();
   const currentYear = currentDate.getFullYear();
 
@@ -581,7 +622,7 @@ const LeaveSummary = () => {
                           <Eye size={15} />
                         </button>
 
-                        {app.status === 'Pending' && (
+                        {canApproveLeave(app.employeeId) && app.status === 'Pending' && (
                           <>
                             <button
                               disabled={!!actionLoading[app.id]}

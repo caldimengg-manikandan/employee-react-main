@@ -356,6 +356,12 @@ router.get("/list", auth, async (req, res) => {
  */
 router.put("/approve/:id", auth, async (req, res) => {
   try {
+    const userEmpId = String(req.user?.employeeId || "").trim().toUpperCase();
+    const isViewOnlyAdmin = ["CDE013", "CDE025"].includes(userEmpId);
+    if (isViewOnlyAdmin) {
+      return res.status(403).json({ success: false, message: "Access denied: View-only access in Admin Timesheet" });
+    }
+
     const role = String(req.user?.role || "").toLowerCase();
     const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager"];
     const hasAccess = allowedRoles.includes(role) || (req.user?.permissions || []).includes("admin_timesheet_access");
@@ -363,8 +369,8 @@ router.put("/approve/:id", auth, async (req, res) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
-    const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead" || role === "reporting_manager";
+    const isSuperAdmin = role === "admin" || role === "hr";
+    const isTeamLeaderOrManager = ["director", "manager", "projectmanager", "project_manager", "teamlead", "reporting_manager"].includes(role);
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
     const candidateAdminDoc = await AdminTimesheet.findById(req.params.id).select("employeeId").lean();
@@ -378,15 +384,13 @@ router.put("/approve/:id", auth, async (req, res) => {
       }
     }
 
-    if (!isAdmin && targetEmployeeId) {
-      if (isPM) {
-        if (!myAssignedMemberIds.includes(targetEmployeeId)) {
-          return res.status(403).json({ success: false, message: "Access denied" });
-        }
-      } else {
-        if (allAssignedMemberIds.includes(targetEmployeeId)) {
-          return res.status(403).json({ success: false, message: "Access denied" });
-        }
+    if (isTeamLeaderOrManager && targetEmployeeId) {
+      if (!myAssignedMemberIds.includes(targetEmployeeId)) {
+        return res.status(403).json({ success: false, message: "Access denied: You can only approve timesheets for employees assigned to your team." });
+      }
+    } else if (!isSuperAdmin && targetEmployeeId) {
+      if (allAssignedMemberIds.includes(targetEmployeeId)) {
+        return res.status(403).json({ success: false, message: "Access denied" });
       }
     }
 
@@ -513,6 +517,12 @@ router.put("/approve/:id", auth, async (req, res) => {
  */
 router.put("/reject/:id", auth, async (req, res) => {
   try {
+    const userEmpId = String(req.user?.employeeId || "").trim().toUpperCase();
+    const isViewOnlyAdmin = ["CDE013", "CDE025"].includes(userEmpId);
+    if (isViewOnlyAdmin) {
+      return res.status(403).json({ success: false, message: "Access denied: View-only access in Admin Timesheet" });
+    }
+
     const { reason } = req.body;
 
     const role = String(req.user?.role || "").toLowerCase();
@@ -522,8 +532,8 @@ router.put("/reject/:id", auth, async (req, res) => {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
-    const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
-    const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead" || role === "reporting_manager";
+    const isSuperAdmin = role === "admin" || role === "hr";
+    const isTeamLeaderOrManager = ["director", "manager", "projectmanager", "project_manager", "teamlead", "reporting_manager"].includes(role);
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
     const candidateAdminDoc = await AdminTimesheet.findById(req.params.id).select("employeeId").lean();
@@ -537,15 +547,13 @@ router.put("/reject/:id", auth, async (req, res) => {
       }
     }
 
-    if (!isAdmin && targetEmployeeId) {
-      if (isPM) {
-        if (!myAssignedMemberIds.includes(targetEmployeeId)) {
-          return res.status(403).json({ success: false, message: "Access denied" });
-        }
-      } else {
-        if (allAssignedMemberIds.includes(targetEmployeeId)) {
-          return res.status(403).json({ success: false, message: "Access denied" });
-        }
+    if (isTeamLeaderOrManager && targetEmployeeId) {
+      if (!myAssignedMemberIds.includes(targetEmployeeId)) {
+        return res.status(403).json({ success: false, message: "Access denied: You can only reject timesheets for employees assigned to your team." });
+      }
+    } else if (!isSuperAdmin && targetEmployeeId) {
+      if (allAssignedMemberIds.includes(targetEmployeeId)) {
+        return res.status(403).json({ success: false, message: "Access denied" });
       }
     }
 
