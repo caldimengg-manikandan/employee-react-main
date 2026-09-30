@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { leaveAPI, teamAPI } from '../../services/api';
-import * as XLSX from 'xlsx';
+import { exportLeaveSummaryToExcel } from '../../utils/leaveSummaryExcelExport';
 import { 
   Eye, 
   Calendar, 
@@ -297,26 +297,13 @@ const LeaveSummary = () => {
       return;
     }
 
-    const reportData = filteredApplications.map((app, index) => ({
-      'S.No': index + 1,
-      'Employee ID': app.employeeId,
-      'Employee Name': app.employeeName,
-      'Leave Type': app.leaveType,
-      'Location': app.location,
-      'Start Date': app.fromDate,
-      'End Date': app.toDate,
-      'Total Days': app.totalLeaveDays,
-      'Day Type': app.dayType,
-      'Status': app.status,
-      'Reason': app.reason || 'N/A'
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(reportData);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Leave Applications');
-
-    const fileName = `Leave_Summary_Report_${new Date().toISOString().split('T')[0]}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+    exportLeaveSummaryToExcel(filteredApplications, {
+      year: selectedYear,
+      month: selectedMonth !== 'all' ? months.find(m => m.value === selectedMonth)?.name : 'all',
+      location: selectedLocation,
+      leaveType: selectedLeaveType,
+      status: selectedStatus
+    });
   };
 
   const getStatusBadgeClass = (status) => {
