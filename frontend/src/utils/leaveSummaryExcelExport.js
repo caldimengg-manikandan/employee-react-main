@@ -579,6 +579,498 @@ const buildLeaveTypeSummarySheet = (leaveApplications) => {
 };
 
 /**
+ * Build Detailed Monthly LOP Sheet
+ */
+const buildMonthlyLOPSheet = (lopRecords, filters = {}) => {
+  const dataRows = [];
+  let grandTotalLeaveDays = 0;
+  let grandTotalLOPDays = 0;
+  let approvedLOP = 0;
+  let pendingLOP = 0;
+  let rejectedLOP = 0;
+
+  lopRecords.forEach((app, index) => {
+    const totalDays = Number(app.totalLeaveDays) || Number(app.days) || 0;
+    const lopDays = Number(app.lopDays) > 0 ? Number(app.lopDays) : (
+      String(app.leaveType || '').toLowerCase().includes('loss of pay') || String(app.leaveType || '').toLowerCase().includes('lop')
+        ? totalDays
+        : 0
+    );
+
+    grandTotalLeaveDays += totalDays;
+    grandTotalLOPDays += lopDays;
+
+    if (app.status === 'Approved') approvedLOP += lopDays;
+    else if (app.status === 'Pending') pendingLOP += lopDays;
+    else if (app.status === 'Rejected') rejectedLOP += lopDays;
+
+    const sDate = app.startDateRaw ? new Date(app.startDateRaw) : null;
+    const monthYear = sDate && !isNaN(sDate) 
+      ? sDate.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+      : '—';
+
+    const otherLeaves = [
+      app.clUsed > 0 ? `CL: ${app.clUsed}d` : '',
+      app.slUsed > 0 ? `SL: ${app.slUsed}d` : '',
+      app.plUsed > 0 ? `PL: ${app.plUsed}d` : '',
+      app.blUsed > 0 ? `BL: ${app.blUsed}d` : '',
+      app.negativePL > 0 ? `NegPL: ${app.negativePL}d` : ''
+    ].filter(Boolean).join(', ') || 'None';
+
+    dataRows.push({
+      sNo: index + 1,
+      employeeId: app.employeeId || '—',
+      employeeName: app.employeeName || '—',
+      location: app.location || '—',
+      monthYear: monthYear,
+      startDate: app.fromDate || '—',
+      endDate: app.toDate || '—',
+      dayType: app.dayType || 'Full Day',
+      totalDays: totalDays,
+      lopDays: lopDays,
+      otherLeaves: otherLeaves,
+      reason: app.reason || 'N/A',
+      status: app.status || 'Pending'
+    });
+  });
+
+  const uniqueEmployees = new Set(lopRecords.map(r => r.employeeId).filter(Boolean)).size;
+
+  const sheetAOA = [];
+
+  // Row 1: Title Banner
+  sheetAOA.push([
+    "CALDIM ENGINEERING - MONTHLY LOSS OF PAY (LOP) REPORT",
+    ...Array(12).fill("")
+  ]);
+
+  // Row 2: Subtitle
+  const dateStr = new Date().toLocaleDateString("en-IN", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric"
+  });
+  const filterParts = [];
+  if (filters.year && filters.year !== "all") filterParts.push(`Year: ${filters.year}`);
+  if (filters.month && filters.month !== "all") filterParts.push(`Month: ${filters.month}`);
+  if (filters.location && filters.location !== "all") filterParts.push(`Location: ${filters.location}`);
+  if (filters.status && filters.status !== "all") filterParts.push(`Status: ${filters.status}`);
+  const filterSummary = filterParts.length > 0 ? ` | Active Filters: [ ${filterParts.join(" | ")} ]` : " | Showing All LOP Records";
+
+  sheetAOA.push([
+    `Generated On: ${dateStr}  |  Total LOP Records: ${lopRecords.length}${filterSummary}`,
+    ...Array(12).fill("")
+  ]);
+
+  // Row 3: KPI Metrics Banner
+  sheetAOA.push([
+    `LOP SUMMARY -> Impacted Employees: ${uniqueEmployees} | Total LOP Days: ${grandTotalLOPDays} days | Approved LOP: ${approvedLOP} days | Pending LOP: ${pendingLOP} days | Rejected LOP: ${rejectedLOP} days`,
+    ...Array(12).fill("")
+  ]);
+
+  // Row 4: Column Headers
+  const headers = [
+    "S.No",
+    "Employee ID",
+    "Employee Name",
+    "Location",
+    "Month / Year",
+    "Start Date",
+    "End Date",
+    "Day Type",
+    "Total Leave Days",
+    "LOP Days",
+    "Other Deductions",
+    "Reason for Leave",
+    "Approval Status"
+  ];
+  sheetAOA.push(headers);
+
+  // Row 5+: Data Rows
+  dataRows.forEach((row) => {
+    sheetAOA.push([
+      row.sNo,
+      row.employeeId,
+      row.employeeName,
+      row.location,
+      row.monthYear,
+      row.startDate,
+      row.endDate,
+      row.dayType,
+      row.totalDays,
+      row.lopDays,
+      row.otherLeaves,
+      row.reason,
+      row.status
+    ]);
+  });
+
+  // Footer Totals Row
+  sheetAOA.push([
+    "TOTAL",
+    `Total: ${uniqueEmployees} Employees`,
+    "—",
+    "—",
+    "—",
+    "—",
+    "—",
+    "—",
+    grandTotalLeaveDays,
+    grandTotalLOPDays,
+    "—",
+    `Approved: ${approvedLOP}d | Pending: ${pendingLOP}d`,
+    "—"
+  ]);
+
+  const ws = XLSXStyle.utils.aoa_to_sheet(sheetAOA);
+
+  ws["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 12 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 12 } },
+    { s: { r: 2, c: 0 }, e: { r: 2, c: 12 } }
+  ];
+
+  ws["!cols"] = [
+    { wch: 8 },  // S.No
+    { wch: 15 }, // Employee ID
+    { wch: 24 }, // Employee Name
+    { wch: 14 }, // Location
+    { wch: 15 }, // Month / Year
+    { wch: 14 }, // Start Date
+    { wch: 14 }, // End Date
+    { wch: 14 }, // Day Type
+    { wch: 16 }, // Total Leave Days
+    { wch: 14 }, // LOP Days
+    { wch: 22 }, // Other Deductions
+    { wch: 32 }, // Reason
+    { wch: 16 }  // Approval Status
+  ];
+
+  const totalRowCount = sheetAOA.length;
+  const lastRowIdx = totalRowCount - 1;
+
+  for (let R = 0; R < totalRowCount; R++) {
+    for (let C = 0; C <= 12; C++) {
+      const cellRef = XLSXStyle.utils.encode_cell({ r: R, c: C });
+      if (!ws[cellRef]) ws[cellRef] = { t: "s", v: "" };
+
+      // Row 0: Title Banner
+      if (R === 0) {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: "7C2D12" } }, // Warm Amber / Crimson
+          font: { name: "Calibri", sz: 14, bold: true, color: { rgb: "FFFFFF" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+      }
+      // Row 1: Subtitle
+      else if (R === 1) {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: "9A3412" } },
+          font: { name: "Calibri", sz: 10, italic: true, color: { rgb: "FFEDD5" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+      }
+      // Row 2: KPI Metrics Bar
+      else if (R === 2) {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: "1E293B" } },
+          font: { name: "Calibri", sz: 10, bold: true, color: { rgb: "FDE047" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+      }
+      // Row 3: Headers
+      else if (R === 3) {
+        let headerBg = "9A3412";
+        if (C >= 0 && C <= 3) headerBg = "1E2050";
+        else if (C >= 4 && C <= 7) headerBg = "1E3A8A";
+        else if (C === 8) headerBg = "0F766E";
+        else if (C === 9) headerBg = "B91C1C"; // Deep Red for LOP
+        else if (C >= 10 && C <= 11) headerBg = "334155";
+        else if (C === 12) headerBg = "475569";
+
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: headerBg } },
+          font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "FFFFFF" } },
+          alignment: { horizontal: "center", vertical: "center", wrapText: true },
+          border: borderHeader
+        };
+      }
+      // Last Row: Footer
+      else if (R === lastRowIdx) {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: "1E293B" } },
+          font: { name: "Calibri", sz: 11, bold: true, color: { rgb: C === 9 ? "F87171" : "FFFFFF" } },
+          alignment: { horizontal: alignSummaryCell(C), vertical: "center" },
+          border: borderFooter
+        };
+      }
+      // Data rows
+      else {
+        const isEven = (R - 4) % 2 === 0;
+        let rowBg = isEven ? "FFFFFF" : "FFFBEB";
+        let fontColor = "1E293B";
+        let isBold = false;
+        let align = "left";
+
+        if (C === 0) {
+          align = "center";
+          fontColor = "64748B";
+        } else if (C === 1) {
+          align = "center";
+          fontColor = "4338CA";
+          isBold = true;
+          rowBg = isEven ? "EEF2FF" : "E0E7FF";
+        } else if (C === 2) {
+          align = "left";
+          fontColor = "0F172A";
+          isBold = true;
+        } else if (C === 3 || C === 4) {
+          align = "center";
+          fontColor = "334155";
+        } else if (C === 5 || C === 6 || C === 7) {
+          align = "center";
+          fontColor = "475569";
+        } else if (C === 8) {
+          align = "center";
+          fontColor = "0F766E";
+          isBold = true;
+        } else if (C === 9) {
+          // LOP Column
+          align = "center";
+          fontColor = "DC2626";
+          isBold = true;
+          rowBg = isEven ? "FEF2F2" : "FEE2E2";
+        } else if (C === 10 || C === 11) {
+          align = "left";
+          fontColor = "334155";
+        } else if (C === 12) {
+          align = "center";
+          isBold = true;
+          const statusVal = String(ws[cellRef].v || "").toLowerCase();
+          if (statusVal === "approved") {
+            rowBg = "D1FAE5";
+            fontColor = "065F46";
+          } else if (statusVal === "pending") {
+            rowBg = "FEF3C7";
+            fontColor = "92400E";
+          } else if (statusVal === "rejected") {
+            rowBg = "FEE2E2";
+            fontColor = "991B1B";
+          }
+        }
+
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: rowBg } },
+          font: { name: "Calibri", sz: 10, bold: isBold, color: { rgb: fontColor } },
+          alignment: { horizontal: align, vertical: "center", wrapText: C === 10 || C === 11 },
+          border: borderThin
+        };
+      }
+    }
+  }
+
+  return ws;
+};
+
+const alignSummaryCell = (c) => {
+  if (c <= 1) return "left";
+  if (c >= 8 && c <= 9) return "center";
+  return "center";
+};
+
+/**
+ * Build Employee Consolidated LOP Summary Sheet
+ */
+const buildEmployeeConsolidatedLOPSheet = (lopRecords) => {
+  const sheetAOA = [];
+
+  sheetAOA.push([
+    "EMPLOYEE-WISE CONSOLIDATED LOSS OF PAY (LOP) SUMMARY",
+    ...Array(7).fill("")
+  ]);
+
+  sheetAOA.push([
+    `Total LOP Records Analyzed: ${lopRecords.length} | Generated On: ${new Date().toLocaleDateString("en-IN")}`,
+    ...Array(7).fill("")
+  ]);
+
+  const headers = [
+    "S.No",
+    "Employee ID",
+    "Employee Name",
+    "Location",
+    "Total LOP Requests",
+    "Approved LOP Days",
+    "Pending LOP Days",
+    "Total LOP Days"
+  ];
+  sheetAOA.push(headers);
+
+  // Group by employee
+  const empMap = {};
+  lopRecords.forEach((app) => {
+    const id = app.employeeId || "UNKNOWN";
+    if (!empMap[id]) {
+      empMap[id] = {
+        employeeId: id,
+        employeeName: app.employeeName || "—",
+        location: app.location || "—",
+        count: 0,
+        approvedLop: 0,
+        pendingLop: 0,
+        totalLop: 0
+      };
+    }
+    const lop = Number(app.lopDays) > 0 ? Number(app.lopDays) : (
+      String(app.leaveType || '').toLowerCase().includes('loss of pay') || String(app.leaveType || '').toLowerCase().includes('lop')
+        ? (Number(app.totalLeaveDays) || Number(app.days) || 0)
+        : 0
+    );
+
+    empMap[id].count++;
+    empMap[id].totalLop += lop;
+    if (app.status === "Approved") empMap[id].approvedLop += lop;
+    else if (app.status === "Pending") empMap[id].pendingLop += lop;
+  });
+
+  let grandRequests = 0;
+  let grandApproved = 0;
+  let grandPending = 0;
+  let grandTotal = 0;
+
+  Object.values(empMap).sort((a, b) => b.totalLop - a.totalLop).forEach((emp, idx) => {
+    grandRequests += emp.count;
+    grandApproved += emp.approvedLop;
+    grandPending += emp.pendingLop;
+    grandTotal += emp.totalLop;
+
+    sheetAOA.push([
+      idx + 1,
+      emp.employeeId,
+      emp.employeeName,
+      emp.location,
+      emp.count,
+      emp.approvedLop,
+      emp.pendingLop,
+      emp.totalLop
+    ]);
+  });
+
+  // Footer Totals
+  sheetAOA.push([
+    "TOTAL",
+    `Total: ${Object.keys(empMap).length} Employees`,
+    "—",
+    "—",
+    grandRequests,
+    grandApproved,
+    grandPending,
+    grandTotal
+  ]);
+
+  const ws = XLSXStyle.utils.aoa_to_sheet(sheetAOA);
+
+  ws["!merges"] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+    { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } }
+  ];
+
+  ws["!cols"] = [
+    { wch: 8 },  // S.No
+    { wch: 16 }, // Employee ID
+    { wch: 26 }, // Employee Name
+    { wch: 16 }, // Location
+    { wch: 18 }, // Total LOP Requests
+    { wch: 18 }, // Approved LOP Days
+    { wch: 18 }, // Pending LOP Days
+    { wch: 18 }  // Total LOP Days
+  ];
+
+  const totalRowCount = sheetAOA.length;
+  const lastRowIdx = totalRowCount - 1;
+
+  for (let R = 0; R < totalRowCount; R++) {
+    for (let C = 0; C <= 7; C++) {
+      const cellRef = XLSXStyle.utils.encode_cell({ r: R, c: C });
+      if (!ws[cellRef]) ws[cellRef] = { t: "s", v: "" };
+
+      if (R === 0) {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: "7C2D12" } },
+          font: { name: "Calibri", sz: 13, bold: true, color: { rgb: "FFFFFF" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+      } else if (R === 1) {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: "9A3412" } },
+          font: { name: "Calibri", sz: 10, italic: true, color: { rgb: "FFEDD5" } },
+          alignment: { horizontal: "center", vertical: "center" }
+        };
+      } else if (R === 2) {
+        let headerBg = "9A3412";
+        if (C <= 3) headerBg = "1E2050";
+        else if (C === 4) headerBg = "1E3A8A";
+        else if (C === 5) headerBg = "065F46";
+        else if (C === 6) headerBg = "92400E";
+        else if (C === 7) headerBg = "B91C1C";
+
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: headerBg } },
+          font: { name: "Calibri", sz: 11, bold: true, color: { rgb: "FFFFFF" } },
+          alignment: { horizontal: "center", vertical: "center" },
+          border: borderHeader
+        };
+      } else if (R === lastRowIdx) {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: "0F172A" } },
+          font: { name: "Calibri", sz: 11, bold: true, color: { rgb: C === 7 ? "F87171" : "FFFFFF" } },
+          alignment: { horizontal: C <= 1 ? "left" : "center", vertical: "center" },
+          border: borderFooter
+        };
+      } else {
+        const isEven = (R - 3) % 2 === 0;
+        let rowBg = isEven ? "FFFFFF" : "FFFBEB";
+        let fontColor = "1E293B";
+        let isBold = false;
+        let align = C <= 2 ? "left" : "center";
+
+        if (C === 0) {
+          align = "center";
+          fontColor = "64748B";
+        } else if (C === 1) {
+          align = "center";
+          fontColor = "4338CA";
+          isBold = true;
+          rowBg = isEven ? "EEF2FF" : "E0E7FF";
+        } else if (C === 2) {
+          fontColor = "0F172A";
+          isBold = true;
+        } else if (C === 5) {
+          fontColor = "047857";
+          isBold = true;
+        } else if (C === 6) {
+          fontColor = "B45309";
+        } else if (C === 7) {
+          fontColor = "DC2626";
+          isBold = true;
+          rowBg = isEven ? "FEF2F2" : "FEE2E2";
+        }
+
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: rowBg } },
+          font: { name: "Calibri", sz: 10, bold: isBold, color: { rgb: fontColor } },
+          alignment: { horizontal: align, vertical: "center" },
+          border: borderThin
+        };
+      }
+    }
+  }
+
+  return ws;
+};
+
+/**
  * Main Export Function for Leave Summary
  */
 export const exportLeaveSummaryToExcel = (leaveApplications, filters = {}) => {
@@ -599,6 +1091,41 @@ export const exportLeaveSummaryToExcel = (leaveApplications, filters = {}) => {
 
   const timestamp = new Date().toISOString().slice(0, 10);
   const fileName = `Leave_Management_Summary_Master_${timestamp}.xlsx`;
+
+  XLSXStyle.writeFile(wb, fileName);
+};
+
+/**
+ * Main Export Function for Monthly Loss of Pay (LOP) Report
+ */
+export const exportMonthlyLOPToExcel = (leaveApplications, filters = {}) => {
+  // Filter for records with LOP days
+  const lopRecords = (leaveApplications || []).filter(app => {
+    const lop = Number(app.lopDays) || 0;
+    const isLopType = String(app.leaveType || '').toLowerCase().includes('loss of pay') ||
+                      String(app.leaveType || '').toLowerCase().includes('lop');
+    return lop > 0 || isLopType;
+  });
+
+  if (lopRecords.length === 0) {
+    alert("No Loss of Pay (LOP) records found for the selected filter criteria.");
+    return;
+  }
+
+  const wb = XLSXStyle.utils.book_new();
+
+  // Sheet 1: Monthly LOP Detailed Applications
+  const lopSheet = buildMonthlyLOPSheet(lopRecords, filters);
+  XLSXStyle.utils.book_append_sheet(wb, lopSheet, "Monthly LOP Details");
+
+  // Sheet 2: Consolidated Employee LOP Summary
+  const employeeSummarySheet = buildEmployeeConsolidatedLOPSheet(lopRecords);
+  XLSXStyle.utils.book_append_sheet(wb, employeeSummarySheet, "Employee LOP Summary");
+
+  const monthLabel = filters.month && filters.month !== "all" ? `_${filters.month}` : "";
+  const yearLabel = filters.year && filters.year !== "all" ? `_${filters.year}` : "";
+  const timestamp = new Date().toISOString().slice(0, 10);
+  const fileName = `Monthly_LOP_Report${yearLabel}${monthLabel}_${timestamp}.xlsx`;
 
   XLSXStyle.writeFile(wb, fileName);
 };

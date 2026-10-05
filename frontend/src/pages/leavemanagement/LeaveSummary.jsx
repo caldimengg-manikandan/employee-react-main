@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { leaveAPI, teamAPI } from '../../services/api';
-import { exportLeaveSummaryToExcel } from '../../utils/leaveSummaryExcelExport';
+import { exportLeaveSummaryToExcel, exportMonthlyLOPToExcel } from '../../utils/leaveSummaryExcelExport';
 import { 
   Eye, 
   Calendar, 
@@ -16,7 +16,11 @@ import {
   Search,
   Building2,
   Loader2,
-  FileCheck
+  FileCheck,
+  AlertTriangle,
+  FileSpreadsheet,
+  Users,
+  TrendingDown
 } from 'lucide-react';
 
 const LeaveSummary = () => {
@@ -78,6 +82,14 @@ const LeaveSummary = () => {
   const [selectedLeaveType, setSelectedLeaveType] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
+
+  // Monthly LOP Report Modal States
+  const [showLopModal, setShowLopModal] = useState(false);
+  const [lopFilterYear, setLopFilterYear] = useState('all');
+  const [lopFilterMonth, setLopFilterMonth] = useState('all');
+  const [lopFilterLocation, setLopFilterLocation] = useState('all');
+  const [lopFilterStatus, setLopFilterStatus] = useState('all');
+  const [lopSearch, setLopSearch] = useState('');
 
   const [isFilterApplied, setIsFilterApplied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -291,6 +303,114 @@ const LeaveSummary = () => {
   const pendingCount = filteredApplications.filter(a => a.status === 'Pending').length;
   const rejectedCount = filteredApplications.filter(a => a.status === 'Rejected').length;
 
+  // LOP Modal Filtered Data & Calculations
+  const handleOpenLopModal = () => {
+    setLopFilterYear(selectedYear !== 'all' ? selectedYear : currentYear);
+    setLopFilterMonth(selectedMonth);
+    setLopFilterLocation(selectedLocation);
+    setLopFilterStatus(selectedStatus);
+    setLopSearch(selectedEmployeeId);
+    setShowLopModal(true);
+  };
+
+  const handleClearLopFilters = () => {
+    setLopFilterYear('all');
+    setLopFilterMonth('all');
+    setLopFilterLocation('all');
+    setLopFilterStatus('all');
+    setLopSearch('');
+  };
+
+  const lopApplications = useMemo(() => {
+    return leaveApplications.filter(app => {
+      const lop = Number(app.lopDays) || 0;
+      const isLopType = String(app.leaveType || '').toLowerCase().includes('loss of pay') ||
+                        String(app.leaveType || '').toLowerCase().includes('lop');
+      if (lop <= 0 && !isLopType) return false;
+
+      if (lopFilterYear !== 'all') {
+        const sYear = new Date(app.startDateRaw).getFullYear();
+        const eYear = new Date(app.endDateRaw).getFullYear();
+        if (lopFilterYear < sYear || lopFilterYear > eYear) return false;
+      }
+
+      if (lopFilterMonth !== 'all') {
+        const sDate = new Date(app.startDateRaw);
+        const eDate = new Date(app.endDateRaw);
+        const selYear = lopFilterYear !== 'all' ? lopFilterYear : sDate.getFullYear();
+        const targetStart = new Date(selYear, lopFilterMonth - 1, 1);
+        const targetEnd = new Date(selYear, lopFilterMonth, 0, 23, 59, 59);
+        if (eDate < targetStart || sDate > targetEnd) return false;
+      }
+
+      if (lopFilterLocation !== 'all' && app.location !== lopFilterLocation) return false;
+      if (lopFilterStatus !== 'all' && app.status !== lopFilterStatus) return false;
+
+      if (lopSearch.trim() !== '') {
+        const term = lopSearch.trim().toLowerCase();
+        const empId = (app.employeeId || '').toLowerCase();
+        const empName = (app.employeeName || '').toLowerCase();
+        if (!empId.includes(term) && !empName.includes(term)) return false;
+      }
+
+      return true;
+    });
+  }, [leaveApplications, lopFilterYear, lopFilterMonth, lopFilterLocation, lopFilterStatus, lopSearch]);
+
+  const lopTotalDays = useMemo(() => {
+    return lopApplications.reduce((sum, a) => {
+      const lop = Number(a.lopDays) > 0 ? Number(a.lopDays) : (
+        String(a.leaveType || '').toLowerCase().includes('loss of pay') || String(a.leaveType || '').toLowerCase().includes('lop')
+          ? (Number(a.totalLeaveDays) || Number(a.days) || 0)
+          : 0
+      );
+      return sum + lop;
+    }, 0);
+  }, [lopApplications]);
+
+  const lopApprovedDays = useMemo(() => {
+    return lopApplications
+      .filter(a => a.status === 'Approved')
+      .reduce((sum, a) => {
+        const lop = Number(a.lopDays) > 0 ? Number(a.lopDays) : (
+          String(a.leaveType || '').toLowerCase().includes('loss of pay') || String(a.leaveType || '').toLowerCase().includes('lop')
+            ? (Number(a.totalLeaveDays) || Number(a.days) || 0)
+            : 0
+        );
+        return sum + lop;
+      }, 0);
+  }, [lopApplications]);
+
+  const lopPendingDays = useMemo(() => {
+    return lopApplications
+      .filter(a => a.status === 'Pending')
+      .reduce((sum, a) => {
+        const lop = Number(a.lopDays) > 0 ? Number(a.lopDays) : (
+          String(a.leaveType || '').toLowerCase().includes('loss of pay') || String(a.leaveType || '').toLowerCase().includes('lop')
+            ? (Number(a.totalLeaveDays) || Number(a.days) || 0)
+            : 0
+        );
+        return sum + lop;
+      }, 0);
+  }, [lopApplications]);
+
+  const lopUniqueEmployees = useMemo(() => {
+    return new Set(lopApplications.map(a => a.employeeId).filter(Boolean)).size;
+  }, [lopApplications]);
+
+  const handleDownloadMonthlyLOP = () => {
+    if (lopApplications.length === 0) {
+      alert('No Loss of Pay (LOP) records available for current filter selection.');
+      return;
+    }
+    exportMonthlyLOPToExcel(lopApplications, {
+      year: lopFilterYear,
+      month: lopFilterMonth !== 'all' ? months.find(m => m.value === lopFilterMonth)?.name : 'all',
+      location: lopFilterLocation,
+      status: lopFilterStatus
+    });
+  };
+
   const handleDownloadExcel = () => {
     if (filteredApplications.length === 0) {
       alert('No data available to export');
@@ -334,7 +454,7 @@ const LeaveSummary = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <button
             onClick={() => setShowFilters(!showFilters)}
             className="px-4 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all flex items-center gap-2 border border-slate-200/80"
@@ -350,6 +470,16 @@ const LeaveSummary = () => {
           >
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
             {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+
+          {/* Monthly LOP Report Button */}
+          <button 
+            onClick={handleOpenLopModal}
+            className="px-5 py-2.5 bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all shadow-md shadow-amber-600/20 flex items-center gap-2"
+            title="View Monthly Loss of Pay (LOP) Report & Analytics"
+          >
+            <AlertTriangle size={15} />
+            Monthly LOP Report
           </button>
 
           <button 
@@ -761,6 +891,298 @@ const LeaveSummary = () => {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Monthly LOP Report Modal */}
+      {showLopModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 z-50 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-5xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-[#262760] via-purple-950 to-amber-950 text-white p-5 sm:px-8 sm:py-6 flex justify-between items-center flex-shrink-0 shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-amber-500/20 border border-amber-400/40 rounded-2xl text-amber-300">
+                  <AlertTriangle size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-white">Monthly Loss of Pay (LOP) Report</h2>
+                    <span className="bg-amber-500/20 border border-amber-400/30 text-amber-300 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                      LOP Analytics
+                    </span>
+                  </div>
+                  <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
+                    Employee-wise deductions, monthly breakdown, and payroll reconciliation data
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleDownloadMonthlyLOP}
+                  className="px-4 py-2 bg-gradient-to-r from-amber-500 to-rose-600 text-white hover:brightness-110 rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+                  title="Download Monthly LOP Excel"
+                >
+                  <Download size={14} />
+                  Export Excel
+                </button>
+                <button 
+                  onClick={() => setShowLopModal(false)}
+                  className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 bg-slate-50/60 flex-1">
+              
+              {/* LOP Filter Bar */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-950">
+                    <Filter size={14} className="text-amber-600" />
+                    Filter LOP Records
+                  </div>
+                  <button
+                    onClick={handleClearLopFilters}
+                    className="text-[11px] font-bold text-rose-600 hover:text-rose-700 bg-rose-50 px-2.5 py-1 rounded-lg border border-rose-200 transition-all flex items-center gap-1"
+                  >
+                    <X size={12} />
+                    Reset
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+                  {/* Year */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Year</label>
+                    <select
+                      value={lopFilterYear}
+                      onChange={(e) => setLopFilterYear(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl p-2 font-medium focus:ring-2 focus:ring-amber-500 outline-none"
+                    >
+                      <option value="all">All Years</option>
+                      {years.map(y => <option key={y} value={y}>{y}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Month */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Month</label>
+                    <select
+                      value={lopFilterMonth}
+                      onChange={(e) => setLopFilterMonth(e.target.value === 'all' ? 'all' : Number(e.target.value))}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl p-2 font-medium focus:ring-2 focus:ring-amber-500 outline-none"
+                    >
+                      <option value="all">All Months</option>
+                      {months.map(m => <option key={m.value} value={m.value}>{m.name}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Location */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Location</label>
+                    <select
+                      value={lopFilterLocation}
+                      onChange={(e) => setLopFilterLocation(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl p-2 font-medium focus:ring-2 focus:ring-amber-500 outline-none"
+                    >
+                      <option value="all">All Locations</option>
+                      {locations.map(loc => <option key={loc} value={loc}>{loc}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Status */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Status</label>
+                    <select
+                      value={lopFilterStatus}
+                      onChange={(e) => setLopFilterStatus(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl p-2 font-medium focus:ring-2 focus:ring-amber-500 outline-none"
+                    >
+                      <option value="all">All Statuses</option>
+                      {statusOptions.map(st => <option key={st} value={st}>{st}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Search */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Search Employee</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="ID or name..."
+                        value={lopSearch}
+                        onChange={(e) => setLopSearch(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 text-slate-800 text-xs rounded-xl p-2 pl-7 font-medium focus:ring-2 focus:ring-amber-500 outline-none"
+                      />
+                      <Search size={12} className="absolute left-2.5 top-3 text-slate-400" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* LOP KPI Cards */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="bg-gradient-to-br from-indigo-900 to-[#262760] p-4 rounded-2xl text-white shadow-md">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-indigo-200">Impacted Employees</p>
+                      <h4 className="text-2xl font-extrabold mt-1 text-white">{lopUniqueEmployees}</h4>
+                    </div>
+                    <div className="p-2 rounded-xl bg-indigo-500/20 text-indigo-300">
+                      <Users size={18} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-rose-950 via-rose-900 to-amber-950 p-4 rounded-2xl text-white shadow-md">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-rose-200">Total LOP Days</p>
+                      <h4 className="text-2xl font-extrabold mt-1 text-amber-300">{lopTotalDays} <span className="text-xs font-normal text-rose-200">days</span></h4>
+                    </div>
+                    <div className="p-2 rounded-xl bg-rose-500/20 text-rose-300">
+                      <AlertTriangle size={18} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-emerald-950 to-emerald-900 p-4 rounded-2xl text-white shadow-md">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-emerald-200">Approved LOP</p>
+                      <h4 className="text-2xl font-extrabold mt-1 text-emerald-300">{lopApprovedDays} <span className="text-xs font-normal text-emerald-200">days</span></h4>
+                    </div>
+                    <div className="p-2 rounded-xl bg-emerald-500/20 text-emerald-300">
+                      <CheckCircle size={18} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-gradient-to-br from-amber-950 to-amber-900 p-4 rounded-2xl text-white shadow-md">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <p className="text-[10px] font-medium uppercase tracking-wider text-amber-200">Pending LOP</p>
+                      <h4 className="text-2xl font-extrabold mt-1 text-amber-300">{lopPendingDays} <span className="text-xs font-normal text-amber-200">days</span></h4>
+                    </div>
+                    <div className="p-2 rounded-xl bg-amber-500/20 text-amber-300">
+                      <Clock size={18} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* LOP Table */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto max-h-[380px]">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead className="bg-[#262760] text-white sticky top-0 z-10">
+                      <tr>
+                        <th className="p-3 font-bold border-r border-indigo-500/30 w-12 text-center">S.No</th>
+                        <th className="p-3 font-bold border-r border-indigo-500/30">Employee</th>
+                        <th className="p-3 font-bold border-r border-indigo-500/30 text-center">Location</th>
+                        <th className="p-3 font-bold border-r border-indigo-500/30 text-center">Leave Period</th>
+                        <th className="p-3 font-bold border-r border-indigo-500/30 text-center">Total Days</th>
+                        <th className="p-3 font-bold border-r border-indigo-500/30 text-center bg-amber-600/30">LOP Days</th>
+                        <th className="p-3 font-bold border-r border-indigo-500/30">Other Deductions</th>
+                        <th className="p-3 font-bold border-r border-indigo-500/30 text-center">Status</th>
+                        <th className="p-3 font-bold text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                      {lopApplications.length > 0 ? (
+                        lopApplications.map((app, index) => {
+                          const thisLop = Number(app.lopDays) > 0 ? Number(app.lopDays) : (
+                            String(app.leaveType || '').toLowerCase().includes('loss of pay') || String(app.leaveType || '').toLowerCase().includes('lop')
+                              ? (Number(app.totalLeaveDays) || Number(app.days) || 0)
+                              : 0
+                          );
+
+                          const otherLeaves = [
+                            app.clUsed > 0 ? `CL: ${app.clUsed}d` : '',
+                            app.slUsed > 0 ? `SL: ${app.slUsed}d` : '',
+                            app.plUsed > 0 ? `PL: ${app.plUsed}d` : '',
+                            app.blUsed > 0 ? `BL: ${app.blUsed}d` : '',
+                            app.negativePL > 0 ? `NegPL: ${app.negativePL}d` : ''
+                          ].filter(Boolean).join(', ') || '—';
+
+                          return (
+                            <tr key={app.id || index} className="hover:bg-amber-50/40 transition-colors">
+                              <td className="p-3 text-center text-slate-400 font-mono">{index + 1}</td>
+                              <td className="p-3">
+                                <div className="font-bold text-indigo-950">{app.employeeName}</div>
+                                <div className="text-[11px] font-mono text-indigo-600">{app.employeeId}</div>
+                              </td>
+                              <td className="p-3 text-center font-medium">{app.location || '—'}</td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <div>{app.fromDate} - {app.toDate}</div>
+                                <span className="text-[10px] text-slate-400">({app.dayType})</span>
+                              </td>
+                              <td className="p-3 text-center font-bold text-slate-700">{app.totalLeaveDays}</td>
+                              <td className="p-3 text-center">
+                                <span className="px-2.5 py-1 bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-extrabold text-xs inline-block">
+                                  {thisLop} days
+                                </span>
+                              </td>
+                              <td className="p-3 text-slate-600 text-[11px]">{otherLeaves}</td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${getStatusBadgeClass(app.status)}`}>
+                                  {app.status}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center">
+                                <button
+                                  onClick={() => setViewLeave(app)}
+                                  className="p-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-all"
+                                  title="View Application Details"
+                                >
+                                  <Eye size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan="9" className="text-center py-10 text-slate-500 font-semibold">
+                            No Loss of Pay (LOP) records found for the selected filters.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-white border-t border-slate-200 p-4 px-6 rounded-b-3xl flex justify-between items-center flex-shrink-0 shadow-inner">
+              <div className="text-xs text-slate-500 font-medium">
+                Showing <span className="font-bold text-indigo-950">{lopApplications.length}</span> LOP records | Total: <span className="font-bold text-amber-700">{lopTotalDays} LOP Days</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowLopModal(false)}
+                  className="px-4 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={handleDownloadMonthlyLOP}
+                  className="px-5 py-2.5 bg-gradient-to-r from-amber-600 via-orange-600 to-rose-600 text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all shadow-md shadow-amber-600/20 flex items-center gap-2"
+                >
+                  <Download size={15} />
+                  Download Monthly LOP Excel
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}

@@ -193,6 +193,7 @@ const EmployeeManagement = () => {
   const [viewingPhotoModal, setViewingPhotoModal] = useState(null);
   const [filters, setFilters] = useState({
     search: '',
+    name: '',
     designation: '',
     division: '',
     location: '',
@@ -241,7 +242,14 @@ const EmployeeManagement = () => {
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
       filtered = filtered.filter(emp =>
-        emp.employeeId.toLowerCase().includes(searchTerm)
+        (emp.employeeId || '').toLowerCase().includes(searchTerm)
+      );
+    }
+
+    if (filters.name) {
+      const nameTerm = filters.name.toLowerCase();
+      filtered = filtered.filter(emp =>
+        (emp.name || emp.fullName || '').toLowerCase().includes(nameTerm)
       );
     }
 
@@ -289,6 +297,7 @@ const EmployeeManagement = () => {
   const clearFilters = () => {
     setFilters({
       search: '',
+      name: '',
       designation: '',
       division: '',
       location: '',
@@ -1152,7 +1161,7 @@ const EmployeeManagement = () => {
                   </button>
                 )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Employee ID</label>
                   <input
@@ -1161,6 +1170,16 @@ const EmployeeManagement = () => {
                     onChange={(e) => handleFilterChange('search', e.target.value)}
                     className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
                     placeholder="Filter by employee id"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Employee Name</label>
+                  <input
+                    type="text"
+                    value={filters.name}
+                    onChange={(e) => handleFilterChange('name', e.target.value)}
+                    className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm py-2.5 px-3"
+                    placeholder="Filter by employee name"
                   />
                 </div>
                 <div>
