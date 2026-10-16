@@ -14,6 +14,7 @@ const AdminSpecialPermission = () => {
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditSearch, setAuditSearch] = useState('');
   const [auditStatusFilter, setAuditStatusFilter] = useState('All');
+  const [auditLocationFilter, setAuditLocationFilter] = useState('All');
 
   const load = async () => {
     try {
@@ -73,6 +74,7 @@ const AdminSpecialPermission = () => {
 
   const locations = ['All', ...new Set(items.map(i => i.location).filter(l => l && l !== '-'))];
   const divisions = ['All', ...new Set(items.map(i => i.division).filter(d => d && d !== '-'))];
+  const auditLocations = ['All', ...new Set(auditLogs.map(i => i.location).filter(l => l && l !== '-'))];
 
   const filteredItems = items.filter(it => {
     const matchLoc = location === 'All' || it.location === location;
@@ -84,9 +86,11 @@ const AdminSpecialPermission = () => {
     const query = auditSearch.trim().toLowerCase();
     const matchesSearch = !query ||
       (log.employeeName && log.employeeName.toLowerCase().includes(query)) ||
-      (log.employeeId && log.employeeId.toLowerCase().includes(query));
+      (log.employeeId && log.employeeId.toLowerCase().includes(query)) ||
+      (log.location && log.location.toLowerCase().includes(query));
     const matchesStatus = auditStatusFilter === 'All' || log.status === auditStatusFilter;
-    return matchesSearch && matchesStatus;
+    const matchesLocation = auditLocationFilter === 'All' || log.location === auditLocationFilter;
+    return matchesSearch && matchesStatus && matchesLocation;
   });
 
   return (
@@ -229,11 +233,18 @@ const AdminSpecialPermission = () => {
               <div className="flex items-center gap-2 flex-wrap">
                 <input
                   type="text"
-                  placeholder="Search by Employee Name or ID..."
+                  placeholder="Search by Employee, ID or Location..."
                   value={auditSearch}
                   onChange={(e) => setAuditSearch(e.target.value)}
                   className="p-2 border border-gray-300 rounded text-sm w-64 focus:outline-none focus:ring-1 focus:ring-[#262760]"
                 />
+                <select
+                  value={auditLocationFilter}
+                  onChange={(e) => setAuditLocationFilter(e.target.value)}
+                  className="p-2 border border-gray-300 rounded text-sm focus:outline-none focus:ring-1 focus:ring-[#262760]"
+                >
+                  {auditLocations.map(l => <option key={l} value={l}>{l === 'All' ? 'All Locations' : l}</option>)}
+                </select>
                 <select
                   value={auditStatusFilter}
                   onChange={(e) => setAuditStatusFilter(e.target.value)}
@@ -261,11 +272,11 @@ const AdminSpecialPermission = () => {
                     <thead className="bg-[#262760] text-white">
                       <tr>
                         <th className="p-2.5 border border-gray-600 text-left text-xs md:text-sm font-semibold">Employee</th>
+                        <th className="p-2.5 border border-gray-600 text-left text-xs md:text-sm font-semibold">Location</th>
                         <th className="p-2.5 border border-gray-600 text-left text-xs md:text-sm font-semibold">Permission Date</th>
                         <th className="p-2.5 border border-gray-600 text-left text-xs md:text-sm font-semibold">Status</th>
                         <th className="p-2.5 border border-gray-600 text-left text-xs md:text-sm font-semibold">Approved By / Rejected By</th>
                         <th className="p-2.5 border border-gray-600 text-left text-xs md:text-sm font-semibold">Approved On / Rejected On</th>
-                        <th className="p-2.5 border border-gray-600 text-left text-xs md:text-sm font-semibold">Rejection Reason</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -274,6 +285,9 @@ const AdminSpecialPermission = () => {
                           <tr key={log._id} className="hover:bg-gray-50 transition-colors">
                             <td className="p-2.5 border text-sm font-medium text-gray-900">
                               {log.employeeName} ({log.employeeId})
+                            </td>
+                            <td className="p-2.5 border text-sm text-gray-700">
+                              {log.location || '-'}
                             </td>
                             <td className="p-2.5 border text-sm text-gray-700">
                               {formatPermissionDate(log.permissionDate)}
@@ -292,9 +306,6 @@ const AdminSpecialPermission = () => {
                               {formatActionDateTime(log.status === 'APPROVED'
                                 ? (log.approvedOn || log.actionAt)
                                 : (log.rejectedOn || log.actionAt))}
-                            </td>
-                            <td className="p-2.5 border text-sm text-gray-700">
-                              {log.status === 'REJECTED' ? (log.rejectionReason || '-') : '-'}
                             </td>
                           </tr>
                         );

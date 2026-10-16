@@ -449,7 +449,20 @@ router.get('/audit-logs', auth, async (req, res) => {
       .sort({ actionAt: -1, createdAt: -1 })
       .lean();
 
-    res.json({ success: true, data: logs });
+    // Enrich logs with location from Employee model if missing
+    const empIds = [...new Set(logs.map(l => l.employeeId).filter(Boolean))];
+    const employees = await Employee.find({ employeeId: { $in: empIds } }).select('employeeId location').lean();
+    const locMap = {};
+    employees.forEach(e => {
+      if (e.employeeId) locMap[e.employeeId] = e.location || '-';
+    });
+
+    const enrichedLogs = logs.map(l => ({
+      ...l,
+      location: l.location || locMap[l.employeeId] || '-'
+    }));
+
+    res.json({ success: true, data: enrichedLogs });
   } catch (err) {
     res.status(500).json({ success: false, message: 'Server error', error: err.message });
   }
@@ -500,12 +513,19 @@ router.put('/approve/:id', auth, async (req, res) => {
     sp.rejectedReason = '';
     await sp.save();
 
+    let empLocation = '';
+    if (sp.employeeId) {
+      const emp = await Employee.findOne({ employeeId: sp.employeeId }).select('location').lean();
+      if (emp) empLocation = emp.location || '';
+    }
+
     // Create Audit Log record
     await SpecialPermissionAuditLog.create({
       specialPermissionId: sp._id,
       userId: sp.userId,
       employeeName: sp.employeeName || '',
       employeeId: sp.employeeId || '',
+      location: empLocation,
       permissionDate: sp.date,
       status: 'APPROVED',
       actionById: req.user._id,
@@ -585,12 +605,19 @@ router.put('/reject/:id', auth, async (req, res) => {
     sp.approvedAt = null;
     await sp.save();
 
+    let empLocation = '';
+    if (sp.employeeId) {
+      const emp = await Employee.findOne({ employeeId: sp.employeeId }).select('location').lean();
+      if (emp) empLocation = emp.location || '';
+    }
+
     // Create Audit Log record
     await SpecialPermissionAuditLog.create({
       specialPermissionId: sp._id,
       userId: sp.userId,
       employeeName: sp.employeeName || '',
       employeeId: sp.employeeId || '',
+      location: empLocation,
       permissionDate: sp.date,
       status: 'REJECTED',
       actionById: req.user._id,

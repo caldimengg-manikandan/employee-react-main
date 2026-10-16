@@ -19,6 +19,10 @@ const SpecialPermissionAuditLogSchema = new mongoose.Schema({
     type: String,
     default: ''
   },
+  location: {
+    type: String,
+    default: ''
+  },
   permissionDate: {
     type: Date,
     required: true
