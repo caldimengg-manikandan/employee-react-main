@@ -245,6 +245,7 @@ export const specialPermissionAPI = {
   list: (params) => api.get('/special-permissions/list', { params }),
   approve: (id) => api.put(`/special-permissions/approve/${id}`),
   reject: (id, reason) => api.put(`/special-permissions/reject/${id}`, { reason }),
+  getAuditLogs: (params) => api.get('/special-permissions/audit-logs', { params }),
 };
 
 export const attendanceApprovalAPI = {

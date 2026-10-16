@@ -11,6 +11,7 @@ const Employee = require('../models/Employee');
 const Team = require('../models/Team');
 const Attendance = require('../models/Attendance');
 const Notification = require('../models/Notification');
+const SpecialPermissionAuditLog = require('../models/SpecialPermissionAuditLog');
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -338,6 +339,122 @@ const ensureTimesheetUpdatedWithSpecialPermission = async (spDoc) => {
   return sheet;
 };
 
+router.get('/audit-logs', auth, async (req, res) => {
+  try {
+    const userRole = req.user.role || '';
+    const allowedRoles = ['admin', 'hr', 'manager', 'projectmanager', 'project_manager'];
+    if (!allowedRoles.includes(userRole)) {
+      return res.status(403).json({ success: false, message: 'Access denied' });
+    }
+
+    // Backfill legacy processed records if any exist
+    try {
+      const processedSpList = await SpecialPermission.find({
+        status: { $in: ['APPROVED', 'REJECTED'] }
+      }).lean();
+
+      if (processedSpList.length > 0) {
+        const existingAuditSpIds = await SpecialPermissionAuditLog.find({
+          specialPermissionId: { $in: processedSpList.map(s => s._id) }
+        }).distinct('specialPermissionId');
+        
+        const existingSet = new Set(existingAuditSpIds.map(id => String(id)));
+        const missingLogs = [];
+
+        for (const sp of processedSpList) {
+          if (!existingSet.has(String(sp._id))) {
+            let actorName = sp.status === 'APPROVED' ? (sp.approvedByName || '') : (sp.rejectedByName || '');
+            if (!actorName && sp.approvedBy) {
+              const approverUser = await User.findById(sp.approvedBy).select('name').lean();
+              if (approverUser) actorName = approverUser.name;
+            }
+            if (!actorName) actorName = 'Admin';
+
+            const actionTime = sp.status === 'APPROVED' 
+              ? (sp.approvedAt || sp.updatedAt || sp.createdAt) 
+              : (sp.rejectedAt || sp.updatedAt || sp.createdAt);
+
+            missingLogs.push({
+              specialPermissionId: sp._id,
+              userId: sp.userId,
+              employeeName: sp.employeeName || '',
+              employeeId: sp.employeeId || '',
+              permissionDate: sp.date,
+              status: sp.status,
+              actionById: sp.approvedBy || sp.rejectedBy || null,
+              actionByName: actorName,
+              actionAt: actionTime,
+              approvedBy: sp.status === 'APPROVED' ? actorName : '',
+              approvedOn: sp.status === 'APPROVED' ? actionTime : null,
+              rejectedBy: sp.status === 'REJECTED' ? actorName : '',
+              rejectedOn: sp.status === 'REJECTED' ? actionTime : null,
+              rejectionReason: sp.status === 'REJECTED' ? (sp.rejectedReason || '') : ''
+            });
+          }
+        }
+
+        if (missingLogs.length > 0) {
+          await SpecialPermissionAuditLog.insertMany(missingLogs);
+        }
+      }
+    } catch (syncErr) {
+      console.error('Error syncing legacy special permissions into audit log:', syncErr);
+    }
+
+    const { status, employeeId, start, end } = req.query;
+    const q = {};
+
+    const role = String(userRole || '').toLowerCase();
+    const isAdmin = role === 'admin';
+    const isPM = role === 'projectmanager' || role === 'project_manager';
+    if (!isAdmin) {
+      const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+      if (isPM) {
+        if (employeeId) {
+          if (!myAssignedMemberIds.includes(employeeId)) {
+            return res.json({ success: true, data: [] });
+          }
+          q.employeeId = employeeId;
+        } else {
+          if (myAssignedMemberIds.length === 0) {
+            return res.json({ success: true, data: [] });
+          }
+          q.employeeId = { $in: myAssignedMemberIds };
+        }
+      } else {
+        if (employeeId) {
+          if (allAssignedMemberIds.includes(employeeId)) {
+            return res.json({ success: true, data: [] });
+          }
+          q.employeeId = employeeId;
+        } else if (allAssignedMemberIds.length > 0) {
+          q.employeeId = { $nin: allAssignedMemberIds };
+        }
+      }
+    }
+
+    if (status && status !== 'All') {
+      q.status = status.toUpperCase();
+    }
+    if (employeeId && isAdmin) {
+      q.employeeId = employeeId;
+    }
+    if (start || end) {
+      q.permissionDate = {};
+      if (start) q.permissionDate.$gte = new Date(start);
+      if (end) q.permissionDate.$lte = new Date(end);
+    }
+
+    const logs = await SpecialPermissionAuditLog.find(q)
+      .sort({ actionAt: -1, createdAt: -1 })
+      .lean();
+
+    res.json({ success: true, data: logs });
+  } catch (err) {
+    res.status(500).json({ success: false, message: 'Server error', error: err.message });
+  }
+});
+
 router.put('/approve/:id', auth, async (req, res) => {
   try {
     const userRole = req.user.role || '';
@@ -370,10 +487,36 @@ router.put('/approve/:id', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Request already processed' });
     }
 
+    const actionTime = new Date();
+    const actorName = req.user.name || 'Admin';
+
     sp.status = 'APPROVED';
     sp.approvedBy = req.user._id;
-    sp.approvedAt = new Date();
+    sp.approvedByName = actorName;
+    sp.approvedAt = actionTime;
+    sp.rejectedBy = null;
+    sp.rejectedByName = '';
+    sp.rejectedAt = null;
+    sp.rejectedReason = '';
     await sp.save();
+
+    // Create Audit Log record
+    await SpecialPermissionAuditLog.create({
+      specialPermissionId: sp._id,
+      userId: sp.userId,
+      employeeName: sp.employeeName || '',
+      employeeId: sp.employeeId || '',
+      permissionDate: sp.date,
+      status: 'APPROVED',
+      actionById: req.user._id,
+      actionByName: actorName,
+      actionAt: actionTime,
+      approvedBy: actorName,
+      approvedOn: actionTime,
+      rejectedBy: '',
+      rejectedOn: null,
+      rejectionReason: ''
+    });
 
     await ensureTimesheetUpdatedWithSpecialPermission(sp);
 
@@ -428,11 +571,38 @@ router.put('/reject/:id', auth, async (req, res) => {
     }
 
     if (sp.status !== 'PENDING') return res.status(400).json({ success: false, message: 'Request already processed' });
+
+    const actionTime = new Date();
+    const actorName = req.user.name || 'Admin';
+
     sp.status = 'REJECTED';
     sp.rejectedReason = reason || '';
+    sp.rejectedBy = req.user._id;
+    sp.rejectedByName = actorName;
+    sp.rejectedAt = actionTime;
     sp.approvedBy = null;
+    sp.approvedByName = '';
     sp.approvedAt = null;
     await sp.save();
+
+    // Create Audit Log record
+    await SpecialPermissionAuditLog.create({
+      specialPermissionId: sp._id,
+      userId: sp.userId,
+      employeeName: sp.employeeName || '',
+      employeeId: sp.employeeId || '',
+      permissionDate: sp.date,
+      status: 'REJECTED',
+      actionById: req.user._id,
+      actionByName: actorName,
+      actionAt: actionTime,
+      approvedBy: '',
+      approvedOn: null,
+      rejectedBy: actorName,
+      rejectedOn: actionTime,
+      rejectionReason: reason || ''
+    });
+
     try {
       if (sp.userId) {
         await Notification.create({

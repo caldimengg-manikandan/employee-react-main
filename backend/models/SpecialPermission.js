@@ -13,7 +13,11 @@ const SpecialPermissionSchema = new mongoose.Schema({
   attachmentPath: { type: String, default: '' },
   status: { type: String, enum: ['PENDING', 'APPROVED', 'REJECTED'], default: 'PENDING' },
   approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  approvedByName: { type: String, default: '' },
   approvedAt: { type: Date, default: null },
+  rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+  rejectedByName: { type: String, default: '' },
+  rejectedAt: { type: Date, default: null },
   rejectedReason: { type: String, default: '' }
 }, { timestamps: true });
 
