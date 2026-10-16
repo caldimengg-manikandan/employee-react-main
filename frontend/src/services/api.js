@@ -248,6 +248,16 @@ export const specialPermissionAPI = {
   getAuditLogs: (params) => api.get('/special-permissions/audit-logs', { params }),
 };
 
+export const contactDiaryAPI = {
+  list: (params) => api.get('/contact-diary', { params }),
+  getEmergency: () => api.get('/contact-diary/emergency'),
+  getCategories: () => api.get('/contact-diary/categories'),
+  getLocations: () => api.get('/contact-diary/locations'),
+  create: (data) => api.post('/contact-diary', data),
+  update: (id, data) => api.put(`/contact-diary/${id}`, data),
+  toggleStatus: (id, status) => api.patch(`/contact-diary/${id}/status`, { status }),
+};
+
 export const attendanceApprovalAPI = {
   request: (data) => api.post('/attendance-approval/request', data),
   list: (params) => api.get('/attendance-approval/list', { params }),

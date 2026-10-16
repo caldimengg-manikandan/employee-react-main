@@ -114,6 +114,9 @@ const Header = ({ onMenuClick }) => {
       // Induction Program
       '/induction': 'Induction Program',
       '/admin/induction': 'Induction Program',
+
+      // Office Contact Diary
+      '/office-contact-diary': 'Office Contact Diary',
     };
 
     if (location.pathname.startsWith('/support/tickets/') || location.pathname.startsWith('/admin/support/tickets/')) {

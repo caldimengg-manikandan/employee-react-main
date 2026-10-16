@@ -146,6 +146,7 @@ const AdminSpecialPermission = () => {
               <table className="min-w-full table-auto border-collapse">
                 <thead className="bg-[#262760] text-white">
                   <tr>
+                    <th className="p-2 border border-gray-600 text-center text-sm font-semibold w-12">S.No</th>
                     <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Employee</th>
                     <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Location</th>
                     <th className="p-2 border border-gray-600 text-left text-sm font-semibold">Division</th>
@@ -160,11 +161,12 @@ const AdminSpecialPermission = () => {
                 </thead>
 
                 <tbody>
-                  {filteredItems.map((it) => {
+                  {filteredItems.map((it, idx) => {
                     const d = new Date(it.date);
                     const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
                     return (
                       <tr key={it._id} className="hover:bg-gray-50">
+                        <td className="p-2 border text-sm text-center font-medium text-gray-600">{idx + 1}</td>
                         <td className="p-2 border text-sm">{it.employeeName} ({it.employeeId})</td>
                         <td className="p-2 border text-sm">{it.location || '-'}</td>
                         <td className="p-2 border text-sm">{it.division || '-'}</td>
@@ -271,6 +273,7 @@ const AdminSpecialPermission = () => {
                   <table className="min-w-full table-auto border-collapse">
                     <thead className="bg-[#262760] text-white">
                       <tr>
+                        <th className="p-2.5 border border-gray-600 text-center text-xs md:text-sm font-semibold w-12">S.No</th>
                         <th className="p-2.5 border border-gray-600 text-left text-xs md:text-sm font-semibold">Employee</th>
                         <th className="p-2.5 border border-gray-600 text-left text-xs md:text-sm font-semibold">Location</th>
                         <th className="p-2.5 border border-gray-600 text-left text-xs md:text-sm font-semibold">Permission Date</th>
@@ -280,9 +283,12 @@ const AdminSpecialPermission = () => {
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredAuditLogs.map((log) => {
+                      {filteredAuditLogs.map((log, idx) => {
                         return (
                           <tr key={log._id} className="hover:bg-gray-50 transition-colors">
+                            <td className="p-2.5 border text-sm text-center font-medium text-gray-600">
+                              {idx + 1}
+                            </td>
                             <td className="p-2.5 border text-sm font-medium text-gray-900">
                               {log.employeeName} ({log.employeeId})
                             </td>

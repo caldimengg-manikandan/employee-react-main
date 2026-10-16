@@ -62,6 +62,7 @@ import AnnouncementManagement from "./pages/announcements/AnnouncementManagement
 import InternReference from "./pages/internship/InternReference";
 import AssetManagement from "./pages/assets/AssetManagement";
 import OfficeSync from "./pages/officesync/OfficeSync";
+import OfficeContactDiary from "./pages/contact-diary/OfficeContactDiary";
 
 // Exit Management
 import ExitForm from "./pages/EmployeeExitForms";
@@ -745,6 +746,15 @@ function App() {
               }
             />
 
+            {/* Office Contact Diary */}
+            <Route
+              path="office-contact-diary"
+              element={
+                <ProtectedRoute allowEmployeeRole>
+                  <OfficeContactDiary />
+                </ProtectedRoute>
+              }
+            />
 
           </Route>
         </Routes>

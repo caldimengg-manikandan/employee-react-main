@@ -44,7 +44,8 @@ import {
   CalendarDaysIcon,
   StarIcon,
   ChatBubbleLeftRightIcon,
-  SparklesIcon
+  SparklesIcon,
+  PhoneIcon
 } from "@heroicons/react/24/outline";
 
 const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }) => {
@@ -123,6 +124,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Support Center": ChatBubbleLeftRightIcon,
     "Asset Management": BriefcaseIcon,
     "Office Sync": CalendarDaysIcon,
+    "Office Contact Diary": PhoneIcon,
     "Administration": AdjustmentsHorizontalIcon,
     "Extension Master": Cog6ToothIcon,
     "Document Templates": DocumentTextIcon
@@ -424,6 +426,13 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       icon: getIconForMenu("Office Sync"),
       allowEmployeeRole: true,
       permission: "office_sync_access",
+    },
+    {
+      name: "Office Contact Diary",
+      path: "/office-contact-diary",
+      icon: getIconForMenu("Office Contact Diary"),
+      allowEmployeeRole: true,
+      permission: "home",
     }
   ];
 
