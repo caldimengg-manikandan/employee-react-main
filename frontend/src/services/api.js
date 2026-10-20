@@ -237,6 +237,7 @@ export const adminTimesheetAPI = {
   reject: (id, reason) => api.put(`/admin-timesheet/reject/${id}`, { reason }),
   summary: (params) => api.get('/admin-timesheet/summary', { params }),
   getMonthlyShiftAllowance: (params) => api.get('/admin-timesheet/monthly-shift-allowance', { params }),
+  getMonthlyPermissionReport: (params) => api.get('/admin-timesheet/monthly-permission-report', { params }),
 };
 
 export const specialPermissionAPI = {

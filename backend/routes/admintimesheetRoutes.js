@@ -1048,6 +1048,168 @@ router.get("/monthly-shift-allowance", auth, async (req, res) => {
   }
 });
 
+/**
+ * MONTHLY PERMISSION REPORT (HR / Admin Only)
+ * /api/admin-timesheet/monthly-permission-report?month=10&year=2026
+ */
+router.get("/monthly-permission-report", auth, async (req, res) => {
+  try {
+    const role = String(req.user?.role || "").toLowerCase();
+    const isHrOrAdmin = ["admin", "hr"].includes(role) || (req.user?.permissions || []).includes("admin_timesheet_access");
+    if (!isHrOrAdmin) {
+      return res.status(403).json({ success: false, message: "Access denied: HR/Admin authorization required." });
+    }
+
+    const reqMonth = parseInt(req.query.month !== undefined ? req.query.month : (new Date().getMonth() + 1), 10);
+    const targetYear = parseInt(req.query.year || new Date().getFullYear(), 10);
+    const targetMonth = (reqMonth >= 1 && reqMonth <= 12) ? reqMonth - 1 : (reqMonth === 0 ? 0 : new Date().getMonth());
+
+    const startOfMonth = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0, 0));
+    const endOfMonth = new Date(Date.UTC(targetYear, targetMonth + 1, 0, 23, 59, 59, 999));
+
+    // 1. Fetch all Active employees
+    const employees = await Employee.find({ status: "Active" })
+      .select("name employeeId division department location designation position")
+      .sort({ name: 1 })
+      .lean();
+
+    // 2. Fetch all timesheets overlapping with target month (excluding rejected)
+    const sheets = await Timesheet.find({
+      status: { $ne: "Rejected" },
+      weekStartDate: { $lte: endOfMonth },
+      weekEndDate: { $gte: startOfMonth }
+    }).lean();
+
+    // Preload user mapping in case sheet.employeeId is missing
+    const userIds = [...new Set(sheets.map(s => s.userId).filter(Boolean))];
+    const users = await User.find({ _id: { $in: userIds } }).select("_id employeeId").lean();
+    const userToEmpId = users.reduce((acc, u) => {
+      if (u.employeeId) acc[u._id.toString()] = u.employeeId;
+      return acc;
+    }, {});
+
+    // Map of employees
+    const empMap = {};
+    employees.forEach(emp => {
+      const dept = emp.division || emp.department || "Not Assigned";
+      empMap[emp.employeeId] = {
+        employeeId: emp.employeeId,
+        employeeName: emp.name || emp.employeeId,
+        department: dept,
+        division: dept,
+        location: emp.location || "—",
+        designation: emp.designation || emp.position || "—",
+        allowedPermissions: 3,
+        usedPermissions: 0,
+        remainingPermissions: 3,
+        totalPermissionHours: 0,
+        records: []
+      };
+    });
+
+    // 3. Process timesheets and calculate permission usage
+    sheets.forEach(sheet => {
+      const empId = sheet.employeeId || userToEmpId[sheet.userId?.toString()];
+      if (!empId || !empMap[empId]) return;
+
+      const sheetStart = new Date(sheet.weekStartDate);
+      (sheet.entries || []).forEach(entry => {
+        const isPermission = entry.task && (entry.task === "Permission" || entry.task.toLowerCase().includes("permission")) && entry.type !== "special" && entry.project !== "Special Permission";
+        if (isPermission) {
+          (entry.hours || []).forEach((hours, dayIndex) => {
+            const val = Number(hours) || 0;
+            if (val > 0) {
+              const entryDate = new Date(sheetStart);
+              entryDate.setDate(entryDate.getDate() + dayIndex);
+
+              const entryDateUTC = new Date(sheetStart);
+              entryDateUTC.setUTCDate(entryDateUTC.getUTCDate() + dayIndex);
+
+              // Check if entry falls in target month & year (supports both local and UTC)
+              const isMatch = (entryDate.getMonth() === targetMonth && entryDate.getFullYear() === targetYear) ||
+                              (entryDateUTC.getUTCMonth() === targetMonth && entryDateUTC.getUTCFullYear() === targetYear);
+
+              if (isMatch) {
+                const permCount = val >= 2 ? 2 : (val >= 1 ? 1 : 0);
+                empMap[empId].usedPermissions += permCount;
+                empMap[empId].totalPermissionHours += val;
+
+                const yyyy = entryDate.getFullYear();
+                const mm = String(entryDate.getMonth() + 1).padStart(2, "0");
+                const dd = String(entryDate.getDate()).padStart(2, "0");
+                const dateStr = `${yyyy}-${mm}-${dd}`;
+
+                const dayNames = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+                const dayOfWeek = dayNames[dayIndex] || "";
+
+                empMap[empId].records.push({
+                  date: dateStr,
+                  dayOfWeek,
+                  dayName: dayOfWeek,
+                  duration: val === 1 ? "1 hr" : `${val} hrs`,
+                  durationHours: val,
+                  hours: val,
+                  permissionCount: permCount,
+                  count: permCount,
+                  status: sheet.status || "Approved"
+                });
+              }
+            }
+          });
+        }
+      });
+    });
+
+    const employeeList = Object.values(empMap).map(e => {
+      e.permissionsUsed = e.usedPermissions;
+      e.remainingPermissions = Math.max(0, e.allowedPermissions - e.usedPermissions);
+      e.records.sort((a, b) => a.date.localeCompare(b.date));
+      return e;
+    });
+
+    // Sort: employees who used permissions first, then alphabetical by name
+    employeeList.sort((a, b) => {
+      if (b.usedPermissions !== a.usedPermissions) {
+        return b.usedPermissions - a.usedPermissions;
+      }
+      return (a.employeeName || "").localeCompare(b.employeeName || "");
+    });
+
+    const totalEmployees = employeeList.length;
+    const totalPermissionsUsed = employeeList.reduce((sum, e) => sum + e.usedPermissions, 0);
+    const totalPermissionHours = employeeList.reduce((sum, e) => sum + e.totalPermissionHours, 0);
+    const employeesWithAllUsed = employeeList.filter(e => e.usedPermissions >= 3).length;
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+
+    const responseData = {
+      month: targetMonth + 1,
+      year: targetYear,
+      monthName: monthNames[targetMonth] || "",
+      summary: {
+        totalEmployees,
+        totalPermissionsUsed,
+        totalPermissionHours: Number(totalPermissionHours).toFixed(1),
+        employeesWithMaxPermissions: employeesWithAllUsed
+      },
+      employees: employeeList
+    };
+
+    res.json({
+      success: true,
+      data: responseData,
+      ...responseData
+    });
+
+  } catch (err) {
+    console.error("Monthly permission report error:", err);
+    res.status(500).json({ success: false, message: "Failed to generate monthly permission report" });
+  }
+});
+
 module.exports = router;
 
 /**

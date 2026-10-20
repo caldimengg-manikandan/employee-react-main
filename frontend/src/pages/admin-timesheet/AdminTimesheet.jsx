@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { adminTimesheetAPI, employeeAPI, teamAPI, authAPI } from '../../services/api';
 import * as XLSX from 'xlsx';
 import XLSXStyle from 'xlsx-js-style';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { 
   BarChart3, 
   Clock, 
@@ -22,7 +24,12 @@ import {
   Loader2,
   Building2,
   FileSpreadsheet,
-  Layers
+  Layers,
+  FileCheck,
+  AlertCircle,
+  RotateCcw,
+  FileDown,
+  ArrowLeft
 } from 'lucide-react';
 
 const toWeekString = (d) => {
@@ -86,6 +93,7 @@ const AdminTimesheet = () => {
     String(role || '').toLowerCase() === 'delivery_manager' || 
     String(user.designation || '').toLowerCase().includes('delivery manager');
   const isProjectManager = (role === 'projectmanager' || role === 'project_manager') && !isDeliveryManager;
+  const isHrOrAdmin = ['admin', 'hr'].includes(String(role || '').toLowerCase());
   const userEmpId = String(user.employeeId || '').trim().toUpperCase();
   const isViewOnlyAdmin = ['CDE013', 'CDE025'].includes(userEmpId);
 
@@ -161,6 +169,28 @@ const AdminTimesheet = () => {
     employeeCounts: [],
     details: []
   });
+
+  // Monthly Permission Report state (HR/Admin only)
+  const [showPermissionReportModal, setShowPermissionReportModal] = useState(false);
+  const [permissionReportLoading, setPermissionReportLoading] = useState(false);
+  const [permissionReportMonth, setPermissionReportMonth] = useState(String(new Date().getMonth() + 1));
+  const [permissionReportYear, setPermissionReportYear] = useState(String(new Date().getFullYear()));
+  const [permissionSearchTerm, setPermissionSearchTerm] = useState('');
+  const [permissionDeptFilter, setPermissionDeptFilter] = useState('All Departments');
+  const [permissionReportData, setPermissionReportData] = useState({
+    month: new Date().getMonth() + 1,
+    year: new Date().getFullYear(),
+    monthName: '',
+    summary: {
+      totalEmployees: 0,
+      totalPermissionsUsed: 0,
+      totalPermissionHours: '0.0',
+      employeesWithMaxPermissions: 0,
+    },
+    employees: []
+  });
+  const [selectedEmployeePermission, setSelectedEmployeePermission] = useState(null);
+  const [permissionReportViewMode, setPermissionReportViewMode] = useState('list'); // 'list' | 'detail'
 
   useEffect(() => {
     const fetchEmployees = async () => {
@@ -1290,6 +1320,385 @@ const AdminTimesheet = () => {
     XLSXStyle.writeFile(wb, fileName);
   };
 
+  // Monthly Permission Report Handlers (HR/Admin only)
+  const fetchMonthlyPermissionReport = async () => {
+    try {
+      setPermissionReportLoading(true);
+      const res = await adminTimesheetAPI.getMonthlyPermissionReport({
+        month: permissionReportMonth,
+        year: permissionReportYear,
+      });
+      if (res.data?.success) {
+        const payload = res.data.data;
+        let empList = [];
+        let summaryObj = null;
+
+        if (Array.isArray(payload)) {
+          empList = payload;
+          summaryObj = res.data.summary;
+        } else if (payload && Array.isArray(payload.employees)) {
+          empList = payload.employees;
+          summaryObj = payload.summary;
+        } else if (Array.isArray(res.data.employees)) {
+          empList = res.data.employees;
+          summaryObj = res.data.summary;
+        }
+
+        const monthNames = [
+          "January", "February", "March", "April", "May", "June",
+          "July", "August", "September", "October", "November", "December"
+        ];
+        const mNum = parseInt(permissionReportMonth, 10);
+        const yNum = parseInt(permissionReportYear, 10);
+
+        setPermissionReportData({
+          month: mNum,
+          year: yNum,
+          monthName: monthNames[mNum - 1] || "",
+          summary: summaryObj || {
+            totalEmployees: empList.length,
+            totalPermissionsUsed: empList.reduce((s, e) => s + (Number(e.permissionsUsed ?? e.usedPermissions) || 0), 0),
+            totalPermissionHours: empList.reduce((s, e) => s + (Number(e.totalPermissionHours) || 0), 0).toFixed(1),
+            employeesWithMaxPermissions: empList.filter(e => (Number(e.permissionsUsed ?? e.usedPermissions) || 0) >= 3).length
+          },
+          employees: empList
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching monthly permission report:", err);
+      showMessage('Error', err.response?.data?.message || 'Failed to load Monthly Permission Report data.', 'error');
+    } finally {
+      setPermissionReportLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showPermissionReportModal) {
+      fetchMonthlyPermissionReport();
+    }
+  }, [showPermissionReportModal, permissionReportMonth, permissionReportYear]);
+
+  const distinctPermissionDepartments = useMemo(() => {
+    const set = new Set();
+    (permissionReportData.employees || []).forEach(emp => {
+      if (emp.department && String(emp.department).trim()) {
+        set.add(String(emp.department).trim());
+      }
+    });
+    return Array.from(set).sort();
+  }, [permissionReportData.employees]);
+
+  const filteredPermissionEmployees = useMemo(() => {
+    return (permissionReportData.employees || []).filter(emp => {
+      const search = permissionSearchTerm.trim().toLowerCase();
+      const matchesSearch = !search || 
+        String(emp.employeeName || '').toLowerCase().includes(search) ||
+        String(emp.employeeId || '').toLowerCase().includes(search);
+      
+      const matchesDept = permissionDeptFilter === 'All Departments' || 
+        String(emp.department || '').trim().toLowerCase() === permissionDeptFilter.trim().toLowerCase();
+
+      return matchesSearch && matchesDept;
+    });
+  }, [permissionReportData.employees, permissionSearchTerm, permissionDeptFilter]);
+
+  const permissionSummary = useMemo(() => {
+    const list = filteredPermissionEmployees;
+    const totalEmployees = list.length;
+    const totalPermissionsUsed = list.reduce((sum, e) => sum + (Number(e.permissionsUsed ?? e.usedPermissions) || 0), 0);
+    const totalHoursNum = list.reduce((sum, e) => sum + (Number(e.totalPermissionHours) || 0), 0);
+    const employeesWithMaxPermissions = list.filter(e => (Number(e.permissionsUsed ?? e.usedPermissions) || 0) >= 3).length;
+
+    return {
+      totalEmployees,
+      totalPermissionsUsed,
+      totalPermissionHours: totalHoursNum.toFixed(1),
+      employeesWithMaxPermissions
+    };
+  }, [filteredPermissionEmployees]);
+
+  const handleClearPermissionFilters = () => {
+    setPermissionSearchTerm('');
+    setPermissionDeptFilter('All Departments');
+  };
+
+  const handleOpenEmployeeDetail = (emp) => {
+    setSelectedEmployeePermission(emp);
+    setPermissionReportViewMode('detail');
+  };
+
+  const handleBackToPermissionReportList = () => {
+    setPermissionReportViewMode('list');
+    setSelectedEmployeePermission(null);
+  };
+
+  const handleClosePermissionReportModal = () => {
+    setShowPermissionReportModal(false);
+    setPermissionReportViewMode('list');
+    setSelectedEmployeePermission(null);
+  };
+
+  const handleExportPermissionExcel = () => {
+    if (!filteredPermissionEmployees || filteredPermissionEmployees.length === 0) {
+      showMessage('Export Info', 'No permission data to export for the selected filters.', 'info');
+      return;
+    }
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const monthIndex = parseInt(permissionReportMonth, 10) - 1;
+    const monthName = monthNames[monthIndex] || "Month";
+    const monthAbbr = monthName.slice(0, 3);
+    const fileName = `Monthly_Permission_Report_${monthAbbr}_${permissionReportYear}.xlsx`;
+
+    const wb = XLSXStyle.utils.book_new();
+
+    const titleText = `MONTHLY PERMISSION REPORT - ${monthName.toUpperCase()} ${permissionReportYear}`;
+    const filterInfo = `Department: ${permissionDeptFilter}   |   Search: ${permissionSearchTerm || 'None'}   |   Total Employees: ${filteredPermissionEmployees.length}`;
+
+    const wsData = [
+      [titleText],
+      [filterInfo],
+      [],
+      ['S.No', 'Employee ID', 'Employee Name', 'Department', 'Allowed Permissions', 'Permissions Used', 'Remaining Permissions', 'Total Permission Hours']
+    ];
+
+    filteredPermissionEmployees.forEach((emp, idx) => {
+      wsData.push([
+        idx + 1,
+        emp.employeeId || '',
+        emp.employeeName || '',
+        emp.department || '-',
+        emp.allowedPermissions ?? 3,
+        emp.permissionsUsed ?? emp.usedPermissions ?? 0,
+        emp.remainingPermissions ?? Math.max(0, 3 - (emp.permissionsUsed ?? emp.usedPermissions ?? 0)),
+        Number(emp.totalPermissionHours || 0).toFixed(1)
+      ]);
+    });
+
+    // Summary Total Row
+    wsData.push([
+      'TOTAL',
+      '',
+      `Total Employees: ${permissionSummary.totalEmployees}`,
+      '',
+      '',
+      permissionSummary.totalPermissionsUsed,
+      '',
+      permissionSummary.totalPermissionHours
+    ]);
+
+    const ws = XLSXStyle.utils.aoa_to_sheet(wsData);
+
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 7 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 7 } },
+      { s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 1 } },
+      { s: { r: wsData.length - 1, c: 2 }, e: { r: wsData.length - 1, c: 4 } }
+    ];
+
+    ws['!cols'] = [
+      { wch: 8 },  // S.No
+      { wch: 16 }, // Employee ID
+      { wch: 28 }, // Employee Name
+      { wch: 20 }, // Department
+      { wch: 20 }, // Allowed Permissions
+      { wch: 18 }, // Permissions Used
+      { wch: 22 }, // Remaining Permissions
+      { wch: 22 }  // Total Permission Hours
+    ];
+
+    const borderThin = {
+      top: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      bottom: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      left: { style: 'thin', color: { rgb: 'CBD5E1' } },
+      right: { style: 'thin', color: { rgb: 'CBD5E1' } }
+    };
+
+    if (ws['A1']) {
+      ws['A1'].s = {
+        fill: { fgColor: { rgb: '1E1B4B' } },
+        font: { name: 'Calibri', sz: 14, bold: true, color: { rgb: 'FFFFFF' } },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+    }
+
+    if (ws['A2']) {
+      ws['A2'].s = {
+        fill: { fgColor: { rgb: '2E3078' } },
+        font: { name: 'Calibri', sz: 10, italic: true, color: { rgb: 'E2E8F0' } },
+        alignment: { horizontal: 'center', vertical: 'center' }
+      };
+    }
+
+    for (let c = 0; c <= 7; c++) {
+      const cellRef = XLSXStyle.utils.encode_cell({ r: 3, c });
+      if (ws[cellRef]) {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: '312E81' } },
+          font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: 'FFFFFF' } },
+          alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
+          border: borderThin
+        };
+      }
+    }
+
+    for (let r = 4; r < wsData.length - 1; r++) {
+      const isEven = r % 2 === 0;
+      for (let c = 0; c <= 7; c++) {
+        const cellRef = XLSXStyle.utils.encode_cell({ r, c });
+        if (ws[cellRef]) {
+          let align = 'left';
+          let isBold = false;
+          let fontColor = '0F172A';
+          let rowBg = isEven ? 'F8FAFC' : 'FFFFFF';
+
+          if (c === 0 || c === 1) {
+            align = 'center';
+            if (c === 1) { fontColor = '4338CA'; isBold = true; }
+          } else if (c >= 4) {
+            align = 'center';
+            const val = Number(ws[cellRef].v || 0);
+            if (c === 5 && val >= 3) {
+              rowBg = 'FEE2E2';
+              fontColor = 'B91C1C';
+              isBold = true;
+            } else if (c === 5 && val > 0) {
+              rowBg = 'FEF3C7';
+              fontColor = 'B45309';
+              isBold = true;
+            } else if (c === 6 && val > 0) {
+              fontColor = '047857';
+            }
+          }
+
+          ws[cellRef].s = {
+            fill: { fgColor: { rgb: rowBg } },
+            font: { name: 'Calibri', sz: 10.5, bold: isBold, color: { rgb: fontColor } },
+            alignment: { horizontal: align, vertical: 'center' },
+            border: borderThin
+          };
+        }
+      }
+    }
+
+    const lastRowIdx = wsData.length - 1;
+    for (let c = 0; c <= 7; c++) {
+      const cellRef = XLSXStyle.utils.encode_cell({ r: lastRowIdx, c });
+      if (ws[cellRef]) {
+        ws[cellRef].s = {
+          fill: { fgColor: { rgb: 'E2E8F0' } },
+          font: { name: 'Calibri', sz: 11, bold: true, color: { rgb: '0F172A' } },
+          alignment: { horizontal: c >= 4 ? 'center' : 'left', vertical: 'center' },
+          border: borderThin
+        };
+      }
+    }
+
+    XLSXStyle.utils.book_append_sheet(wb, ws, 'Permission Summary');
+    XLSXStyle.writeFile(wb, fileName);
+  };
+
+  const handleExportPermissionPDF = () => {
+    if (!filteredPermissionEmployees || filteredPermissionEmployees.length === 0) {
+      showMessage('Export Info', 'No permission data to export for the selected filters.', 'info');
+      return;
+    }
+
+    const monthNames = [
+      "January", "February", "March", "April", "May", "June",
+      "July", "August", "September", "October", "November", "December"
+    ];
+    const monthIndex = parseInt(permissionReportMonth, 10) - 1;
+    const monthName = monthNames[monthIndex] || "Month";
+    const monthAbbr = monthName.slice(0, 3);
+    const fileName = `Monthly_Permission_Report_${monthAbbr}_${permissionReportYear}.pdf`;
+
+    const doc = new jsPDF('l', 'mm', 'a4');
+
+    doc.setFillColor(30, 27, 75);
+    doc.rect(0, 0, 297, 24, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(15);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`MONTHLY PERMISSION REPORT - ${monthName.toUpperCase()} ${permissionReportYear}`, 14, 15);
+
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 230, 15);
+
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(14, 28, 269, 14, 2, 2, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(14, 28, 269, 14, 2, 2, 'S');
+
+    doc.setTextColor(30, 27, 75);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total Employees: ${permissionSummary.totalEmployees}`, 20, 36.5);
+    doc.text(`Permissions Used: ${permissionSummary.totalPermissionsUsed}`, 85, 36.5);
+    doc.text(`Total Permission Hours: ${permissionSummary.totalPermissionHours} hrs`, 150, 36.5);
+    doc.text(`Employees Used All 3: ${permissionSummary.employeesWithMaxPermissions}`, 220, 36.5);
+
+    const tableData = filteredPermissionEmployees.map((emp, idx) => [
+      idx + 1,
+      emp.employeeId || '',
+      emp.employeeName || '',
+      emp.department || '-',
+      emp.allowedPermissions ?? 3,
+      emp.permissionsUsed ?? emp.usedPermissions ?? 0,
+      emp.remainingPermissions ?? Math.max(0, 3 - (emp.permissionsUsed ?? emp.usedPermissions ?? 0)),
+      `${Number(emp.totalPermissionHours || 0).toFixed(1)} hrs`
+    ]);
+
+    autoTable(doc, {
+      startY: 46,
+      head: [['S.No', 'Employee ID', 'Employee Name', 'Department', 'Allowed', 'Used', 'Remaining', 'Total Hours']],
+      body: tableData,
+      theme: 'grid',
+      headStyles: {
+        fillColor: [30, 27, 75],
+        textColor: [255, 255, 255],
+        fontSize: 9,
+        fontStyle: 'bold',
+        halign: 'center'
+      },
+      styles: {
+        fontSize: 8.5,
+        cellPadding: 2.2,
+        valign: 'middle'
+      },
+      columnStyles: {
+        0: { halign: 'center', cellWidth: 15 },
+        1: { halign: 'center', fontStyle: 'bold', cellWidth: 28 },
+        2: { halign: 'left', cellWidth: 55 },
+        3: { halign: 'left', cellWidth: 45 },
+        4: { halign: 'center', cellWidth: 22 },
+        5: { halign: 'center', fontStyle: 'bold', cellWidth: 22 },
+        6: { halign: 'center', cellWidth: 25 },
+        7: { halign: 'center', fontStyle: 'bold', cellWidth: 30 },
+      },
+      alternateRowStyles: {
+        fillColor: [248, 250, 252]
+      },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index === 5) {
+          const used = Number(data.cell.raw);
+          if (used >= 3) {
+            data.cell.styles.textColor = [185, 28, 28];
+            data.cell.styles.fillColor = [254, 226, 226];
+          } else if (used > 0) {
+            data.cell.styles.textColor = [180, 83, 9];
+          }
+        }
+      }
+    });
+
+    doc.save(fileName);
+  };
+
   const handleRefresh = () => {
     fetchTimesheets();
   };
@@ -1490,6 +1899,16 @@ const AdminTimesheet = () => {
             <FileSpreadsheet size={15} />
             Monthly Shift Allowance
           </button>
+
+          {isHrOrAdmin && (
+            <button 
+              onClick={() => setShowPermissionReportModal(true)}
+              className="px-4 py-2.5 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all shadow-md shadow-purple-600/20 flex items-center gap-2"
+            >
+              <FileCheck size={15} />
+              Monthly Permission Report
+            </button>
+          )}
 
           <button 
             onClick={handleExport}
@@ -2355,6 +2774,502 @@ const AdminTimesheet = () => {
           </div>
         </div>
       )}
+
+      {/* Monthly Permission Report Modal (HR/Admin only) */}
+      {showPermissionReportModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className={`bg-white rounded-2xl shadow-2xl border border-slate-200 ${permissionReportViewMode === 'detail' ? 'max-w-4xl' : 'max-w-6xl'} w-full max-h-[92vh] overflow-y-auto p-6 space-y-6 transition-all`}>
+            
+            {permissionReportViewMode === 'detail' && selectedEmployeePermission ? (
+              <>
+                {/* Employee Detail Modal Header */}
+                <div className="flex justify-between items-center pb-4 border-b border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={handleBackToPermissionReportList}
+                      className="p-2 rounded-xl text-slate-600 hover:text-purple-700 hover:bg-purple-50 border border-slate-200 hover:border-purple-200 transition-all flex items-center gap-1.5 text-xs font-bold"
+                      title="Back to All Employees"
+                    >
+                      <ArrowLeft size={16} />
+                      <span>Back to Report</span>
+                    </button>
+                    <div className="h-6 w-px bg-slate-200" />
+                    <div>
+                      <h2 className="text-lg font-extrabold text-indigo-950 flex items-center gap-2">
+                        {selectedEmployeePermission.employeeName}
+                        <span className="text-xs px-2.5 py-0.5 rounded-full bg-indigo-100 text-indigo-800 font-bold font-mono">
+                          {selectedEmployeePermission.employeeId}
+                        </span>
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Department: <span className="font-semibold text-slate-700">{selectedEmployeePermission.department || '-'}</span> &bull; Period: <span className="font-semibold text-slate-700">{permissionReportData.monthName} {permissionReportYear}</span>
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleClosePermissionReportModal}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Quick KPI stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-center">
+                    <p className="text-[11px] uppercase font-bold text-slate-500 tracking-wider">Allowed</p>
+                    <p className="text-2xl font-extrabold text-slate-800 mt-1">
+                      {selectedEmployeePermission.allowedPermissions ?? 3}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">Standard monthly limit</p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-center">
+                    <p className="text-[11px] uppercase font-bold text-amber-700 tracking-wider">Permissions Used</p>
+                    <p className="text-2xl font-extrabold text-amber-900 mt-1">
+                      {selectedEmployeePermission.permissionsUsed ?? selectedEmployeePermission.usedPermissions ?? 0}
+                    </p>
+                    <p className="text-[10px] text-amber-600/80 mt-0.5">
+                      {(selectedEmployeePermission.permissionsUsed ?? selectedEmployeePermission.usedPermissions ?? 0) >= 3 ? 'Monthly limit reached' : 'Within limit'}
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-center">
+                    <p className="text-[11px] uppercase font-bold text-emerald-700 tracking-wider">Remaining</p>
+                    <p className="text-2xl font-extrabold text-emerald-900 mt-1">
+                      {selectedEmployeePermission.remainingPermissions !== undefined 
+                        ? selectedEmployeePermission.remainingPermissions 
+                        : Math.max(0, 3 - (selectedEmployeePermission.permissionsUsed ?? selectedEmployeePermission.usedPermissions ?? 0))}
+                    </p>
+                    <p className="text-[10px] text-emerald-600/80 mt-0.5">Available for month</p>
+                  </div>
+
+                  <div className="p-4 rounded-xl bg-purple-50 border border-purple-200 text-center">
+                    <p className="text-[11px] uppercase font-bold text-purple-700 tracking-wider">Total Hours</p>
+                    <p className="text-2xl font-extrabold text-purple-900 mt-1">
+                      {Number(selectedEmployeePermission.totalPermissionHours || 0).toFixed(1)} hrs
+                    </p>
+                    <p className="text-[10px] text-purple-600/80 mt-0.5">Duration recorded</p>
+                  </div>
+                </div>
+
+                {/* Records Table */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center">
+                    <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center gap-2">
+                      <Clock size={14} className="text-purple-600" />
+                      Permission Records ({selectedEmployeePermission.records?.length || 0})
+                    </h4>
+                    <span className="text-xs text-slate-500 font-medium">
+                      Calculation: &lt; 2 hrs = 1 count, &ge; 2 hrs = 2 counts
+                    </span>
+                  </div>
+
+                  <div className="border border-slate-200 rounded-xl overflow-hidden shadow-2xs">
+                    <table className="w-full text-xs text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-800 text-white font-bold">
+                          <th className="p-3 pl-4 w-14 text-center">S.No</th>
+                          <th className="p-3">Date</th>
+                          <th className="p-3 text-center">Duration</th>
+                          <th className="p-3 text-center">Permission Count</th>
+                          <th className="p-3 pr-4 text-center">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 font-medium">
+                        {(!selectedEmployeePermission.records || selectedEmployeePermission.records.length === 0) ? (
+                          <tr>
+                            <td colSpan="5" className="text-center py-8 text-slate-500 font-medium">
+                              No permission records found for this employee in {permissionReportData.monthName} {permissionReportYear}.
+                            </td>
+                          </tr>
+                        ) : (
+                          selectedEmployeePermission.records.map((rec, rIdx) => (
+                            <tr key={rIdx} className="hover:bg-slate-50/80 transition-colors">
+                              <td className="p-3 pl-4 text-center text-slate-500">{rIdx + 1}</td>
+                              <td className="p-3 font-semibold text-slate-800">
+                                {rec.date} <span className="text-slate-400 font-normal">({rec.dayOfWeek || rec.dayName || ''})</span>
+                              </td>
+                              <td className="p-3 text-center font-mono font-bold text-indigo-950">
+                                {rec.durationHours ?? rec.hours ?? (rec.duration ? String(rec.duration).replace(' hrs', '').replace(' hr', '') : 0)} hrs
+                              </td>
+                              <td className="p-3 text-center font-mono">
+                                <span className="px-2.5 py-0.5 bg-purple-100 text-purple-800 rounded-full font-bold">
+                                  {rec.permissionCount ?? rec.count ?? 1} {(rec.permissionCount ?? rec.count) === 1 ? 'perm' : 'perms'}
+                                </span>
+                              </td>
+                              <td className="p-3 pr-4 text-center">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                                  rec.status === 'Approved' 
+                                    ? 'bg-emerald-100 text-emerald-800' 
+                                    : rec.status === 'Pending'
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-slate-100 text-slate-700'
+                                }`}>
+                                  {rec.status || 'Approved'}
+                                </span>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Detail View Footer */}
+                <div className="flex justify-between items-center pt-3 border-t border-slate-200">
+                  <button
+                    onClick={handleBackToPermissionReportList}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+                  >
+                    <ArrowLeft size={14} />
+                    Back to All Employees
+                  </button>
+
+                  <button 
+                    onClick={handleClosePermissionReportModal}
+                    className="px-5 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
+                  >
+                    Close
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Modal Header */}
+                <div className="flex justify-between items-center pb-4 border-b border-slate-200">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-r from-purple-600 via-fuchsia-600 to-pink-600 text-white rounded-xl shadow-md shadow-purple-600/20">
+                      <FileCheck size={22} />
+                    </div>
+                    <div>
+                      <h2 className="text-lg font-extrabold text-indigo-950 flex items-center gap-2">
+                        Monthly Permission Report
+                      </h2>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Company-wide monthly permission summary & tracking (Standard monthly limit: 3 permissions)
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={handleClosePermissionReportModal}
+                    className="p-1.5 rounded-xl text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+            {/* Filters Section */}
+            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-indigo-950 font-bold text-xs">
+                  <Filter size={14} className="text-purple-600" />
+                  Report Filters
+                </div>
+                {(permissionSearchTerm || permissionDeptFilter !== 'All Departments') && (
+                  <button
+                    onClick={handleClearPermissionFilters}
+                    className="text-xs text-purple-700 hover:text-purple-900 font-semibold flex items-center gap-1 hover:underline"
+                  >
+                    <RotateCcw size={12} />
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                
+                {/* Month Selector */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Month</label>
+                  <select
+                    value={permissionReportMonth}
+                    onChange={(e) => setPermissionReportMonth(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none"
+                  >
+                    {[
+                      { v: "1", l: "January" },
+                      { v: "2", l: "February" },
+                      { v: "3", l: "March" },
+                      { v: "4", l: "April" },
+                      { v: "5", l: "May" },
+                      { v: "6", l: "June" },
+                      { v: "7", l: "July" },
+                      { v: "8", l: "August" },
+                      { v: "9", l: "September" },
+                      { v: "10", l: "October" },
+                      { v: "11", l: "November" },
+                      { v: "12", l: "December" }
+                    ].map(m => (
+                      <option key={m.v} value={m.v}>{m.l}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Year Selector */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Year</label>
+                  <select
+                    value={permissionReportYear}
+                    onChange={(e) => setPermissionReportYear(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none"
+                  >
+                    {[2024, 2025, 2026, 2027, 2028].map(y => (
+                      <option key={y} value={String(y)}>{y}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Employee Search */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Search Employee</label>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-2 text-slate-400" size={13} />
+                    <input
+                      type="text"
+                      value={permissionSearchTerm}
+                      onChange={(e) => setPermissionSearchTerm(e.target.value)}
+                      placeholder="Name or Employee ID..."
+                      className="w-full bg-white border border-slate-200 rounded-xl pl-8 pr-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Department Filter */}
+                <div>
+                  <label className="text-[11px] font-semibold text-slate-600 mb-1 block">Department</label>
+                  <select
+                    value={permissionDeptFilter}
+                    onChange={(e) => setPermissionDeptFilter(e.target.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 text-xs font-medium focus:ring-2 focus:ring-purple-500 outline-none"
+                  >
+                    <option value="All Departments">All Departments</option>
+                    {distinctPermissionDepartments.map(d => (
+                      <option key={d} value={d}>{d}</option>
+                    ))}
+                  </select>
+                </div>
+
+              </div>
+            </div>
+
+            {/* Summary KPI Cards (4 Cards: Total Employees, Total Permissions Used, Total Hours, Max Permissions) */}
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              
+              <div className="bg-gradient-to-br from-indigo-900 via-[#1e1b4b] to-[#262760] p-4 rounded-xl text-white shadow-md">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-200/80">Total Employees</p>
+                    <h3 className="text-2xl font-extrabold mt-0.5">{permissionSummary.totalEmployees}</h3>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-indigo-500/20 text-indigo-300">
+                    <Users size={20} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-amber-900 via-[#78350f] to-[#92400e] p-4 rounded-xl text-white shadow-md">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-amber-200/80">Total Permissions Used</p>
+                    <h3 className="text-2xl font-extrabold mt-0.5">{permissionSummary.totalPermissionsUsed}</h3>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-amber-500/20 text-amber-300">
+                    <Clock size={20} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-blue-900 via-[#172554] to-[#1e3a8a] p-4 rounded-xl text-white shadow-md">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-200/80">Total Permission Hours</p>
+                    <h3 className="text-2xl font-extrabold mt-0.5">{permissionSummary.totalPermissionHours} hrs</h3>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-blue-500/20 text-blue-300">
+                    <BarChart3 size={20} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gradient-to-br from-rose-900 via-[#881337] to-[#9f1239] p-4 rounded-xl text-white shadow-md">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-wider text-rose-200/80">Used All 3 Permissions</p>
+                    <h3 className="text-2xl font-extrabold mt-0.5">{permissionSummary.employeesWithMaxPermissions}</h3>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-rose-500/20 text-rose-300">
+                    <AlertCircle size={20} />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Permission Table */}
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center">
+                <h3 className="text-xs font-bold text-indigo-950 uppercase tracking-wider flex items-center gap-1.5">
+                  <FileCheck size={14} className="text-purple-600" />
+                  Employee Monthly Permission Usage
+                </h3>
+                <span className="text-[11px] font-bold text-slate-500">
+                  Showing {filteredPermissionEmployees.length} Employees
+                </span>
+              </div>
+
+              <div className="border border-slate-200 rounded-xl overflow-hidden shadow-xs">
+                <table className="w-full text-xs text-left border-collapse">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-[#1e1b4b] via-[#262760] to-[#2e3078] text-white font-bold">
+                      <th className="p-3 pl-4 w-12 text-center">S.No</th>
+                      <th className="p-3">Employee Name</th>
+                      <th className="p-3">Employee ID</th>
+                      <th className="p-3">Department</th>
+                      <th className="p-3 text-center">Allowed</th>
+                      <th className="p-3 text-center">Used</th>
+                      <th className="p-3 text-center">Remaining</th>
+                      <th className="p-3 text-center">Total Hours</th>
+                      <th className="p-3 pr-4 text-center w-24">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {permissionReportLoading ? (
+                      <tr>
+                        <td colSpan="9" className="text-center py-10 text-slate-500">
+                          <Loader2 className="animate-spin w-6 h-6 text-purple-600 mx-auto mb-2" />
+                          Loading monthly permission report...
+                        </td>
+                      </tr>
+                    ) : filteredPermissionEmployees.length === 0 ? (
+                      <tr>
+                        <td colSpan="9" className="text-center py-10 text-slate-500 font-semibold">
+                          No employees found matching the selected filters.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredPermissionEmployees.map((emp, idx) => {
+                        const used = Number(emp.permissionsUsed ?? emp.usedPermissions ?? 0);
+                        const remaining = emp.remainingPermissions !== undefined ? emp.remainingPermissions : Math.max(0, 3 - used);
+                        const isMax = used >= 3;
+
+                        return (
+                          <tr key={emp.employeeId || idx} className="hover:bg-purple-50/40 transition-colors">
+                            <td className="p-3 pl-4 text-center text-slate-500">{idx + 1}</td>
+                            <td className="p-3 font-bold text-slate-900">{emp.employeeName}</td>
+                            <td className="p-3 font-bold text-indigo-700">{emp.employeeId}</td>
+                            <td className="p-3 text-slate-600">
+                              <span className="px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium text-[11px]">
+                                {emp.department || '-'}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center font-mono">
+                              <span className="px-2.5 py-0.5 rounded-full font-bold bg-slate-100 text-slate-700">
+                                {emp.allowedPermissions ?? 3}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center font-mono">
+                              <span className={`px-2.5 py-0.5 rounded-full font-bold ${
+                                isMax 
+                                  ? 'bg-rose-100 text-rose-800' 
+                                  : used > 0 
+                                    ? 'bg-amber-100 text-amber-800' 
+                                    : 'text-slate-400'
+                              }`}>
+                                {used}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center font-mono">
+                              <span className={`px-2.5 py-0.5 rounded-full font-bold ${
+                                remaining === 0 
+                                  ? 'bg-rose-100 text-rose-800 font-extrabold' 
+                                  : remaining === 1
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-emerald-100 text-emerald-800'
+                              }`}>
+                                {remaining}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center font-mono font-bold text-indigo-950">
+                              {Number(emp.totalPermissionHours || 0).toFixed(1)} hrs
+                            </td>
+                            <td className="p-3 pr-4 text-center">
+                              <button
+                                onClick={() => handleOpenEmployeeDetail(emp)}
+                                className="px-3 py-1 bg-gradient-to-r from-purple-50 to-indigo-50 hover:from-purple-100 hover:to-indigo-100 text-purple-700 border border-purple-200/80 rounded-lg text-xs font-bold transition-all flex items-center gap-1 mx-auto shadow-2xs"
+                              >
+                                <Eye size={13} />
+                                View
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                  {filteredPermissionEmployees.length > 0 && (
+                    <tfoot>
+                      <tr className="bg-slate-100 font-bold border-t border-slate-200 text-slate-900">
+                        <td colSpan="4" className="p-3 text-right pr-4 font-extrabold uppercase tracking-wider text-indigo-950">
+                          Total Summary ({filteredPermissionEmployees.length} Employees):
+                        </td>
+                        <td className="p-3 text-center font-mono text-slate-700 font-extrabold">
+                          -
+                        </td>
+                        <td className="p-3 text-center font-mono text-amber-900 font-extrabold text-sm">
+                          {permissionSummary.totalPermissionsUsed}
+                        </td>
+                        <td className="p-3 text-center font-mono text-emerald-900 font-extrabold text-sm">
+                          -
+                        </td>
+                        <td className="p-3 text-center font-mono text-indigo-950 font-extrabold text-sm">
+                          {permissionSummary.totalPermissionHours} hrs
+                        </td>
+                        <td></td>
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div className="flex flex-wrap justify-between items-center gap-3 pt-3 border-t border-slate-200">
+              <div className="flex items-center gap-2.5">
+                <button 
+                  onClick={handleExportPermissionExcel}
+                  disabled={permissionReportLoading || filteredPermissionEmployees.length === 0}
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-emerald-600/20 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  <Download size={14} />
+                  Export Excel
+                </button>
+
+                <button 
+                  onClick={handleExportPermissionPDF}
+                  disabled={permissionReportLoading || filteredPermissionEmployees.length === 0}
+                  className="px-4 py-2 bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-purple-600/20 transition-all flex items-center gap-2 disabled:opacity-50"
+                >
+                  <FileDown size={14} />
+                  Download PDF
+                </button>
+              </div>
+
+              <button 
+                onClick={handleClosePermissionReportModal}
+                className="px-5 py-2.5 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
+              >
+                Close
+              </button>
+            </div>
+          </>
+        )}
+
+      </div>
+    </div>
+  )}
+
+
 
       {/* Reject Reason Dialog */}
       {rejectDialog.isOpen && (
