@@ -64,6 +64,21 @@ async function sendStatusEmail(updatedDoc, status) {
 
 const router = express.Router();
 
+async function isUserDeliveryManager(reqUser) {
+  if (!reqUser) return false;
+  const role = String(reqUser.role || "").toLowerCase();
+  if (role === "deliverymanager" || role === "delivery_manager") return true;
+  let designation = String(reqUser.designation || "").toLowerCase();
+  if (designation.includes("delivery manager")) return true;
+  if (reqUser.employeeId) {
+    const emp = await Employee.findOne({ employeeId: reqUser.employeeId }).select("designation").lean();
+    if (emp && String(emp.designation || "").toLowerCase().includes("delivery manager")) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function getTeamManagementAssignmentSets(userEmployeeId) {
   const teams = await Team.find({})
     .select("leaderEmployeeId members")
@@ -92,6 +107,7 @@ async function getTeamManagementAssignmentSets(userEmployeeId) {
 router.get("/list", auth, async (req, res) => {
   try {
     const { employeeId, division, location, status, week, project, fromDate, toDate, reportingManager } = req.query;
+    const isDM = await isUserDeliveryManager(req.user);
     const role = String(req.user?.role || "").toLowerCase();
     const isAdmin = ["admin", "hr", "director", "manager"].includes(role);
     const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead" || role === "reporting_manager";
@@ -103,6 +119,28 @@ router.get("/list", auth, async (req, res) => {
     let adminQuery = {};
     if (isAdmin) {
       if (employeeId) adminQuery.employeeId = employeeId;
+      if (divisionFilter) adminQuery.division = divisionFilter;
+    } else if (isDM) {
+      // Delivery Manager has view access to all records in SDS and TEKLA divisions
+      if (divisionFilter) {
+        if (/^(SDS|TEKLA)$/i.test(divisionFilter)) {
+          adminQuery.division = { $regex: new RegExp(`^${divisionFilter}$`, "i") };
+        } else {
+          return res.json({ success: true, data: [] });
+        }
+      } else {
+        adminQuery.division = /^(SDS|TEKLA)$/i;
+      }
+
+      if (employeeId) {
+        const emp = await Employee.findOne({ employeeId }).select("division employeeId").lean();
+        const empDiv = String(emp?.division || "").toUpperCase();
+        if (["SDS", "TEKLA"].includes(empDiv) || myAssignedMemberIds.includes(employeeId)) {
+          adminQuery.employeeId = employeeId;
+        } else {
+          return res.json({ success: true, data: [] });
+        }
+      }
     } else if (isPM) {
       if (employeeId) {
         if (!myAssignedMemberIds.includes(employeeId)) {
@@ -115,6 +153,7 @@ router.get("/list", auth, async (req, res) => {
         }
         adminQuery.employeeId = { $in: myAssignedMemberIds };
       }
+      if (divisionFilter) adminQuery.division = divisionFilter;
     } else {
       if (employeeId) {
         if (allAssignedMemberIds.includes(employeeId)) {
@@ -124,9 +163,8 @@ router.get("/list", auth, async (req, res) => {
       } else if (allAssignedMemberIds.length > 0) {
         adminQuery.employeeId = { $nin: allAssignedMemberIds };
       }
+      if (divisionFilter) adminQuery.division = divisionFilter;
     }
-
-    if (divisionFilter) adminQuery.division = divisionFilter;
     if (locationFilter) adminQuery.location = locationFilter;
     if (status && status !== "All Status") adminQuery.status = status;
     if (week && week !== "All Weeks") adminQuery.week = week;
@@ -287,6 +325,9 @@ router.get("/list", auth, async (req, res) => {
           // Apply filters to submitted records
           if (employeeId && record.employeeId !== employeeId) continue;
           if (isAdmin) {
+          } else if (isDM) {
+            const normDiv = String(record.division || "").toUpperCase();
+            if (!["SDS", "TEKLA"].includes(normDiv)) continue;
           } else if (isPM) {
             if (!myAssignedMemberIds.includes(record.employeeId)) continue;
           } else {
@@ -351,7 +392,12 @@ router.get("/list", auth, async (req, res) => {
         // Filter combined list to only include active employees and add reporting manager
         combined = combined.filter(r => {
           const emp = empMap[r.employeeId];
-          return !!emp; // This effectively filters out non-active employees since the query above only returns active ones
+          if (!emp) return false;
+          if (isDM) {
+            const empDiv = String(emp.division || "").toUpperCase();
+            if (!["SDS", "TEKLA"].includes(empDiv)) return false;
+          }
+          return true;
         }).map(r => {
           const emp = empMap[r.employeeId];
           const leaderInfo = memberToLeaderMap[r.employeeId];
@@ -412,14 +458,15 @@ router.put("/approve/:id", auth, async (req, res) => {
     }
 
     const role = String(req.user?.role || "").toLowerCase();
-    const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager"];
-    const hasAccess = allowedRoles.includes(role) || (req.user?.permissions || []).includes("admin_timesheet_access");
+    const isDM = await isUserDeliveryManager(req.user);
+    const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager", "deliverymanager", "delivery_manager"];
+    const hasAccess = allowedRoles.includes(role) || isDM || (req.user?.permissions || []).includes("admin_timesheet_access");
     if (!hasAccess) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
     const isSuperAdmin = role === "admin" || role === "hr";
-    const isTeamLeaderOrManager = ["director", "manager", "projectmanager", "project_manager", "teamlead", "reporting_manager"].includes(role);
+    const isTeamLeaderOrManager = ["director", "manager", "projectmanager", "project_manager", "teamlead", "reporting_manager"].includes(role) || isDM;
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
     const candidateAdminDoc = await AdminTimesheet.findById(req.params.id).select("employeeId").lean();
@@ -575,14 +622,15 @@ router.put("/reject/:id", auth, async (req, res) => {
     const { reason } = req.body;
 
     const role = String(req.user?.role || "").toLowerCase();
-    const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager"];
-    const hasAccess = allowedRoles.includes(role) || (req.user?.permissions || []).includes("admin_timesheet_access");
+    const isDM = await isUserDeliveryManager(req.user);
+    const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager", "deliverymanager", "delivery_manager"];
+    const hasAccess = allowedRoles.includes(role) || isDM || (req.user?.permissions || []).includes("admin_timesheet_access");
     if (!hasAccess) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
 
     const isSuperAdmin = role === "admin" || role === "hr";
-    const isTeamLeaderOrManager = ["director", "manager", "projectmanager", "project_manager", "teamlead", "reporting_manager"].includes(role);
+    const isTeamLeaderOrManager = ["director", "manager", "projectmanager", "project_manager", "teamlead", "reporting_manager"].includes(role) || isDM;
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
     const candidateAdminDoc = await AdminTimesheet.findById(req.params.id).select("employeeId").lean();
@@ -735,8 +783,9 @@ router.get("/summary", auth, async (req, res) => {
     const { year, employee, project } = req.query;
 
     const role = String(req.user?.role || "").toLowerCase();
-    const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager"];
-    const hasAccess = allowedRoles.includes(role) || (req.user?.permissions || []).includes("admin_timesheet_access");
+    const isDM = await isUserDeliveryManager(req.user);
+    const allowedRoles = ["admin", "hr", "director", "manager", "projectmanager", "project_manager", "deliverymanager", "delivery_manager"];
+    const hasAccess = allowedRoles.includes(role) || isDM || (req.user?.permissions || []).includes("admin_timesheet_access");
     if (!hasAccess) {
       return res.status(403).json({ success: false, message: "Access denied" });
     }
@@ -753,6 +802,8 @@ router.get("/summary", auth, async (req, res) => {
     if (project && project !== "All Projects") match["timeEntries.project"] = project;
 
     if (isAdmin) {
+    } else if (isDM) {
+      match.division = /^(SDS|TEKLA)$/i;
     } else if (isPM) {
       if (myAssignedMemberIds.length === 0) {
         return res.json({
@@ -862,8 +913,14 @@ router.get("/monthly-shift-allowance", auth, async (req, res) => {
 
     // Role-based filtering constraints
     let allowedEmployeeIds = null;
+    const isDM = await isUserDeliveryManager(req.user);
     if (!isAdmin) {
-      if (isPM) {
+      if (isDM) {
+        const sdsTeklaIds = employees
+          .filter(e => ["SDS", "TEKLA"].includes(String(e.division || "").toUpperCase()))
+          .map(e => e.employeeId);
+        allowedEmployeeIds = new Set(sdsTeklaIds);
+      } else if (isPM) {
         allowedEmployeeIds = new Set(myAssignedMemberIds);
       } else if (allAssignedMemberIds.length > 0) {
         // Exclude assigned members

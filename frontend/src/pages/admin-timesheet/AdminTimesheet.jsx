@@ -82,7 +82,10 @@ const AdminTimesheet = () => {
   // Get user role & employee ID
   const user = JSON.parse(sessionStorage.getItem('user') || '{}');
   const role = user.role || '';
-  const isProjectManager = role === 'projectmanager' || role === 'project_manager';
+  const isDeliveryManager = String(role || '').toLowerCase() === 'deliverymanager' || 
+    String(role || '').toLowerCase() === 'delivery_manager' || 
+    String(user.designation || '').toLowerCase().includes('delivery manager');
+  const isProjectManager = (role === 'projectmanager' || role === 'project_manager') && !isDeliveryManager;
   const userEmpId = String(user.employeeId || '').trim().toUpperCase();
   const isViewOnlyAdmin = ['CDE013', 'CDE025'].includes(userEmpId);
 
@@ -105,7 +108,13 @@ const AdminTimesheet = () => {
   const canApproveEmployee = (targetEmpId) => {
     if (isViewOnlyAdmin) return false;
     const normalizedRole = String(role || '').toLowerCase();
+    const normalizedDesignation = String(user.designation || '').toLowerCase();
+    const isDM = normalizedRole === 'deliverymanager' || normalizedRole === 'delivery_manager' || normalizedDesignation.includes('delivery manager');
     const normalizedTarget = String(targetEmpId || '').trim().toUpperCase();
+
+    if (isDM) {
+      return assignedMemberIds.includes(normalizedTarget);
+    }
 
     if (['admin', 'hr'].includes(normalizedRole)) {
       return true;
@@ -337,6 +346,7 @@ const AdminTimesheet = () => {
         const submittedEmployeeIds = new Set(data.map(r => r.employeeId));
         
         const missingEmployees = allEmployees.filter(emp => {
+          if (isDeliveryManager && !['SDS', 'TEKLA'].includes(String(emp.division || '').toUpperCase())) return false;
           if (filters.division !== 'All Division' && emp.division !== filters.division) return false;
           if (filters.location !== 'All Locations' && emp.location !== filters.location) return false;
           if (filters.employeeId !== '' && emp.employeeId !== filters.employeeId) return false;
@@ -424,6 +434,7 @@ const AdminTimesheet = () => {
       const totalEmployees = (() => {
         if (allEmployees.length > 0) {
           return allEmployees.filter(emp => {
+            if (isDeliveryManager && !['SDS', 'TEKLA'].includes(String(emp.division || '').toUpperCase())) return false;
             if (filters.division !== 'All Division' && emp.division !== filters.division) return false;
             if (filters.location !== 'All Locations' && emp.location !== filters.location) return false;
             if (filters.employeeId !== '' && emp.employeeId !== filters.employeeId) return false;
@@ -1583,9 +1594,13 @@ const AdminTimesheet = () => {
                   <option>All Division</option>
                   <option>SDS</option>
                   <option>TEKLA</option>
-                  <option>DAS(Software)</option>
-                  <option>Electrical</option>
-                  <option>HR/Admin</option>
+                  {!isDeliveryManager && (
+                    <>
+                      <option>DAS(Software)</option>
+                      <option>Electrical</option>
+                      <option>HR/Admin</option>
+                    </>
+                  )}
                 </select>
               </div>
             )}

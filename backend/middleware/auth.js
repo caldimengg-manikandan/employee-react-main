@@ -15,12 +15,13 @@ const auth = async (req, res, next) => {
       return res.status(401).json({ message: "Invalid token" });
     }
 
-    // Lookup employee profile to check for IT Admin designation
+    // Lookup employee profile to check for IT Admin designation and division
     if (user.employeeId) {
       const Employee = require("../models/Employee");
-      const employee = await Employee.findOne({ employeeId: user.employeeId }).select("designation").lean();
+      const employee = await Employee.findOne({ employeeId: user.employeeId }).select("designation division department").lean();
       if (employee) {
         user.designation = employee.designation;
+        user.division = employee.division || employee.department;
         const normalizedDesignation = String(employee.designation || "").trim().toLowerCase();
         if (normalizedDesignation === "it admin") {
           user.role = "it_admin";

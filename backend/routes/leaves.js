@@ -64,6 +64,21 @@ async function getTeamManagementAssignmentSets(userEmployeeId) {
   };
 }
 
+async function isUserDeliveryManager(reqUser) {
+  if (!reqUser) return false;
+  const role = String(reqUser.role || '').toLowerCase();
+  if (role === 'deliverymanager' || role === 'delivery_manager') return true;
+  let designation = String(reqUser.designation || '').toLowerCase();
+  if (designation.includes('delivery manager')) return true;
+  if (reqUser.employeeId) {
+    const emp = await Employee.findOne({ employeeId: reqUser.employeeId }).select('designation').lean();
+    if (emp && String(emp.designation || '').toLowerCase().includes('delivery manager')) {
+      return true;
+    }
+  }
+  return false;
+}
+
 const mailer = nodemailer.createTransport({
   host: process.env.SMTP_HOST || process.env.EMAIL_HOST,
   port: Number(process.env.SMTP_PORT || process.env.EMAIL_PORT) || 465,
@@ -1127,14 +1142,15 @@ router.get('/', auth, async (req, res) => {
     if (status && status !== 'all') filter.status = status;
     if (leaveType && leaveType !== 'all') filter.leaveType = leaveType;
 
+    const isDM = await isUserDeliveryManager(req.user);
     const role = String(req.user.role || '').toLowerCase();
     const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
     const isPM = role === 'projectmanager' || role === 'project_manager' || role === 'teamlead' || role === 'reporting_manager';
     const isHR = hasPermission(req.user, 'leave_view') || hasPermission(req.user, 'leave_summary') || hasPermission(req.user, 'leave_manage') || role === 'hr';
 
-    // Allow if HR/Admin, Manager/PM, or if employee is viewing own leaves
+    // Allow if HR/Admin, Manager/PM, Delivery Manager, or if employee is viewing own leaves
     const isSelf = employeeId && req.user.employeeId === employeeId;
-    const isAllowed = isAdmin || isPM || isHR || isSelf;
+    const isAllowed = isAdmin || isPM || isHR || isDM || isSelf;
 
     if (!isAllowed) {
       return res.status(403).json({ message: 'Access denied' });
@@ -1142,7 +1158,22 @@ router.get('/', auth, async (req, res) => {
 
     // Filter applications based on hierarchy
     if (!isAdmin && role !== 'hr') {
-      if (isPM) {
+      if (isDM) {
+        // Delivery Manager has view access to all leaves for employees in SDS and TEKLA divisions
+        const sdsTeklaEmps = await Employee.find({ division: /^(SDS|TEKLA)$/i }).select('employeeId').lean();
+        const sdsTeklaIds = sdsTeklaEmps.map(e => e.employeeId).filter(Boolean);
+        const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
+        const allowedIds = Array.from(new Set([...sdsTeklaIds, ...myAssignedMemberIds, req.user.employeeId]));
+
+        if (employeeId) {
+          if (!allowedIds.includes(employeeId)) {
+            return res.status(403).json({ message: 'Access denied' });
+          }
+          filter.employeeId = employeeId;
+        } else {
+          filter.employeeId = { $in: allowedIds };
+        }
+      } else if (isPM) {
         const { myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user.employeeId);
         const allowedIds = [...myAssignedMemberIds, req.user.employeeId];
         if (employeeId) {
@@ -1215,7 +1246,7 @@ router.get('/', auth, async (req, res) => {
       });
     }
 
-    const mapped = items.map(i => {
+    let mapped = items.map(i => {
       const user = userMap[i.userId?.toString()] || {};
 
       // Try to resolve employee from multiple sources
@@ -1245,6 +1276,15 @@ router.get('/', auth, async (req, res) => {
         division: emp?.division || emp?.department || ''
       };
     });
+
+    if (isDM && !employeeId) {
+      // Ensure only SDS and TEKLA division leaves are returned for DM
+      mapped = mapped.filter(item => {
+        const div = String(item.division || '').toUpperCase();
+        return ['SDS', 'TEKLA'].includes(div);
+      });
+    }
+
     res.json(mapped);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1260,7 +1300,8 @@ router.put('/:id/status', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied: View-only access in Leave Summary' });
     }
 
-    const roleAllowed = ['admin', 'projectmanager', 'project_manager', 'hr', 'director', 'manager'].includes(req.user.role);
+    const isDM = await isUserDeliveryManager(req.user);
+    const roleAllowed = ['admin', 'projectmanager', 'project_manager', 'hr', 'director', 'manager', 'deliverymanager', 'delivery_manager'].includes(req.user.role) || isDM;
     const permAllowed = hasPermission(req.user, 'leave_manage');
     if (!roleAllowed && !permAllowed) {
       return res.status(403).json({ message: 'Access denied' });
@@ -1293,7 +1334,7 @@ router.put('/:id/status', auth, async (req, res) => {
     const role = String(req.user.role || '').toLowerCase();
     const isHR = hasPermission(req.user, 'leave_manage') || role === 'hr';
     const isSuperAdmin = role === 'admin';
-    const isTeamLeaderOrManager = ['director', 'manager', 'projectmanager', 'project_manager', 'teamlead', 'reporting_manager'].includes(role);
+    const isTeamLeaderOrManager = ['director', 'manager', 'projectmanager', 'project_manager', 'teamlead', 'reporting_manager'].includes(role) || isDM;
 
     if (isTeamLeaderOrManager) {
       if (targetEmployeeId) {

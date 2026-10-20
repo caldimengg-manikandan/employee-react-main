@@ -480,6 +480,7 @@ router.get('/timesheet/employees', auth, async (req, res) => {
 
     const role = String(req.user?.role || "").toLowerCase();
     const isAdmin = role === "admin" || role === "director" || role === "manager";
+    const isDeliveryManager = role === "deliverymanager" || role === "delivery_manager" || String(req.user?.designation || "").toLowerCase().includes("delivery manager");
     const isPM = role === "projectmanager" || role === "project_manager" || role === "teamlead";
     const { allAssignedMemberIds, myAssignedMemberIds } = await getTeamManagementAssignmentSets(req.user?.employeeId);
 
@@ -488,6 +489,9 @@ router.get('/timesheet/employees', auth, async (req, res) => {
 
     if (isAdmin) {
       // Admin sees all Active employees
+    } else if (isDeliveryManager) {
+      // Delivery Manager sees all Active employees in SDS and TEKLA divisions
+      query.division = /^(SDS|TEKLA)$/i;
     } else if (isPM) {
       if (myAssignedMemberIds.length === 0) {
         return res.json([]);

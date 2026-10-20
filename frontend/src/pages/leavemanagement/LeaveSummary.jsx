@@ -49,10 +49,20 @@ const LeaveSummary = () => {
     fetchMyTeam();
   }, []);
 
+  const isDeliveryManager = String(sessionUser.role || '').toLowerCase() === 'deliverymanager' || 
+    String(sessionUser.role || '').toLowerCase() === 'delivery_manager' || 
+    String(sessionUser.designation || '').toLowerCase().includes('delivery manager');
+
   const canApproveLeave = (targetEmpId) => {
     if (isViewOnlyAdmin) return false;
     const normalizedRole = String(sessionUser.role || '').toLowerCase();
+    const normalizedDesignation = String(sessionUser.designation || '').toLowerCase();
+    const isDM = normalizedRole === 'deliverymanager' || normalizedRole === 'delivery_manager' || normalizedDesignation.includes('delivery manager');
     const normalizedTarget = String(targetEmpId || '').trim().toUpperCase();
+
+    if (isDM) {
+      return assignedMemberIds.includes(normalizedTarget);
+    }
 
     if (['admin', 'hr'].includes(normalizedRole)) {
       return true;
@@ -79,6 +89,7 @@ const LeaveSummary = () => {
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [selectedDivision, setSelectedDivision] = useState('all');
   const [selectedLeaveType, setSelectedLeaveType] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
   const [selectedStatus, setSelectedStatus] = useState('all');
@@ -157,6 +168,7 @@ const LeaveSummary = () => {
         dayType: l.dayType || 'Full Day',
         status: l.status || 'Pending',
         location: l.location || l.branch || '—',
+        division: l.division || '—',
         documentUrl: l.documentUrl || '',
         clUsed: l.clUsed || 0,
         slUsed: l.slUsed || 0,
@@ -194,12 +206,13 @@ const LeaveSummary = () => {
       selectedYear !== 'all' ||
       selectedMonth !== 'all' ||
       selectedEmployeeId.trim() !== '' ||
+      selectedDivision !== 'all' ||
       selectedLeaveType !== 'all' ||
       selectedLocation !== 'all' ||
       selectedStatus !== 'all';
 
     setIsFilterApplied(isApplied);
-  }, [selectedYear, selectedMonth, selectedEmployeeId, selectedLeaveType, selectedLocation, selectedStatus]);
+  }, [selectedYear, selectedMonth, selectedEmployeeId, selectedDivision, selectedLeaveType, selectedLocation, selectedStatus]);
 
   const handleFilterChange = (filterType, value) => {
     switch (filterType) {
@@ -211,6 +224,9 @@ const LeaveSummary = () => {
         break;
       case 'employeeId':
         setSelectedEmployeeId(value);
+        break;
+      case 'division':
+        setSelectedDivision(value);
         break;
       case 'leaveType':
         setSelectedLeaveType(value);
@@ -230,6 +246,7 @@ const LeaveSummary = () => {
     setSelectedYear('all');
     setSelectedMonth('all');
     setSelectedEmployeeId('');
+    setSelectedDivision('all');
     setSelectedLeaveType('all');
     setSelectedLocation('all');
     setSelectedStatus('all');
@@ -291,6 +308,7 @@ const LeaveSummary = () => {
       if (!empId.includes(filterId)) return false;
     }
 
+    if (selectedDivision !== 'all' && String(app.division || '').toUpperCase() !== String(selectedDivision).toUpperCase()) return false;
     if (selectedLeaveType !== 'all' && app.leaveType !== selectedLeaveType) return false;
     if (selectedLocation !== 'all' && app.location !== selectedLocation) return false;
     if (selectedStatus !== 'all' && app.status !== selectedStatus) return false;
@@ -579,7 +597,7 @@ const LeaveSummary = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
                 <Calendar size={13} className="text-slate-400" /> Year
@@ -623,6 +641,28 @@ const LeaveSummary = () => {
                 onChange={(e) => handleFilterChange('employeeId', e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
               />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Building2 size={13} className="text-slate-400" /> Division
+              </label>
+              <select
+                value={selectedDivision}
+                onChange={(e) => handleFilterChange('division', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              >
+                <option value="all">All Divisions</option>
+                <option value="SDS">SDS</option>
+                <option value="TEKLA">TEKLA</option>
+                {!isDeliveryManager && (
+                  <>
+                    <option value="DAS(Software)">DAS(Software)</option>
+                    <option value="HR/Admin">HR/Admin</option>
+                    <option value="Engineering Services">Engineering Services</option>
+                  </>
+                )}
+              </select>
             </div>
 
             <div>
@@ -695,6 +735,7 @@ const LeaveSummary = () => {
                 <th className="p-3.5 pl-5">S.No</th>
                 <th className="p-3.5">Employee ID</th>
                 <th className="p-3.5">Employee Name</th>
+                <th className="p-3.5">Division</th>
                 <th className="p-3.5">Leave Type</th>
                 <th className="p-3.5">Location</th>
                 <th className="p-3.5">Start Date</th>
@@ -711,6 +752,11 @@ const LeaveSummary = () => {
                     <td className="p-3.5 pl-5 text-slate-500 font-bold">{index + 1}</td>
                     <td className="p-3.5 font-bold font-mono text-indigo-700">{app.employeeId}</td>
                     <td className="p-3.5 font-bold text-slate-900">{app.employeeName}</td>
+                    <td className="p-3.5">
+                      <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-[11px] font-semibold border border-indigo-200">
+                        {app.division || '—'}
+                      </span>
+                    </td>
                     <td className="p-3.5 text-slate-700">{app.leaveType}</td>
                     <td className="p-3.5">
                       <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-200">
@@ -784,7 +830,7 @@ const LeaveSummary = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="10" className="text-center py-12 text-slate-500 font-semibold">
+                  <td colSpan="11" className="text-center py-12 text-slate-500 font-semibold">
                     No leave applications found matching your filters.
                   </td>
                 </tr>
