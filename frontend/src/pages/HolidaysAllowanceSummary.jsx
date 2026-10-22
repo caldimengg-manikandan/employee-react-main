@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { employeeAPI, holidayAllowanceAPI } from '../services/api';
+import { isExcludedFromPayrollAndLeave, filterOutExcludedPayrollLeaveEmployees } from '../constants/payrollLeaveExclusions';
 import { CalendarDaysIcon, MapPinIcon, ArrowDownTrayIcon, BuildingOfficeIcon } from '@heroicons/react/24/outline';
 import * as XLSX from 'xlsx';
 
@@ -42,7 +43,8 @@ const HolidaysAllowanceSummary = () => {
     const loadInitialMeta = async () => {
       try {
         const res = await employeeAPI.getAllEmployees();
-        const emps = res.data || [];
+        const rawEmps = res.data || [];
+        const emps = filterOutExcludedPayrollLeaveEmployees(rawEmps);
         const locs = [...new Set(emps.map(e => e.location).filter(Boolean))].sort();
         const divs = [...new Set(emps.map(e => e.division).filter(Boolean))].sort();
         setLocations(locs);
@@ -75,7 +77,8 @@ const HolidaysAllowanceSummary = () => {
       }
       if (listRes && listRes.data) {
         const data = listRes.data;
-        const rows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        const rawRows = Array.isArray(data?.data) ? data.data : Array.isArray(data) ? data : [];
+        const rows = filterOutExcludedPayrollLeaveEmployees(rawRows);
         const applicableRows = rows.filter((row) => {
           const holidayDays = Number(row.holidayDays || 0);
           const shiftDays = Number(row.shiftDays || 0);

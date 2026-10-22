@@ -4,6 +4,7 @@ const auth = require("../middleware/auth");
 const HolidayAllowance = require("../models/HolidayAllowance");
 const Employee = require("../models/Employee");
 const Compensation = require("../models/Compensation");
+const { isExcludedFromPayrollAndLeave, getPayrollLeaveExclusionMongoFilter } = require("../config/payrollLeaveExclusions");
 
 router.post("/bulk-save", auth, async (req, res) => {
   try {
@@ -23,7 +24,7 @@ router.post("/bulk-save", auth, async (req, res) => {
       new Set(
         allowances
           .map((a) => a?.employeeId)
-          .filter((id) => typeof id === "string" && id.trim())
+          .filter((id) => typeof id === "string" && id.trim() && !isExcludedFromPayrollAndLeave(id))
       )
     );
     const employees = employeeIds.length
@@ -35,7 +36,7 @@ router.post("/bulk-save", auth, async (req, res) => {
     const employeeMap = new Map(employees.map((e) => [e.employeeId, e]));
 
     for (const item of allowances) {
-      if (!item.employeeId) {
+      if (!item.employeeId || isExcludedFromPayrollAndLeave(item.employeeId)) {
         continue;
       }
 
@@ -120,6 +121,8 @@ router.get("/", auth, async (req, res) => {
       filter.location = location;
     }
 
+    Object.assign(filter, getPayrollLeaveExclusionMongoFilter('employeeId'));
+
     const records = await HolidayAllowance.find(filter).sort({ employeeId: 1 }).lean();
     const employeeIds = Array.from(
       new Set(
@@ -194,6 +197,8 @@ router.get("/summary", auth, async (req, res) => {
     if (location && location !== "All" && location !== "all") {
       match.location = location;
     }
+
+    Object.assign(match, getPayrollLeaveExclusionMongoFilter('employeeId'));
 
     const summaryAgg = await HolidayAllowance.aggregate([
       { $match: match },

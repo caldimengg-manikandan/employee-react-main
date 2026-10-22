@@ -4,6 +4,7 @@ const Payroll = require("../models/Payroll");
 const auth = require("../middleware/auth");
 const authorizeRoles = require("../middleware/roleAuth");
 const { validatePayrollCreate } = require("../middleware/validation");
+const { isExcludedFromPayrollAndLeave, getPayrollLeaveExclusionMongoFilter } = require("../config/payrollLeaveExclusions");
 
 // Apply JWT authentication to all payroll routes
 router.use(auth);
@@ -13,6 +14,9 @@ router.post("/", authorizeRoles("admin", "hr", "finance", "director", "manager")
   try {
     const { employeeId } = req.body;
     if (employeeId) {
+      if (isExcludedFromPayrollAndLeave(employeeId)) {
+        return res.status(400).json({ message: "This employee is excluded from Payroll Management." });
+      }
       const Employee = require("../models/Employee");
       const employee = await Employee.findOne({ employeeId });
       if (employee && employee.status !== "Active") {
@@ -36,10 +40,12 @@ router.get("/", async (req, res) => {
 
     let filter = {};
     if (!privilegedRoles.includes(userRole)) {
-      if (!req.user?.employeeId) {
+      if (!req.user?.employeeId || isExcludedFromPayrollAndLeave(req.user.employeeId)) {
         return res.json([]);
       }
       filter = { employeeId: { $regex: new RegExp(`^${req.user.employeeId}$`, "i") } };
+    } else {
+      Object.assign(filter, getPayrollLeaveExclusionMongoFilter('employeeId'));
     }
 
     const payrolls = await Payroll.find(filter).sort({ createdAt: -1 });
@@ -77,6 +83,9 @@ router.put("/:id", authorizeRoles("admin", "hr", "finance", "director", "manager
   try {
     // Check employee status before update
     if (req.body.employeeId) {
+      if (isExcludedFromPayrollAndLeave(req.body.employeeId)) {
+        return res.status(400).json({ success: false, message: "This employee is excluded from Payroll Management." });
+      }
       const Employee = require("../models/Employee");
       const employee = await Employee.findOne({ employeeId: req.body.employeeId });
       if (employee && employee.status !== "Active") {

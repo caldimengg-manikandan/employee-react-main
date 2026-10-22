@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { leaveAPI, teamAPI } from '../../services/api';
+import { leaveAPI, teamAPI, employeeAPI, authAPI } from '../../services/api';
 import { exportLeaveSummaryToExcel, exportMonthlyLOPToExcel } from '../../utils/leaveSummaryExcelExport';
 import { 
   Eye, 
@@ -34,6 +34,74 @@ const LeaveSummary = () => {
   const isViewOnlyAdmin = ['CDE013', 'CDE025'].includes(userEmpId);
 
   const [assignedMemberIds, setAssignedMemberIds] = useState([]);
+  const [managerOptions, setManagerOptions] = useState(["All Managers"]);
+  const [allTeams, setAllTeams] = useState([]);
+  const [allEmployees, setAllEmployees] = useState([]);
+
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const res = await employeeAPI.getTimesheetEmployees();
+        if (Array.isArray(res.data)) {
+          setAllEmployees(res.data);
+        } else if (res.data?.success) {
+          setAllEmployees(res.data.data || []);
+        }
+      } catch (error) {
+        console.error("Error fetching employees for leave summary:", error);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
+  useEffect(() => {
+    const fetchTeamsData = async () => {
+      try {
+        const [teamsRes, usersRes] = await Promise.all([
+          teamAPI.list().catch(() => ({ data: [] })),
+          authAPI.getAllUsers().catch(() => ({ data: [] }))
+        ]);
+        const teams = Array.isArray(teamsRes.data) ? teamsRes.data : [];
+        const users = Array.isArray(usersRes.data) ? usersRes.data : [];
+        setAllTeams(teams);
+
+        const empMap = {};
+        allEmployees.forEach(e => {
+          if (e.employeeId) empMap[e.employeeId] = e.name;
+        });
+
+        const map = new Map();
+
+        users
+          .filter(u => ['projectmanager', 'manager', 'director', 'teamlead', 'reporting_manager'].includes(String(u.role || '').toLowerCase()) && u.employeeId)
+          .forEach(u => {
+            const empName = empMap[u.employeeId] || u.name || u.employeeId;
+            const label = `${empName} (${u.employeeId})`;
+            map.set(u.employeeId, { id: u.employeeId, name: empName, label });
+          });
+
+        teams.forEach(t => {
+          if (t.leaderEmployeeId && !map.has(t.leaderEmployeeId)) {
+            const userObj = users.find(u => u.employeeId === t.leaderEmployeeId);
+            const userRole = String(userObj?.role || '').toLowerCase();
+            const isAdminRole = ['admin', 'hr'].includes(userRole);
+            
+            if (!isAdminRole || (Array.isArray(t.members) && t.members.length > 0)) {
+              const name = empMap[t.leaderEmployeeId] || t.leaderName || t.leaderEmployeeId;
+              const label = `${name} (${t.leaderEmployeeId})`;
+              map.set(t.leaderEmployeeId, { id: t.leaderEmployeeId, name, label });
+            }
+          }
+        });
+
+        const sorted = Array.from(map.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        setManagerOptions(["All Managers", ...sorted]);
+      } catch (err) {
+        console.error("Error fetching teams for managers in leave summary:", err);
+      }
+    };
+    fetchTeamsData();
+  }, [allEmployees]);
 
   useEffect(() => {
     const fetchMyTeam = async () => {
@@ -89,6 +157,7 @@ const LeaveSummary = () => {
   const [selectedYear, setSelectedYear] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState('all');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+  const [selectedReportingManager, setSelectedReportingManager] = useState('all');
   const [selectedDivision, setSelectedDivision] = useState('all');
   const [selectedLeaveType, setSelectedLeaveType] = useState('all');
   const [selectedLocation, setSelectedLocation] = useState('all');
@@ -130,6 +199,27 @@ const LeaveSummary = () => {
   const [actionLoading, setActionLoading] = useState({});
   const [viewLeave, setViewLeave] = useState(null);
 
+  const getDisplayReportingManager = (appItem) => {
+    if (appItem?.reportingManager && appItem.reportingManager !== '—') {
+      return appItem.reportingManager;
+    }
+    const empId = appItem?.employeeId;
+    if (empId && allTeams.length > 0) {
+      const normEmpId = String(empId).trim().toUpperCase();
+      const team = allTeams.find(t => (t.members || []).some(m => String(m).trim().toUpperCase() === normEmpId));
+      if (team) {
+        const empMap = {};
+        allEmployees.forEach(e => {
+          if (e.employeeId) empMap[e.employeeId] = e.name;
+        });
+        const leaderName = empMap[team.leaderEmployeeId] || team.leaderName || team.leaderEmployeeId;
+        const leaderId = team.leaderEmployeeId;
+        return leaderName && leaderId ? `${leaderName} (${leaderId})` : (leaderName || leaderId || '—');
+      }
+    }
+    return appItem?.reportingManager || '—';
+  };
+
   const loadLeaves = async () => {
     try {
       const res = await leaveAPI.list();
@@ -138,6 +228,9 @@ const LeaveSummary = () => {
         id: l._id,
         employeeName: l.employeeName || l.name || '',
         employeeId: l.employeeId || '',
+        reportingManager: l.reportingManager || '—',
+        reportingManagerName: l.reportingManagerName || '',
+        reportingManagerId: l.reportingManagerId || '',
         leaveType: (() => {
           if (l.leaveType === 'REGIONAL_HOLIDAY') {
             return `Regional Holiday${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`;
@@ -206,13 +299,14 @@ const LeaveSummary = () => {
       selectedYear !== 'all' ||
       selectedMonth !== 'all' ||
       selectedEmployeeId.trim() !== '' ||
+      (selectedReportingManager !== 'all' && selectedReportingManager !== 'All Managers') ||
       selectedDivision !== 'all' ||
       selectedLeaveType !== 'all' ||
       selectedLocation !== 'all' ||
       selectedStatus !== 'all';
 
     setIsFilterApplied(isApplied);
-  }, [selectedYear, selectedMonth, selectedEmployeeId, selectedDivision, selectedLeaveType, selectedLocation, selectedStatus]);
+  }, [selectedYear, selectedMonth, selectedEmployeeId, selectedReportingManager, selectedDivision, selectedLeaveType, selectedLocation, selectedStatus]);
 
   const handleFilterChange = (filterType, value) => {
     switch (filterType) {
@@ -224,6 +318,9 @@ const LeaveSummary = () => {
         break;
       case 'employeeId':
         setSelectedEmployeeId(value);
+        break;
+      case 'reportingManager':
+        setSelectedReportingManager(value);
         break;
       case 'division':
         setSelectedDivision(value);
@@ -246,6 +343,7 @@ const LeaveSummary = () => {
     setSelectedYear('all');
     setSelectedMonth('all');
     setSelectedEmployeeId('');
+    setSelectedReportingManager('all');
     setSelectedDivision('all');
     setSelectedLeaveType('all');
     setSelectedLocation('all');
@@ -306,6 +404,14 @@ const LeaveSummary = () => {
       const filterId = selectedEmployeeId.trim().toLowerCase();
       const empId = app.employeeId.toLowerCase();
       if (!empId.includes(filterId)) return false;
+    }
+
+    if (selectedReportingManager !== 'all' && selectedReportingManager !== 'All Managers') {
+      const filterVal = String(selectedReportingManager).trim().toLowerCase();
+      const rm = String(getDisplayReportingManager(app) || '').toLowerCase();
+      const rmName = String(app.reportingManagerName || '').toLowerCase();
+      const rmId = String(app.reportingManagerId || '').toLowerCase();
+      if (!rm.includes(filterVal) && !rmName.includes(filterVal) && !rmId.includes(filterVal)) return false;
     }
 
     if (selectedDivision !== 'all' && String(app.division || '').toUpperCase() !== String(selectedDivision).toUpperCase()) return false;
@@ -597,7 +703,7 @@ const LeaveSummary = () => {
             )}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
             <div>
               <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
                 <Calendar size={13} className="text-slate-400" /> Year
@@ -641,6 +747,26 @@ const LeaveSummary = () => {
                 onChange={(e) => handleFilterChange('employeeId', e.target.value)}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
               />
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-slate-600 mb-1.5 flex items-center gap-1.5">
+                <Users size={13} className="text-slate-400" /> Reporting Manager
+              </label>
+              <select
+                value={selectedReportingManager}
+                onChange={(e) => handleFilterChange('reportingManager', e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all"
+              >
+                <option value="all">All Managers</option>
+                {managerOptions
+                  .filter(m => m !== 'All Managers' && m !== 'All Reporting Managers')
+                  .map(mgr => (
+                    <option key={mgr.id || mgr} value={mgr.id || mgr}>
+                      {mgr.name ? `${mgr.name} (${mgr.id || ''})` : (mgr.label || mgr)}
+                    </option>
+                  ))}
+              </select>
             </div>
 
             <div>
@@ -735,6 +861,7 @@ const LeaveSummary = () => {
                 <th className="p-3.5 pl-5">S.No</th>
                 <th className="p-3.5">Employee ID</th>
                 <th className="p-3.5">Employee Name</th>
+                <th className="p-3.5">Reporting Manager</th>
                 <th className="p-3.5">Division</th>
                 <th className="p-3.5">Leave Type</th>
                 <th className="p-3.5">Location</th>
@@ -752,6 +879,19 @@ const LeaveSummary = () => {
                     <td className="p-3.5 pl-5 text-slate-500 font-bold">{index + 1}</td>
                     <td className="p-3.5 font-bold font-mono text-indigo-700">{app.employeeId}</td>
                     <td className="p-3.5 font-bold text-slate-900">{app.employeeName}</td>
+                    <td className="p-3.5 font-semibold text-slate-700">
+                      {(() => {
+                        const repMgr = getDisplayReportingManager(app);
+                        return repMgr && repMgr !== '—' ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50/70 text-indigo-950 border border-indigo-200/70 text-[11px] font-bold">
+                            <Users size={12} className="text-indigo-600" />
+                            {repMgr}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">Not Assigned</span>
+                        );
+                      })()}
+                    </td>
                     <td className="p-3.5">
                       <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-[11px] font-semibold border border-indigo-200">
                         {app.division || '—'}
@@ -830,7 +970,7 @@ const LeaveSummary = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="11" className="text-center py-12 text-slate-500 font-semibold">
+                  <td colSpan="12" className="text-center py-12 text-slate-500 font-semibold">
                     No leave applications found matching your filters.
                   </td>
                 </tr>
@@ -868,6 +1008,11 @@ const LeaveSummary = () => {
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
                 <p className="text-[10px] font-medium text-slate-500 uppercase">Employee</p>
                 <p className="font-bold text-indigo-950 mt-0.5">{viewLeave.employeeName} ({viewLeave.employeeId})</p>
+              </div>
+
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">
+                <p className="text-[10px] font-medium text-slate-500 uppercase">Reporting Manager</p>
+                <p className="font-bold text-indigo-950 mt-0.5">{getDisplayReportingManager(viewLeave) !== '—' ? getDisplayReportingManager(viewLeave) : 'Not Assigned'}</p>
               </div>
 
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70">

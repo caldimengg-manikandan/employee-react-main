@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Calendar, Filter, ChevronDown, ChevronRight, Download } from "lucide-react";
 import { monthlyPayrollAPI, employeeAPI } from "../../services/api";
+import { filterOutExcludedPayrollLeaveEmployees } from "../../constants/payrollLeaveExclusions";
 import * as XLSX from "xlsx";
 
 const CostToTheCompany = () => {
@@ -62,7 +63,8 @@ const CostToTheCompany = () => {
   const fetchFilterOptions = async () => {
     try {
       const res = await employeeAPI.getAllEmployees();
-      const data = Array.isArray(res.data) ? res.data : [];
+      const rawData = Array.isArray(res.data) ? res.data : [];
+      const data = filterOutExcludedPayrollLeaveEmployees(rawData);
       
       const uniqueDepts = [...new Set(data.map(e => e.department || e.division).filter(Boolean))];
       // uniqueDesigs will be handled by the useEffect above
@@ -115,7 +117,8 @@ const CostToTheCompany = () => {
       }
 
       const res = await monthlyPayrollAPI.list(params);
-      let records = Array.isArray(res.data) ? res.data : [];
+      let rawRecords = Array.isArray(res.data) ? res.data : [];
+      let records = filterOutExcludedPayrollLeaveEmployees(rawRecords);
 
       // Use passed directory or state
       const dir = (Array.isArray(empDir) ? empDir : null) || employeeDirectory;

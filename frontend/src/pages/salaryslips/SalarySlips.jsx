@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { monthlyPayrollAPI, employeeAPI, payrollAPI, performancePayAPI } from '../../services/api';
+import { isExcludedFromPayrollAndLeave } from '../../constants/payrollLeaveExclusions';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -105,6 +106,12 @@ const SalarySlips = () => {
         setEmployeeId(empId);
       }
 
+      if (isExcludedFromPayrollAndLeave(empId)) {
+        setPayrollHistory([]);
+        setIsPerformanceEligible(false);
+        return;
+      }
+
       try {
         const historyResponse = await monthlyPayrollAPI.getEmployeeHistory(empId);
         const history = Array.isArray(historyResponse?.data) ? historyResponse.data : (Array.isArray(historyResponse) ? historyResponse : []);
@@ -200,6 +207,11 @@ const SalarySlips = () => {
     // Check if selected month is in the future
     if (selectedDate > currentMonthStart) {
       alert("Payslip for this month is not available yet.");
+      return;
+    }
+
+    if (isExcludedFromPayrollAndLeave(employeeId)) {
+      alert("This employee is excluded from Payroll and Salary Slips.");
       return;
     }
 

@@ -4,6 +4,7 @@ const MonthlyPayroll = require("../models/MonthlyPayroll");
 const auth = require("../middleware/auth");
 const authorizeRoles = require("../middleware/roleAuth");
 const { validateMonthlyPayroll } = require("../middleware/validation");
+const { isExcludedFromPayrollAndLeave, getPayrollLeaveExclusionMongoFilter } = require("../config/payrollLeaveExclusions");
 
 // Apply JWT Authentication to all routes in this module
 router.use(auth);
@@ -26,6 +27,11 @@ router.post("/run", authorizeRoles("admin", "hr", "finance", "director", "manage
     const activeEmpSet = new Set(employeesList.filter(e => e.status === 'Active').map(e => String(e.employeeId).toLowerCase()));
 
     for (const p of payrolls) {
+      // Exclude employees who should not be included in payroll
+      if (p.employeeId && isExcludedFromPayrollAndLeave(p.employeeId)) {
+        continue;
+      }
+
       // Check employee status
       if (p.employeeId && !activeEmpSet.has(String(p.employeeId).toLowerCase())) {
         continue; // Skip inactive employees
@@ -155,10 +161,12 @@ router.get("/", async (req, res) => {
     const filter = month ? { salaryMonth: month } : {};
 
     if (!privilegedRoles.includes(userRole)) {
-      if (!req.user?.employeeId) {
+      if (!req.user?.employeeId || isExcludedFromPayrollAndLeave(req.user.employeeId)) {
         return res.json([]);
       }
       filter.employeeId = { $regex: new RegExp(`^${req.user.employeeId}$`, "i") };
+    } else {
+      Object.assign(filter, getPayrollLeaveExclusionMongoFilter('employeeId'));
     }
 
     const records = await MonthlyPayroll.find(filter).sort({
@@ -178,6 +186,10 @@ router.get("/history/:employeeId", async (req, res) => {
     const { employeeId } = req.params;
     const privilegedRoles = ["admin", "hr", "finance", "director", "manager"];
     const userRole = String(req.user?.role || "").toLowerCase();
+
+    if (isExcludedFromPayrollAndLeave(employeeId)) {
+      return res.json([]);
+    }
 
     if (!privilegedRoles.includes(userRole)) {
       if (!req.user?.employeeId || String(req.user.employeeId).toLowerCase() !== String(employeeId).toLowerCase()) {

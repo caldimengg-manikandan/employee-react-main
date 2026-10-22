@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Search, Edit, History, Download, X, ChevronDown, ChevronUp, Lock, PenLine, ClipboardList } from 'lucide-react';
 import { leaveAPI, employeeAPI } from '../../services/api';
+import { isExcludedFromPayrollAndLeave, filterOutExcludedPayrollLeaveEmployees } from '../../constants/payrollLeaveExclusions';
 import * as XLSX from 'xlsx';
 import useNotification from '../../hooks/useNotification';
 import Notification from '../../components/Notifications/Notification';
@@ -78,7 +79,7 @@ const LeaveBalance = () => {
         location: e.location || '',
         balances: e.balances
       }));
-      setEmployees(mapped);
+      setEmployees(filterOutExcludedPayrollLeaveEmployees(mapped, e => e.empId));
 
       try {
         const pend = await leaveAPI.list({ status: 'Pending' });

@@ -20,6 +20,7 @@ const LeaveLedger = require('../models/LeaveLedger');
 const LeaveAllocationLog = require('../models/LeaveAllocationLog');
 const multer = require('multer');
 const { validateLeaveApply } = require('../middleware/validation');
+const { isExcludedFromPayrollAndLeave, getPayrollLeaveExclusionMongoFilter } = require('../config/payrollLeaveExclusions');
 
 const router = express.Router();
 
@@ -497,7 +498,14 @@ router.get('/balance', auth, async (req, res) => {
 
     const calcDate = calculationDate ? new Date(calculationDate) : new Date();
 
-    const filter = { status: 'Active' };
+    if (employeeId && isExcludedFromPayrollAndLeave(employeeId)) {
+      return res.status(403).json({ message: 'Leave management is not applicable for this employee' });
+    }
+
+    const filter = {
+      status: 'Active',
+      ...getPayrollLeaveExclusionMongoFilter('employeeId')
+    };
     if (employeeId) filter.employeeId = employeeId;
 
     // Filter employees based on role and permissions
@@ -668,6 +676,9 @@ router.put('/balance/save', auth, async (req, res) => {
     if (!employeeId) {
       return res.status(400).json({ error: 'employeeId is required' });
     }
+    if (isExcludedFromPayrollAndLeave(employeeId)) {
+      return res.status(400).json({ error: 'Leave balance management is not applicable for this employee.' });
+    }
     const emp = await Employee.findOne({ employeeId }).lean();
     if (!emp) {
       return res.status(404).json({ error: 'Employee not found' });
@@ -793,8 +804,10 @@ router.post('/balance/sync-all', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const employees = await Employee.find({}).lean();
-    const empIds = employees.map(e => e.employeeId).filter(Boolean);
+    const employees = await Employee.find({ ...getPayrollLeaveExclusionMongoFilter('employeeId') }).lean();
+    const empIds = employees
+      .map(e => e.employeeId)
+      .filter(id => id && !isExcludedFromPayrollAndLeave(id));
 
     // Get all approvals
     const approvals = await LeaveApplication.find({
@@ -957,6 +970,9 @@ router.get('/preview-split', auth, async (req, res) => {
 
     const targetId = employeeId || req.user.employeeId;
     if (!targetId) return res.status(400).json({ error: 'Employee ID required' });
+    if (isExcludedFromPayrollAndLeave(targetId)) {
+      return res.status(400).json({ error: 'Leave processing is not applicable for this employee' });
+    }
 
     const role = String(req.user.role || '').toLowerCase();
     const isAdmin = role === 'admin' || role === 'director' || role === 'manager';
@@ -998,9 +1014,11 @@ router.get('/preview-split', auth, async (req, res) => {
   }
 });
 
-// Leave balance for the current logged-in user (employees)
 router.get('/my-balance', auth, async (req, res) => {
   try {
+    if (isExcludedFromPayrollAndLeave(req.user?.employeeId)) {
+      return res.status(403).json({ message: 'Leave management is not applicable for this employee' });
+    }
     // Resolve employee record for current user
     const user = req.user || {};
     let emp = null;
@@ -1136,8 +1154,13 @@ router.get('/my-balance', auth, async (req, res) => {
 // Admin: list leave applications with filters
 router.get('/', auth, async (req, res) => {
   try {
-    const { startDate, endDate, employeeId, status, leaveType } = req.query;
-    const filter = {};
+    const { startDate, endDate, employeeId, status, leaveType, reportingManager } = req.query;
+    if (employeeId && isExcludedFromPayrollAndLeave(employeeId)) {
+      return res.json([]);
+    }
+    const filter = {
+      ...getPayrollLeaveExclusionMongoFilter('employeeId')
+    };
     if (employeeId) filter.employeeId = employeeId;
     if (status && status !== 'all') filter.status = status;
     if (leaveType && leaveType !== 'all') filter.leaveType = leaveType;
@@ -1246,6 +1269,32 @@ router.get('/', auth, async (req, res) => {
       });
     }
 
+    let memberToLeaderMap = {};
+    try {
+      const allTeams = await Team.find({}).lean();
+      const leaderEmployeeIds = Array.from(new Set(allTeams.map(t => t.leaderEmployeeId).filter(Boolean)));
+      const leaderEmployees = await Employee.find({ employeeId: { $in: leaderEmployeeIds } }).select('employeeId name').lean();
+      const leaderNameMap = leaderEmployees.reduce((acc, e) => {
+        acc[e.employeeId] = e.name;
+        return acc;
+      }, {});
+
+      for (const t of allTeams) {
+        const leaderName = leaderNameMap[t.leaderEmployeeId] || t.leaderName || t.leaderEmployeeId;
+        const members = Array.isArray(t.members) ? t.members : [];
+        for (const m of members) {
+          if (!m) continue;
+          memberToLeaderMap[m] = {
+            leaderEmployeeId: t.leaderEmployeeId,
+            leaderName: leaderName,
+            reportingManager: leaderName ? `${leaderName} (${t.leaderEmployeeId})` : t.leaderEmployeeId
+          };
+        }
+      }
+    } catch (teamErr) {
+      console.error('Error populating reportingManager in leaves:', teamErr);
+    }
+
     let mapped = items.map(i => {
       const user = userMap[i.userId?.toString()] || {};
 
@@ -1268,12 +1317,29 @@ router.get('/', auth, async (req, res) => {
       // Determine final values
       const effectiveEmployeeId = emp?.employeeId || i.employeeId || user.employeeId || '';
 
+      const leaderInfo = memberToLeaderMap[effectiveEmployeeId];
+      const reportingManagerName = leaderInfo?.leaderName || emp?.appraiser || emp?.reviewer || '';
+      const reportingManagerId = leaderInfo?.leaderEmployeeId || '';
+      let repManager = '—';
+      if (leaderInfo?.reportingManager) {
+        repManager = leaderInfo.reportingManager;
+      } else if (reportingManagerName && reportingManagerId) {
+        repManager = `${reportingManagerName} (${reportingManagerId})`;
+      } else if (reportingManagerName) {
+        repManager = reportingManagerName;
+      } else if (reportingManagerId) {
+        repManager = reportingManagerId;
+      }
+
       return {
         ...i,
         employeeId: effectiveEmployeeId,
         employeeName: i.employeeName || emp?.name || emp?.employeename || user.name || '',
         location: i.location || emp?.location || emp?.branch || '',
-        division: emp?.division || emp?.department || ''
+        division: emp?.division || emp?.department || '',
+        reportingManager: repManager,
+        reportingManagerName: reportingManagerName,
+        reportingManagerId: reportingManagerId
       };
     });
 
@@ -1282,6 +1348,16 @@ router.get('/', auth, async (req, res) => {
       mapped = mapped.filter(item => {
         const div = String(item.division || '').toUpperCase();
         return ['SDS', 'TEKLA'].includes(div);
+      });
+    }
+
+    if (reportingManager && reportingManager !== 'All Managers' && reportingManager !== 'all') {
+      const filterVal = String(reportingManager).trim().toLowerCase();
+      mapped = mapped.filter(r => {
+        const rmName = String(r.reportingManagerName || '').toLowerCase();
+        const rmId = String(r.reportingManagerId || '').toLowerCase();
+        const rmFull = String(r.reportingManager || '').toLowerCase();
+        return rmName.includes(filterVal) || rmId.includes(filterVal) || rmFull.includes(filterVal);
       });
     }
 
@@ -1424,6 +1500,9 @@ router.get('/locked-days', auth, async (req, res) => {
 
 router.get('/my', auth, async (req, res) => {
   try {
+    if (isExcludedFromPayrollAndLeave(req.user?.employeeId)) {
+      return res.json([]);
+    }
     const items = await LeaveApplication.find({ userId: req.user._id }).sort({ createdAt: -1 }).lean();
     res.json(items);
   } catch (err) {
@@ -1477,6 +1556,9 @@ router.get('/:id/document', auth, async (req, res) => {
 
 router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments'), validateLeaveApply, async (req, res) => {
   try {
+    if (isExcludedFromPayrollAndLeave(req.user?.employeeId)) {
+      return res.status(400).json({ error: 'Leave applications are not applicable for this employee.' });
+    }
     const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, regionalHolidayName, totalDays } = req.body;
     
     const normalizedType = normalizeLeaveType(leaveType);

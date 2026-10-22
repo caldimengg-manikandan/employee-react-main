@@ -34,11 +34,25 @@ const EditInAndOutTime = () => {
     const loadEmployees = async () => {
         try {
             const res = await employeeAPI.getAllEmployees();
-            setEmployees(Array.isArray(res.data) ? res.data : []);
+            const list = Array.isArray(res.data) ? res.data : [];
+            const sorted = [...list].sort((a, b) => {
+                const idA = String(a.employeeId || '').trim();
+                const idB = String(b.employeeId || '').trim();
+                return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+            });
+            setEmployees(sorted);
         } catch (error) {
             console.error("Failed to load employees", error);
         }
     };
+
+    const sortedEmployees = useMemo(() => {
+        return [...employees].sort((a, b) => {
+            const idA = String(a.employeeId || '').trim();
+            const idB = String(b.employeeId || '').trim();
+            return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+    }, [employees]);
 
     const loadAttendance = async () => {
         setLoading(true);
@@ -141,9 +155,9 @@ const EditInAndOutTime = () => {
                         className="w-full border border-gray-300 rounded-md p-2 text-sm focus:ring-1 focus:ring-[#262760] outline-none"
                     >
                         <option value="">All Employees</option>
-                        {employees.map(emp => (
-                            <option key={emp.employeeId} value={emp.employeeId}>
-                                {emp.employeeId} - {emp.name}
+                        {sortedEmployees.map(emp => (
+                            <option key={emp.employeeId || emp._id} value={emp.employeeId}>
+                                {emp.employeeId} - {emp.name || emp.employeename || 'Unnamed'}
                             </option>
                         ))}
                     </select>

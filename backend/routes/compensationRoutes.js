@@ -3,6 +3,7 @@ const router = express.Router();
 const Compensation = require("../models/Compensation");
 const Payroll = require("../models/Payroll");
 const Employee = require("../models/Employee");
+const { isExcludedFromPayrollAndLeave, getPayrollLeaveExclusionMongoFilter } = require("../config/payrollLeaveExclusions");
 
 // Helper: Build payroll data from compensation fields (50/25/25 Rule)
 const buildPayrollData = (comp, employee) => {
@@ -90,6 +91,10 @@ const findEmployee = async (employeeId, employeeName) => {
 // ➕ CREATE Compensation
 router.post("/", async (req, res) => {
   try {
+    if (req.body.employeeId && isExcludedFromPayrollAndLeave(req.body.employeeId)) {
+      return res.status(400).json({ message: "This employee is excluded from Payroll/Compensation Management." });
+    }
+
     const compensation = new Compensation(req.body);
     await compensation.save();
 
@@ -157,6 +162,7 @@ router.post("/sync-all", async (req, res) => {
     for (const emp of employees) {
       const empIdKey = String(emp.employeeId || '').toLowerCase();
       if (!empIdKey || existingCompMap.has(empIdKey)) continue;
+      if (isExcludedFromPayrollAndLeave(emp.employeeId)) continue;
 
       const pRec = payrollMap.get(empIdKey);
       
@@ -217,7 +223,8 @@ router.post("/sync-all", async (req, res) => {
 // 📥 GET all Compensations
 router.get("/", async (req, res) => {
   try {
-    const compensations = await Compensation.find().sort({ createdAt: -1 });
+    const filter = getPayrollLeaveExclusionMongoFilter('employeeId');
+    const compensations = await Compensation.find(filter).sort({ createdAt: -1 });
     res.json(compensations);
   } catch (error) {
     res.status(500).json({ message: error.message });
