@@ -131,7 +131,7 @@ const UserForm = ({ user, onSubmit, onCancel }) => {
       children: [
         { key: 'project_access', label: 'Project Allocation' },
         { key: 'insurance_access', label: 'Insurance' },
-        { key: 'policy_portal', label: 'Policy Portal' },
+        { key: 'policy_portal', label: 'Caldim Policies' },
         { key: 'induction_program', label: 'Induction Program' },
         { key: 'induction_admin', label: 'Induction Admin' },
         { key: 'salary_slips', label: 'Salary Slips' },

@@ -90,6 +90,7 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
     "Leave Applications": DocumentDuplicateIcon,
     "Insurance": ShieldCheckIcon,
     "Policy Portal": DocumentIcon,
+    "Caldim Policies": DocumentIcon,
     "Induction Program": SparklesIcon,
     "Induction Admin": AcademicCapIcon,
     "Salary Slips": ReceiptPercentIcon,
@@ -258,9 +259,9 @@ const Sidebar = ({ isOpen, onClose, isDesktopOpen = true, toggleDesktopSidebar }
       showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance"],
     },
     {
-      name: "Policy Portal",
+      name: "Caldim Policies",
       path: "/policies",
-      icon: getIconForMenu("Policy Portal"),
+      icon: getIconForMenu("Caldim Policies"),
       allowEmployeeRole: true,
       showForRoles: ["admin", "hr", "manager", "projectmanager", "project_manager", "director", "finance", "employees"],
       permission: "policy_portal"

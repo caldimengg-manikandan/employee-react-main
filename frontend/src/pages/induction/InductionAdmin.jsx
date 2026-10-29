@@ -1207,7 +1207,7 @@ const InductionAdmin = () => {
                   <div className="mb-6 p-4 bg-blue-50 border-l-4 border-[#262760] rounded-r-xl text-[#262760] flex items-center gap-3">
                     <Sparkles className="w-5 h-5 shrink-0" />
                     <span className="font-semibold text-sm">
-                      Company Policies are managed through the <a href="/policy-portal" className="underline hover:text-blue-800 font-bold">Policy Portal</a> and are automatically synchronized with the Induction Program.
+                      Company Policies are managed through the <a href="/policies" className="underline hover:text-blue-800 font-bold">Caldim Policies</a> and are automatically synchronized with the Induction Program.
                     </span>
                   </div>
                 )}
@@ -1291,7 +1291,7 @@ const InductionAdmin = () => {
                           <td className="p-4 text-right space-x-2">
                             {doc.isPortalPolicy ? (
                               <div className="flex items-center justify-end gap-3">
-                                <span className="text-xs italic text-slate-400">Managed in Policy Portal</span>
+                                <span className="text-xs italic text-slate-400">Managed in Caldim Policies</span>
                                 <button
                                   onClick={() => setPreviewDoc(doc)}
                                   className="px-3 py-1.5 bg-[#262760] hover:bg-[#1e2050] text-white rounded-xl transition-colors inline-flex items-center gap-1.5 text-xs font-bold shadow-sm"

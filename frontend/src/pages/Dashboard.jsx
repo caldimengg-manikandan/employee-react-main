@@ -321,7 +321,7 @@ const ProjectDashboard = () => {
         fetchStats();
     }, []);
 
-    const policyModuleName = role === 'admin' ? 'Policy Portal' : 'Policy';
+    const policyModuleName = 'Caldim Policies';
     const modules = [
         // Timesheet
         { name: 'Timesheet', description: 'Log work hours', path: '/timesheet', icon: ClockIcon, permission: 'timesheet_access', allowEmployeeRole: true, category: 'Work & Productivity' },

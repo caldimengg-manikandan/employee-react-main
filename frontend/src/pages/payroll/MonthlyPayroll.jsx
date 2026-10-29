@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Play, Download, Check, X, Mail, Filter, Edit } from 'lucide-react';
 import { employeeAPI, leaveAPI, payrollAPI, monthlyPayrollAPI, loanAPI, mailAPI, performancePayAPI, compensationAPI } from '../../services/api';
-import { isExcludedFromPayrollAndLeave } from '../../constants/payrollLeaveExclusions';
+import { isExcludedFromPayroll } from '../../constants/payrollLeaveExclusions';
 import * as XLSX from 'xlsx';
 
 const cleanNum = (val) => {
@@ -355,7 +355,7 @@ export default function MonthlyPayroll() {
       ]);
       
       const allEmployees = Array.isArray(empResponse.data) ? empResponse.data : [];
-      const employees = allEmployees.filter(emp => (emp.status === 'Active' || emp.status === 'ACTIVE') && !isExcludedFromPayrollAndLeave(emp.employeeId));
+      const employees = allEmployees.filter(emp => (emp.status === 'Active' || emp.status === 'ACTIVE') && !isExcludedFromPayroll(emp.employeeId));
       const payrolls = Array.isArray(payrollResponse.data) ? payrollResponse.data : [];
       const loans = loanResponse.data && loanResponse.data.loans ? loanResponse.data.loans : [];
       const compensations = Array.isArray(compResponse.data) ? compResponse.data : [];

@@ -43,7 +43,7 @@ const Header = ({ onMenuClick }) => {
       '/announcements': 'Announcements',
       '/bank-of-resumes': 'Resume Repository',
       '/calendar-master': 'Unified Hub Calendar',
-      '/policies': 'Policy Portal',
+      '/policies': 'Caldim Policies',
       '/insurance': 'Insurance',
       '/expenditure-management': 'Expenditure Management',
       '/employee-reward-tracker': 'Employee Reward Tracker',

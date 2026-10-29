@@ -320,7 +320,7 @@ const UserAccess = () => {
       'support_dashboard_access': 'Support Dashboard',
       'project_access': 'Project Allocation',
       'insurance_access': 'Insurance',
-      'policy_portal': 'Policy Portal',
+      'policy_portal': 'Caldim Policies',
       'document_templates': 'Document Templates',
       'induction_program': 'Induction Program',
       'induction_admin': 'Induction Admin',

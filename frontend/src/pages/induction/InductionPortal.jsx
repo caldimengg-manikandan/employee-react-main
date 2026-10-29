@@ -614,7 +614,7 @@ const InductionPortal = () => {
                       </div>
                       <div className="mt-6 pt-4 border-t border-slate-100 flex items-center justify-between">
                         <span className="text-xs text-slate-400">
-                          {doc.isPortalPolicy ? 'Policy Portal • LIVE' : `Ver ${doc.version || 1}.0`} • {doc.effectiveDate ? new Date(doc.effectiveDate).toLocaleDateString() : 'Effective Now'}
+                          {doc.isPortalPolicy ? 'Caldim Policies • LIVE' : `Ver ${doc.version || 1}.0`} • {doc.effectiveDate ? new Date(doc.effectiveDate).toLocaleDateString() : 'Effective Now'}
                         </span>
                         <button
                           onClick={() => handleReadDoc(doc)}

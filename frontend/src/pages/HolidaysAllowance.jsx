@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { employeeAPI, holidayAllowanceAPI, payrollAPI } from '../services/api';
-import { isExcludedFromPayrollAndLeave, filterOutExcludedPayrollLeaveEmployees } from '../constants/payrollLeaveExclusions';
+import { isExcludedFromPayroll, filterOutExcludedPayrollEmployees } from '../constants/payrollLeaveExclusions';
 import { 
   CurrencyDollarIcon,
   MagnifyingGlassIcon,
@@ -94,7 +94,7 @@ const HolidaysAllowance = () => {
       ]);
 
       let rawEmps = empResponse.data || [];
-      let filteredEmps = filterOutExcludedPayrollLeaveEmployees(rawEmps).sort((a, b) => {
+      let filteredEmps = filterOutExcludedPayrollEmployees(rawEmps).sort((a, b) => {
         const idA = String(a.employeeId || '').trim();
         const idB = String(b.employeeId || '').trim();
         return idA.localeCompare(idB, undefined, { numeric: true, sensitivity: 'base' });
@@ -275,7 +275,7 @@ const HolidaysAllowance = () => {
         month: selectedMonth,
         year: selectedYear,
         allowances: tableData
-          .filter(row => !isExcludedFromPayrollAndLeave(row.employeeId))
+          .filter(row => !isExcludedFromPayroll(row.employeeId))
           .map(row => ({
           employeeId: row.employeeId,
           employeeName: row.employeeName,

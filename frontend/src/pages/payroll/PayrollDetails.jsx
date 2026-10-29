@@ -17,7 +17,7 @@ import useNotification from '../../hooks/useNotification';
 import Notification from '../../components/Notifications/Notification';
 import Modal from '../../components/Modals/Modal';
 import { employeeAPI, payrollAPI, leaveAPI } from '../../services/api';
-import { isExcludedFromPayrollAndLeave, filterOutExcludedPayrollLeaveEmployees } from '../../constants/payrollLeaveExclusions';
+import { isExcludedFromPayroll, filterOutExcludedPayrollEmployees } from '../../constants/payrollLeaveExclusions';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
@@ -165,7 +165,7 @@ const PayrollDetails = () => {
     payrollAPI.list()
       .then(res => {
         const items = Array.isArray(res.data) ? res.data : [];
-        const filteredItems = filterOutExcludedPayrollLeaveEmployees(items);
+        const filteredItems = filterOutExcludedPayrollEmployees(items);
         const mapped = filteredItems.map(p => ({ 
           ...p, 
           id: p._id,
@@ -205,7 +205,7 @@ const PayrollDetails = () => {
         .then(res => {
           if (!mounted) return;
           const items = Array.isArray(res.data) ? res.data : [];
-          const nonExcluded = filterOutExcludedPayrollLeaveEmployees(items);
+          const nonExcluded = filterOutExcludedPayrollEmployees(items);
           const sortedItems = nonExcluded.sort((a, b) => {
             const idA = (a.employeeId || '').toString();
             const idB = (b.employeeId || '').toString();
@@ -285,7 +285,7 @@ const PayrollDetails = () => {
       setEmployeeLookupError('');
       const v = String(value || '').trim();
       if (v.length > 0) {
-        if (isExcludedFromPayrollAndLeave(v)) {
+        if (isExcludedFromPayroll(v)) {
           setEmployeeLookupError('This employee is excluded from Payroll Management.');
           return;
         }
@@ -401,7 +401,7 @@ const PayrollDetails = () => {
       return;
     }
 
-    if (isExcludedFromPayrollAndLeave(formData.employeeId)) {
+    if (isExcludedFromPayroll(formData.employeeId)) {
       showError('This employee is excluded from Payroll Management.');
       return;
     }

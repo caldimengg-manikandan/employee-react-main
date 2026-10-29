@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { monthlyPayrollAPI, employeeAPI, payrollAPI, performancePayAPI } from '../../services/api';
-import { isExcludedFromPayrollAndLeave } from '../../constants/payrollLeaveExclusions';
+import { isExcludedFromPayroll } from '../../constants/payrollLeaveExclusions';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 
@@ -106,7 +106,7 @@ const SalarySlips = () => {
         setEmployeeId(empId);
       }
 
-      if (isExcludedFromPayrollAndLeave(empId)) {
+      if (isExcludedFromPayroll(empId)) {
         setPayrollHistory([]);
         setIsPerformanceEligible(false);
         return;
@@ -210,7 +210,7 @@ const SalarySlips = () => {
       return;
     }
 
-    if (isExcludedFromPayrollAndLeave(employeeId)) {
+    if (isExcludedFromPayroll(employeeId)) {
       alert("This employee is excluded from Payroll and Salary Slips.");
       return;
     }

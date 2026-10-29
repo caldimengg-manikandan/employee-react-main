@@ -17,7 +17,7 @@ import {
   Calculator
 } from "lucide-react";
 import { employeeAPI, compensationAPI, mailAPI } from "../../services/api";
-import { isExcludedFromPayrollAndLeave, filterOutExcludedPayrollLeaveEmployees } from "../../constants/payrollLeaveExclusions";
+import { isExcludedFromPayroll, filterOutExcludedPayrollEmployees } from "../../constants/payrollLeaveExclusions";
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { getAbsoluteSignatureUrl } from '../../utils/signatureUtils';
@@ -216,7 +216,7 @@ const CompensationMaster = () => {
         ]);
 
         const list = Array.isArray(empRes.data) ? empRes.data : [];
-        const activeEmployees = list.filter(e => (e.status === 'Active' || e.status === 'ACTIVE') && !isExcludedFromPayrollAndLeave(e.employeeId));
+        const activeEmployees = list.filter(e => (e.status === 'Active' || e.status === 'ACTIVE') && !isExcludedFromPayroll(e.employeeId));
         setEmployees(activeEmployees);
         const depts = [...new Set(list.map(e => e.department || e.division).filter(Boolean))];
         const desigs = [...new Set(list.map(e => e.designation || e.position || e.role).filter(Boolean))];
@@ -226,7 +226,7 @@ const CompensationMaster = () => {
         if (locs.length > 0) setLocations(locs);
 
         if (Array.isArray(compRes.data)) {
-          const nonExcludedComp = filterOutExcludedPayrollLeaveEmployees(compRes.data);
+          const nonExcludedComp = filterOutExcludedPayrollEmployees(compRes.data);
           setCompensation(nonExcludedComp.map(item => prepareCompensationData(item)));
         }
       } catch (error) {
@@ -709,7 +709,7 @@ We’re excited to have you join our team and look forward to your growth and su
     const payload = { ...formData };
     if (!payload.name || !payload.department || !payload.designation) return;
 
-    if (payload.employeeId && isExcludedFromPayrollAndLeave(payload.employeeId)) {
+    if (payload.employeeId && isExcludedFromPayroll(payload.employeeId)) {
       showMessage('Error', 'This employee is excluded from Compensation Management.', 'error');
       return;
     }

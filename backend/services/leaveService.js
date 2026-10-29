@@ -17,7 +17,7 @@ const LeaveApplication = require('../models/LeaveApplication');
 const EmployeeLeavePolicy = require('../models/EmployeeLeavePolicy');
 const EmployeeLeaveLedger = require('../models/EmployeeLeaveLedger');
 const { getFinancialYear } = require('../utils/payrollSync');
-const { isExcludedFromPayrollAndLeave, getPayrollLeaveExclusionMongoFilter } = require('../config/payrollLeaveExclusions');
+const { isExcludedFromLeave, getLeaveExclusionMongoFilter } = require('../config/payrollLeaveExclusions');
 
 // ---------------------------------------------------------------------------
 // Utilities
@@ -151,14 +151,14 @@ const runMonthlyAllocation = async (targetDate = new Date()) => {
 
   const employees = await Employee.find({
     status: 'Active',
-    ...getPayrollLeaveExclusionMongoFilter('employeeId')
+    ...getLeaveExclusionMongoFilter('employeeId')
   }).lean();
   let processedCount = 0;
   let skippedCount = 0;
   const details = [];
 
   for (const emp of employees) {
-    if (!emp.employeeId || isExcludedFromPayrollAndLeave(emp.employeeId)) continue;
+    if (!emp.employeeId || isExcludedFromLeave(emp.employeeId)) continue;
     const empId = emp.employeeId;
 
     try {

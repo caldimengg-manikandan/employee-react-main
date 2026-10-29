@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import Modal from '../../components/Modals/Modal';
 import Notification from '../../components/Notifications/Notification';
-import { isExcludedFromPayrollAndLeave } from '../../constants/payrollLeaveExclusions';
+import { isExcludedFromLeave } from '../../constants/payrollLeaveExclusions';
 
 const DEFAULT_LEAVE_TYPES = [
   { value: 'CL', label: 'Casual Leave (CL)' },
@@ -410,7 +410,7 @@ const LeaveApplications = () => {
     e.preventDefault();
     const currentUser = JSON.parse(sessionStorage.getItem('user') || '{}');
     const currentEmpId = currentUser.employeeId || currentUser.username;
-    if (isExcludedFromPayrollAndLeave(currentEmpId)) {
+    if (isExcludedFromLeave(currentEmpId)) {
       showNotification('Your account is excluded from Leave Management.', 'error');
       return;
     }

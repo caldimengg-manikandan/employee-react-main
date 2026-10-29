@@ -4,7 +4,7 @@ const MonthlyPayroll = require("../models/MonthlyPayroll");
 const auth = require("../middleware/auth");
 const authorizeRoles = require("../middleware/roleAuth");
 const { validateMonthlyPayroll } = require("../middleware/validation");
-const { isExcludedFromPayrollAndLeave, getPayrollLeaveExclusionMongoFilter } = require("../config/payrollLeaveExclusions");
+const { isExcludedFromPayroll, getPayrollExclusionMongoFilter } = require("../config/payrollLeaveExclusions");
 
 // Apply JWT Authentication to all routes in this module
 router.use(auth);
@@ -28,7 +28,7 @@ router.post("/run", authorizeRoles("admin", "hr", "finance", "director", "manage
 
     for (const p of payrolls) {
       // Exclude employees who should not be included in payroll
-      if (p.employeeId && isExcludedFromPayrollAndLeave(p.employeeId)) {
+      if (p.employeeId && isExcludedFromPayroll(p.employeeId)) {
         continue;
       }
 
@@ -161,12 +161,12 @@ router.get("/", async (req, res) => {
     const filter = month ? { salaryMonth: month } : {};
 
     if (!privilegedRoles.includes(userRole)) {
-      if (!req.user?.employeeId || isExcludedFromPayrollAndLeave(req.user.employeeId)) {
+      if (!req.user?.employeeId || isExcludedFromPayroll(req.user.employeeId)) {
         return res.json([]);
       }
       filter.employeeId = { $regex: new RegExp(`^${req.user.employeeId}$`, "i") };
     } else {
-      Object.assign(filter, getPayrollLeaveExclusionMongoFilter('employeeId'));
+      Object.assign(filter, getPayrollExclusionMongoFilter('employeeId'));
     }
 
     const records = await MonthlyPayroll.find(filter).sort({
@@ -187,7 +187,7 @@ router.get("/history/:employeeId", async (req, res) => {
     const privilegedRoles = ["admin", "hr", "finance", "director", "manager"];
     const userRole = String(req.user?.role || "").toLowerCase();
 
-    if (isExcludedFromPayrollAndLeave(employeeId)) {
+    if (isExcludedFromPayroll(employeeId)) {
       return res.json([]);
     }
 

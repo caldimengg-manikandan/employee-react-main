@@ -20,7 +20,7 @@ const LeaveLedger = require('../models/LeaveLedger');
 const LeaveAllocationLog = require('../models/LeaveAllocationLog');
 const multer = require('multer');
 const { validateLeaveApply } = require('../middleware/validation');
-const { isExcludedFromPayrollAndLeave, getPayrollLeaveExclusionMongoFilter } = require('../config/payrollLeaveExclusions');
+const { isExcludedFromLeave, getLeaveExclusionMongoFilter } = require('../config/payrollLeaveExclusions');
 
 const router = express.Router();
 
@@ -498,13 +498,13 @@ router.get('/balance', auth, async (req, res) => {
 
     const calcDate = calculationDate ? new Date(calculationDate) : new Date();
 
-    if (employeeId && isExcludedFromPayrollAndLeave(employeeId)) {
+    if (employeeId && isExcludedFromLeave(employeeId)) {
       return res.status(403).json({ message: 'Leave management is not applicable for this employee' });
     }
 
     const filter = {
       status: 'Active',
-      ...getPayrollLeaveExclusionMongoFilter('employeeId')
+      ...getLeaveExclusionMongoFilter('employeeId')
     };
     if (employeeId) filter.employeeId = employeeId;
 
@@ -676,7 +676,7 @@ router.put('/balance/save', auth, async (req, res) => {
     if (!employeeId) {
       return res.status(400).json({ error: 'employeeId is required' });
     }
-    if (isExcludedFromPayrollAndLeave(employeeId)) {
+    if (isExcludedFromLeave(employeeId)) {
       return res.status(400).json({ error: 'Leave balance management is not applicable for this employee.' });
     }
     const emp = await Employee.findOne({ employeeId }).lean();
@@ -804,10 +804,10 @@ router.post('/balance/sync-all', auth, async (req, res) => {
       return res.status(403).json({ message: 'Access denied' });
     }
 
-    const employees = await Employee.find({ ...getPayrollLeaveExclusionMongoFilter('employeeId') }).lean();
+    const employees = await Employee.find({ ...getLeaveExclusionMongoFilter('employeeId') }).lean();
     const empIds = employees
       .map(e => e.employeeId)
-      .filter(id => id && !isExcludedFromPayrollAndLeave(id));
+      .filter(id => id && !isExcludedFromLeave(id));
 
     // Get all approvals
     const approvals = await LeaveApplication.find({
@@ -970,7 +970,7 @@ router.get('/preview-split', auth, async (req, res) => {
 
     const targetId = employeeId || req.user.employeeId;
     if (!targetId) return res.status(400).json({ error: 'Employee ID required' });
-    if (isExcludedFromPayrollAndLeave(targetId)) {
+    if (isExcludedFromLeave(targetId)) {
       return res.status(400).json({ error: 'Leave processing is not applicable for this employee' });
     }
 
@@ -1016,7 +1016,7 @@ router.get('/preview-split', auth, async (req, res) => {
 
 router.get('/my-balance', auth, async (req, res) => {
   try {
-    if (isExcludedFromPayrollAndLeave(req.user?.employeeId)) {
+    if (isExcludedFromLeave(req.user?.employeeId)) {
       return res.status(403).json({ message: 'Leave management is not applicable for this employee' });
     }
     // Resolve employee record for current user
@@ -1155,11 +1155,11 @@ router.get('/my-balance', auth, async (req, res) => {
 router.get('/', auth, async (req, res) => {
   try {
     const { startDate, endDate, employeeId, status, leaveType, reportingManager } = req.query;
-    if (employeeId && isExcludedFromPayrollAndLeave(employeeId)) {
+    if (employeeId && isExcludedFromLeave(employeeId)) {
       return res.json([]);
     }
     const filter = {
-      ...getPayrollLeaveExclusionMongoFilter('employeeId')
+      ...getLeaveExclusionMongoFilter('employeeId')
     };
     if (employeeId) filter.employeeId = employeeId;
     if (status && status !== 'all') filter.status = status;
@@ -1500,7 +1500,7 @@ router.get('/locked-days', auth, async (req, res) => {
 
 router.get('/my', auth, async (req, res) => {
   try {
-    if (isExcludedFromPayrollAndLeave(req.user?.employeeId)) {
+    if (isExcludedFromLeave(req.user?.employeeId)) {
       return res.json([]);
     }
     const items = await LeaveApplication.find({ userId: req.user._id }).sort({ createdAt: -1 }).lean();
@@ -1556,7 +1556,7 @@ router.get('/:id/document', auth, async (req, res) => {
 
 router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments'), validateLeaveApply, async (req, res) => {
   try {
-    if (isExcludedFromPayrollAndLeave(req.user?.employeeId)) {
+    if (isExcludedFromLeave(req.user?.employeeId)) {
       return res.status(400).json({ error: 'Leave applications are not applicable for this employee.' });
     }
     const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, regionalHolidayName, totalDays } = req.body;
