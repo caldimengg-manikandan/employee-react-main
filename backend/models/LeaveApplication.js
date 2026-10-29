@@ -21,6 +21,8 @@ const LeaveApplicationSchema = new mongoose.Schema(
     reason: { type: String, default: '' },
     bereavementRelation: { type: String, default: '' },
     regionalHolidayName: { type: String, default: '' },
+    workingDate: { type: Date },
+    compensatoryWorkingDate: { type: Date },
     status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
     appliedDate: { type: Date, default: Date.now },
     documentUrl: { type: String },

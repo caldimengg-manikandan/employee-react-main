@@ -182,6 +182,13 @@ const LeaveSummary = () => {
   const [lopFilterStatus, setLopFilterStatus] = useState('all');
   const [lopSearch, setLopSearch] = useState('');
 
+  // Comp-Off Applications Modal States
+  const [showCompOffModal, setShowCompOffModal] = useState(false);
+  const [compOffFilterStatus, setCompOffFilterStatus] = useState('Pending'); // Default view shows Pending
+  const [compOffFilterEmployee, setCompOffFilterEmployee] = useState('all');
+  const [compOffFilterStartDate, setCompOffFilterStartDate] = useState('');
+  const [compOffFilterEndDate, setCompOffFilterEndDate] = useState('');
+
   const [isFilterApplied, setIsFilterApplied] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -203,7 +210,7 @@ const LeaveSummary = () => {
   ];
 
   const locations = ['Hosur', 'Chennai'];
-  const leaveTypes = ['Casual Leave', 'Sick Leave', 'Privilege Leave', 'Bereavement Leave', 'Regional Holiday'];
+  const leaveTypes = ['Casual Leave', 'Sick Leave', 'Privilege Leave', 'Bereavement Leave', 'Regional Holiday', 'Comp-Off'];
   const statusOptions = ['Approved', 'Pending', 'Rejected'];
 
   const [leaveApplications, setLeaveApplications] = useState([]);
@@ -243,6 +250,9 @@ const LeaveSummary = () => {
         reportingManagerName: l.reportingManagerName || '',
         reportingManagerId: l.reportingManagerId || '',
         leaveType: (() => {
+          if (l.leaveType === 'COMP_OFF' || l.leaveType === 'Comp-Off') {
+            return 'Comp-Off';
+          }
           if (l.leaveType === 'REGIONAL_HOLIDAY') {
             return `Regional Holiday${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`;
           }
@@ -282,7 +292,9 @@ const LeaveSummary = () => {
         lopDays: l.lopDays || 0,
         bereavementRelation: l.bereavementRelation || '',
         regionalHolidayName: l.regionalHolidayName || '',
-        reason: l.reason || ''
+        workingDate: l.workingDate || l.compensatoryWorkingDate || null,
+        reason: l.reason || '',
+        appliedDate: l.appliedDate || l.createdAt || null
       }));
       setLeaveApplications(mapped);
     } catch {
@@ -533,6 +545,67 @@ const LeaveSummary = () => {
     return new Set(lopApplications.map(a => a.employeeId).filter(Boolean)).size;
   }, [lopApplications]);
 
+  // Comp-Off Memos
+  const allCompOffApplications = useMemo(() => {
+    return leaveApplications.filter(app => {
+      const lt = String(app.leaveType || '').toLowerCase();
+      return lt.includes('comp-off') || lt.includes('compoff') || lt.includes('comp_off');
+    });
+  }, [leaveApplications]);
+
+  const pendingCompOffCount = useMemo(() => {
+    return allCompOffApplications.filter(a => a.status === 'Pending').length;
+  }, [allCompOffApplications]);
+
+  const approvedCompOffCount = useMemo(() => {
+    return allCompOffApplications.filter(a => a.status === 'Approved').length;
+  }, [allCompOffApplications]);
+
+  const rejectedCompOffCount = useMemo(() => {
+    return allCompOffApplications.filter(a => a.status === 'Rejected').length;
+  }, [allCompOffApplications]);
+
+  const filteredCompOffApplications = useMemo(() => {
+    return allCompOffApplications.filter(app => {
+      if (compOffFilterStatus !== 'all' && app.status !== compOffFilterStatus) {
+        return false;
+      }
+      if (compOffFilterEmployee !== 'all') {
+        if (app.employeeId !== compOffFilterEmployee && app.employeeName !== compOffFilterEmployee) {
+          return false;
+        }
+      }
+      if (compOffFilterStartDate) {
+        const start = new Date(app.startDateRaw);
+        const fStart = new Date(compOffFilterStartDate);
+        if (start < fStart) return false;
+      }
+      if (compOffFilterEndDate) {
+        const end = new Date(app.endDateRaw);
+        const fEnd = new Date(compOffFilterEndDate);
+        if (end > fEnd) return false;
+      }
+      return true;
+    });
+  }, [allCompOffApplications, compOffFilterStatus, compOffFilterEmployee, compOffFilterStartDate, compOffFilterEndDate]);
+
+  const compOffUniqueEmployees = useMemo(() => {
+    const map = new Map();
+    allCompOffApplications.forEach(a => {
+      if (a.employeeId && !map.has(a.employeeId)) {
+        map.set(a.employeeId, a.employeeName ? `${a.employeeName} (${a.employeeId})` : a.employeeId);
+      }
+    });
+    return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
+  }, [allCompOffApplications]);
+
+  const handleClearCompOffFilters = () => {
+    setCompOffFilterStatus('all');
+    setCompOffFilterEmployee('all');
+    setCompOffFilterStartDate('');
+    setCompOffFilterEndDate('');
+  };
+
   const handleDownloadMonthlyLOP = () => {
     if (lopApplications.length === 0) {
       alert('No Loss of Pay (LOP) records available for current filter selection.');
@@ -605,6 +678,25 @@ const LeaveSummary = () => {
           >
             <RefreshCw size={15} className={isRefreshing ? 'animate-spin' : ''} />
             {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+
+          {/* Comp-Off Applications Dedicated Button */}
+          <button 
+            onClick={() => setShowCompOffModal(true)}
+            className="px-5 py-2.5 bg-gradient-to-r from-indigo-700 via-purple-700 to-indigo-900 text-white rounded-xl text-xs font-bold hover:scale-[1.02] transition-all shadow-md shadow-indigo-700/20 flex items-center gap-2"
+            title="View & Review Comp-Off Applications"
+          >
+            <Clock size={15} />
+            Comp-Off Applications
+            {pendingCompOffCount > 0 ? (
+              <span className="bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full text-[10px] font-black animate-pulse">
+                {pendingCompOffCount} Pending
+              </span>
+            ) : (
+              <span className="bg-white/20 text-white px-2 py-0.5 rounded-full text-[10px] font-bold">
+                {allCompOffApplications.length}
+              </span>
+            )}
           </button>
 
           {/* Monthly LOP Report Button */}
@@ -1381,6 +1473,284 @@ const LeaveSummary = () => {
                 >
                   <Download size={15} />
                   Download Monthly LOP Excel
+                </button>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* Comp-Off Applications Modal */}
+      {showCompOffModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 z-50 animate-fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl border border-slate-200 max-w-6xl w-full max-h-[92vh] flex flex-col overflow-hidden">
+            
+            {/* Modal Header */}
+            <div className="bg-gradient-to-r from-[#1e1b4b] via-[#262760] to-[#3a3c8c] text-white p-5 sm:px-8 sm:py-6 flex justify-between items-center flex-shrink-0 shadow-md">
+              <div className="flex items-center gap-3">
+                <div className="p-3 bg-indigo-500/20 border border-indigo-400/40 rounded-2xl text-indigo-300">
+                  <Clock size={24} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg sm:text-xl font-extrabold tracking-tight text-white">Comp-Off Applications & Review</h2>
+                    <span className="bg-amber-400/20 border border-amber-300/40 text-amber-300 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                      {pendingCompOffCount} Pending Review
+                    </span>
+                  </div>
+                  <p className="text-xs text-indigo-200/80 font-medium mt-0.5">
+                    Review and approve/reject compensatory off requests for employees who worked on compensatory working days
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => setShowCompOffModal(false)}
+                  className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-full transition-colors"
+                  title="Close"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 bg-slate-50/60 flex-1">
+              
+              {/* Summary Mini Cards */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Total Applications</p>
+                  <h4 className="text-2xl font-extrabold mt-1 text-slate-900">{allCompOffApplications.length}</h4>
+                </div>
+                <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200/80 shadow-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-amber-700">Pending Review</p>
+                  <h4 className="text-2xl font-extrabold mt-1 text-amber-700">{pendingCompOffCount}</h4>
+                </div>
+                <div className="bg-emerald-50 p-4 rounded-2xl border border-emerald-200/80 shadow-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-700">Approved</p>
+                  <h4 className="text-2xl font-extrabold mt-1 text-emerald-700">{approvedCompOffCount}</h4>
+                </div>
+                <div className="bg-rose-50 p-4 rounded-2xl border border-rose-200/80 shadow-sm">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-rose-700">Rejected</p>
+                  <h4 className="text-2xl font-extrabold mt-1 text-rose-700">{rejectedCompOffCount}</h4>
+                </div>
+              </div>
+
+              {/* Comp-Off Filter Bar */}
+              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+                <div className="flex flex-wrap justify-between items-center gap-2">
+                  <div className="flex items-center gap-2 text-xs font-bold text-indigo-950">
+                    <Filter size={14} className="text-indigo-600" />
+                    Filter Comp-Off Records
+                  </div>
+                  <button
+                    onClick={handleClearCompOffFilters}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                  >
+                    Clear Filters
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  {/* Status Filter */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Status</label>
+                    <select
+                      value={compOffFilterStatus}
+                      onChange={(e) => setCompOffFilterStatus(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                    >
+                      <option value="all">All Statuses</option>
+                      <option value="Pending">Pending (Default)</option>
+                      <option value="Approved">Approved</option>
+                      <option value="Rejected">Rejected</option>
+                    </select>
+                  </div>
+
+                  {/* Employee Filter */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Employee</label>
+                    <select
+                      value={compOffFilterEmployee}
+                      onChange={(e) => setCompOffFilterEmployee(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                    >
+                      <option value="all">All Employees</option>
+                      {compOffUniqueEmployees.map(emp => (
+                        <option key={emp.id} value={emp.id}>{emp.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Start Date */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">From Date</label>
+                    <input
+                      type="date"
+                      value={compOffFilterStartDate}
+                      onChange={(e) => setCompOffFilterStartDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+
+                  {/* End Date */}
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">To Date</label>
+                    <input
+                      type="date"
+                      value={compOffFilterEndDate}
+                      onChange={(e) => setCompOffFilterEndDate(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium focus:ring-2 focus:ring-indigo-500 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Comp-Off Table */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                <div className="overflow-x-auto max-h-[420px]">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead className="bg-[#1e1b4b] text-white sticky top-0 z-10 font-bold uppercase tracking-wider text-[11px]">
+                      <tr>
+                        <th className="p-3 pl-4 border-r border-indigo-900/50 w-12 text-center">S.No</th>
+                        <th className="p-3 border-r border-indigo-900/50">Employee</th>
+                        <th className="p-3 border-r border-indigo-900/50">Department</th>
+                        <th className="p-3 border-r border-indigo-900/50 text-center bg-amber-950/40">Worked Date</th>
+                        <th className="p-3 border-r border-indigo-900/50 text-center">From Date</th>
+                        <th className="p-3 border-r border-indigo-900/50 text-center">To Date</th>
+                        <th className="p-3 border-r border-indigo-900/50 text-center">Days</th>
+                        <th className="p-3 border-r border-indigo-900/50 min-w-[200px]">Reason / Compensation Details</th>
+                        <th className="p-3 border-r border-indigo-900/50 text-center">Applied Date</th>
+                        <th className="p-3 border-r border-indigo-900/50 text-center">Status</th>
+                        <th className="p-3 pr-4 text-center">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
+                      {filteredCompOffApplications.length > 0 ? (
+                        filteredCompOffApplications.map((app, index) => {
+                          const appliedFormatted = app.appliedDate ? new Date(app.appliedDate).toLocaleDateString('en-IN') : '—';
+                          const canAct = canApproveLeave(app.employeeId);
+
+                          return (
+                            <tr key={app.id || index} className="hover:bg-indigo-50/40 transition-colors">
+                              <td className="p-3 pl-4 text-center text-slate-400 font-mono">{index + 1}</td>
+                              <td className="p-3">
+                                <div className="font-bold text-indigo-950">{app.employeeName}</div>
+                                <div className="text-[11px] font-mono text-indigo-600">{app.employeeId}</div>
+                              </td>
+                              <td className="p-3">
+                                <span className="inline-block px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 text-[11px] font-semibold">
+                                  {app.division || '—'}
+                                </span>
+                              </td>
+                              <td className="p-3 text-center whitespace-nowrap">
+                                {app.workingDate ? (
+                                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-950 font-bold text-xs">
+                                    <Calendar size={12} className="text-amber-600" />
+                                    {new Date(app.workingDate).toLocaleDateString('en-IN')}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 italic">—</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center font-bold text-indigo-950 whitespace-nowrap">
+                                {app.fromDate}
+                              </td>
+                              <td className="p-3 text-center font-bold text-indigo-950 whitespace-nowrap">
+                                {app.toDate}
+                              </td>
+                              <td className="p-3 text-center font-bold">
+                                <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded-full text-xs border border-indigo-200 inline-block font-mono">
+                                  {app.days} {app.days === 1 ? 'day' : 'days'}
+                                </span>
+                              </td>
+                              <td className="p-3 text-slate-700 text-xs leading-relaxed max-w-xs">
+                                {app.reason ? (
+                                  <div className="bg-amber-50/60 border border-amber-200/60 p-2 rounded-xl text-amber-950 font-medium text-[11px]">
+                                    {app.reason}
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic">No compensation details provided</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-center text-slate-500 whitespace-nowrap text-[11px]">
+                                {appliedFormatted}
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide inline-block ${getStatusBadgeClass(app.status)}`}>
+                                  {app.status}
+                                </span>
+                              </td>
+                              <td className="p-3 pr-4 text-center">
+                                <div className="flex items-center justify-center gap-1.5">
+                                  {canAct && app.status !== 'Approved' && (
+                                    <button
+                                      onClick={() => handleApprove(app.id)}
+                                      disabled={!!actionLoading[app.id]}
+                                      className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 disabled:opacity-50"
+                                      title="Approve Comp-Off"
+                                    >
+                                      {actionLoading[app.id] === 'approve' ? (
+                                        <Loader2 size={13} className="animate-spin" />
+                                      ) : (
+                                        <CheckCircle size={13} />
+                                      )}
+                                      Approve
+                                    </button>
+                                  )}
+
+                                  {canAct && app.status !== 'Rejected' && (
+                                    <button
+                                      onClick={() => handleReject(app.id)}
+                                      disabled={!!actionLoading[app.id]}
+                                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 disabled:opacity-50"
+                                      title="Reject Comp-Off"
+                                    >
+                                      {actionLoading[app.id] === 'reject' ? (
+                                        <Loader2 size={13} className="animate-spin" />
+                                      ) : (
+                                        <XCircle size={13} />
+                                      )}
+                                      Reject
+                                    </button>
+                                  )}
+
+                                  {!canAct && (
+                                    <span className="text-[11px] text-slate-400 italic">No access</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan="11" className="p-8 text-center text-slate-400 font-medium">
+                            No Comp-Off applications found for the selected filter.
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Modal Footer */}
+            <div className="bg-white border-t border-slate-200 p-4 px-6 rounded-b-3xl flex justify-between items-center flex-shrink-0 shadow-inner">
+              <div className="text-xs text-slate-500 font-medium">
+                Showing <span className="font-bold text-indigo-950">{filteredCompOffApplications.length}</span> of <span className="font-bold text-indigo-950">{allCompOffApplications.length}</span> Comp-Off applications
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setShowCompOffModal(false)}
+                  className="px-5 py-2 bg-slate-100 text-slate-700 hover:bg-slate-200 rounded-xl text-xs font-bold transition-all"
+                >
+                  Close
                 </button>
               </div>
             </div>

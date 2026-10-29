@@ -320,6 +320,8 @@ const runMonthlyAllocation = async (targetDate = new Date()) => {
  * Also updates the real-time LeaveBalance document.
  */
 const applyLeaveToLedger = async (leaveApp) => {
+  const normType = String(leaveApp?.leaveType || '').toUpperCase().replace(/[\s-]+/g, '_');
+  if (normType === 'COMP_OFF') return;
   const empId = leaveApp.employeeId;
   if (!empId) return;
 
@@ -376,6 +378,8 @@ const applyLeaveToLedger = async (leaveApp) => {
  * Reverse a leave deduction (called when a leave is rejected after approval).
  */
 const reverseLeaveFromLedger = async (leaveApp) => {
+  const normType = String(leaveApp?.leaveType || '').toUpperCase().replace(/[\s-]+/g, '_');
+  if (normType === 'COMP_OFF') return;
   const empId = leaveApp.employeeId;
   if (!empId) return;
 
@@ -426,6 +430,8 @@ const reverseLeaveFromLedger = async (leaveApp) => {
 // ---------------------------------------------------------------------------
 
 const applyLeaveDeduction = async (leaveApp) => {
+  const normType = String(leaveApp?.leaveType || '').toUpperCase().replace(/[\s-]+/g, '_');
+  if (normType === 'COMP_OFF') return;
   const targetEmployeeId = leaveApp.employeeId;
   if (!targetEmployeeId) return;
 
@@ -467,6 +473,8 @@ const applyLeaveDeduction = async (leaveApp) => {
 };
 
 const reverseLeaveDeduction = async (leaveApp) => {
+  const normType = String(leaveApp?.leaveType || '').toUpperCase().replace(/[\s-]+/g, '_');
+  if (normType === 'COMP_OFF') return;
   const targetEmployeeId = leaveApp.employeeId;
   if (!targetEmployeeId) return;
 
@@ -722,7 +730,12 @@ const calculateLeaveSplit = (requestedDays, balances, leaveType = null) => {
   let rem = requestedDays;
   const split = { clUsed: 0, slUsed: 0, plUsed: 0, blUsed: 0, negativePL: 0, lopDays: 0, remainingBalance: 0 };
 
-  const normType = String(leaveType || '').toUpperCase();
+  const normType = String(leaveType || '').toUpperCase().replace(/[\s-]+/g, '_');
+
+  // Comp-Off does not deduct from any leave balances
+  if (normType === 'COMP_OFF') {
+    return split;
+  }
 
   // If Bereavement Leave is requested, deduct solely from Bereavement Leave balance up to max 2 days
   if (normType === 'BEREAVEMENT' || normType === 'BL') {
