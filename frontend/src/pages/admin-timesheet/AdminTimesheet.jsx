@@ -237,18 +237,29 @@ const AdminTimesheet = () => {
             map.set(u.employeeId, { id: u.employeeId, name: empName, label });
           });
 
-        // 2. Add leaders from teams created in Team Management (excluding admin/hr who are not team leaders)
+        // 2. Add leaders from teams created in Team Management
         teams.forEach(t => {
           if (t.leaderEmployeeId && !map.has(t.leaderEmployeeId)) {
-            const userObj = users.find(u => u.employeeId === t.leaderEmployeeId);
-            const userRole = String(userObj?.role || '').toLowerCase();
-            const isAdminRole = ['admin', 'hr'].includes(userRole);
-            
-            // Only add if not an admin role or if they have team members assigned in Team Management
-            if (!isAdminRole || (Array.isArray(t.members) && t.members.length > 0)) {
-              const name = empMap[t.leaderEmployeeId] || t.leaderName || t.leaderEmployeeId;
-              const label = `${name} (${t.leaderEmployeeId})`;
-              map.set(t.leaderEmployeeId, { id: t.leaderEmployeeId, name, label });
+            const name = empMap[t.leaderEmployeeId] || t.leaderName || t.leaderEmployeeId;
+            const label = `${name} (${t.leaderEmployeeId})`;
+            map.set(t.leaderEmployeeId, { id: t.leaderEmployeeId, name, label });
+          }
+        });
+
+        // 3. Add appraisers and reviewers from employee records
+        allEmployees.forEach(e => {
+          if (e.appraiser && String(e.appraiser).trim() && e.appraiser !== '—') {
+            const key = String(e.appraiser).trim();
+            if (!map.has(key)) {
+              const name = empMap[key] || key;
+              map.set(key, { id: key, name, label: empMap[key] ? `${name} (${key})` : name });
+            }
+          }
+          if (e.reviewer && String(e.reviewer).trim() && e.reviewer !== '—') {
+            const key = String(e.reviewer).trim();
+            if (!map.has(key)) {
+              const name = empMap[key] || key;
+              map.set(key, { id: key, name, label: empMap[key] ? `${name} (${key})` : name });
             }
           }
         });
@@ -289,6 +300,39 @@ const AdminTimesheet = () => {
       if (entriesSum > 0) return entriesSum;
     }
     return Number(ts.weeklyTotal) || 0;
+  };
+
+  // Helper to determine if an entry represents billable/actual project work (excludes leave, holiday, idle)
+  const isProjectEntry = (te) => {
+    if (!te) return false;
+    const typeVal = (te.type || '').toLowerCase();
+    const p = (te.project || '').trim().toLowerCase();
+    const taskVal = (te.task || '').trim().toLowerCase();
+
+    // Exclude leave, holiday, and idle
+    if (!p || p === 'leave' || p === 'idle') return false;
+    if (taskVal.includes('leave') || taskVal.includes('holiday') || taskVal.includes('idle')) return false;
+
+    return typeVal === 'project' || Boolean(p);
+  };
+
+  // Helper to calculate total project hours for a timesheet (excluding leave, holiday, idle)
+  const getWeeklyProjectHours = (ts) => {
+    if (!ts) return 0;
+    const timeEntries = ts.timeEntries || [];
+    return timeEntries.reduce((sum, entry) => {
+      if (!isProjectEntry(entry)) return sum;
+      const entryTotal = Number(entry.total) || (
+        (Number(entry.monday) || 0) +
+        (Number(entry.tuesday) || 0) +
+        (Number(entry.wednesday) || 0) +
+        (Number(entry.thursday) || 0) +
+        (Number(entry.friday) || 0) +
+        (Number(entry.saturday) || 0) +
+        (Number(entry.sunday) || 0)
+      );
+      return sum + entryTotal;
+    }, 0);
   };
 
   const statConfigs = [
@@ -417,17 +461,41 @@ const AdminTimesheet = () => {
       }
 
       setTimesheets(data);
+
+      // Merge all reporting managers present in the returned timesheet data
+      setManagerOptions(prevOptions => {
+        const map = new Map();
+        (prevOptions || []).forEach(m => {
+          if (m && m !== 'All Managers' && m !== 'All Reporting Managers') {
+            const k = m.id || m.name || m;
+            map.set(k, m);
+          }
+        });
+
+        data.forEach(ts => {
+          const rep = ts.reportingManager;
+          if (rep && rep !== '—' && rep !== 'Not Assigned') {
+            const repName = ts.reportingManagerName || rep;
+            const repId = ts.reportingManagerId || '';
+            const key = repId || repName;
+            if (!map.has(key) && !map.has(repName)) {
+              map.set(key, {
+                id: repId || repName,
+                name: repName,
+                label: repName && repId && repName !== repId ? `${repName} (${repId})` : (rep || repName)
+              });
+            }
+          }
+        });
+
+        const sorted = Array.from(map.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+        return ["All Managers", ...sorted];
+      });
       const setProjects = new Set();
       data.forEach(ts => {
         (ts.timeEntries || []).forEach(te => {
-          const typeVal = (te.type || '').toLowerCase();
           const p = (te.project || '').trim();
-          const taskVal = (te.task || '').toLowerCase();
-          const looksLikeProject = typeVal === 'project' || (
-            p && p.toLowerCase() !== 'leave' &&
-            !taskVal.includes('leave') && !taskVal.includes('holiday')
-          );
-          if (looksLikeProject && p) setProjects.add(p);
+          if (isProjectEntry(te) && p) setProjects.add(p);
         });
       });
       
@@ -478,18 +546,7 @@ const AdminTimesheet = () => {
         const s = (r.status || '').toLowerCase();
         const includeRow = s === 'approved' || s === 'submitted';
         if (!includeRow) return sum;
-        const entries = r.timeEntries || [];
-        const projSum = entries.reduce((eSum, te) => {
-          const typeVal = (te.type || '').toLowerCase();
-          const p = (te.project || '').trim();
-          const taskVal = (te.task || '').toLowerCase();
-          const isProject = typeVal === 'project' || (
-            p && p.toLowerCase() !== 'leave' &&
-            !taskVal.includes('leave') && !taskVal.includes('holiday')
-          );
-          return eSum + (isProject ? Number(te.total || 0) : 0);
-        }, 0);
-        return sum + projSum;
+        return sum + getWeeklyProjectHours(r);
       }, 0);
 
       setStats({
@@ -529,18 +586,7 @@ const AdminTimesheet = () => {
       const s = (r.status || '').toLowerCase();
       const includeRow = s === 'approved' || s === 'submitted' || s === 'pending';
       if (!includeRow) return sum;
-      const entries = r.timeEntries || [];
-      const projSum = entries.reduce((eSum, te) => {
-        const typeVal = (te.type || '').toLowerCase();
-        const p = (te.project || '').trim();
-        const taskVal = (te.task || '').toLowerCase();
-        const isProject = typeVal === 'project' || (
-          p && p.toLowerCase() !== 'leave' &&
-          !taskVal.includes('leave') && !taskVal.includes('holiday')
-        );
-        return eSum + (isProject ? Number(te.total || 0) : 0);
-      }, 0);
-      return sum + projSum;
+      return sum + getWeeklyProjectHours(r);
     }, 0);
 
     setStats({
@@ -626,6 +672,7 @@ const AdminTimesheet = () => {
       'Sat (hrs)',
       'Sun (hrs)',
       'Entry Total (hrs)',
+      'Project Hours',
       'Weekly Total (hrs)',
       'Status',
       'Rejection Reason'
@@ -644,14 +691,17 @@ const AdminTimesheet = () => {
     let totalEntrySum = 0;
     const weeklyTotalsSeen = new Set();
     let totalWeeklySum = 0;
+    let totalWeeklyProjectSum = 0;
 
     timesheets.forEach(ts => {
       const entries = ts.timeEntries || [];
       const tsWeekly = getWeeklyTotal(ts);
+      const tsWeeklyProj = getWeeklyProjectHours(ts);
       const tsKey = `${ts.employeeId || ''}|${ts.week || ''}`;
       if (!weeklyTotalsSeen.has(tsKey)) {
         weeklyTotalsSeen.add(tsKey);
         totalWeeklySum += Number(tsWeekly) || 0;
+        totalWeeklyProjectSum += Number(tsWeeklyProj) || 0;
       }
 
       if (entries.length === 0) {
@@ -668,6 +718,7 @@ const AdminTimesheet = () => {
           '—',
           '—',
           '—',
+          '00:00',
           '00:00',
           '00:00',
           '00:00',
@@ -721,6 +772,7 @@ const AdminTimesheet = () => {
             sa > 0 ? formatDuration(sa) : '00:00',
             su > 0 ? formatDuration(su) : '00:00',
             formatDuration(eTot),
+            entryIdx === 0 ? formatDuration(tsWeeklyProj) : '',
             entryIdx === 0 ? formatDuration(tsWeekly) : '',
             ts.status === 'Submitted' ? 'Pending' : (ts.status || ''),
             ts.rejectionReason || ''
@@ -750,19 +802,20 @@ const AdminTimesheet = () => {
       formatDuration(totalSat),
       formatDuration(totalSun),
       formatDuration(totalEntrySum),
+      formatDuration(totalWeeklyProjectSum),
       formatDuration(totalWeeklySum),
       '',
       ''
     ]);
 
     const ws = XLSXStyle.utils.aoa_to_sheet(wsData);
-    const numCols = headers.length; // 22 columns
+    const numCols = headers.length; // 23 columns
 
     // Merges
     ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } }, // Title A1:V1
-      { s: { r: 1, c: 0 }, e: { r: 1, c: numCols - 1 } }, // Subtitle A2:V2
-      { s: { r: 2, c: 0 }, e: { r: 2, c: numCols - 1 } }, // Stats A3:V3
+      { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } }, // Title A1:W1
+      { s: { r: 1, c: 0 }, e: { r: 1, c: numCols - 1 } }, // Subtitle A2:W2
+      { s: { r: 2, c: 0 }, e: { r: 2, c: numCols - 1 } }, // Stats A3:W3
       { s: { r: wsData.length - 1, c: 0 }, e: { r: wsData.length - 1, c: 1 } }, // Footer TOTAL A..B
       { s: { r: wsData.length - 1, c: 2 }, e: { r: wsData.length - 1, c: 10 } } // Footer Summary Label C..K
     ];
@@ -788,6 +841,7 @@ const AdminTimesheet = () => {
       { wch: 11 }, // Sat
       { wch: 11 }, // Sun
       { wch: 14 }, // Entry Total
+      { wch: 15 }, // Project Hours
       { wch: 15 }, // Weekly Total
       { wch: 15 }, // Status
       { wch: 30 }  // Rejection Reason
@@ -1992,11 +2046,15 @@ const AdminTimesheet = () => {
                 <option value="All Managers">All Reporting Managers</option>
                 {managerOptions
                   .filter(m => m !== 'All Managers' && m !== 'All Reporting Managers')
-                  .map(mgr => (
-                    <option key={mgr.id || mgr} value={mgr.id || mgr}>
-                      {mgr.name ? `${mgr.name} (${mgr.id || ''})` : (mgr.label || mgr)}
-                    </option>
-                  ))}
+                  .map(mgr => {
+                    const val = mgr.id || mgr.name || mgr;
+                    const text = mgr.label || (mgr.name && mgr.id && mgr.name !== mgr.id ? `${mgr.name} (${mgr.id})` : (mgr.name || mgr.id || mgr));
+                    return (
+                      <option key={val} value={val}>
+                        {text}
+                      </option>
+                    );
+                  })}
               </select>
             </div>
 
@@ -2153,6 +2211,7 @@ const AdminTimesheet = () => {
                 <th className="p-3.5">Location</th>
                 <th className="p-3.5">Week</th>
                 <th className="p-3.5">Projects</th>
+                <th className="p-3.5 text-center">Project Hours</th>
                 <th className="p-3.5 text-center">Total Hours</th>
                 <th className="p-3.5 text-center">Status</th>
                 <th className="p-3.5 text-center pr-5">Actions</th>
@@ -2161,14 +2220,14 @@ const AdminTimesheet = () => {
             <tbody className="divide-y divide-slate-100 text-xs font-medium">
               {loading ? (
                 <tr>
-                  <td colSpan="10" className="text-center py-12 text-slate-500">
+                  <td colSpan="11" className="text-center py-12 text-slate-500">
                     <Loader2 className="animate-spin w-6 h-6 text-indigo-600 mx-auto mb-2" />
                     Loading timesheets...
                   </td>
                 </tr>
               ) : timesheets.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="text-center py-12 text-slate-500 font-semibold">
+                  <td colSpan="11" className="text-center py-12 text-slate-500 font-semibold">
                     No timesheets found for the selected filters.
                   </td>
                 </tr>
@@ -2195,9 +2254,16 @@ const AdminTimesheet = () => {
                     <td className="p-3.5 text-slate-600">{timesheet.week || '—'}</td>
                     <td className="p-3.5 text-slate-600 max-w-xs truncate">
                       {(() => {
-                        const projects = (timesheet.timeEntries || []).map(entry => entry.project).filter(Boolean);
-                        return projects.length ? projects.join(', ') : '—';
+                        const projects = (timesheet.timeEntries || [])
+                          .filter(isProjectEntry)
+                          .map(entry => entry.project)
+                          .filter(Boolean);
+                        const uniqueProjs = Array.from(new Set(projects));
+                        return uniqueProjs.length ? uniqueProjs.join(', ') : '—';
                       })()}
+                    </td>
+                    <td className="p-3.5 text-center font-bold font-mono text-indigo-600">
+                      {formatDuration(getWeeklyProjectHours(timesheet))}
                     </td>
                     <td className="p-3.5 text-center font-bold font-mono text-slate-800">
                       {formatDuration(getWeeklyTotal(timesheet))}

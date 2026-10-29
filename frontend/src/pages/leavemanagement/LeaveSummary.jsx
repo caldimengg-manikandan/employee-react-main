@@ -82,14 +82,25 @@ const LeaveSummary = () => {
 
         teams.forEach(t => {
           if (t.leaderEmployeeId && !map.has(t.leaderEmployeeId)) {
-            const userObj = users.find(u => u.employeeId === t.leaderEmployeeId);
-            const userRole = String(userObj?.role || '').toLowerCase();
-            const isAdminRole = ['admin', 'hr'].includes(userRole);
-            
-            if (!isAdminRole || (Array.isArray(t.members) && t.members.length > 0)) {
-              const name = empMap[t.leaderEmployeeId] || t.leaderName || t.leaderEmployeeId;
-              const label = `${name} (${t.leaderEmployeeId})`;
-              map.set(t.leaderEmployeeId, { id: t.leaderEmployeeId, name, label });
+            const name = empMap[t.leaderEmployeeId] || t.leaderName || t.leaderEmployeeId;
+            const label = `${name} (${t.leaderEmployeeId})`;
+            map.set(t.leaderEmployeeId, { id: t.leaderEmployeeId, name, label });
+          }
+        });
+
+        allEmployees.forEach(e => {
+          if (e.appraiser && String(e.appraiser).trim() && e.appraiser !== '—') {
+            const key = String(e.appraiser).trim();
+            if (!map.has(key)) {
+              const name = empMap[key] || key;
+              map.set(key, { id: key, name, label: empMap[key] ? `${name} (${key})` : name });
+            }
+          }
+          if (e.reviewer && String(e.reviewer).trim() && e.reviewer !== '—') {
+            const key = String(e.reviewer).trim();
+            if (!map.has(key)) {
+              const name = empMap[key] || key;
+              map.set(key, { id: key, name, label: empMap[key] ? `${name} (${key})` : name });
             }
           }
         });

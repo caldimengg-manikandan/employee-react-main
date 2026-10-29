@@ -7,7 +7,15 @@ const User = require('../models/User');
 
 router.get('/leaders', auth, async (req, res) => {
   try {
-    if (!req.user.permissions?.includes('employee_access')) {
+    const roleLower = String(req.user.role || '').toLowerCase();
+    const hasLeaderAccess = 
+      req.user.permissions?.includes('employee_access') ||
+      req.user.permissions?.includes('team_access') ||
+      req.user.permissions?.includes('admin_timesheet_access') ||
+      req.user.permissions?.includes('timesheet_access') ||
+      ['admin', 'hr', 'director', 'manager', 'projectmanager', 'project_manager', 'deliverymanager', 'teamlead', 'reporting_manager'].includes(roleLower);
+
+    if (!hasLeaderAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const type = String(req.query.type || 'team').toLowerCase();
@@ -57,7 +65,15 @@ router.get('/leaders', auth, async (req, res) => {
 
 router.get('/', auth, async (req, res) => {
   try {
-    if (!req.user.permissions?.includes('employee_access')) {
+    const roleLower = String(req.user.role || '').toLowerCase();
+    const hasLeaderAccess = 
+      req.user.permissions?.includes('employee_access') ||
+      req.user.permissions?.includes('team_access') ||
+      req.user.permissions?.includes('admin_timesheet_access') ||
+      req.user.permissions?.includes('timesheet_access') ||
+      ['admin', 'hr', 'director', 'manager', 'projectmanager', 'project_manager', 'deliverymanager', 'teamlead', 'reporting_manager'].includes(roleLower);
+
+    if (!hasLeaderAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const teams = await Team.find().sort({ teamCode: 1 });
@@ -102,7 +118,15 @@ router.get('/my-team', auth, async (req, res) => {
 
 router.get('/:teamCode', auth, async (req, res) => {
   try {
-    if (!req.user.permissions?.includes('employee_access')) {
+    const roleLower = String(req.user.role || '').toLowerCase();
+    const hasLeaderAccess = 
+      req.user.permissions?.includes('employee_access') ||
+      req.user.permissions?.includes('team_access') ||
+      req.user.permissions?.includes('admin_timesheet_access') ||
+      req.user.permissions?.includes('timesheet_access') ||
+      ['admin', 'hr', 'director', 'manager', 'projectmanager', 'project_manager', 'deliverymanager', 'teamlead', 'reporting_manager'].includes(roleLower);
+
+    if (!hasLeaderAccess) {
       return res.status(403).json({ message: 'Access denied' });
     }
     const team = await Team.findOne({ teamCode: req.params.teamCode });

@@ -249,7 +249,8 @@ router.get('/users', auth, async (req, res) => {
     const roleLower = String(req.user.role || '').toLowerCase();
     const hasAccess = req.user.permissions?.includes('user_access') ||
       req.user.permissions?.includes('employee_access') ||
-      ['admin', 'director', 'manager'].includes(roleLower);
+      req.user.permissions?.includes('admin_timesheet_access') ||
+      ['admin', 'hr', 'director', 'manager', 'projectmanager', 'project_manager', 'deliverymanager'].includes(roleLower);
 
     if (!hasAccess) {
       return res.status(403).json({ message: 'Access denied' });

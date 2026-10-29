@@ -57,7 +57,7 @@ const TimesheetSummary = () => {
           (r.timeEntries || []).forEach(te => {
             const p = (te.project || '').trim();
             const taskVal = (te.task || '').toLowerCase();
-            if (p && p.toLowerCase() !== 'leave' && !taskVal.includes('holiday') && !taskVal.includes('leave')) {
+            if (p && p.toLowerCase() !== 'leave' && p.toLowerCase() !== 'idle' && !taskVal.includes('holiday') && !taskVal.includes('leave') && !taskVal.includes('idle')) {
               projSet.add(p);
             }
           });
@@ -107,9 +107,8 @@ const TimesheetSummary = () => {
         const project = (te?.project || '').trim().toLowerCase();
         const task = (te?.task || '').trim().toLowerCase();
         if (!project) return true;
-        if (project === 'leave') return true;
-        if (task.includes('holiday')) return true;
-        if (task.includes('leave')) return true;
+        if (project === 'leave' || project === 'idle') return true;
+        if (task.includes('holiday') || task.includes('leave') || task.includes('idle')) return true;
         return false;
       };
 
