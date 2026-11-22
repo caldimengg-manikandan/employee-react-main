@@ -1,16 +1,19 @@
 const mongoose = require('mongoose');
 const dns = require('dns');
 
-// Set DNS servers to ensure MongoDB Atlas SRV record resolution works reliably
-try {
-  dns.setServers(['8.8.8.8', '1.1.1.1']);
-} catch (e) {
-  console.warn('Could not set custom DNS servers:', e.message);
-}
-
 const connectDB = async () => {
   try {
     const uri = process.env.MONGODB_URI;
+
+    // Set custom DNS servers only for MongoDB Atlas SRV connections to prevent breaking localhost resolution
+    if (uri && uri.startsWith('mongodb+srv://')) {
+      try {
+        dns.setServers(['8.8.8.8', '1.1.1.1']);
+      } catch (e) {
+        console.warn('Could not set custom DNS servers:', e.message);
+      }
+    }
+
     const conn = await mongoose.connect(uri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,

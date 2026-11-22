@@ -287,13 +287,7 @@ router.post('/documents', auth, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Template, Employee, and Content are required.' });
     }
 
-    // Generate unique document number e.g. CAL-DOC-2026-0001
-    const year = new Date().getFullYear();
-    const count = await GeneratedDocument.countDocuments();
-    const docNumber = `CAL-DOC-${year}-${String(count + 1).padStart(4, '0')}`;
-
     const newDoc = new GeneratedDocument({
-      documentNumber: docNumber,
       templateId,
       templateName: templateName || templateId,
       employeeId,
@@ -311,7 +305,43 @@ router.post('/documents', auth, async (req, res) => {
       ]
     });
 
-    await newDoc.save();
+    // Safely generate unique document number e.g. CAL-DOC-2026-0005 without collisions
+    const year = new Date().getFullYear();
+    const prefix = `CAL-DOC-${year}-`;
+
+    let saved = false;
+    let attempts = 0;
+    while (!saved && attempts < 10) {
+      attempts++;
+      try {
+        const latestDoc = await GeneratedDocument.findOne({
+          documentNumber: new RegExp(`^${prefix}\\d+`)
+        }).sort({ documentNumber: -1 });
+
+        let nextSeq = 1;
+        if (latestDoc && latestDoc.documentNumber) {
+          const match = latestDoc.documentNumber.match(new RegExp(`^${prefix}(\\d+)`));
+          if (match && match[1]) {
+            nextSeq = parseInt(match[1], 10) + 1;
+          }
+        }
+
+        let docNumber = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+        while (await GeneratedDocument.exists({ documentNumber: docNumber })) {
+          nextSeq++;
+          docNumber = `${prefix}${String(nextSeq).padStart(4, '0')}`;
+        }
+
+        newDoc.documentNumber = docNumber;
+        await newDoc.save();
+        saved = true;
+      } catch (saveErr) {
+        if (saveErr.code === 11000 && attempts < 10) {
+          continue;
+        }
+        throw saveErr;
+      }
+    }
 
     // If submitted immediately, notify Directors
     if (submitNow) {

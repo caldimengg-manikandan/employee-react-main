@@ -86,6 +86,7 @@ const seedData = async () => {
     console.error('Error seeding data:', error);
     process.exit(1);
   }
+  process.exit(0);
 };
 
 // Run the seed function

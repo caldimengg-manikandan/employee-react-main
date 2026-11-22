@@ -17,7 +17,7 @@ const monthlyPayrollRoutes = require("./routes/monthlyPayroll");
 const loanRoutes = require("./routes/loan.routes");
 
 // Load environment variables
-dotenv.config();
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 // Connect to MongoDB
 connectDB();
