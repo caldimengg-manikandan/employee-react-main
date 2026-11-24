@@ -203,8 +203,12 @@ const LeaveSummary = () => {
   ];
 
   const locations = ['Hosur', 'Chennai'];
-  const leaveTypes = ['Casual Leave', 'Sick Leave', 'Privilege Leave', 'Bereavement Leave', 'Regional Holiday'];
+  const leaveTypes = ['Casual Leave', 'Sick Leave', 'Privilege Leave', 'Bereavement Leave', 'Regional Holiday', 'Comp-Off'];
   const statusOptions = ['Approved', 'Pending', 'Rejected'];
+
+  const [activeTableTab, setActiveTableTab] = useState('all'); // 'all' | 'comp-off'
+  const [compOffFilterStatus, setCompOffFilterStatus] = useState('all');
+  const [compOffSearch, setCompOffSearch] = useState('');
 
   const [leaveApplications, setLeaveApplications] = useState([]);
   const [actionLoading, setActionLoading] = useState({});
@@ -243,6 +247,9 @@ const LeaveSummary = () => {
         reportingManagerName: l.reportingManagerName || '',
         reportingManagerId: l.reportingManagerId || '',
         leaveType: (() => {
+          if (l.leaveType === 'COMP_OFF' || l.leaveType === 'Comp-Off') {
+            return 'Comp-Off';
+          }
           if (l.leaveType === 'REGIONAL_HOLIDAY') {
             return `Regional Holiday${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`;
           }
@@ -267,6 +274,9 @@ const LeaveSummary = () => {
         toDate: new Date(l.endDate).toLocaleDateString('en-IN'),
         fromMonth: new Date(l.startDate).getMonth() + 1,
         fromYear: new Date(l.startDate).getFullYear(),
+        workingDate: l.workingDate ? new Date(l.workingDate).toLocaleDateString('en-IN') : (l.compensatoryWorkingDate ? new Date(l.compensatoryWorkingDate).toLocaleDateString('en-IN') : null),
+        workingDateRaw: l.workingDate || l.compensatoryWorkingDate || null,
+        appliedDate: l.appliedDate ? new Date(l.appliedDate).toLocaleDateString('en-IN') : (l.createdAt ? new Date(l.createdAt).toLocaleDateString('en-IN') : null),
         days: l.totalDays || 0,
         totalLeaveDays: l.totalDays || 0,
         dayType: l.dayType || 'Full Day',
@@ -532,6 +542,45 @@ const LeaveSummary = () => {
   const lopUniqueEmployees = useMemo(() => {
     return new Set(lopApplications.map(a => a.employeeId).filter(Boolean)).size;
   }, [lopApplications]);
+
+  // Comp-Off Applications Memo & Counters
+  const compOffApplications = useMemo(() => {
+    return leaveApplications.filter(app => {
+      const isCompOff = app.leaveType === 'Comp-Off' || app.leaveType === 'COMP_OFF';
+      if (!isCompOff) return false;
+
+      if (compOffFilterStatus !== 'all' && app.status !== compOffFilterStatus) return false;
+
+      if (compOffSearch.trim() !== '') {
+        const term = compOffSearch.trim().toLowerCase();
+        const empId = (app.employeeId || '').toLowerCase();
+        const empName = (app.employeeName || '').toLowerCase();
+        if (!empId.includes(term) && !empName.includes(term)) return false;
+      }
+
+      return true;
+    });
+  }, [leaveApplications, compOffFilterStatus, compOffSearch]);
+
+  const allCompOffCount = useMemo(() => {
+    return leaveApplications.filter(app => app.leaveType === 'Comp-Off' || app.leaveType === 'COMP_OFF').length;
+  }, [leaveApplications]);
+
+  const pendingCompOffCount = useMemo(() => {
+    return leaveApplications.filter(app => (app.leaveType === 'Comp-Off' || app.leaveType === 'COMP_OFF') && app.status === 'Pending').length;
+  }, [leaveApplications]);
+
+  const approvedCompOffCount = useMemo(() => {
+    return leaveApplications.filter(app => (app.leaveType === 'Comp-Off' || app.leaveType === 'COMP_OFF') && app.status === 'Approved').length;
+  }, [leaveApplications]);
+
+  const rejectedCompOffCount = useMemo(() => {
+    return leaveApplications.filter(app => (app.leaveType === 'Comp-Off' || app.leaveType === 'COMP_OFF') && app.status === 'Rejected').length;
+  }, [leaveApplications]);
+
+  const compOffTotalDays = useMemo(() => {
+    return compOffApplications.reduce((sum, a) => sum + (Number(a.totalLeaveDays) || Number(a.days) || 0), 0);
+  }, [compOffApplications]);
 
   const handleDownloadMonthlyLOP = () => {
     if (lopApplications.length === 0) {
@@ -853,153 +902,409 @@ const LeaveSummary = () => {
         </div>
       )}
 
-      {/* Leave Applications Table */}
-      <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 overflow-hidden">
-        <div className="p-4 bg-slate-50/50 border-b border-slate-200 flex justify-between items-center">
-          <div className="flex items-center gap-2">
-            <FileCheck size={18} className="text-indigo-600" />
-            <h2 className="text-sm font-bold text-indigo-950 uppercase tracking-wider">Leave Applications</h2>
-            <span className="bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs font-extrabold border border-indigo-200">
-              {filteredApplications.length} records
+      {/* Table Navigation Tabs */}
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-2 bg-slate-200/70 p-1.5 rounded-2xl border border-slate-200/80">
+          <button
+            onClick={() => setActiveTableTab('all')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all ${
+              activeTableTab === 'all'
+                ? 'bg-white text-indigo-950 shadow-md shadow-indigo-950/10'
+                : 'text-slate-600 hover:text-indigo-900'
+            }`}
+          >
+            <FileCheck size={16} className={activeTableTab === 'all' ? 'text-indigo-600' : 'text-slate-400'} />
+            <span>All Leave Applications</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+              activeTableTab === 'all' ? 'bg-indigo-50 text-indigo-700' : 'bg-slate-200 text-slate-600'
+            }`}>
+              {filteredApplications.length}
             </span>
-          </div>
-        </div>
+          </button>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs font-medium">
-            <thead>
-              <tr className="bg-gradient-to-r from-[#1e1b4b] via-[#262760] to-[#2e3078] text-white font-bold uppercase tracking-wider">
-                <th className="p-3.5 pl-5">S.No</th>
-                <th className="p-3.5">Employee ID</th>
-                <th className="p-3.5">Employee Name</th>
-                <th className="p-3.5">Reporting Manager</th>
-                <th className="p-3.5">Division</th>
-                <th className="p-3.5">Leave Type</th>
-                <th className="p-3.5">Location</th>
-                <th className="p-3.5">Start Date</th>
-                <th className="p-3.5">End Date</th>
-                <th className="p-3.5 text-center">Total Days</th>
-                <th className="p-3.5 text-center">Status</th>
-                <th className="p-3.5 text-center pr-5">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredApplications.length > 0 ? (
-                filteredApplications.map((app, index) => (
-                  <tr key={app.id} className="hover:bg-indigo-50/40 transition-colors">
-                    <td className="p-3.5 pl-5 text-slate-500 font-bold">{index + 1}</td>
-                    <td className="p-3.5 font-bold font-mono text-indigo-700">{app.employeeId}</td>
-                    <td className="p-3.5 font-bold text-slate-900">{app.employeeName}</td>
-                    <td className="p-3.5 font-semibold text-slate-700">
-                      {(() => {
-                        const repMgr = getDisplayReportingManager(app);
-                        return repMgr && repMgr !== '—' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50/70 text-indigo-950 border border-indigo-200/70 text-[11px] font-bold">
-                            <Users size={12} className="text-indigo-600" />
-                            {repMgr}
+          <button
+            onClick={() => setActiveTableTab('comp-off')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold transition-all ${
+              activeTableTab === 'comp-off'
+                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-md shadow-amber-600/20'
+                : 'text-slate-600 hover:text-amber-800'
+            }`}
+          >
+            <Clock size={16} className={activeTableTab === 'comp-off' ? 'text-white' : 'text-amber-600'} />
+            <span>Comp-Off Applications</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+              activeTableTab === 'comp-off' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-800'
+            }`}>
+              {allCompOffCount}
+            </span>
+            {pendingCompOffCount > 0 && (
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                activeTableTab === 'comp-off' ? 'bg-white text-rose-600 font-black' : 'bg-rose-500 text-white animate-pulse'
+              }`}>
+                {pendingCompOffCount} Pending
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Tab Content: All Leave Applications */}
+      {activeTableTab === 'all' && (
+        <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-indigo-950/5 border border-slate-200/80 overflow-hidden">
+          <div className="p-4 bg-slate-50/50 border-b border-slate-200 flex justify-between items-center">
+            <div className="flex items-center gap-2">
+              <FileCheck size={18} className="text-indigo-600" />
+              <h2 className="text-sm font-bold text-indigo-950 uppercase tracking-wider">Leave Applications</h2>
+              <span className="bg-indigo-50 text-indigo-700 px-2.5 py-0.5 rounded-full text-xs font-extrabold border border-indigo-200">
+                {filteredApplications.length} records
+              </span>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs font-medium">
+              <thead>
+                <tr className="bg-gradient-to-r from-[#1e1b4b] via-[#262760] to-[#2e3078] text-white font-bold uppercase tracking-wider">
+                  <th className="p-3.5 pl-5">S.No</th>
+                  <th className="p-3.5">Employee ID</th>
+                  <th className="p-3.5">Employee Name</th>
+                  <th className="p-3.5">Reporting Manager</th>
+                  <th className="p-3.5">Division</th>
+                  <th className="p-3.5">Leave Type</th>
+                  <th className="p-3.5">Location</th>
+                  <th className="p-3.5">Start Date</th>
+                  <th className="p-3.5">End Date</th>
+                  <th className="p-3.5 text-center">Total Days</th>
+                  <th className="p-3.5 text-center">Status</th>
+                  <th className="p-3.5 text-center pr-5">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredApplications.length > 0 ? (
+                  filteredApplications.map((app, index) => (
+                    <tr key={app.id} className="hover:bg-indigo-50/40 transition-colors">
+                      <td className="p-3.5 pl-5 text-slate-500 font-bold">{index + 1}</td>
+                      <td className="p-3.5 font-bold font-mono text-indigo-700">{app.employeeId}</td>
+                      <td className="p-3.5 font-bold text-slate-900">{app.employeeName}</td>
+                      <td className="p-3.5 font-semibold text-slate-700">
+                        {(() => {
+                          const repMgr = getDisplayReportingManager(app);
+                          return repMgr && repMgr !== '—' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-indigo-50/70 text-indigo-950 border border-indigo-200/70 text-[11px] font-bold">
+                              <Users size={12} className="text-indigo-600" />
+                              {repMgr}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">Not Assigned</span>
+                          );
+                        })()}
+                      </td>
+                      <td className="p-3.5">
+                        <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-[11px] font-semibold border border-indigo-200">
+                          {app.division || '—'}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-slate-700">
+                        {app.leaveType === 'Comp-Off' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-bold text-[11px]">
+                            <Clock size={12} className="text-amber-600" /> Comp-Off
                           </span>
                         ) : (
-                          <span className="text-slate-400 italic">Not Assigned</span>
-                        );
-                      })()}
-                    </td>
-                    <td className="p-3.5">
-                      <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-[11px] font-semibold border border-indigo-200">
-                        {app.division || '—'}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-slate-700">{app.leaveType}</td>
-                    <td className="p-3.5">
-                      <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-200">
-                        {app.location}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-slate-600">{app.fromDate}</td>
-                    <td className="p-3.5 text-slate-600">{app.toDate}</td>
-                    <td className="p-3.5 text-center font-bold">
-                      <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-xs border border-emerald-200 inline-block font-mono">
-                        {app.totalLeaveDays} {app.totalLeaveDays === 1 ? 'day' : 'days'}
-                      </span>
-                    </td>
-                    <td className="p-3.5 text-center">
-                      <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold tracking-wide uppercase inline-block ${getStatusBadgeClass(app.status)}`}>
-                        {app.status}
-                      </span>
-                    </td>
-                    <td className="p-3.5 pr-5">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => setViewLeave(app)}
-                          className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
-                          title="View Details"
-                        >
-                          <Eye size={15} />
-                        </button>
-
-                        {canApproveLeave(app.employeeId) && app.status === 'Pending' && (
-                          <>
-                            <button
-                              disabled={!!actionLoading[app.id]}
-                              onClick={() => handleApprove(app.id)}
-                              className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-all shadow-xs disabled:opacity-50 flex items-center gap-1"
-                            >
-                              {actionLoading[app.id] === 'approve' ? (
-                                <Loader2 size={13} className="animate-spin" />
-                              ) : (
-                                'Approve'
-                              )}
-                            </button>
-                            <button
-                              disabled={!!actionLoading[app.id]}
-                              onClick={() => handleReject(app.id)}
-                              className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] transition-all shadow-xs disabled:opacity-50 flex items-center gap-1"
-                            >
-                              {actionLoading[app.id] === 'reject' ? (
-                                <Loader2 size={13} className="animate-spin" />
-                              ) : (
-                                'Reject'
-                              )}
-                            </button>
-                          </>
+                          app.leaveType
                         )}
-                      </div>
-
-                      {app.documentUrl && (
-                        <div className="mt-1 text-center">
-                          <a
-                            href={`${(typeof window !== 'undefined' ? (process.env.REACT_APP_API_BASE || 'http://localhost:5003/api').replace('/api','') : '')}${app.documentUrl}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline"
+                      </td>
+                      <td className="p-3.5">
+                        <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-[11px] font-semibold border border-slate-200">
+                          {app.location}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-slate-600">{app.fromDate}</td>
+                      <td className="p-3.5 text-slate-600">{app.toDate}</td>
+                      <td className="p-3.5 text-center font-bold">
+                        <span className="bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-xs border border-emerald-200 inline-block font-mono">
+                          {app.totalLeaveDays} {app.totalLeaveDays === 1 ? 'day' : 'days'}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold tracking-wide uppercase inline-block ${getStatusBadgeClass(app.status)}`}>
+                          {app.status}
+                        </span>
+                      </td>
+                      <td className="p-3.5 pr-5">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setViewLeave(app)}
+                            className="p-1.5 rounded-lg bg-indigo-50 text-indigo-600 hover:bg-indigo-100 transition-colors"
+                            title="View Details"
                           >
-                            <span>📄</span> Certificate
-                          </a>
+                            <Eye size={15} />
+                          </button>
+
+                          {canApproveLeave(app.employeeId) && app.status === 'Pending' && (
+                            <>
+                              <button
+                                disabled={!!actionLoading[app.id]}
+                                onClick={() => handleApprove(app.id)}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-all shadow-xs disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {actionLoading[app.id] === 'approve' ? (
+                                  <Loader2 size={13} className="animate-spin" />
+                                ) : (
+                                  'Approve'
+                                )}
+                              </button>
+                              <button
+                                disabled={!!actionLoading[app.id]}
+                                onClick={() => handleReject(app.id)}
+                                className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] transition-all shadow-xs disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {actionLoading[app.id] === 'reject' ? (
+                                  <Loader2 size={13} className="animate-spin" />
+                                ) : (
+                                  'Reject'
+                                )}
+                              </button>
+                            </>
+                          )}
                         </div>
-                      )}
+
+                        {app.documentUrl && (
+                          <div className="mt-1 text-center">
+                            <a
+                              href={`${(typeof window !== 'undefined' ? (process.env.REACT_APP_API_BASE || 'http://localhost:5003/api').replace('/api','') : '')}${app.documentUrl}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-600 hover:text-indigo-800 underline"
+                            >
+                              <span>📄</span> Certificate
+                            </a>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="12" className="text-center py-12 text-slate-500 font-semibold">
+                      No leave applications found matching your filters.
                     </td>
                   </tr>
-                ))
-              ) : (
-                <tr>
-                  <td colSpan="12" className="text-center py-12 text-slate-500 font-semibold">
-                    No leave applications found matching your filters.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Footer Total Summary */}
-        {filteredApplications.length > 0 && (
-          <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-xs font-bold text-slate-700">
-            <span>Showing {filteredApplications.length} applications</span>
-            <span className="text-indigo-950 font-mono text-sm bg-indigo-50 px-3 py-1 rounded-xl border border-indigo-200">
-              Total Leave Days: <span className="text-emerald-700 font-extrabold">{totalLeaveDays} days</span>
-            </span>
+                )}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
+
+          {/* Footer Total Summary */}
+          {filteredApplications.length > 0 && (
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center text-xs font-bold text-slate-700">
+              <span>Showing {filteredApplications.length} applications</span>
+              <span className="text-indigo-950 font-mono text-sm bg-indigo-50 px-3 py-1 rounded-xl border border-indigo-200">
+                Total Leave Days: <span className="text-emerald-700 font-extrabold">{totalLeaveDays} days</span>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tab Content: Comp-Off Applications */}
+      {activeTableTab === 'comp-off' && (
+        <div className="bg-white/90 backdrop-blur-md rounded-2xl shadow-xl shadow-amber-950/5 border border-amber-200/80 overflow-hidden space-y-0">
+          {/* Header & Sub-Filter Bar */}
+          <div className="p-5 bg-gradient-to-r from-amber-50/60 via-amber-50/20 to-white border-b border-amber-200/80 flex flex-wrap justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-amber-500 text-white rounded-xl shadow-md shadow-amber-500/20">
+                <Clock size={20} />
+              </div>
+              <div>
+                <h2 className="text-sm font-extrabold text-amber-950 uppercase tracking-wider flex items-center gap-2">
+                  Comp-Off Applications
+                  <span className="bg-amber-100 text-amber-800 text-[11px] px-2.5 py-0.5 rounded-full font-bold border border-amber-300">
+                    Separate from Leave Balance
+                  </span>
+                </h2>
+                <p className="text-xs text-amber-900/70 font-medium mt-0.5">
+                  Employees apply Comp-Off for working on weekends/holidays. Approving this does NOT deduct from any leave balance.
+                </p>
+              </div>
+            </div>
+
+            {/* Quick Status Pills & Search */}
+            <div className="flex flex-wrap items-center gap-2.5">
+              <div className="relative">
+                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search Emp ID or Name..."
+                  value={compOffSearch}
+                  onChange={(e) => setCompOffSearch(e.target.value)}
+                  className="pl-8 pr-3 py-1.5 bg-white border border-slate-200 rounded-xl text-xs font-medium focus:ring-2 focus:ring-amber-500 focus:outline-none w-48 transition-all"
+                />
+              </div>
+
+              <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-bold">
+                {[
+                  { id: 'all', label: `All (${allCompOffCount})` },
+                  { id: 'Pending', label: `Pending (${pendingCompOffCount})` },
+                  { id: 'Approved', label: `Approved (${approvedCompOffCount})` },
+                  { id: 'Rejected', label: `Rejected (${rejectedCompOffCount})` },
+                ].map(opt => (
+                  <button
+                    key={opt.id}
+                    onClick={() => setCompOffFilterStatus(opt.id)}
+                    className={`px-3 py-1 rounded-lg transition-all ${
+                      compOffFilterStatus === opt.id
+                        ? 'bg-amber-500 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-amber-900'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Comp-Off Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs font-medium">
+              <thead>
+                <tr className="bg-gradient-to-r from-[#78350f] via-[#92400e] to-[#b45309] text-white font-bold uppercase tracking-wider">
+                  <th className="p-3.5 pl-5">S.No</th>
+                  <th className="p-3.5">Employee ID</th>
+                  <th className="p-3.5">Employee Name</th>
+                  <th className="p-3.5">Reporting Manager</th>
+                  <th className="p-3.5">Division</th>
+                  <th className="p-3.5">Location</th>
+                  <th className="p-3.5">Comp-Off Date(s)</th>
+                  <th className="p-3.5">Worked Date</th>
+                  <th className="p-3.5 text-center">Days</th>
+                  <th className="p-3.5">Reason</th>
+                  <th className="p-3.5">Applied Date</th>
+                  <th className="p-3.5 text-center">Status</th>
+                  <th className="p-3.5 text-center pr-5">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {compOffApplications.length > 0 ? (
+                  compOffApplications.map((app, index) => (
+                    <tr key={app.id} className="hover:bg-amber-50/40 transition-colors">
+                      <td className="p-3.5 pl-5 text-slate-500 font-bold">{index + 1}</td>
+                      <td className="p-3.5 font-bold font-mono text-amber-900">{app.employeeId}</td>
+                      <td className="p-3.5 font-bold text-slate-900">{app.employeeName}</td>
+                      <td className="p-3.5 font-semibold text-slate-700">
+                        {(() => {
+                          const repMgr = getDisplayReportingManager(app);
+                          return repMgr && repMgr !== '—' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 border border-slate-200 text-[11px] font-bold">
+                              <Users size={12} className="text-amber-700" />
+                              {repMgr}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 italic">Not Assigned</span>
+                          );
+                        })()}
+                      </td>
+                      <td className="p-3.5">
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-slate-200">
+                          {app.division || '—'}
+                        </span>
+                      </td>
+                      <td className="p-3.5">
+                        <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[11px] font-semibold border border-slate-200">
+                          {app.location}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-slate-800 font-semibold">
+                        {app.fromDate} {app.fromDate !== app.toDate && ` - ${app.toDate}`}
+                      </td>
+                      <td className="p-3.5">
+                        {app.workingDate ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 border border-amber-200 text-[11px] font-bold">
+                            <Clock size={12} className="text-amber-600" />
+                            {app.workingDate}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 italic">—</span>
+                        )}
+                      </td>
+                      <td className="p-3.5 text-center font-bold">
+                        <span className="bg-amber-50 text-amber-800 px-2.5 py-1 rounded-full text-xs border border-amber-200 inline-block font-mono">
+                          {app.totalLeaveDays} {app.totalLeaveDays === 1 ? 'day' : 'days'}
+                        </span>
+                      </td>
+                      <td className="p-3.5 text-slate-600 max-w-xs truncate" title={app.reason}>
+                        {app.reason || <span className="text-slate-400 italic">—</span>}
+                      </td>
+                      <td className="p-3.5 text-slate-500 font-medium">
+                        {app.appliedDate || app.fromDate}
+                      </td>
+                      <td className="p-3.5 text-center">
+                        <span className={`px-3 py-1 rounded-full text-[11px] font-extrabold tracking-wide uppercase inline-block ${getStatusBadgeClass(app.status)}`}>
+                          {app.status}
+                        </span>
+                      </td>
+                      <td className="p-3.5 pr-5">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => setViewLeave(app)}
+                            className="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 transition-colors"
+                            title="View Details"
+                          >
+                            <Eye size={15} />
+                          </button>
+
+                          {canApproveLeave(app.employeeId) && app.status === 'Pending' && (
+                            <>
+                              <button
+                                disabled={!!actionLoading[app.id]}
+                                onClick={() => handleApprove(app.id)}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] transition-all shadow-xs disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {actionLoading[app.id] === 'approve' ? (
+                                  <Loader2 size={13} className="animate-spin" />
+                                ) : (
+                                  'Approve'
+                                )}
+                              </button>
+                              <button
+                                disabled={!!actionLoading[app.id]}
+                                onClick={() => handleReject(app.id)}
+                                className="px-2.5 py-1 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-bold text-[11px] transition-all shadow-xs disabled:opacity-50 flex items-center gap-1"
+                              >
+                                {actionLoading[app.id] === 'reject' ? (
+                                  <Loader2 size={13} className="animate-spin" />
+                                ) : (
+                                  'Reject'
+                                )}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="13" className="text-center py-12 text-slate-500 font-semibold">
+                      No Comp-Off applications found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer Total Summary for Comp-Off */}
+          {compOffApplications.length > 0 && (
+            <div className="p-4 bg-amber-50/50 border-t border-amber-200/80 flex justify-between items-center text-xs font-bold text-slate-700">
+              <span>Showing {compOffApplications.length} Comp-Off applications</span>
+              <span className="text-amber-950 font-mono text-sm bg-white px-3 py-1 rounded-xl border border-amber-200">
+                Total Comp-Off Days: <span className="text-amber-800 font-extrabold">{compOffTotalDays} days</span>
+              </span>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* View Leave Details Modal */}
       {viewLeave && (
@@ -1047,6 +1352,17 @@ const LeaveSummary = () => {
                   {viewLeave.status}
                 </span>
               </div>
+
+              {viewLeave.workingDate && (
+                <div className="bg-amber-50/80 p-2.5 rounded-xl border border-amber-200/80 sm:col-span-2">
+                  <p className="text-[10px] font-bold text-amber-800 uppercase flex items-center gap-1.5">
+                    <Clock size={13} className="text-amber-600" />
+                    Compensatory Worked Date (Weekend / Holiday)
+                  </p>
+                  <p className="font-extrabold text-amber-950 mt-1 text-sm">{viewLeave.workingDate}</p>
+                  <p className="text-[10px] text-amber-700 font-medium mt-0.5">Comp-Off is standalone and does not deduct from any regular leave balance.</p>
+                </div>
+              )}
 
               {viewLeave.bereavementRelation && (
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/70 sm:col-span-2">

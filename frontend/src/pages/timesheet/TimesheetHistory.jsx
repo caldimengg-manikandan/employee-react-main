@@ -994,15 +994,36 @@ const TimesheetHistory = () => {
                     {(selectedTimesheet.entries || []).map((entry, index) => {
                       const hours = entry.hours || [0,0,0,0,0,0,0];
                       const rowTotal = hours.reduce((sum, h) => sum + (Number(h) || 0), 0);
+                      const isCompOff = entry.project === "Comp-Off Leave" || 
+                                        String(entry.task || "").startsWith("Comp-Off") || 
+                                        String(entry.task || "").toLowerCase().includes("comp-off") || 
+                                        String(entry.task || "").includes("COMP_OFF");
+
                       return (
-                        <tr key={index} className="border-b hover:bg-gray-50">
-                          <td className="p-3 text-sm font-medium text-gray-900">{entry.project}</td>
+                        <tr key={index} className={`border-b ${isCompOff ? "bg-amber-50/50 hover:bg-amber-100/50 border-l-4 border-l-amber-500" : "hover:bg-gray-50"}`}>
+                          <td className="p-3 text-sm font-medium text-gray-900">
+                            {isCompOff ? (
+                              <span className="inline-block px-2.5 py-1 rounded-md bg-amber-100 text-amber-950 font-bold text-xs border border-amber-300">
+                                Comp-Off Leave
+                              </span>
+                            ) : (
+                              entry.project
+                            )}
+                          </td>
                           <td className="p-3 text-sm text-gray-700">
                             <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">
                               {getProjectCode(entry)}
                             </span>
                           </td>
-                          <td className="p-3 text-sm text-gray-700">{entry.task}</td>
+                          <td className="p-3 text-sm text-gray-700">
+                            {isCompOff ? (
+                              <span className="inline-block px-2.5 py-0.5 rounded-md bg-amber-50 text-amber-900 font-bold text-xs border border-amber-200">
+                                {entry.task === "Comp-Off Leave" ? "Comp-Off Leave" : (entry.task || "Comp-Off Leave")}
+                              </span>
+                            ) : (
+                              entry.task
+                            )}
+                          </td>
                           {hours.map((h, i) => (
                           <td key={i} className="p-3 text-sm text-gray-700">{toHHMM(h)}</td>
                           ))}

@@ -28,6 +28,7 @@ const DEFAULT_LEAVE_TYPES = [
   { value: 'PL', label: 'Privilege Leave (PL)' },
   { value: 'BEREAVEMENT', label: 'Bereavement Leave' },
   { value: 'REGIONAL_HOLIDAY', label: 'Regional Holiday' },
+  { value: 'COMP_OFF', label: 'Comp-Off' },
 ];
 
 const LeaveApplications = () => {
@@ -38,6 +39,8 @@ const LeaveApplications = () => {
     dayType: 'Full Day',
     bereavementRelation: '',
     regionalHolidayName: '',
+    workingDate: '',
+    reason: '',
     supportingDocuments: null
   });
   const [fieldErrors, setFieldErrors] = useState({});
@@ -84,6 +87,9 @@ const LeaveApplications = () => {
         id: l._id,
         leaveType: l.leaveType,
         leaveTypeName: (() => {
+          if (l.leaveType === 'COMP_OFF' || l.leaveType === 'Comp-Off') {
+            return 'Comp-Off';
+          }
           if (l.leaveType === 'REGIONAL_HOLIDAY') {
             return `${allLeaveTypes.find(t => t.value === 'REGIONAL_HOLIDAY')?.label || 'Regional Holiday'}${l.regionalHolidayName ? ` - ${l.regionalHolidayName}` : ''}`;
           }
@@ -112,6 +118,8 @@ const LeaveApplications = () => {
         appliedDate: l.appliedDate,
         bereavementRelation: l.bereavementRelation || '',
         regionalHolidayName: l.regionalHolidayName || '',
+        workingDate: l.workingDate || l.compensatoryWorkingDate || null,
+        reason: l.reason || '',
         documentUrl: l.documentUrl || ''
       }));
       setLeaveHistory(mapped);
@@ -242,10 +250,18 @@ const LeaveApplications = () => {
       if (!isNaN(start.getTime()) && !isNaN(end.getTime()) && start <= end) {
         let count = 0;
         const cur = new Date(start);
+        const isCompOff = leaveData.leaveType === 'COMP_OFF' || leaveData.leaveType === 'Comp-Off';
+
         while (cur <= end) {
-          const day = cur.getDay();
-          if (day !== 0 && day !== 6) {
+          if (isCompOff) {
+            // Comp-Off: calculate every calendar day directly (including Saturday and Sunday)
             count++;
+          } else {
+            // Normal leave types (CL, SL, PL, etc.): Exclude Saturday (6) and Sunday (0)
+            const day = cur.getDay();
+            if (day !== 0 && day !== 6) {
+              count++;
+            }
           }
           cur.setDate(cur.getDate() + 1);
         }
@@ -261,10 +277,10 @@ const LeaveApplications = () => {
     } else {
       setTotalLeaveDays(0);
     }
-  }, [leaveData.startDate, leaveData.endDate, leaveData.dayType]);
+  }, [leaveData.startDate, leaveData.endDate, leaveData.dayType, leaveData.leaveType]);
 
   useEffect(() => {
-    if (leaveData.leaveType === 'REGIONAL_HOLIDAY') {
+    if (leaveData.leaveType === 'REGIONAL_HOLIDAY' || leaveData.leaveType === 'COMP_OFF' || leaveData.leaveType === 'Comp-Off') {
       setLeaveSplit(null);
       return;
     }
@@ -389,6 +405,14 @@ const LeaveApplications = () => {
     if (leaveData.leaveType === 'REGIONAL_HOLIDAY' && !leaveData.regionalHolidayName) {
       errors.regionalHolidayName = 'Regional Holiday Selection is required';
     }
+    if (leaveData.leaveType === 'COMP_OFF' || leaveData.leaveType === 'Comp-Off') {
+      if (!leaveData.workingDate) {
+        errors.workingDate = 'Compensatory Working Date is required';
+      }
+      if (!leaveData.reason || !leaveData.reason.trim()) {
+        errors.reason = 'Reason / Compensation Working Details is required for Comp-Off';
+      }
+    }
 
     if (leaveData.startDate && leaveData.endDate) {
       const start = new Date(leaveData.startDate);
@@ -428,6 +452,13 @@ const LeaveApplications = () => {
       formData.append('startDate', leaveData.startDate);
       formData.append('endDate', leaveData.endDate);
       formData.append('dayType', leaveData.dayType);
+      formData.append('totalDays', totalLeaveDays);
+      formData.append('reason', leaveData.reason || '');
+
+      if (leaveData.workingDate) {
+        formData.append('workingDate', leaveData.workingDate);
+        formData.append('compensatoryWorkingDate', leaveData.workingDate);
+      }
 
       if (leaveData.leaveType === 'BEREAVEMENT') {
         formData.append('bereavementRelation', leaveData.bereavementRelation);
@@ -477,6 +508,8 @@ const LeaveApplications = () => {
       dayType: 'Full Day',
       bereavementRelation: '',
       regionalHolidayName: '',
+      workingDate: '',
+      reason: '',
       supportingDocuments: null
     });
     setEditingLeaveId(null);
@@ -497,6 +530,8 @@ const LeaveApplications = () => {
       dayType: leave.dayType,
       bereavementRelation: leave.bereavementRelation || '',
       regionalHolidayName: leave.regionalHolidayName || '',
+      workingDate: leave.workingDate ? leave.workingDate.split('T')[0] : '',
+      reason: leave.reason || '',
       supportingDocuments: null
     });
     setIsEditModalOpen(true);
@@ -545,6 +580,8 @@ const LeaveApplications = () => {
         return <Calendar className="w-5 h-5 text-indigo-600" />;
       case 'BEREAVEMENT':
         return <Heart className="w-5 h-5 text-purple-600" />;
+      case 'COMP_OFF':
+        return <Clock className="w-5 h-5 text-amber-600" />;
       default:
         return <FileText className="w-5 h-5 text-blue-600" />;
     }
@@ -785,6 +822,36 @@ const LeaveApplications = () => {
         </div>
       )}
 
+      {(leaveData.leaveType === 'COMP_OFF' || leaveData.leaveType === 'Comp-Off') && (
+        <div className="space-y-3">
+          <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-xl text-xs text-amber-950 flex items-start gap-2.5">
+            <span className="text-base leading-none">💡</span>
+            <div>
+              <span className="font-bold">Compensatory Off (Comp-Off):</span> Granted for working on a weekend, holiday, or scheduled off day. <strong>This does not touch or deduct from your regular CL, SL, PL, or Bereavement leave balance.</strong>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+              Compensatory Working Date (Date Worked) *
+            </label>
+            <input
+              type="date"
+              name="workingDate"
+              value={leaveData.workingDate}
+              max={new Date().toISOString().split('T')[0]}
+              onChange={handleInputChange}
+              className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:ring-2 outline-none transition-all ${
+                fieldErrors.workingDate ? 'border-rose-500 focus:ring-rose-500' : 'border-slate-200 focus:ring-indigo-500 focus:bg-white'
+              }`}
+            />
+            {fieldErrors.workingDate && (
+              <p className="mt-1 text-xs text-rose-500 font-medium">{fieldErrors.workingDate}</p>
+            )}
+            <p className="text-[11px] text-slate-500 mt-1">Select the weekend or holiday date on which you worked.</p>
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
           <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
@@ -894,6 +961,42 @@ const LeaveApplications = () => {
         </div>
       )}
 
+      {(leaveData.leaveType === 'COMP_OFF' || leaveData.leaveType === 'Comp-Off') && totalLeaveDays > 0 && (
+        <div className="p-4 bg-amber-50/90 border border-amber-200 rounded-xl space-y-1.5">
+          <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wider flex items-center gap-2">
+            <Clock className="w-4 h-4 text-amber-600" /> Comp-Off Application Summary
+          </h4>
+          <div className="text-xs text-amber-900 space-y-1">
+            <div>Comp-Off Period: <span className="font-bold text-amber-950">{leaveData.startDate} to {leaveData.endDate}</span> ({totalLeaveDays} {totalLeaveDays === 1 ? 'day' : 'days'}, {leaveData.dayType})</div>
+            {leaveData.workingDate && (
+              <div>Date Worked: <span className="font-bold text-amber-950">{new Date(leaveData.workingDate).toLocaleDateString('en-GB')}</span></div>
+            )}
+            <div className="text-[11px] text-emerald-800 font-bold pt-1 flex items-center gap-1">
+              <span>✓</span> Total Separated: 0 days deducted from CL/SL/PL/Bereavement balances.
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+          Reason / Details {(leaveData.leaveType === 'COMP_OFF' || leaveData.leaveType === 'Comp-Off') ? '*' : '(Optional)'}
+        </label>
+        <textarea
+          name="reason"
+          rows="2"
+          value={leaveData.reason || ''}
+          onChange={handleInputChange}
+          placeholder={(leaveData.leaveType === 'COMP_OFF' || leaveData.leaveType === 'Comp-Off') ? 'Describe the work performed on the compensatory date...' : 'Enter reason for leave (optional)...'}
+          className={`w-full bg-slate-50 border rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:ring-2 outline-none transition-all ${
+            fieldErrors.reason ? 'border-rose-500 focus:ring-rose-500' : 'border-slate-200 focus:ring-indigo-500 focus:bg-white'
+          }`}
+        />
+        {fieldErrors.reason && (
+          <p className="mt-1 text-xs text-rose-500 font-medium">{fieldErrors.reason}</p>
+        )}
+      </div>
+
       <button
         type="submit"
         disabled={submitting}
@@ -949,8 +1052,10 @@ const LeaveApplications = () => {
                 <thead>
                   <tr className="bg-gradient-to-r from-[#1e1b4b] via-[#262760] to-[#2e3078] text-white font-bold uppercase tracking-wider">
                     <th className="p-3.5 pl-5">Leave Type</th>
-                    <th className="p-3.5">Dates</th>
+                    <th className="p-3.5">From Date</th>
+                    <th className="p-3.5">To Date</th>
                     <th className="p-3.5 text-center">Days</th>
+                    <th className="p-3.5 max-w-xs">Reason / Details</th>
                     <th className="p-3.5 text-center">Status</th>
                     <th className="p-3.5 text-center pr-5">Actions</th>
                   </tr>
@@ -970,19 +1075,34 @@ const LeaveApplications = () => {
                         </div>
                       </td>
 
-                      <td className="p-3.5 text-slate-700">
-                        <div className="font-bold text-indigo-950">
-                          {new Date(leave.startDate).toLocaleDateString('en-GB')}
-                        </div>
-                        <div className="text-[11px] text-slate-500">
-                          to {new Date(leave.endDate).toLocaleDateString('en-GB')}
-                        </div>
+                      <td className="p-3.5 font-bold text-indigo-950">
+                        {new Date(leave.startDate).toLocaleDateString('en-GB')}
+                      </td>
+
+                      <td className="p-3.5 font-bold text-indigo-950">
+                        {new Date(leave.endDate).toLocaleDateString('en-GB')}
                       </td>
 
                       <td className="p-3.5 text-center font-bold">
                         <span className="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-full text-xs border border-indigo-200 inline-block font-mono">
                           {leave.totalDays} {leave.totalDays === 1 ? 'day' : 'days'}
                         </span>
+                      </td>
+
+                      <td className="p-3.5 text-slate-600 max-w-xs" title={leave.reason || ''}>
+                        {leave.workingDate && (
+                          <div className="inline-flex items-center gap-1 px-2 py-0.5 mb-1 rounded-md bg-amber-50 border border-amber-200 text-amber-900 font-bold text-[10px]">
+                            <Calendar size={11} className="text-amber-600" />
+                            Worked: {new Date(leave.workingDate).toLocaleDateString('en-GB')}
+                          </div>
+                        )}
+                        <div>
+                          {leave.reason ? (
+                            <span className="text-xs text-slate-700 font-medium line-clamp-2">{leave.reason}</span>
+                          ) : (
+                            <span className="text-slate-400 italic">—</span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="p-3.5 text-center">
@@ -1044,7 +1164,7 @@ const LeaveApplications = () => {
 
                   {leaveHistory.length === 0 && (
                     <tr>
-                      <td colSpan="5" className="text-center py-12 text-slate-500 font-semibold">
+                      <td colSpan="7" className="text-center py-12 text-slate-500 font-semibold">
                         No leave history found. Submit your first leave request above!
                       </td>
                     </tr>
@@ -1219,6 +1339,17 @@ const LeaveApplications = () => {
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200"><span className="font-bold text-slate-900">Day Type:</span> {viewLeave.dayType}</div>
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200"><span className="font-bold text-slate-900">Days:</span> {viewLeave.totalDays}</div>
               <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200"><span className="font-bold text-slate-900">Status:</span> {viewLeave.status}</div>
+
+              {viewLeave.workingDate && (
+                <div className="bg-amber-50/80 p-2.5 rounded-xl border border-amber-200">
+                  <span className="font-bold text-amber-950">Compensatory Working Date:</span>{' '}
+                  <span className="font-semibold text-amber-900">{new Date(viewLeave.workingDate).toLocaleDateString('en-GB')}</span>
+                </div>
+              )}
+
+              {viewLeave.reason && (
+                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200"><span className="font-bold text-slate-900">Reason / Details:</span> {viewLeave.reason}</div>
+              )}
 
               {viewLeave.leaveType === 'BEREAVEMENT' && (
                 <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200"><span className="font-bold text-slate-900">Relation:</span> {viewLeave.bereavementRelation || '—'}</div>

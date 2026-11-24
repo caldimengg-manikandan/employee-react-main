@@ -2441,10 +2441,31 @@ const AdminTimesheet = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {(selectedTimesheet?.timeEntries || []).map((entry, index) => (
-                      <tr key={index} className="hover:bg-slate-50">
-                        <td className="p-3 font-semibold text-slate-800">{entry.project}</td>
-                        <td className="p-3 text-slate-600">{entry.task}</td>
+                    {(selectedTimesheet?.timeEntries || []).map((entry, index) => {
+                      const isCompOff = entry.project === "Comp-Off Leave" || 
+                                        String(entry.task || "").startsWith("Comp-Off") || 
+                                        String(entry.task || "").toLowerCase().includes("comp-off") || 
+                                        String(entry.task || "").includes("COMP_OFF");
+                      return (
+                      <tr key={index} className={isCompOff ? "bg-amber-50/60 hover:bg-amber-100/60 border-l-4 border-l-amber-500" : "hover:bg-slate-50"}>
+                        <td className="p-3 font-semibold text-slate-800">
+                          {isCompOff ? (
+                            <span className="inline-block px-2.5 py-1 rounded-md bg-amber-100 text-amber-950 font-bold text-xs border border-amber-300">
+                              Comp-Off Leave
+                            </span>
+                          ) : (
+                            entry.project
+                          )}
+                        </td>
+                        <td className="p-3 text-slate-600">
+                          {isCompOff ? (
+                            <span className="inline-block px-2 py-0.5 rounded-md bg-amber-50 text-amber-900 font-bold text-xs border border-amber-200">
+                              {entry.task === "Comp-Off Leave" ? "Comp-Off Leave" : (entry.task || "Comp-Off Leave")}
+                            </span>
+                          ) : (
+                            entry.task
+                          )}
+                        </td>
                         <td className="p-3 text-center font-mono">{entry.monday > 0 ? formatDuration(entry.monday) : '-'}</td>
                         <td className="p-3 text-center font-mono">{entry.tuesday > 0 ? formatDuration(entry.tuesday) : '-'}</td>
                         <td className="p-3 text-center font-mono">{entry.wednesday > 0 ? formatDuration(entry.wednesday) : '-'}</td>
@@ -2456,7 +2477,8 @@ const AdminTimesheet = () => {
                           {formatDuration(entry.total)}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                     <tr className="bg-slate-100 font-bold">
                       <td colSpan="9" className="p-3 text-right text-slate-800">Weekly Total:</td>
                       <td className="p-3 text-center font-mono text-indigo-950 font-extrabold text-sm">

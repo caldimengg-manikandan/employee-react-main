@@ -191,7 +191,7 @@ const Timesheet = () => {
             projectCode: e.projectCode || "",
             task: e.task || "",
             hours: Array.isArray(e.hours) ? e.hours : [0, 0, 0, 0, 0, 0, 0],
-            type: e.type || (e.project === "Leave" ? "leave" : "project"),
+            type: e.type || (e.project === "Leave" || e.project === "Comp-Off Leave" ? "leave" : "project"),
             shiftType: e.shiftType || "",
             locked: e.locked || false,
             lockedDays: e.lockedDays || [false, false, false, false, false, false, false],
@@ -220,7 +220,10 @@ const Timesheet = () => {
             (sheet.status || "").toLowerCase() === "submitted" ||
             (sheet.status || "").toLowerCase() === "approved"
           );
-          const hasApprovedLeaveEntry = rows.some(r => (r.project || "") === "Leave" && (r.task || "").startsWith("Leave Approved"));
+          const hasApprovedLeaveEntry = rows.some(r => 
+            ((r.project || "") === "Leave" || (r.project || "") === "Comp-Off Leave") && 
+            ((r.task || "").startsWith("Leave Approved") || (r.task || "").startsWith("Comp-Off") || (r.task || "").includes("COMP_OFF") || (r.project || "") === "Comp-Off Leave")
+          );
           // Disable auto-draft lock so users can edit timesheet even with approved leave
           setIsLeaveAutoDraft(false);
         }
@@ -935,7 +938,7 @@ const Timesheet = () => {
       const lockedDays = [false, false, false, false, false, false, false];
       for (let i = 0; i < 7; i++) {
         const totalLeaveHours = prev.reduce((sum, row) => {
-          if (row.type === 'leave' && (row.task || '').startsWith('Leave Approved')) {
+          if (row.type === 'leave' && ((row.task || '').startsWith('Leave Approved') || (row.task || '').startsWith('Comp-Off') || (row.task || '').includes('COMP_OFF') || row.project === 'Comp-Off Leave')) {
             return sum + (Number(row.hours[i]) || 0);
           }
           return sum;
@@ -1015,17 +1018,20 @@ const Timesheet = () => {
       return;
     }
 
-    // Block editing other entries on a day with Full Day Leave/Office Holiday/Leave Approved (Full Day)
+    // Block editing other entries on a day with Full Day Leave/Office Holiday/Leave Approved (Full Day)/Comp-Off
     const isFullDayMarked = timesheetRows.some(
       (r) =>
-        (r.task === "Full Day Leave" || r.task === "Office Holiday" || (r.task === "Leave Approved" && Number(r.hours?.[dayIndex] || 0) >= 9)) &&
+        (r.task === "Full Day Leave" || r.task === "Office Holiday" || (((r.task || "").startsWith("Leave Approved") || (r.task || "").startsWith("Comp-Off") || (r.task || "").includes("COMP_OFF") || r.project === "Comp-Off Leave") && Number(r.hours?.[dayIndex] || 0) >= 9)) &&
         (Number(r.hours?.[dayIndex] || 0) > 0)
     );
     if (
       isFullDayMarked &&
       row.task !== "Full Day Leave" &&
       row.task !== "Office Holiday" &&
-      row.task !== "Leave Approved"
+      row.task !== "Leave Approved" &&
+      !row.task?.startsWith("Leave Approved") &&
+      !row.task?.startsWith("Comp-Off") &&
+      row.project !== "Comp-Off Leave"
     ) {
       showError("Leave/Holiday applied on this day; other entries are blocked.");
       return;
@@ -1171,7 +1177,7 @@ const Timesheet = () => {
     // Check if there is approved leave (use current state + current row update if applicable)
     // Note: If we are editing the "Leave Approved" row itself, we should use numValue
     const hasApprovedLeave = timesheetRows.some(
-      (r) => (r.task || "").startsWith("Leave Approved") && (r.id === id ? numValue : Number(r.hours?.[dayIndex] || 0)) > 0
+      (r) => ((r.task || "").startsWith("Leave Approved") || (r.task || "").startsWith("Comp-Off") || (r.task || "").includes("COMP_OFF") || r.project === "Comp-Off Leave") && (r.id === id ? numValue : Number(r.hours?.[dayIndex] || 0)) > 0
     );
 
     // Break time is disabled/removed per requirement
@@ -1182,7 +1188,7 @@ const Timesheet = () => {
     // WE RELAX THIS CHECK if there is a Half Day Leave / Leave Approved (Partial), 
     // to allow entering project hours even if biometric data is missing/short.
     const hasPartialLeave = timesheetRows.some(
-      (r) => (r.task === "Half Day Leave" || ((r.task || "").startsWith("Leave Approved") && Number(r.hours?.[dayIndex] || 0) < 9)) &&
+      (r) => (r.task === "Half Day Leave" || (((r.task || "").startsWith("Leave Approved") || (r.task || "").startsWith("Comp-Off") || (r.task || "").includes("COMP_OFF") || r.project === "Comp-Off Leave") && Number(r.hours?.[dayIndex] || 0) < 9)) &&
         Number(r.hours?.[dayIndex] || 0) > 0
     );
 
@@ -1234,7 +1240,7 @@ const Timesheet = () => {
 
   const hasFullDayLeave = (dayIndex) => {
     return timesheetRows.some(row =>
-      (row.task === 'Full Day Leave' || row.task === 'Office Holiday' || ((row.task || "").startsWith('Leave Approved') && Number(row.hours[dayIndex] || 0) >= 9)) &&
+      (row.task === 'Full Day Leave' || row.task === 'Office Holiday' || (((row.task || "").startsWith('Leave Approved') || (row.task || "").startsWith('Comp-Off') || (row.task || "").includes('COMP_OFF') || row.project === 'Comp-Off Leave') && Number(row.hours[dayIndex] || 0) >= 9)) &&
       Number(row.hours[dayIndex] || 0) > 0
     );
   };
@@ -1245,11 +1251,11 @@ const Timesheet = () => {
     const nextRows = timesheetRows.map(r => ({ ...r, hours: [...r.hours] }));
     for (let d = 0; d < daysCount; d++) {
       const hasFull = nextRows.some(
-        (r) => (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || ((r.task || "").startsWith('Leave Approved') && Number(r.hours?.[d] || 0) >= 9)) && (Number(r.hours?.[d] || 0) > 0)
+        (r) => (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || (((r.task || "").startsWith('Leave Approved') || (r.task || "").startsWith('Comp-Off') || (r.task || "").includes('COMP_OFF') || r.project === 'Comp-Off Leave') && Number(r.hours?.[d] || 0) >= 9)) && (Number(r.hours?.[d] || 0) > 0)
       );
       if (!hasFull) continue;
       nextRows.forEach((r) => {
-        if (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || (r.task || "").startsWith('Leave Approved')) return;
+        if (r.task === 'Full Day Leave' || r.task === 'Office Holiday' || (r.task || "").startsWith('Leave Approved') || (r.task || "").startsWith('Comp-Off') || (r.task || "").includes('COMP_OFF') || r.project === 'Comp-Off Leave') return;
         if ((r.hours?.[d] || 0) > 0) {
           r.hours[d] = 0;
           updated = true;
@@ -1738,7 +1744,7 @@ const Timesheet = () => {
 
   const hasAnyApprovedLeave = (dayIndex) => {
     return timesheetRows.some(
-      (row) => (row.task || "").startsWith("Leave Approved") && Number(row.hours?.[dayIndex] || 0) > 0
+      (row) => ((row.task || "").startsWith("Leave Approved") || (row.task || "").startsWith("Comp-Off") || (row.task || "").includes("COMP_OFF") || row.project === "Comp-Off Leave") && Number(row.hours?.[dayIndex] || 0) > 0
     );
   };
 
@@ -2248,15 +2254,25 @@ const Timesheet = () => {
             </thead>
 
             <tbody>
-              {timesheetRows.map((row, index) => (
-                <tr key={row.id} className="hover:bg-gray-50">
+              {timesheetRows.map((row, index) => {
+                const isCompOffRow = row.project === "Comp-Off Leave" || 
+                                     String(row.task || "").startsWith("Comp-Off") || 
+                                     String(row.task || "").toLowerCase().includes("comp-off") || 
+                                     String(row.task || "").includes("COMP_OFF");
+
+                return (
+                <tr key={row.id} className={isCompOffRow ? "bg-amber-50/60 hover:bg-amber-100/60 transition-colors border-l-4 border-l-amber-500" : "hover:bg-gray-50"}>
                   <td className="p-3 text-gray-900 text-center border border-gray-200">
                     {index + 1}
                   </td>
 
                   {/* Project Name Column */}
                   <td className="p-2 border border-gray-200">
-                    {row.type === "leave" ? (
+                    {isCompOffRow ? (
+                      <div className="w-full p-2 text-amber-950 bg-amber-200/80 border border-amber-300 rounded text-sm font-bold text-center shadow-xs">
+                        Comp-Off Leave
+                      </div>
+                    ) : row.type === "leave" ? (
                       <div className="w-full p-2 text-blue-800 rounded text-sm font-semibold text-center">
                         Leave
                       </div>
@@ -2292,7 +2308,15 @@ const Timesheet = () => {
                   </td>
 
                   <td className="p-2 border border-gray-200">
-                    {row.task === "Office Holiday" || row.task === "Permission" || row.type === "special" ? (
+                    {isCompOffRow ? (
+                      <div className="w-full p-2 text-amber-950 bg-amber-100/90 border border-amber-300 rounded text-sm font-bold text-center shadow-xs">
+                        {row.task === "Comp-Off Leave" ? "Comp-Off Leave" : (row.task || "Comp-Off Leave")}
+                      </div>
+                    ) : (row.task || "").startsWith("Leave Approved") ? (
+                      <div className="w-full p-2 text-blue-800 bg-blue-50 border border-blue-200 rounded text-sm font-semibold text-center">
+                        {row.task}
+                      </div>
+                    ) : row.task === "Office Holiday" || row.task === "Permission" || row.type === "special" ? (
                       <div className={`w-full p-2 ${row.task === "Office Holiday" ? "text-green-800" : row.type === "special" ? "text-purple-800 bg-purple-100" : "text-blue-800"} rounded text-sm font-semibold text-center`}>
                         {row.task}
                       </div>
@@ -2345,14 +2369,15 @@ const Timesheet = () => {
                               if (e.currentTarget) e.currentTarget.blur();
                             }
                             if (e.key === 'ArrowUp') {
-                              // Don't allow arrow keys for Leave Approved
+                              // Don't allow arrow keys for Leave Approved / Comp-Off
                               if (
                                 row.type !== "project" &&
                                 row.task !== "Permission" &&
                                 row.task !== "Full Day Leave" &&
                                 row.task !== "Office Holiday" &&
                                 row.task !== "Half Day Leave" &&
-                                !row.task.startsWith("Leave Approved")  // Added this condition
+                                !row.task?.startsWith("Leave Approved") &&
+                                !isCompOffRow
                               ) {
                                 const key = `${row.id}_${dayIndex}`;
                                 const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
@@ -2368,14 +2393,15 @@ const Timesheet = () => {
                               }
                             }
                             if (e.key === 'ArrowDown') {
-                              // Don't allow arrow keys for Leave Approved
+                              // Don't allow arrow keys for Leave Approved / Comp-Off
                               if (
                                 row.type !== "project" &&
                                 row.task !== "Permission" &&
                                 row.task !== "Full Day Leave" &&
                                 row.task !== "Office Holiday" &&
                                 row.task !== "Half Day Leave" &&
-                                !row.task.startsWith("Leave Approved")  // Added this condition
+                                !row.task?.startsWith("Leave Approved") &&
+                                !isCompOffRow
                               ) {
                                 const key = `${row.id}_${dayIndex}`;
                                 const baseStr = cellInputs[key] ?? formatHoursHHMM(hours || 0);
@@ -2406,7 +2432,10 @@ const Timesheet = () => {
                               return next;
                             });
                           }}
-                          className={`w-20 p-2 ${row.type !== "project" ? "pr-6" : ""} border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${(row.type === "project" ? (!row.project || !row.task) : (!row.task))
+                          className={`w-20 p-2 ${row.type !== "project" ? "pr-6" : ""} border border-gray-300 rounded text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                            isCompOffRow && Number(hours) > 0
+                              ? "bg-amber-100 text-amber-950 font-bold border-amber-400"
+                              : (row.type === "project" ? (!row.project || !row.task) : (!row.task))
                             ? "bg-gray-100 cursor-not-allowed"
                             : (row.type === "project" && (dayIndex === 5 || dayIndex === 6))
                               ? "bg-gray-100 cursor-not-allowed"
@@ -2455,7 +2484,7 @@ const Timesheet = () => {
                           row.task !== "Full Day Leave" &&
                           row.task !== "Office Holiday" &&
                           row.task !== "Half Day Leave" &&
-                          !row.task.startsWith("Leave Approved") && (  // Added this condition
+                          !row.task?.startsWith("Leave Approved") && !isCompOffRow && (  // Added this condition
                             <div className="absolute right-1 inset-y-1 flex flex-col justify-between">
                               <button
                                 onClick={() => {
@@ -2513,7 +2542,7 @@ const Timesheet = () => {
                     </td>
                   ))}
 
-                  <td className="p-3 font-semibold text-green-600 text-center border border-gray-200 w-24">
+                  <td className={`p-3 font-semibold text-center border border-gray-200 w-24 ${isCompOffRow ? "text-amber-950 bg-amber-100/70 font-bold" : "text-green-600"}`}>
                     {formatHoursHHMM(row.hours.reduce((sum, hours) => sum + hours, 0))}
                   </td>
 
@@ -2528,7 +2557,8 @@ const Timesheet = () => {
                     </button>
                   </td>
                 </tr>
-              ))}
+              );
+            })}
             </tbody>
 
             <tfoot className="bg-gray-50">

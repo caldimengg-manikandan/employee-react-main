@@ -37,7 +37,7 @@ function toUtcDayRange(dateInput) {
 }
 
 function normalizeLeaveType(value) {
-  return String(value || '').trim().toUpperCase().replace(/\s+/g, '_');
+  return String(value || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
 }
 
 async function getTeamManagementAssignmentSets(userEmployeeId) {
@@ -56,6 +56,32 @@ async function getTeamManagementAssignmentSets(userEmployeeId) {
       if (userEmployeeId && t.leaderEmployeeId === userEmployeeId) {
         mine.add(m);
       }
+    }
+  }
+
+  // Also include direct reports where user is appraiser, reviewer, or reporting manager
+  if (userEmployeeId) {
+    try {
+      const userEmp = await Employee.findOne({ employeeId: userEmployeeId }).select('name').lean();
+      const query = {
+        $or: [
+          { reportingManagerId: userEmployeeId },
+          { leaderEmployeeId: userEmployeeId }
+        ]
+      };
+      if (userEmp?.name) {
+        query.$or.push({ appraiser: userEmp.name });
+        query.$or.push({ reviewer: userEmp.name });
+      }
+      const directReports = await Employee.find(query).select('employeeId').lean();
+      for (const dr of directReports) {
+        if (dr.employeeId) {
+          mine.add(dr.employeeId);
+          allAssigned.add(dr.employeeId);
+        }
+      }
+    } catch (e) {
+      console.error('Error fetching direct reports for assignment sets:', e);
     }
   }
 
@@ -373,14 +399,20 @@ async function syncTimesheetWithLeave(leaveApp) {
     console.log(`Processing date: ${loopDate.toISOString()}, dayIndex: ${dayIndex}`);
 
     if (dayIndex >= 0 && dayIndex <= 6) {
-      const taskName = `Leave Approved (${leaveApp.leaveType})`;
-      let leaveEntry = timesheet.entries.find(e => e.project === 'Leave' && e.task === taskName);
+      const isCompOff = String(leaveApp.leaveType || '').toUpperCase() === 'COMP_OFF' || 
+                        String(leaveApp.leaveType || '').toLowerCase() === 'comp-off';
+      const projectName = isCompOff ? 'Comp-Off Leave' : 'Leave';
+      const taskName = isCompOff ? 'Comp-Off Leave' : `Leave Approved (${leaveApp.leaveType})`;
+      let leaveEntry = timesheet.entries.find(e => 
+        (e.project === projectName || (isCompOff && (e.project === 'Comp-Off Leave' || e.project === 'Leave'))) && 
+        (e.task === taskName || (isCompOff && (e.task === 'Comp-Off Leave' || (e.task || '').includes('COMP_OFF') || (e.task || '').includes('Comp-Off'))))
+      );
 
       if (leaveApp.status === 'Approved') {
         if (!leaveEntry) {
-          console.log("Adding new Leave Approved entry.");
+          console.log(`Adding new ${projectName} entry.`);
           timesheet.entries.push({
-            project: 'Leave',
+            project: projectName,
             task: taskName,
             type: 'leave',
             hours: [0, 0, 0, 0, 0, 0, 0],
@@ -388,7 +420,9 @@ async function syncTimesheetWithLeave(leaveApp) {
           });
           leaveEntry = timesheet.entries[timesheet.entries.length - 1];
         } else {
-          console.log("Updating existing Leave Approved entry.");
+          console.log(`Updating existing ${projectName} entry.`);
+          leaveEntry.project = projectName;
+          leaveEntry.task = taskName;
           leaveEntry.locked = true;
         }
 
@@ -402,7 +436,7 @@ async function syncTimesheetWithLeave(leaveApp) {
 
         // Calculate total leave hours for this day
         const totalLeaveHours = timesheet.entries.reduce((sum, e) => {
-          if (e.type === 'leave' && (e.task || '').startsWith('Leave Approved')) {
+          if (e.type === 'leave' && ((e.task || '').startsWith('Leave Approved') || (e.task || '').startsWith('Comp-Off') || e.project === 'Comp-Off Leave')) {
             return sum + (Number(e.hours[dayIndex]) || 0);
           }
           return sum;
@@ -429,7 +463,7 @@ async function syncTimesheetWithLeave(leaveApp) {
 
           // Unlock project entries for this day if no longer fully covered by leave
           const totalLeaveHours = timesheet.entries.reduce((sum, e) => {
-            if (e.type === 'leave' && (e.task || '').startsWith('Leave Approved')) {
+            if (e.type === 'leave' && ((e.task || '').startsWith('Leave Approved') || (e.task || '').startsWith('Comp-Off') || e.project === 'Comp-Off Leave')) {
               return sum + (Number(e.hours[dayIndex]) || 0);
             }
             return sum;
@@ -446,7 +480,7 @@ async function syncTimesheetWithLeave(leaveApp) {
           const totalHours = leaveEntry.hours.reduce((a, b) => a + (Number(b) || 0), 0);
           if (totalHours === 0) {
             // Remove the entry if no hours left
-            console.log("Removing empty Leave Approved entry.");
+            console.log(`Removing empty ${projectName} entry.`);
             timesheet.entries.pull(leaveEntry._id);
           }
         }
@@ -958,6 +992,12 @@ router.get('/allocation-history', auth, async (req, res) => {
 router.get('/preview-split', auth, async (req, res) => {
   try {
     const { days, employeeId, leaveType, excludeLeaveId, startDate, endDate, dayType } = req.query;
+
+    if (normalizeLeaveType(leaveType) === 'COMP_OFF') {
+      const split = { clUsed: 0, slUsed: 0, plUsed: 0, blUsed: 0, negativePL: 0, lopDays: 0, remainingBalance: 0 };
+      return res.json({ success: true, data: split, ...split });
+    }
+
     let requestedDays = parseFloat(days);
     if (isNaN(requestedDays) || requestedDays <= 0) {
       if (startDate && endDate) {
@@ -1559,15 +1599,38 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
     if (isExcludedFromLeave(req.user?.employeeId)) {
       return res.status(400).json({ error: 'Leave applications are not applicable for this employee.' });
     }
-    const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, regionalHolidayName, totalDays } = req.body;
+    const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, regionalHolidayName, totalDays, workingDate, compensatoryWorkingDate } = req.body;
     
     const normalizedType = normalizeLeaveType(leaveType);
-    const finalLeaveType = normalizedType === REGIONAL_HOLIDAY_TYPE ? REGIONAL_HOLIDAY_TYPE : leaveType;
+    const finalLeaveType = normalizedType === REGIONAL_HOLIDAY_TYPE 
+      ? REGIONAL_HOLIDAY_TYPE 
+      : (normalizedType === 'COMP_OFF' ? 'COMP_OFF' : leaveType);
 
     let finalStartDate = startDate;
     let finalEndDate = endDate;
     let finalDayType = dayType;
     let finalDays = null;
+
+    if (normalizedType === 'COMP_OFF') {
+      const s = new Date(startDate);
+      const e = new Date(endDate);
+      if (!startDate || !endDate || isNaN(s.getTime()) || isNaN(e.getTime()) || s > e) {
+        return res.status(400).json({ error: 'Please select valid start and end dates' });
+      }
+      if (!reason || !reason.trim()) {
+        return res.status(400).json({ error: 'Reason / Compensation Working Details is required for Comp-Off' });
+      }
+      let count = 0;
+      const cur = new Date(s);
+      while (cur <= e) {
+        count++;
+        cur.setDate(cur.getDate() + 1);
+      }
+      if (finalDayType === 'Half Day' && count === 1) {
+        count = 0.5;
+      }
+      finalDays = typeof totalDays === 'number' && totalDays > 0 ? totalDays : count;
+    }
 
     if (normalizedType === REGIONAL_HOLIDAY_TYPE) {
       const start = new Date(startDate);
@@ -1690,6 +1753,8 @@ router.post('/', auth, checkActiveEmployee, upload.single('supportingDocuments')
       lopDays: split.lopDays,
       remainingBalance: split.remainingBalance,
       reason: reason || '',
+      workingDate: workingDate || compensatoryWorkingDate || null,
+      compensatoryWorkingDate: workingDate || compensatoryWorkingDate || null,
       bereavementRelation: bereavementRelation || '',
       regionalHolidayName: normalizedType === REGIONAL_HOLIDAY_TYPE ? (regionalHolidayName || '') : '',
       documentUrl: '',
@@ -1825,7 +1890,7 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
     if (existing.status !== 'Pending') {
       return res.status(400).json({ error: 'Only Pending applications can be edited' });
     }
-    const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, regionalHolidayName, totalDays } = req.body;
+    const { leaveType, startDate, endDate, dayType, reason, bereavementRelation, regionalHolidayName, totalDays, workingDate, compensatoryWorkingDate } = req.body;
     
     // Check if new file was uploaded
     let documentUrl = existing.documentUrl;
@@ -1842,7 +1907,9 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
     }
     const nextLeaveTypeRaw = leaveType || existing.leaveType;
     const normalizedType = normalizeLeaveType(nextLeaveTypeRaw);
-    const nextLeaveType = normalizedType === REGIONAL_HOLIDAY_TYPE ? REGIONAL_HOLIDAY_TYPE : nextLeaveTypeRaw;
+    const nextLeaveType = normalizedType === REGIONAL_HOLIDAY_TYPE 
+      ? REGIONAL_HOLIDAY_TYPE 
+      : (normalizedType === 'COMP_OFF' ? 'COMP_OFF' : nextLeaveTypeRaw);
     const nextStartDate = startDate || existing.startDate;
     const nextEndDate = endDate || existing.endDate;
     const nextDayType = dayType || existing.dayType;
@@ -1851,6 +1918,22 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
     let finalDayType = nextDayType;
     let finalDays = null;
     let finalRegionalHolidayName = '';
+
+    if (normalizedType === 'COMP_OFF') {
+      const s = new Date(nextStartDate);
+      const e = new Date(nextEndDate);
+      if (isNaN(s.getTime()) || isNaN(e.getTime()) || s > e) {
+        return res.status(400).json({ error: 'Please select valid start and end dates' });
+      }
+      let count = 0;
+      const cur = new Date(s);
+      while (cur <= e) {
+        count++;
+        cur.setDate(cur.getDate() + 1);
+      }
+      if (finalDayType === 'Half Day' && count === 1) count = 0.5;
+      finalDays = typeof totalDays === 'number' && totalDays > 0 ? totalDays : count;
+    }
 
     if (normalizedType === REGIONAL_HOLIDAY_TYPE) {
       const nextHolidayName = typeof regionalHolidayName === 'string' ? regionalHolidayName : (existing.regionalHolidayName || '');
@@ -1954,6 +2037,8 @@ router.put('/:id', auth, upload.single('supportingDocuments'), async (req, res) 
         lopDays: split.lopDays,
         remainingBalance: split.remainingBalance,
         reason: typeof reason === 'string' ? reason : existing.reason,
+        workingDate: (workingDate || compensatoryWorkingDate) !== undefined ? (workingDate || compensatoryWorkingDate) : existing.workingDate,
+        compensatoryWorkingDate: (workingDate || compensatoryWorkingDate) !== undefined ? (workingDate || compensatoryWorkingDate) : existing.compensatoryWorkingDate,
         bereavementRelation: typeof bereavementRelation === 'string' ? bereavementRelation : existing.bereavementRelation,
         regionalHolidayName: normalizedType === REGIONAL_HOLIDAY_TYPE
           ? finalRegionalHolidayName
@@ -2029,6 +2114,11 @@ const LEAVE_TYPES_CONFIG = [
   {
     value: 'REGIONAL_HOLIDAY',
     label: 'Regional Holiday',
+    alwaysDisplay: true
+  },
+  {
+    value: 'COMP_OFF',
+    label: 'Comp-Off',
     alwaysDisplay: true
   }
 ];

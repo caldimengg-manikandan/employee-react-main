@@ -76,7 +76,8 @@ async function sendTimesheetApprovalRequestEmail(user, sheet) {
     const toHHMM = (n) => { const totalMin = Math.round(Number(n || 0) * 60); const h = Math.floor(totalMin / 60); const m = totalMin % 60; return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`; };
     const workWeeklyTotal = entries.reduce((sum, e) => { const hrs = Array.isArray(e.hours) ? e.hours : []; return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0); }, 0);
     const leaveApprovedWeeklyTotal = entries.reduce((sum, e) => {
-      const isLeaveApproved = ((e.type || "project") === "leave") && String(e.task || "").toLowerCase().includes("leave approved");
+      const isLeaveApproved = ((e.type || "project") === "leave" || e.project === "Leave" || e.project === "Comp-Off Leave") && 
+        (String(e.task || "").toLowerCase().includes("leave approved") || String(e.task || "").toLowerCase().includes("comp-off") || e.project === "Comp-Off Leave");
       if (!isLeaveApproved) return sum;
       const hrs = Array.isArray(e.hours) ? e.hours : [];
       return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0);
@@ -220,7 +221,8 @@ async function sendTimesheetSubmittedEmail(user, sheet) {
       return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0);
     }, 0);
     const leaveApprovedWeeklyTotal = entries.reduce((sum, e) => {
-      const isLeaveApproved = ((e.type || "project") === "leave") && String(e.task || "").toLowerCase().includes("leave approved");
+      const isLeaveApproved = ((e.type || "project") === "leave" || e.project === "Leave" || e.project === "Comp-Off Leave") && 
+        (String(e.task || "").toLowerCase().includes("leave approved") || String(e.task || "").toLowerCase().includes("comp-off") || e.project === "Comp-Off Leave");
       if (!isLeaveApproved) return sum;
       const hrs = Array.isArray(e.hours) ? e.hours : [];
       return sum + hrs.reduce((a, b) => a + (Number(b) || 0), 0);
@@ -580,11 +582,11 @@ async function syncApprovedLeavesForWeek(userId, employeeId, weekStart, weekEnd,
     const we = new Date(weekEnd);
     const weekEndUtc = new Date(Date.UTC(we.getUTCFullYear(), we.getUTCMonth(), we.getUTCDate(), 23, 59, 59, 999));
 
-    // 1. Remove ONLY system-generated Leave Approved rows from entries
+    // 1. Remove ONLY system-generated Leave Approved & Comp-Off rows from entries
     // Preserve manual leave rows like "Full Day Leave", "Half Day Leave", "Permission", "Office Holiday"
     const nonLeaveApprovedEntries = (Array.isArray(entries) ? entries : []).filter(e => {
-      const isLeaveApproved = (e.type === "leave" || e.project === "Leave") &&
-        String(e.task || "").startsWith("Leave Approved");
+      const isLeaveApproved = (e.type === "leave" || e.project === "Leave" || e.project === "Comp-Off Leave") &&
+        (String(e.task || "").startsWith("Leave Approved") || String(e.task || "").toLowerCase().includes("comp-off") || e.project === "Comp-Off Leave");
       return !isLeaveApproved;
     });
 
@@ -610,13 +612,18 @@ async function syncApprovedLeavesForWeek(userId, employeeId, weekStart, weekEnd,
       const leaveEnd = new Date(leave.endDate);
       const leaveEndUtc = new Date(Date.UTC(leaveEnd.getUTCFullYear(), leaveEnd.getUTCMonth(), leaveEnd.getUTCDate(), 23, 59, 59, 999));
 
+      const isCompOff = String(leave.leaveType || '').toUpperCase() === 'COMP_OFF' || 
+                        String(leave.leaveType || '').toLowerCase() === 'comp-off';
+      const projectName = isCompOff ? "Comp-Off Leave" : "Leave";
+      const projectCode = isCompOff ? "COMP_OFF" : "LEAVE";
+      const taskName = isCompOff ? "Comp-Off Leave" : `Leave Approved (${leave.leaveType || "Leave"})`;
+
       const leaveHours = leave.dayType === "Half Day" ? 4.75 : 9.5;
-      const taskName = `Leave Approved (${leave.leaveType || "Leave"})`;
 
       if (!leaveMap[taskName]) {
         leaveMap[taskName] = {
-          project: "Leave",
-          projectCode: "LEAVE",
+          project: projectName,
+          projectCode: projectCode,
           task: taskName,
           type: "leave",
           hours: [0, 0, 0, 0, 0, 0, 0],
