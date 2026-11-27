@@ -2067,69 +2067,81 @@ We’re excited to have you join our team and look forward to your growth and su
           <div style={{ height: '165px', width: '100%', flexShrink: 0 }} />
 
           {/* Letter Body Content */}
-          <div style={{ paddingLeft: '52px', paddingRight: '52px', paddingTop: '6px', paddingBottom: '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '16px', marginBottom: '12px', textDecoration: 'underline', color: '#1b2752' }}>
+          <div style={{ paddingLeft: '56px', paddingRight: '56px', paddingTop: '4px', paddingBottom: '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '15px', marginBottom: '14px', textDecoration: 'underline', color: '#1b2752', letterSpacing: '0.5px' }}>
               ANNEXURE<br/>TERMS & CONDITIONS OF EMPLOYMENT
             </div>
             
-            <div style={{ marginBottom: '9px', fontSize: '10.5pt' }}>
-              <strong>1. Provident Fund (PF)</strong>
-              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.45', color: '#374151' }}>
-                <li>Employees contribute 12% of basic salary towards PF as per statutory norms.</li>
-                <li>The Company contributes an equal 12% towards PF.</li>
-                <li>PF balances will be settled as per PF rules upon separation.</li>
+            {/* 1. Provident Fund (PF) */}
+            <div style={{ marginBottom: '13px', fontSize: '10pt' }}>
+              <div style={{ fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
+                1. Provident Fund (PF)
+              </div>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '28px', margin: 0, lineHeight: '1.45', color: '#374151' }}>
+                <li style={{ marginBottom: '2px' }}>Employees contribute 12% of ceiling towards PF as per statutory norms.</li>
+                <li style={{ marginBottom: '2px' }}>The Company contributes an equal 12% towards PF.</li>
+                <li style={{ marginBottom: '2px' }}>PF balances will be settled as per PF rules upon separation.</li>
               </ul>
             </div>
 
-            <div style={{ marginBottom: '9px', fontSize: '10.5pt' }}>
-              <strong>2. Gratuity</strong>
-              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.45', color: '#374151' }}>
-                <li>Payable under the Payment of Gratuity Act, as per Indian Government norms.</li>
-                <li>Formula: Gratuity = Basic × No. of Years × (15/26)</li>
+            {/* 2. Gratuity */}
+            <div style={{ marginBottom: '13px', fontSize: '10pt' }}>
+              <div style={{ fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
+                2. Gratuity
+              </div>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '28px', margin: 0, lineHeight: '1.45', color: '#374151' }}>
+                <li style={{ marginBottom: '2px' }}>Payable under the Payment of Gratuity Act, as per Indian Government norms.</li>
+                <li style={{ marginBottom: '2px' }}>Formula: Gratuity = Basic × No. of Years × (15/26)</li>
               </ul>
             </div>
             
-            <div style={{ marginBottom: '9px', fontSize: '10.5pt' }}>
-              <strong>3. Leave Policy</strong>
-              <div style={{ paddingLeft: '8px', marginTop: '3px' }}>
-                <strong style={{ color: '#1f2937' }}>Applicability:</strong>
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '2px', marginBottom: '5px', lineHeight: '1.45', color: '#374151' }}>
-                  <li>Experienced Employees: Leave benefits apply post-probation.</li>
-                  <li>Trainees: 1 day leave/month during training. On confirmation, regular leave norms apply.</li>
+            {/* 3. Leave Policy */}
+            <div style={{ marginBottom: '13px', fontSize: '10pt' }}>
+              <div style={{ fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
+                3. Leave Policy
+              </div>
+              <div style={{ paddingLeft: '12px' }}>
+                <div style={{ fontWeight: 'bold', color: '#1f2937', marginTop: '3px', marginBottom: '2px' }}>
+                  Applicability:
+                </div>
+                <ul style={{ listStyleType: 'disc', paddingLeft: '28px', margin: '0 0 5px 0', lineHeight: '1.45', color: '#374151' }}>
+                  <li style={{ marginBottom: '2px' }}>Experienced Employees: Leave benefits apply post-probation.</li>
+                  <li style={{ marginBottom: '2px' }}>Trainees: 1 day leave/month during training. On confirmation, regular leave norms apply.</li>
                 </ul>
-                <strong style={{ color: '#1f2937' }}>Entitlements:</strong>
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '2px', marginBottom: '5px', lineHeight: '1.45', color: '#374151' }}>
-                  <li>Casual Leave (CL): 0.5 day/month</li>
-                  <li>Sick Leave (SL): 0.5 day/month (medical proof for extended absence)</li>
-                  <li>Privilege/Earned Leave (PL/EL): 15 days/year. Accumulable for up to 2 years.</li>
-                  <li>Bereavement Leave: 2 days paid leave for loss of immediate family</li>
-                  <li>Sandwich Leave: Leaves adjoining holidays will be treated as continuous</li>
+
+                <div style={{ fontWeight: 'bold', color: '#1f2937', marginTop: '3px', marginBottom: '2px' }}>
+                  Entitlements:
+                </div>
+                <ul style={{ listStyleType: 'disc', paddingLeft: '28px', margin: '0 0 5px 0', lineHeight: '1.45', color: '#374151' }}>
+                  <li style={{ marginBottom: '2px' }}>Casual Leave (CL): 0.5 day/month</li>
+                  <li style={{ marginBottom: '2px' }}>Sick Leave (SL): 0.5 day/month (medical proof for extended absence)</li>
+                  <li style={{ marginBottom: '2px' }}>Privilege/Earned Leave (PL/EL): 15 days/year. Accumulable for up to 2 years.</li>
+                  <li style={{ marginBottom: '2px' }}>Bereavement Leave: 2 days paid leave for loss of immediate family</li>
+                  <li style={{ marginBottom: '2px' }}>Sandwich Leave: Leaves adjoining holidays will be treated as continuous</li>
                 </ul>
-                <strong style={{ color: '#1f2937' }}>Holidays:</strong>
-                <ul style={{ listStyleType: 'circle', paddingLeft: '20px', marginTop: '2px', marginBottom: '0px', lineHeight: '1.45', color: '#374151' }}>
-                  <li>Declared holidays will be issued annually. Saturdays and Sundays are holidays.</li>
-                  <li>Employees working on holidays receive additional payment, subject to 9-hour completion.</li>
+
+                <div style={{ fontWeight: 'bold', color: '#1f2937', marginTop: '3px', marginBottom: '2px' }}>
+                  Holidays:
+                </div>
+                <ul style={{ listStyleType: 'disc', paddingLeft: '28px', margin: 0, lineHeight: '1.45', color: '#374151' }}>
+                  <li style={{ marginBottom: '2px' }}>Declared holidays will be issued annually. Saturdays and Sundays are holidays.</li>
+                  <li style={{ marginBottom: '2px' }}>Employees working on holidays receive additional payment, subject to 9-hour completion.</li>
                 </ul>
               </div>
             </div>
 
-            <div style={{ marginBottom: '9px', fontSize: '10.5pt' }}>
-              <strong>4. Monthly Permission</strong>
-              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.45', color: '#374151' }}>
-                <li>3 permissions/month, maximum of 1 hour each.</li>
-                <li>Even shorter durations count as one permission.</li>
-              </ul>
-            </div>
-            
-            <div style={{ marginBottom: '9px', fontSize: '10.5pt' }}>
-              <strong>5. Bonus</strong>
-              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.45', color: '#374151' }}>
-                <li>Pro-rata bonus applicable during the first year.</li>
-                <li>Standard annual bonus of ₹7,500 after one year of continuous service.</li>
+            {/* 4. Monthly Permission */}
+            <div style={{ marginBottom: '13px', fontSize: '10pt' }}>
+              <div style={{ fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
+                4. Monthly Permission
+              </div>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '28px', margin: 0, lineHeight: '1.45', color: '#374151' }}>
+                <li style={{ marginBottom: '2px' }}>3 permissions/month, maximum of 1 hour each.</li>
+                <li style={{ marginBottom: '2px' }}>Even shorter durations count as one permission.</li>
               </ul>
             </div>
 
-            <div style={{ marginTop: 'auto', fontSize: '10pt', fontStyle: 'italic', textAlign: 'right', color: '#6b7280' }}>
+            <div style={{ marginTop: 'auto', fontSize: '9.5pt', fontStyle: 'italic', textAlign: 'right', color: '#6b7280', paddingRight: '8px', paddingBottom: '4px' }}>
               (Continued in next page...)
             </div>
           </div>
@@ -2165,37 +2177,68 @@ We’re excited to have you join our team and look forward to your growth and su
           <div style={{ height: '165px', width: '100%', flexShrink: 0 }} />
 
           {/* Letter Body Content */}
-          <div style={{ paddingLeft: '52px', paddingRight: '52px', paddingTop: '6px', paddingBottom: '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
-            <div style={{ marginBottom: '12px', fontSize: '10.5pt' }}>
-              <strong>6. Health Insurance</strong>
-              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.5', color: '#374151' }}>
-                <li>Coverage of ₹1,00,000 upon joining; ₹2,00,000 after 1 year.</li>
-                <li>Covers employee, spouse, and children only.</li>
-                <li>Governed by IRDAI guidelines.</li>
-              </ul>
+          <div style={{ paddingLeft: '56px', paddingRight: '56px', paddingTop: '4px', paddingBottom: '10px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '15px', marginBottom: '16px', textDecoration: 'underline', color: '#1b2752', letterSpacing: '0.5px' }}>
+              ANNEXURE (CONTINUED)<br/>TERMS & CONDITIONS OF EMPLOYMENT
             </div>
-            
-            <div style={{ marginBottom: '12px', fontSize: '10.5pt' }}>
-              <strong>7. General</strong>
-              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.5', color: '#374151' }}>
-                <li>Employee must comply with all Company policies and HR guidelines.</li>
-                <li>The Company reserves the right to modify or withdraw any policy or benefit as required by law or management decision.</li>
+
+            {/* 5. Bonus */}
+            <div style={{ marginBottom: '14px', fontSize: '10pt' }}>
+              <div style={{ fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
+                5. Bonus
+              </div>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '28px', margin: 0, lineHeight: '1.5', color: '#374151' }}>
+                <li style={{ marginBottom: '3px' }}>Pro-rata bonus applicable during the first year.</li>
+                <li style={{ marginBottom: '3px' }}>Standard annual bonus of ₹7,500 after one year of continuous service.</li>
               </ul>
             </div>
 
-            <div style={{ marginBottom: '12px', fontSize: '10.5pt' }}>
-              <strong>8. Service Commitment (Bond)</strong>
-              <ul style={{ listStyleType: 'disc', paddingLeft: '20px', marginTop: '3px', marginBottom: '0px', lineHeight: '1.5', color: '#374151' }}>
-                <li>The Employee undertakes to serve the Company for a minimum period of 18 months from the date of joining.</li>
-                <li>If the Employee voluntarily resigns or is terminated for cause before completion of 18 months, the Employee agrees to pay the Company a penalty of ₹50,000 (Rupees Fifty Thousand only) as per Company policy.</li>
-                <li>This penalty covers training, onboarding, and other investments made by the Company.</li>
+            {/* 6. Health Insurance */}
+            <div style={{ marginBottom: '14px', fontSize: '10pt' }}>
+              <div style={{ fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
+                6. Health Insurance
+              </div>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '28px', margin: 0, lineHeight: '1.5', color: '#374151' }}>
+                <li style={{ marginBottom: '3px' }}>Coverage of ₹1,00,000 upon joining; ₹2,00,000 after 1 year.</li>
+                <li style={{ marginBottom: '3px' }}>Covers employee, spouse, and children only.</li>
+                <li style={{ marginBottom: '3px' }}>Governed by IRDAI guidelines.</li>
               </ul>
             </div>
             
-            <div style={{ marginTop: '24px', fontSize: '10.5pt', borderTop: '1px dashed #d1d5db', paddingTop: '12px', color: '#374151' }}>
-              <strong style={{ color: '#111827' }}>Employee Declaration:</strong><br />
-              I have read and understood the terms stated in this Annexure and agree to abide by them during my employment with Caldim Engineering Pvt. Ltd.<br /><br />
-              Signature: ___________________________ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Name: ______________________________ &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Date: _______________________________
+            {/* 7. General */}
+            <div style={{ marginBottom: '14px', fontSize: '10pt' }}>
+              <div style={{ fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
+                7. General
+              </div>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '28px', margin: 0, lineHeight: '1.5', color: '#374151' }}>
+                <li style={{ marginBottom: '3px' }}>Employee must comply with all Company policies and HR guidelines.</li>
+                <li style={{ marginBottom: '3px' }}>The Company reserves the right to modify or withdraw any policy or benefit as required by law or management decision.</li>
+              </ul>
+            </div>
+
+            {/* 8. Service Commitment (Bond) */}
+            <div style={{ marginBottom: '14px', fontSize: '10pt' }}>
+              <div style={{ fontWeight: 'bold', color: '#111827', marginBottom: '4px' }}>
+                8. Service Commitment (Bond)
+              </div>
+              <ul style={{ listStyleType: 'disc', paddingLeft: '28px', margin: 0, lineHeight: '1.5', color: '#374151' }}>
+                <li style={{ marginBottom: '3px' }}>The Employee undertakes to serve the Company for a minimum period of 36 months from the date of joining.</li>
+                <li style={{ marginBottom: '3px' }}>If the Employee voluntarily resigns or is terminated for cause before completion of 36 months, the Employee agrees to pay the Company a penalty of ₹50,000 (Rupees Fifty Thousand only) as per Company policy.</li>
+                <li style={{ marginBottom: '3px' }}>This penalty covers training, onboarding, and other investments made by the Company.</li>
+              </ul>
+            </div>
+            
+            {/* Employee Declaration */}
+            <div style={{ marginTop: 'auto', marginBottom: '8px', fontSize: '9.5pt', border: '1px solid #d1d5db', borderRadius: '6px', padding: '12px 16px', backgroundColor: '#f9fafb', color: '#374151' }}>
+              <strong style={{ color: '#111827', display: 'block', marginBottom: '4px' }}>Employee Declaration:</strong>
+              <div style={{ marginBottom: '18px', lineHeight: '1.45' }}>
+                I have read and understood the terms stated in this Annexure and agree to abide by them during my employment with Caldim Engineering Pvt. Ltd.
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9.5pt', color: '#374151' }}>
+                <div>Signature: ___________________________</div>
+                <div>Name: ___________________________</div>
+                <div>Date: ___________________________</div>
+              </div>
             </div>
           </div>
 
