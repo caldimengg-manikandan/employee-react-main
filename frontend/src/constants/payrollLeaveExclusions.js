@@ -14,20 +14,21 @@
  * Specific Configuration:
  * - CDE161 (SUMA - Housekeeping Staff) is ALLOWED for Payroll Management ONLY,
  *   and RESTRICTED from Leave Management.
+ * - CDE163 (MAMATHA - Housekeeping Staff) is ALLOWED for Payroll Management ONLY,
+ *   and RESTRICTED from Leave Management.
  */
 
-// Employees excluded from Payroll Management (CDE161 is allowed for payroll)
+// Employees excluded from Payroll Management (CDE161 and CDE163 are allowed for payroll)
 export const EXCLUDED_PAYROLL_EMPLOYEE_IDS = [
   'CDE001',
   'CDE002',
   'CDE003',
   'CDE089',
   'CDE093',
-  'CDE162',
-  'CDE163'
+  'CDE162'
 ];
 
-// Employees excluded from Leave Management (CDE161 remains restricted from leave)
+// Employees excluded from Leave Management (CDE161 and CDE163 remain restricted from leave)
 export const EXCLUDED_LEAVE_EMPLOYEE_IDS = [
   'CDE001',
   'CDE002',

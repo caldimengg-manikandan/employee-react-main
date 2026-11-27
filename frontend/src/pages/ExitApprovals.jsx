@@ -23,9 +23,6 @@ import { Modal, message, Input } from 'antd';
 
 import { getAbsoluteSignatureUrl } from '../utils/signatureUtils';
 import caldimLetterheadImg from '../assets/caldim_letterhead.png';
-import caldimSealImg from '../assets/caldim_seal.png';
-
-
 const ExitApproval = () => {
   const [loading, setLoading] = useState(true);
   const [exitForms, setExitForms] = useState([]);
@@ -1012,14 +1009,6 @@ const ExitApproval = () => {
                           }}
                         />
                       )}
-                      <img
-                        src={caldimSealImg}
-                        alt="CALDIM Official Seal"
-                        className="h-20 w-20 object-contain absolute -top-1 left-24 z-20 pointer-events-none drop-shadow-sm"
-                        onError={(e) => {
-                          e.target.src = '/caldim_seal.png';
-                        }}
-                      />
                     </div>
                     <div className="border-b border-gray-900 mb-1 w-52" />
                     <p className="text-sm font-bold text-gray-900">Authorized Signatory</p>
@@ -1127,14 +1116,6 @@ const ExitApproval = () => {
                           }}
                         />
                       )}
-                      <img
-                        src={caldimSealImg}
-                        alt="CALDIM Official Seal"
-                        className="h-20 w-20 object-contain absolute -top-1 left-24 z-20 pointer-events-none drop-shadow-sm"
-                        onError={(e) => {
-                          e.target.src = '/caldim_seal.png';
-                        }}
-                      />
                     </div>
                     <div className="border-b border-gray-900 mb-1 w-52" />
                     <p className="text-sm font-bold text-gray-900">Authorized Signatory</p>

@@ -707,7 +707,28 @@ We’re excited to have you join our team and look forward to your growth and su
 
   const handleSubmit = async () => {
     const payload = { ...formData };
-    if (!payload.name || !payload.department || !payload.designation) return;
+    
+    // Validate required fields
+    const newErrors = {};
+    const missing = [];
+    if (!payload.name?.trim()) {
+      newErrors.name = 'Candidate Name is required';
+      missing.push('Candidate Name');
+    }
+    if (!payload.designation?.trim()) {
+      newErrors.designation = 'Designation is required';
+      missing.push('Designation');
+    }
+    if (!payload.department?.trim()) {
+      newErrors.department = 'Department is required';
+      missing.push('Department');
+    }
+
+    if (missing.length > 0) {
+      setErrors(newErrors);
+      showMessage('Missing Required Fields', `Please enter: ${missing.join(', ')}`, 'warning');
+      return;
+    }
 
     if (payload.employeeId && isExcludedFromPayroll(payload.employeeId)) {
       showMessage('Error', 'This employee is excluded from Compensation Management.', 'error');
@@ -728,13 +749,13 @@ We’re excited to have you join our team and look forward to your growth and su
       setOpenDialog(false);
       setEditingIndex(null);
       setFormData(initialCompensation);
+      setErrors({});
       showMessage('Success', "Compensation saved successfully!", 'success');
     } catch (error) {
       console.error("Error saving compensation", error);
       const errorMsg = error.response?.data?.message || "Failed to save compensation";
       showMessage('Error', errorMsg, 'error');
     }
-
   };
 
   const exportCSV = () => {
@@ -1084,52 +1105,86 @@ We’re excited to have you join our team and look forward to your growth and su
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Candidate Name *
                       </label>
-                      <input
-                        type="text"
-                        name="name"
-                        autoComplete="off"
-                        value={formData.name}
-                        onChange={(e) => {
-                          handleChange(e);
-                          setEmployeeSearchTerm(e.target.value);
-                          setIsEmployeeDropdownOpen(true);
-                        }}
-                        onFocus={() => setIsEmployeeDropdownOpen(true)}
-                        onBlur={() => {
-                          setTimeout(() => setIsEmployeeDropdownOpen(false), 200);
-                        }}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        placeholder="Search employee..."
-                      />
+                      <div className="relative">
+                        <input
+                          type="text"
+                          name="name"
+                          autoComplete="off"
+                          value={formData.name}
+                          onChange={(e) => {
+                            handleChange(e);
+                            setEmployeeSearchTerm(e.target.value);
+                            setIsEmployeeDropdownOpen(true);
+                          }}
+                          onFocus={() => {
+                            setEmployeeSearchTerm(formData.name || '');
+                            setIsEmployeeDropdownOpen(true);
+                          }}
+                          onBlur={() => {
+                            setTimeout(() => setIsEmployeeDropdownOpen(false), 200);
+                          }}
+                          className={`w-full px-3 py-2 pr-8 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                            errors.name ? 'border-rose-500 bg-rose-50/20' : 'border-gray-300'
+                          }`}
+                          placeholder="Search or enter candidate..."
+                        />
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => setIsEmployeeDropdownOpen(prev => !prev)}
+                          className="absolute right-1 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+                        >
+                          <ChevronDown size={16} className={`transition-transform duration-200 ${isEmployeeDropdownOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                      </div>
+                      {errors.name && (
+                        <p className="text-xs text-rose-500 mt-1">{errors.name}</p>
+                      )}
                       {isEmployeeDropdownOpen && employees.length > 0 && (
                         <div className="absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
                           {employees
-                            .filter(emp => 
-                              emp.name.toLowerCase().includes(employeeSearchTerm.toLowerCase()) ||
-                              emp.employeeId.toLowerCase().includes(employeeSearchTerm.toLowerCase())
-                            )
+                            .filter(emp => {
+                              const empName = String(emp.name || emp.employeename || '').toLowerCase();
+                              const empId = String(emp.employeeId || '').toLowerCase();
+                              const term = String(employeeSearchTerm || '').toLowerCase().trim();
+                              return !term || empName.includes(term) || empId.includes(term);
+                            })
                             .map((emp) => (
                               <button
-                                key={emp._id}
+                                key={emp._id || emp.employeeId}
                                 type="button"
-                                className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm flex flex-col"
+                                onMouseDown={(e) => e.preventDefault()}
+                                className="w-full text-left px-4 py-2 hover:bg-indigo-50 text-sm flex flex-col transition-colors border-b border-gray-50 last:border-b-0"
                                 onClick={() => {
-                                  setFormData({
-                                    ...formData,
-                                    employeeId: emp.employeeId,
-                                    name: emp.name,
-                                    department: emp.department || emp.division || '',
-                                    designation: emp.designation || '',
-                                    location: emp.location || 'Hosur'
-                                  });
+                                  const chosenName = emp.name || emp.employeename || '';
+                                  setFormData(prev => ({
+                                    ...prev,
+                                    employeeId: emp.employeeId || '',
+                                    name: chosenName,
+                                    department: emp.department || emp.division || prev.department || '',
+                                    designation: emp.designation || prev.designation || '',
+                                    location: emp.location || prev.location || 'Hosur'
+                                  }));
+                                  setErrors(prev => ({ ...prev, name: '', department: '', designation: '' }));
                                   setIsEmployeeDropdownOpen(false);
                                   setEmployeeSearchTerm('');
                                 }}
                               >
-                                <span className="font-medium">{emp.name}</span>
-                                <span className="text-xs text-gray-500">{emp.employeeId} • {emp.designation}</span>
+                                <span className="font-medium text-slate-800">{emp.name || emp.employeename}</span>
+                                <span className="text-xs text-slate-500">{emp.employeeId} • {emp.designation || emp.department || 'Employee'}</span>
                               </button>
                             ))}
+                          {employees.filter(emp => {
+                            const empName = String(emp.name || emp.employeename || '').toLowerCase();
+                            const empId = String(emp.employeeId || '').toLowerCase();
+                            const term = String(employeeSearchTerm || '').toLowerCase().trim();
+                            return !term || empName.includes(term) || empId.includes(term);
+                          }).length === 0 && (
+                            <div className="px-4 py-3 text-xs text-gray-500 text-center">
+                              No matching employees found. "{formData.name}" will be added as a candidate.
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
